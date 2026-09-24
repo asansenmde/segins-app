@@ -1,6 +1,6 @@
 // Arranque, bloqueo por PIN, navegación.
 import * as db from './db.js';
-import { cargar, vaciar, volcarPendientes } from './state.js';
+import { S, cargar, vaciar, volcarPendientes } from './state.js';
 import { esc, toast } from './ui.js';
 import { limpiarCache } from './fotos.js';
 import * as vInicio from './views/inicio.js';
@@ -11,7 +11,8 @@ import * as vCuest from './views/cuestionario.js';
 import * as vAjustes from './views/ajustes.js';
 
 const app = document.getElementById('app');
-const BLOQUEO_MIN = 5;
+// Minutos sin uso antes de pedir el PIN otra vez (se elige en Ajustes; 0 = solo al cerrar la app).
+const minutosBloqueo = () => S.config?.bloqueoMin ?? 30;
 
 const RUTAS = [
   [/^$/, vInicio.inicio],
@@ -131,12 +132,12 @@ export async function bloquear() {
 let ultimo = Date.now();
 ['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, () => { ultimo = Date.now(); }, { passive: true }));
 setInterval(() => {
-  if (db.isUnlocked() && Date.now() - ultimo > BLOQUEO_MIN * 60000) bloquear();
+  if (db.isUnlocked() && minutosBloqueo() > 0 && Date.now() - ultimo > minutosBloqueo() * 60000) bloquear();
 }, 15000);
 let ocultoDesde = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { ocultoDesde = Date.now(); volcarPendientes(); }
-  else if (db.isUnlocked() && ocultoDesde && Date.now() - ocultoDesde > 60000) bloquear();
+  else if (db.isUnlocked() && minutosBloqueo() > 0 && ocultoDesde && Date.now() - ocultoDesde > minutosBloqueo() * 60000) bloquear();
 });
 
 addEventListener('hashchange', render);

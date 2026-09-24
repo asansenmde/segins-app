@@ -49,7 +49,16 @@ export async function ajustes(main) {
 
     <div class="card">
       <h3>Seguridad</h3>
-      <p class="muted small">La app se bloquea tras 5 minutos sin uso o al salir de ella más de 1 minuto.</p>
+      <label class="lbl" for="bloqueoMin">Pedir el PIN otra vez tras</label>
+      <select class="input" id="bloqueoMin">
+        <option value="5" ${(c.bloqueoMin ?? 30) === 5 ? 'selected' : ''}>5 minutos</option>
+        <option value="15" ${(c.bloqueoMin ?? 30) === 15 ? 'selected' : ''}>15 minutos</option>
+        <option value="30" ${(c.bloqueoMin ?? 30) === 30 ? 'selected' : ''}>30 minutos</option>
+        <option value="60" ${(c.bloqueoMin ?? 30) === 60 ? 'selected' : ''}>1 hora</option>
+        <option value="240" ${(c.bloqueoMin ?? 30) === 240 ? 'selected' : ''}>4 horas</option>
+        <option value="0" ${(c.bloqueoMin ?? 30) === 0 ? 'selected' : ''}>Solo al cerrar la app</option>
+      </select>
+      <p class="muted small">Sin usarla o con la app en segundo plano. Al cerrarla del todo siempre pedirá el PIN: sin él los datos no se pueden descifrar.</p>
       <button class="btn block" id="pin">Cambiar PIN</button>
     </div>
 
@@ -67,6 +76,12 @@ export async function ajustes(main) {
     c[el.name] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
     guardarLuego('config', c);
   });
+
+  main.querySelector('#bloqueoMin').onchange = e => {
+    c.bloqueoMin = Number(e.target.value);
+    guardarLuego('config', c);
+    toast('Guardado');
+  };
 
   main.querySelector('#pin').onclick = async () => {
     const v = await modal({

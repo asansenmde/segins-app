@@ -1,5 +1,5 @@
 // Service worker: la app funciona sin conexión. Cambia VERSION al publicar una actualización.
-const VERSION = 'segins-v2';
+const VERSION = 'segins-v3';
 const ARCHIVOS = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',

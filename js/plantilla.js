@@ -87,5 +87,6 @@ export const CONFIG_INICIAL = {
   evaluadorEmpleo: '',
   evaluadorNombre: '',
   sellarFotos: true,
+  bloqueoMin: 30,
   areas: PLANTILLA_BASE,
 };
