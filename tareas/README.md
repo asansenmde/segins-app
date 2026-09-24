@@ -32,6 +32,13 @@ usuario: aunque compartas el enlace, nadie más ve las tuyas.
 Para actualizar esa versión se vuelve a publicar `tareas/index.html` con `app.js`, `app.css`,
 `icon.svg` y `manifest.webmanifest`, y las capacidades `db`, `user` y `downloads`.
 
+### Acceso directo con icono propio
+
+Un enlace de claude.ai siempre se guarda con el icono de Claude. Para tener el icono de Tareas NLT en
+la pantalla de inicio se usa `tareas/abrir.html` (publicado en GitHub Pages): se abre en Safari o
+Chrome, se añade a la pantalla de inicio y, al tocar el icono, redirige al momento a la versión
+sincronizada. Abre el navegador normal, así que usa la sesión de claude.ai ya iniciada.
+
 La copia de GitHub Pages (o abierta en local) guarda los datos **solo en ese navegador**
 (localStorage); en *Ajustes → Sincronización* enlaza a la versión sincronizada. Para pasar datos de
 una a otra: *Descargar copia de seguridad* y *Restaurar copia*.
