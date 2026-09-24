@@ -1,0 +1,14 @@
+{
+  "name": "Tareas NLT · Gestor de tareas y fechas límite",
+  "short_name": "Tareas NLT",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f5f0",
+  "theme_color": "#3b4a2f",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
