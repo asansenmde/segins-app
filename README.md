@@ -3,6 +3,8 @@
 App web instalable (PWA) para hacer evaluaciones SEGINS desde el móvil, sin conexión,
 con fotos marcadas, agenda e informe en Word.
 
+> En [`tareas/`](tareas/) hay además un gestor de tareas con fechas límite (NLT), independiente de SEGINS.
+
 ## Qué hace
 
 - **Cuestionario**: 7 áreas y 44 ítems de base (C / I / NA, prioridad P1/P2, peso). Puedes añadir,

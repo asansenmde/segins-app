@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#3b4a2f">
+  <meta name="robots" content="noindex,nofollow">
+  <!-- Acceso directo con icono propio a la versión sincronizada (claude.ai).
+       Sin «apple-mobile-web-app-capable» y con display "browser": el icono abre el navegador normal,
+       donde ya está iniciada la sesión de claude.ai. -->
+  <meta name="apple-mobile-web-app-title" content="Tareas NLT">
+  <title>Tareas NLT</title>
+  <link rel="manifest" href="abrir.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <script>
+    const DESTINO = 'https://claude.ai/artifact/9Qqg68wrV3upUSdjZWwZWU';
+    // Abierto desde el icono (lleva «?ir»): directo a las tareas
+    if (new URLSearchParams(location.search).has('ir')) location.replace(DESTINO);
+    // Abierto para crear el acceso: la dirección pasa a llevar «?ir», que es la que guarda el iPhone
+    else history.replaceState(null, '', location.pathname + '?ir');
+  </script>
+  <style>
+    :root { --bg: #f4f5f0; --surface: #fff; --text: #1f261f; --muted: #5f685f; --line: #d9ddd3; --brand: #3b4a2f; color-scheme: light; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #121611; --surface: #1c221b; --text: #e6ebe4; --muted: #9ea79c; --line: #333c32; --brand: #56693f; color-scheme: dark; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 520px; margin: 0 auto; padding: 32px 16px 48px; }
+    .cab { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+    .cab img { width: 64px; height: 64px; border-radius: 15px; }
+    h1 { margin: 0; font-size: 1.4rem; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+    h2 { font-size: 1rem; margin: 0 0 6px; }
+    ol { margin: 0; padding-left: 20px; }
+    li { margin: 4px 0; }
+    .btn { display: flex; justify-content: center; min-height: 48px; align-items: center; border-radius: 10px; background: var(--brand); color: #fff; font-weight: 700; text-decoration: none; margin: 16px 0; }
+    .muted { color: var(--muted); font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="cab"><img src="icon-180.png" alt=""><div><h1>Tareas NLT</h1><div class="muted">Acceso directo con icono propio</div></div></div>
+    <p>Añade esta página a la pantalla de inicio. Al tocar el icono se abrirán tus tareas sincronizadas.</p>
+    <div class="card"><h2>iPhone o iPad (Safari)</h2>
+      <ol><li>Pulsa <b>Compartir</b> (cuadrado con flecha).</li><li>Elige <b>Añadir a pantalla de inicio</b>.</li><li>Pulsa <b>Añadir</b>.</li></ol></div>
+    <div class="card"><h2>Android (Chrome)</h2>
+      <ol><li>Pulsa el menú <b>⋮</b>.</li><li>Elige <b>Añadir a pantalla de inicio</b> o <b>Instalar aplicación</b>.</li><li>Confirma.</li></ol></div>
+    <a class="btn" href="https://claude.ai/artifact/9Qqg68wrV3upUSdjZWwZWU">Abrir mis tareas ahora</a>
+    <p class="muted">Si ya tenías un acceso con el icono de Claude, puedes borrarlo y usar este.</p>
+  </main>
+</body>
+</html>
