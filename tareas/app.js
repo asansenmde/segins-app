@@ -5,19 +5,29 @@
 const CLAVE = 'tareas-nlt-v1';
 const ESTADOS = [['pendiente', 'Pendiente'], ['curso', 'En curso'], ['espera', 'En espera'], ['hecha', 'Hecha']];
 const NOMBRE_ESTADO = Object.fromEntries(ESTADOS);
-const PRIOS = { alta: 'Alta', media: 'Media', baja: 'Baja' };
-const ORDEN_PRIO = { alta: 0, media: 1, baja: 2 };
+const PRIOS = { critica: 'Crítica', alta: 'Alta', media: 'Media', baja: 'Baja' };
+const ORDEN_PRIO = { critica: 0, alta: 1, media: 2, baja: 3 };
 const REPETIR = { '': 'No se repite', diaria: 'Cada día', semanal: 'Cada semana', mensual: 'Cada mes', anual: 'Cada año' };
 const CATS_BASE = ['Evaluaciones SEGINS', 'Visitas', 'Informes', 'Reuniones', 'Administración', 'Formación', 'Personal'];
 const VISTAS = { nlt: 'Mis NLT', tablero: 'Tablero', calendario: 'Calendario', actividad: 'Lo que hago', ajustes: 'Ajustes' };
+
+// Todos los campos de una tarea, con su valor por defecto
+const TAREA_BASE = {
+  titulo: '', referencia: '', descripcion: '', notas: '', categoria: '', lugar: '', prioridad: 'media',
+  ordenadaPor: '', fechaOrden: '', responsable: '', colaboradores: [],
+  nlt: '', hora: '', nltOriginal: '', prorrogas: [], avisos: [], avisoVisto: 0,
+  estado: 'pendiente', repetir: '', progreso: 0, estimacionH: 0, dependeDe: [], enlaces: [], resultado: '',
+  creada: '', hecha: null, subtareas: [], tiempo: [], registro: [],
+};
+const LISTAS = Object.keys(TAREA_BASE).filter(k => Array.isArray(TAREA_BASE[k]));
+
+// Versión publicada en claude.ai, que sincroniza entre dispositivos
+const URL_NUBE = 'https://claude.ai/artifact/9Qqg68wrV3upUSdjZWwZWU';
 
 const $ = (s, el = document) => el.querySelector(s);
 const main = $('#main');
 const dlg = $('#dlg');
 const dlg2 = $('#dlg2');
-
-// Versión publicada en claude.ai, que sincroniza entre dispositivos
-const URL_NUBE = 'https://claude.ai/artifact/9Qqg68wrV3upUSdjZWwZWU';
 
 // ---------- Datos ----------
 let datos = cargar();
@@ -31,15 +41,19 @@ function cargar() {
   return normalizar({});
 }
 
+function normalizarTarea(t) {
+  const n = { ...structuredClone(TAREA_BASE), ...t };
+  LISTAS.forEach(k => { if (!Array.isArray(n[k])) n[k] = []; });
+  if (!PRIOS[n.prioridad]) n.prioridad = 'media';
+  return n;
+}
+
 function normalizar(d) {
   return {
-    tareas: (d.tareas || []).map(t => ({
-      notas: '', categoria: '', prioridad: 'media', nlt: '', hora: '', estado: 'pendiente', repetir: '',
-      hecha: null, ...t,
-      subtareas: t.subtareas || [], tiempo: t.tiempo || [], registro: t.registro || [],
-    })),
+    tareas: (d.tareas || []).map(normalizarTarea),
     categorias: d.categorias?.length ? d.categorias : [...CATS_BASE],
-    ajustes: { avisoDias: 3, tema: 'auto', ultimoAviso: '', ...(d.ajustes || {}) },
+    personas: Array.isArray(d.personas) ? d.personas : [],
+    ajustes: { avisoDias: 3, tema: 'auto', ultimoAviso: '', miNombre: '', avisoAntes: 1, avisoHora: '09:00', ...(d.ajustes || {}) },
     activo: d.activo || null,
   };
 }
@@ -53,6 +67,27 @@ function guardar() {
 const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const buscar = id => datos.tareas.find(t => t.id === id);
 
+// Referencia correlativa por año: T-2026-001, T-2026-002…
+function nuevaReferencia() {
+  const y = new Date().getFullYear();
+  const re = new RegExp(`^T-${y}-(\\d+)$`);
+  const max = Math.max(0, ...datos.tareas.map(t => +(re.exec(t.referencia) || [])[1] || 0));
+  return `T-${y}-${String(max + 1).padStart(3, '0')}`;
+}
+
+function nuevaTarea(extra = {}) {
+  const a = datos.ajustes;
+  const t = normalizarTarea({
+    id: nuevoId(), referencia: nuevaReferencia(), creada: new Date().toISOString(),
+    avisos: a.avisoAntes >= 0 ? [{ tipo: 'antes', dias: a.avisoAntes, hora: a.avisoHora || '09:00' }] : [],
+    ...extra,
+  });
+  t.nltOriginal ||= t.nlt;
+  return t;
+}
+
+const anotar = (t, texto, auto = true) => t.registro.push({ fecha: new Date().toISOString(), texto, auto });
+
 // ---------- Utilidades ----------
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = n => String(n).padStart(2, '0');
@@ -62,6 +97,7 @@ const aFecha = s => { const [y, m, d] = s.split('-').map(Number); return new Dat
 const utc = s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d); };
 const diasHasta = s => Math.round((utc(s) - utc(hoy())) / 864e5);
 const sumarDias = (s, n) => { const d = aFecha(s); d.setDate(d.getDate() + n); return iso(d); };
+const fmtMomento = ms => new Date(ms).toLocaleString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 function fmtFecha(s, conDia = true) {
   if (!s) return '';
@@ -122,7 +158,7 @@ async function descargar(nombre, contenido, tipo) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-// ---------- Reglas de NLT ----------
+// ---------- Reglas de NLT, avisos y dependencias ----------
 function urgencia(t) {
   if (t.estado === 'hecha') {
     const aTiempo = !t.nlt || !t.hecha || iso(new Date(t.hecha)) <= t.nlt;
@@ -140,6 +176,28 @@ function urgencia(t) {
 const ordenar = (a, b) =>
   (a.nlt || '9999').localeCompare(b.nlt || '9999') || (a.hora || '99').localeCompare(b.hora || '99')
   || ORDEN_PRIO[a.prioridad] - ORDEN_PRIO[b.prioridad] || a.titulo.localeCompare(b.titulo);
+
+// Momentos de aviso de una tarea: «n días antes del NLT» o una fecha concreta, siempre con hora
+function momentosAviso(t) {
+  return t.avisos.map(a => {
+    const f = a.tipo === 'fecha' ? a.fecha : t.nlt ? sumarDias(t.nlt, -(+a.dias || 0)) : '';
+    if (!f) return null;
+    const [h, m] = (a.hora || '09:00').split(':').map(Number);
+    const d = aFecha(f); d.setHours(h, m, 0, 0);
+    const txt = a.tipo === 'fecha' ? fmtMomento(d.getTime())
+      : `${+a.dias ? `${a.dias} d antes del NLT` : 'El día del NLT'} · ${fmtMomento(d.getTime())}`;
+    return { ms: d.getTime(), a, txt };
+  }).filter(Boolean).sort((x, y) => x.ms - y.ms);
+}
+const avisoActivo = t => t.estado !== 'hecha' && momentosAviso(t).some(m => m.ms <= Date.now() && m.ms > (t.avisoVisto || 0));
+const proximoAviso = t => t.estado !== 'hecha' ? momentosAviso(t).find(m => m.ms > Date.now()) : null;
+
+const bloqueantes = t => t.dependeDe.map(buscar).filter(d => d && d.estado !== 'hecha');
+const progreso = t => t.estado === 'hecha' ? 100
+  : t.subtareas.length ? Math.round(t.subtareas.filter(s => s.ok).length / t.subtareas.length * 100) : +t.progreso || 0;
+const prorrogas = t => t.prorrogas.filter(p => p.de && p.a > p.de).length;
+const esMia = t => !t.responsable || t.responsable === datos.ajustes.miNombre;
+const persona = nombre => datos.personas.find(p => p.nombre === nombre);
 
 function siguienteNlt(nlt, rep) {
   const avanzar = s => {
@@ -163,11 +221,14 @@ function marcarHecha(id, hecha) {
     if (datos.activo?.id === id) pararTiempo();
     t.estado = 'hecha';
     t.hecha = new Date().toISOString();
+    anotar(t, 'Completada');
     if (t.repetir && t.nlt) {
-      const sig = {
-        ...structuredClone(t), id: nuevoId(), estado: 'pendiente', hecha: null, creada: new Date().toISOString(),
-        nlt: siguienteNlt(t.nlt, t.repetir), tiempo: [], registro: [],
-      };
+      const nlt = siguienteNlt(t.nlt, t.repetir);
+      const sig = nuevaTarea({
+        ...structuredClone(t), id: nuevoId(), referencia: nuevaReferencia(), creada: new Date().toISOString(),
+        estado: 'pendiente', hecha: null, nlt, nltOriginal: nlt, prorrogas: [], avisoVisto: 0, progreso: 0,
+        resultado: '', tiempo: [], registro: [],
+      });
       sig.subtareas.forEach(s => { s.ok = false; });
       datos.tareas.push(sig);
       toast(`Hecha. Siguiente NLT: ${fmtFecha(sig.nlt)}`);
@@ -177,6 +238,7 @@ function marcarHecha(id, hecha) {
   } else {
     t.estado = 'pendiente';
     t.hecha = null;
+    anotar(t, 'Reabierta');
   }
   guardar();
 }
@@ -185,6 +247,7 @@ function cambiarEstado(id, estado) {
   const t = buscar(id);
   if (!t || t.estado === estado) return;
   if (estado === 'hecha') return marcarHecha(id, true);
+  anotar(t, `Estado: ${NOMBRE_ESTADO[t.estado]} → ${NOMBRE_ESTADO[estado]}`);
   if (t.estado === 'hecha') t.hecha = null;
   t.estado = estado;
   guardar();
@@ -225,19 +288,33 @@ $('#btnTimer').addEventListener('click', () => { pararTiempo(); toast('Tiempo re
 setInterval(pintarCrono, 1000);
 
 // ---------- Componentes ----------
-let filtro = { q: '', cat: '', kpi: '' };
+let filtro = { q: '', cat: '', resp: '', kpi: '' };
 
 function filtrar(lista) {
   const q = filtro.q.trim().toLowerCase();
   return lista.filter(t => (!filtro.cat || t.categoria === filtro.cat)
-    && (!q || `${t.titulo} ${t.notas} ${t.categoria}`.toLowerCase().includes(q)));
+    && (!filtro.resp || (filtro.resp === '__mias' ? esMia(t) : filtro.resp === '__otros' ? !esMia(t) : t.responsable === filtro.resp))
+    && (!q || [t.titulo, t.referencia, t.descripcion, t.notas, t.categoria, t.lugar, t.responsable, t.ordenadaPor, ...t.colaboradores]
+      .join(' ').toLowerCase().includes(q)));
+}
+
+function responsablesUsados() {
+  const s = new Set(datos.personas.map(p => p.nombre));
+  datos.tareas.forEach(t => t.responsable && s.add(t.responsable));
+  s.delete(datos.ajustes.miNombre);
+  return [...s].sort();
 }
 
 function barraFiltros() {
+  const r = filtro.resp;
   return `<div class="filtros">
-    <input class="input" type="search" id="fq" placeholder="Buscar…" value="${esc(filtro.q)}">
+    <input class="input" type="search" id="fq" placeholder="Buscar por asunto, referencia, persona…" value="${esc(filtro.q)}">
     <select class="input" id="fcat"><option value="">Todas las categorías</option>
       ${categoriasUsadas().map(c => `<option ${c === filtro.cat ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
+    <select class="input" id="fresp"><option value="">Todos los responsables</option>
+      <option value="__mias" ${r === '__mias' ? 'selected' : ''}>Asignadas a mí</option>
+      <option value="__otros" ${r === '__otros' ? 'selected' : ''}>Delegadas en otros</option>
+      ${responsablesUsados().map(p => `<option ${p === r ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>
   </div>`;
 }
 
@@ -247,26 +324,38 @@ function categoriasUsadas() {
   return [...s];
 }
 
+const iniciales = n => n.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('');
+
 function tarjeta(t, extra = '') {
   const u = urgencia(t);
   const hecha = t.estado === 'hecha';
   const subOk = t.subtareas.filter(s => s.ok).length;
   const tt = tiempoTotal(t);
+  const pr = progreso(t);
+  const bloq = !hecha && bloqueantes(t).length;
+  const nPr = prorrogas(t);
   return `<div class="card tarea u-${u.cls} ${hecha ? 'hecha' : ''}" data-id="${t.id}" draggable="true">
     <input type="checkbox" class="tick" data-tick="${t.id}" ${hecha ? 'checked' : ''} aria-label="Marcar como hecha">
     <div class="grow">
+      ${t.referencia ? `<div class="ref">${esc(t.referencia)}${t.ordenadaPor ? ` · de ${esc(t.ordenadaPor)}` : ''}</div>` : ''}
       <div class="tit ${hecha ? 'tachado' : ''}"><span class="prio-${t.prioridad}" title="Prioridad ${PRIOS[t.prioridad]}">●</span> ${esc(t.titulo)}</div>
       <div class="meta row wrap small">
+        ${t.prioridad === 'critica' && !hecha ? '<span class="badge crit">CRÍTICA</span>' : ''}
         <span class="badge ${u.cls}">${u.txt}</span>
         ${t.nlt ? `<span class="muted">NLT ${fmtFecha(t.nlt)}${t.hora ? ' · ' + t.hora : ''}</span>` : ''}
+        ${nPr ? `<span class="badge warn" title="NLT original: ${fmtFecha(t.nltOriginal)}">Prorrogada ×${nPr}</span>` : ''}
+        ${avisoActivo(t) ? '<span class="badge bad">🔔 Aviso</span>' : ''}
+        ${bloq ? `<span class="badge bad" title="Depende de tareas sin terminar">⛔ Bloqueada</span>` : ''}
+        ${t.responsable && !esMia(t) ? `<span class="persona" title="Responsable: ${esc(t.responsable)}"><i>${esc(iniciales(t.responsable))}</i>${esc(t.responsable)}</span>` : ''}
         ${t.categoria ? `<span class="chip">${esc(t.categoria)}</span>` : ''}
+        ${t.lugar ? `<span class="muted">📍 ${esc(t.lugar)}</span>` : ''}
         ${t.estado === 'curso' || t.estado === 'espera' ? `<span class="badge info">${NOMBRE_ESTADO[t.estado]}</span>` : ''}
         ${t.repetir ? `<span class="muted" title="${REPETIR[t.repetir]}">↻</span>` : ''}
         ${t.subtareas.length ? `<span class="muted">☑ ${subOk}/${t.subtareas.length}</span>` : ''}
         ${tt ? `<span class="muted">⏱ ${fmtDur(tt)}</span>` : ''}
         ${datos.activo?.id === t.id ? '<span class="badge warn">En marcha</span>' : ''}
       </div>
-      ${t.subtareas.length ? `<div class="progress"><i style="width:${Math.round(subOk / t.subtareas.length * 100)}%"></i></div>` : ''}
+      ${pr && !hecha ? `<div class="progress" title="${pr}%"><i style="width:${pr}%"></i></div>` : ''}
       ${extra}
     </div>
   </div>`;
@@ -280,7 +369,7 @@ function vistaNlt() {
   const kpi = (k, l, cls) => `<button class="kpi ${cls} ${filtro.kpi === k ? 'on' : ''}" data-kpi="${k}">
     <div class="kpi-l">${l}</div><div class="kpi-v">${n[k]}</div></button>`;
 
-  let lista = filtrar(datos.tareas);
+  const lista = filtrar(datos.tareas);
   const grupos = [
     ['vencidas', 'NLT vencidas'], ['hoy', 'Vencen hoy'], ['semana', 'Próximos 7 días'],
     ['despues', 'Más adelante'], ['sin', 'Sin NLT'],
@@ -292,12 +381,17 @@ function vistaNlt() {
     return `<h2 class="sec"><span>${titulo}</span><span>${ts.length}</span></h2>${ts.map(t => tarjeta(t)).join('')}`;
   }).join('');
 
+  const avisos = filtrar(datos.tareas).filter(avisoActivo).sort(ordenar);
   const hechas = lista.filter(t => t.estado === 'hecha').sort((a, b) => (b.hecha || '').localeCompare(a.hecha || ''));
 
   return `
+    ${avisos.length ? `<section class="card avisos"><h3>🔔 Avisos (${avisos.length})</h3>
+      ${avisos.map(t => tarjeta(t, `<div class="row gap" style="margin-top:8px">
+        <button class="btn sm" data-visto="${t.id}">Visto</button>
+        <button class="btn sm" data-posponer="${t.id}">Recordar mañana</button></div>`)).join('')}</section>` : ''}
     <form class="card" id="rapida">
       <div class="row gap wrap">
-        <input class="input grow" name="titulo" placeholder="Nueva tarea… (Intro para añadir)" required style="min-width:180px">
+        <input class="input grow" name="titulo" placeholder="Tarea rápida… (para más datos, pulsa +)" required style="min-width:180px">
         <input class="input" type="date" name="nlt" title="NLT: fecha límite para finalizar" style="width:auto">
         <button class="btn primary">Añadir</button>
       </div>
@@ -410,10 +504,26 @@ function actividad(p) {
         eventos.push({ ms: s.inicio, t, txt: `⏱ ${fmtDur(s.fin - s.inicio)} de trabajo` });
       }
     }
-    for (const r of t.registro) if (dentro(Date.parse(r.fecha))) eventos.push({ ms: Date.parse(r.fecha), t, txt: '✎ ' + r.texto });
+    for (const r of t.registro) {
+      if (r.auto && (r.texto === 'Completada')) continue; // ya figura como «Completada»
+      if (dentro(Date.parse(r.fecha))) eventos.push({ ms: Date.parse(r.fecha), t, txt: (r.auto ? '⚙ ' : '✎ ') + r.texto });
+    }
   }
   eventos.sort((x, y) => y.ms - x.ms);
   return { tiempo, hechas, aTiempo, creadas, tiempoCat, hechasCat, eventos };
+}
+
+function cargaPorResponsable() {
+  const filas = {};
+  for (const t of datos.tareas) {
+    if (t.estado === 'hecha') continue;
+    const r = esMia(t) ? (datos.ajustes.miNombre || 'Yo') : t.responsable;
+    const f = filas[r] ||= { abiertas: 0, vencidas: 0, criticas: 0 };
+    f.abiertas++;
+    if (urgencia(t).grupo === 'vencidas') f.vencidas++;
+    if (t.prioridad === 'critica') f.criticas++;
+  }
+  return Object.entries(filas).sort((x, y) => y[1].abiertas - x[1].abiertas);
 }
 
 function vistaActividad() {
@@ -431,6 +541,7 @@ function vistaActividad() {
   const barras = (obj, max, fmt) => Object.entries(obj).sort((x, y) => y[1] - x[1])
     .map(([c, v]) => `<div class="barra"><span title="${esc(c)}">${esc(c)}</span><span class="b"><i style="width:${v / max * 100}%"></i></span><span>${fmt(v)}</span></div>`).join('')
     || '<p class="small muted">Sin datos en este periodo.</p>';
+  const carga = cargaPorResponsable();
 
   return `
     <div class="row gap wrap" style="margin-bottom:12px">
@@ -455,6 +566,10 @@ function vistaActividad() {
       <button class="btn primary block">Anotar</button>
     </form>
     <datalist id="dlcats">${categoriasUsadas().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+    <div class="card"><h3>Carga de trabajo por responsable</h3>
+      ${carga.length ? `<table class="tabla"><thead><tr><th>Responsable</th><th>Abiertas</th><th>Vencidas</th><th>Críticas</th></tr></thead><tbody>
+        ${carga.map(([p, f]) => `<tr><td>${esc(p)}</td><td>${f.abiertas}</td><td class="${f.vencidas ? 'txt-bad' : ''}">${f.vencidas}</td><td>${f.criticas}</td></tr>`).join('')}
+      </tbody></table>` : '<p class="small muted">No hay tareas abiertas.</p>'}</div>
     <div class="card"><h3>Tiempo por categoría</h3>${barras(r.tiempoCat, maxT, fmtDur)}</div>
     <div class="card"><h3>Tareas hechas por categoría</h3>${barras(r.hechasCat, maxH, v => v)}</div>
     <div class="card"><h3>Cronología</h3><ul class="log">${cronologia || '<li class="muted">Sin actividad en este periodo.</li>'}</ul></div>`;
@@ -467,33 +582,55 @@ function resumenTexto() {
     `Tiempo registrado: ${fmtDur(r.tiempo)}`, `Tareas nuevas: ${r.creadas}`, ''];
   Object.entries(r.tiempoCat).sort((x, y) => y[1] - x[1]).forEach(([c, v]) => lineas.push(`· ${c}: ${fmtDur(v)}`));
   lineas.push('', 'Hechas:');
-  r.eventos.filter(e => e.txt.startsWith('✔')).forEach(e => lineas.push(`- ${e.t.titulo}${e.t.categoria ? ' [' + e.t.categoria + ']' : ''}`));
+  r.eventos.filter(e => e.txt.startsWith('✔')).forEach(e => lineas.push(`- ${e.t.referencia ? e.t.referencia + ' ' : ''}${e.t.titulo}${e.t.categoria ? ' [' + e.t.categoria + ']' : ''}`));
   const pend = datos.tareas.filter(t => t.estado !== 'hecha' && t.nlt).sort(ordenar).slice(0, 15);
   if (pend.length) {
     lineas.push('', 'Próximas NLT:');
-    pend.forEach(t => lineas.push(`- ${fmtFecha(t.nlt)}: ${t.titulo} (${urgencia(t).txt})`));
+    pend.forEach(t => lineas.push(`- ${fmtFecha(t.nlt)}: ${t.titulo}${t.responsable && !esMia(t) ? ' (' + t.responsable + ')' : ''} — ${urgencia(t).txt}`));
   }
   return lineas.join('\n');
 }
 
 // ---------- Vista: Ajustes ----------
+let personaEdit = -1;
+
 function vistaAjustes() {
   const a = datos.ajustes;
   const notif = 'Notification' in window ? Notification.permission : 'no';
+  const pe = datos.personas[personaEdit] || {};
   return `
     <div class="card">
-      <h3>Avisos de NLT</h3>
-      <label class="lbl">Marcar en naranja cuando queden
-        <select class="input" id="avisoDias">${[1, 2, 3, 5, 7, 10, 15].map(n => `<option ${n === a.avisoDias ? 'selected' : ''} value="${n}">${n} día${n > 1 ? 's' : ''} o menos</option>`).join('')}</select></label>
-      ${notif === 'granted' ? '<p class="small muted">Notificaciones activadas: al abrir la app se avisa una vez al día de las NLT vencidas y de hoy.</p>'
-        : notif === 'no' ? '<p class="small muted">Este navegador no admite notificaciones.</p>'
-        : '<button class="btn block" data-accion="notif">Activar notificaciones</button>'}
-      <button class="btn block" data-accion="ics">Exportar NLT a mi calendario (.ics)</button>
-      <p class="small muted">El archivo .ics se importa en Google Calendar, Outlook o el calendario del móvil, con aviso el día anterior.</p>
+      <h3>Equipo y personal</h3>
+      <p class="small muted">Las personas a las que encargas tareas. Con correo o teléfono podrás enviarles la ficha de la tarea.</p>
+      <label class="lbl">Mi nombre (las tareas sin responsable o a mi nombre son «mías»)
+        <input class="input" id="miNombre" value="${esc(a.miNombre)}" placeholder="Nombre y apellidos"></label>
+      <ul class="log">${datos.personas.map((p, i) => `<li class="row between"><a href="#" data-editper="${i}" class="grow" style="color:inherit">
+        <b>${esc(p.nombre)}</b>${p.cargo ? ` · <span class="muted">${esc(p.cargo)}</span>` : ''}
+        <span class="small muted">${[p.email, p.telefono].filter(Boolean).map(esc).join(' · ')}</span></a>
+        <button class="icon-btn" data-delper="${i}" aria-label="Quitar">✕</button></li>`).join('') || '<li class="muted small">Aún no hay nadie.</li>'}</ul>
+      <form id="fpersona" class="grid2" style="margin-top:10px">
+        <input class="input" name="nombre" placeholder="Nombre *" required value="${esc(pe.nombre || '')}">
+        <input class="input" name="cargo" placeholder="Empleo / cargo / unidad" value="${esc(pe.cargo || '')}">
+        <input class="input" name="email" type="email" placeholder="Correo" value="${esc(pe.email || '')}">
+        <input class="input" name="telefono" type="tel" placeholder="Teléfono (con prefijo, p. ej. 34…)" value="${esc(pe.telefono || '')}">
+        <button class="btn primary">${personaEdit >= 0 ? 'Guardar cambios' : 'Añadir persona'}</button>
+        ${personaEdit >= 0 ? '<button type="button" class="btn" data-accion="cancelar-persona">Cancelar</button>' : ''}
+      </form>
     </div>
     <div class="card">
-      <h3>Tema</h3>
-      <select class="input" id="tema">${[['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']].map(([k, v]) => `<option value="${k}" ${k === a.tema ? 'selected' : ''}>${v}</option>`).join('')}</select>
+      <h3>Avisos</h3>
+      <label class="lbl">Aviso automático en las tareas nuevas
+        <div class="row gap"><select class="input grow" id="avisoAntes">
+          ${[[-1, 'Sin aviso'], [0, 'El mismo día del NLT'], [1, '1 día antes'], [2, '2 días antes'], [3, '3 días antes'], [5, '5 días antes'], [7, '1 semana antes'], [14, '2 semanas antes']]
+            .map(([v, l]) => `<option value="${v}" ${v === +a.avisoAntes ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <input class="input" type="time" id="avisoHora" value="${esc(a.avisoHora)}" style="width:auto"></div></label>
+      <label class="lbl">Marcar en naranja cuando queden
+        <select class="input" id="avisoDias">${[1, 2, 3, 5, 7, 10, 15].map(n => `<option ${n === a.avisoDias ? 'selected' : ''} value="${n}">${n} día${n > 1 ? 's' : ''} o menos</option>`).join('')}</select></label>
+      ${notif === 'granted' ? '<p class="small muted">Notificaciones activadas mientras la app está abierta.</p>'
+        : notif === 'no' ? ''
+        : '<button class="btn block" data-accion="notif">Activar notificaciones</button>'}
+      <button class="btn block" data-accion="ics">Pasar NLT y avisos a mi calendario (.ics)</button>
+      <p class="small muted">Para que los avisos suenen aunque la app esté cerrada, pásalos al calendario del móvil (Google Calendar, Outlook, iPhone): cada aviso se convierte en una alarma.</p>
     </div>
     <div class="card">
       <h3>Categorías</h3>
@@ -501,6 +638,10 @@ function vistaAjustes() {
       <div class="row wrap">${datos.categorias.map((c, i) => `<span class="chip" style="font-size:.85rem;padding:6px 10px">
         <a href="#" data-rencat="${i}" style="color:inherit">${esc(c)}</a> <a href="#" data-delcat="${i}" style="color:var(--bad);text-decoration:none" aria-label="Quitar">✕</a></span>`).join('')}</div>
       <form id="nuevaCat" class="row gap" style="margin-top:10px"><input class="input grow" name="c" placeholder="Nueva categoría" required><button class="btn">Añadir</button></form>
+    </div>
+    <div class="card">
+      <h3>Tema</h3>
+      <select class="input" id="tema">${[['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']].map(([k, v]) => `<option value="${k}" ${k === a.tema ? 'selected' : ''}>${v}</option>`).join('')}</select>
     </div>
     <div class="card">
       <h3>Sincronización</h3>
@@ -524,54 +665,126 @@ function vistaAjustes() {
     </div>`;
 }
 
-// ---------- Editor de tarea ----------
+// ---------- Ficha de la tarea (editor) ----------
 let borrador = null;
+let sucio = false;
+
+const opciones = (obj, sel) => Object.entries(obj).map(([k, v]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${v}</option>`).join('');
 
 function abrirEditor(id, base = {}) {
   const t = id && buscar(id);
-  borrador = t ? structuredClone(t) : {
-    id: null, titulo: '', notas: '', categoria: datos.ajustes.ultimaCat || datos.categorias[0] || '',
-    prioridad: 'media', nlt: '', hora: '', estado: 'pendiente', repetir: '', subtareas: [], tiempo: [], registro: [], ...base,
-  };
+  borrador = t ? structuredClone(t)
+    : { ...nuevaTarea({ categoria: datos.ajustes.ultimaCat || datos.categorias[0] || '', ...base }), id: null };
+  sucio = false;
   const b = borrador;
-  const opts = (obj, sel) => Object.entries(obj).map(([k, v]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${v}</option>`).join('');
-  dlg.innerHTML = `<form method="dialog" id="fed">
-    <div class="dlg-h"><h2>${t ? 'Editar tarea' : 'Nueva tarea'}</h2><button type="button" class="icon-btn" data-cerrar aria-label="Cerrar">✕</button></div>
+  const nombres = [...new Set([datos.ajustes.miNombre, ...responsablesUsados()].filter(Boolean))];
+  dlg.innerHTML = `<form method="dialog" id="fed" autocomplete="off">
+    <div class="dlg-h"><h2>${t ? esc(t.referencia || 'Tarea') : 'Nueva tarea'}</h2><button type="button" class="icon-btn" data-cerrar aria-label="Cerrar">✕</button></div>
     <div class="dlg-b">
-      <label class="lbl">Qué hay que hacer<input class="input" name="titulo" required value="${esc(b.titulo)}" autocomplete="off"></label>
+      <h3 class="dsec">1 · La tarea</h3>
+      <label class="lbl">Asunto: qué hay que hacer *<input class="input" name="titulo" required value="${esc(b.titulo)}"></label>
+      <div class="grid2">
+        <label class="lbl">Referencia / nº de orden<input class="input" name="referencia" value="${esc(b.referencia)}"></label>
+        <label class="lbl">Prioridad<select class="input" name="prioridad">${opciones(PRIOS, b.prioridad)}</select></label>
+      </div>
+      <label class="lbl">Descripción e instrucciones<textarea class="input" name="descripcion" rows="3" placeholder="Qué se pide exactamente, alcance, criterios…">${esc(b.descripcion)}</textarea></label>
+      <div class="grid2">
+        <label class="lbl">Categoría<input class="input" name="categoria" list="dlcats2" value="${esc(b.categoria)}"></label>
+        <label class="lbl">Lugar / instalación<input class="input" name="lugar" value="${esc(b.lugar)}"></label>
+      </div>
+
+      <h3 class="dsec">2 · Quién</h3>
+      <div class="grid2">
+        <label class="lbl">Ordenada por<input class="input" name="ordenadaPor" list="dlper" value="${esc(b.ordenadaPor)}" placeholder="Quién la encarga"></label>
+        <label class="lbl">Fecha de la orden<input class="input" type="date" name="fechaOrden" value="${b.fechaOrden}"></label>
+      </div>
+      <label class="lbl">Responsable<input class="input" name="responsable" list="dlper" value="${esc(b.responsable)}" placeholder="${esc(datos.ajustes.miNombre || 'Yo')} (vacío = yo)"></label>
+      <div class="lbl">Colaboradores</div>
+      <div class="row wrap" id="colabs"></div>
+      <div class="row gap" style="margin-top:6px"><input class="input grow" id="ncolab" list="dlper" placeholder="Añadir colaborador (Intro)"><button type="button" class="btn" data-addcolab>+</button></div>
+
+      <h3 class="dsec">3 · Plazo y avisos</h3>
       <div class="grid2">
         <label class="lbl">NLT · fecha límite<input class="input" type="date" name="nlt" value="${b.nlt}"></label>
-        <label class="lbl">Hora límite (opcional)<input class="input" type="time" name="hora" value="${b.hora}"></label>
+        <label class="lbl">Hora límite<input class="input" type="time" name="hora" value="${b.hora}"></label>
       </div>
       <div class="row wrap small" style="margin-top:6px">
         ${[['Hoy', 0], ['Mañana', 1], ['+3 d', 3], ['+1 sem', 7], ['+2 sem', 14], ['+1 mes', 30]].map(([l, n]) => `<button type="button" class="btn sm" data-rapido="${n}">${l}</button>`).join('')}
         <button type="button" class="btn sm" data-rapido="">Sin NLT</button>
       </div>
-      <div class="grid2">
-        <label class="lbl">Categoría<input class="input" name="categoria" list="dlcats2" value="${esc(b.categoria)}"></label>
-        <label class="lbl">Prioridad<select class="input" name="prioridad">${opts(PRIOS, b.prioridad)}</select></label>
-        <label class="lbl">Estado<select class="input" name="estado">${opts(NOMBRE_ESTADO, b.estado)}</select></label>
-        <label class="lbl">Repetir<select class="input" name="repetir">${opts(REPETIR, b.repetir)}</select></label>
+      <label class="lbl" id="prorroga" hidden>Motivo del cambio de NLT *<input class="input" name="motivo" placeholder="Por qué se modifica el plazo"></label>
+      ${b.prorrogas.length ? `<div class="small muted" style="margin-top:8px">NLT original: <b>${fmtFecha(b.nltOriginal) || '—'}</b>
+        <ul class="log">${b.prorrogas.map(p => `<li>${new Date(p.fecha).toLocaleDateString('es-ES')} · ${fmtFecha(p.de) || 'sin NLT'} → ${fmtFecha(p.a) || 'sin NLT'}${p.motivo ? ' · ' + esc(p.motivo) : ''}</li>`).join('')}</ul></div>` : ''}
+      <div class="lbl">Avisos / alarmas</div>
+      <ul class="log" id="avisos"></ul>
+      <div class="row gap wrap">
+        <select class="input" id="avTipo" style="width:auto"><option value="antes">Días antes del NLT</option><option value="fecha">En una fecha</option></select>
+        <input class="input" id="avDias" type="number" min="0" max="365" value="1" style="width:80px" aria-label="Días antes">
+        <input class="input" id="avFecha" type="date" hidden style="width:auto" aria-label="Fecha del aviso">
+        <input class="input" id="avHora" type="time" value="${esc(datos.ajustes.avisoHora || '09:00')}" style="width:auto" aria-label="Hora del aviso">
+        <button type="button" class="btn" data-addaviso>+ Aviso</button>
       </div>
-      <datalist id="dlcats2">${categoriasUsadas().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
-      <label class="lbl">Notas<textarea class="input" name="notas" rows="3">${esc(b.notas)}</textarea></label>
+      <div class="grid2">
+        <label class="lbl">Repetir<select class="input" name="repetir">${opciones(REPETIR, b.repetir)}</select></label>
+        <label class="lbl">Tiempo estimado (horas)<input class="input" type="number" name="estimacionH" min="0" step="0.5" value="${+b.estimacionH || ''}"></label>
+      </div>
+
+      <h3 class="dsec">4 · Seguimiento</h3>
+      <div class="grid2">
+        <label class="lbl">Estado<select class="input" name="estado">${opciones(NOMBRE_ESTADO, b.estado)}</select></label>
+        <label class="lbl">Avance: <output id="prog-v"></output><input type="range" name="progreso" min="0" max="100" step="5" value="${+b.progreso || 0}" style="width:100%;accent-color:var(--brand)"></label>
+      </div>
       <div class="lbl">Pasos / subtareas</div>
       <div id="subs"></div>
       <div class="row gap"><input class="input grow" id="nsub" placeholder="Añadir paso (Intro)"><button type="button" class="btn" data-addsub>+</button></div>
+      <div class="lbl">Depende de (no puede terminarse antes)</div>
+      <ul class="log" id="deps"></ul>
+      <div class="row gap"><select class="input grow" id="depSel"><option value="">Elegir tarea…</option></select><button type="button" class="btn" data-adddep>+</button></div>
       <div class="lbl">Tiempo dedicado</div>
       <div id="tiempo"></div>
-      <div class="lbl">Bitácora</div>
+      <div class="lbl">Bitácora e historial</div>
       <div class="row gap"><input class="input grow" id="nreg" placeholder="Anotar avance, llamada, incidencia… (Intro)"><button type="button" class="btn" data-addreg>+</button></div>
       <ul class="log" id="regs"></ul>
+
+      <h3 class="dsec">5 · Observaciones y documentos</h3>
+      <label class="lbl">Observaciones<textarea class="input" name="notas" rows="3">${esc(b.notas)}</textarea></label>
+      <div class="lbl">Documentos y enlaces</div>
+      <ul class="log" id="enls"></ul>
+      <div class="row gap wrap"><input class="input" id="enlNom" placeholder="Nombre" style="flex:1;min-width:120px">
+        <input class="input" id="enlUrl" type="url" placeholder="https://… (Drive, SharePoint, web)" style="flex:2;min-width:160px"><button type="button" class="btn" data-addenl>+</button></div>
+
+      <h3 class="dsec">6 · Cierre</h3>
+      <label class="lbl">Resultado / informe de cumplimiento<textarea class="input" name="resultado" rows="3" placeholder="Qué se hizo, cómo quedó, pendientes…">${esc(b.resultado)}</textarea></label>
       ${t ? `<p class="small muted" style="margin-top:12px">Creada el ${new Date(t.creada).toLocaleString('es-ES')}${t.hecha ? ` · Hecha el ${new Date(t.hecha).toLocaleString('es-ES')}` : ''}</p>` : ''}
+      <div class="acciones">
+        <button type="button" class="btn" data-compartir>✉ Enviar ficha</button>
+        <button type="button" class="btn" data-ical>📅 Al calendario</button>
+        ${t ? '<button type="button" class="btn" data-duplicar>Duplicar</button><button type="button" class="btn danger" data-borrar>Eliminar</button>' : ''}
+      </div>
+      <datalist id="dlcats2">${categoriasUsadas().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+      <datalist id="dlper">${nombres.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
     </div>
-    <div class="dlg-f">
-      ${t ? '<button type="button" class="btn danger" data-borrar>Eliminar</button><button type="button" class="btn" data-duplicar>Duplicar</button>' : ''}
-      <button class="btn primary" value="ok">Guardar</button>
-    </div></form>`;
-  pintarSubs(); pintarTiempo(); pintarRegs();
+    <div class="dlg-f"><button class="btn primary" value="ok">Guardar</button></div></form>`;
+  pintarColabs(); pintarAvisos(); pintarSubs(); pintarDeps(); pintarTiempo(); pintarRegs(); pintarEnlaces(); pintarProgreso();
   dlg.showModal();
   if (!t) $('[name=titulo]', dlg).focus();
+}
+
+function pintarColabs() {
+  $('#colabs', dlg).innerHTML = borrador.colaboradores.map((c, i) =>
+    `<span class="persona"><i>${esc(iniciales(c))}</i>${esc(c)} <a href="#" data-delcolab="${i}" aria-label="Quitar">✕</a></span>`).join('')
+    || '<span class="small muted">Nadie más.</span>';
+}
+
+function pintarAvisos() {
+  borrador.nlt = $('[name=nlt]', dlg).value;
+  $('#avisos', dlg).innerHTML = borrador.avisos.map((a, i) => {
+    const m = momentosAviso({ ...borrador, avisos: [a] })[0];
+    const txt = m ? m.txt : `${a.dias} d antes del NLT (pon un NLT)`;
+    const pasado = m && m.ms <= Date.now();
+    return `<li class="row between"><span class="${pasado ? 'muted' : ''}">🔔 ${esc(txt)}${pasado ? ' · ya pasó' : ''}</span>
+      <button type="button" class="icon-btn" data-delaviso="${i}" aria-label="Quitar aviso">✕</button></li>`;
+  }).join('') || '<li class="small muted">Sin avisos.</li>';
 }
 
 function pintarSubs() {
@@ -579,15 +792,37 @@ function pintarSubs() {
     <input type="checkbox" data-subok="${i}" ${s.ok ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--brand)">
     <input class="input grow ${s.ok ? 'tachado' : ''}" data-subtxt="${i}" value="${esc(s.t)}">
     <button type="button" class="icon-btn" data-subdel="${i}" aria-label="Quitar paso">✕</button></div>`).join('');
+  pintarProgreso();
+}
+
+function pintarProgreso() {
+  const r = $('[name=progreso]', dlg);
+  const auto = borrador.subtareas.length > 0;
+  r.disabled = auto;
+  if (auto) r.value = progreso({ ...borrador, estado: 'pendiente' });
+  $('#prog-v', dlg).textContent = `${r.value}%${auto ? ' (según pasos)' : ''}`;
+}
+
+function pintarDeps() {
+  $('#deps', dlg).innerHTML = borrador.dependeDe.map((id, i) => {
+    const d = buscar(id);
+    if (!d) return '';
+    return `<li class="row between"><span>${d.estado === 'hecha' ? '✔' : '⛔'} ${esc(d.referencia ? d.referencia + ' · ' : '')}${esc(d.titulo)}
+      <span class="small muted">${urgencia(d).txt}</span></span><button type="button" class="icon-btn" data-deldep="${i}" aria-label="Quitar">✕</button></li>`;
+  }).join('');
+  const candidatas = datos.tareas.filter(t => t.id !== borrador.id && t.estado !== 'hecha' && !borrador.dependeDe.includes(t.id)).sort(ordenar);
+  $('#depSel', dlg).innerHTML = '<option value="">Elegir tarea…</option>'
+    + candidatas.map(t => `<option value="${t.id}">${esc((t.referencia ? t.referencia + ' · ' : '') + t.titulo)}</option>`).join('');
 }
 
 function pintarTiempo() {
   const el = $('#tiempo', dlg);
   const t = borrador.id && buscar(borrador.id);
+  const est = +$('[name=estimacionH]', dlg).value || 0;
   if (!t) { el.innerHTML = '<p class="small muted">Guarda la tarea para poder cronometrarla.</p>'; return; }
   const enMarcha = datos.activo?.id === t.id;
   el.innerHTML = `<div class="row gap wrap">
-    <b>${fmtDur(tiempoTotal(t))}</b><span class="small muted">en ${t.tiempo.length} sesión${t.tiempo.length === 1 ? '' : 'es'}</span>
+    <b>${fmtDur(tiempoTotal(t))}</b><span class="small muted">${est ? `de ${est} h estimadas · ` : ''}${t.tiempo.length} sesión${t.tiempo.length === 1 ? '' : 'es'}</span>
     <span class="grow"></span>
     <button type="button" class="btn sm ${enMarcha ? 'danger' : 'primary'}" data-crono>${enMarcha ? '⏹ Parar' : '▶ Empezar'}</button>
     <input class="input" id="manmin" type="number" min="1" step="5" placeholder="min" style="width:80px;min-height:34px;padding:4px 8px">
@@ -596,15 +831,34 @@ function pintarTiempo() {
 
 function pintarRegs() {
   $('#regs', dlg).innerHTML = [...borrador.registro].reverse().map(r =>
-    `<li><span class="muted small">${new Date(r.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}</span> ${esc(r.texto)}</li>`).join('');
+    `<li class="${r.auto ? 'muted' : ''}"><span class="muted small">${new Date(r.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}</span>
+      ${r.auto ? '⚙' : '✎'} ${esc(r.texto)}</li>`).join('');
+}
+
+function pintarEnlaces() {
+  $('#enls', dlg).innerHTML = borrador.enlaces.map((e, i) => `<li class="row between">
+    <a href="${esc(e.url)}" target="_blank" rel="noopener noreferrer">🔗 ${esc(e.nombre || e.url)}</a>
+    <button type="button" class="icon-btn" data-delenl="${i}" aria-label="Quitar">✕</button></li>`).join('');
+}
+
+// Cambiar un NLT ya fijado exige dejar constancia del motivo
+function revisarProrroga() {
+  const orig = borrador.id && buscar(borrador.id);
+  const nuevo = $('[name=nlt]', dlg).value;
+  const pide = !!(orig && orig.nlt && nuevo !== orig.nlt);
+  $('#prorroga', dlg).hidden = !pide;
+  $('[name=motivo]', dlg).required = pide;
+  pintarAvisos();
 }
 
 function leerFormulario() {
   const f = $('#fed', dlg);
   const v = n => f.elements[n].value;
   Object.assign(borrador, {
-    titulo: v('titulo').trim(), nlt: v('nlt'), hora: v('hora'), categoria: v('categoria').trim(),
-    prioridad: v('prioridad'), estado: v('estado'), repetir: v('repetir'), notas: v('notas'),
+    titulo: v('titulo').trim(), referencia: v('referencia').trim(), prioridad: v('prioridad'), descripcion: v('descripcion'),
+    categoria: v('categoria').trim(), lugar: v('lugar').trim(), ordenadaPor: v('ordenadaPor').trim(), fechaOrden: v('fechaOrden'),
+    responsable: v('responsable').trim(), nlt: v('nlt'), hora: v('hora'), repetir: v('repetir'), estimacionH: +v('estimacionH') || 0,
+    estado: v('estado'), progreso: +v('progreso') || 0, notas: v('notas'), resultado: v('resultado'),
   });
 }
 
@@ -616,12 +870,21 @@ function guardarBorrador() {
   datos.ajustes.ultimaCat = b.categoria;
   const actual = b.id && buscar(b.id);
   if (actual) {
+    if (actual.responsable !== b.responsable) anotar(b, `Responsable: ${actual.responsable || 'yo'} → ${b.responsable || 'yo'}`);
+    if (actual.prioridad !== b.prioridad) anotar(b, `Prioridad: ${PRIOS[actual.prioridad]} → ${PRIOS[b.prioridad]}`);
+    if (actual.estado !== b.estado && b.estado !== 'hecha') anotar(b, `Estado: ${NOMBRE_ESTADO[actual.estado]} → ${NOMBRE_ESTADO[b.estado]}`);
+    if (actual.nlt !== b.nlt) {
+      const motivo = $('[name=motivo]', dlg).value.trim();
+      if (actual.nlt) b.prorrogas.push({ fecha: new Date().toISOString(), de: actual.nlt, a: b.nlt, motivo });
+      anotar(b, `NLT: ${fmtFecha(actual.nlt) || 'sin NLT'} → ${fmtFecha(b.nlt) || 'sin NLT'}${motivo ? '. Motivo: ' + motivo : ''}`);
+      b.nltOriginal ||= b.nlt;
+    }
     const pasaAHecha = b.estado === 'hecha' && actual.estado !== 'hecha';
     const estado = b.estado;
     Object.assign(actual, { ...b, tiempo: actual.tiempo, estado: pasaAHecha ? actual.estado : estado, hecha: estado === 'hecha' ? actual.hecha : null });
     if (pasaAHecha) marcarHecha(actual.id, true);
   } else {
-    const nueva = { ...b, id: nuevoId(), creada: new Date().toISOString(), hecha: null };
+    const nueva = { ...b, id: nuevoId(), creada: new Date().toISOString(), hecha: null, nltOriginal: b.nlt };
     const hecha = nueva.estado === 'hecha';
     if (hecha) nueva.estado = 'pendiente';
     datos.tareas.push(nueva);
@@ -631,16 +894,45 @@ function guardarBorrador() {
   return true;
 }
 
+async function cerrarEditor() {
+  if (sucio && !(await preguntar('¿Cerrar sin guardar los cambios?', { ok: 'Descartar', peligro: true }))) return;
+  dlg.close();
+}
+
+dlg.addEventListener('cancel', e => { e.preventDefault(); cerrarEditor(); });
+
 dlg.addEventListener('click', e => {
-  const d = e.target.closest('button, input[type=checkbox]');
+  const d = e.target.closest('button, input[type=checkbox], a[data-delcolab]');
   if (!d) return;
-  if (d.hasAttribute('data-cerrar')) { dlg.close(); return; }
-  if (d.dataset.rapido !== undefined) {
-    $('[name=nlt]', dlg).value = d.dataset.rapido === '' ? '' : sumarDias(hoy(), +d.dataset.rapido);
-    if (d.dataset.rapido === '') $('[name=hora]', dlg).value = '';
-  } else if (d.hasAttribute('data-addsub')) addSub();
-  else if (d.dataset.subok !== undefined) { borrador.subtareas[d.dataset.subok].ok = d.checked; pintarSubs(); }
-  else if (d.dataset.subdel !== undefined) { borrador.subtareas.splice(d.dataset.subdel, 1); pintarSubs(); }
+  const ds = d.dataset;
+  if (d.hasAttribute('data-cerrar')) { cerrarEditor(); return; }
+  if (ds.rapido !== undefined) {
+    $('[name=nlt]', dlg).value = ds.rapido === '' ? '' : sumarDias(hoy(), +ds.rapido);
+    if (ds.rapido === '') $('[name=hora]', dlg).value = '';
+    sucio = true; revisarProrroga();
+  } else if (d.hasAttribute('data-addcolab')) addColab();
+  else if (ds.delcolab !== undefined) { e.preventDefault(); borrador.colaboradores.splice(+ds.delcolab, 1); sucio = true; pintarColabs(); }
+  else if (d.hasAttribute('data-addaviso')) {
+    const tipo = $('#avTipo', dlg).value, hora = $('#avHora', dlg).value || '09:00';
+    if (tipo === 'fecha') {
+      const fecha = $('#avFecha', dlg).value;
+      if (!fecha) { toast('Elige la fecha del aviso'); return; }
+      borrador.avisos.push({ tipo, fecha, hora });
+    } else {
+      borrador.avisos.push({ tipo, dias: Math.max(0, +$('#avDias', dlg).value || 0), hora });
+      if (!$('[name=nlt]', dlg).value) toast('Este aviso se activará cuando pongas un NLT');
+    }
+    sucio = true; pintarAvisos();
+  } else if (ds.delaviso !== undefined) { borrador.avisos.splice(+ds.delaviso, 1); sucio = true; pintarAvisos(); }
+  else if (d.hasAttribute('data-addsub')) addSub();
+  else if (ds.subok !== undefined) { borrador.subtareas[ds.subok].ok = d.checked; sucio = true; pintarSubs(); }
+  else if (ds.subdel !== undefined) { borrador.subtareas.splice(ds.subdel, 1); sucio = true; pintarSubs(); }
+  else if (d.hasAttribute('data-adddep')) {
+    const id = $('#depSel', dlg).value;
+    if (id) { borrador.dependeDe.push(id); sucio = true; pintarDeps(); }
+  } else if (ds.deldep !== undefined) { borrador.dependeDe.splice(+ds.deldep, 1); sucio = true; pintarDeps(); }
+  else if (d.hasAttribute('data-addenl')) addEnlace();
+  else if (ds.delenl !== undefined) { borrador.enlaces.splice(+ds.delenl, 1); sucio = true; pintarEnlaces(); }
   else if (d.hasAttribute('data-addreg')) addReg();
   else if (d.hasAttribute('data-crono')) {
     if (datos.activo?.id === borrador.id) pararTiempo(); else iniciarTiempo(borrador.id);
@@ -654,46 +946,82 @@ dlg.addEventListener('click', e => {
       buscar(borrador.id).tiempo.push({ inicio: fin - min * 60000, fin });
       guardar(); pintarTiempo(); render();
     }
+  } else if (d.hasAttribute('data-compartir')) {
+    leerFormulario(); compartir(borrador);
+  } else if (d.hasAttribute('data-ical')) {
+    leerFormulario();
+    if (!borrador.nlt) { toast('Pon un NLT para pasarla al calendario'); return; }
+    descargar(`${borrador.referencia || 'tarea'}.ics`, ics([borrador]), 'text/calendar;charset=utf-8');
   } else if (d.hasAttribute('data-borrar')) {
     const id = borrador.id;
     preguntar('¿Eliminar esta tarea?', { ok: 'Eliminar', peligro: true }).then(si => {
       if (!si) return;
       if (datos.activo?.id === id) datos.activo = null;
       datos.tareas = datos.tareas.filter(t => t.id !== id);
+      datos.tareas.forEach(t => { t.dependeDe = t.dependeDe.filter(x => x !== id); });
       guardar(); dlg.close(); render(); pintarCrono();
     });
   } else if (d.hasAttribute('data-duplicar')) {
     leerFormulario();
-    const copia = { ...structuredClone(borrador), titulo: borrador.titulo + ' (copia)', estado: 'pendiente', hecha: null, tiempo: [], registro: [] };
+    const copia = {
+      ...structuredClone(borrador), titulo: borrador.titulo + ' (copia)', referencia: nuevaReferencia(), estado: 'pendiente',
+      hecha: null, prorrogas: [], avisoVisto: 0, progreso: 0, resultado: '', tiempo: [], registro: [],
+    };
     copia.subtareas.forEach(s => { s.ok = false; });
     delete copia.id;
     dlg.close();
     abrirEditor(null, copia);
+    sucio = true;
   }
 });
 
 dlg.addEventListener('input', e => {
-  if (e.target.dataset.subtxt !== undefined) borrador.subtareas[e.target.dataset.subtxt].t = e.target.value;
+  const el = e.target;
+  if (!el.closest('#fed')) return;
+  sucio = true;
+  if (el.dataset.subtxt !== undefined) borrador.subtareas[el.dataset.subtxt].t = el.value;
+  else if (el.name === 'nlt') revisarProrroga();
+  else if (el.name === 'progreso') pintarProgreso();
+  else if (el.name === 'estimacionH') pintarTiempo();
+  else if (el.id === 'avTipo') { $('#avDias', dlg).hidden = el.value === 'fecha'; $('#avFecha', dlg).hidden = el.value !== 'fecha'; }
 });
+dlg.addEventListener('change', e => { if (e.target.id === 'avTipo') e.target.dispatchEvent(new Event('input', { bubbles: true })); });
 
 dlg.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
-  if (e.target.id === 'nsub') { e.preventDefault(); addSub(); }
-  if (e.target.id === 'nreg') { e.preventDefault(); addReg(); }
+  const acciones = { nsub: addSub, nreg: addReg, ncolab: addColab, enlUrl: addEnlace };
+  if (acciones[e.target.id]) { e.preventDefault(); acciones[e.target.id](); }
 });
 
 function addSub() {
   const i = $('#nsub', dlg);
   if (!i.value.trim()) return;
   borrador.subtareas.push({ t: i.value.trim(), ok: false });
-  i.value = ''; pintarSubs(); i.focus();
+  i.value = ''; sucio = true; pintarSubs(); i.focus();
 }
 
 function addReg() {
   const i = $('#nreg', dlg);
   if (!i.value.trim()) return;
-  borrador.registro.push({ fecha: new Date().toISOString(), texto: i.value.trim() });
-  i.value = ''; pintarRegs(); i.focus();
+  anotar(borrador, i.value.trim(), false);
+  i.value = ''; sucio = true; pintarRegs(); i.focus();
+}
+
+function addColab() {
+  const i = $('#ncolab', dlg);
+  const n = i.value.trim();
+  if (!n || borrador.colaboradores.includes(n)) return;
+  borrador.colaboradores.push(n);
+  i.value = ''; sucio = true; pintarColabs(); i.focus();
+}
+
+function addEnlace() {
+  let url = $('#enlUrl', dlg).value.trim();
+  if (!url) return;
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  borrador.enlaces.push({ nombre: $('#enlNom', dlg).value.trim(), url });
+  $('#enlUrl', dlg).value = ''; $('#enlNom', dlg).value = '';
+  sucio = true; pintarEnlaces();
 }
 
 dlg.addEventListener('submit', e => {
@@ -702,28 +1030,75 @@ dlg.addEventListener('submit', e => {
   render();
 });
 
+// ---------- Enviar la ficha al responsable ----------
+function fichaTexto(t) {
+  const l = [];
+  l.push(`TAREA ${t.referencia || ''}`.trim(), `Asunto: ${t.titulo}`);
+  l.push(`Prioridad: ${PRIOS[t.prioridad]}${t.categoria ? ' · ' + t.categoria : ''}${t.lugar ? ' · Lugar: ' + t.lugar : ''}`);
+  if (t.ordenadaPor) l.push(`Ordenada por: ${t.ordenadaPor}${t.fechaOrden ? ' (' + fmtFecha(t.fechaOrden, false) + ')' : ''}`);
+  l.push(`Responsable: ${t.responsable || datos.ajustes.miNombre || '—'}`);
+  if (t.colaboradores.length) l.push(`Colaboradores: ${t.colaboradores.join(', ')}`);
+  l.push(`NLT: ${t.nlt ? fmtFecha(t.nlt) + (t.hora ? ' a las ' + t.hora : '') : 'sin fecha límite'}`);
+  if (prorrogas(t)) l.push(`(NLT original: ${fmtFecha(t.nltOriginal)})`);
+  if (t.descripcion.trim()) l.push('', 'Instrucciones:', t.descripcion.trim());
+  if (t.subtareas.length) l.push('', 'Pasos:', ...t.subtareas.map(s => `${s.ok ? '[x]' : '[ ]'} ${s.t}`));
+  if (t.notas.trim()) l.push('', 'Observaciones:', t.notas.trim());
+  if (t.enlaces.length) l.push('', 'Documentos:', ...t.enlaces.map(e => `- ${e.nombre ? e.nombre + ': ' : ''}${e.url}`));
+  l.push('', `Estado: ${NOMBRE_ESTADO[t.estado]} · Avance ${progreso(t)}%`);
+  if (t.resultado.trim()) l.push('', 'Resultado:', t.resultado.trim());
+  return l.join('\n');
+}
+
+function compartir(t) {
+  const txt = fichaTexto(t);
+  const p = persona(t.responsable);
+  const asunto = `${t.referencia ? t.referencia + ' · ' : ''}${t.titulo}${t.nlt ? ' · NLT ' + fmtFecha(t.nlt, false) : ''}`;
+  const mail = `mailto:${p?.email ? encodeURIComponent(p.email) : ''}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(txt)}`;
+  const wa = `https://wa.me/${(p?.telefono || '').replace(/\D/g, '')}?text=${encodeURIComponent(txt)}`;
+  dlg2.onclose = null;
+  dlg2.innerHTML = `<form method="dialog">
+    <div class="dlg-h"><h2>Enviar ficha</h2><button class="icon-btn" value="x" aria-label="Cerrar">✕</button></div>
+    <div class="dlg-b"><textarea class="input" id="ficha" rows="14" readonly>${esc(txt)}</textarea></div>
+    <div class="dlg-f"><button type="button" class="btn" id="copiarFicha">Copiar</button>
+      <a class="btn" href="${esc(mail)}" target="_blank" rel="noopener">Correo${p?.email ? ' a ' + esc(p.nombre.split(' ')[0]) : ''}</a>
+      <a class="btn" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a></div></form>`;
+  $('#copiarFicha', dlg2).onclick = async () => {
+    try { await navigator.clipboard.writeText(txt); toast('Ficha copiada'); }
+    catch { $('#ficha', dlg2).select(); toast('Texto seleccionado: cópialo con el menú del sistema'); }
+  };
+  dlg2.showModal();
+}
+
 // ---------- Exportaciones ----------
 function csv(tareas) {
   const c = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const filas = [['Tarea', 'Categoría', 'Prioridad', 'Estado', 'NLT', 'Hora', 'Situación', 'Creada', 'Hecha', 'Minutos', 'Pasos', 'Notas']];
-  tareas.forEach(t => filas.push([t.titulo, t.categoria, PRIOS[t.prioridad], NOMBRE_ESTADO[t.estado], t.nlt, t.hora, urgencia(t).txt,
+  const filas = [['Referencia', 'Asunto', 'Descripción', 'Categoría', 'Lugar', 'Prioridad', 'Estado', 'Avance %', 'Ordenada por', 'Fecha orden',
+    'Responsable', 'Colaboradores', 'NLT', 'Hora', 'NLT original', 'Prórrogas', 'Situación', 'Próximo aviso', 'Creada', 'Hecha',
+    'Minutos', 'Estimación h', 'Pasos', 'Observaciones', 'Resultado']];
+  tareas.forEach(t => filas.push([t.referencia, t.titulo, t.descripcion, t.categoria, t.lugar, PRIOS[t.prioridad], NOMBRE_ESTADO[t.estado],
+    progreso(t), t.ordenadaPor, t.fechaOrden, t.responsable || datos.ajustes.miNombre, t.colaboradores.join(', '), t.nlt, t.hora,
+    t.nltOriginal, prorrogas(t), urgencia(t).txt, proximoAviso(t)?.txt || '',
     t.creada ? new Date(t.creada).toLocaleString('es-ES') : '', t.hecha ? new Date(t.hecha).toLocaleString('es-ES') : '',
-    Math.round(tiempoTotal(t) / 60000), t.subtareas.map(s => (s.ok ? '[x] ' : '[ ] ') + s.t).join(' | '), t.notas]));
+    Math.round(tiempoTotal(t) / 60000), t.estimacionH || '', t.subtareas.map(s => (s.ok ? '[x] ' : '[ ] ') + s.t).join(' | '), t.notas, t.resultado]));
   return '﻿' + filas.map(f => f.map(c).join(';')).join('\r\n');
 }
 
-function ics() {
+function ics(tareas) {
   const e = s => String(s).replace(/\\/g, '\\\\').replace(/[,;]/g, m => '\\' + m).replace(/\r?\n/g, '\\n');
   const f = s => s.replace(/-/g, '');
-  const sello = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
-  const ev = datos.tareas.filter(t => t.nlt && t.estado !== 'hecha').map(t => {
+  const sello = ms => new Date(ms).toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
+  const ev = tareas.filter(t => t.nlt && t.estado !== 'hecha').map(t => {
     const cuando = t.hora
       ? [`DTSTART:${f(t.nlt)}T${t.hora.replace(':', '')}00`, 'DURATION:PT30M']
       : [`DTSTART;VALUE=DATE:${f(t.nlt)}`, `DTEND;VALUE=DATE:${f(sumarDias(t.nlt, 1))}`];
-    return ['BEGIN:VEVENT', `UID:${t.id}@tareas-nlt`, `DTSTAMP:${sello}`, ...cuando,
-      `SUMMARY:${e('NLT: ' + t.titulo)}`, `DESCRIPTION:${e([t.categoria, t.notas].filter(Boolean).join('\n'))}`,
-      `CATEGORIES:${e(t.categoria || 'Tareas')}`,
-      'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${e('Vence: ' + t.titulo)}`, 'TRIGGER:-P1D', 'END:VALARM', 'END:VEVENT'];
+    const futuros = momentosAviso(t).filter(m => m.ms > Date.now());
+    const alarmas = futuros.length
+      ? futuros.flatMap(m => ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${e('Aviso: ' + t.titulo)}`, `TRIGGER;VALUE=DATE-TIME:${sello(m.ms)}`, 'END:VALARM'])
+      : ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${e('Vence: ' + t.titulo)}`, 'TRIGGER:-P1D', 'END:VALARM'];
+    const desc = [t.referencia, t.responsable && 'Responsable: ' + t.responsable, t.descripcion, t.notas].filter(Boolean).join('\n');
+    return ['BEGIN:VEVENT', `UID:${t.id || nuevoId()}@tareas-nlt`, `DTSTAMP:${sello(Date.now())}`, ...cuando,
+      `SUMMARY:${e('NLT: ' + t.titulo)}`, `DESCRIPTION:${e(desc)}`, ...(t.lugar ? [`LOCATION:${e(t.lugar)}`] : []),
+      `CATEGORIES:${e(t.categoria || 'Tareas')}`, ...alarmas, 'END:VEVENT'];
   });
   // Las líneas de más de 75 caracteres se pliegan, como pide el formato iCalendar
   const plegar = l => l.length <= 73 ? l : l.match(/.{1,73}/gu).join('\r\n ');
@@ -733,23 +1108,25 @@ function ics() {
 
 function ejemplos() {
   const d = n => sumarDias(hoy(), n);
-  const ahora = new Date().toISOString();
-  const base = (titulo, categoria, nlt, extra = {}) => ({
-    id: nuevoId(), titulo, categoria, nlt, hora: '', notas: '', prioridad: 'media', estado: 'pendiente', repetir: '',
-    creada: ahora, hecha: null, subtareas: [], tiempo: [], registro: [], ...extra,
-  });
-  datos.tareas.push(
-    base('Entregar informe SEGINS de la instalación norte', 'Informes', d(-1), { prioridad: 'alta',
-      subtareas: [{ t: 'Revisar fotos y no conformidades', ok: true }, { t: 'Redactar conclusiones', ok: false }, { t: 'Firmar y enviar', ok: false }] }),
-    base('Visita de evaluación a almacén central', 'Visitas', d(0), { hora: '10:00', prioridad: 'alta', estado: 'curso' }),
-    base('Revisar plazos de subsanación pendientes', 'Evaluaciones SEGINS', d(2), { repetir: 'semanal' }),
-    base('Parte mensual de actividad', 'Administración', d(6), { repetir: 'mensual', prioridad: 'baja' }),
-    base('Curso de actualización en normativa', 'Formación', d(20)),
-    base('Preparar reunión de coordinación', 'Reuniones', d(1), { estado: 'espera', notas: 'Esperando el orden del día' }),
-    base('Ordenar documentación de instalaciones', 'Administración', ''),
-    base('Llamar a mantenimiento por extintores', 'Visitas', d(-3), { estado: 'hecha', hecha: new Date(Date.now() - 864e5).toISOString(),
-      tiempo: [{ inicio: Date.now() - 864e5 - 20 * 60000, fin: Date.now() - 864e5 }] }),
+  const t = extra => datos.tareas.push(nuevaTarea(extra));
+  if (!datos.personas.length) datos.personas.push(
+    { nombre: 'Ana López', cargo: 'Técnica de mantenimiento', email: '', telefono: '' },
+    { nombre: 'Luis Martín', cargo: 'Jefe de almacén', email: '', telefono: '' },
   );
+  t({ titulo: 'Entregar informe SEGINS de la instalación norte', categoria: 'Informes', nlt: d(-1), prioridad: 'alta',
+    ordenadaPor: 'Jefatura', fechaOrden: d(-10), lugar: 'Instalación norte', descripcion: 'Informe completo con no conformidades y fotos.',
+    subtareas: [{ t: 'Revisar fotos y no conformidades', ok: true }, { t: 'Redactar conclusiones', ok: false }, { t: 'Firmar y enviar', ok: false }] });
+  t({ titulo: 'Visita de evaluación a almacén central', categoria: 'Visitas', nlt: d(0), hora: '10:00', prioridad: 'critica', estado: 'curso',
+    lugar: 'Almacén central', colaboradores: ['Luis Martín'] });
+  t({ titulo: 'Revisar plazos de subsanación pendientes', categoria: 'Evaluaciones SEGINS', nlt: d(2), repetir: 'semanal' });
+  t({ titulo: 'Sustituir extintores caducados', categoria: 'Visitas', nlt: d(9), prioridad: 'alta', responsable: 'Ana López',
+    ordenadaPor: 'Yo', lugar: 'Almacén central', avisos: [{ tipo: 'antes', dias: 3, hora: '09:00' }, { tipo: 'fecha', fecha: d(0), hora: '00:00' }] });
+  t({ titulo: 'Parte mensual de actividad', categoria: 'Administración', nlt: d(6), repetir: 'mensual', prioridad: 'baja' });
+  t({ titulo: 'Curso de actualización en normativa', categoria: 'Formación', nlt: d(20) });
+  t({ titulo: 'Preparar reunión de coordinación', categoria: 'Reuniones', nlt: d(1), estado: 'espera', notas: 'Esperando el orden del día' });
+  t({ titulo: 'Ordenar documentación de instalaciones', categoria: 'Administración' });
+  t({ titulo: 'Llamar a mantenimiento por extintores', categoria: 'Visitas', nlt: d(-3), estado: 'hecha', hecha: new Date(Date.now() - 864e5).toISOString(),
+    avisos: [], tiempo: [{ inicio: Date.now() - 864e5 - 20 * 60000, fin: Date.now() - 864e5 }] });
   guardar();
 }
 
@@ -757,9 +1134,21 @@ function ejemplos() {
 main.addEventListener('click', e => {
   const el = e.target;
   const tick = el.closest('[data-tick]');
-  if (tick) { marcarHecha(tick.dataset.tick, tick.checked); render(); return; }
+  if (tick) {
+    const t = buscar(tick.dataset.tick);
+    if (tick.checked && bloqueantes(t).length) toast(`Aviso: depende de «${bloqueantes(t)[0].titulo}», que aún no está hecha`);
+    marcarHecha(tick.dataset.tick, tick.checked); render(); return;
+  }
   const kpi = el.closest('[data-kpi]');
   if (kpi) { filtro.kpi = filtro.kpi === kpi.dataset.kpi ? '' : kpi.dataset.kpi; render(); return; }
+  const visto = el.closest('[data-visto]');
+  if (visto) { buscar(visto.dataset.visto).avisoVisto = Date.now(); guardar(); render(); return; }
+  const pos = el.closest('[data-posponer]');
+  if (pos) {
+    const t = buscar(pos.dataset.posponer);
+    t.avisos.push({ tipo: 'fecha', fecha: sumarDias(hoy(), 1), hora: datos.ajustes.avisoHora || '09:00' });
+    t.avisoVisto = Date.now(); guardar(); render(); toast('Te lo recordaré mañana'); return;
+  }
   const mover = el.closest('[data-mover]');
   if (mover) { cambiarEstado(mover.dataset.mover, mover.dataset.a); render(); return; }
   const dia = el.closest('[data-dia]');
@@ -772,6 +1161,10 @@ main.addEventListener('click', e => {
   if (ren) { e.preventDefault(); renombrarCat(+ren.dataset.rencat); return; }
   const del = el.closest('[data-delcat]');
   if (del) { e.preventDefault(); datos.categorias.splice(+del.dataset.delcat, 1); guardar(); render(); return; }
+  const edp = el.closest('[data-editper]');
+  if (edp) { e.preventDefault(); personaEdit = +edp.dataset.editper; render(); $('#fpersona [name=nombre]').focus(); return; }
+  const dlp = el.closest('[data-delper]');
+  if (dlp) { datos.personas.splice(+dlp.dataset.delper, 1); personaEdit = -1; guardar(); render(); return; }
   const acc = el.closest('[data-accion]');
   if (acc) { accion(acc.dataset.accion); return; }
   const t = el.closest('.tarea');
@@ -791,6 +1184,7 @@ async function accion(a) {
   switch (a) {
     case 'ejemplos': ejemplos(); render(); break;
     case 'nueva-dia': abrirEditor(null, { nlt: diaSel }); break;
+    case 'cancelar-persona': personaEdit = -1; render(); break;
     case 'copiar-resumen':
       try { await navigator.clipboard.writeText(resumenTexto()); toast('Resumen copiado'); }
       catch { descargar(`resumen-${hoy()}.txt`, resumenTexto(), 'text/plain'); }
@@ -803,7 +1197,7 @@ async function accion(a) {
       break;
     }
     case 'csv-todo': descargar(`tareas-${hoy()}.csv`, csv(datos.tareas), 'text/csv;charset=utf-8'); break;
-    case 'ics': descargar(`nlt-${hoy()}.ics`, ics(), 'text/calendar;charset=utf-8'); break;
+    case 'ics': descargar(`nlt-${hoy()}.ics`, ics(datos.tareas), 'text/calendar;charset=utf-8'); break;
     case 'exportar': descargar(`tareas-nlt-copia-${hoy()}.json`, JSON.stringify(datos, null, 1), 'application/json'); break;
     case 'importar': $('#fimport').click(); break;
     case 'notif':
@@ -820,10 +1214,15 @@ async function accion(a) {
 
 main.addEventListener('change', async e => {
   const el = e.target;
+  const a = datos.ajustes;
   if (el.id === 'fcat') { filtro.cat = el.value; render(); }
+  else if (el.id === 'fresp') { filtro.resp = el.value; render(); }
   else if (el.id === 'periodo') { periodo = el.value; render(); }
-  else if (el.id === 'avisoDias') { datos.ajustes.avisoDias = +el.value; guardar(); }
-  else if (el.id === 'tema') { datos.ajustes.tema = el.value; guardar(); aplicarTema(); }
+  else if (el.id === 'avisoDias') { a.avisoDias = +el.value; guardar(); }
+  else if (el.id === 'avisoAntes') { a.avisoAntes = +el.value; guardar(); }
+  else if (el.id === 'avisoHora') { a.avisoHora = el.value || '09:00'; guardar(); }
+  else if (el.id === 'miNombre') { a.miNombre = el.value.trim(); guardar(); }
+  else if (el.id === 'tema') { a.tema = el.value; guardar(); aplicarTema(); }
   else if (el.id === 'fimport' && el.files[0]) {
     try {
       const d = JSON.parse(await el.files[0].text());
@@ -850,23 +1249,39 @@ main.addEventListener('submit', e => {
   if (f.id === 'rapida') {
     const titulo = f.elements.titulo.value.trim();
     if (!titulo) return;
-    datos.tareas.push({ ...normalizar({ tareas: [{}] }).tareas[0], id: nuevoId(), titulo, nlt: f.elements.nlt.value,
-      categoria: filtro.cat || datos.ajustes.ultimaCat || '', creada: new Date().toISOString() });
+    datos.tareas.push(nuevaTarea({ titulo, nlt: f.elements.nlt.value, categoria: filtro.cat || datos.ajustes.ultimaCat || '' }));
     guardar(); render();
+    toast('Añadida. Púlsala para completar la ficha');
     $('#rapida [name=titulo]').focus();
   } else if (f.id === 'registrar') {
     const min = +f.elements.min.value || 0;
     const cat = f.elements.categoria.value.trim();
     const fin = Date.now();
     if (cat && !datos.categorias.includes(cat)) datos.categorias.push(cat);
-    datos.tareas.push({ ...normalizar({ tareas: [{}] }).tareas[0], id: nuevoId(), titulo: f.elements.titulo.value.trim(),
-      categoria: cat, estado: 'hecha', creada: new Date(fin - min * 60000).toISOString(), hecha: new Date(fin).toISOString(),
-      tiempo: min ? [{ inicio: fin - min * 60000, fin }] : [] });
+    datos.tareas.push(nuevaTarea({ titulo: f.elements.titulo.value.trim(), categoria: cat, estado: 'hecha', avisos: [],
+      creada: new Date(fin - min * 60000).toISOString(), hecha: new Date(fin).toISOString(),
+      tiempo: min ? [{ inicio: fin - min * 60000, fin }] : [] }));
     guardar(); render(); toast('Anotado');
   } else if (f.id === 'nuevaCat') {
     const c = f.elements.c.value.trim();
     if (c && !datos.categorias.includes(c)) { datos.categorias.push(c); guardar(); }
     render();
+  } else if (f.id === 'fpersona') {
+    const p = Object.fromEntries(['nombre', 'cargo', 'email', 'telefono'].map(k => [k, f.elements[k].value.trim()]));
+    if (!p.nombre) return;
+    const ant = datos.personas[personaEdit];
+    if (ant) {
+      if (ant.nombre !== p.nombre) datos.tareas.forEach(t => {
+        if (t.responsable === ant.nombre) t.responsable = p.nombre;
+        if (t.ordenadaPor === ant.nombre) t.ordenadaPor = p.nombre;
+        t.colaboradores = t.colaboradores.map(c => c === ant.nombre ? p.nombre : c);
+      });
+      datos.personas[personaEdit] = p;
+    } else if (datos.personas.some(x => x.nombre === p.nombre)) {
+      toast('Ya hay una persona con ese nombre'); return;
+    } else datos.personas.push(p);
+    personaEdit = -1;
+    guardar(); render();
   }
 });
 
@@ -893,21 +1308,47 @@ main.addEventListener('drop', e => {
 $('#fab').addEventListener('click', () => abrirEditor(null, location.hash === '#calendario' ? { nlt: diaSel } : {}));
 
 // ---------- Avisos ----------
+async function notificar(titulo, cuerpo, tag) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg) reg.showNotification(titulo, { body: cuerpo, icon: 'icon-192.png', tag });
+    else new Notification(titulo, { body: cuerpo, icon: 'icon-192.png', tag });
+  } catch { /* el navegador no permite notificaciones aquí */ }
+}
+
+// Resumen diario de NLT vencidas y de hoy
 async function avisar() {
-  if (!('Notification' in window) || Notification.permission !== 'granted' || datos.ajustes.ultimoAviso === hoy()) return;
+  if (datos.ajustes.ultimoAviso === hoy()) return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const abiertas = datos.tareas.filter(t => t.estado !== 'hecha');
   const venc = abiertas.filter(t => urgencia(t).grupo === 'vencidas').length;
   const deHoy = abiertas.filter(t => urgencia(t).grupo === 'hoy');
   datos.ajustes.ultimoAviso = hoy();
   guardar();
   if (!venc && !deHoy.length) return;
-  const cuerpo = [venc ? `${venc} NLT vencida${venc > 1 ? 's' : ''}` : '', deHoy.length ? `Hoy: ${deHoy.map(t => t.titulo).join(', ')}` : '']
-    .filter(Boolean).join(' · ');
-  const reg = await navigator.serviceWorker?.getRegistration();
-  if (reg) reg.showNotification('Tareas NLT', { body: cuerpo, icon: 'icon.svg', tag: 'nlt' });
-  else new Notification('Tareas NLT', { body: cuerpo, icon: 'icon.svg' });
+  notificar('Tareas NLT', [venc ? `${venc} NLT vencida${venc > 1 ? 's' : ''}` : '', deHoy.length ? `Hoy: ${deHoy.map(t => t.titulo).join(', ')}` : '']
+    .filter(Boolean).join(' · '), 'nlt');
 }
 
+// Cada minuto: avisos de tarea que acaban de llegar a su hora (una vez por dispositivo)
+function revisarAvisos() {
+  const clave = CLAVE + '-avisado';
+  let desde = 0;
+  try { desde = +localStorage.getItem(clave) || 0; } catch { /* sin memoria local */ }
+  const ahora = Date.now();
+  try { localStorage.setItem(clave, String(ahora)); } catch { /* sin memoria local */ }
+  if (!desde) return;
+  const nuevos = datos.tareas.filter(t => t.estado !== 'hecha'
+    && momentosAviso(t).some(m => m.ms > desde && m.ms <= ahora && m.ms > (t.avisoVisto || 0)));
+  if (!nuevos.length) return;
+  render(true);
+  nuevos.forEach(t => notificar(`🔔 ${t.titulo}`, `${t.nlt ? 'NLT ' + fmtFecha(t.nlt) + ' · ' + urgencia(t).txt : 'Aviso'}`, 'aviso-' + t.id));
+  toast(`🔔 ${nuevos.map(t => t.titulo).join(' · ')}`);
+}
+setInterval(revisarAvisos, 60000);
+
+revisarAvisos();
 // ---------- Sincronización entre dispositivos (claude.ai) ----------
 // Cada tarea es un documento en el espacio privado del usuario: data/users/<id>/nlt/tareas/<tarea>.
 // Ajustes, categorías y cronómetro van en data/users/<id>/config. «base» guarda el último estado
@@ -916,7 +1357,7 @@ async function avisar() {
 // Orden de claves fijo, para comparar documentos que vuelven de la nube con otro orden.
 const estable = v => JSON.stringify(v, (k, x) => x && typeof x === 'object' && !Array.isArray(x)
   ? Object.fromEntries(Object.keys(x).sort().map(c => [c, x[c]])) : x);
-const configDe = d => ({ categorias: d.categorias, ajustes: d.ajustes, activo: d.activo });
+const configDe = d => ({ categorias: d.categorias, personas: d.personas, ajustes: d.ajustes, activo: d.activo });
 const CFG = '__config';
 
 function cargarBase() {

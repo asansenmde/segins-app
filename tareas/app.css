@@ -181,3 +181,26 @@ dialog::backdrop { background: rgba(0,0,0,.45); }
 .nube { font-size: .8rem; font-weight: 700; opacity: .9; white-space: nowrap; }
 dialog.pregunta { width: min(420px, calc(100vw - 32px)); }
 dialog.pregunta p { margin: 0; }
+
+/* ---------- Ficha completa ---------- */
+.filtros { grid-template-columns: 1fr 1fr; }
+.filtros #fq { grid-column: 1 / -1; }
+.filtros select { width: 100%; }
+@media (min-width: 720px) { .filtros { grid-template-columns: 2fr 1fr 1fr; } .filtros #fq { grid-column: auto; } }
+.ref { font-size: .72rem; color: var(--muted); font-weight: 700; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.prio-critica { color: var(--bad); font-weight: 800; }
+.badge.crit { background: var(--bad); color: #fff; }
+.persona { display: inline-flex; align-items: center; gap: 5px; font-size: .8rem; font-weight: 600; padding: 1px 8px 1px 1px; border-radius: 999px; background: var(--surface-2); }
+.persona i { font-style: normal; width: 20px; height: 20px; border-radius: 50%; background: var(--brand); color: var(--on-brand); display: grid; place-items: center; font-size: .62rem; }
+.persona a { color: var(--bad); text-decoration: none; margin-left: 2px; }
+.dsec { margin: 22px 0 2px; padding-top: 12px; border-top: 1px solid var(--line); font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--brand-2); }
+.dlg-b > .dsec:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.acciones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+.avisos { border-color: var(--bad); }
+.avisos .tarea { box-shadow: none; }
+.tabla { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.tabla th, .tabla td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+.tabla th { color: var(--muted); font-size: .75rem; text-transform: uppercase; }
+.tabla td:not(:first-child), .tabla th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.txt-bad { color: var(--bad); font-weight: 700; }
+output { font-weight: 700; color: var(--text); }

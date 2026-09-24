@@ -8,10 +8,22 @@ App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber 
 - **Mis NLT** (inicio): contador de NLT vencidas, que vencen hoy, en los próximos 7 días y abiertas.
   Las tareas se agrupan por urgencia con semáforo (rojo: vencida u hoy; naranja: quedan pocos días;
   verde: con margen). Alta rápida con título + NLT, búsqueda y filtro por categoría.
-- **Tarea**: título, NLT y hora límite (con atajos Hoy / Mañana / +1 semana…), categoría, prioridad,
-  estado (pendiente, en curso, en espera, hecha), repetición (diaria, semanal, mensual, anual: al
-  terminarla se crea la siguiente con su nueva NLT), notas, pasos con barra de progreso, bitácora de
-  avances y **cronómetro** de tiempo dedicado (o minutos añadidos a mano).
+- **Ficha de la tarea**, en seis apartados:
+  1. *La tarea*: asunto, referencia correlativa (T-2026-001…), prioridad (crítica, alta, media, baja),
+     descripción e instrucciones, categoría y lugar o instalación.
+  2. *Quién*: quién la ordena y cuándo, responsable (asignación a otra persona) y colaboradores.
+  3. *Plazo y avisos*: NLT con hora, atajos (hoy, +1 semana…), **avisos o alarmas** varios por tarea
+     (n días antes del NLT o en una fecha y hora concretas), repetición y tiempo estimado. Cambiar un NLT
+     exige indicar el motivo: queda la NLT original y el historial de prórrogas.
+  4. *Seguimiento*: estado, avance (automático según los pasos o manual), pasos, dependencias de otras
+     tareas (se marca «Bloqueada»), cronómetro y bitácora con historial automático de cambios.
+  5. *Observaciones y documentos*: observaciones y enlaces (Drive, SharePoint, web).
+  6. *Cierre*: resultado o informe de cumplimiento.
+  Desde la ficha se puede **enviar al responsable** (texto listo para correo o WhatsApp) y pasarla al calendario.
+- **Avisos**: los que han llegado a su hora aparecen arriba en *Mis NLT* con «Visto» y «Recordar mañana»;
+  con la app abierta, además, notificación. Para alarmas con la app cerrada, exportar a calendario (.ics).
+- **Equipo** (en Ajustes): personas con cargo, correo y teléfono; filtro por responsable («mías» o
+  «delegadas») y tabla de carga de trabajo por responsable en *Lo que hago*.
 - **Tablero** por estados: arrastrar y soltar en escritorio, botones ◀ ▶ en el móvil.
 - **Calendario** mensual con las NLT de cada día; se pueden crear tareas en un día concreto.
 - **Lo que hago** (actividad): por periodo (hoy, semana, mes…) muestra tareas hechas, % entregadas
