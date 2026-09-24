@@ -91,7 +91,7 @@ export async function ajustes(main) {
 
   main.querySelector('#exp').onclick = async () => {
     await volcarPendientes();
-    descargar(await db.exportBackup(), `segins_copia_${hoyISO()}.segins`);
+    await descargar(await db.exportBackup(), `segins_copia_${hoyISO()}.json`);
   };
 
   main.querySelector('#imp').onclick = async () => {

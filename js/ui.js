@@ -74,7 +74,20 @@ export function leerForm(root) {
   return o;
 }
 
-export function descargar(blob, nombre) {
+// Dentro de claude.ai la página no puede descargar por sí misma: se pide al visor con la capacidad "downloads".
+let capDescargas = null;
+const descargasVisor = () => (capDescargas ||= window.claude?.use ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null));
+
+export async function descargar(blob, nombre) {
+  const dl = await descargasVisor();
+  if (dl) {
+    try {
+      await dl.save({ filename: nombre, data: blob });
+    } catch (e) {
+      if (e?.code !== 'declined') toast('No se pudo guardar el archivo: ' + (e?.message || e?.code), 4000);
+    }
+    return;
+  }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = nombre;
@@ -95,5 +108,5 @@ export async function compartirODescargar(blob, nombre) {
       if (e.name === 'AbortError') return;
     }
   }
-  descargar(blob, nombre);
+  await descargar(blob, nombre);
 }
