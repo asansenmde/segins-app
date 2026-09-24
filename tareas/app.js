@@ -18,6 +18,7 @@ const TAREA_BASE = {
   nlt: '', hora: '', nltOriginal: '', prorrogas: [], avisos: [], avisoVisto: 0,
   estado: 'pendiente', repetir: '', progreso: 0, estimacionH: 0, dependeDe: [], enlaces: [], resultado: '',
   creada: '', hecha: null, subtareas: [], tiempo: [], registro: [], gcal: null,
+  espacio: 'personal', responsableId: '', creadorId: '', asignadaEn: 0, acuses: {},
 };
 const LISTAS = Object.keys(TAREA_BASE).filter(k => Array.isArray(TAREA_BASE[k]));
 
@@ -31,7 +32,8 @@ const dlg2 = $('#dlg2');
 
 // ---------- Datos ----------
 let datos = cargar();
-const nube = { lista: false, estado: 'local', base: cargarBase(), pendientes: new Map(), cola: Promise.resolve(), temporizador: 0, error: false };
+const nube = { lista: false, equipo: false, equipoSoloLectura: false, uid: null, user: null, miNombre: '', miembros: [], nombres: new Map(),
+  estado: 'local', base: cargarBase(), pendientes: new Map(), cola: Promise.resolve(), temporizador: 0, error: false };
 
 function cargar() {
   try {
@@ -45,6 +47,8 @@ function normalizarTarea(t) {
   const n = { ...structuredClone(TAREA_BASE), ...t };
   LISTAS.forEach(k => { if (!Array.isArray(n[k])) n[k] = []; });
   if (!PRIOS[n.prioridad]) n.prioridad = 'media';
+  if (!n.acuses || typeof n.acuses !== 'object' || Array.isArray(n.acuses)) n.acuses = {};
+  if (n.espacio !== 'equipo') n.espacio = 'personal';
   return n;
 }
 
@@ -54,6 +58,9 @@ function normalizar(d) {
     categorias: d.categorias?.length ? d.categorias : [...CATS_BASE],
     personas: Array.isArray(d.personas) ? d.personas : [],
     gcalBorrar: Array.isArray(d.gcalBorrar) ? d.gcalBorrar : [],
+    gcalMapa: d.gcalMapa && typeof d.gcalMapa === 'object' ? d.gcalMapa : {},
+    vistos: d.vistos && typeof d.vistos === 'object' ? d.vistos : {},
+    avisosPropios: d.avisosPropios && typeof d.avisosPropios === 'object' ? d.avisosPropios : {},
     ajustes: { avisoDias: 3, tema: 'auto', ultimoAviso: '', miNombre: '', avisoAntes: 1, avisoHora: '09:00', gcal: false, gcalCal: '', ...(d.ajustes || {}) },
     activo: d.activo || null,
   };
@@ -78,6 +85,7 @@ function nuevaReferencia() {
 }
 
 function nuevaTarea(extra = {}) {
+  if (extra.espacio === 'equipo' && !extra.creadorId) extra = { ...extra, creadorId: nube.uid || '' };
   const a = datos.ajustes;
   const t = normalizarTarea({
     id: nuevoId(), referencia: nuevaReferencia(), creada: new Date().toISOString(),
@@ -88,7 +96,7 @@ function nuevaTarea(extra = {}) {
   return t;
 }
 
-const anotar = (t, texto, auto = true) => t.registro.push({ fecha: new Date().toISOString(), texto, auto });
+const anotar = (t, texto, auto = true) => t.registro.push({ fecha: new Date().toISOString(), texto, auto, ...(nube.uid ? { uid: nube.uid } : {}) });
 
 // ---------- Utilidades ----------
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -180,8 +188,9 @@ const ordenar = (a, b) =>
   || ORDEN_PRIO[a.prioridad] - ORDEN_PRIO[b.prioridad] || a.titulo.localeCompare(b.titulo);
 
 // Momentos de aviso de una tarea: «n días antes del NLT» o una fecha concreta, siempre con hora
-function momentosAviso(t) {
-  return t.avisos.map(a => {
+function momentosAviso(t, conPropios = true) {
+  const avisos = conPropios && enEquipo(t) ? [...t.avisos, ...(datos.avisosPropios[t.id] || [])] : t.avisos;
+  return avisos.map(a => {
     const f = a.tipo === 'fecha' ? a.fecha : t.nlt ? sumarDias(t.nlt, -(+a.dias || 0)) : '';
     if (!f) return null;
     const [h, m] = (a.hora || '09:00').split(':').map(Number);
@@ -191,14 +200,30 @@ function momentosAviso(t) {
     return { ms: d.getTime(), a, txt };
   }).filter(Boolean).sort((x, y) => x.ms - y.ms);
 }
-const avisoActivo = t => t.estado !== 'hecha' && momentosAviso(t).some(m => m.ms <= Date.now() && m.ms > (t.avisoVisto || 0));
+const avisoActivo = t => t.estado !== 'hecha' && meToca(t) && momentosAviso(t).some(m => m.ms <= Date.now() && m.ms > vistoDe(t));
 const proximoAviso = t => t.estado !== 'hecha' ? momentosAviso(t).find(m => m.ms > Date.now()) : null;
 
 const bloqueantes = t => t.dependeDe.map(buscar).filter(d => d && d.estado !== 'hecha');
 const progreso = t => t.estado === 'hecha' ? 100
   : t.subtareas.length ? Math.round(t.subtareas.filter(s => s.ok).length / t.subtareas.length * 100) : +t.progreso || 0;
 const prorrogas = t => t.prorrogas.filter(p => p.de && p.a > p.de).length;
-const esMia = t => !t.responsable || t.responsable === datos.ajustes.miNombre;
+// Equipo: las tareas compartidas llevan responsable por id de usuario; lo personal de cada uno va en su config
+const enEquipo = t => t.espacio === 'equipo';
+const nombreDe = uid => uid === nube.uid ? (datos.ajustes.miNombre || nube.miNombre || 'Yo') : (nube.nombres.get(uid) || 'Miembro del equipo');
+const nombreResp = t => t.responsableId ? nombreDe(t.responsableId) : t.responsable;
+const esMia = t => t.responsableId ? t.responsableId === nube.uid
+  : enEquipo(t) ? false : (!t.responsable || t.responsable === datos.ajustes.miNombre);
+// A quién le suenan los avisos y va a su Google Calendar: personales, o de equipo asignadas a mí (o creadas por mí sin asignar)
+const meToca = t => !enEquipo(t) || t.responsableId === nube.uid || (!t.responsableId && t.creadorId === nube.uid);
+const vistoDe = t => enEquipo(t) ? (datos.vistos[t.id] || 0) : (t.avisoVisto || 0);
+const puedeEquipo = () => nube.equipo && !nube.equipoSoloLectura;
+const soloLectura = t => enEquipo(t) && !puedeEquipo();
+const pendienteEnterado = t => enEquipo(t) && t.estado !== 'hecha' && t.responsableId && !((t.acuses[t.responsableId] || 0) >= t.asignadaEn);
+const gcalDe = t => enEquipo(t) ? datos.gcalMapa[t.id] || null : t.gcal;
+function ponerGcal(t, g) {
+  if (!enEquipo(t)) { t.gcal = g; return; }
+  if (g) datos.gcalMapa[t.id] = g; else delete datos.gcalMapa[t.id];
+}
 const persona = nombre => datos.personas.find(p => p.nombre === nombre);
 
 function siguienteNlt(nlt, rep) {
@@ -219,6 +244,7 @@ function siguienteNlt(nlt, rep) {
 function marcarHecha(id, hecha) {
   const t = buscar(id);
   if (!t) return;
+  if (soloLectura(t)) { toast('Solo puedes consultar las tareas del equipo'); return; }
   if (hecha) {
     if (datos.activo?.id === id) pararTiempo();
     t.estado = 'hecha';
@@ -248,6 +274,7 @@ function marcarHecha(id, hecha) {
 function cambiarEstado(id, estado) {
   const t = buscar(id);
   if (!t || t.estado === estado) return;
+  if (soloLectura(t)) { toast('Solo puedes consultar las tareas del equipo'); return; }
   if (estado === 'hecha') return marcarHecha(id, true);
   anotar(t, `Estado: ${NOMBRE_ESTADO[t.estado]} → ${NOMBRE_ESTADO[estado]}`);
   if (t.estado === 'hecha') t.hecha = null;
@@ -269,7 +296,7 @@ function pararTiempo() {
   const a = datos.activo;
   if (!a) return;
   const t = buscar(a.id);
-  if (t && Date.now() - a.inicio > 30000) t.tiempo.push({ inicio: a.inicio, fin: Date.now() });
+  if (t && Date.now() - a.inicio > 30000) t.tiempo.push({ inicio: a.inicio, fin: Date.now(), ...(nube.uid ? { uid: nube.uid } : {}) });
   datos.activo = null;
   guardar();
   pintarCrono();
@@ -290,19 +317,22 @@ $('#btnTimer').addEventListener('click', () => { pararTiempo(); toast('Tiempo re
 setInterval(pintarCrono, 1000);
 
 // ---------- Componentes ----------
-let filtro = { q: '', cat: '', resp: '', kpi: '' };
+let filtro = { q: '', cat: '', resp: '', esp: '', kpi: '' };
 
 function filtrar(lista) {
   const q = filtro.q.trim().toLowerCase();
   return lista.filter(t => (!filtro.cat || t.categoria === filtro.cat)
-    && (!filtro.resp || (filtro.resp === '__mias' ? esMia(t) : filtro.resp === '__otros' ? !esMia(t) : t.responsable === filtro.resp))
-    && (!q || [t.titulo, t.referencia, t.descripcion, t.notas, t.categoria, t.lugar, t.responsable, t.ordenadaPor, ...t.colaboradores]
+    && (!filtro.esp || t.espacio === filtro.esp)
+    && (!filtro.resp || (filtro.resp === '__mias' ? esMia(t) : filtro.resp === '__otros' ? !esMia(t) && !!nombreResp(t)
+      : filtro.resp === '__sin' ? enEquipo(t) && !nombreResp(t) : nombreResp(t) === filtro.resp))
+    && (!q || [t.titulo, t.referencia, t.descripcion, t.notas, t.categoria, t.lugar, nombreResp(t), t.ordenadaPor, ...t.colaboradores]
       .join(' ').toLowerCase().includes(q)));
 }
 
 function responsablesUsados() {
   const s = new Set(datos.personas.map(p => p.nombre));
-  datos.tareas.forEach(t => t.responsable && s.add(t.responsable));
+  nube.miembros.filter(id => id !== nube.uid).forEach(id => s.add(nombreDe(id)));
+  datos.tareas.forEach(t => nombreResp(t) && !esMia(t) && s.add(nombreResp(t)));
   s.delete(datos.ajustes.miNombre);
   return [...s].sort();
 }
@@ -316,7 +346,11 @@ function barraFiltros() {
     <select class="input" id="fresp"><option value="">Todos los responsables</option>
       <option value="__mias" ${r === '__mias' ? 'selected' : ''}>Asignadas a mí</option>
       <option value="__otros" ${r === '__otros' ? 'selected' : ''}>Delegadas en otros</option>
+      ${nube.equipo ? `<option value="__sin" ${r === '__sin' ? 'selected' : ''}>Equipo sin asignar</option>` : ''}
       ${responsablesUsados().map(p => `<option ${p === r ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>
+    ${nube.equipo ? `<select class="input" id="fesp"><option value="">Personales y de equipo</option>
+      <option value="personal" ${filtro.esp === 'personal' ? 'selected' : ''}>Solo personales</option>
+      <option value="equipo" ${filtro.esp === 'equipo' ? 'selected' : ''}>Solo de equipo</option></select>` : ''}
   </div>`;
 }
 
@@ -348,12 +382,16 @@ function tarjeta(t, extra = '') {
         ${nPr ? `<span class="badge warn" title="NLT original: ${fmtFecha(t.nltOriginal)}">Prorrogada ×${nPr}</span>` : ''}
         ${avisoActivo(t) ? '<span class="badge bad">🔔 Aviso</span>' : ''}
         ${bloq ? `<span class="badge bad" title="Depende de tareas sin terminar">⛔ Bloqueada</span>` : ''}
-        ${t.responsable && !esMia(t) ? `<span class="persona" title="Responsable: ${esc(t.responsable)}"><i>${esc(iniciales(t.responsable))}</i>${esc(t.responsable)}</span>` : ''}
+        ${enEquipo(t) ? '<span class="badge equipo" title="Tarea del equipo">👥 Equipo</span>' : ''}
+        ${nombreResp(t) && !esMia(t) ? `<span class="persona" title="Responsable: ${esc(nombreResp(t))}"><i>${esc(iniciales(nombreResp(t)))}</i>${esc(nombreResp(t))}</span>` : ''}
+        ${enEquipo(t) && !nombreResp(t) && !hecha ? '<span class="badge none">Sin asignar</span>' : ''}
+        ${enEquipo(t) && t.responsableId && t.responsableId !== nube.uid && !hecha
+          ? (pendienteEnterado(t) ? '<span class="badge warn" title="El responsable aún no ha confirmado">Sin «enterado»</span>' : '<span class="badge ok">✓ Enterado</span>') : ''}
         ${t.categoria ? `<span class="chip">${esc(t.categoria)}</span>` : ''}
         ${t.lugar ? `<span class="muted">📍 ${esc(t.lugar)}</span>` : ''}
         ${t.estado === 'curso' || t.estado === 'espera' ? `<span class="badge info">${NOMBRE_ESTADO[t.estado]}</span>` : ''}
         ${t.repetir ? `<span class="muted" title="${REPETIR[t.repetir]}">↻</span>` : ''}
-        ${t.gcal?.id && !hecha ? '<span class="muted" title="En Google Calendar">📅</span>' : ''}
+        ${gcalDe(t)?.id && !hecha ? '<span class="muted" title="En Google Calendar">📅</span>' : ''}
         ${t.subtareas.length ? `<span class="muted">☑ ${subOk}/${t.subtareas.length}</span>` : ''}
         ${tt ? `<span class="muted">⏱ ${fmtDur(tt)}</span>` : ''}
         ${datos.activo?.id === t.id ? '<span class="badge warn">En marcha</span>' : ''}
@@ -385,9 +423,14 @@ function vistaNlt() {
   }).join('');
 
   const avisos = filtrar(datos.tareas).filter(avisoActivo).sort(ordenar);
+  const asignadas = datos.tareas.filter(t => t.responsableId === nube.uid && pendienteEnterado(t)).sort(ordenar);
   const hechas = lista.filter(t => t.estado === 'hecha').sort((a, b) => (b.hecha || '').localeCompare(a.hecha || ''));
 
   return `
+    ${asignadas.length ? `<section class="card asignadas"><h3>📥 Te han asignado (${asignadas.length})</h3>
+      <p class="small muted">Confirma con «Enterado» para que quien la encargó sepa que la has recibido.</p>
+      ${asignadas.map(t => tarjeta(t, `<div class="row gap" style="margin-top:8px">
+        <button class="btn sm primary" data-enterado="${t.id}">✓ Enterado</button></div>`)).join('')}</section>` : ''}
     ${avisos.length ? `<section class="card avisos"><h3>🔔 Avisos (${avisos.length})</h3>
       ${avisos.map(t => tarjeta(t, `<div class="row gap" style="margin-top:8px">
         <button class="btn sm" data-visto="${t.id}">Visto</button>
@@ -520,7 +563,7 @@ function cargaPorResponsable() {
   const filas = {};
   for (const t of datos.tareas) {
     if (t.estado === 'hecha') continue;
-    const r = esMia(t) ? (datos.ajustes.miNombre || 'Yo') : t.responsable;
+    const r = esMia(t) ? (datos.ajustes.miNombre || nube.miNombre || 'Yo') : nombreResp(t) || 'Sin asignar';
     const f = filas[r] ||= { abiertas: 0, vencidas: 0, criticas: 0 };
     f.abiertas++;
     if (urgencia(t).grupo === 'vencidas') f.vencidas++;
@@ -589,7 +632,7 @@ function resumenTexto() {
   const pend = datos.tareas.filter(t => t.estado !== 'hecha' && t.nlt).sort(ordenar).slice(0, 15);
   if (pend.length) {
     lineas.push('', 'Próximas NLT:');
-    pend.forEach(t => lineas.push(`- ${fmtFecha(t.nlt)}: ${t.titulo}${t.responsable && !esMia(t) ? ' (' + t.responsable + ')' : ''} — ${urgencia(t).txt}`));
+    pend.forEach(t => lineas.push(`- ${fmtFecha(t.nlt)}: ${t.titulo}${nombreResp(t) && !esMia(t) ? ' (' + nombreResp(t) + ')' : ''} — ${urgencia(t).txt}`));
   }
   return lineas.join('\n');
 }
@@ -602,9 +645,10 @@ function vistaAjustes() {
   const notif = 'Notification' in window ? Notification.permission : 'no';
   const pe = datos.personas[personaEdit] || {};
   return `
+    ${tarjetaEquipo()}
     <div class="card">
-      <h3>Equipo y personal</h3>
-      <p class="small muted">Las personas a las que encargas tareas. Con correo o teléfono podrás enviarles la ficha de la tarea.</p>
+      <h3>Personas externas y directorio</h3>
+      <p class="small muted">Personas a las que encargas tareas aunque no usen la app. Con correo o teléfono podrás enviarles la ficha.</p>
       <label class="lbl">Mi nombre (las tareas sin responsable o a mi nombre son «mías»)
         <input class="input" id="miNombre" value="${esc(a.miNombre)}" placeholder="Nombre y apellidos"></label>
       <ul class="log">${datos.personas.map((p, i) => `<li class="row between"><a href="#" data-editper="${i}" class="grow" style="color:inherit">
@@ -681,12 +725,19 @@ function abrirEditor(id, base = {}) {
     : { ...nuevaTarea({ categoria: datos.ajustes.ultimaCat || datos.categorias[0] || '', ...base }), id: null };
   sucio = false;
   const b = borrador;
+  b._nReg = b.registro.length; // lo que añada este editor a la bitácora se suma a lo que escriban otros
+  const bloqueada = soloLectura(b);
+  const miembros = [...new Set([nube.uid, ...nube.miembros, b.responsableId].filter(Boolean))];
   const nombres = [...new Set([datos.ajustes.miNombre, ...responsablesUsados()].filter(Boolean))];
   dlg.innerHTML = `<form method="dialog" id="fed" autocomplete="off">
     <div class="dlg-h"><h2>${t ? esc(t.referencia || 'Tarea') : 'Nueva tarea'}</h2><button type="button" class="icon-btn" data-cerrar aria-label="Cerrar">✕</button></div>
     <div class="dlg-b">
       <h3 class="dsec">1 · La tarea</h3>
+      ${bloqueada ? '<p class="aviso-msg">Tarea del equipo en modo consulta: no tienes permiso para modificarla.</p>' : ''}
       <label class="lbl">Asunto: qué hay que hacer *<input class="input" name="titulo" required value="${esc(b.titulo)}"></label>
+      ${nube.equipo ? `<label class="lbl">Espacio<select class="input" name="espacio" ${puedeEquipo() ? '' : 'disabled'}>
+        <option value="personal" ${!enEquipo(b) ? 'selected' : ''}>🔒 Personal: solo la veo yo</option>
+        <option value="equipo" ${enEquipo(b) ? 'selected' : ''}>👥 Equipo: la ve y actualiza todo el equipo</option></select></label>` : ''}
       <div class="grid2">
         <label class="lbl">Referencia / nº de orden<input class="input" name="referencia" value="${esc(b.referencia)}"></label>
         <label class="lbl">Prioridad<select class="input" name="prioridad">${opciones(PRIOS, b.prioridad)}</select></label>
@@ -702,7 +753,10 @@ function abrirEditor(id, base = {}) {
         <label class="lbl">Ordenada por<input class="input" name="ordenadaPor" list="dlper" value="${esc(b.ordenadaPor)}" placeholder="Quién la encarga"></label>
         <label class="lbl">Fecha de la orden<input class="input" type="date" name="fechaOrden" value="${b.fechaOrden}"></label>
       </div>
-      <label class="lbl">Responsable<input class="input" name="responsable" list="dlper" value="${esc(b.responsable)}" placeholder="${esc(datos.ajustes.miNombre || 'Yo')} (vacío = yo)"></label>
+      <label class="lbl" id="respEquipo" ${enEquipo(b) ? '' : 'hidden'}>Responsable (miembro del equipo)<select class="input" name="responsableId">
+        <option value="">— Sin asignar —</option>
+        ${miembros.map(id => `<option value="${esc(id)}" ${id === b.responsableId ? 'selected' : ''}>${esc(nombreDe(id))}${id === nube.uid ? ' (yo)' : ''}</option>`).join('')}</select></label>
+      <label class="lbl"><span id="respTxt">${enEquipo(b) ? 'O persona externa' : 'Responsable'}</span><input class="input" name="responsable" list="dlper" value="${esc(b.responsable)}" placeholder="${enEquipo(b) ? 'Nombre, si no usa la app' : esc(datos.ajustes.miNombre || 'Yo') + ' (vacío = yo)'}"></label>
       <div class="lbl">Colaboradores</div>
       <div class="row wrap" id="colabs"></div>
       <div class="row gap" style="margin-top:6px"><input class="input grow" id="ncolab" list="dlper" placeholder="Añadir colaborador (Intro)"><button type="button" class="btn" data-addcolab>+</button></div>
@@ -728,7 +782,7 @@ function abrirEditor(id, base = {}) {
         <input class="input" id="avHora" type="time" value="${esc(datos.ajustes.avisoHora || '09:00')}" style="width:auto" aria-label="Hora del aviso">
         <button type="button" class="btn" data-addaviso>+ Aviso</button>
       </div>
-      ${b.gcal?.link ? `<p class="small" style="margin-top:8px"><a href="${esc(b.gcal.link)}" target="_blank" rel="noopener">📅 Ver en Google Calendar</a></p>`
+      ${gcalDe(b)?.link ? `<p class="small" style="margin-top:8px"><a href="${esc(gcalDe(b).link)}" target="_blank" rel="noopener">📅 Ver en Google Calendar</a></p>`
         : datos.ajustes.gcal ? '<p class="small muted" style="margin-top:8px">📅 Con NLT, se enviará a Google Calendar al guardar.</p>' : ''}
       <div class="grid2">
         <label class="lbl">Repetir<select class="input" name="repetir">${opciones(REPETIR, b.repetir)}</select></label>
@@ -770,7 +824,7 @@ function abrirEditor(id, base = {}) {
       <datalist id="dlcats2">${categoriasUsadas().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
       <datalist id="dlper">${nombres.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
     </div>
-    <div class="dlg-f"><button class="btn primary" value="ok">Guardar</button></div></form>`;
+    <div class="dlg-f">${bloqueada ? '<button class="btn" value="x">Cerrar</button>' : '<button class="btn primary" value="ok">Guardar</button>'}</div></form>`;
   pintarColabs(); pintarAvisos(); pintarSubs(); pintarDeps(); pintarTiempo(); pintarRegs(); pintarEnlaces(); pintarProgreso();
   dlg.showModal();
   if (!t) $('[name=titulo]', dlg).focus();
@@ -838,7 +892,7 @@ function pintarTiempo() {
 function pintarRegs() {
   $('#regs', dlg).innerHTML = [...borrador.registro].reverse().map(r =>
     `<li class="${r.auto ? 'muted' : ''}"><span class="muted small">${new Date(r.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}</span>
-      ${r.auto ? '⚙' : '✎'} ${esc(r.texto)}</li>`).join('');
+      ${r.auto ? '⚙' : '✎'} ${esc(r.texto)}${r.uid && r.uid !== nube.uid ? ` <span class="small muted">· ${esc(nombreDe(r.uid))}</span>` : ''}</li>`).join('');
 }
 
 function pintarEnlaces() {
@@ -863,7 +917,8 @@ function leerFormulario() {
   Object.assign(borrador, {
     titulo: v('titulo').trim(), referencia: v('referencia').trim(), prioridad: v('prioridad'), descripcion: v('descripcion'),
     categoria: v('categoria').trim(), lugar: v('lugar').trim(), ordenadaPor: v('ordenadaPor').trim(), fechaOrden: v('fechaOrden'),
-    responsable: v('responsable').trim(), nlt: v('nlt'), hora: v('hora'), repetir: v('repetir'), estimacionH: +v('estimacionH') || 0,
+    responsable: v('responsable').trim(), espacio: f.elements.espacio?.value || borrador.espacio,
+    responsableId: (f.elements.espacio?.value || borrador.espacio) === 'equipo' ? f.elements.responsableId.value : '', nlt: v('nlt'), hora: v('hora'), repetir: v('repetir'), estimacionH: +v('estimacionH') || 0,
     estado: v('estado'), progreso: +v('progreso') || 0, notas: v('notas'), resultado: v('resultado'),
   });
 }
@@ -876,7 +931,15 @@ function guardarBorrador() {
   datos.ajustes.ultimaCat = b.categoria;
   const actual = b.id && buscar(b.id);
   if (actual) {
-    if (actual.responsable !== b.responsable) anotar(b, `Responsable: ${actual.responsable || 'yo'} → ${b.responsable || 'yo'}`);
+    if (nombreResp(actual) !== nombreResp(b)) anotar(b, `Responsable: ${nombreResp(actual) || 'sin asignar'} → ${nombreResp(b) || 'sin asignar'}`);
+    if (b.responsableId !== actual.responsableId) b.asignadaEn = b.responsableId ? Date.now() : 0;
+    if (b.espacio !== actual.espacio) {
+      anotar(b, b.espacio === 'equipo' ? 'Pasada al espacio del equipo' : 'Pasada a personal');
+      // Lo personal de la tarea (evento de Google Calendar) cambia de sitio con ella
+      const g = gcalDe(actual);
+      if (b.espacio === 'equipo') { b.gcal = null; b.creadorId ||= nube.uid || ''; if (g) datos.gcalMapa[b.id] = g; }
+      else { b.gcal = g; delete datos.gcalMapa[b.id]; b.responsableId = ''; }
+    }
     if (actual.prioridad !== b.prioridad) anotar(b, `Prioridad: ${PRIOS[actual.prioridad]} → ${PRIOS[b.prioridad]}`);
     if (actual.estado !== b.estado && b.estado !== 'hecha') anotar(b, `Estado: ${NOMBRE_ESTADO[actual.estado]} → ${NOMBRE_ESTADO[b.estado]}`);
     if (actual.nlt !== b.nlt) {
@@ -887,10 +950,15 @@ function guardarBorrador() {
     }
     const pasaAHecha = b.estado === 'hecha' && actual.estado !== 'hecha';
     const estado = b.estado;
-    Object.assign(actual, { ...b, tiempo: actual.tiempo, estado: pasaAHecha ? actual.estado : estado, hecha: estado === 'hecha' ? actual.hecha : null });
+    const { _nReg, ...cambio } = b;
+    Object.assign(actual, { ...cambio, tiempo: actual.tiempo, acuses: actual.acuses,
+      registro: [...actual.registro, ...b.registro.slice(_nReg)],
+      estado: pasaAHecha ? actual.estado : estado, hecha: estado === 'hecha' ? actual.hecha : null });
     if (pasaAHecha) marcarHecha(actual.id, true);
   } else {
-    const nueva = { ...b, id: nuevoId(), creada: new Date().toISOString(), hecha: null, nltOriginal: b.nlt };
+    const { _nReg, ...cambio } = b;
+    const nueva = { ...cambio, id: nuevoId(), creada: new Date().toISOString(), hecha: null, nltOriginal: b.nlt };
+    if (enEquipo(nueva)) { nueva.creadorId = nube.uid || ''; nueva.gcal = null; if (nueva.responsableId) nueva.asignadaEn = Date.now(); }
     const hecha = nueva.estado === 'hecha';
     if (hecha) nueva.estado = 'pendiente';
     datos.tareas.push(nueva);
@@ -949,7 +1017,7 @@ dlg.addEventListener('click', e => {
     const min = +$('#manmin', dlg).value;
     if (min > 0) {
       const fin = Date.now();
-      buscar(borrador.id).tiempo.push({ inicio: fin - min * 60000, fin });
+      buscar(borrador.id).tiempo.push({ inicio: fin - min * 60000, fin, ...(nube.uid ? { uid: nube.uid } : {}) });
       guardar(); pintarTiempo(); render();
     }
   } else if (d.hasAttribute('data-compartir')) {
@@ -960,7 +1028,7 @@ dlg.addEventListener('click', e => {
     descargar(`${borrador.referencia || 'tarea'}.ics`, ics([borrador]), 'text/calendar;charset=utf-8');
   } else if (d.hasAttribute('data-borrar')) {
     const id = borrador.id;
-    preguntar('¿Eliminar esta tarea?', { ok: 'Eliminar', peligro: true }).then(si => {
+    preguntar(enEquipo(borrador) ? '¿Eliminar esta tarea para TODO el equipo?' : '¿Eliminar esta tarea?', { ok: 'Eliminar', peligro: true }).then(si => {
       if (!si) return;
       if (datos.activo?.id === id) datos.activo = null;
       borrarEventosDe(datos.tareas.filter(t => t.id === id));
@@ -988,6 +1056,11 @@ dlg.addEventListener('input', e => {
   sucio = true;
   if (el.dataset.subtxt !== undefined) borrador.subtareas[el.dataset.subtxt].t = el.value;
   else if (el.name === 'nlt') revisarProrroga();
+  else if (el.name === 'espacio') {
+    const eq = el.value === 'equipo';
+    $('#respEquipo', dlg).hidden = !eq;
+    $('#respTxt', dlg).textContent = eq ? 'O persona externa' : 'Responsable';
+  }
   else if (el.name === 'progreso') pintarProgreso();
   else if (el.name === 'estimacionH') pintarTiempo();
   else if (el.id === 'avTipo') { $('#avDias', dlg).hidden = el.value === 'fecha'; $('#avFecha', dlg).hidden = el.value !== 'fecha'; }
@@ -1043,7 +1116,7 @@ function fichaTexto(t) {
   l.push(`TAREA ${t.referencia || ''}`.trim(), `Asunto: ${t.titulo}`);
   l.push(`Prioridad: ${PRIOS[t.prioridad]}${t.categoria ? ' · ' + t.categoria : ''}${t.lugar ? ' · Lugar: ' + t.lugar : ''}`);
   if (t.ordenadaPor) l.push(`Ordenada por: ${t.ordenadaPor}${t.fechaOrden ? ' (' + fmtFecha(t.fechaOrden, false) + ')' : ''}`);
-  l.push(`Responsable: ${t.responsable || datos.ajustes.miNombre || '—'}`);
+  l.push(`Responsable: ${nombreResp(t) || (enEquipo(t) ? 'sin asignar' : datos.ajustes.miNombre || '—')}`);
   if (t.colaboradores.length) l.push(`Colaboradores: ${t.colaboradores.join(', ')}`);
   l.push(`NLT: ${t.nlt ? fmtFecha(t.nlt) + (t.hora ? ' a las ' + t.hora : '') : 'sin fecha límite'}`);
   if (prorrogas(t)) l.push(`(NLT original: ${fmtFecha(t.nltOriginal)})`);
@@ -1149,12 +1222,25 @@ main.addEventListener('click', e => {
   const kpi = el.closest('[data-kpi]');
   if (kpi) { filtro.kpi = filtro.kpi === kpi.dataset.kpi ? '' : kpi.dataset.kpi; render(); return; }
   const visto = el.closest('[data-visto]');
-  if (visto) { buscar(visto.dataset.visto).avisoVisto = Date.now(); guardar(); render(); return; }
+  if (visto) {
+    const t = buscar(visto.dataset.visto);
+    if (enEquipo(t)) datos.vistos[t.id] = Date.now(); else t.avisoVisto = Date.now();
+    guardar(); render(); return;
+  }
+  const ent = el.closest('[data-enterado]');
+  if (ent) {
+    const t = buscar(ent.dataset.enterado);
+    t.acuses = { ...t.acuses, [nube.uid]: Date.now() };
+    anotar(t, 'Enterado'); guardar(); render(); toast('Confirmado: «Enterado»'); return;
+  }
   const pos = el.closest('[data-posponer]');
   if (pos) {
     const t = buscar(pos.dataset.posponer);
-    t.avisos.push({ tipo: 'fecha', fecha: sumarDias(hoy(), 1), hora: datos.ajustes.avisoHora || '09:00' });
-    t.avisoVisto = Date.now(); guardar(); render(); toast('Te lo recordaré mañana'); return;
+    const aviso = { tipo: 'fecha', fecha: sumarDias(hoy(), 1), hora: datos.ajustes.avisoHora || '09:00' };
+    // En tareas de equipo el recordatorio es solo mío: no cambia la tarea de los demás
+    if (enEquipo(t)) { (datos.avisosPropios[t.id] ||= []).push(aviso); datos.vistos[t.id] = Date.now(); }
+    else { t.avisos.push(aviso); t.avisoVisto = Date.now(); }
+    guardar(); render(); toast('Te lo recordaré mañana'); return;
   }
   const mover = el.closest('[data-mover]');
   if (mover) { cambiarEstado(mover.dataset.mover, mover.dataset.a); render(); return; }
@@ -1213,11 +1299,13 @@ async function accion(a) {
       if (await Notification.requestPermission() === 'granted') { datos.ajustes.ultimoAviso = ''; guardar(); avisar(); }
       render(); break;
     case 'borrar':
-      if (await preguntar(nube.lista ? '¿Borrar TODAS las tareas y ajustes, también en tus otros dispositivos? No se puede deshacer.'
+      if (await preguntar(nube.lista ? '¿Borrar TODAS tus tareas personales y ajustes, también en tus otros dispositivos? Las del equipo no se tocan. No se puede deshacer.'
         : '¿Borrar TODAS las tareas y ajustes de este navegador? No se puede deshacer.', { ok: 'Borrar todo', peligro: true })) {
-        const pendientes = datos.gcalBorrar;
+        // Solo lo personal: las tareas del equipo son de todos y se quedan
+        const equipo = datos.tareas.filter(enEquipo);
         borrarEventosDe(datos.tareas);
-        datos = normalizar({ gcalBorrar: pendientes, ajustes: { gcal: datos.ajustes.gcal, gcalCal: datos.ajustes.gcalCal } });
+        const pendientes = datos.gcalBorrar;
+        datos = normalizar({ tareas: equipo, gcalBorrar: pendientes, ajustes: { gcal: datos.ajustes.gcal, gcalCal: datos.ajustes.gcalCal } });
         guardar(); render(); pintarCrono();
       }
       break;
@@ -1229,6 +1317,7 @@ main.addEventListener('change', async e => {
   const a = datos.ajustes;
   if (el.id === 'fcat') { filtro.cat = el.value; render(); }
   else if (el.id === 'fresp') { filtro.resp = el.value; render(); }
+  else if (el.id === 'fesp') { filtro.esp = el.value; render(); }
   else if (el.id === 'periodo') { periodo = el.value; render(); }
   else if (el.id === 'avisoDias') { a.avisoDias = +el.value; guardar(); }
   else if (el.id === 'avisoAntes') { a.avisoAntes = +el.value; guardar(); }
@@ -1240,7 +1329,7 @@ main.addEventListener('change', async e => {
     if (!a.gcal) {
       // Al desactivar se quitan del calendario los eventos creados
       if (await preguntar('¿Quitar también de Google Calendar los eventos ya creados?', { ok: 'Quitarlos' })) {
-        borrarEventosDe(datos.tareas); datos.tareas.forEach(t => { t.gcal = null; });
+        borrarEventosDe(datos.tareas); datos.tareas.forEach(t => ponerGcal(t, null));
         guardar(); await pasarGcal({ soloBorrar: true });
       }
     }
@@ -1252,11 +1341,13 @@ main.addEventListener('change', async e => {
     try {
       const d = JSON.parse(await el.files[0].text());
       if (!Array.isArray(d.tareas)) throw new Error();
-      if (await preguntar(`La copia tiene ${d.tareas.length} tareas. ¿Sustituir los datos actuales?`, { ok: 'Sustituir', peligro: true })) {
+      if (await preguntar(`La copia tiene ${d.tareas.filter(t => t.espacio !== 'equipo').length} tareas personales. ¿Sustituir tus tareas personales y ajustes? Las del equipo no se tocan.`, { ok: 'Sustituir', peligro: true })) {
+        // Se restauran las tareas personales y los ajustes; las del equipo actuales no se tocan
         const nuevos = new Set(d.tareas.map(t => t.gcal?.id).filter(Boolean));
-        borrarEventosDe(datos.tareas.filter(t => t.gcal?.id && !nuevos.has(t.gcal.id)));
-        const cola = datos.gcalBorrar;
-        datos = normalizar(d); datos.gcalBorrar.push(...cola);
+        borrarEventosDe(datos.tareas.filter(t => !enEquipo(t) && t.gcal?.id && !nuevos.has(t.gcal.id)));
+        const cola = datos.gcalBorrar, equipo = datos.tareas.filter(enEquipo), mapa = datos.gcalMapa;
+        datos = normalizar({ ...d, tareas: d.tareas.filter(t => t.espacio !== 'equipo') });
+        datos.tareas.push(...equipo); datos.gcalBorrar.push(...cola); datos.gcalMapa = { ...datos.gcalMapa, ...mapa };
         guardar(); aplicarTema(); render(); pintarCrono(); toast('Copia restaurada');
       }
     } catch { toast('El archivo no es una copia válida de Tareas NLT'); }
@@ -1369,7 +1460,7 @@ function revisarAvisos() {
   try { localStorage.setItem(clave, String(ahora)); } catch { /* sin memoria local */ }
   if (!desde) return;
   const nuevos = datos.tareas.filter(t => t.estado !== 'hecha'
-    && momentosAviso(t).some(m => m.ms > desde && m.ms <= ahora && m.ms > (t.avisoVisto || 0)));
+    && meToca(t) && momentosAviso(t).some(m => m.ms > desde && m.ms <= ahora && m.ms > vistoDe(t)));
   if (!nuevos.length) return;
   render(true);
   nuevos.forEach(t => notificar(`🔔 ${t.titulo}`, `${t.nlt ? 'NLT ' + fmtFecha(t.nlt) + ' · ' + urgencia(t).txt : 'Aviso'}`, 'aviso-' + t.id));
@@ -1378,16 +1469,22 @@ function revisarAvisos() {
 setInterval(revisarAvisos, 60000);
 
 revisarAvisos();
-// ---------- Sincronización entre dispositivos (claude.ai) ----------
-// Cada tarea es un documento en el espacio privado del usuario: data/users/<id>/nlt/tareas/<tarea>.
-// Ajustes, categorías y cronómetro van en data/users/<id>/config. «base» guarda el último estado
-// conocido de la nube para fusionar a tres bandas: gana el lado que haya cambiado desde entonces.
+// ---------- Sincronización entre dispositivos y equipo (claude.ai) ----------
+// Tareas personales: espacio privado del usuario, data/users/<id>/nlt/tareas/<tarea>.
+// Tareas de equipo: espacio compartido por quienes tienen el enlace, equipo/principal/tareas/<tarea>.
+// Ajustes, categorías, cronómetro y lo que es personal de las tareas de equipo (avisos vistos, avisos
+// propios, eventos de Google Calendar) van en data/users/<id>/config.
+// «base» guarda el último estado conocido de la nube, por clave (id, o «e:id» en equipo), para fusionar a
+// tres bandas: gana el lado que haya cambiado desde entonces.
 
 // Orden de claves fijo, para comparar documentos que vuelven de la nube con otro orden.
 const estable = v => JSON.stringify(v, (k, x) => x && typeof x === 'object' && !Array.isArray(x)
   ? Object.fromEntries(Object.keys(x).sort().map(c => [c, x[c]])) : x);
-const configDe = d => ({ categorias: d.categorias, personas: d.personas, gcalBorrar: d.gcalBorrar, ajustes: d.ajustes, activo: d.activo });
+const configDe = d => ({ categorias: d.categorias, personas: d.personas, gcalBorrar: d.gcalBorrar, gcalMapa: d.gcalMapa,
+  vistos: d.vistos, avisosPropios: d.avisosPropios, ajustes: d.ajustes, activo: d.activo });
 const CFG = '__config';
+const claveDe = t => (enEquipo(t) ? 'e:' : '') + t.id;
+const aTarea = (doc, espacio) => normalizarTarea({ ...doc.data(), id: doc.id, espacio });
 
 function cargarBase() {
   try { return new Map(Object.entries(JSON.parse(localStorage.getItem(CLAVE + '-nube')) || {})); } catch { return new Map(); }
@@ -1402,33 +1499,66 @@ async function conectarNube() {
   const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]).catch(() => [null, null]);
   const uid = db && user ? await user.id().catch(() => null) : null;
   if (!uid) { nube.estado = 'local'; pintarNube(); return; }
+  nube.user = user; nube.uid = uid;
+  // Tolerante con visores antiguos que no ofrezcan me() o can()
+  Promise.resolve().then(() => user.me()).then(m => { nube.miNombre = m?.name || ''; }).catch(() => {});
+  nube.equipoSoloLectura = (await Promise.resolve().then(() => user.can('data.write')).catch(() => null)) === false;
   nube.cfgRef = db.doc(`data/users/${uid}/config`);
   nube.lockRef = db.doc(`data/users/${uid}/gcal-lock`);
   nube.tareasRef = db.doc(`data/users/${uid}/nlt`).collection('tareas');
+  nube.equipoRef = db.doc('equipo/principal').collection('tareas');
+  nube.miembrosRef = db.doc('equipo/principal').collection('miembros');
   try {
-    const [st, sc] = await Promise.all([nube.tareasRef.get(), nube.cfgRef.get()]);
-    fusionarInicio(st.docs, sc);
+    const [st, se, sc] = await Promise.all([nube.tareasRef.get(), nube.equipoRef.get(), nube.cfgRef.get()]);
+    fusionarInicio(new Map([...st.docs.map(d => [d.id, aTarea(d, 'personal')]), ...se.docs.map(d => ['e:' + d.id, aTarea(d, 'equipo')])]), sc);
   } catch (e) {
     nube.estado = 'error'; pintarNube();
     if (e?.code === 'unavailable') setTimeout(conectarNube, 5000 + Math.random() * 5000);
     return;
   }
-  nube.lista = true; nube.estado = 'ok';
+  nube.lista = true; nube.equipo = true; nube.estado = 'ok';
   guardar();
   render(true); pintarCrono(); aplicarTema(); pintarNube();
-  const caida = e => { if (e?.code === 'revoked') { nube.lista = false; nube.estado = 'local'; pintarNube(); } };
-  nube.tareasRef.onSnapshot(s => cambiosRemotos(s.docChanges()), caida);
+  const caida = e => { if (e?.code === 'revoked') { nube.lista = false; nube.equipo = false; nube.estado = 'local'; pintarNube(); render(true); } };
+  nube.tareasRef.onSnapshot(s => cambiosRemotos(s.docChanges(), 'personal'), caida);
+  nube.equipoRef.onSnapshot(s => cambiosRemotos(s.docChanges(), 'equipo'), caida);
   nube.cfgRef.onSnapshot(s => { if (s.exists) configRemota(s.data()); }, caida);
+  nube.miembrosRef.onSnapshot(s => { nube.miembros = s.docs.map(d => d.id); pedirNombres(nube.miembros); render(true); }, () => {});
+  registrarMiembro();
+  pedirNombres(idsDePersonas());
 }
 
-function fusionarInicio(docs, sc) {
-  const remotas = new Map(docs.map(d => [d.id, normalizar({ tareas: [d.data()] }).tareas[0]]));
-  const locales = new Map(datos.tareas.map(t => [t.id, t]));
+// Cada persona que abre la app queda en la lista de miembros del equipo (una escritura al día como mucho)
+async function registrarMiembro() {
+  if (nube.equipoSoloLectura) return;
+  const ref = nube.miembrosRef.doc(nube.uid);
+  try {
+    const s = await ref.get();
+    if (s.exists && s.data().ultimo === hoy()) return;
+    await ref.set({ alta: s.exists ? s.data().alta : new Date().toISOString(), ultimo: hoy() });
+  } catch (e) {
+    if (e?.code === 'invalid_argument') nube.equipoSoloLectura = true;
+  }
+}
+
+const idsDePersonas = () => datos.tareas.filter(enEquipo).flatMap(t => [t.responsableId, t.creadorId, ...t.registro.map(r => r.uid)]);
+
+async function pedirNombres(ids) {
+  const faltan = [...new Set(ids)].filter(id => id && id !== nube.uid && !nube.nombres.get(id));
+  if (!faltan.length || !nube.user) return;
+  const ps = await Promise.resolve().then(() => nube.user.profiles(faltan)).catch(() => ({}));
+  let hay = false;
+  faltan.forEach(id => { const n = ps?.[id]?.name || ''; if (n) { nube.nombres.set(id, n); hay = true; } });
+  if (hay) render(true);
+}
+
+function fusionarInicio(remotas, sc) {
+  const locales = new Map(datos.tareas.map(t => [claveDe(t), t]));
   const resultado = [];
-  for (const id of new Set([...remotas.keys(), ...locales.keys()])) {
-    const R = remotas.get(id), L = locales.get(id), B = nube.base.get(id);
+  for (const k of new Set([...remotas.keys(), ...locales.keys()])) {
+    const R = remotas.get(k), L = locales.get(k), B = nube.base.get(k);
     if (R) {
-      nube.base.set(id, estable(R));
+      nube.base.set(k, estable(R));
       // Cambiada en este dispositivo sin conexión y no en la nube: se queda la local (y se sube)
       if (L && B && estable(L) !== B && estable(R) === B) resultado.push(L);
       // Borrada aquí sin conexión y sin cambios en la nube: no se recupera (se borrará arriba)
@@ -1437,7 +1567,7 @@ function fusionarInicio(docs, sc) {
     } else if (L && !B) {
       resultado.push(L); // creada aquí y aún no subida
     } else {
-      nube.base.delete(id); // borrada en otro dispositivo
+      nube.base.delete(k); // borrada en otro dispositivo o por otro miembro
     }
   }
   datos.tareas = resultado;
@@ -1449,30 +1579,34 @@ function fusionarInicio(docs, sc) {
   guardarBase();
 }
 
-function cambiosRemotos(cambios) {
+function cambiosRemotos(cambios, espacio) {
+  const pre = espacio === 'equipo' ? 'e:' : '';
   let hay = false;
+  const quien = new Set();
   for (const ch of cambios) {
-    const id = ch.doc.id;
-    if (nube.pendientes.has(id)) continue;
-    const B = nube.base.get(id);
-    const i = datos.tareas.findIndex(t => t.id === id);
+    const k = pre + ch.doc.id;
+    if (nube.pendientes.has(k)) continue;
+    const B = nube.base.get(k);
+    const i = datos.tareas.findIndex(t => claveDe(t) === k);
     const L = datos.tareas[i];
     const localSinSubir = L ? estable(L) !== B : B !== undefined;
     if (ch.type === 'removed') {
-      nube.base.delete(id);
+      nube.base.delete(k);
       if (L && !localSinSubir) { datos.tareas.splice(i, 1); hay = true; }
       continue;
     }
-    const R = normalizar({ tareas: [ch.doc.data()] }).tareas[0];
+    const R = aTarea(ch.doc, espacio);
     const r = estable(R);
     if (r === B) continue;          // eco de un envío propio
-    nube.base.set(id, r);
+    nube.base.set(k, r);
     if (localSinSubir && B !== undefined) continue; // hay un cambio local pendiente: gana y se sube
     if (L) datos.tareas[i] = R; else datos.tareas.push(R);
+    if (espacio === 'equipo') [R.responsableId, R.creadorId].forEach(x => x && quien.add(x));
     hay = true;
   }
   guardarBase();
   if (hay) aplicarRemoto();
+  if (quien.size) pedirNombres([...quien]);
 }
 
 function configRemota(data) {
@@ -1487,8 +1621,9 @@ function configRemota(data) {
 
 function aplicarRemoto() {
   try { localStorage.setItem(CLAVE, JSON.stringify(datos)); } catch { /* sin caché local */ }
+  programarGcal(); // p. ej., otro miembro me asigna una tarea o le cambia el NLT
   render(true); pintarCrono();
-  if (dlg.open && borrador?.id && !buscar(borrador.id)) { dlg.close(); toast('La tarea se eliminó en otro dispositivo'); }
+  if (dlg.open && borrador?.id && !buscar(borrador.id)) { dlg.close(); toast('Esta tarea se ha eliminado en otro dispositivo o por otro miembro'); }
 }
 
 // Sube lo que ha cambiado respecto a la última versión conocida de la nube, un envío cada vez.
@@ -1496,23 +1631,28 @@ function subir() {
   if (!nube.lista) return;
   const vivas = new Set();
   for (const t of datos.tareas) {
-    vivas.add(t.id);
+    const k = claveDe(t);
+    vivas.add(k);
+    if (k.startsWith('e:') && nube.equipoSoloLectura) continue;
     const j = estable(t);
-    if (nube.base.get(t.id) !== j) encolar(t.id, j);
+    if (nube.base.get(k) !== j) encolar(k, j);
   }
-  for (const id of [...nube.base.keys()]) if (id !== CFG && !vivas.has(id)) encolar(id, null);
+  for (const k of [...nube.base.keys()]) {
+    if (k === CFG || vivas.has(k) || (k.startsWith('e:') && nube.equipoSoloLectura)) continue;
+    encolar(k, null);
+  }
   const c = estable(configDe(datos));
   if (nube.base.get(CFG) !== c) encolar(CFG, c);
 }
 
-function encolar(id, json) {
-  const anterior = nube.base.get(id);
-  if (json === null) nube.base.delete(id); else nube.base.set(id, json);
+function encolar(k, json) {
+  const anterior = nube.base.get(k);
+  if (json === null) nube.base.delete(k); else nube.base.set(k, json);
   guardarBase();
-  nube.pendientes.set(id, (nube.pendientes.get(id) || 0) + 1);
+  nube.pendientes.set(k, (nube.pendientes.get(k) || 0) + 1);
   nube.estado = 'subiendo'; pintarNube();
   nube.cola = nube.cola.then(async () => {
-    const ref = id === CFG ? nube.cfgRef : nube.tareasRef.doc(id);
+    const ref = k === CFG ? nube.cfgRef : k.startsWith('e:') ? nube.equipoRef.doc(k.slice(2)) : nube.tareasRef.doc(k);
     const enviar = () => json === null ? ref.delete() : ref.set(JSON.parse(json));
     try {
       try { await enviar(); }
@@ -1523,12 +1663,18 @@ function encolar(id, json) {
       }
     } catch (e) {
       // No se subió: se restaura la base para reintentarlo en el próximo guardado
-      if (nube.base.get(id) === json) { if (anterior === undefined) nube.base.delete(id); else nube.base.set(id, anterior); guardarBase(); }
-      nube.error = true;
-      toast(e?.code === 'quota_exceeded' ? 'La nube está llena: borra tareas antiguas' : 'No se pudo sincronizar; se reintentará');
+      if (nube.base.get(k) === json) { if (anterior === undefined) nube.base.delete(k); else nube.base.set(k, anterior); guardarBase(); }
+      if (k.startsWith('e:') && e?.code === 'invalid_argument') {
+        nube.equipoSoloLectura = true;
+        toast('Solo puedes consultar el equipo: pide permiso de edición a quien te compartió la app');
+        render(true);
+      } else {
+        nube.error = true;
+        toast(e?.code === 'quota_exceeded' ? 'La nube está llena: borra tareas antiguas' : 'No se pudo sincronizar; se reintentará');
+      }
     } finally {
-      const n = nube.pendientes.get(id) - 1;
-      if (n) nube.pendientes.set(id, n); else nube.pendientes.delete(id);
+      const n = nube.pendientes.get(k) - 1;
+      if (n) nube.pendientes.set(k, n); else nube.pendientes.delete(k);
       if (!nube.pendientes.size) { nube.estado = nube.error ? 'error' : 'ok'; nube.error = false; pintarNube(); }
     }
   });
@@ -1536,10 +1682,31 @@ function encolar(id, json) {
 
 function pintarNube() {
   const el = $('#nube');
-  const txt = { conectando: ['☁ …', 'Conectando con tu cuenta'], ok: ['☁ ✓', 'Sincronizado en todos tus dispositivos'],
+  const txt = { conectando: ['☁ …', 'Conectando con tu cuenta'], ok: ['☁ ✓', 'Sincronizado en todos tus dispositivos y con el equipo'],
     subiendo: ['☁ ↑', 'Sincronizando…'], error: ['☁ !', 'Sin sincronizar: se reintentará al hacer cambios'] }[nube.estado];
   el.hidden = !txt;
   if (txt) { el.textContent = txt[0]; el.title = txt[1]; el.setAttribute('aria-label', txt[1]); }
+}
+
+function tarjetaEquipo() {
+  if (!nube.lista) return `<div class="card"><h3>Equipo compartido</h3>
+    <p class="small muted">El espacio de equipo funciona en la versión de claude.ai.</p>
+    <a class="btn block" href="${URL_NUBE}" target="_blank" rel="noopener">Abrir Tareas NLT sincronizada</a></div>`;
+  const miembros = [...new Set([nube.uid, ...nube.miembros])];
+  return `<div class="card"><h3>👥 Equipo compartido</h3>
+    ${nube.equipoSoloLectura ? '<p class="aviso-msg">Solo puedes <b>consultar</b> las tareas del equipo. Para crear o modificar, pide a quien te compartió la app que te dé permiso <b>«Puede editar»</b>.</p>' : ''}
+    <p class="small muted">Las tareas en el espacio <b>Equipo</b> las ven y actualizan todas las personas con acceso a esta app.
+      Tus tareas <b>personales</b> siguen siendo privadas.</p>
+    <div class="lbl">Miembros (${miembros.length})</div>
+    <ul class="log">${miembros.map(id => `<li><span class="persona"><i>${esc(iniciales(nombreDe(id)))}</i>${esc(nombreDe(id))}</span>
+      ${id === nube.uid ? '<span class="small muted"> (tú)</span>' : ''}</li>`).join('')}</ul>
+    <details style="margin-top:8px"><summary><b>Cómo añadir a alguien</b></summary>
+      <ol class="small" style="padding-left:18px;margin:8px 0 0">
+        <li>Abre esta app en claude.ai y pulsa <b>Compartir</b> (arriba a la derecha).</li>
+        <li>Invítale por su correo con permiso <b>«Puede editar»</b>. Si no, solo podrá consultar.</li>
+        <li>Necesita cuenta de claude.ai. En cuanto abra el enlace, aparecerá aquí y podrás asignarle tareas.</li>
+      </ol></details>
+  </div>`;
 }
 
 // ---------- Google Calendar (conector de claude.ai) ----------
@@ -1590,7 +1757,7 @@ function entradaEvento(t, cal) {
   const base = d.getTime();
   // Google admite hasta 5 alarmas y como mucho 4 semanas antes del evento
   const minutos = [...new Set(momentosAviso(t).map(m => Math.round((base - m.ms) / 60000)).filter(x => x >= 0 && x <= 40320))].slice(0, 5);
-  const desc = [t.referencia && `Referencia: ${t.referencia}`, `Responsable: ${t.responsable || datos.ajustes.miNombre || 'yo'}`,
+  const desc = [t.referencia && `Referencia: ${t.referencia}`, `Responsable: ${nombreResp(t) || datos.ajustes.miNombre || 'yo'}`, enEquipo(t) && 'Tarea del equipo',
     t.descripcion.trim(), t.notas.trim() && `Observaciones: ${t.notas.trim()}`, '', `Abrir en Tareas NLT: ${URL_NUBE}`, `TNLT${t.id}`]
     .filter(x => x !== undefined && x !== false && x !== null).join('\n');
   const e = {
@@ -1645,9 +1812,9 @@ async function pasarGcal({ soloBorrar = false } = {}) {
     }
     if (soloBorrar) { gcal.msg = 'Eventos quitados de Google Calendar.'; return; }
     for (const t of [...datos.tareas]) {
-      const g = t.gcal;
-      if (t.estado === 'hecha' || !t.nlt) {
-        if (g?.id) { await borrarEvento(g.id, g.cal); t.gcal = null; cambios = true; }
+      const g = gcalDe(t);
+      if (t.estado === 'hecha' || !t.nlt || !meToca(t)) {
+        if (g?.id) { await borrarEvento(g.id, g.cal); ponerGcal(t, null); cambios = true; }
         continue;
       }
       const ent = entradaEvento(t, cal);
@@ -1655,8 +1822,8 @@ async function pasarGcal({ soloBorrar = false } = {}) {
       if (g?.id && g.firma === firma) continue;
       try {
         // Cambió el calendario de destino o el tipo (día completo / con hora): se rehace el evento
-        if (g?.id && (g.cal !== cal || !!g.allDay !== !!ent.allDay)) { await borrarEvento(g.id, g.cal); t.gcal = null; }
-        let id = t.gcal?.id, link = t.gcal?.link || '';
+        if (g?.id && (g.cal !== cal || !!g.allDay !== !!ent.allDay)) { await borrarEvento(g.id, g.cal); ponerGcal(t, null); }
+        let id = gcalDe(t)?.id, link = gcalDe(t)?.link || '';
         if (!id) { const ya = await buscarEvento(t, cal); if (ya) { id = ya.id; link = ya.htmlLink || ''; } }
         if (id) {
           const { allDay, calendarId, ...cambio } = ent;
@@ -1670,13 +1837,18 @@ async function pasarGcal({ soloBorrar = false } = {}) {
           if (!id) { const ya = await buscarEvento(t, cal); id = ya?.id; link = ya?.htmlLink || ''; }
         }
         const actual = buscar(t.id) || t; // la tarea pudo llegar renovada desde otro dispositivo
-        actual.gcal = id ? { id, cal, firma, allDay: !!ent.allDay, link } : null;
+        ponerGcal(actual, id ? { id, cal, firma, allDay: !!ent.allDay, link } : null);
         cambios = true;
       } catch (e) {
         if (!esErrorTool(e)) throw e;
         errores++;
         gcal.ultimoError = `«${t.titulo}»: ${e.message || 'error de Google Calendar'}`;
       }
+    }
+    // Tareas de equipo borradas por otros: fuera también su evento de mi calendario
+    const vivas = new Set(datos.tareas.filter(enEquipo).map(t => t.id));
+    for (const [id, g] of Object.entries(datos.gcalMapa)) {
+      if (!vivas.has(id) && g?.id) { await borrarEvento(g.id, g.cal); delete datos.gcalMapa[id]; cambios = true; }
     }
     gcal.msg = errores ? `Sincronizado con ${errores} error${errores > 1 ? 'es' : ''}. ${gcal.ultimoError}`
       : `☑ Sincronizado con Google Calendar a las ${new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
@@ -1692,7 +1864,7 @@ async function pasarGcal({ soloBorrar = false } = {}) {
 
 // Al borrar tareas, sus eventos quedan en cola para eliminarlos
 function borrarEventosDe(tareas) {
-  tareas.forEach(t => { if (t.gcal?.id) datos.gcalBorrar.push({ id: t.gcal.id, cal: t.gcal.cal || '' }); });
+  tareas.forEach(t => { const g = gcalDe(t); if (g?.id) datos.gcalBorrar.push({ id: g.id, cal: g.cal || '' }); ponerGcal(t, null); });
 }
 
 async function cargarCalendarios() {

@@ -27,7 +27,16 @@ App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber 
   horaria del dispositivo. Al cambiar la tarea se actualiza; al terminarla, quitarle el NLT o borrarla,
   el evento se elimina. Usa el conector de Google Calendar de claude.ai (capacidad `mcp`); la marca
   `TNLT<id>` en la descripción evita duplicados si una llamada falla a medias.
-- **Equipo** (en Ajustes): personas con cargo, correo y teléfono; filtro por responsable («mías» o
+- **Espacio de equipo compartido** (versión de claude.ai): cada tarea es *personal* (privada) o de
+  *equipo* (la ven y actualizan todos los que tienen acceso a la app). Las de equipo se asignan a un
+  miembro por su identidad de claude.ai; el responsable la recibe en «Te han asignado» y confirma con
+  «Enterado», que ve quien la encargó. La bitácora muestra quién hizo cada anotación. Los avisos, los
+  «recordar mañana» y los eventos de Google Calendar de una tarea de equipo son de su responsable (o de
+  quien la creó si está sin asignar) y se guardan en su espacio privado. Quien solo tiene permiso de
+  consulta ve el equipo pero no puede modificarlo. Para añadir a alguien: *Compartir* en claude.ai e
+  invitarle por correo con permiso «Puede editar». Borrar todo o restaurar una copia solo afecta a lo
+  personal.
+- **Directorio de personas** (en Ajustes): personas con cargo, correo y teléfono; filtro por responsable («mías» o
   «delegadas») y tabla de carga de trabajo por responsable en *Lo que hago*.
 - **Tablero** por estados: arrastrar y soltar en escritorio, botones ◀ ▶ en el móvil.
 - **Calendario** mensual con las NLT de cada día; se pueden crear tareas en un día concreto.
@@ -47,7 +56,7 @@ por separado y los cambios hechos sin conexión se fusionan al volver. Las tarea
 usuario: aunque compartas el enlace, nadie más ve las tuyas.
 
 Para actualizar esa versión se vuelve a publicar `tareas/index.html` con `app.js`, `app.css`,
-`icon.svg` y `manifest.webmanifest`, y las capacidades `db`, `user`, `downloads` y `mcp` (Google Calendar: `create_event`, `update_event`,
+`icon.svg` y `manifest.webmanifest`, y las capacidades `db`, `user` (con el ámbito `profile`, para ver los nombres del equipo), `downloads` y `mcp` (Google Calendar: `create_event`, `update_event`,
 `delete_event`, `list_events`, `list_calendars`).
 
 ### Acceso directo con icono propio
