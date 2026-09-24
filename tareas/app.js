@@ -1,5 +1,6 @@
 // Tareas NLT: gestor de tareas con fecha límite para finalizar (NLT).
-// Todo se guarda en este navegador (localStorage). Sin servidor.
+// Se guarda en este navegador (localStorage) y, abierta en claude.ai, se sincroniza con la cuenta
+// del usuario entre todos sus dispositivos (capacidad "db" del visor).
 
 const CLAVE = 'tareas-nlt-v1';
 const ESTADOS = [['pendiente', 'Pendiente'], ['curso', 'En curso'], ['espera', 'En espera'], ['hecha', 'Hecha']];
@@ -13,9 +14,14 @@ const VISTAS = { nlt: 'Mis NLT', tablero: 'Tablero', calendario: 'Calendario', a
 const $ = (s, el = document) => el.querySelector(s);
 const main = $('#main');
 const dlg = $('#dlg');
+const dlg2 = $('#dlg2');
+
+// Versión publicada en claude.ai, que sincroniza entre dispositivos
+const URL_NUBE = 'https://claude.ai/artifact/9Qqg68wrV3upUSdjZWwZWU';
 
 // ---------- Datos ----------
 let datos = cargar();
+const nube = { lista: false, estado: 'local', base: cargarBase(), pendientes: new Map(), cola: Promise.resolve(), temporizador: 0, error: false };
 
 function cargar() {
   try {
@@ -41,6 +47,7 @@ function normalizar(d) {
 function guardar() {
   try { localStorage.setItem(CLAVE, JSON.stringify(datos)); }
   catch { toast('No se pudo guardar: el almacenamiento del navegador está lleno o bloqueado'); }
+  if (nube.lista) { clearTimeout(nube.temporizador); nube.temporizador = setTimeout(subir, 400); }
 }
 
 const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -74,6 +81,22 @@ function fmtDur(ms) {
 const tiempoTotal = t => t.tiempo.reduce((a, s) => a + (s.fin - s.inicio), 0)
   + (datos.activo?.id === t.id ? Date.now() - datos.activo.inicio : 0);
 
+// Ventana propia de confirmación o texto (el visor de claude.ai bloquea confirm y prompt).
+function preguntar(msg, { ok = 'Aceptar', peligro = false, valor = null } = {}) {
+  return new Promise(res => {
+    dlg2.innerHTML = `<form method="dialog"><div class="dlg-b"><p>${esc(msg)}</p>
+      ${valor !== null ? `<input class="input" name="v" value="${esc(valor)}">` : ''}</div>
+      <div class="dlg-f" style="flex-direction:row-reverse"><button class="btn ${peligro ? 'danger' : 'primary'}" value="si">${esc(ok)}</button>
+      <button class="btn" value="no">Cancelar</button></div></form>`;
+    dlg2.returnValue = '';
+    dlg2.onclose = () => {
+      const si = dlg2.returnValue === 'si';
+      res(valor === null ? si : si ? $('[name=v]', dlg2).value : null);
+    };
+    dlg2.showModal();
+  });
+}
+
 function toast(txt) {
   let el = $('#toast');
   if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.append(el); }
@@ -83,7 +106,16 @@ function toast(txt) {
   toast.t = setTimeout(() => el.classList.remove('on'), 3200);
 }
 
-function descargar(nombre, contenido, tipo) {
+// Dentro de claude.ai la página no puede descargar por sí misma: se pide al visor con la capacidad "downloads".
+let capDescargas = null;
+async function descargar(nombre, contenido, tipo) {
+  capDescargas ||= window.claude?.use ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+  const dl = await capDescargas;
+  if (dl) {
+    try { await dl.save({ filename: nombre, data: new Blob([contenido], { type: tipo }) }); }
+    catch (e) { if (e?.code !== 'declined') toast('No se pudo guardar el archivo'); }
+    return;
+  }
   const url = URL.createObjectURL(new Blob([contenido], { type: tipo }));
   const a = Object.assign(document.createElement('a'), { href: url, download: nombre });
   document.body.append(a); a.click(); a.remove();
@@ -471,8 +503,19 @@ function vistaAjustes() {
       <form id="nuevaCat" class="row gap" style="margin-top:10px"><input class="input grow" name="c" placeholder="Nueva categoría" required><button class="btn">Añadir</button></form>
     </div>
     <div class="card">
+      <h3>Sincronización</h3>
+      ${nube.lista
+        ? `<p class="ok-msg">☁ Sincronizado con tu cuenta de claude.ai</p>
+           <p class="small muted">Abre este mismo enlace en el móvil, la tablet o cualquier ordenador donde inicies sesión en claude.ai y verás
+           tus tareas al momento. Solo tú ves tus tareas, aunque compartas el enlace.</p>`
+        : `<p class="small muted">Esta copia guarda los datos solo en este dispositivo${nube.estado === 'conectando' ? ' (conectando…)' : ''}.
+           Para tenerlos en todos tus dispositivos, abre la versión sincronizada:</p>
+           <a class="btn block" href="${URL_NUBE}" target="_blank" rel="noopener">Abrir Tareas NLT sincronizada</a>
+           <p class="small muted">Si ya tenías tareas aquí, descarga una copia de seguridad y restáurala en la versión sincronizada.</p>`}
+    </div>
+    <div class="card">
       <h3>Datos</h3>
-      <p class="small muted">Todo se guarda solo en este navegador (${datos.tareas.length} tareas). Haz copias de seguridad de vez en cuando.</p>
+      <p class="small muted">${datos.tareas.length} tareas. Haz copias de seguridad de vez en cuando.</p>
       <button class="btn block" data-accion="exportar">Descargar copia de seguridad (.json)</button>
       <button class="btn block" data-accion="importar">Restaurar copia…</button>
       <button class="btn block" data-accion="csv-todo">Exportar todas las tareas (.csv, Excel)</button>
@@ -612,11 +655,13 @@ dlg.addEventListener('click', e => {
       guardar(); pintarTiempo(); render();
     }
   } else if (d.hasAttribute('data-borrar')) {
-    if (confirm('¿Eliminar esta tarea?')) {
-      if (datos.activo?.id === borrador.id) datos.activo = null;
-      datos.tareas = datos.tareas.filter(t => t.id !== borrador.id);
+    const id = borrador.id;
+    preguntar('¿Eliminar esta tarea?', { ok: 'Eliminar', peligro: true }).then(si => {
+      if (!si) return;
+      if (datos.activo?.id === id) datos.activo = null;
+      datos.tareas = datos.tareas.filter(t => t.id !== id);
       guardar(); dlg.close(); render(); pintarCrono();
-    }
+    });
   } else if (d.hasAttribute('data-duplicar')) {
     leerFormulario();
     const copia = { ...structuredClone(borrador), titulo: borrador.titulo + ' (copia)', estado: 'pendiente', hecha: null, tiempo: [], registro: [] };
@@ -733,9 +778,9 @@ main.addEventListener('click', e => {
   if (t && !el.closest('button, a, input, summary')) abrirEditor(t.dataset.id);
 });
 
-function renombrarCat(i) {
+async function renombrarCat(i) {
   const vieja = datos.categorias[i];
-  const nueva = prompt('Nuevo nombre de la categoría', vieja)?.trim();
+  const nueva = (await preguntar('Nuevo nombre de la categoría', { ok: 'Renombrar', valor: vieja }))?.trim();
   if (!nueva || nueva === vieja) return;
   datos.categorias[i] = nueva;
   datos.tareas.forEach(t => { if (t.categoria === vieja) t.categoria = nueva; });
@@ -765,7 +810,8 @@ async function accion(a) {
       if (await Notification.requestPermission() === 'granted') { datos.ajustes.ultimoAviso = ''; guardar(); avisar(); }
       render(); break;
     case 'borrar':
-      if (confirm('¿Borrar TODAS las tareas y ajustes de este navegador? No se puede deshacer.')) {
+      if (await preguntar(nube.lista ? '¿Borrar TODAS las tareas y ajustes, también en tus otros dispositivos? No se puede deshacer.'
+        : '¿Borrar TODAS las tareas y ajustes de este navegador? No se puede deshacer.', { ok: 'Borrar todo', peligro: true })) {
         datos = normalizar({}); guardar(); render(); pintarCrono();
       }
       break;
@@ -782,10 +828,10 @@ main.addEventListener('change', async e => {
     try {
       const d = JSON.parse(await el.files[0].text());
       if (!Array.isArray(d.tareas)) throw new Error();
-      if (confirm(`La copia tiene ${d.tareas.length} tareas. ¿Sustituir los datos actuales?`)) {
+      if (await preguntar(`La copia tiene ${d.tareas.length} tareas. ¿Sustituir los datos actuales?`, { ok: 'Sustituir', peligro: true })) {
         datos = normalizar(d); guardar(); aplicarTema(); render(); pintarCrono(); toast('Copia restaurada');
       }
-    } catch { alert('El archivo no es una copia válida de Tareas NLT.'); }
+    } catch { toast('El archivo no es una copia válida de Tareas NLT'); }
     el.value = '';
   }
 });
@@ -862,6 +908,169 @@ async function avisar() {
   else new Notification('Tareas NLT', { body: cuerpo, icon: 'icon.svg' });
 }
 
+// ---------- Sincronización entre dispositivos (claude.ai) ----------
+// Cada tarea es un documento en el espacio privado del usuario: data/users/<id>/nlt/tareas/<tarea>.
+// Ajustes, categorías y cronómetro van en data/users/<id>/config. «base» guarda el último estado
+// conocido de la nube para fusionar a tres bandas: gana el lado que haya cambiado desde entonces.
+
+// Orden de claves fijo, para comparar documentos que vuelven de la nube con otro orden.
+const estable = v => JSON.stringify(v, (k, x) => x && typeof x === 'object' && !Array.isArray(x)
+  ? Object.fromEntries(Object.keys(x).sort().map(c => [c, x[c]])) : x);
+const configDe = d => ({ categorias: d.categorias, ajustes: d.ajustes, activo: d.activo });
+const CFG = '__config';
+
+function cargarBase() {
+  try { return new Map(Object.entries(JSON.parse(localStorage.getItem(CLAVE + '-nube')) || {})); } catch { return new Map(); }
+}
+function guardarBase() {
+  try { localStorage.setItem(CLAVE + '-nube', JSON.stringify(Object.fromEntries(nube.base))); } catch { /* sin caché local */ }
+}
+
+async function conectarNube() {
+  if (!window.claude?.use) return;
+  nube.estado = 'conectando'; pintarNube();
+  const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]).catch(() => [null, null]);
+  const uid = db && user ? await user.id().catch(() => null) : null;
+  if (!uid) { nube.estado = 'local'; pintarNube(); return; }
+  nube.cfgRef = db.doc(`data/users/${uid}/config`);
+  nube.tareasRef = db.doc(`data/users/${uid}/nlt`).collection('tareas');
+  try {
+    const [st, sc] = await Promise.all([nube.tareasRef.get(), nube.cfgRef.get()]);
+    fusionarInicio(st.docs, sc);
+  } catch (e) {
+    nube.estado = 'error'; pintarNube();
+    if (e?.code === 'unavailable') setTimeout(conectarNube, 5000 + Math.random() * 5000);
+    return;
+  }
+  nube.lista = true; nube.estado = 'ok';
+  guardar();
+  render(true); pintarCrono(); aplicarTema(); pintarNube();
+  const caida = e => { if (e?.code === 'revoked') { nube.lista = false; nube.estado = 'local'; pintarNube(); } };
+  nube.tareasRef.onSnapshot(s => cambiosRemotos(s.docChanges()), caida);
+  nube.cfgRef.onSnapshot(s => { if (s.exists) configRemota(s.data()); }, caida);
+}
+
+function fusionarInicio(docs, sc) {
+  const remotas = new Map(docs.map(d => [d.id, normalizar({ tareas: [d.data()] }).tareas[0]]));
+  const locales = new Map(datos.tareas.map(t => [t.id, t]));
+  const resultado = [];
+  for (const id of new Set([...remotas.keys(), ...locales.keys()])) {
+    const R = remotas.get(id), L = locales.get(id), B = nube.base.get(id);
+    if (R) {
+      nube.base.set(id, estable(R));
+      // Cambiada en este dispositivo sin conexión y no en la nube: se queda la local (y se sube)
+      if (L && B && estable(L) !== B && estable(R) === B) resultado.push(L);
+      // Borrada aquí sin conexión y sin cambios en la nube: no se recupera (se borrará arriba)
+      else if (!L && B && estable(R) === B) continue;
+      else resultado.push(R);
+    } else if (L && !B) {
+      resultado.push(L); // creada aquí y aún no subida
+    } else {
+      nube.base.delete(id); // borrada en otro dispositivo
+    }
+  }
+  datos.tareas = resultado;
+  if (sc.exists) {
+    const R = sc.data(), B = nube.base.get(CFG);
+    nube.base.set(CFG, estable(R));
+    if (!(B && estable(configDe(datos)) !== B && estable(R) === B)) Object.assign(datos, normalizar({ ...R, tareas: [] }), { tareas: datos.tareas });
+  }
+  guardarBase();
+}
+
+function cambiosRemotos(cambios) {
+  let hay = false;
+  for (const ch of cambios) {
+    const id = ch.doc.id;
+    if (nube.pendientes.has(id)) continue;
+    const B = nube.base.get(id);
+    const i = datos.tareas.findIndex(t => t.id === id);
+    const L = datos.tareas[i];
+    const localSinSubir = L ? estable(L) !== B : B !== undefined;
+    if (ch.type === 'removed') {
+      nube.base.delete(id);
+      if (L && !localSinSubir) { datos.tareas.splice(i, 1); hay = true; }
+      continue;
+    }
+    const R = normalizar({ tareas: [ch.doc.data()] }).tareas[0];
+    const r = estable(R);
+    if (r === B) continue;          // eco de un envío propio
+    nube.base.set(id, r);
+    if (localSinSubir && B !== undefined) continue; // hay un cambio local pendiente: gana y se sube
+    if (L) datos.tareas[i] = R; else datos.tareas.push(R);
+    hay = true;
+  }
+  guardarBase();
+  if (hay) aplicarRemoto();
+}
+
+function configRemota(data) {
+  if (nube.pendientes.has(CFG)) return;
+  const B = nube.base.get(CFG), r = estable(data);
+  if (r === B) return;
+  nube.base.set(CFG, r); guardarBase();
+  if (B !== undefined && estable(configDe(datos)) !== B) return;
+  Object.assign(datos, normalizar({ ...data, tareas: [] }), { tareas: datos.tareas });
+  aplicarTema(); aplicarRemoto();
+}
+
+function aplicarRemoto() {
+  try { localStorage.setItem(CLAVE, JSON.stringify(datos)); } catch { /* sin caché local */ }
+  render(true); pintarCrono();
+  if (dlg.open && borrador?.id && !buscar(borrador.id)) { dlg.close(); toast('La tarea se eliminó en otro dispositivo'); }
+}
+
+// Sube lo que ha cambiado respecto a la última versión conocida de la nube, un envío cada vez.
+function subir() {
+  if (!nube.lista) return;
+  const vivas = new Set();
+  for (const t of datos.tareas) {
+    vivas.add(t.id);
+    const j = estable(t);
+    if (nube.base.get(t.id) !== j) encolar(t.id, j);
+  }
+  for (const id of [...nube.base.keys()]) if (id !== CFG && !vivas.has(id)) encolar(id, null);
+  const c = estable(configDe(datos));
+  if (nube.base.get(CFG) !== c) encolar(CFG, c);
+}
+
+function encolar(id, json) {
+  const anterior = nube.base.get(id);
+  if (json === null) nube.base.delete(id); else nube.base.set(id, json);
+  guardarBase();
+  nube.pendientes.set(id, (nube.pendientes.get(id) || 0) + 1);
+  nube.estado = 'subiendo'; pintarNube();
+  nube.cola = nube.cola.then(async () => {
+    const ref = id === CFG ? nube.cfgRef : nube.tareasRef.doc(id);
+    const enviar = () => json === null ? ref.delete() : ref.set(JSON.parse(json));
+    try {
+      try { await enviar(); }
+      catch (e) {
+        if (e?.code !== 'unavailable') throw e;
+        await new Promise(r => setTimeout(r, 800 + Math.random() * 1200));
+        await enviar();
+      }
+    } catch (e) {
+      // No se subió: se restaura la base para reintentarlo en el próximo guardado
+      if (nube.base.get(id) === json) { if (anterior === undefined) nube.base.delete(id); else nube.base.set(id, anterior); guardarBase(); }
+      nube.error = true;
+      toast(e?.code === 'quota_exceeded' ? 'La nube está llena: borra tareas antiguas' : 'No se pudo sincronizar; se reintentará');
+    } finally {
+      const n = nube.pendientes.get(id) - 1;
+      if (n) nube.pendientes.set(id, n); else nube.pendientes.delete(id);
+      if (!nube.pendientes.size) { nube.estado = nube.error ? 'error' : 'ok'; nube.error = false; pintarNube(); }
+    }
+  });
+}
+
+function pintarNube() {
+  const el = $('#nube');
+  const txt = { conectando: ['☁ …', 'Conectando con tu cuenta'], ok: ['☁ ✓', 'Sincronizado en todos tus dispositivos'],
+    subiendo: ['☁ ↑', 'Sincronizando…'], error: ['☁ !', 'Sin sincronizar: se reintentará al hacer cambios'] }[nube.estado];
+  el.hidden = !txt;
+  if (txt) { el.textContent = txt[0]; el.title = txt[1]; el.setAttribute('aria-label', txt[1]); }
+}
+
 // ---------- Navegación ----------
 function aplicarTema() {
   const t = datos.ajustes.tema;
@@ -869,7 +1078,13 @@ function aplicarTema() {
   else document.documentElement.dataset.theme = t;
 }
 
-function render() {
+function render(remoto = false) {
+  // Si llega un cambio de otro dispositivo mientras se escribe, se repinta al salir del campo
+  const foco = document.activeElement;
+  if (remoto && foco && main.contains(foco) && foco.matches('input:not([type=checkbox]), textarea, select')) {
+    render.pendiente = true; return;
+  }
+  render.pendiente = false;
   const v = VISTAS[location.hash.slice(1)] ? location.hash.slice(1) : 'nlt';
   $('#titulo').textContent = VISTAS[v];
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.v === v));
@@ -879,6 +1094,7 @@ function render() {
   document.title = venc ? `(${venc}) Tareas NLT` : 'Tareas NLT';
 }
 
+main.addEventListener('focusout', () => setTimeout(() => { if (render.pendiente && !main.contains(document.activeElement)) render(); }));
 window.addEventListener('hashchange', () => { filtro.kpi = ''; render(); });
 // Si la app sigue abierta al cambiar de día, se recalculan los plazos
 let diaPintado = hoy();
@@ -888,4 +1104,5 @@ aplicarTema();
 render();
 pintarCrono();
 avisar();
-if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+conectarNube();
+if ('serviceWorker' in navigator && location.protocol !== 'file:' && window.top === window) navigator.serviceWorker.register('sw.js').catch(() => {});

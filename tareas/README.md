@@ -21,10 +21,20 @@ App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber 
   Google Calendar/Outlook (.ics, con aviso el día anterior), categorías, tema claro/oscuro, copia de
   seguridad (.json), restaurar y exportar a Excel (.csv).
 
-## Datos
+## Sincronización entre dispositivos
 
-Todo se guarda **solo en el navegador** (localStorage), sin servidor. Cada dispositivo tiene sus
-propios datos: usa *Descargar copia de seguridad* y *Restaurar copia* para pasarlos de uno a otro.
+La versión publicada en claude.ai (https://claude.ai/artifact/9Qqg68wrV3upUSdjZWwZWU) guarda las
+tareas en tu cuenta y las sincroniza **en directo** en cualquier móvil, tablet u ordenador donde
+inicies sesión en claude.ai (el indicador ☁ ✓ de la barra superior lo confirma). Cada tarea se guarda
+por separado y los cambios hechos sin conexión se fusionan al volver. Las tareas son privadas de cada
+usuario: aunque compartas el enlace, nadie más ve las tuyas.
+
+Para actualizar esa versión se vuelve a publicar `tareas/index.html` con `app.js`, `app.css`,
+`icon.svg` y `manifest.webmanifest`, y las capacidades `db`, `user` y `downloads`.
+
+La copia de GitHub Pages (o abierta en local) guarda los datos **solo en ese navegador**
+(localStorage); en *Ajustes → Sincronización* enlaza a la versión sincronizada. Para pasar datos de
+una a otra: *Descargar copia de seguridad* y *Restaurar copia*.
 
 ## Uso
 

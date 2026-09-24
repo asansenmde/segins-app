@@ -177,3 +177,7 @@ dialog::backdrop { background: rgba(0,0,0,.45); }
   opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; max-width: calc(100vw - 32px);
 }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+.nube { font-size: .8rem; font-weight: 700; opacity: .9; white-space: nowrap; }
+dialog.pregunta { width: min(420px, calc(100vw - 32px)); }
+dialog.pregunta p { margin: 0; }
