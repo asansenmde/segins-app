@@ -22,6 +22,11 @@ App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber 
   Desde la ficha se puede **enviar al responsable** (texto listo para correo o WhatsApp) y pasarla al calendario.
 - **Avisos**: los que han llegado a su hora aparecen arriba en *Mis NLT* con «Visto» y «Recordar mañana»;
   con la app abierta, además, notificación. Para alarmas con la app cerrada, exportar a calendario (.ics).
+- **Google Calendar** (en Ajustes, versión de claude.ai): cada tarea abierta con NLT se convierte en un
+  evento de tu calendario con los avisos como alarmas (hasta 5, como mucho 4 semanas antes), en la zona
+  horaria del dispositivo. Al cambiar la tarea se actualiza; al terminarla, quitarle el NLT o borrarla,
+  el evento se elimina. Usa el conector de Google Calendar de claude.ai (capacidad `mcp`); la marca
+  `TNLT<id>` en la descripción evita duplicados si una llamada falla a medias.
 - **Equipo** (en Ajustes): personas con cargo, correo y teléfono; filtro por responsable («mías» o
   «delegadas») y tabla de carga de trabajo por responsable en *Lo que hago*.
 - **Tablero** por estados: arrastrar y soltar en escritorio, botones ◀ ▶ en el móvil.
@@ -42,7 +47,8 @@ por separado y los cambios hechos sin conexión se fusionan al volver. Las tarea
 usuario: aunque compartas el enlace, nadie más ve las tuyas.
 
 Para actualizar esa versión se vuelve a publicar `tareas/index.html` con `app.js`, `app.css`,
-`icon.svg` y `manifest.webmanifest`, y las capacidades `db`, `user` y `downloads`.
+`icon.svg` y `manifest.webmanifest`, y las capacidades `db`, `user`, `downloads` y `mcp` (Google Calendar: `create_event`, `update_event`,
+`delete_event`, `list_events`, `list_calendars`).
 
 ### Acceso directo con icono propio
 

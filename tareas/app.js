@@ -17,7 +17,7 @@ const TAREA_BASE = {
   ordenadaPor: '', fechaOrden: '', responsable: '', colaboradores: [],
   nlt: '', hora: '', nltOriginal: '', prorrogas: [], avisos: [], avisoVisto: 0,
   estado: 'pendiente', repetir: '', progreso: 0, estimacionH: 0, dependeDe: [], enlaces: [], resultado: '',
-  creada: '', hecha: null, subtareas: [], tiempo: [], registro: [],
+  creada: '', hecha: null, subtareas: [], tiempo: [], registro: [], gcal: null,
 };
 const LISTAS = Object.keys(TAREA_BASE).filter(k => Array.isArray(TAREA_BASE[k]));
 
@@ -53,7 +53,8 @@ function normalizar(d) {
     tareas: (d.tareas || []).map(normalizarTarea),
     categorias: d.categorias?.length ? d.categorias : [...CATS_BASE],
     personas: Array.isArray(d.personas) ? d.personas : [],
-    ajustes: { avisoDias: 3, tema: 'auto', ultimoAviso: '', miNombre: '', avisoAntes: 1, avisoHora: '09:00', ...(d.ajustes || {}) },
+    gcalBorrar: Array.isArray(d.gcalBorrar) ? d.gcalBorrar : [],
+    ajustes: { avisoDias: 3, tema: 'auto', ultimoAviso: '', miNombre: '', avisoAntes: 1, avisoHora: '09:00', gcal: false, gcalCal: '', ...(d.ajustes || {}) },
     activo: d.activo || null,
   };
 }
@@ -62,6 +63,7 @@ function guardar() {
   try { localStorage.setItem(CLAVE, JSON.stringify(datos)); }
   catch { toast('No se pudo guardar: el almacenamiento del navegador está lleno o bloqueado'); }
   if (nube.lista) { clearTimeout(nube.temporizador); nube.temporizador = setTimeout(subir, 400); }
+  programarGcal();
 }
 
 const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -227,7 +229,7 @@ function marcarHecha(id, hecha) {
       const sig = nuevaTarea({
         ...structuredClone(t), id: nuevoId(), referencia: nuevaReferencia(), creada: new Date().toISOString(),
         estado: 'pendiente', hecha: null, nlt, nltOriginal: nlt, prorrogas: [], avisoVisto: 0, progreso: 0,
-        resultado: '', tiempo: [], registro: [],
+        resultado: '', tiempo: [], registro: [], gcal: null,
       });
       sig.subtareas.forEach(s => { s.ok = false; });
       datos.tareas.push(sig);
@@ -351,6 +353,7 @@ function tarjeta(t, extra = '') {
         ${t.lugar ? `<span class="muted">📍 ${esc(t.lugar)}</span>` : ''}
         ${t.estado === 'curso' || t.estado === 'espera' ? `<span class="badge info">${NOMBRE_ESTADO[t.estado]}</span>` : ''}
         ${t.repetir ? `<span class="muted" title="${REPETIR[t.repetir]}">↻</span>` : ''}
+        ${t.gcal?.id && !hecha ? '<span class="muted" title="En Google Calendar">📅</span>' : ''}
         ${t.subtareas.length ? `<span class="muted">☑ ${subOk}/${t.subtareas.length}</span>` : ''}
         ${tt ? `<span class="muted">⏱ ${fmtDur(tt)}</span>` : ''}
         ${datos.activo?.id === t.id ? '<span class="badge warn">En marcha</span>' : ''}
@@ -617,6 +620,7 @@ function vistaAjustes() {
         ${personaEdit >= 0 ? '<button type="button" class="btn" data-accion="cancelar-persona">Cancelar</button>' : ''}
       </form>
     </div>
+    ${tarjetaGcal()}
     <div class="card">
       <h3>Avisos</h3>
       <label class="lbl">Aviso automático en las tareas nuevas
@@ -629,8 +633,8 @@ function vistaAjustes() {
       ${notif === 'granted' ? '<p class="small muted">Notificaciones activadas mientras la app está abierta.</p>'
         : notif === 'no' ? ''
         : '<button class="btn block" data-accion="notif">Activar notificaciones</button>'}
-      <button class="btn block" data-accion="ics">Pasar NLT y avisos a mi calendario (.ics)</button>
-      <p class="small muted">Para que los avisos suenen aunque la app esté cerrada, pásalos al calendario del móvil (Google Calendar, Outlook, iPhone): cada aviso se convierte en una alarma.</p>
+      <button class="btn block" data-accion="ics">Exportar NLT y avisos a un archivo de calendario (.ics)</button>
+      <p class="small muted">Para Outlook o el calendario del iPhone. Con Google Calendar, mejor la sincronización automática de arriba.</p>
     </div>
     <div class="card">
       <h3>Categorías</h3>
@@ -724,6 +728,8 @@ function abrirEditor(id, base = {}) {
         <input class="input" id="avHora" type="time" value="${esc(datos.ajustes.avisoHora || '09:00')}" style="width:auto" aria-label="Hora del aviso">
         <button type="button" class="btn" data-addaviso>+ Aviso</button>
       </div>
+      ${b.gcal?.link ? `<p class="small" style="margin-top:8px"><a href="${esc(b.gcal.link)}" target="_blank" rel="noopener">📅 Ver en Google Calendar</a></p>`
+        : datos.ajustes.gcal ? '<p class="small muted" style="margin-top:8px">📅 Con NLT, se enviará a Google Calendar al guardar.</p>' : ''}
       <div class="grid2">
         <label class="lbl">Repetir<select class="input" name="repetir">${opciones(REPETIR, b.repetir)}</select></label>
         <label class="lbl">Tiempo estimado (horas)<input class="input" type="number" name="estimacionH" min="0" step="0.5" value="${+b.estimacionH || ''}"></label>
@@ -957,6 +963,7 @@ dlg.addEventListener('click', e => {
     preguntar('¿Eliminar esta tarea?', { ok: 'Eliminar', peligro: true }).then(si => {
       if (!si) return;
       if (datos.activo?.id === id) datos.activo = null;
+      borrarEventosDe(datos.tareas.filter(t => t.id === id));
       datos.tareas = datos.tareas.filter(t => t.id !== id);
       datos.tareas.forEach(t => { t.dependeDe = t.dependeDe.filter(x => x !== id); });
       guardar(); dlg.close(); render(); pintarCrono();
@@ -965,7 +972,7 @@ dlg.addEventListener('click', e => {
     leerFormulario();
     const copia = {
       ...structuredClone(borrador), titulo: borrador.titulo + ' (copia)', referencia: nuevaReferencia(), estado: 'pendiente',
-      hecha: null, prorrogas: [], avisoVisto: 0, progreso: 0, resultado: '', tiempo: [], registro: [],
+      hecha: null, prorrogas: [], avisoVisto: 0, progreso: 0, resultado: '', tiempo: [], registro: [], gcal: null,
     };
     copia.subtareas.forEach(s => { s.ok = false; });
     delete copia.id;
@@ -1185,6 +1192,8 @@ async function accion(a) {
     case 'ejemplos': ejemplos(); render(); break;
     case 'nueva-dia': abrirEditor(null, { nlt: diaSel }); break;
     case 'cancelar-persona': personaEdit = -1; render(); break;
+    case 'gcal-sync': gcal.msg = ''; await pasarGcal(); break;
+    case 'gcal-cals': await cargarCalendarios(); break;
     case 'copiar-resumen':
       try { await navigator.clipboard.writeText(resumenTexto()); toast('Resumen copiado'); }
       catch { descargar(`resumen-${hoy()}.txt`, resumenTexto(), 'text/plain'); }
@@ -1206,7 +1215,10 @@ async function accion(a) {
     case 'borrar':
       if (await preguntar(nube.lista ? '¿Borrar TODAS las tareas y ajustes, también en tus otros dispositivos? No se puede deshacer.'
         : '¿Borrar TODAS las tareas y ajustes de este navegador? No se puede deshacer.', { ok: 'Borrar todo', peligro: true })) {
-        datos = normalizar({}); guardar(); render(); pintarCrono();
+        const pendientes = datos.gcalBorrar;
+        borrarEventosDe(datos.tareas);
+        datos = normalizar({ gcalBorrar: pendientes, ajustes: { gcal: datos.ajustes.gcal, gcalCal: datos.ajustes.gcalCal } });
+        guardar(); render(); pintarCrono();
       }
       break;
   }
@@ -1223,12 +1235,29 @@ main.addEventListener('change', async e => {
   else if (el.id === 'avisoHora') { a.avisoHora = el.value || '09:00'; guardar(); }
   else if (el.id === 'miNombre') { a.miNombre = el.value.trim(); guardar(); }
   else if (el.id === 'tema') { a.tema = el.value; guardar(); aplicarTema(); }
+  else if (el.id === 'gcalOn') {
+    a.gcal = el.checked;
+    if (!a.gcal) {
+      // Al desactivar se quitan del calendario los eventos creados
+      if (await preguntar('¿Quitar también de Google Calendar los eventos ya creados?', { ok: 'Quitarlos' })) {
+        borrarEventosDe(datos.tareas); datos.tareas.forEach(t => { t.gcal = null; });
+        guardar(); await pasarGcal({ soloBorrar: true });
+      }
+    }
+    guardar(); render();
+    if (a.gcal) { gcal.msg = ''; pasarGcal(); }
+  }
+  else if (el.id === 'gcalCal') { a.gcalCal = el.value; guardar(); gcal.msg = ''; pasarGcal(); }
   else if (el.id === 'fimport' && el.files[0]) {
     try {
       const d = JSON.parse(await el.files[0].text());
       if (!Array.isArray(d.tareas)) throw new Error();
       if (await preguntar(`La copia tiene ${d.tareas.length} tareas. ¿Sustituir los datos actuales?`, { ok: 'Sustituir', peligro: true })) {
-        datos = normalizar(d); guardar(); aplicarTema(); render(); pintarCrono(); toast('Copia restaurada');
+        const nuevos = new Set(d.tareas.map(t => t.gcal?.id).filter(Boolean));
+        borrarEventosDe(datos.tareas.filter(t => t.gcal?.id && !nuevos.has(t.gcal.id)));
+        const cola = datos.gcalBorrar;
+        datos = normalizar(d); datos.gcalBorrar.push(...cola);
+        guardar(); aplicarTema(); render(); pintarCrono(); toast('Copia restaurada');
       }
     } catch { toast('El archivo no es una copia válida de Tareas NLT'); }
     el.value = '';
@@ -1357,7 +1386,7 @@ revisarAvisos();
 // Orden de claves fijo, para comparar documentos que vuelven de la nube con otro orden.
 const estable = v => JSON.stringify(v, (k, x) => x && typeof x === 'object' && !Array.isArray(x)
   ? Object.fromEntries(Object.keys(x).sort().map(c => [c, x[c]])) : x);
-const configDe = d => ({ categorias: d.categorias, personas: d.personas, ajustes: d.ajustes, activo: d.activo });
+const configDe = d => ({ categorias: d.categorias, personas: d.personas, gcalBorrar: d.gcalBorrar, ajustes: d.ajustes, activo: d.activo });
 const CFG = '__config';
 
 function cargarBase() {
@@ -1374,6 +1403,7 @@ async function conectarNube() {
   const uid = db && user ? await user.id().catch(() => null) : null;
   if (!uid) { nube.estado = 'local'; pintarNube(); return; }
   nube.cfgRef = db.doc(`data/users/${uid}/config`);
+  nube.lockRef = db.doc(`data/users/${uid}/gcal-lock`);
   nube.tareasRef = db.doc(`data/users/${uid}/nlt`).collection('tareas');
   try {
     const [st, sc] = await Promise.all([nube.tareasRef.get(), nube.cfgRef.get()]);
@@ -1511,6 +1541,196 @@ function pintarNube() {
   el.hidden = !txt;
   if (txt) { el.textContent = txt[0]; el.title = txt[1]; el.setAttribute('aria-label', txt[1]); }
 }
+
+// ---------- Google Calendar (conector de claude.ai) ----------
+// Cada tarea abierta con NLT es un evento con sus avisos como alarmas. Al terminarla, quitarle el NLT o
+// borrarla, el evento se elimina. La descripción lleva la marca TNLT<id> para reencontrar el evento si
+// una creación no confirmó su resultado, así nunca se duplica.
+
+const GCAL = 'Google Calendar';
+const gcal = { disponible: null, corriendo: false, otraVez: false, temporizador: 0, escribiendo: false, calendarios: null, msg: '' };
+let capMcp = null;
+const mcpVisor = () => (capMcp ||= window.claude?.use ? window.claude.use('mcp').catch(() => null) : Promise.resolve(null));
+const DISPOSITIVO = (() => {
+  try { let d = localStorage.getItem(CLAVE + '-dispositivo'); if (!d) localStorage.setItem(CLAVE + '-dispositivo', d = nuevoId()); return d; }
+  catch { return nuevoId(); }
+})();
+const ZONA = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid';
+const esErrorTool = e => e?.code === 'tool_error';
+
+async function llamarGcal(tool, input) {
+  const mcp = await mcpVisor();
+  if (!mcp) throw { code: 'not_granted' };
+  return (await mcp.callTool(GCAL, tool, input, { cache: false })).payload;
+}
+
+function mensajeGcal(e) {
+  return {
+    server_not_connected: 'Google Calendar no está conectado: añádelo en claude.ai → Ajustes → Conectores.',
+    needs_reauth: 'La conexión con Google Calendar ha caducado: vuelve a conectarlo en claude.ai → Ajustes → Conectores.',
+    selection_required: 'Tienes más de un Google Calendar conectado: elige cuál usar en el aviso de claude.ai.',
+    not_in_manifest: 'No has permitido Google Calendar para esta app. Pulsa «Sincronizar ahora» para volver a preguntarte.',
+    blocked_by_policy: 'Tu organización no permite usar Google Calendar desde aquí.',
+    approval_required: 'Tu organización exige aprobar cada uso de Google Calendar; desde aquí no es posible.',
+    server_unavailable: 'Google Calendar no responde ahora; se reintentará con el próximo cambio.',
+    not_granted: 'Google Calendar solo funciona en la versión de claude.ai.',
+    capability_disabled: 'Google Calendar no está disponible en esta vista.',
+  }[e?.code] || `No se pudo sincronizar con Google Calendar${e?.message ? ': ' + e.message : ''}.`;
+}
+
+function horaLocal(ms) {
+  const d = new Date(ms);
+  return `${iso(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+}
+
+function entradaEvento(t, cal) {
+  const allDay = !t.hora;
+  const d = aFecha(t.nlt);
+  if (!allDay) { const [h, m] = t.hora.split(':').map(Number); d.setHours(h, m, 0, 0); }
+  const base = d.getTime();
+  // Google admite hasta 5 alarmas y como mucho 4 semanas antes del evento
+  const minutos = [...new Set(momentosAviso(t).map(m => Math.round((base - m.ms) / 60000)).filter(x => x >= 0 && x <= 40320))].slice(0, 5);
+  const desc = [t.referencia && `Referencia: ${t.referencia}`, `Responsable: ${t.responsable || datos.ajustes.miNombre || 'yo'}`,
+    t.descripcion.trim(), t.notas.trim() && `Observaciones: ${t.notas.trim()}`, '', `Abrir en Tareas NLT: ${URL_NUBE}`, `TNLT${t.id}`]
+    .filter(x => x !== undefined && x !== false && x !== null).join('\n');
+  const e = {
+    summary: `${t.prioridad === 'critica' ? '‼ ' : ''}NLT · ${t.titulo}`,
+    startTime: allDay ? `${t.nlt}T00:00:00` : horaLocal(base),
+    endTime: allDay ? `${sumarDias(t.nlt, 1)}T00:00:00` : horaLocal(base + 30 * 60000),
+    timeZone: ZONA, description: desc, availability: 'AVAILABILITY_FREE',
+    ...(minutos.length ? { overrideReminders: minutos.map(minutes => ({ method: 'popup', minutes })), useDefaultReminders: false } : { useDefaultReminders: true }),
+  };
+  if (allDay) e.allDay = true;
+  if (t.lugar) e.location = t.lugar;
+  if (t.prioridad === 'critica') e.colorId = '11';
+  else if (t.prioridad === 'alta') e.colorId = '6';
+  if (cal) e.calendarId = cal;
+  return e;
+}
+
+async function buscarEvento(t, cal) {
+  const r = await llamarGcal('list_events', { fullText: `TNLT${t.id}`, pageSize: 5, ...(cal ? { calendarId: cal } : {}) });
+  return (r?.events || []).find(ev => String(ev.description || '').includes(`TNLT${t.id}`)) || null;
+}
+
+async function borrarEvento(id, cal) {
+  try { await llamarGcal('delete_event', { eventId: id, notificationLevel: 'NONE', ...(cal ? { calendarId: cal } : {}) }); }
+  catch (e) { if (!esErrorTool(e)) throw e; /* ya no existe */ }
+}
+
+function programarGcal() {
+  if (!datos.ajustes.gcal || gcal.escribiendo) return;
+  clearTimeout(gcal.temporizador);
+  gcal.temporizador = setTimeout(pasarGcal, 4000);
+}
+
+async function pasarGcal({ soloBorrar = false } = {}) {
+  if (!datos.ajustes.gcal && !soloBorrar) return;
+  if (gcal.corriendo) { gcal.otraVez = true; return; }
+  if (!(await mcpVisor())) { gcal.msg = mensajeGcal({ code: 'not_granted' }); return; }
+  gcal.corriendo = true;
+  let cambios = false, errores = 0;
+  try {
+    // Un solo dispositivo sincroniza a la vez
+    if (nube.lockRef) {
+      const r = await nube.lockRef.acquire({ holder: DISPOSITIVO, ttlMs: 120000 }).catch(() => ({ acquired: true }));
+      if (!r.acquired) { setTimeout(programarGcal, 60000); return; }
+    }
+    gcal.msg = 'Sincronizando con Google Calendar…'; pintarGcal();
+    const cal = datos.ajustes.gcalCal || '';
+    for (const ev of [...datos.gcalBorrar]) {
+      await borrarEvento(ev.id, ev.cal);
+      datos.gcalBorrar = datos.gcalBorrar.filter(x => x.id !== ev.id);
+      cambios = true;
+    }
+    if (soloBorrar) { gcal.msg = 'Eventos quitados de Google Calendar.'; return; }
+    for (const t of [...datos.tareas]) {
+      const g = t.gcal;
+      if (t.estado === 'hecha' || !t.nlt) {
+        if (g?.id) { await borrarEvento(g.id, g.cal); t.gcal = null; cambios = true; }
+        continue;
+      }
+      const ent = entradaEvento(t, cal);
+      const firma = estable(ent);
+      if (g?.id && g.firma === firma) continue;
+      try {
+        // Cambió el calendario de destino o el tipo (día completo / con hora): se rehace el evento
+        if (g?.id && (g.cal !== cal || !!g.allDay !== !!ent.allDay)) { await borrarEvento(g.id, g.cal); t.gcal = null; }
+        let id = t.gcal?.id, link = t.gcal?.link || '';
+        if (!id) { const ya = await buscarEvento(t, cal); if (ya) { id = ya.id; link = ya.htmlLink || ''; } }
+        if (id) {
+          const { allDay, calendarId, ...cambio } = ent;
+          try { await llamarGcal('update_event', { eventId: id, notificationLevel: 'NONE', ...(allDay ? { allDay } : {}), ...(cal ? { calendarId: cal } : {}), ...cambio }); }
+          catch (e) { if (!esErrorTool(e)) throw e; id = null; } // el evento ya no existe: se crea de nuevo
+        }
+        if (!id) {
+          const r = await llamarGcal('create_event', ent);
+          id = r?.id || r?.event?.id;
+          link = r?.htmlLink || r?.event?.htmlLink || '';
+          if (!id) { const ya = await buscarEvento(t, cal); id = ya?.id; link = ya?.htmlLink || ''; }
+        }
+        const actual = buscar(t.id) || t; // la tarea pudo llegar renovada desde otro dispositivo
+        actual.gcal = id ? { id, cal, firma, allDay: !!ent.allDay, link } : null;
+        cambios = true;
+      } catch (e) {
+        if (!esErrorTool(e)) throw e;
+        errores++;
+        gcal.ultimoError = `«${t.titulo}»: ${e.message || 'error de Google Calendar'}`;
+      }
+    }
+    gcal.msg = errores ? `Sincronizado con ${errores} error${errores > 1 ? 'es' : ''}. ${gcal.ultimoError}`
+      : `☑ Sincronizado con Google Calendar a las ${new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+  } catch (e) {
+    gcal.msg = mensajeGcal(e);
+  } finally {
+    if (cambios) { gcal.escribiendo = true; guardar(); gcal.escribiendo = false; render(true); }
+    gcal.corriendo = false;
+    pintarGcal();
+    if (gcal.otraVez) { gcal.otraVez = false; programarGcal(); }
+  }
+}
+
+// Al borrar tareas, sus eventos quedan en cola para eliminarlos
+function borrarEventosDe(tareas) {
+  tareas.forEach(t => { if (t.gcal?.id) datos.gcalBorrar.push({ id: t.gcal.id, cal: t.gcal.cal || '' }); });
+}
+
+async function cargarCalendarios() {
+  try {
+    const r = await llamarGcal('list_calendars', { pageSize: 100 });
+    gcal.calendarios = (r?.calendars || []).filter(c => !/#holiday@|#contacts@|#weeknum@/.test(c.id));
+  } catch (e) { gcal.msg = mensajeGcal(e); }
+  render();
+}
+
+function pintarGcal() {
+  const el = $('#gcalMsg');
+  if (el) el.textContent = gcal.msg;
+}
+
+function tarjetaGcal() {
+  if (gcal.disponible === false) return `<div class="card"><h3>Google Calendar</h3>
+    <p class="small muted">Disponible en la versión sincronizada de claude.ai.</p>
+    <a class="btn block" href="${URL_NUBE}" target="_blank" rel="noopener">Abrir Tareas NLT sincronizada</a></div>`;
+  const a = datos.ajustes;
+  const cals = gcal.calendarios;
+  return `<div class="card"><h3>Google Calendar</h3>
+    <label class="check"><input type="checkbox" id="gcalOn" ${a.gcal ? 'checked' : ''}> Enviar mis NLT y avisos a Google Calendar</label>
+    <p class="small muted">Cada tarea abierta con NLT aparece en tu calendario y cada aviso suena como alarma en el móvil, aunque esta app esté cerrada.
+      Al terminar la tarea, quitarle el NLT o borrarla, el evento se elimina. Las tareas ya hechas no se envían.</p>
+    ${a.gcal ? `
+      <label class="lbl">Calendario
+        <div class="row gap"><select class="input grow" id="gcalCal">
+          <option value="">Calendario principal</option>
+          ${(cals || []).map(c => `<option value="${esc(c.id)}" ${c.id === a.gcalCal ? 'selected' : ''}>${esc(c.summary || c.id)}</option>`).join('')}
+          ${a.gcalCal && !(cals || []).some(c => c.id === a.gcalCal) ? `<option value="${esc(a.gcalCal)}" selected>${esc(a.gcalCal)}</option>` : ''}
+        </select><button class="btn" data-accion="gcal-cals">${cals ? 'Actualizar' : 'Ver calendarios'}</button></div></label>
+      <p class="small muted" id="gcalMsg">${esc(gcal.msg)}</p>
+      <button class="btn block" data-accion="gcal-sync">Sincronizar ahora</button>` : ''}
+  </div>`;
+}
+
+mcpVisor().then(m => { gcal.disponible = !!m; if (location.hash === '#ajustes') render(true); });
 
 // ---------- Navegación ----------
 function aplicarTema() {
