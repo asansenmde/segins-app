@@ -3,7 +3,7 @@
 // del usuario entre todos sus dispositivos (capacidad "db" del visor).
 
 const CLAVE = 'tareas-nlt-v1';
-const VERSION_APP = '8 · 25 sep 2026'; // súbela en cada publicación (y el ?v= de index.html)
+const VERSION_APP = '9 · 25 sep 2026'; // súbela en cada publicación (y el ?v= de index.html)
 const ESTADOS = [['pendiente', 'Pendiente'], ['curso', 'En curso'], ['espera', 'En espera'], ['hecha', 'Hecha']];
 const NOMBRE_ESTADO = Object.fromEntries(ESTADOS);
 const PRIOS = { critica: 'Crítica', alta: 'Alta', media: 'Media', baja: 'Baja' };
@@ -131,16 +131,22 @@ const tiempoTotal = t => t.tiempo.reduce((a, s) => a + (s.fin - s.inicio), 0)
 // Ventana propia de confirmación o texto (el visor de claude.ai bloquea confirm y prompt).
 function preguntar(msg, { ok = 'Aceptar', peligro = false, valor = null } = {}) {
   return new Promise(res => {
-    dlg2.innerHTML = `<form method="dialog"><div class="dlg-b"><p>${esc(msg)}</p>
-      ${valor !== null ? `<input class="input" name="v" value="${esc(valor)}">` : ''}</div>
-      <div class="dlg-f" style="flex-direction:row-reverse"><button class="btn ${peligro ? 'danger' : 'primary'}" value="si">${esc(ok)}</button>
-      <button class="btn" value="no">Cancelar</button></div></form>`;
-    dlg2.returnValue = '';
-    dlg2.onclose = () => {
-      const si = dlg2.returnValue === 'si';
-      res(valor === null ? si : si ? $('[name=v]', dlg2).value : null);
+    dlg2.innerHTML = `<div class="dlg-b"><p>${esc(msg)}</p>
+      ${valor !== null ? `<input class="input" name="v" value="${esc(valor)}" style="margin-top:10px">` : ''}</div>
+      <div class="dlg-f" style="flex-direction:row-reverse"><button type="button" class="btn ${peligro ? 'danger' : 'primary'}" data-r="si">${esc(ok)}</button>
+      <button type="button" class="btn" data-r="no">Cancelar</button></div>`;
+    const cerrar = si => {
+      const v = $('[name=v]', dlg2)?.value ?? null;
+      dlg2.onclick = dlg2.onkeydown = dlg2.oncancel = null;
+      dlg2.close();
+      res(valor === null ? si : si ? v : null);
     };
+    dlg2.onclose = null;
+    dlg2.onclick = e => { const b = e.target.closest('[data-r]'); if (b) cerrar(b.dataset.r === 'si'); };
+    dlg2.onkeydown = e => { if (e.key === 'Enter' && e.target.name === 'v') { e.preventDefault(); cerrar(true); } };
+    dlg2.oncancel = e => { e.preventDefault(); cerrar(false); };
     dlg2.showModal();
+    ($('[name=v]', dlg2) || $('[data-r=si]', dlg2)).focus();
   });
 }
 
@@ -459,7 +465,7 @@ function vistaNlt() {
       <div class="row gap wrap">
         <input class="input grow" name="titulo" placeholder="Tarea rápida… (para más datos, pulsa +)" required style="min-width:180px">
         <input class="input" type="date" name="nlt" title="NLT: fecha límite para finalizar" style="width:auto">
-        <button class="btn primary">Añadir</button>
+        <button type="button" class="btn primary" data-enviar>Añadir</button>
       </div>
     </form>
     <div class="kpis">
@@ -629,7 +635,7 @@ function vistaActividad() {
         <div>${selectorCategoria(datos.ajustes.ultimaCat || '')}</div>
         <input class="input" name="min" type="number" min="0" step="5" placeholder="Minutos dedicados">
       </div>
-      <button class="btn primary block">Anotar</button>
+      <button type="button" class="btn primary block" data-enviar>Anotar</button>
     </form>
     <datalist id="dlcats">${categoriasUsadas().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
     <div class="card"><h3>Carga de trabajo por responsable</h3>
@@ -674,7 +680,7 @@ function vistaAjustes() {
           <span class="small muted">${n} tarea${n === 1 ? '' : 's'}</span>
           <button class="btn sm danger" data-delcat="${i}" aria-label="Eliminar la categoría ${esc(c)}">Eliminar</button></li>`;
       }).join('') || '<li class="small muted">No hay categorías.</li>'}</ul>
-      <form id="nuevaCat" class="row gap" style="margin-top:10px"><input class="input grow" name="c" placeholder="Nueva categoría" required><button class="btn">Añadir</button></form>
+      <form id="nuevaCat" class="row gap" style="margin-top:10px"><input class="input grow" name="c" placeholder="Nueva categoría" required><button type="button" class="btn" data-enviar>Añadir</button></form>
     </div>
     ${tarjetaEquipo()}
     <div class="card">
@@ -691,7 +697,7 @@ function vistaAjustes() {
         <input class="input" name="cargo" placeholder="Empleo / cargo / unidad" value="${esc(pe.cargo || '')}">
         <input class="input" name="email" type="email" placeholder="Correo" value="${esc(pe.email || '')}">
         <input class="input" name="telefono" type="tel" placeholder="Teléfono (con prefijo, p. ej. 34…)" value="${esc(pe.telefono || '')}">
-        <button class="btn primary">${personaEdit >= 0 ? 'Guardar cambios' : 'Añadir persona'}</button>
+        <button type="button" class="btn primary" data-enviar>${personaEdit >= 0 ? 'Guardar cambios' : 'Añadir persona'}</button>
         ${personaEdit >= 0 ? '<button type="button" class="btn" data-accion="cancelar-persona">Cancelar</button>' : ''}
       </form>
     </div>
@@ -849,7 +855,7 @@ function abrirEditor(id, base = {}) {
       <datalist id="dlcats2">${categoriasUsadas().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
       <datalist id="dlper">${nombres.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
     </div>
-    <div class="dlg-f">${bloqueada ? '<button class="btn" value="x">Cerrar</button>' : '<button class="btn primary" value="ok">Guardar</button>'}</div></form>`;
+    <div class="dlg-f">${bloqueada ? '<button type="button" class="btn" data-cerrar>Cerrar</button>' : '<button type="button" class="btn primary" data-guardar>Guardar</button>'}</div></form>`;
   pintarColabs(); pintarAvisos(); pintarSubs(); pintarDeps(); pintarTiempo(); pintarRegs(); pintarEnlaces(); pintarProgreso();
   dlg.showModal();
   if (!t) $('[name=titulo]', dlg).focus();
@@ -1004,6 +1010,7 @@ dlg.addEventListener('click', e => {
   const d = e.target.closest('button, input[type=checkbox], a[data-delcolab]');
   if (!d) return;
   const ds = d.dataset;
+  if (d.hasAttribute('data-guardar')) { guardarEditor(); return; }
   if (d.hasAttribute('data-cerrar')) { cerrarEditor(); return; }
   if (ds.rapido !== undefined) {
     $('[name=nlt]', dlg).value = ds.rapido === '' ? '' : sumarDias(hoy(), +ds.rapido);
@@ -1129,11 +1136,15 @@ function addEnlace() {
   sucio = true; pintarEnlaces();
 }
 
-dlg.addEventListener('submit', e => {
-  if (e.submitter?.value !== 'ok') return;
-  if (!guardarBorrador()) { e.preventDefault(); return; }
+// El visor de claude.ai bloquea el envío de formularios: todo se hace con botones, nunca con «submit»
+dlg.addEventListener('submit', e => e.preventDefault());
+
+function guardarEditor() {
+  if (!$('#fed', dlg).reportValidity()) return;
+  if (!guardarBorrador()) return;
+  dlg.close();
   render();
-});
+}
 
 // ---------- Enviar la ficha al responsable ----------
 function fichaTexto(t) {
@@ -1160,13 +1171,14 @@ function compartir(t) {
   const asunto = `${t.referencia ? t.referencia + ' · ' : ''}${t.titulo}${t.nlt ? ' · NLT ' + fmtFecha(t.nlt, false) : ''}`;
   const mail = `mailto:${p?.email ? encodeURIComponent(p.email) : ''}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(txt)}`;
   const wa = `https://wa.me/${(p?.telefono || '').replace(/\D/g, '')}?text=${encodeURIComponent(txt)}`;
-  dlg2.onclose = null;
-  dlg2.innerHTML = `<form method="dialog">
-    <div class="dlg-h"><h2>Enviar ficha</h2><button class="icon-btn" value="x" aria-label="Cerrar">✕</button></div>
+  dlg2.onclose = dlg2.onkeydown = dlg2.oncancel = null;
+  dlg2.onclick = e => { if (e.target.closest('[data-x]')) dlg2.close(); };
+  dlg2.innerHTML = `<div>
+    <div class="dlg-h"><h2>Enviar ficha</h2><button type="button" class="icon-btn" data-x aria-label="Cerrar">✕</button></div>
     <div class="dlg-b"><textarea class="input" id="ficha" rows="14" readonly>${esc(txt)}</textarea></div>
     <div class="dlg-f"><button type="button" class="btn" id="copiarFicha">Copiar</button>
       <a class="btn" href="${esc(mail)}" target="_blank" rel="noopener">Correo${p?.email ? ' a ' + esc(p.nombre.split(' ')[0]) : ''}</a>
-      <a class="btn" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a></div></form>`;
+      <a class="btn" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a></div></div>`;
   $('#copiarFicha', dlg2).onclick = async () => {
     try { await navigator.clipboard.writeText(txt); toast('Ficha copiada'); }
     catch { $('#ficha', dlg2).select(); toast('Texto seleccionado: cópialo con el menú del sistema'); }
@@ -1281,6 +1293,8 @@ main.addEventListener('click', e => {
   if (edp) { e.preventDefault(); personaEdit = +edp.dataset.editper; render(); $('#fpersona [name=nombre]').focus(); return; }
   const dlp = el.closest('[data-delper]');
   if (dlp) { datos.personas.splice(+dlp.dataset.delper, 1); personaEdit = -1; guardar(); render(); return; }
+  const env = el.closest('[data-enviar]');
+  if (env) { enviarFormulario(env.closest('form')); return; }
   const acc = el.closest('[data-accion]');
   if (acc) { accion(acc.dataset.accion); return; }
   const t = el.closest('.tarea');
@@ -1408,9 +1422,19 @@ main.addEventListener('input', e => {
   const i = $('#fq'); i.focus(); i.setSelectionRange(pos, pos);
 });
 
-main.addEventListener('submit', e => {
+main.addEventListener('submit', e => e.preventDefault());
+
+// Los formularios de las vistas se envían con su botón o con Intro, sin depender del envío del navegador
+const FORMULARIOS = ['rapida', 'registrar', 'nuevaCat', 'fpersona'];
+main.addEventListener('keydown', e => {
+  const f = e.target.form;
+  if (e.key !== 'Enter' || !f || !FORMULARIOS.includes(f.id) || !e.target.matches('input:not([type=checkbox])')) return;
   e.preventDefault();
-  const f = e.target;
+  enviarFormulario(f);
+});
+
+function enviarFormulario(f) {
+  if (!f.reportValidity()) return;
   if (f.id === 'rapida') {
     const titulo = f.elements.titulo.value.trim();
     if (!titulo) return;
@@ -1448,7 +1472,7 @@ main.addEventListener('submit', e => {
     personaEdit = -1;
     guardar(); render();
   }
-});
+}
 
 // Arrastrar tarjetas entre columnas del tablero (escritorio)
 main.addEventListener('dragstart', e => {

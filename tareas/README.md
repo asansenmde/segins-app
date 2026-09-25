@@ -76,4 +76,8 @@ Se publica junto a SEGINS: en GitHub Pages queda en `…/tareas/`. En local:
 `python3 -m http.server 8000` y abrir `http://localhost:8000/tareas/`.
 Para instalarla en el móvil: Chrome → ⋮ → *Instalar aplicación*; Safari → Compartir → *Añadir a pantalla de inicio*.
 
-Al publicar cambios, sube la constante `VERSION` en `tareas/sw.js`.
+Al publicar cambios, sube la constante `VERSION` en `tareas/sw.js`, `VERSION_APP` en `app.js` y el `?v=` de
+`index.html` (así el navegador no reutiliza una copia antigua; la versión se ve en *Ajustes → Datos*).
+
+El visor de claude.ai muestra la app en un marco que **bloquea el envío de formularios**: ningún botón
+debe depender de `submit`. Todos son `type="button"` con su propio manejador (y Intro se atiende a mano).
