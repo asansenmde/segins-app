@@ -20,6 +20,10 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   usuario**: la página no manda correos por sí misma. El enlace se limita a ~2000 caracteres. En el detalle
   de cada asunto, «Recordar por correo». También exporta los asuntos propios a Outlook (.ics) con alarma
   N días antes a las 9:00. Para avisos automáticos haría falta un flujo de trabajo en el servidor.
+- `prueba-mensadef.html`: diagnóstico para MENSADEF (`mensadef.mdef.es/ambito/2SUIGE`). Se sube a la carpeta
+  personal de mensajes y analiza la biblioteca: columnas, tipos de contenido, número de archivos por tipo,
+  meses que abarca y qué columnas vienen rellenas. El resumen para copiar no incluye asuntos, nombres de
+  archivo ni contenido. Solo GET.
 - `prueba-sharepoint.html`: página de diagnóstico que comprueba si el sitio ejecuta páginas propias y
   lista las listas y columnas (sin contenido).
 
