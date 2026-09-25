@@ -7,7 +7,7 @@
 <!--
   Tareas NLT para el SharePoint interno (Colabora).
   Se sube a una biblioteca del sitio y trabaja con la lista «Gestor de Tareas» usando la sesión del usuario.
-  Primera fase: SOLO LECTURA. No escribe en SharePoint y no se comunica con nada fuera del propio servidor.
+  Lee la lista y solo escribe para dar de alta asuntos nuevos (no modifica ni borra). No se comunica con nada fuera del propio servidor.
 -->
 <style>
   :root {
@@ -87,6 +87,7 @@
 <header class="top">
   <h1>Tareas NLT · Colabora</h1>
   <span class="estado" id="estadoCarga">Cargando…</span>
+  <button id="nuevo" title="Dar de alta un asunto en Colabora">＋ Nuevo asunto</button>
   <button id="recargar" title="Volver a leer la lista">↻ Actualizar</button>
 </header>
 <main>
@@ -123,7 +124,7 @@
   var guardarPref = function () { try { localStorage.setItem(CLAVE, JSON.stringify(pref)); } catch (e) { /* sin memoria local */ } };
 
   // ---------- SharePoint (REST, solo lectura) ----------
-  var web = null, yo = null, listaInfo = null, campos = {}, tareas = [], cargadoEn = null;
+  var web = null, yo = null, listaInfo = null, campos = {}, infoCampo = {}, tareas = [], cargadoEn = null;
 
   function api(url) {
     var pedir = function (accept) {
@@ -207,6 +208,7 @@
       implicadosIds: lista(it.PersonalImplicado0).map(function (u) { return u.Id; }),
       correoResp: correos(it.correoResponsable).concat(resp && resp.EMail ? [resp.EMail] : []).filter(unico),
       correosImpl: correos(it.correoimplicados).concat(lista(it.PersonalImplicado0).map(function (u) { return u.EMail; })).filter(unico),
+      usuarios: (resp && resp.Id ? [resp] : []).concat(lista(it.PersonalImplicado0)).map(function (u) { return { Id: u.Id, Title: u.Title, Email: u.EMail || '' }; }),
       implicados: implicados.length ? implicados : String(it.NombreImplicados || '').split(/[;,]/).map(function (s) { return s.trim(); }).filter(Boolean),
       creada: it.Created, modificada: it.Modified, autor: it.Author && it.Author.Title, editor: it.Editor && it.Editor.Title,
     };
@@ -222,9 +224,13 @@
     return p.then(function () {
       return Promise.all([
         yo ? yo : api(web.url + '/_api/web/currentuser?$select=Id,Title').then(function (u) { yo = u; return u; }),
-        api(urlLista() + '?$select=Id,Title,ItemCount,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { listaInfo = l; }),
-        api(urlLista() + "/fields?$select=InternalName,Title,Choices&$filter=(InternalName eq 'ESTADO') or (InternalName eq 'Prioridad') or (InternalName eq 'NegociadoAsignado')")
-          .then(function (d) { lista(d.value).forEach(function (f) { campos[f.InternalName] = lista(f.Choices).length ? lista(f.Choices) : (f.Choices || []); }); })
+        api(urlLista() + '?$select=Id,Title,ItemCount,ListItemEntityTypeFullName,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { listaInfo = l; }),
+        api(urlLista() + "/fields?$select=InternalName,Title,Choices,RichText,Required&$filter=(InternalName eq 'ESTADO') or (InternalName eq 'Prioridad') or (InternalName eq 'NegociadoAsignado')" +
+          " or (InternalName eq 'NegociadosImplicados') or (InternalName eq 'DescripcionDelAsunto') or (InternalName eq 'Comentarios') or (InternalName eq 'ControlExpediente') or (InternalName eq 'FechaVencimiento')")
+          .then(function (d) { lista(d.value).forEach(function (f) {
+            campos[f.InternalName] = lista(f.Choices).length ? lista(f.Choices) : (f.Choices || []);
+            infoCampo[f.InternalName] = { rico: !!f.RichText, obligatorio: !!f.Required };
+          }); })
           .catch(function () { /* las opciones se deducen de los datos */ }),
       ]);
     }).then(function () {
@@ -333,7 +339,9 @@
     }).join('');
     var hechas = ts.filter(function (t) { return t.clase === 'hecha'; }).sort(function (a, b) { return (b.fin || b.modificada || '').localeCompare(a.fin || a.modificada || ''); });
     var aviso = !yo || pref.quien === 'todos' ? '' : !ts.length && tareas.length ? '<div class="aviso">No hay asuntos en los que figures como responsable. Cambia «Qué asuntos» a «Todos».</div>' : '';
-    return '<div class="kpis">' + kpi('vencidas', 'Vencidas', n.vencidas ? 'bad' : '') + kpi('hoy', 'Hoy', n.hoy ? 'warn' : '') + kpi('semana', '7 días', '') + kpi('abiertas', 'Abiertas', '') + '</div>' +
+    return '<div class="card" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="altaRapida" style="flex:1;min-width:200px" placeholder="Nuevo asunto… p. ej. «Informe de visita antes del viernes»">' +
+      '<button class="btn prim" id="altaRapidaBtn">＋ Crear</button></div>' +
+      '<div class="kpis">' + kpi('vencidas', 'Vencidas', n.vencidas ? 'bad' : '') + kpi('hoy', 'Hoy', n.hoy ? 'warn' : '') + kpi('semana', '7 días', '') + kpi('abiertas', 'Abiertas', '') + '</div>' +
       barraFiltros() + aviso + (html || '<p class="muted">No hay asuntos abiertos con estos filtros.</p>') +
       (hechas.length && !kpiSel ? '<details class="card"><summary><b>Terminados</b> (' + hechas.length + ')</summary><div style="margin-top:8px">' + hechas.slice(0, 100).map(tarjeta).join('') + '</div></details>' : '');
   }
@@ -687,6 +695,239 @@
     return o;
   }
 
+  // ---------- Alta de asuntos en la lista (única escritura que hace la página) ----------
+  // Lector de fechas escritas en español (misma lógica que fechas.js de la app)
+
+  const MESES = { enero: 1, ene: 1, febrero: 2, feb: 2, marzo: 3, mar: 3, abril: 4, abr: 4, mayo: 5, may: 5, junio: 6, jun: 6,
+    julio: 7, jul: 7, agosto: 8, ago: 8, septiembre: 9, setiembre: 9, sept: 9, sep: 9, octubre: 10, oct: 10,
+    noviembre: 11, nov: 11, diciembre: 12, dic: 12 };
+  const DIAS = { domingo: 0, lunes: 1, martes: 2, miercoles: 3, 'miércoles': 3, jueves: 4, viernes: 5, sabado: 6, 'sábado': 6 };
+  const NUM = { un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, quince: 15 };
+
+
+  const ENLACE = /(?:\s|^)(?:(?:como\s+(?:muy\s+)?tarde|a\s+m[aá]s\s+tardar|antes\s+de(?:l)?|para(?:\s+el)?|hasta(?:\s+el)?|con\s+fecha|nlt:?|plazo:?|vence|fecha\s+l[ií]mite:?|el|la|del|de|y|,|-|:)\s*)+$/i;
+
+  function fechaValida(y, m, d) {
+    const f = new Date(y, m - 1, d);
+    return f.getFullYear() === y && f.getMonth() === m - 1 && f.getDate() === d ? f : null;
+  }
+
+  function conAnio(m, d, y, hoy) {
+    if (y) return fechaValida(y < 100 ? 2000 + y : y, m, d);
+    const f = fechaValida(hoy.getFullYear(), m, d);
+    if (f && f < hoy) return fechaValida(hoy.getFullYear() + 1, m, d);
+    return f;
+  }
+
+  function interpretar(texto, ahora = new Date()) {
+    const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+    const res = { titulo: texto.trim(), nlt: '', hora: '', prioridad: '', categoria: '', trozos: [] };
+    let t = ` ${texto} `;
+    const quitar = (m, desc) => { res.trozos.push(desc); t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length); };
+    const mas = n => { const d = new Date(hoy); d.setDate(d.getDate() + n); return d; };
+    const buscar = re => re.exec(t);
+    let fecha = null, m;
+
+    // Categoría: #Palabra
+    if ((m = buscar(/#([\p{L}\p{N}_\-]+)/u))) { res.categoria = m[1].replace(/_/g, ' '); quitar(m, 'categoría'); }
+    // Prioridad
+    if ((m = buscar(/(?:!!+|\b(?:cr[ií]tic[ao]|inmediat[ao]|flash)\b)/i))) { res.prioridad = 'critica'; quitar(m, 'prioridad'); }
+    else if ((m = buscar(/(?:\s!(?=\s)|\b(?:urgente|urgent[ií]simo|prioritari[ao])\b)/i))) { res.prioridad = 'alta'; quitar(m, 'prioridad'); }
+
+    // Hora: «a las 10», «a las 9:30», «10:00», «10h», «10.30 h»
+    if ((m = buscar(/\b(?:a\s+las?\s+)(\d{1,2})(?:[:.h](\d{2}))?\s*(?:h(?:oras)?\b)?/i)) || (m = buscar(/\b(\d{1,2}):(\d{2})\b/))
+      || (m = buscar(/\b(\d{1,2})(?:\.(\d{2}))?\s*h(?:oras)?\b/i))) {
+      const h = +m[1], mi = +(m[2] || 0);
+      if (h < 24 && mi < 60) { res.hora = `${pad(h)}:${pad(mi)}`; quitar(m, 'hora'); }
+    }
+
+    // Fechas, de la más concreta a la más vaga
+    if ((m = buscar(/\b(\d{1,2})[\/-](\d{1,2})(?:[\/-](\d{2,4}))?\b/)) || (m = buscar(/\b(\d{1,2})\.(\d{1,2})\.(\d{2,4})\b/))) {
+      fecha = conAnio(+m[2], +m[1], m[3] ? +m[3] : 0, hoy);
+    }
+    if (!fecha && (m = buscar(/\b(\d{1,2})\s*(?:de\s+)?(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|ene|feb|mar|abr|may|jun|jul|ago|sept|sep|oct|nov|dic)\.?(?:\s+(?:de|del)?\s*(\d{4}))?\b/i))) {
+      fecha = conAnio(MESES[m[2].toLowerCase()], +m[1], m[3] ? +m[3] : 0, hoy);
+    }
+    if (!fecha && (m = buscar(/\bpasado\s+ma[ñn]ana\b/i))) fecha = mas(2);
+    if (!fecha && (m = buscar(/(?<!(?:por|de)\s+la\s+)\bma[ñn]ana\b/i))) fecha = mas(1);
+    if (!fecha && (m = buscar(/\bhoy\b/i))) fecha = hoy;
+    if (!fecha && (m = buscar(/\b(?:en|dentro\s+de)\s+(\d+|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|quince)\s+(d[ií]as?|semanas?|mes(?:es)?)\b/i))) {
+      const n = /\d/.test(m[1]) ? +m[1] : NUM[m[1].toLowerCase()];
+      const u = sinTildes(m[2]);
+      if (u.startsWith('dia')) fecha = mas(n);
+      else if (u.startsWith('semana')) fecha = mas(7 * n);
+      else { fecha = new Date(hoy); fecha.setMonth(fecha.getMonth() + n); }
+    }
+    if (!fecha && (m = buscar(/\b(?:(pr[oó]xim[oa]|siguiente|este|esta)\s+)?(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)(\s+(?:que\s+viene|pr[oó]ximo|de\s+la\s+semana\s+que\s+viene))?\b/i))) {
+      const dia = DIAS[sinTildes(m[2])];
+      if (/semana/i.test(m[3] || '')) {
+        // «el martes de la semana que viene»: ese día de la semana natural siguiente
+        const lunes = mas(((1 - hoy.getDay() + 7) % 7) || 7);
+        fecha = new Date(lunes); fecha.setDate(lunes.getDate() + (dia + 6) % 7);
+      } else {
+        let dif = (dia - hoy.getDay() + 7) % 7;
+        if (dif === 0) dif = 7; // «el viernes» dicho un viernes es el de la semana siguiente
+        fecha = mas(dif);
+      }
+    }
+    if (!fecha && (m = buscar(/\b(?:a\s+)?(?:fin(?:al)?|finales)\s+de(?:l)?\s+mes\b/i))) fecha = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+    if (!fecha && (m = buscar(/\b(?:(?:esta|la)\s+semana|fin(?:al)?\s+de\s+(?:la\s+)?semana)\b/i))) {
+      fecha = mas((5 - hoy.getDay() + 7) % 7); // el viernes de esta semana
+    }
+    if (!fecha && (m = buscar(/\b(?:el\s+)?d[ií]a\s+(\d{1,2})\b|\bel\s+(\d{1,2})(?![\d:.,/%])\b/i))) {
+      const d = +(m[1] || m[2]);
+      fecha = fechaValida(hoy.getFullYear(), hoy.getMonth() + 1, d);
+      if (fecha && fecha < hoy) fecha = fechaValida(hoy.getFullYear(), hoy.getMonth() + 2, d) || new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
+    }
+    if (fecha && m) { res.nlt = iso(fecha); quitar(m, 'fecha'); }
+
+    // Título: sin los trozos reconocidos ni las palabras de enlace que quedan colgando
+    let titulo = t.replace(/\s+/g, ' ').trim();
+    for (let i = 0; i < 3; i++) titulo = titulo.replace(ENLACE, '').replace(/^[\s,;:\-–]+|[\s,;:\-–]+$/g, '').trim();
+    titulo = titulo.replace(/\s+(?:antes\s+de(?:l)?|para\s+el|hasta\s+el|el)\s+(?=,|$)/i, '').trim();
+    res.titulo = titulo ? titulo[0].toUpperCase() + titulo.slice(1) : texto.trim();
+    return res;
+  }
+
+  var digest = null, digestHasta = 0, usuariosSitio = null;
+  function obtenerDigest() {
+    if (digest && Date.now() < digestHasta) return Promise.resolve(digest);
+    return fetch(web.url + '/_api/contextinfo', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+      .then(function (r) { if (!r.ok) throw new Error('Colabora no da permiso de escritura (HTTP ' + r.status + ')'); return r.json(); })
+      .then(function (d) {
+        var i = d.d ? d.d.GetContextWebInformation : d;
+        digest = i.FormDigestValue; digestHasta = Date.now() + ((i.FormDigestTimeoutSeconds || 1800) - 60) * 1000;
+        return digest;
+      });
+  }
+  function crearElemento(cuerpo) {
+    return obtenerDigest().then(function (dg) {
+      return fetch(urlLista() + '/items', { method: 'POST', credentials: 'same-origin', body: JSON.stringify(cuerpo),
+        headers: { Accept: 'application/json;odata=verbose', 'Content-Type': 'application/json;odata=verbose', 'X-RequestDigest': dg } });
+    }).then(function (r) {
+      return r.text().then(function (txt) {
+        var j = null; try { j = JSON.parse(txt); } catch (e) { /* respuesta sin JSON */ }
+        if (!r.ok) {
+          var m = j && ((j.error && j.error.message && (j.error.message.value || j.error.message)) || (j['odata.error'] && j['odata.error'].message && j['odata.error'].message.value));
+          throw new Error(r.status === 403 ? 'No tienes permiso para añadir elementos a la lista' : (m || 'HTTP ' + r.status));
+        }
+        return j && (j.d || j);
+      });
+    });
+  }
+  function cargarUsuarios() {
+    if (usuariosSitio) return Promise.resolve(usuariosSitio);
+    var m = new Map();
+    var poner = function (u) { if (u && u.Id && u.Title && !m.has(u.Id)) m.set(u.Id, { Id: u.Id, Title: u.Title, Email: u.Email || u.EMail || '' }); };
+    if (yo) poner(yo);
+    tareas.forEach(function (t) { t.usuarios.forEach(poner); });
+    return api(web.url + '/_api/web/siteusers?$select=Id,Title,Email,PrincipalType&$filter=PrincipalType eq 1&$top=5000')
+      .then(function (d) { lista(d.value).forEach(poner); }).catch(function () { /* solo los que ya aparecen en la lista */ })
+      .then(function () { usuariosSitio = Array.from(m.values()).sort(function (a, b) { return a.Title.localeCompare(b.Title, 'es'); }); return usuariosSitio; });
+  }
+  var usuarioPorNombre = function (n) { n = sinTildes(String(n || '').trim()); return (usuariosSitio || []).find(function (u) { return sinTildes(u.Title) === n; }); };
+  var comoTexto = function (campo, v) { return infoCampo[campo] && infoCampo[campo].rico ? esc(v).replace(/\n/g, '<br>') : v; };
+  var AREA = 'style="width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:10px"';
+
+  function formularioNuevo(texto) {
+    var r = texto ? interpretar(texto) : { titulo: '', nlt: '', prioridad: '' };
+    var ests = valores('ESTADO', 'estado'), prios = valores('Prioridad', 'prioridad');
+    var estIni = ests.find(function (e) { return claseEstado(e) === 'pendiente'; }) || ests[0] || '';
+    var prioIni = r.prioridad ? (prios.find(function (p) { return clasePrio(p) === r.prioridad; }) || '') : '';
+    var negs = valores('NegociadoAsignado', 'negociado').sort();
+    var negsImpl = campos.NegociadosImplicados && campos.NegociadosImplicados.length ? campos.NegociadosImplicados : negs;
+    var base = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl : '';
+    var obligNlt = infoCampo.FechaVencimiento && infoCampo.FechaVencimiento.obligatorio;
+    var dlg = $('#dlg');
+    dlg.innerHTML = '<div class="dh"><h2>Nuevo asunto en «' + esc(pref.lista) + '»</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db" id="fNuevo">' +
+      '<label class="lbl">Asunto *</label><input name="Title" value="' + esc(r.titulo || texto || '') + '">' +
+      '<p class="small muted" id="nDetect"></p>' +
+      '<div class="grid"><div><label class="lbl">Fecha vencimiento (NLT)' + (obligNlt ? ' *' : '') + '</label><input type="date" name="nlt" value="' + (r.nlt || '') + '"></div>' +
+      '<div><label class="lbl">Fecha de inicio</label><input type="date" name="inicio" value="' + hoy() + '"></div>' +
+      '<div><label class="lbl">Estado</label><select name="ESTADO">' + opciones(ests, estIni, '—') + '</select></div>' +
+      '<div><label class="lbl">Prioridad</label><select name="Prioridad">' + opciones(prios, prioIni, '—') + '</select></div>' +
+      '<div><label class="lbl">Negociado asignado</label><select name="NegociadoAsignado">' + opciones(negs, pref.negociado, '—') + '</select></div>' +
+      '<div><label class="lbl">Responsable de la información</label><input name="resp" list="dlUsuarios" value="' + esc(yo ? yo.Title : '') + '" placeholder="Nombre de la persona"></div></div>' +
+      '<label class="lbl">Personal implicado</label><div id="nImpl" class="meta"></div>' +
+      '<div style="display:flex;gap:6px;margin-top:4px"><input id="nImplTxt" list="dlUsuarios" placeholder="Añadir persona (Intro)"><button type="button" id="nImplAdd">＋</button></div>' +
+      (negsImpl.length ? '<label class="lbl">Negociados implicados</label><div>' + negsImpl.map(function (n) { return '<label class="check"><input type="checkbox" name="negImpl" value="' + esc(n) + '"> ' + esc(n) + '</label>'; }).join('') + '</div>' : '') +
+      '<label class="lbl">Control expediente</label><input name="ControlExpediente">' +
+      '<label class="lbl">Descripción del asunto</label><textarea name="DescripcionDelAsunto" rows="4" ' + AREA + '></textarea>' +
+      '<label class="lbl">Observaciones</label><textarea name="Comentarios" rows="2" ' + AREA + '></textarea>' +
+      '<datalist id="dlUsuarios"></datalist>' +
+      '<p class="small muted">Se creará en la lista compartida de Colabora, igual que si lo dieras de alta allí: los avisos o flujos automáticos de la lista se ejecutarán como siempre.</p>' +
+      '<div class="error" id="nError" hidden></div>' +
+      '<div class="acciones"><button type="button" data-cerrar>Cancelar</button><button type="button" class="btn prim" id="nCrear">Crear en Colabora</button></div>' +
+      (base ? '<p class="small"><a href="' + esc(base + '/NewForm.aspx?Source=' + encodeURIComponent(location.href)) + '">Prefiero el formulario de Colabora</a></p>' : '') + '</div>';
+    dlg.showModal();
+    var implicados = [];
+    var err = function (m) { $('#nError').hidden = false; $('#nError').textContent = m; };
+    var pintarImpl = function () {
+      $('#nImpl').innerHTML = implicados.map(function (u, i) { return '<span class="chip">' + esc(u.Title) + ' <a href="#" data-quitarimpl="' + i + '">✕</a></span>'; }).join('') || '<span class="small muted">Nadie</span>';
+    };
+    pintarImpl();
+    cargarUsuarios().then(function (us) { var dl = $('#dlUsuarios'); if (dl) dl.innerHTML = us.map(function (u) { return '<option value="' + esc(u.Title) + '">'; }).join(''); });
+    var anadirImpl = function () {
+      var txt = $('#nImplTxt').value.trim();
+      if (!txt) return;
+      var u = usuarioPorNombre(txt);
+      if (!u) return err('No encuentro a «' + txt + '» entre los usuarios del sitio: elígelo de la lista desplegable.');
+      $('#nError').hidden = true;
+      if (!implicados.some(function (x) { return x.Id === u.Id; })) implicados.push(u);
+      $('#nImplTxt').value = ''; pintarImpl();
+    };
+    $('#nImplAdd').onclick = anadirImpl;
+    $('#nImplTxt').onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); anadirImpl(); } };
+    $('#nImpl').onclick = function (e) { var q = e.target.closest('[data-quitarimpl]'); if (q) { e.preventDefault(); implicados.splice(Number(q.dataset.quitarimpl), 1); pintarImpl(); } };
+    // Fechas escritas en el asunto («antes del viernes»): se usan como NLT si no se elige otra
+    var tit = $('#fNuevo [name=Title]');
+    tit.oninput = function () {
+      var x = interpretar(tit.value);
+      $('#nDetect').textContent = x.nlt && !$('#fNuevo [name=nlt]').value ? 'Fecha detectada en el texto: ' + fLarga(x.nlt) + ' (se usará como NLT)' : '';
+    };
+    $('#nCrear').onclick = function () {
+      var f = $('#fNuevo');
+      var v = function (n) { return (f.querySelector('[name=' + n + ']').value || '').trim(); };
+      var x = interpretar(v('Title'));
+      var nlt = v('nlt') || x.nlt;
+      var asunto = v('nlt') ? v('Title') : (x.titulo || v('Title'));
+      if (!asunto) return err('Escribe el asunto.');
+      if (!nlt && obligNlt) return err('La fecha de vencimiento es obligatoria en esta lista.');
+      var resp = v('resp') ? usuarioPorNombre(v('resp')) : null;
+      if (v('resp') && !resp) return err('No encuentro al responsable «' + v('resp') + '» entre los usuarios del sitio: elígelo de la lista desplegable.');
+      if (!listaInfo || !listaInfo.ListItemEntityTypeFullName) return err('No he podido leer el tipo de la lista; pulsa Actualizar y vuelve a intentarlo.');
+      var cuerpo = { __metadata: { type: listaInfo.ListItemEntityTypeFullName }, Title: asunto };
+      var fecha = function (s) { return aFecha(s).toISOString(); };
+      if (nlt) cuerpo.FechaVencimiento = fecha(nlt);
+      if (v('inicio')) cuerpo.FechaDeInicio = fecha(v('inicio'));
+      ['ESTADO', 'Prioridad', 'NegociadoAsignado'].forEach(function (k) { if (v(k)) cuerpo[k] = v(k); });
+      var negImpl = Array.from(f.querySelectorAll('[name=negImpl]:checked')).map(function (c) { return c.value; });
+      if (negImpl.length) cuerpo.NegociadosImplicados = { __metadata: { type: 'Collection(Edm.String)' }, results: negImpl };
+      ['ControlExpediente', 'DescripcionDelAsunto', 'Comentarios'].forEach(function (k) { if (v(k)) cuerpo[k] = comoTexto(k, v(k)); });
+      if (resp) {
+        cuerpo.ResponsableDeLaInformacionId = resp.Id;
+        cuerpo.NombreResponsable = resp.Title;
+        if (resp.Email) cuerpo.correoResponsable = resp.Email;
+      }
+      if (implicados.length) {
+        cuerpo.PersonalImplicado0Id = { results: implicados.map(function (u) { return u.Id; }) };
+        cuerpo.NombreImplicados = implicados.map(function (u) { return u.Title; }).join('; ');
+        var mails = implicados.map(function (u) { return u.Email; }).filter(Boolean);
+        if (mails.length) cuerpo.correoimplicados = mails.join('; ');
+      }
+      $('#nCrear').disabled = true; $('#nCrear').textContent = 'Creando…';
+      crearElemento(cuerpo).then(function (nuevo) {
+        $('#dlg').close();
+        if ($('#altaRapida')) $('#altaRapida').value = '';
+        aviso('Asunto creado en Colabora');
+        return cargar().then(function () { if (nuevo && nuevo.Id) abrir(nuevo.Id); });
+      }).catch(function (e) {
+        $('#nCrear').disabled = false; $('#nCrear').textContent = 'Crear en Colabora';
+        err('No se pudo crear: ' + (e.message || e));
+      });
+    };
+  }
+
   // ---------- Ajustes ----------
   function vistaAjustes() {
     var ests = valores('ESTADO', 'estado');
@@ -700,7 +941,7 @@
         return '<div class="grid" style="align-items:center;margin:4px 0"><div><b>' + esc(e) + '</b></div><div><select data-mapa="' + esc(e) + '">' +
           Object.keys(CLASES).map(function (k) { return '<option value="' + k + '"' + (claseEstado(e) === k ? ' selected' : '') + '>' + CLASES[k] + '</option>'; }).join('') + '</select></div></div>';
       }).join('') || '<p class="muted">Aún no se han leído los estados.</p>') + '</div>' +
-      '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">Esta página funciona dentro de Colabora con tu sesión: <b>solo lee</b> la lista y no envía nada fuera del servidor. ' +
+      '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">Esta página funciona dentro de Colabora con tu sesión. Lee la lista y <b>solo escribe cuando das de alta un asunto nuevo</b> (no modifica ni borra los existentes). No envía nada fuera del servidor. ' +
       'Tus preferencias (filtros, estados, informe) se guardan solo en este navegador.</p></div>';
   }
 
@@ -763,6 +1004,8 @@
     }
     var inf = el.closest('[data-inf]');
     if (inf) { accionInforme(inf.dataset.inf); return; }
+    if (el.closest('#nuevo')) { if (cargadoEn) formularioNuevo(''); return; }
+    if (el.closest('#altaRapidaBtn')) { formularioNuevo($('#altaRapida').value.trim()); return; }
     var t = el.closest('.tarea');
     if (t) abrir(Number(t.dataset.id));
   });
@@ -781,6 +1024,9 @@
       tareas.forEach(function (t) { t.clase = t.fin ? 'hecha' : claseEstado(t.estado); });
     } else return;
     guardarPref(); render();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.id === 'altaRapida') { e.preventDefault(); formularioNuevo(e.target.value.trim()); }
   });
   document.addEventListener('input', function (e) {
     if (e.target.id !== 'fq') return;
