@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prueba SharePoint · Tareas NLT</title>
+<style>
+  :root { --bg: #f4f5f0; --card: #fff; --text: #1f261f; --muted: #5f685f; --line: #d9ddd3; --brand: #3b4a2f; --ok: #2e7d32; --okbg: #dcefdc; --bad: #b71c1c; --badbg: #fbdada; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; color: var(--brand); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 12px 0; }
+  .ok { background: var(--okbg); color: var(--ok); font-weight: 700; }
+  .bad { background: var(--badbg); color: var(--bad); font-weight: 700; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--brand); color: #fff; }
+  button { font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+  button.prim { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .tag { display: inline-block; font-size: .75rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: #dde8f7; color: #1d4f91; }
+  code { background: #eef1ea; padding: 1px 5px; border-radius: 4px; }
+  pre { white-space: pre-wrap; background: #eef1ea; padding: 10px; border-radius: 8px; font-size: .8rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Prueba de SharePoint para Tareas NLT</h1>
+  <p class="muted">Esta página solo <b>lee</b> información de este sitio con tu sesión y la muestra aquí. No envía nada fuera ni modifica nada.</p>
+
+  <noscript><div class="card bad">❌ SharePoint no ejecuta el código de esta página: la versión para SharePoint no es posible sin un administrador.</div></noscript>
+  <div class="card bad" id="sinjs">❌ Si ves este mensaje, SharePoint no ejecuta el código de esta página: la versión para SharePoint no es posible sin un administrador.</div>
+
+  <div id="app" hidden>
+    <div class="card ok" id="estado">✅ Funciona: SharePoint ejecuta esta página.</div>
+    <div class="card" id="sitio"></div>
+    <div class="card" id="listas"><p class="muted">Leyendo las listas del sitio…</p></div>
+    <div class="card" id="columnas" hidden></div>
+    <div class="card">
+      <p><b>Para enviar a Claude:</b> copia este resumen (solo nombres de listas y columnas, sin contenido de las tareas).</p>
+      <button class="prim" id="copiar">Copiar resumen</button>
+      <pre id="resumen"></pre>
+    </div>
+  </div>
+</main>
+<script>
+(function () {
+  document.getElementById('sinjs').hidden = true;
+  document.getElementById('app').hidden = false;
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var resumen = { pagina: location.origin + location.pathname, sitio: '', usuario: '', listas: [], columnas: null, errores: [] };
+  var pintarResumen = function () { $('resumen').textContent = JSON.stringify(resumen, null, 1); };
+
+  // Raíz del sitio: …/sites/NOMBRE o …/teams/NOMBRE, o la raíz del dominio
+  var m = location.pathname.match(/^\/(sites|teams)\/[^/]+/i);
+  var sitio = location.origin + (m ? m[0] : '');
+  resumen.sitio = sitio;
+  var esSharePoint = /sharepoint\.(com|us|de|cn)$/i.test(location.hostname) || /sharepoint/i.test(location.hostname);
+  $('sitio').innerHTML = '<b>Sitio:</b> ' + esc(sitio) + (esSharePoint ? '' : '<br><span class="muted">Esta página no parece estar abierta desde SharePoint; las lecturas fallarán.</span>');
+
+  var api = function (ruta) {
+    return fetch(sitio + '/_api/' + ruta, { credentials: 'same-origin', headers: { Accept: 'application/json;odata=nometadata' } })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status + ' en ' + ruta); return r.json(); });
+  };
+  var PLANTILLAS = { 100: 'Lista', 107: 'Tareas (clásica)', 171: 'Tareas', 150: 'Proyecto', 101: 'Biblioteca' };
+
+  api('web/currentuser?$select=Title').then(function (u) {
+    resumen.usuario = u.Title;
+    $('sitio').innerHTML += '<br><b>Tu usuario:</b> ' + esc(u.Title);
+    pintarResumen();
+  }).catch(function (e) { resumen.errores.push(String(e.message || e)); pintarResumen(); });
+
+  api("web/lists?$select=Id,Title,ItemCount,BaseTemplate,Hidden&$filter=Hidden eq false").then(function (d) {
+    var ls = (d.value || []).filter(function (l) { return l.BaseTemplate !== 101 && l.BaseTemplate !== 119 && l.BaseTemplate !== 850; });
+    resumen.listas = ls.map(function (l) { return { titulo: l.Title, tipo: PLANTILLAS[l.BaseTemplate] || String(l.BaseTemplate), elementos: l.ItemCount }; });
+    pintarResumen();
+    if (!ls.length) { $('listas').innerHTML = '<p>No hay listas visibles en este sitio.</p>'; return; }
+    $('listas').innerHTML = '<p><b>Listas del sitio.</b> Pulsa la de tareas para ver sus columnas.</p><table><thead><tr><th>Lista</th><th>Tipo</th><th>Elementos</th><th></th></tr></thead><tbody>' +
+      ls.map(function (l) {
+        var tareas = l.BaseTemplate === 107 || l.BaseTemplate === 171 || /tarea|task/i.test(l.Title);
+        return '<tr><td>' + esc(l.Title) + (tareas ? ' <span class="tag">tareas</span>' : '') + '</td><td>' + esc(PLANTILLAS[l.BaseTemplate] || l.BaseTemplate) +
+          '</td><td>' + l.ItemCount + '</td><td><button data-id="' + esc(l.Id) + '" data-titulo="' + esc(l.Title) + '">Columnas</button></td></tr>';
+      }).join('') + '</tbody></table>';
+  }).catch(function (e) {
+    resumen.errores.push(String(e.message || e)); pintarResumen();
+    $('listas').innerHTML = '<p class="bad" style="padding:8px;border-radius:8px">No se pudieron leer las listas: ' + esc(e.message || e) + '</p>';
+  });
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('button[data-id]');
+    if (!b) return;
+    var titulo = b.getAttribute('data-titulo');
+    $('columnas').hidden = false;
+    $('columnas').innerHTML = '<p class="muted">Leyendo columnas de «' + esc(titulo) + '»…</p>';
+    api("web/lists(guid'" + b.getAttribute('data-id') + "')/fields?$select=Title,InternalName,TypeAsString,Hidden,ReadOnlyField&$filter=Hidden eq false").then(function (d) {
+      var cs = (d.value || []).filter(function (c) { return !c.ReadOnlyField || /^(Title|Created|Modified|Author|Editor)$/.test(c.InternalName); });
+      resumen.columnas = { lista: titulo, campos: cs.map(function (c) { return c.Title + ' = ' + c.InternalName + ' (' + c.TypeAsString + ')'; }) };
+      pintarResumen();
+      $('columnas').innerHTML = '<p><b>Columnas de «' + esc(titulo) + '»</b></p><table><thead><tr><th>Nombre</th><th>Nombre interno</th><th>Tipo</th></tr></thead><tbody>' +
+        cs.map(function (c) { return '<tr><td>' + esc(c.Title) + '</td><td><code>' + esc(c.InternalName) + '</code></td><td>' + esc(c.TypeAsString) + '</td></tr>'; }).join('') + '</tbody></table>';
+    }).catch(function (e2) {
+      resumen.errores.push(String(e2.message || e2)); pintarResumen();
+      $('columnas').innerHTML = '<p class="bad" style="padding:8px;border-radius:8px">No se pudieron leer las columnas: ' + esc(e2.message || e2) + '</p>';
+    });
+  });
+
+  $('copiar').addEventListener('click', function () {
+    var txt = $('resumen').textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function () { $('copiar').textContent = 'Copiado ✓'; })
+      .catch(function () { var r = document.createRange(); r.selectNodeContents($('resumen')); var s = getSelection(); s.removeAllRanges(); s.addRange(r); $('copiar').textContent = 'Seleccionado: cópialo'; });
+  });
+  pintarResumen();
+})();
+</script>
+</body>
+</html>
