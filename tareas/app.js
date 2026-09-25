@@ -55,7 +55,7 @@ function normalizarTarea(t) {
 function normalizar(d) {
   return {
     tareas: (d.tareas || []).map(normalizarTarea),
-    categorias: d.categorias?.length ? d.categorias : [...CATS_BASE],
+    categorias: Array.isArray(d.categorias) ? d.categorias : [...CATS_BASE],
     personas: Array.isArray(d.personas) ? d.personas : [],
     gcalBorrar: Array.isArray(d.gcalBorrar) ? d.gcalBorrar : [],
     gcalMapa: d.gcalMapa && typeof d.gcalMapa === 'object' ? d.gcalMapa : {},
@@ -645,6 +645,17 @@ function vistaAjustes() {
   const notif = 'Notification' in window ? Notification.permission : 'no';
   const pe = datos.personas[personaEdit] || {};
   return `
+    <div class="card">
+      <h3>Categorías</h3>
+      <p class="small muted">Organiza todo lo que haces. Para renombrar una, cambia el nombre y pulsa Intro o sal del campo: sus tareas se actualizan.</p>
+      <ul class="cats">${datos.categorias.map((c, i) => {
+        const n = datos.tareas.filter(t => t.categoria === c).length;
+        return `<li><input class="input" data-catnom="${i}" value="${esc(c)}" aria-label="Nombre de la categoría ${esc(c)}">
+          <span class="small muted">${n} tarea${n === 1 ? '' : 's'}</span>
+          <button class="btn sm danger" data-delcat="${i}" aria-label="Eliminar la categoría ${esc(c)}">Eliminar</button></li>`;
+      }).join('') || '<li class="small muted">No hay categorías.</li>'}</ul>
+      <form id="nuevaCat" class="row gap" style="margin-top:10px"><input class="input grow" name="c" placeholder="Nueva categoría" required><button class="btn">Añadir</button></form>
+    </div>
     ${tarjetaEquipo()}
     <div class="card">
       <h3>Personas externas y directorio</h3>
@@ -679,13 +690,6 @@ function vistaAjustes() {
         : '<button class="btn block" data-accion="notif">Activar notificaciones</button>'}
       <button class="btn block" data-accion="ics">Exportar NLT y avisos a un archivo de calendario (.ics)</button>
       <p class="small muted">Para Outlook o el calendario del iPhone. Con Google Calendar, mejor la sincronización automática de arriba.</p>
-    </div>
-    <div class="card">
-      <h3>Categorías</h3>
-      <p class="small muted">Organiza todo lo que haces. Pulsa una para renombrarla.</p>
-      <div class="row wrap">${datos.categorias.map((c, i) => `<span class="chip" style="font-size:.85rem;padding:6px 10px">
-        <a href="#" data-rencat="${i}" style="color:inherit">${esc(c)}</a> <a href="#" data-delcat="${i}" style="color:var(--bad);text-decoration:none" aria-label="Quitar">✕</a></span>`).join('')}</div>
-      <form id="nuevaCat" class="row gap" style="margin-top:10px"><input class="input grow" name="c" placeholder="Nueva categoría" required><button class="btn">Añadir</button></form>
     </div>
     <div class="card">
       <h3>Tema</h3>
@@ -1250,10 +1254,8 @@ main.addEventListener('click', e => {
   if (mes) { mesVista = new Date(mesVista.getFullYear(), mesVista.getMonth() + +mes.dataset.mes, 1); render(); return; }
   const abrir = el.closest('[data-abrir]');
   if (abrir) { e.preventDefault(); abrirEditor(abrir.dataset.abrir); return; }
-  const ren = el.closest('[data-rencat]');
-  if (ren) { e.preventDefault(); renombrarCat(+ren.dataset.rencat); return; }
   const del = el.closest('[data-delcat]');
-  if (del) { e.preventDefault(); datos.categorias.splice(+del.dataset.delcat, 1); guardar(); render(); return; }
+  if (del) { borrarCat(+del.dataset.delcat); return; }
   const edp = el.closest('[data-editper]');
   if (edp) { e.preventDefault(); personaEdit = +edp.dataset.editper; render(); $('#fpersona [name=nombre]').focus(); return; }
   const dlp = el.closest('[data-delper]');
@@ -1264,13 +1266,30 @@ main.addEventListener('click', e => {
   if (t && !el.closest('button, a, input, summary')) abrirEditor(t.dataset.id);
 });
 
-async function renombrarCat(i) {
+// Renombrar pasa sus tareas al nombre nuevo; si ese nombre ya existe, las dos categorías se unen
+function renombrarCat(i, nueva) {
   const vieja = datos.categorias[i];
-  const nueva = (await preguntar('Nuevo nombre de la categoría', { ok: 'Renombrar', valor: vieja }))?.trim();
-  if (!nueva || nueva === vieja) return;
-  datos.categorias[i] = nueva;
-  datos.tareas.forEach(t => { if (t.categoria === vieja) t.categoria = nueva; });
-  guardar(); render();
+  nueva = nueva.trim();
+  if (vieja === undefined || !nueva || nueva === vieja) { render(); return; }
+  if (datos.categorias.includes(nueva)) datos.categorias.splice(i, 1);
+  else datos.categorias[i] = nueva;
+  datos.tareas.forEach(t => { if (t.categoria === vieja && !soloLectura(t)) t.categoria = nueva; });
+  if (datos.ajustes.ultimaCat === vieja) datos.ajustes.ultimaCat = nueva;
+  if (filtro.cat === vieja) filtro.cat = nueva;
+  guardar(); render(); toast(`Categoría renombrada: ${nueva}`);
+}
+
+async function borrarCat(i) {
+  const c = datos.categorias[i];
+  if (c === undefined) return;
+  const usadas = datos.tareas.filter(t => t.categoria === c && !soloLectura(t));
+  if (usadas.length && !(await preguntar(`${usadas.length} tarea${usadas.length > 1 ? 's usan' : ' usa'} «${c}» y quedará${usadas.length > 1 ? 'n' : ''} sin categoría. ¿Eliminarla?`,
+    { ok: 'Eliminar', peligro: true }))) return;
+  datos.categorias.splice(datos.categorias.indexOf(c), 1);
+  usadas.forEach(t => { t.categoria = ''; });
+  if (datos.ajustes.ultimaCat === c) datos.ajustes.ultimaCat = '';
+  if (filtro.cat === c) filtro.cat = '';
+  guardar(); render(); toast(`Categoría eliminada: ${c}`);
 }
 
 async function accion(a) {
@@ -1318,6 +1337,7 @@ main.addEventListener('change', async e => {
   if (el.id === 'fcat') { filtro.cat = el.value; render(); }
   else if (el.id === 'fresp') { filtro.resp = el.value; render(); }
   else if (el.id === 'fesp') { filtro.esp = el.value; render(); }
+  else if (el.dataset.catnom !== undefined) renombrarCat(+el.dataset.catnom, el.value);
   else if (el.id === 'periodo') { periodo = el.value; render(); }
   else if (el.id === 'avisoDias') { a.avisoDias = +el.value; guardar(); }
   else if (el.id === 'avisoAntes') { a.avisoAntes = +el.value; guardar(); }
@@ -1353,6 +1373,10 @@ main.addEventListener('change', async e => {
     } catch { toast('El archivo no es una copia válida de Tareas NLT'); }
     el.value = '';
   }
+});
+
+main.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.dataset?.catnom !== undefined) { e.preventDefault(); e.target.blur(); }
 });
 
 main.addEventListener('input', e => {
