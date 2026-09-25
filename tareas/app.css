@@ -218,3 +218,35 @@ output { font-weight: 700; color: var(--text); }
 .diag { white-space: pre-wrap; word-break: break-word; font-size: .75rem; background: var(--surface-2); border-radius: 8px; padding: 10px; margin: 0 0 8px; max-height: 320px; overflow: auto; }
 
 #rapidaPrev { margin-top: 8px; line-height: 1.9; }
+
+/* ---------- Informes ---------- */
+.tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; margin-bottom: 14px; }
+.tabs a { flex: 1; text-align: center; padding: 9px 4px; border-radius: 9px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .9rem; }
+.tabs a.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.acciones-inf { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+@media (min-width: 720px) { .acciones-inf { grid-template-columns: repeat(4, 1fr); } }
+.informe { background: #fff; color: #1f261f; border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 16px; font-size: .88rem; }
+.informe h3 { color: #3b4a2f; margin: 18px 0 6px; font-size: .95rem; }
+.informe h4 { margin: 0 0 4px; color: #3b4a2f; }
+.informe .muted { color: #5f685f; }
+.inf-marca { text-align: center; font-weight: 800; color: #b71c1c; letter-spacing: .05em; margin: 0 0 8px; }
+.inf-org { text-align: center; font-weight: 700; margin: 0; }
+.inf-tit { text-align: center; margin: 6px 0 8px; font-size: 1.15rem; text-transform: uppercase; }
+.inf-sub { text-align: center; margin: 0 0 4px; font-size: .82rem; color: #5f685f; }
+.inf-scroll { overflow-x: auto; }
+.inf-tabla { width: 100%; border-collapse: collapse; font-size: .8rem; min-width: 520px; }
+.inf-tabla th { background: #3b4a2f; color: #fff; text-align: left; padding: 5px 6px; font-weight: 700; }
+.inf-tabla td { border-bottom: 1px solid #d9ddd3; padding: 5px 6px; vertical-align: top; }
+.inf-res { min-width: 0; max-width: 460px; }
+.inf-res td:first-child { background: #eef1ea; font-weight: 600; }
+.informe .txt-bad { color: #b71c1c; font-weight: 700; }
+.inf-det { border-top: 1px solid #d9ddd3; padding-top: 10px; margin-top: 10px; }
+.inf-det p { margin: 0 0 4px; }
+.inf-firma { margin-top: 24px; font-weight: 700; }
+@media print {
+  body.imprimiendo .top, body.imprimiendo .bottom, body.imprimiendo .fab, body.imprimiendo #toast,
+  body.imprimiendo main > :not(#informeDoc) { display: none !important; }
+  body.imprimiendo main { padding: 0; max-width: none; }
+  body.imprimiendo .informe { border: 0; padding: 0; }
+  body.imprimiendo .inf-tabla { min-width: 0; }
+}

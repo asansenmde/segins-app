@@ -5,14 +5,14 @@
 import { interpretar } from './fechas.js?v=12';
 
 const CLAVE = 'tareas-nlt-v1';
-const VERSION_APP = '12 · 25 sep 2026'; // súbela en cada publicación (y el ?v= de index.html)
+const VERSION_APP = '13 · 25 sep 2026'; // súbela en cada publicación (y el ?v= de index.html)
 const ESTADOS = [['pendiente', 'Pendiente'], ['curso', 'En curso'], ['espera', 'En espera'], ['hecha', 'Hecha']];
 const NOMBRE_ESTADO = Object.fromEntries(ESTADOS);
 const PRIOS = { critica: 'Crítica', alta: 'Alta', media: 'Media', baja: 'Baja' };
 const ORDEN_PRIO = { critica: 0, alta: 1, media: 2, baja: 3 };
 const REPETIR = { '': 'No se repite', diaria: 'Cada día', semanal: 'Cada semana', mensual: 'Cada mes', anual: 'Cada año' };
 const CATS_BASE = ['Evaluaciones SEGINS', 'Visitas', 'Informes', 'Reuniones', 'Administración', 'Formación', 'Personal'];
-const VISTAS = { nlt: 'Mis NLT', tablero: 'Tablero', calendario: 'Calendario', actividad: 'Lo que hago', ajustes: 'Ajustes' };
+const VISTAS = { nlt: 'Mis NLT', tablero: 'Tablero', calendario: 'Calendario', actividad: 'Lo que hago', informes: 'Informes', ajustes: 'Ajustes' };
 
 // Todos los campos de una tarea, con su valor por defecto
 const TAREA_BASE = {
@@ -654,6 +654,7 @@ function vistaActividad() {
   const carga = cargaPorResponsable();
 
   return `
+    <div class="tabs"><a href="#actividad" class="on">Lo que hago</a><a href="#informes">Informes</a></div>
     <div class="row gap wrap" style="margin-bottom:12px">
       <select class="input grow" id="periodo" style="width:auto;min-width:160px">${Object.entries(PERIODOS).map(([k, v]) => `<option value="${k}" ${k === periodo ? 'selected' : ''}>${v}</option>`).join('')}</select>
       <button class="btn" data-accion="copiar-resumen">Copiar resumen</button>
@@ -699,6 +700,387 @@ function resumenTexto() {
     pend.forEach(t => lineas.push(`- ${fmtFecha(t.nlt)}: ${t.titulo}${nombreResp(t) && !esMia(t) ? ' (' + nombreResp(t) + ')' : ''} — ${urgencia(t).txt}`));
   }
   return lineas.join('\n');
+}
+
+// ---------- Vista: Informes (para despachar) ----------
+// Selección de tareas por periodo, criterio de fecha, estados y filtros; agrupadas y con resumen.
+// Salidas: vista previa, Word (.docx, con la misma librería que SEGINS), CSV, texto e impresión.
+
+const CRITERIOS = {
+  actividad: 'Con actividad en el periodo (creadas, trabajadas o terminadas)',
+  nlt: 'Con NLT dentro del periodo', creadas: 'Creadas en el periodo', hechas: 'Terminadas en el periodo',
+  abiertas: 'Pendientes al final del periodo (situación a esa fecha)',
+};
+const AGRUPAR = { estado: 'Estado', categoria: 'Categoría', responsable: 'Responsable', prioridad: 'Prioridad', ninguno: 'Sin agrupar' };
+const PRESETS = { semana: 'Esta semana', semanaPasada: 'Semana pasada', mes: 'Este mes', mesPasado: 'Mes pasado', trimestre: 'Trimestre', anio: 'Este año', todo: 'Todo' };
+
+function informeDefecto() {
+  const h = aFecha(hoy());
+  return {
+    desde: iso(new Date(h.getFullYear(), h.getMonth(), 1)), hasta: hoy(), criterio: 'actividad',
+    estados: ESTADOS.map(e => e[0]), soloVencidas: false, cat: '', resp: '', esp: '', prio: '', agrupar: 'estado',
+    resumen: true, tabla: true, detalle: false,
+    titulo: 'Informe de situación de tareas', organismo: '', destinatario: '', marca: '',
+  };
+}
+const opcionesInforme = () => ({ ...informeDefecto(), ...(datos.ajustes.informe || {}) });
+
+function periodoPreset(p) {
+  const h = aFecha(hoy());
+  if (p === 'trimestre') {
+    const q = Math.floor(h.getMonth() / 3) * 3;
+    return [iso(new Date(h.getFullYear(), q, 1)), iso(new Date(h.getFullYear(), q + 3, 0))];
+  }
+  if (p === 'todo') {
+    const primera = datos.tareas.map(t => t.creada).filter(Boolean).sort()[0];
+    return [primera ? iso(new Date(primera)) : hoy(), hoy()];
+  }
+  const [a, b] = rango(p);
+  return [iso(new Date(a)), iso(new Date(b - 1))];
+}
+
+const msDia = (s, fin = false) => { const d = aFecha(s); if (fin) d.setDate(d.getDate() + 1); return d.getTime(); };
+
+function seleccionInforme(o) {
+  const a = msDia(o.desde), b = msDia(o.hasta, true);
+  const en = x => { const ms = typeof x === 'number' ? x : Date.parse(x); return ms >= a && ms < b; };
+  return datos.tareas.filter(t => {
+    let ok;
+    switch (o.criterio) {
+      case 'nlt': ok = !!t.nlt && t.nlt >= o.desde && t.nlt <= o.hasta; break;
+      case 'creadas': ok = !!t.creada && en(t.creada); break;
+      case 'hechas': ok = !!t.hecha && en(t.hecha); break;
+      case 'abiertas': ok = !!t.creada && Date.parse(t.creada) < b && (!t.hecha || Date.parse(t.hecha) >= b); break;
+      default: ok = (t.creada && en(t.creada)) || (t.hecha && en(t.hecha)) || t.registro.some(r => en(r.fecha))
+        || t.tiempo.some(s => s.fin >= a && s.inicio < b);
+    }
+    if (!ok) return false;
+    if (o.estados.length && !o.estados.includes(t.estado)) return false;
+    if (o.soloVencidas && !(urgencia(t).grupo === 'vencidas' || urgencia(t).txt === 'Hecha fuera de NLT')) return false;
+    if (o.cat && (t.categoria || '') !== (o.cat === '__sin' ? '' : o.cat)) return false;
+    if (o.resp && (o.resp === '__mias' ? !esMia(t) : o.resp === '__otros' ? esMia(t) : nombreResp(t) !== o.resp)) return false;
+    if (o.esp && t.espacio !== o.esp) return false;
+    if (o.prio && ORDEN_PRIO[t.prioridad] > ORDEN_PRIO[o.prio]) return false;
+    return true;
+  }).sort(ordenar);
+}
+
+function resumenInforme(ts, o) {
+  const a = msDia(o.desde), b = msDia(o.hasta, true);
+  const hechas = ts.filter(t => t.estado === 'hecha');
+  return {
+    total: ts.length,
+    porEstado: ESTADOS.map(([e, n]) => [n, ts.filter(t => t.estado === e).length]),
+    hechas: hechas.length,
+    enPlazo: hechas.filter(t => !t.nlt || !t.hecha || iso(new Date(t.hecha)) <= t.nlt).length,
+    vencidas: ts.filter(t => urgencia(t).grupo === 'vencidas').length,
+    criticas: ts.filter(t => t.prioridad === 'critica' && t.estado !== 'hecha').length,
+    prorrogadas: ts.filter(t => prorrogas(t)).length,
+    tiempo: ts.reduce((s, t) => s + t.tiempo.reduce((x, se) => x + Math.max(0, Math.min(se.fin, b) - Math.max(se.inicio, a)), 0), 0),
+    avance: ts.length ? Math.round(ts.reduce((s, t) => s + progreso(t), 0) / ts.length) : 0,
+  };
+}
+
+const quienEs = t => esMia(t) ? (datos.ajustes.miNombre || nube.miNombre || 'Yo') : (nombreResp(t) || 'Sin asignar');
+
+function gruposInforme(ts, o) {
+  if (o.agrupar === 'ninguno') return [['', ts]];
+  const clave = { estado: t => NOMBRE_ESTADO[t.estado], categoria: t => t.categoria || 'Sin categoría', responsable: quienEs,
+    prioridad: t => PRIOS[t.prioridad] }[o.agrupar];
+  const orden = o.agrupar === 'estado' ? ESTADOS.map(e => e[1]) : o.agrupar === 'prioridad' ? Object.values(PRIOS) : null;
+  const m = new Map();
+  ts.forEach(t => { const k = clave(t); if (!m.has(k)) m.set(k, []); m.get(k).push(t); });
+  return [...m.entries()].sort((x, y) => orden ? orden.indexOf(x[0]) - orden.indexOf(y[0]) : x[0].localeCompare(y[0], 'es'));
+}
+
+const fechaCorta = s => s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+function filaInforme(t) {
+  const u = urgencia(t);
+  return {
+    ref: t.referencia || '', asunto: t.titulo, resp: quienEs(t), prio: PRIOS[t.prioridad],
+    nlt: t.nlt ? fechaCorta(t.nlt) + (t.hora ? ' ' + t.hora : '') + (prorrogas(t) ? ` (prorr. ×${prorrogas(t)})` : '') : '—',
+    estado: NOMBRE_ESTADO[t.estado],
+    situacion: t.estado === 'hecha' ? `${u.txt} ${t.hecha ? fechaCorta(iso(new Date(t.hecha))) : ''}`.trim() : u.txt,
+    avance: `${progreso(t)} %`, cls: u.cls,
+  };
+}
+
+function detalleInforme(t, o) {
+  const a = msDia(o.desde), b = msDia(o.hasta, true);
+  const d = [];
+  if (t.descripcion.trim()) d.push(['Instrucciones', t.descripcion.trim()]);
+  if (t.ordenadaPor) d.push(['Ordenada por', t.ordenadaPor + (t.fechaOrden ? ` (${fechaCorta(t.fechaOrden)})` : '')]);
+  if (t.colaboradores.length) d.push(['Colaboradores', t.colaboradores.join(', ')]);
+  if (t.lugar) d.push(['Lugar', t.lugar]);
+  if (t.categoria) d.push(['Categoría', t.categoria]);
+  if (t.subtareas.length) d.push(['Pasos', t.subtareas.map(s => `${s.ok ? '☑' : '☐'} ${s.t}`).join('\n')]);
+  if (t.prorrogas.length) d.push(['Prórrogas', t.prorrogas.map(p => `${fechaCorta(p.de) || 'sin NLT'} → ${fechaCorta(p.a) || 'sin NLT'}${p.motivo ? ': ' + p.motivo : ''}`).join('\n')]);
+  const bit = t.registro.filter(r => { const ms = Date.parse(r.fecha); return ms >= a && ms < b; });
+  if (bit.length) d.push(['Seguimiento en el periodo', bit.map(r => `${new Date(r.fecha).toLocaleDateString('es-ES')}: ${r.texto}`).join('\n')]);
+  const tt = tiempoTotal(t);
+  if (tt) d.push(['Tiempo dedicado', fmtDur(tt) + (t.estimacionH ? ` de ${t.estimacionH} h estimadas` : '')]);
+  if (t.notas.trim()) d.push(['Observaciones', t.notas.trim()]);
+  if (t.resultado.trim()) d.push(['Resultado', t.resultado.trim()]);
+  return d;
+}
+
+function filtrosTexto(o) {
+  const f = [CRITERIOS[o.criterio]];
+  if (o.estados.length && o.estados.length < ESTADOS.length) f.push('Estados: ' + o.estados.map(e => NOMBRE_ESTADO[e]).join(', '));
+  if (o.soloVencidas) f.push('Solo vencidas o terminadas fuera de NLT');
+  if (o.cat) f.push('Categoría: ' + (o.cat === '__sin' ? 'sin categoría' : o.cat));
+  if (o.resp) f.push('Responsable: ' + ({ __mias: 'asignadas a mí', __otros: 'delegadas' }[o.resp] || o.resp));
+  if (o.esp) f.push(o.esp === 'equipo' ? 'Solo tareas de equipo' : 'Solo tareas personales');
+  if (o.prio) f.push('Prioridad: ' + PRIOS[o.prio] + (o.prio === 'critica' ? '' : ' o superior'));
+  return f;
+}
+
+const fechaLarga = s => aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+const emisor = () => datos.ajustes.miNombre || nube.miNombre || '';
+
+function htmlInforme(o) {
+  const ts = seleccionInforme(o);
+  const r = resumenInforme(ts, o);
+  const cab = `
+    ${o.marca ? `<p class="inf-marca">${esc(o.marca)}</p>` : ''}
+    ${o.organismo ? `<p class="inf-org">${esc(o.organismo)}</p>` : ''}
+    <h2 class="inf-tit">${esc(o.titulo || 'Informe de tareas')}</h2>
+    <p class="inf-sub">Periodo: <b>${fechaLarga(o.desde)}</b> a <b>${fechaLarga(o.hasta)}</b></p>
+    <p class="inf-sub">${esc(filtrosTexto(o).join(' · '))}</p>
+    ${o.destinatario ? `<p class="inf-sub">A la atención de: <b>${esc(o.destinatario)}</b></p>` : ''}
+    <p class="inf-sub">Emitido ${emisor() ? `por ${esc(emisor())} ` : ''}el ${new Date().toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' })}</p>`;
+  if (!ts.length) return cab + '<p class="empty">Ninguna tarea cumple estos criterios.</p>';
+  const resumen = o.resumen ? `<h3>Resumen</h3>
+    <table class="inf-tabla inf-res"><tbody>
+      <tr><td>Tareas incluidas</td><td>${r.total}</td></tr>
+      ${r.porEstado.map(([n, v]) => `<tr><td>${n}</td><td>${v}</td></tr>`).join('')}
+      <tr><td>Terminadas dentro de NLT</td><td>${r.hechas ? `${r.enPlazo} de ${r.hechas} (${Math.round(r.enPlazo / r.hechas * 100)} %)` : '—'}</td></tr>
+      <tr><td>Vencidas sin terminar</td><td class="${r.vencidas ? 'txt-bad' : ''}">${r.vencidas}</td></tr>
+      <tr><td>Críticas abiertas</td><td>${r.criticas}</td></tr>
+      <tr><td>Con NLT prorrogada</td><td>${r.prorrogadas}</td></tr>
+      <tr><td>Avance medio</td><td>${r.avance} %</td></tr>
+      <tr><td>Tiempo registrado en el periodo</td><td>${r.tiempo ? fmtDur(r.tiempo) : '—'}</td></tr>
+    </tbody></table>` : '';
+  const tablas = o.tabla ? gruposInforme(ts, o).map(([g, lista]) => `
+    ${g ? `<h3>${esc(g)} <span class="muted">(${lista.length})</span></h3>` : '<h3>Relación de tareas</h3>'}
+    <div class="inf-scroll"><table class="inf-tabla"><thead><tr><th>Ref.</th><th>Asunto</th><th>Responsable</th><th>Prior.</th><th>NLT</th>
+      ${o.agrupar === 'estado' ? '' : '<th>Estado</th>'}<th>Situación</th><th>Avance</th></tr></thead><tbody>
+      ${lista.map(filaInforme).map(f => `<tr><td>${esc(f.ref)}</td><td>${esc(f.asunto)}</td><td>${esc(f.resp)}</td><td>${f.prio}</td>
+        <td>${esc(f.nlt)}</td>${o.agrupar === 'estado' ? '' : `<td>${f.estado}</td>`}<td class="${f.cls === 'bad' ? 'txt-bad' : ''}">${esc(f.situacion)}</td><td>${f.avance}</td></tr>`).join('')}
+    </tbody></table></div>`).join('') : '';
+  const detalle = o.detalle ? `<h3>Detalle</h3>${ts.map(t => {
+    const f = filaInforme(t);
+    return `<div class="inf-det"><h4>${esc([f.ref, f.asunto].filter(Boolean).join(' · '))}</h4>
+      <p class="small">${esc(f.resp)} · ${f.prio} · NLT ${esc(f.nlt)} · ${f.estado} · ${esc(f.situacion)} · ${f.avance}</p>
+      ${detalleInforme(t, o).map(([k, v]) => `<p><b>${esc(k)}:</b> ${esc(v).replace(/\n/g, '<br>')}</p>`).join('')}</div>`;
+  }).join('')}` : '';
+  return cab + resumen + tablas + detalle + `<p class="inf-firma">${emisor() ? 'Fdo.: ' + esc(emisor()) : ''}</p>
+    ${o.marca ? `<p class="inf-marca">${esc(o.marca)}</p>` : ''}`;
+}
+
+function textoInforme(o) {
+  const ts = seleccionInforme(o);
+  const r = resumenInforme(ts, o);
+  const l = [];
+  if (o.marca) l.push(o.marca);
+  if (o.organismo) l.push(o.organismo);
+  l.push((o.titulo || 'Informe de tareas').toUpperCase(), `Periodo: ${fechaLarga(o.desde)} a ${fechaLarga(o.hasta)}`, filtrosTexto(o).join(' · '));
+  if (o.destinatario) l.push(`A la atención de: ${o.destinatario}`);
+  l.push('');
+  if (o.resumen) {
+    l.push('RESUMEN', `- Tareas: ${r.total} (${r.porEstado.map(([n, v]) => `${n.toLowerCase()} ${v}`).join(', ')})`);
+    if (r.hechas) l.push(`- Terminadas dentro de NLT: ${r.enPlazo} de ${r.hechas}`);
+    l.push(`- Vencidas sin terminar: ${r.vencidas} · Críticas abiertas: ${r.criticas} · Prorrogadas: ${r.prorrogadas}`, '');
+  }
+  for (const [g, lista] of gruposInforme(ts, o)) {
+    l.push(g ? `${g.toUpperCase()} (${lista.length})` : 'TAREAS');
+    lista.map(filaInforme).forEach(f => l.push(`- ${f.ref ? f.ref + ' ' : ''}${f.asunto} · ${f.resp} · NLT ${f.nlt} · ${f.situacion} · ${f.avance}`));
+    l.push('');
+  }
+  if (emisor()) l.push(`Fdo.: ${emisor()}`);
+  return l.join('\n');
+}
+
+let capDocx = null;
+function cargarDocx() {
+  // Publicada junto a la app en claude.ai (lib/) o la de SEGINS en GitHub Pages (../js/lib/)
+  capDocx ||= (async () => {
+    for (const src of ['lib/docx.iife.js', '../js/lib/docx.iife.js']) {
+      try {
+        await new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.append(s); });
+        if (window.docx) return window.docx;
+      } catch { /* se prueba la siguiente ruta */ }
+    }
+    capDocx = null;
+    throw new Error('No se pudo cargar el generador de Word');
+  })();
+  return capDocx;
+}
+
+async function wordInforme(o) {
+  const d = await cargarDocx();
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, Header, Footer, AlignmentType,
+    ShadingType, PageNumber, TableLayoutType, PageOrientation } = d;
+  const ts = seleccionInforme(o);
+  const r = resumenInforme(ts, o);
+  const F = 'Arial', VERDE = '3B4A2F';
+  const t = (text, x = {}) => new TextRun({ text: String(text ?? ''), font: F, size: x.size || 20, bold: x.bold, italics: x.italics, color: x.color });
+  const p = (text, x = {}) => new Paragraph({ alignment: x.align, spacing: { before: x.before || 0, after: x.after ?? 80 }, keepNext: x.keepNext,
+    children: String(text ?? '').split('\n').flatMap((linea, i) => i ? [new TextRun({ break: 1 }), t(linea, x)] : [t(linea, x)]) });
+  const h = (text, size = 24) => p(text, { bold: true, size, color: VERDE, before: 240, after: 100, keepNext: true });
+  const celda = (text, x = {}) => new TableCell({ children: [p(text, { size: x.size || 16, bold: x.bold, color: x.color, after: 0 })],
+    shading: x.fill ? { type: ShadingType.CLEAR, color: 'auto', fill: x.fill } : undefined,
+    width: x.w ? { size: x.w, type: WidthType.PERCENTAGE } : undefined, margins: { top: 40, bottom: 40, left: 60, right: 60 } });
+  const tabla = rows => new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE }, layout: TableLayoutType.FIXED });
+  const hijos = [];
+  if (o.organismo) hijos.push(p(o.organismo, { bold: true, align: AlignmentType.CENTER, size: 22 }));
+  hijos.push(p((o.titulo || 'Informe de tareas').toUpperCase(), { bold: true, align: AlignmentType.CENTER, size: 28, before: 120, after: 120 }));
+  hijos.push(p(`Periodo: ${fechaLarga(o.desde)} a ${fechaLarga(o.hasta)}`, { align: AlignmentType.CENTER }));
+  hijos.push(p(filtrosTexto(o).join(' · '), { align: AlignmentType.CENTER, size: 18, italics: true }));
+  if (o.destinatario) hijos.push(p(`A la atención de: ${o.destinatario}`, { align: AlignmentType.CENTER }));
+  hijos.push(p(`Emitido ${emisor() ? 'por ' + emisor() + ' ' : ''}el ${new Date().toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' })}`,
+    { align: AlignmentType.CENTER, size: 18, after: 200 }));
+  if (!ts.length) hijos.push(p('Ninguna tarea cumple estos criterios.', { italics: true }));
+  if (ts.length && o.resumen) {
+    hijos.push(h('1. RESUMEN'));
+    const filas = [['Tareas incluidas', r.total], ...r.porEstado,
+      ['Terminadas dentro de NLT', r.hechas ? `${r.enPlazo} de ${r.hechas} (${Math.round(r.enPlazo / r.hechas * 100)} %)` : '—'],
+      ['Vencidas sin terminar', r.vencidas], ['Críticas abiertas', r.criticas], ['Con NLT prorrogada', r.prorrogadas],
+      ['Avance medio', `${r.avance} %`], ['Tiempo registrado en el periodo', r.tiempo ? fmtDur(r.tiempo) : '—']];
+    hijos.push(tabla(filas.map(([k, v]) => new TableRow({ children: [celda(k, { w: 60, bold: true, size: 18, fill: 'EEF1EA' }),
+      celda(String(v), { w: 40, size: 18, color: k === 'Vencidas sin terminar' && v ? 'B71C1C' : undefined })] }))));
+  }
+  let n = o.resumen ? 2 : 1;
+  if (ts.length && o.tabla) {
+    hijos.push(h(`${n++}. RELACIÓN DE TAREAS`));
+    const conEstado = o.agrupar !== 'estado';
+    const cols = ['Ref.', 'Asunto', 'Responsable', 'Prior.', 'NLT', ...(conEstado ? ['Estado'] : []), 'Situación', 'Avance'];
+    const anchos = conEstado ? [10, 28, 15, 8, 11, 9, 12, 7] : [11, 32, 16, 8, 12, 13, 8];
+    for (const [g, lista] of gruposInforme(ts, o)) {
+      if (g) hijos.push(p(`${g} (${lista.length})`, { bold: true, size: 20, before: 160, keepNext: true }));
+      hijos.push(tabla([
+        new TableRow({ tableHeader: true, children: cols.map((c, i) => celda(c, { w: anchos[i], bold: true, color: 'FFFFFF', fill: VERDE })) }),
+        ...lista.map(filaInforme).map(f => new TableRow({ cantSplit: true, children: [f.ref, f.asunto, f.resp, f.prio, f.nlt,
+          ...(conEstado ? [f.estado] : []), f.situacion, f.avance].map((v, i) => celda(v, { w: anchos[i],
+            color: cols[i] === 'Situación' && f.cls === 'bad' ? 'B71C1C' : undefined, bold: cols[i] === 'Situación' && f.cls === 'bad' })) })),
+      ]));
+    }
+  }
+  if (ts.length && o.detalle) {
+    hijos.push(h(`${n++}. DETALLE`));
+    ts.forEach(tk => {
+      const f = filaInforme(tk);
+      hijos.push(p([f.ref, f.asunto].filter(Boolean).join(' · '), { bold: true, size: 20, before: 200, keepNext: true, color: VERDE }));
+      hijos.push(p(`${f.resp} · Prioridad ${f.prio} · NLT ${f.nlt} · ${f.estado} · ${f.situacion} · Avance ${f.avance}`, { size: 18, keepNext: true }));
+      const det = detalleInforme(tk, o);
+      if (det.length) hijos.push(tabla(det.map(([k, v]) => new TableRow({ cantSplit: true, children: [celda(k, { w: 25, bold: true, fill: 'EEF1EA' }), celda(v, { w: 75 })] }))));
+    });
+  }
+  hijos.push(p(`En ____________________, a ${fechaLarga(hoy())}`, { before: 400, after: 300 }));
+  if (emisor()) hijos.push(p(`Fdo.: ${emisor()}`, { bold: true }));
+  const marca = o.marca ? [p(o.marca, { bold: true, align: AlignmentType.CENTER, size: 18, color: 'B71C1C', after: 0 })] : [];
+  const doc = new Document({
+    creator: emisor() || 'Tareas NLT', title: o.titulo,
+    sections: [{
+      properties: { page: { size: { orientation: PageOrientation.PORTRAIT }, margin: { top: 1000, bottom: 1000, left: 1000, right: 1000 } } },
+      headers: { default: new Header({ children: marca }) },
+      footers: { default: new Footer({ children: [...marca, new Paragraph({ alignment: AlignmentType.CENTER, children: [
+        t('Página ', { size: 16 }), new TextRun({ children: [PageNumber.CURRENT], font: F, size: 16 }), t(' de ', { size: 16 }),
+        new TextRun({ children: [PageNumber.TOTAL_PAGES], font: F, size: 16 })] })] }) },
+      children: hijos,
+    }],
+  });
+  return Packer.toBlob(doc);
+}
+
+function vistaInformes() {
+  const o = opcionesInforme();
+  const n = seleccionInforme(o).length;
+  const sel = (nombre, obj, v) => `<select class="input" name="${nombre}">${Object.entries(obj).map(([k, l]) => `<option value="${esc(k)}" ${k === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  const cats = { '': 'Todas', __sin: 'Sin categoría', ...Object.fromEntries(categoriasUsadas().map(c => [c, c])) };
+  const resps = { '': 'Todos', __mias: 'Asignadas a mí', __otros: 'Delegadas en otros', ...Object.fromEntries(responsablesUsados().map(c => [c, c])) };
+  return `
+    <div class="tabs"><a href="#actividad">Lo que hago</a><a href="#informes" class="on">Informes</a></div>
+    <div class="card" id="infOpts">
+      <h3>Periodo</h3>
+      <div class="row wrap">${Object.entries(PRESETS).map(([k, l]) => `<button type="button" class="btn sm" data-infper="${k}">${l}</button>`).join('')}</div>
+      <div class="grid2">
+        <label class="lbl">Desde<input class="input" type="date" name="desde" value="${o.desde}"></label>
+        <label class="lbl">Hasta<input class="input" type="date" name="hasta" value="${o.hasta}"></label>
+      </div>
+      <label class="lbl">Qué tareas${sel('criterio', CRITERIOS, o.criterio)}</label>
+      <div class="lbl">Estados</div>
+      <div class="row wrap">${ESTADOS.map(([e, l]) => `<label class="check"><input type="checkbox" name="estados" value="${e}" ${o.estados.includes(e) ? 'checked' : ''}> ${l}</label>`).join('')}
+        <label class="check"><input type="checkbox" name="soloVencidas" ${o.soloVencidas ? 'checked' : ''}> Solo vencidas</label></div>
+      <div class="grid2">
+        <label class="lbl">Categoría${sel('cat', cats, o.cat)}</label>
+        <label class="lbl">Responsable${sel('resp', resps, o.resp)}</label>
+        <label class="lbl">Prioridad${sel('prio', { '': 'Todas', critica: 'Solo críticas', alta: 'Alta o superior', media: 'Media o superior' }, o.prio)}</label>
+        ${nube.equipo ? `<label class="lbl">Espacio${sel('esp', { '': 'Personales y de equipo', personal: 'Solo personales', equipo: 'Solo de equipo' }, o.esp)}</label>` : ''}
+        <label class="lbl">Agrupar por${sel('agrupar', AGRUPAR, o.agrupar)}</label>
+      </div>
+      <div class="lbl">Contenido</div>
+      <div class="row wrap">
+        <label class="check"><input type="checkbox" name="resumen" ${o.resumen ? 'checked' : ''}> Resumen</label>
+        <label class="check"><input type="checkbox" name="tabla" ${o.tabla ? 'checked' : ''}> Relación de tareas</label>
+        <label class="check"><input type="checkbox" name="detalle" ${o.detalle ? 'checked' : ''}> Detalle de cada tarea</label>
+      </div>
+      <details><summary class="lbl" style="cursor:pointer">Encabezado del informe</summary>
+        <label class="lbl">Título<input class="input" name="titulo" value="${esc(o.titulo)}"></label>
+        <label class="lbl">Unidad / organismo<input class="input" name="organismo" value="${esc(o.organismo)}" placeholder="Se muestra arriba del título"></label>
+        <label class="lbl">A la atención de<input class="input" name="destinatario" value="${esc(o.destinatario)}" placeholder="Opcional"></label>
+        <label class="lbl">Marca en cabecera y pie<input class="input" name="marca" value="${esc(o.marca)}" placeholder="Opcional, p. ej. USO INTERNO"></label>
+        <p class="small muted">Firma como: <b>${esc(emisor() || '— (pon tu nombre en Ajustes)')}</b></p>
+      </details>
+    </div>
+    <div class="acciones-inf">
+      <button type="button" class="btn primary" data-accion="inf-word">📄 Word</button>
+      <button type="button" class="btn" data-accion="inf-csv">📊 Excel (CSV)</button>
+      <button type="button" class="btn" data-accion="inf-texto">📋 Copiar texto</button>
+      <button type="button" class="btn" data-accion="inf-imprimir">🖨 Imprimir / PDF</button>
+    </div>
+    <p class="small muted" id="infCuenta">${n} tarea${n === 1 ? '' : 's'} en el informe. Vista previa:</p>
+    <div class="informe" id="informeDoc">${htmlInforme(o)}</div>`;
+}
+
+function leerOpcionesInforme() {
+  const f = $('#infOpts');
+  const q = n => f.querySelector(`[name=${n}]`);
+  const o = opcionesInforme();
+  ['desde', 'hasta', 'criterio', 'cat', 'resp', 'prio', 'agrupar', 'titulo', 'organismo', 'destinatario', 'marca'].forEach(k => { if (q(k)) o[k] = q(k).value; });
+  if (q('esp')) o.esp = q('esp').value;
+  o.estados = [...f.querySelectorAll('[name=estados]:checked')].map(x => x.value);
+  ['soloVencidas', 'resumen', 'tabla', 'detalle'].forEach(k => { o[k] = q(k).checked; });
+  if (o.desde > o.hasta) [o.desde, o.hasta] = [o.hasta, o.desde];
+  return o;
+}
+
+function actualizarInforme(o = leerOpcionesInforme()) {
+  datos.ajustes.informe = o;
+  guardar();
+  const n = seleccionInforme(o).length;
+  $('#infCuenta').textContent = `${n} tarea${n === 1 ? '' : 's'} en el informe. Vista previa:`;
+  $('#informeDoc').innerHTML = htmlInforme(o);
+}
+
+const nombreInforme = (o, ext) => `informe-tareas-${o.desde}-a-${o.hasta}.${ext}`;
+
+async function accionInforme(a) {
+  const o = opcionesInforme();
+  if (a === 'inf-word') {
+    toast('Preparando el Word…');
+    try { await descargar(nombreInforme(o, 'docx'), await wordInforme(o), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); }
+    catch (e) { registrarError(`Informe Word: ${e?.message || e}`); toast('No se pudo crear el Word; prueba con CSV o Copiar texto'); }
+  } else if (a === 'inf-csv') {
+    descargar(nombreInforme(o, 'csv'), csv(seleccionInforme(o)), 'text/csv;charset=utf-8');
+  } else if (a === 'inf-texto') {
+    try { await navigator.clipboard.writeText(textoInforme(o)); toast('Informe copiado: pégalo en un correo o documento'); }
+    catch { descargar(nombreInforme(o, 'txt'), textoInforme(o), 'text/plain;charset=utf-8'); }
+  } else if (a === 'inf-imprimir') {
+    document.body.classList.add('imprimiendo');
+    try { window.print(); } catch { toast('Este visor no permite imprimir: usa el Word'); }
+    setTimeout(() => document.body.classList.remove('imprimiendo'), 1000);
+  }
 }
 
 // ---------- Vista: Ajustes ----------
@@ -1338,6 +1720,12 @@ main.addEventListener('click', e => {
   if (edp) { e.preventDefault(); personaEdit = +edp.dataset.editper; render(); $('#fpersona [name=nombre]').focus(); return; }
   const dlp = el.closest('[data-delper]');
   if (dlp) { datos.personas.splice(+dlp.dataset.delper, 1); personaEdit = -1; guardar(); render(); return; }
+  const per = el.closest('[data-infper]');
+  if (per) {
+    const [desde, hasta] = periodoPreset(per.dataset.infper);
+    $('#infOpts [name=desde]').value = desde; $('#infOpts [name=hasta]').value = hasta;
+    actualizarInforme(); return;
+  }
   const env = el.closest('[data-enviar]');
   if (env) { enviarFormulario(env.closest('form')); return; }
   const acc = el.closest('[data-accion]');
@@ -1373,6 +1761,7 @@ async function borrarCat(i) {
 }
 
 async function accion(a) {
+  if (a.startsWith('inf-')) return accionInforme(a);
   switch (a) {
     case 'ejemplos': ejemplos(); render(); break;
     case 'nueva-dia': abrirEditor(null, { nlt: diaSel }); break;
@@ -1421,6 +1810,7 @@ async function accion(a) {
 
 main.addEventListener('change', async e => {
   const el = e.target;
+  if (el.closest('#infOpts')) { actualizarInforme(); return; }
   const a = datos.ajustes;
   if (el.id === 'fcat') { filtro.cat = el.value; render(); }
   else if (el.id === 'fresp') { filtro.resp = el.value; render(); }
@@ -2080,9 +2470,9 @@ function render(remoto = false) {
   render.pendiente = false;
   const v = VISTAS[location.hash.slice(1)] ? location.hash.slice(1) : 'nlt';
   $('#titulo').textContent = VISTAS[v];
-  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.v === v));
-  $('#fab').hidden = v === 'ajustes' || v === 'actividad';
-  main.innerHTML = { nlt: vistaNlt, tablero: vistaTablero, calendario: vistaCalendario, actividad: vistaActividad, ajustes: vistaAjustes }[v]();
+  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.v === (v === 'informes' ? 'actividad' : v)));
+  $('#fab').hidden = v === 'ajustes' || v === 'actividad' || v === 'informes';
+  main.innerHTML = { nlt: vistaNlt, tablero: vistaTablero, calendario: vistaCalendario, actividad: vistaActividad, informes: vistaInformes, ajustes: vistaAjustes }[v]();
   const venc = datos.tareas.filter(t => t.estado !== 'hecha' && ['vencidas', 'hoy'].includes(urgencia(t).grupo)).length;
   document.title = venc ? `(${venc}) ${TITULO_PAGINA}` : TITULO_PAGINA;
 }

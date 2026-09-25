@@ -41,6 +41,13 @@ App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber 
   personal.
 - **Directorio de personas** (en Ajustes): personas con cargo, correo y teléfono; filtro por responsable («mías» o
   «delegadas») y tabla de carga de trabajo por responsable en *Lo que hago*.
+- **Informes para despachar** (*Actividad → Informes*): periodo (con atajos: semana, mes, trimestre, año…),
+  criterio de fecha (con actividad, con NLT, creadas, terminadas o pendientes al final del periodo),
+  estados, categoría, responsable, prioridad y espacio; agrupados por estado, categoría, responsable o
+  prioridad; con resumen, relación de tareas y detalle opcional (instrucciones, pasos, prórrogas,
+  seguimiento del periodo, observaciones, resultado). Encabezado con unidad, destinatario y marca en
+  cabecera y pie. Se exporta a **Word** (misma librería que SEGINS: `lib/docx.iife.js` publicada junto a
+  la app en claude.ai, o `../js/lib/` en GitHub Pages), **CSV**, texto para correo o impresión.
 - **Tablero** por estados: arrastrar y soltar en escritorio, botones ◀ ▶ en el móvil.
 - **Calendario** mensual con las NLT de cada día; se pueden crear tareas en un día concreto.
 - **Lo que hago** (actividad): por periodo (hoy, semana, mes…) muestra tareas hechas, % entregadas
@@ -59,7 +66,7 @@ por separado y los cambios hechos sin conexión se fusionan al volver. Las tarea
 usuario: aunque compartas el enlace, nadie más ve las tuyas.
 
 Para actualizar esa versión se vuelve a publicar `tareas/index.html` con `app.js`, `app.css`,
-`icon.svg` y `manifest.webmanifest`, y las capacidades `db`, `user` (con el ámbito `profile`, para ver los nombres del equipo), `downloads` y `mcp` (Google Calendar: `create_event`, `update_event`,
+`fechas.js`, `icon.svg`, `manifest.webmanifest` y `lib/docx.iife.js` (desde `js/lib/`), y las capacidades `db`, `user` (con el ámbito `profile`, para ver los nombres del equipo), `downloads` y `mcp` (Google Calendar: `create_event`, `update_event`,
 `delete_event`, `list_events`, `list_calendars`).
 
 ### Acceso directo con icono propio
