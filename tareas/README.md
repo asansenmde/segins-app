@@ -5,6 +5,9 @@ App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber 
 
 ## Qué hace
 
+- **Alta rápida escribiendo** (`fechas.js`): «Informe extintores antes del viernes a las 10 #Informes urgente» crea
+  la tarea con NLT, hora, categoría y prioridad. Entiende hoy/mañana/pasado mañana, días de la semana, «en 2
+  semanas», «fin de mes», «el 15», «3/10», «3 de octubre»… Se procesa en el dispositivo, sin enviar el texto.
 - **Mis NLT** (inicio): contador de NLT vencidas, que vencen hoy, en los próximos 7 días y abiertas.
   Las tareas se agrupan por urgencia con semáforo (rojo: vencida u hoy; naranja: quedan pocos días;
   verde: con margen). Alta rápida con título + NLT, búsqueda y filtro por categoría.
@@ -38,6 +41,13 @@ App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber 
   personal.
 - **Directorio de personas** (en Ajustes): personas con cargo, correo y teléfono; filtro por responsable («mías» o
   «delegadas») y tabla de carga de trabajo por responsable en *Lo que hago*.
+- **Informes para despachar** (*Actividad → Informes*): periodo (con atajos: semana, mes, trimestre, año…),
+  criterio de fecha (con actividad, con NLT, creadas, terminadas o pendientes al final del periodo),
+  estados, categoría, responsable, prioridad y espacio; agrupados por estado, categoría, responsable o
+  prioridad; con resumen, relación de tareas y detalle opcional (instrucciones, pasos, prórrogas,
+  seguimiento del periodo, observaciones, resultado). Encabezado con unidad, destinatario y marca en
+  cabecera y pie. Se exporta a **Word** (misma librería que SEGINS: `lib/docx.iife.js` publicada junto a
+  la app en claude.ai, o `../js/lib/` en GitHub Pages), **CSV**, texto para correo o impresión.
 - **Tablero** por estados: arrastrar y soltar en escritorio, botones ◀ ▶ en el móvil.
 - **Calendario** mensual con las NLT de cada día; se pueden crear tareas en un día concreto.
 - **Lo que hago** (actividad): por periodo (hoy, semana, mes…) muestra tareas hechas, % entregadas
@@ -56,7 +66,7 @@ por separado y los cambios hechos sin conexión se fusionan al volver. Las tarea
 usuario: aunque compartas el enlace, nadie más ve las tuyas.
 
 Para actualizar esa versión se vuelve a publicar `tareas/index.html` con `app.js`, `app.css`,
-`icon.svg` y `manifest.webmanifest`, y las capacidades `db`, `user` (con el ámbito `profile`, para ver los nombres del equipo), `downloads` y `mcp` (Google Calendar: `create_event`, `update_event`,
+`fechas.js`, `icon.svg`, `manifest.webmanifest` y `lib/docx.iife.js` (desde `js/lib/`), y las capacidades `db`, `user` (con el ámbito `profile`, para ver los nombres del equipo), `downloads` y `mcp` (Google Calendar: `create_event`, `update_event`,
 `delete_event`, `list_events`, `list_calendars`).
 
 ### Acceso directo con icono propio
@@ -76,4 +86,8 @@ Se publica junto a SEGINS: en GitHub Pages queda en `…/tareas/`. En local:
 `python3 -m http.server 8000` y abrir `http://localhost:8000/tareas/`.
 Para instalarla en el móvil: Chrome → ⋮ → *Instalar aplicación*; Safari → Compartir → *Añadir a pantalla de inicio*.
 
-Al publicar cambios, sube la constante `VERSION` en `tareas/sw.js`.
+Al publicar cambios, sube la constante `VERSION` en `tareas/sw.js`, `VERSION_APP` en `app.js` y el `?v=` de
+`index.html` (así el navegador no reutiliza una copia antigua; la versión se ve en *Ajustes → Datos*).
+
+El visor de claude.ai muestra la app en un marco que **bloquea el envío de formularios**: ningún botón
+debe depender de `submit`. Todos son `type="button"` con su propio manejador (y Intro se atiende a mano).
