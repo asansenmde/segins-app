@@ -3,7 +3,7 @@
 // del usuario entre todos sus dispositivos (capacidad "db" del visor).
 
 const CLAVE = 'tareas-nlt-v1';
-const VERSION_APP = '9 · 25 sep 2026'; // súbela en cada publicación (y el ?v= de index.html)
+const VERSION_APP = '10 · 25 sep 2026'; // súbela en cada publicación (y el ?v= de index.html)
 const ESTADOS = [['pendiente', 'Pendiente'], ['curso', 'En curso'], ['espera', 'En espera'], ['hecha', 'Hecha']];
 const NOMBRE_ESTADO = Object.fromEntries(ESTADOS);
 const PRIOS = { critica: 'Crítica', alta: 'Alta', media: 'Media', baja: 'Baja' };
@@ -157,6 +157,39 @@ function toast(txt) {
   el.classList.add('on');
   clearTimeout(toast.t);
   toast.t = setTimeout(() => el.classList.remove('on'), 3200);
+}
+
+// ---------- Diagnóstico ----------
+// Guarda los últimos errores y el estado de la sincronización; se ven en Ajustes y se copian a la nube
+// (data/users/<id>/diag) para poder revisarlos a distancia.
+const diag = { errores: [], ultimaOk: 0, temporizador: 0 };
+function registrarError(txt) {
+  diag.errores.unshift(`${new Date().toLocaleTimeString('es-ES')} · ${String(txt).slice(0, 300)}`);
+  diag.errores.length = Math.min(diag.errores.length, 20);
+  const el = $('#diagErrores');
+  if (el) el.innerHTML = diag.errores.map(e => `<li>${esc(e)}</li>`).join('');
+  clearTimeout(diag.temporizador);
+  diag.temporizador = setTimeout(enviarDiagnostico, 3000);
+}
+window.addEventListener('error', e => { registrarError(`Error: ${e.message} (${(e.filename || '').split('/').pop()}:${e.lineno})`); toast('Ha ocurrido un error: mira Ajustes → Diagnóstico'); });
+window.addEventListener('unhandledrejection', e => registrarError(`Promesa rechazada: ${e.reason?.code || ''} ${e.reason?.message || e.reason}`));
+
+function textoDiagnostico() {
+  let ls = 'sí';
+  try { localStorage.setItem(CLAVE + '-prueba', '1'); localStorage.removeItem(CLAVE + '-prueba'); } catch { ls = 'no'; }
+  return [`Versión: ${VERSION_APP}`, `Nube conectada: ${nube.lista ? 'sí' : 'no'} (estado: ${nube.estado})`,
+    `Usuario identificado: ${nube.uid ? 'sí' : 'no'}`, `Escrituras pendientes: ${nube.pendientes.size}`,
+    `Última escritura correcta: ${diag.ultimaOk ? new Date(diag.ultimaOk).toLocaleString('es-ES') : '—'}`,
+    `Memoria del navegador: ${ls}`, `Categorías: ${datos.categorias.length}`, `Navegador: ${navigator.userAgent}`,
+    '', 'Errores recientes:', ...(diag.errores.length ? diag.errores : ['ninguno'])].join('\n');
+}
+
+// Directa, fuera de la cola de envíos, para que llegue aunque la cola esté atascada
+async function enviarDiagnostico() {
+  if (!nube.diagRef) return;
+  try {
+    await nube.diagRef.set({ texto: textoDiagnostico(), momento: new Date().toISOString(), errores: diag.errores });
+  } catch (e) { /* sin nube, el diagnóstico se ve en Ajustes */ }
 }
 
 // Dentro de claude.ai la página no puede descargar por sí misma: se pide al visor con la capacidad "downloads".
@@ -741,6 +774,13 @@ function vistaAjustes() {
       <button class="btn block" data-accion="csv-todo">Exportar todas las tareas (.csv, Excel)</button>
       <input type="file" id="fimport" accept="application/json,.json" hidden>
       <button class="btn danger block" data-accion="borrar">Borrar todos los datos</button>
+    </div>
+    <div class="card">
+      <h3>Diagnóstico</h3>
+      <pre class="diag">${esc(textoDiagnostico())}</pre>
+      <ul class="log small" id="diagErrores" hidden></ul>
+      <button type="button" class="btn block" data-accion="diag-sync">Reintentar sincronización</button>
+      <button type="button" class="btn block" data-accion="diag-copiar">Copiar diagnóstico</button>
     </div>`;
 }
 
@@ -1311,7 +1351,7 @@ function renombrarCat(i, nueva) {
   datos.tareas.forEach(t => { if (t.categoria === vieja && !soloLectura(t)) t.categoria = nueva; });
   if (datos.ajustes.ultimaCat === vieja) datos.ajustes.ultimaCat = nueva;
   if (filtro.cat === vieja) filtro.cat = nueva;
-  guardar(); render(); toast(`Categoría renombrada: ${nueva}`);
+  guardar(); render(); toast(`Categoría renombrada: ${nueva}`); registrarError(`(info) categoría renombrada: ${vieja} → ${nueva}`);
 }
 
 async function borrarCat(i) {
@@ -1332,6 +1372,14 @@ async function accion(a) {
     case 'ejemplos': ejemplos(); render(); break;
     case 'nueva-dia': abrirEditor(null, { nlt: diaSel }); break;
     case 'cancelar-persona': personaEdit = -1; render(); break;
+    case 'diag-sync':
+      if (!nube.lista) await conectarNube(); else subir();
+      await enviarDiagnostico(); render(); toast('Sincronización reintentada');
+      break;
+    case 'diag-copiar':
+      try { await navigator.clipboard.writeText(textoDiagnostico()); toast('Diagnóstico copiado'); }
+      catch { toast('No se pudo copiar: haz una captura de pantalla'); }
+      break;
     case 'gcal-sync': gcal.msg = ''; await pasarGcal(); break;
     case 'gcal-cals': await cargarCalendarios(); break;
     case 'copiar-resumen':
@@ -1453,6 +1501,7 @@ function enviarFormulario(f) {
     guardar(); render(); toast('Anotado');
   } else if (f.id === 'nuevaCat') {
     const c = f.elements.c.value.trim();
+    registrarError(`(info) añadir categoría: ${c}`);
     if (c && !datos.categorias.includes(c)) { datos.categorias.push(c); guardar(); }
     render();
   } else if (f.id === 'fpersona') {
@@ -1567,13 +1616,14 @@ async function conectarNube() {
   nube.estado = 'conectando'; pintarNube();
   const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]).catch(() => [null, null]);
   const uid = db && user ? await user.id().catch(() => null) : null;
-  if (!uid) { nube.estado = 'local'; pintarNube(); return; }
+  if (!uid) { nube.estado = 'local'; pintarNube(); registrarError(`Sin conexión a la nube: db ${db ? 'sí' : 'no'}, usuario ${user ? 'sí' : 'no'}, id ${uid ? 'sí' : 'no'}`); return; }
   nube.user = user; nube.uid = uid;
   // Tolerante con visores antiguos que no ofrezcan me() o can()
   Promise.resolve().then(() => user.me()).then(m => { nube.miNombre = m?.name || ''; }).catch(() => {});
   nube.equipoSoloLectura = (await Promise.resolve().then(() => user.can('data.write')).catch(() => null)) === false;
   nube.cfgRef = db.doc(`data/users/${uid}/config`);
   nube.lockRef = db.doc(`data/users/${uid}/gcal-lock`);
+  nube.diagRef = db.doc(`data/users/${uid}/diag`);
   nube.tareasRef = db.doc(`data/users/${uid}/nlt`).collection('tareas');
   nube.equipoRef = db.doc('equipo/principal').collection('tareas');
   nube.miembrosRef = db.doc('equipo/principal').collection('miembros');
@@ -1582,10 +1632,12 @@ async function conectarNube() {
     fusionarInicio(new Map([...st.docs.map(d => [d.id, aTarea(d, 'personal')]), ...se.docs.map(d => ['e:' + d.id, aTarea(d, 'equipo')])]), sc);
   } catch (e) {
     nube.estado = 'error'; pintarNube();
+    registrarError(`Al conectar: ${e?.code || ''} ${e?.message || e}`);
     if (e?.code === 'unavailable') setTimeout(conectarNube, 5000 + Math.random() * 5000);
     return;
   }
   nube.lista = true; nube.equipo = true; nube.estado = 'ok';
+  enviarDiagnostico();
   guardar();
   render(true); pintarCrono(); aplicarTema(); pintarNube();
   const caida = e => { if (e?.code === 'revoked') { nube.lista = false; nube.equipo = false; nube.estado = 'local'; pintarNube(); render(true); } };
@@ -1722,7 +1774,9 @@ function encolar(k, json) {
   nube.estado = 'subiendo'; pintarNube();
   nube.cola = nube.cola.then(async () => {
     const ref = k === CFG ? nube.cfgRef : k.startsWith('e:') ? nube.equipoRef.doc(k.slice(2)) : nube.tareasRef.doc(k);
-    const enviar = () => json === null ? ref.delete() : ref.set(JSON.parse(json));
+    // Con plazo: una escritura que no contesta no debe bloquear todas las siguientes
+    const enviar = () => Promise.race([json === null ? ref.delete() : ref.set(JSON.parse(json)),
+      new Promise((_, no) => setTimeout(() => no({ code: 'timeout', message: 'la nube no contestó en 20 s' }), 20000))]);
     try {
       try { await enviar(); }
       catch (e) {
@@ -1730,7 +1784,9 @@ function encolar(k, json) {
         await new Promise(r => setTimeout(r, 800 + Math.random() * 1200));
         await enviar();
       }
+      diag.ultimaOk = Date.now();
     } catch (e) {
+      registrarError(`Guardar ${k === CFG ? 'ajustes' : 'tarea ' + k}: ${e?.code || ''} ${e?.message || e}`);
       // No se subió: se restaura la base para reintentarlo en el próximo guardado
       if (nube.base.get(k) === json) { if (anterior === undefined) nube.base.delete(k); else nube.base.set(k, anterior); guardarBase(); }
       if (k.startsWith('e:') && e?.code === 'invalid_argument') {
@@ -1739,7 +1795,7 @@ function encolar(k, json) {
         render(true);
       } else {
         nube.error = true;
-        toast(e?.code === 'quota_exceeded' ? 'La nube está llena: borra tareas antiguas' : 'No se pudo sincronizar; se reintentará');
+        toast(e?.code === 'quota_exceeded' ? 'La nube está llena: borra tareas antiguas' : `No se pudo guardar en la nube (${e?.code || 'error'}); mira Ajustes → Diagnóstico`);
       }
     } finally {
       const n = nube.pendientes.get(k) - 1;
