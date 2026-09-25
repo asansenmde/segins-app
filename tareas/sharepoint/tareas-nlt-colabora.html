@@ -92,7 +92,7 @@
 <main>
   <noscript><div class="error">Esta página necesita JavaScript.</div></noscript>
   <nav class="tabs" id="tabs">
-    <a data-v="nlt" class="on">Mis NLT</a><a data-v="calendario">Calendario</a><a data-v="informes">Informes</a><a data-v="ajustes">Ajustes</a>
+    <a data-v="nlt" class="on">Mis NLT</a><a data-v="calendario">Calendario</a><a data-v="avisos">Avisos</a><a data-v="informes">Informes</a><a data-v="ajustes">Ajustes</a>
   </nav>
   <div id="vista"><p class="muted">Leyendo la lista «Gestor de Tareas»…</p></div>
 </main>
@@ -157,7 +157,8 @@
   var CAMPOS_SEL = ['Id', 'Title', 'ESTADO', 'Prioridad', 'FechaDeInicio', 'FechaVencimiento', 'fECHAFINALIZACION', 'NegociadoAsignado',
     'NegociadosImplicados', 'Descripcion', 'DescripcionDelAsunto', 'Comentarios', 'ControlExpediente', 'REGISTRODEACTIVIDAD',
     'NombreResponsable', 'NombreImplicados', 'Created', 'Modified', 'ResponsableDeLaInformacion/Id', 'ResponsableDeLaInformacion/Title',
-    'PersonalImplicado0/Id', 'PersonalImplicado0/Title', 'Author/Title', 'Editor/Title'];
+    'PersonalImplicado0/Id', 'PersonalImplicado0/Title', 'Author/Title', 'Editor/Title',
+    'correoResponsable', 'correoimplicados', 'ResponsableDeLaInformacion/EMail', 'PersonalImplicado0/EMail'];
   var EXPANDIR = 'ResponsableDeLaInformacion,PersonalImplicado0,Author,Editor';
 
   var urlLista = function () { return web.url + "/_api/web/lists/getbytitle('" + encodeURIComponent(pref.lista.replace(/'/g, "''")) + "')"; };
@@ -180,6 +181,9 @@
     if (/(curso|tramit|proceso|ejecuci|iniciad|abiert|trabaj)/.test(n)) return 'curso';
     return 'pendiente';
   }
+  // Direcciones de correo de un texto («a@x.es; b@x.es»)
+  var correos = function (txt) { return String(txt || '').split(/[;,\s]+/).map(function (x) { return x.trim(); }).filter(function (x) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x); }); };
+  var unico = function (x, i, a) { return x && a.map(function (y) { return String(y).toLowerCase(); }).indexOf(String(x).toLowerCase()) === i; };
   var CLASES = { pendiente: 'Pendiente', curso: 'En curso', espera: 'En espera', hecha: 'Terminada' };
   function clasePrio(valor) {
     var n = sinTildes(valor);
@@ -201,6 +205,8 @@
       observaciones: texto(it.Comentarios), expediente: texto(it.ControlExpediente), registro: texto(it.REGISTRODEACTIVIDAD),
       respId: resp && resp.Id, responsable: (resp && resp.Title) || it.NombreResponsable || '',
       implicadosIds: lista(it.PersonalImplicado0).map(function (u) { return u.Id; }),
+      correoResp: correos(it.correoResponsable).concat(resp && resp.EMail ? [resp.EMail] : []).filter(unico),
+      correosImpl: correos(it.correoimplicados).concat(lista(it.PersonalImplicado0).map(function (u) { return u.EMail; })).filter(unico),
       implicados: implicados.length ? implicados : String(it.NombreImplicados || '').split(/[;,]/).map(function (s) { return s.trim(); }).filter(Boolean),
       creada: it.Created, modificada: it.Modified, autor: it.Author && it.Author.Title, editor: it.Editor && it.Editor.Title,
     };
@@ -558,6 +564,129 @@
     }
   }
 
+  // ---------- Avisos por correo (se preparan en Outlook; los envía el usuario) ----------
+  function avisoOpc() { return Object.assign({ dias: 3, vencidos: true, cc: false, quien: 'todos', negociado: '', alarma: 3 }, pref.avisos || {}); }
+  function paraAvisar(o) {
+    return tareas.filter(function (t) {
+      if (t.clase === 'hecha' || !t.nlt) return false;
+      var d = diasHasta(t.nlt);
+      if (d > o.dias || (d < 0 && !o.vencidos)) return false;
+      if (o.quien === 'mias' && !esMia(t)) return false;
+      if (o.quien === 'implicado' && !meImplica(t)) return false;
+      if (o.negociado && t.negociado !== o.negociado && t.negociados.indexOf(o.negociado) < 0) return false;
+      return true;
+    }).sort(ordenar);
+  }
+  function gruposAviso(o) {
+    var m = new Map();
+    paraAvisar(o).forEach(function (t) {
+      var clave = (t.correoResp[0] || '').toLowerCase() || 'sin:' + (t.responsable || 'Sin responsable');
+      if (!m.has(clave)) m.set(clave, { nombre: t.responsable || 'Sin responsable', correos: t.correoResp.slice(), cc: [], tareas: [] });
+      var g = m.get(clave);
+      g.tareas.push(t);
+      t.correosImpl.forEach(function (c) { if (g.cc.indexOf(c) < 0 && g.correos.indexOf(c) < 0) g.cc.push(c); });
+    });
+    return Array.from(m.entries()).sort(function (a, b) { return a[1].nombre.localeCompare(b[1].nombre, 'es'); });
+  }
+  var linea = function (t) {
+    var u = urgencia(t);
+    return '- ' + t.asunto + (t.expediente ? ' [' + t.expediente.split('\n')[0].slice(0, 40) + ']' : '') + ' — NLT ' + fCorta(t.nlt) + ' (' + u.txt + ')' + (t.estado ? ' — ' + t.estado : '');
+  };
+  var enlacePagina = function () { return location.origin + location.pathname; };
+  // mailto: el enlace completo no debe pasar de ~2000 caracteres (límite de Outlook); si no cabe, se quitan líneas de la lista
+  function mailto(para, cc, asunto, cuerpo) {
+    var montar = function (c) {
+      return 'mailto:' + para.map(encodeURIComponent).join(';') + '?' + (cc.length ? 'cc=' + cc.map(encodeURIComponent).join(';') + '&' : '') +
+        'subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(c);
+    };
+    var url = montar(cuerpo);
+    if (url.length <= 2000) return url;
+    var lineas = cuerpo.split('\n');
+    var items = lineas.filter(function (l) { return l.indexOf('- ') === 0; });
+    var quitadas = 0;
+    while (url.length > 2000 && items.length) {
+      var ultima = items.pop();
+      lineas.splice(lineas.lastIndexOf(ultima), 1);
+      quitadas++;
+      var i = lineas.lastIndexOf(items[items.length - 1] || '');
+      var extra = '(… y ' + quitadas + ' asunto' + (quitadas > 1 ? 's' : '') + ' más: consúltalos en Colabora)';
+      var c = lineas.slice();
+      c.splice(i >= 0 ? i + 1 : 0, 0, extra);
+      url = montar(c.join('\n'));
+    }
+    return url;
+  }
+  function correoGrupo(g, o) {
+    var venc = g.tareas.filter(function (t) { return diasHasta(t.nlt) < 0; }).length;
+    var asunto = 'Aviso NLT: ' + g.tareas.length + ' asunto' + (g.tareas.length > 1 ? 's' : '') + (venc ? ' (' + venc + ' vencido' + (venc > 1 ? 's' : '') + ')' : '') + ' próximos a su fecha límite';
+    var cuerpo = 'Buenos días' + (g.nombre && g.nombre !== 'Sin responsable' ? ', ' + g.nombre : '') + ':\n\nLos siguientes asuntos del Gestor de Tareas de los que eres responsable ' +
+      (venc ? 'han vencido o vencen' : 'vencen') + ' en los próximos ' + o.dias + ' días:\n\n' + g.tareas.map(linea).join('\n') +
+      '\n\nPuedes consultarlos en Colabora: ' + enlacePagina() + '\n\nUn saludo' + (yo ? ',\n' + yo.Title : '.');
+    return mailto(g.correos, o.cc ? g.cc : [], asunto, cuerpo);
+  }
+  function correoTarea(t) {
+    var u = urgencia(t);
+    var base = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl + '/DispForm.aspx?ID=' + t.id : enlacePagina();
+    return mailto(t.correoResp, t.correosImpl.filter(function (c) { return t.correoResp.indexOf(c) < 0; }), 'Recordatorio NLT: ' + t.asunto,
+      'Recordatorio del asunto:\n\n' + t.asunto + (t.expediente ? '\nExpediente: ' + t.expediente.split('\n')[0] : '') + '\nNLT: ' + (t.nlt ? fLarga(t.nlt) + ' (' + u.txt + ')' : 'sin fecha') +
+      (t.estado ? '\nEstado: ' + t.estado : '') + '\n\nVer en Colabora: ' + base + '\n\nUn saludo' + (yo ? ',\n' + yo.Title : '.'));
+  }
+  var claveEnviado = function (k) { return 'avisado:' + hoy() + ':' + k; };
+  function vistaAvisos() {
+    var o = avisoOpc();
+    var gs = gruposAviso(o);
+    var negs = valores('NegociadoAsignado', 'negociado').sort();
+    var total = gs.reduce(function (s, g) { return s + g[1].tareas.length; }, 0);
+    return '<div class="card" id="avOpts"><div class="grid">' +
+      '<div><label class="lbl">Avisar de lo que vence en los próximos (días)</label><input type="number" name="dias" min="0" max="60" value="' + o.dias + '"></div>' +
+      '<div><label class="lbl">De quién</label><select name="quien">' + [['todos', 'Todos los responsables'], ['mias', 'Solo mis asuntos'], ['implicado', 'Míos o en los que intervengo']]
+        .map(function (x) { return '<option value="' + x[0] + '"' + (o.quien === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="lbl">Negociado</label><select name="negociado">' + opciones(negs, o.negociado, 'Todos') + '</select></div></div>' +
+      '<label class="check"><input type="checkbox" name="vencidos"' + (o.vencidos ? ' checked' : '') + '> Incluir los ya vencidos</label>' +
+      '<label class="check"><input type="checkbox" name="cc"' + (o.cc ? ' checked' : '') + '> Copia al personal implicado</label></div>' +
+      '<p class="small muted">' + total + ' asunto' + (total === 1 ? '' : 's') + ' para avisar, a ' + gs.length + ' responsable' + (gs.length === 1 ? '' : 's') +
+      '. «Preparar correo» abre Outlook con el mensaje redactado: revísalo y pulsa Enviar.</p>' +
+      gs.map(function (e) {
+        var k = e[0], g = e[1], enviado = !!(pref.enviados || {})[claveEnviado(k)];
+        return '<div class="card"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><div><b>' + esc(g.nombre) + '</b> <span class="muted small">' +
+          esc(g.correos.join('; ') || 'sin correo en la lista') + '</span></div><div>' + (enviado ? '<span class="badge ok">Preparado hoy ✓</span> ' : '') +
+          (g.correos.length ? '<a class="btn prim" data-enviado="' + esc(k) + '" href="' + esc(correoGrupo(g, o)) + '">✉ Preparar correo</a>' : '<span class="badge warn">Sin correo: avisa en persona</span>') + '</div></div>' +
+          '<div class="small" style="margin-top:6px">' + g.tareas.map(function (t) { var u = urgencia(t); return '<div>• <a href="#" data-abrir="' + t.id + '">' + esc(t.asunto) + '</a> — <span class="badge ' + u.cls + '">' + esc(u.txt) + '</span></div>'; }).join('') + '</div></div>';
+      }).join('') +
+      '<div class="card"><h3 style="margin-top:0">Alarmas en tu Outlook</h3><p class="small">Descarga tus asuntos abiertos con NLT como citas de calendario, con alarma. Ábrelo con doble clic para importarlo en Outlook.</p>' +
+      '<div class="grid"><div><label class="lbl">Alarma (días antes, a las 9:00)</label><input type="number" id="alarmaDias" min="0" max="30" value="' + o.alarma + '"></div></div>' +
+      '<div class="acciones"><button data-ics="mias">📅 Mis asuntos (responsable)</button><button data-ics="implicado">📅 Míos y en los que intervengo</button></div>' +
+      '<p class="small muted">Si lo importas otra vez más adelante, Outlook puede duplicar citas: borra antes las anteriores o importa solo cuando haya asuntos nuevos.</p></div>';
+  }
+  function icsAsuntos(ambito, dias) {
+    var ts = tareas.filter(function (t) { return t.clase !== 'hecha' && t.nlt && (ambito === 'mias' ? esMia(t) : meImplica(t)); });
+    var e = function (s) { return String(s).replace(/\\/g, '\\\\').replace(/[,;]/g, function (m) { return '\\' + m; }).replace(/\r?\n/g, '\\n'); };
+    var f = function (s) { return s.replace(/-/g, ''); };
+    var sig = function (s) { var d = aFecha(s); d.setDate(d.getDate() + 1); return iso(d); };
+    var sello = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
+    var min = dias * 1440 - 540; // 9:00 del día que toca, contado desde el inicio (00:00) de la cita de día completo
+    var trig = min > 0 ? '-PT' + min + 'M' : 'PT' + (-min) + 'M';
+    var base = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl + '/DispForm.aspx?ID=' : '';
+    var lineas = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Tareas NLT Colabora//ES', 'CALSCALE:GREGORIAN'];
+    ts.forEach(function (t) {
+      lineas.push('BEGIN:VEVENT', 'UID:colabora-gestor-' + t.id + '@mdef', 'DTSTAMP:' + sello, 'DTSTART;VALUE=DATE:' + f(t.nlt), 'DTEND;VALUE=DATE:' + f(sig(t.nlt)),
+        'SUMMARY:' + e('NLT · ' + t.asunto), 'DESCRIPTION:' + e([t.expediente && 'Expediente: ' + t.expediente.split('\n')[0], t.estado && 'Estado: ' + t.estado, base && 'Ver: ' + base + t.id].filter(Boolean).join('\n')),
+        'TRANSP:TRANSPARENT', 'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + e('Vence: ' + t.asunto), 'TRIGGER:' + trig, 'END:VALARM', 'END:VEVENT');
+    });
+    lineas.push('END:VCALENDAR');
+    var plegar = function (l) { return l.length <= 73 ? l : l.match(/.{1,73}/g).join('\r\n '); };
+    return { n: ts.length, txt: lineas.map(plegar).join('\r\n') };
+  }
+  function leerAvisos() {
+    var f = $('#avOpts'), o = avisoOpc();
+    o.dias = Math.max(0, Number(f.querySelector('[name=dias]').value) || 0);
+    o.quien = f.querySelector('[name=quien]').value;
+    o.negociado = f.querySelector('[name=negociado]').value;
+    o.vencidos = f.querySelector('[name=vencidos]').checked;
+    o.cc = f.querySelector('[name=cc]').checked;
+    return o;
+  }
+
   // ---------- Ajustes ----------
   function vistaAjustes() {
     var ests = valores('ESTADO', 'estado');
@@ -591,6 +720,7 @@
     dlg.innerHTML = '<div class="dh"><h2>' + esc(t.asunto) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db">' +
       c.filter(function (x) { return x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       (base ? '<div class="acciones"><a class="btn" href="' + esc(base + '/DispForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Ver en Colabora</a>' +
+        (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
         '<a class="btn prim" href="' + esc(base + '/EditForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Editar en Colabora</a></div>' : '') + '</div>';
     dlg.showModal();
   }
@@ -600,7 +730,7 @@
   // ---------- Navegación y eventos ----------
   function render() {
     document.querySelectorAll('#tabs a').forEach(function (a) { a.classList.toggle('on', a.dataset.v === pref.vista); });
-    var v = { nlt: vistaNlt, calendario: vistaCalendario, informes: vistaInformes, ajustes: vistaAjustes }[pref.vista] || vistaNlt;
+    var v = { nlt: vistaNlt, calendario: vistaCalendario, avisos: vistaAvisos, informes: vistaInformes, ajustes: vistaAjustes }[pref.vista] || vistaNlt;
     if (!cargadoEn && pref.vista !== 'ajustes') return;
     $('#vista').innerHTML = v();
   }
@@ -619,6 +749,18 @@
     if (m) { mes = new Date(mes.getFullYear(), mes.getMonth() + Number(m.dataset.mes), 1); render(); return; }
     var p = el.closest('[data-infper]');
     if (p) { var r = periodo(p.dataset.infper); $('#infOpts [name=desde]').value = r[0]; $('#infOpts [name=hasta]').value = r[1]; actualizarInf(); return; }
+    var env = el.closest('[data-enviado]');
+    if (env) { pref.enviados = Object.fromEntries(Object.entries(pref.enviados || {}).filter(function (x) { return x[0].indexOf(hoy()) >= 0; })); pref.enviados[claveEnviado(env.dataset.enviado)] = 1; guardarPref(); setTimeout(render, 300); return; }
+    var ab = el.closest('[data-abrir]');
+    if (ab) { e.preventDefault(); abrir(Number(ab.dataset.abrir)); return; }
+    var ic = el.closest('[data-ics]');
+    if (ic) {
+      var o = avisoOpc(); o.alarma = Math.max(0, Number($('#alarmaDias').value) || 0); pref.avisos = o; guardarPref();
+      var r = icsAsuntos(ic.dataset.ics, o.alarma);
+      if (!r.n) { aviso('No hay asuntos abiertos con NLT'); return; }
+      descargar('nlt-colabora-' + hoy() + '.ics', r.txt, 'text/calendar;charset=utf-8'); aviso(r.n + ' citas exportadas');
+      return;
+    }
     var inf = el.closest('[data-inf]');
     if (inf) { accionInforme(inf.dataset.inf); return; }
     var t = el.closest('.tarea');
@@ -627,6 +769,7 @@
   document.addEventListener('change', function (e) {
     var el = e.target;
     if (el.closest('#infOpts')) { actualizarInf(); return; }
+    if (el.closest('#avOpts')) { pref.avisos = leerAvisos(); guardarPref(); render(); return; }
     if (el.id === 'fquien') pref.quien = el.value;
     else if (el.id === 'fneg') pref.negociado = el.value;
     else if (el.id === 'fest') pref.estado = el.value;
