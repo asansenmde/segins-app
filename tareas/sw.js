@@ -1,5 +1,5 @@
 // Service worker: la app funciona sin conexión. Cambia VERSION al publicar una actualización.
-const VERSION = 'tareas-v10';
+const VERSION = 'tareas-v11';
 const ARCHIVOS = ['./', 'index.html', 'manifest.webmanifest', 'app.css', 'app.js', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
 
 self.addEventListener('install', e => {

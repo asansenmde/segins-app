@@ -3,7 +3,7 @@
 // del usuario entre todos sus dispositivos (capacidad "db" del visor).
 
 const CLAVE = 'tareas-nlt-v1';
-const VERSION_APP = '10 · 25 sep 2026'; // súbela en cada publicación (y el ?v= de index.html)
+const VERSION_APP = '11 · 25 sep 2026'; // súbela en cada publicación (y el ?v= de index.html)
 const ESTADOS = [['pendiente', 'Pendiente'], ['curso', 'En curso'], ['espera', 'En espera'], ['hecha', 'Hecha']];
 const NOMBRE_ESTADO = Object.fromEntries(ESTADOS);
 const PRIOS = { critica: 'Crítica', alta: 'Alta', media: 'Media', baja: 'Baja' };
@@ -1602,7 +1602,9 @@ const configDe = d => ({ categorias: d.categorias, personas: d.personas, gcalBor
   vistos: d.vistos, avisosPropios: d.avisosPropios, ajustes: d.ajustes, activo: d.activo });
 const CFG = '__config';
 const claveDe = t => (enEquipo(t) ? 'e:' : '') + t.id;
-const aTarea = (doc, espacio) => normalizarTarea({ ...doc.data(), id: doc.id, espacio });
+// La nube entrega los documentos congelados (solo lectura): se trabaja siempre sobre una copia modificable
+const copiaDe = v => (v == null ? v : JSON.parse(JSON.stringify(v)));
+const aTarea = (doc, espacio) => normalizarTarea({ ...copiaDe(doc.data()), id: doc.id, espacio });
 
 function cargarBase() {
   try { return new Map(Object.entries(JSON.parse(localStorage.getItem(CLAVE + '-nube')) || {})); } catch { return new Map(); }
@@ -1643,7 +1645,7 @@ async function conectarNube() {
   const caida = e => { if (e?.code === 'revoked') { nube.lista = false; nube.equipo = false; nube.estado = 'local'; pintarNube(); render(true); } };
   nube.tareasRef.onSnapshot(s => cambiosRemotos(s.docChanges(), 'personal'), caida);
   nube.equipoRef.onSnapshot(s => cambiosRemotos(s.docChanges(), 'equipo'), caida);
-  nube.cfgRef.onSnapshot(s => { if (s.exists) configRemota(s.data()); }, caida);
+  nube.cfgRef.onSnapshot(s => { if (s.exists) configRemota(copiaDe(s.data())); }, caida);
   nube.miembrosRef.onSnapshot(s => { nube.miembros = s.docs.map(d => d.id); pedirNombres(nube.miembros); render(true); }, () => {});
   registrarMiembro();
   pedirNombres(idsDePersonas());
@@ -1693,7 +1695,7 @@ function fusionarInicio(remotas, sc) {
   }
   datos.tareas = resultado;
   if (sc.exists) {
-    const R = sc.data(), B = nube.base.get(CFG);
+    const R = copiaDe(sc.data()), B = nube.base.get(CFG);
     nube.base.set(CFG, estable(R));
     if (!(B && estable(configDe(datos)) !== B && estable(R) === B)) Object.assign(datos, normalizar({ ...R, tareas: [] }), { tareas: datos.tareas });
   }
