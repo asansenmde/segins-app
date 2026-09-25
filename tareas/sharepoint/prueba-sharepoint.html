@@ -34,6 +34,13 @@
 
   <div id="app" hidden>
     <div class="card ok" id="estado">✅ Funciona: SharePoint ejecuta esta página.</div>
+    <div class="card">
+      <p><b>¿Dónde está tu lista?</b> Ábrela en SharePoint en otra pestaña, copia la dirección de la barra del navegador y pégala aquí.
+        <span class="muted">Ejemplo: https://…sharepoint.com/sites/SEGURIDAD/Lists/Tareas/AllItems.aspx</span></p>
+      <input id="urlLista" type="url" placeholder="Pega aquí la dirección de la lista" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px">
+      <p style="margin-top:8px"><button class="prim" id="buscarLista">Buscar esta lista</button></p>
+      <p class="muted" id="urlAviso"></p>
+    </div>
     <div class="card" id="sitio"></div>
     <div class="card" id="listas"><p class="muted">Leyendo las listas del sitio…</p></div>
     <div class="card" id="columnas" hidden></div>
@@ -50,7 +57,7 @@
   document.getElementById('app').hidden = false;
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
-  var resumen = { pagina: location.origin + location.pathname, sitio: '', usuario: '', listas: [], columnas: null, errores: [] };
+  var resumen = { pagina: location.origin + location.pathname, sitio: '', usuario: '', listas: [], listaIndicada: '', columnas: null, errores: [] };
   var pintarResumen = function () { $('resumen').textContent = JSON.stringify(resumen, null, 1); };
 
   // Raíz del sitio: …/sites/NOMBRE o …/teams/NOMBRE, o la raíz del dominio
@@ -60,8 +67,8 @@
   var esSharePoint = /sharepoint\.(com|us|de|cn)$/i.test(location.hostname) || /sharepoint/i.test(location.hostname);
   $('sitio').innerHTML = '<b>Sitio:</b> ' + esc(sitio) + (esSharePoint ? '' : '<br><span class="muted">Esta página no parece estar abierta desde SharePoint; las lecturas fallarán.</span>');
 
-  var api = function (ruta) {
-    return fetch(sitio + '/_api/' + ruta, { credentials: 'same-origin', headers: { Accept: 'application/json;odata=nometadata' } })
+  var api = function (ruta, base) {
+    return fetch((base || sitio) + '/_api/' + ruta, { credentials: 'same-origin', headers: { Accept: 'application/json;odata=nometadata' } })
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status + ' en ' + ruta); return r.json(); });
   };
   var PLANTILLAS = { 100: 'Lista', 107: 'Tareas (clásica)', 171: 'Tareas', 150: 'Proyecto', 101: 'Biblioteca' };
@@ -88,13 +95,10 @@
     $('listas').innerHTML = '<p class="bad" style="padding:8px;border-radius:8px">No se pudieron leer las listas: ' + esc(e.message || e) + '</p>';
   });
 
-  document.addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('button[data-id]');
-    if (!b) return;
-    var titulo = b.getAttribute('data-titulo');
+  function columnas(titulo, rutaCampos, base) {
     $('columnas').hidden = false;
     $('columnas').innerHTML = '<p class="muted">Leyendo columnas de «' + esc(titulo) + '»…</p>';
-    api("web/lists(guid'" + b.getAttribute('data-id') + "')/fields?$select=Title,InternalName,TypeAsString,Hidden,ReadOnlyField&$filter=Hidden eq false").then(function (d) {
+    return api(rutaCampos, base).then(function (d) {
       var cs = (d.value || []).filter(function (c) { return !c.ReadOnlyField || /^(Title|Created|Modified|Author|Editor)$/.test(c.InternalName); });
       resumen.columnas = { lista: titulo, campos: cs.map(function (c) { return c.Title + ' = ' + c.InternalName + ' (' + c.TypeAsString + ')'; }) };
       pintarResumen();
@@ -103,6 +107,37 @@
     }).catch(function (e2) {
       resumen.errores.push(String(e2.message || e2)); pintarResumen();
       $('columnas').innerHTML = '<p class="bad" style="padding:8px;border-radius:8px">No se pudieron leer las columnas: ' + esc(e2.message || e2) + '</p>';
+    });
+  }
+  var CAMPOS = '$select=Title,InternalName,TypeAsString,Hidden,ReadOnlyField&$filter=Hidden eq false';
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('button[data-id]');
+    if (!b) return;
+    columnas(b.getAttribute('data-titulo'), "web/lists(guid'" + b.getAttribute('data-id') + "')/fields?" + CAMPOS);
+  });
+
+  // Dirección pegada: https://dominio/sites/X[/subsitio]/Lists/Nombre/AllItems.aspx (u otra vista)
+  $('buscarLista').addEventListener('click', function () {
+    var aviso = $('urlAviso');
+    var u;
+    try { u = new URL($('urlLista').value.trim()); } catch (e) { aviso.textContent = 'Esa dirección no es válida.'; return; }
+    if (u.origin !== location.origin) {
+      aviso.textContent = 'La lista está en otro dominio (' + u.hostname + '). Sube este archivo a un sitio de ese mismo dominio.'; return;
+    }
+    var ruta = decodeURIComponent(u.pathname);
+    var m = ruta.match(/^(.*?)\/Lists\/([^/]+)/i);
+    if (!m) { aviso.textContent = 'No encuentro «/Lists/» en la dirección. Copia la dirección con la lista abierta (vista de elementos).'; return; }
+    var web = location.origin + m[1];
+    var rutaLista = m[1] + '/Lists/' + m[2];
+    resumen.listaIndicada = rutaLista;
+    aviso.textContent = 'Sitio de la lista: ' + web;
+    api("web/GetList(@u)?@u='" + encodeURIComponent(rutaLista.replace(/'/g, "''")) + "'&$select=Title,ItemCount,BaseTemplate", web).then(function (l) {
+      aviso.textContent = 'Lista encontrada: «' + l.Title + '» (' + l.ItemCount + ' elementos) en ' + web;
+      return columnas(l.Title, "web/GetList(@u)/fields?@u='" + encodeURIComponent(rutaLista.replace(/'/g, "''")) + "'&" + CAMPOS, web);
+    }).catch(function (e3) {
+      resumen.errores.push(String(e3.message || e3)); pintarResumen();
+      aviso.textContent = 'No se pudo abrir la lista: ' + (e3.message || e3) + '. ¿Tienes permiso para verla?';
     });
   });
 
