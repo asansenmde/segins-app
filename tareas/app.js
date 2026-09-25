@@ -29,6 +29,7 @@ const LISTAS = Object.keys(TAREA_BASE).filter(k => Array.isArray(TAREA_BASE[k]))
 const URL_NUBE = 'https://claude.ai/artifact/9Qqg68wrV3upUSdjZWwZWU';
 
 const $ = (s, el = document) => el.querySelector(s);
+const TITULO_PAGINA = document.title || 'Tareas NLT'; // el que tenga index.html (se puede renombrar)
 const main = $('#main');
 const dlg = $('#dlg');
 const dlg2 = $('#dlg2');
@@ -2083,7 +2084,7 @@ function render(remoto = false) {
   $('#fab').hidden = v === 'ajustes' || v === 'actividad';
   main.innerHTML = { nlt: vistaNlt, tablero: vistaTablero, calendario: vistaCalendario, actividad: vistaActividad, ajustes: vistaAjustes }[v]();
   const venc = datos.tareas.filter(t => t.estado !== 'hecha' && ['vencidas', 'hoy'].includes(urgencia(t).grupo)).length;
-  document.title = venc ? `(${venc}) Tareas NLT` : 'Tareas NLT';
+  document.title = venc ? `(${venc}) ${TITULO_PAGINA}` : TITULO_PAGINA;
 }
 
 main.addEventListener('focusout', () => setTimeout(() => { if (render.pendiente && !main.contains(document.activeElement)) render(); }));
