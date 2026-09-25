@@ -1,0 +1,31 @@
+# Tareas NLT · Colabora (SharePoint interno)
+
+Versión de Tareas NLT que se ejecuta **dentro de Colabora** (SharePoint interno del Ministerio) y trabaja
+sobre la lista **«Gestor de Tareas»** del sitio `/et/SUIGESUR/JSUIGE`, con la sesión del usuario.
+Los datos no salen del servidor: la página no carga nada de internet ni envía nada fuera.
+
+- `tareas-nlt-colabora.html`: la app. Se sube a una biblioteca del sitio y se abre desde allí.
+  **Primera fase: solo lectura** (peticiones GET a la API REST). Para modificar un asunto, el botón
+  «Editar en Colabora» abre el formulario estándar de SharePoint.
+- `prueba-sharepoint.html`: página de diagnóstico que comprueba si el sitio ejecuta páginas propias y
+  lista las listas y columnas (sin contenido).
+
+## Correspondencia de columnas
+
+| App | Columna de «Gestor de Tareas» (nombre interno) |
+|---|---|
+| Asunto | `Title` |
+| NLT | `FechaVencimiento` |
+| Estado (valor real) | `ESTADO` — se clasifica en pendiente / en curso / en espera / terminada; ajustable en *Ajustes* |
+| Prioridad | `Prioridad` |
+| Responsable | `ResponsableDeLaInformacion` (o `NombreResponsable`) |
+| Implicados | `PersonalImplicado0` (o `NombreImplicados`) |
+| Negociado | `NegociadoAsignado`, `NegociadosImplicados` |
+| Expediente | `ControlExpediente` |
+| Descripción | `DescripcionDelAsunto` (o `Descripcion`) |
+| Observaciones | `Comentarios` |
+| Registro | `REGISTRODEACTIVIDAD` |
+| Inicio / fin | `FechaDeInicio` / `fECHAFINALIZACION` (con fecha de finalización cuenta como terminado) |
+
+Funciona con JSON ligero y, si el servidor no lo admite, con el formato *verbose* de SharePoint 2013.
+Requiere Edge o Chrome (no modo Internet Explorer).
