@@ -3,6 +3,7 @@
 // del usuario entre todos sus dispositivos (capacidad "db" del visor).
 
 const CLAVE = 'tareas-nlt-v1';
+const VERSION_APP = '8 · 25 sep 2026'; // súbela en cada publicación (y el ?v= de index.html)
 const ESTADOS = [['pendiente', 'Pendiente'], ['curso', 'En curso'], ['espera', 'En espera'], ['hecha', 'Hecha']];
 const NOMBRE_ESTADO = Object.fromEntries(ESTADOS);
 const PRIOS = { critica: 'Crítica', alta: 'Alta', media: 'Media', baja: 'Baja' };
@@ -360,6 +361,25 @@ function categoriasUsadas() {
   return [...s];
 }
 
+// Desplegable con todas las categorías (en el móvil una lista de sugerencias solo enseña las que coinciden con lo escrito)
+function selectorCategoria(actual, nombre = 'categoria') {
+  const cats = categoriasUsadas();
+  return `<select class="input" name="${nombre}" data-selcat>
+      <option value="">— Sin categoría —</option>
+      ${cats.map(c => `<option value="${esc(c)}" ${c === actual ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+      <option value="__nueva">+ Nueva categoría…</option></select>
+    <input class="input" name="${nombre}Nueva" placeholder="Nombre de la nueva categoría" hidden style="margin-top:6px">`;
+}
+document.addEventListener('change', e => {
+  if (!e.target.matches?.('[data-selcat]')) return;
+  const nueva = e.target.parentElement.querySelector(`[name="${e.target.name}Nueva"]`);
+  nueva.hidden = e.target.value !== '__nueva';
+  nueva.required = !nueva.hidden;
+  if (!nueva.hidden) nueva.focus();
+});
+const leerCategoria = (form, nombre = 'categoria') => form.elements[nombre].value === '__nueva'
+  ? form.elements[nombre + 'Nueva'].value.trim() : form.elements[nombre].value;
+
 const iniciales = n => n.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('');
 
 function tarjeta(t, extra = '') {
@@ -606,7 +626,7 @@ function vistaActividad() {
       <p class="small muted">Para lo que no estaba planificado: llamadas, gestiones, imprevistos… Queda como tarea hecha con su tiempo.</p>
       <input class="input" name="titulo" placeholder="¿Qué has hecho?" required>
       <div class="grid2" style="margin-top:8px">
-        <input class="input" name="categoria" list="dlcats" placeholder="Categoría">
+        <div>${selectorCategoria(datos.ajustes.ultimaCat || '')}</div>
         <input class="input" name="min" type="number" min="0" step="5" placeholder="Minutos dedicados">
       </div>
       <button class="btn primary block">Anotar</button>
@@ -709,6 +729,7 @@ function vistaAjustes() {
     <div class="card">
       <h3>Datos</h3>
       <p class="small muted">${datos.tareas.length} tareas. Haz copias de seguridad de vez en cuando.</p>
+      <p class="small muted">Versión de la app: <b>${VERSION_APP}</b></p>
       <button class="btn block" data-accion="exportar">Descargar copia de seguridad (.json)</button>
       <button class="btn block" data-accion="importar">Restaurar copia…</button>
       <button class="btn block" data-accion="csv-todo">Exportar todas las tareas (.csv, Excel)</button>
@@ -748,7 +769,7 @@ function abrirEditor(id, base = {}) {
       </div>
       <label class="lbl">Descripción e instrucciones<textarea class="input" name="descripcion" rows="3" placeholder="Qué se pide exactamente, alcance, criterios…">${esc(b.descripcion)}</textarea></label>
       <div class="grid2">
-        <label class="lbl">Categoría<input class="input" name="categoria" list="dlcats2" value="${esc(b.categoria)}"></label>
+        <label class="lbl">Categoría${selectorCategoria(b.categoria)}</label>
         <label class="lbl">Lugar / instalación<input class="input" name="lugar" value="${esc(b.lugar)}"></label>
       </div>
 
@@ -920,7 +941,7 @@ function leerFormulario() {
   const v = n => f.elements[n].value;
   Object.assign(borrador, {
     titulo: v('titulo').trim(), referencia: v('referencia').trim(), prioridad: v('prioridad'), descripcion: v('descripcion'),
-    categoria: v('categoria').trim(), lugar: v('lugar').trim(), ordenadaPor: v('ordenadaPor').trim(), fechaOrden: v('fechaOrden'),
+    categoria: leerCategoria(f), lugar: v('lugar').trim(), ordenadaPor: v('ordenadaPor').trim(), fechaOrden: v('fechaOrden'),
     responsable: v('responsable').trim(), espacio: f.elements.espacio?.value || borrador.espacio,
     responsableId: (f.elements.espacio?.value || borrador.espacio) === 'equipo' ? f.elements.responsableId.value : '', nlt: v('nlt'), hora: v('hora'), repetir: v('repetir'), estimacionH: +v('estimacionH') || 0,
     estado: v('estado'), progreso: +v('progreso') || 0, notas: v('notas'), resultado: v('resultado'),
@@ -1399,7 +1420,7 @@ main.addEventListener('submit', e => {
     $('#rapida [name=titulo]').focus();
   } else if (f.id === 'registrar') {
     const min = +f.elements.min.value || 0;
-    const cat = f.elements.categoria.value.trim();
+    const cat = leerCategoria(f);
     const fin = Date.now();
     if (cat && !datos.categorias.includes(cat)) datos.categorias.push(cat);
     datos.tareas.push(nuevaTarea({ titulo: f.elements.titulo.value.trim(), categoria: cat, estado: 'hecha', avisos: [],
