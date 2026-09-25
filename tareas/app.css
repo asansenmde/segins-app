@@ -216,3 +216,5 @@ output { font-weight: 700; color: var(--text); }
 .cats .input { min-height: 40px; padding: 6px 10px; }
 
 .diag { white-space: pre-wrap; word-break: break-word; font-size: .75rem; background: var(--surface-2); border-radius: 8px; padding: 10px; margin: 0 0 8px; max-height: 320px; overflow: auto; }
+
+#rapidaPrev { margin-top: 8px; line-height: 1.9; }

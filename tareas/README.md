@@ -5,6 +5,9 @@ App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber 
 
 ## Qué hace
 
+- **Alta rápida escribiendo** (`fechas.js`): «Informe extintores antes del viernes a las 10 #Informes urgente» crea
+  la tarea con NLT, hora, categoría y prioridad. Entiende hoy/mañana/pasado mañana, días de la semana, «en 2
+  semanas», «fin de mes», «el 15», «3/10», «3 de octubre»… Se procesa en el dispositivo, sin enviar el texto.
 - **Mis NLT** (inicio): contador de NLT vencidas, que vencen hoy, en los próximos 7 días y abiertas.
   Las tareas se agrupan por urgencia con semáforo (rojo: vencida u hoy; naranja: quedan pocos días;
   verde: con margen). Alta rápida con título + NLT, búsqueda y filtro por categoría.

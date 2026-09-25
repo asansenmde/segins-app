@@ -2,8 +2,10 @@
 // Se guarda en este navegador (localStorage) y, abierta en claude.ai, se sincroniza con la cuenta
 // del usuario entre todos sus dispositivos (capacidad "db" del visor).
 
+import { interpretar } from './fechas.js?v=12';
+
 const CLAVE = 'tareas-nlt-v1';
-const VERSION_APP = '11 · 25 sep 2026'; // súbela en cada publicación (y el ?v= de index.html)
+const VERSION_APP = '12 · 25 sep 2026'; // súbela en cada publicación (y el ?v= de index.html)
 const ESTADOS = [['pendiente', 'Pendiente'], ['curso', 'En curso'], ['espera', 'En espera'], ['hecha', 'Hecha']];
 const NOMBRE_ESTADO = Object.fromEntries(ESTADOS);
 const PRIOS = { critica: 'Crítica', alta: 'Alta', media: 'Media', baja: 'Baja' };
@@ -496,10 +498,12 @@ function vistaNlt() {
         <button class="btn sm" data-posponer="${t.id}">Recordar mañana</button></div>`)).join('')}</section>` : ''}
     <form class="card" id="rapida">
       <div class="row gap wrap">
-        <input class="input grow" name="titulo" placeholder="Tarea rápida… (para más datos, pulsa +)" required style="min-width:180px">
+        <input class="input grow" name="titulo" placeholder="Ej.: Informe extintores antes del viernes #Informes" required style="min-width:180px" autocomplete="off">
         <input class="input" type="date" name="nlt" title="NLT: fecha límite para finalizar" style="width:auto">
         <button type="button" class="btn primary" data-enviar>Añadir</button>
       </div>
+      <div class="small muted" id="rapidaPrev">Escribe la tarea con su plazo («mañana», «el viernes», «antes del 3 de octubre», «en 2 semanas», «a las 10»).
+        Opcional: <b>#categoría</b>, <b>urgente</b> o <b>!!</b> para crítica.</div>
     </form>
     <div class="kpis">
       ${kpi('vencidas', 'Vencidas', n.vencidas ? 'bad' : '')}${kpi('hoy', 'Hoy', n.hoy ? 'warn' : '')}
@@ -1462,7 +1466,32 @@ main.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.dataset?.catnom !== undefined) { e.preventDefault(); e.target.blur(); }
 });
 
+// Alta rápida: la fecha elegida a mano manda sobre la del texto; la categoría se ajusta a una existente
+function leerRapida(texto, nltManual) {
+  const r = interpretar(texto);
+  if (nltManual) { r.nlt = nltManual; r.hora = ''; }
+  if (r.categoria) {
+    const norm = c => c.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const igual = categoriasUsadas().find(c => norm(c) === norm(r.categoria)) || categoriasUsadas().find(c => norm(c).startsWith(norm(r.categoria)));
+    r.categoria = igual || r.categoria[0].toUpperCase() + r.categoria.slice(1);
+  }
+  return r;
+}
+
+function pintarPrevia() {
+  const f = $('#rapida');
+  const el = $('#rapidaPrev');
+  const texto = f?.elements.titulo.value.trim();
+  if (!el || !texto) return;
+  const r = leerRapida(texto, f.elements.nlt.value);
+  el.innerHTML = [`<b>${esc(r.titulo)}</b>`,
+    r.nlt ? `<span class="badge ${diasHasta(r.nlt) < 0 ? 'bad' : 'info'}">NLT ${esc(fmtFecha(r.nlt))}${r.hora ? ' · ' + r.hora : ''}</span>` : '<span class="badge none">Sin NLT</span>',
+    r.categoria ? `<span class="chip">${esc(r.categoria)}${datos.categorias.includes(r.categoria) ? '' : ' (nueva)'}</span>` : '',
+    r.prioridad ? `<span class="prio-${r.prioridad}">● ${PRIOS[r.prioridad]}</span>` : ''].filter(Boolean).join(' ');
+}
+
 main.addEventListener('input', e => {
+  if (e.target.form?.id === 'rapida') { pintarPrevia(); return; }
   if (e.target.id !== 'fq') return;
   filtro.q = e.target.value;
   const pos = e.target.selectionStart;
@@ -1484,11 +1513,14 @@ main.addEventListener('keydown', e => {
 function enviarFormulario(f) {
   if (!f.reportValidity()) return;
   if (f.id === 'rapida') {
-    const titulo = f.elements.titulo.value.trim();
-    if (!titulo) return;
-    datos.tareas.push(nuevaTarea({ titulo, nlt: f.elements.nlt.value, categoria: filtro.cat || datos.ajustes.ultimaCat || '' }));
+    const texto = f.elements.titulo.value.trim();
+    if (!texto) return;
+    const r = leerRapida(texto, f.elements.nlt.value);
+    if (r.categoria && !datos.categorias.includes(r.categoria)) datos.categorias.push(r.categoria);
+    datos.tareas.push(nuevaTarea({ titulo: r.titulo, nlt: r.nlt, hora: r.hora, prioridad: r.prioridad || 'media',
+      categoria: r.categoria || filtro.cat || datos.ajustes.ultimaCat || '' }));
     guardar(); render();
-    toast('Añadida. Púlsala para completar la ficha');
+    toast(r.nlt ? `Añadida con NLT ${fmtFecha(r.nlt)}${r.hora ? ' a las ' + r.hora : ''}` : 'Añadida sin NLT. Púlsala para completar la ficha');
     $('#rapida [name=titulo]').focus();
   } else if (f.id === 'registrar') {
     const min = +f.elements.min.value || 0;
