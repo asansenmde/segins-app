@@ -193,12 +193,15 @@
   // Ruta de carpeta de una dirección de SharePoint: parámetro RootFolder o la propia ruta (quitando Forms/…aspx)
   function carpetaDe(u) {
     var rf = u.searchParams.get('RootFolder') || u.searchParams.get('id');
+    // En la vista previa, «id» es el archivo: su carpeta es «parent» o la ruta sin el nombre
+    if (rf && /\.[a-z0-9]{2,5}$/i.test(rf)) rf = u.searchParams.get('parent') || rf.replace(/\/[^/]*$/, '');
     if (rf) return rf;
     return decodeURIComponent(u.pathname).replace(/\/Forms\/[^/]*$/i, '').replace(/\/[^/]*\.(aspx|html?)$/i, '');
   }
 
   var web = null;
-  var carpetaPropia = decodeURIComponent(location.pathname).replace(/\/[^/]*$/, '');
+  // La carpeta de esta página, o la que se está viendo si se lanza como marcador sobre la lista de MENSADEF
+  var carpetaPropia = carpetaDe(new URL(location.href));
   webDe(carpetaPropia).then(function (w) {
     web = w;
     resumen.sitio = w.url; pintarResumen();

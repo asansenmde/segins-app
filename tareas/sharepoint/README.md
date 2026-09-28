@@ -24,7 +24,9 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   personal de mensajes y analiza la biblioteca: columnas, tipos de contenido, número de archivos por tipo,
   meses que abarca y qué columnas vienen rellenas. El resumen para copiar no incluye asuntos, nombres de
   archivo ni contenido. Solo GET. MENSADEF muestra el `.html` como texto; `prueba-mensadef.aspx` es la
-  misma página con extensión `.aspx`, que SharePoint sirve como página y sí ejecuta.
+  misma página con extensión `.aspx`. Si MENSADEF descarga ambos en vez de abrirlos, `marcador-mensadef.html`
+  ofrece un favorito («marcador») que lanza la misma página sobre la lista de MENSADEF que esté abierta, con la
+  sesión del usuario. Se genera con `generar-marcador.py`; hay que volver a generarlo si cambia la página.
 - `prueba-sharepoint.html`: página de diagnóstico que comprueba si el sitio ejecuta páginas propias y
   lista las listas y columnas (sin contenido).
 
