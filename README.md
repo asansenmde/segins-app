@@ -8,6 +8,8 @@ con fotos marcadas, agenda e informe en Word.
 > - [`tareas/`](tareas/): **Tareas NLT**, gestor personal de tareas con fechas límite (NLT).
 > - [`colabora/`](colabora/): **Tareas Colabora**, gestor de la lista «Gestor de Tareas» del SharePoint interno.
 > - [`mensadef/`](mensadef/): **visor de mensajes de MENSADEF**.
+>
+> Cómo pedir cambios en cada uno y páginas nuevas: [`PROYECTOS.md`](PROYECTOS.md).
 
 ## Qué hace
 
