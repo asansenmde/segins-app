@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mensajes MENSADEF</title>
+<style>
+  :root { --bg: #f4f5f0; --card: #fff; --text: #1f261f; --muted: #5f685f; --line: #d9ddd3; --brand: #3b4a2f; --soft: #eef1ea; --ok: #2e7d32; --okbg: #dcefdc; --bad: #b71c1c; --badbg: #fbdada; --sel: #fff8e1; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--brand); color: #fff; padding: 10px 16px; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+  header h1 { font-size: 1.15rem; margin: 0; }
+  header .muted { color: #d6dccf; }
+  main { max-width: 1400px; margin: 0 auto; padding: 12px 16px 40px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 10px 0; }
+  .muted { color: var(--muted); font-size: .88rem; }
+  .bad { background: var(--badbg); color: var(--bad); font-weight: 600; padding: 8px 10px; border-radius: 8px; }
+  .fila { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+  .fila label { display: flex; flex-direction: column; gap: 2px; font-size: .8rem; color: var(--muted); font-weight: 600; }
+  .fila label.check { flex-direction: row; align-items: center; gap: 6px; padding-bottom: 8px; }
+  input, select { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--text); min-width: 0; }
+  input[type=search] { width: 260px; }
+  select { max-width: 220px; }
+  button { font: inherit; font-weight: 600; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line); background: #fff; cursor: pointer; color: var(--text); }
+  button.prim { background: var(--brand); color: #fff; border-color: var(--brand); }
+  button:disabled { opacity: .5; cursor: default; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .chip { font-size: .78rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--soft); border: 1px solid var(--line); cursor: pointer; }
+  .chip.on { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .tabla { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+  th, td { text-align: left; padding: 6px 7px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--soft); position: sticky; top: 0; cursor: pointer; white-space: nowrap; user-select: none; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: #f7f8f4; }
+  tbody tr.sel { background: var(--sel); }
+  td.asunto { min-width: 280px; }
+  td.fecha, td.nowrap { white-space: nowrap; }
+  .tag { display: inline-block; font-size: .72rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #dde8f7; color: #1d4f91; white-space: nowrap; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  @media (min-width: 1100px) { .layout.detalle-abierto { grid-template-columns: minmax(0, 1fr) 440px; } }
+  #detalle { position: sticky; top: 10px; align-self: start; max-height: calc(100vh - 20px); overflow: auto; }
+  #detalle h2 { font-size: 1rem; margin: 0 0 8px; }
+  dl { display: grid; grid-template-columns: 140px 1fr; gap: 3px 10px; margin: 0; font-size: .86rem; }
+  dt { color: var(--muted); font-weight: 600; }
+  dd { margin: 0; overflow-wrap: anywhere; }
+  .cuerpo { white-space: pre-wrap; background: var(--soft); padding: 10px; border-radius: 8px; font-size: .86rem; margin-top: 8px; overflow-wrap: anywhere; }
+  .acciones { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+  a { color: #1d4f91; }
+  .barra { height: 4px; background: var(--soft); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+  .barra div { height: 100%; width: 0; background: var(--brand); transition: width .2s; }
+</style>
+</head>
+<body>
+<header><h1>Mensajes MENSADEF</h1><span class="muted" id="quien"></span></header>
+<main>
+  <noscript><div class="card bad">El navegador no ejecuta el código de esta página.</div></noscript>
+  <div class="card" id="aviso" hidden></div>
+
+  <div class="card">
+    <div class="fila">
+      <label>Desde<input type="date" id="desde"></label>
+      <label>Hasta<input type="date" id="hasta"></label>
+      <button type="button" data-dias="0">Hoy</button>
+      <button type="button" data-dias="2">3 días</button>
+      <button type="button" data-dias="6">7 días</button>
+      <button type="button" data-dias="29">30 días</button>
+      <label class="check"><input type="checkbox" id="historicas"> Incluir listas históricas (SMDMDMensajes2026…)</label>
+      <button type="button" class="prim" id="cargar">Cargar</button>
+    </div>
+    <div class="muted" id="estado">Preparando…</div>
+    <div class="barra"><div id="progreso"></div></div>
+  </div>
+
+  <div class="card" id="filtros" hidden>
+    <div class="fila">
+      <label>Buscar<input type="search" id="buscar" placeholder="Asunto, autoridad, referencia, expediente…"></label>
+      <label>Tipo<select id="fTipo"></select></label>
+      <label>Estado<select id="fEstado"></select></label>
+      <label>Canal<select id="fCanal"></select></label>
+      <label>Órgano<select id="fOrgano"></select></label>
+      <label>Autoridad<select id="fAutoridad"></select></label>
+      <label class="check"><input type="checkbox" id="fAdjuntos"> Con adjuntos</label>
+      <button type="button" id="limpiar">Quitar filtros</button>
+      <button type="button" id="csv">Exportar CSV</button>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="layout" id="layout">
+    <div class="card tabla" id="lista" hidden></div>
+    <div class="card" id="detalle" hidden></div>
+  </div>
+</main>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var lista = function (x) { return !x ? [] : Array.isArray(x) ? x : (x.results || x.value || []); };
+  var guardar = function (k, v) { try { localStorage.setItem('visorMensadef.' + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
+  var leer = function (k, d) { try { var v = localStorage.getItem('visorMensadef.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
+
+  if (!window.fetch || !window.Promise || document.documentMode) {
+    $('aviso').hidden = false; $('aviso').innerHTML = '<div class="bad">Ábrelo en Microsoft Edge o Chrome normal (no en modo Internet Explorer).</div>'; return;
+  }
+  if (location.protocol === 'file:' || !location.hostname) {
+    $('aviso').hidden = false;
+    $('aviso').innerHTML = '<div class="bad">Esta página se ha abierto desde tu ordenador. Úsala con el marcador «Mensajes MENSADEF» estando en MENSADEF.</div>';
+    $('estado').textContent = ''; return;
+  }
+
+  // Columnas que se leen de cada mensaje (el cuerpo se pide aparte, al abrir uno)
+  var CAMPOS = ['ID', 'FileSystemObjectType', 'Title', 'Created', 'Attachments', 'MensajeId', 'MensajeAsunto', 'MensajeFecha', 'MensajeAutoridad', 'MensajeNombre_Autoridad',
+    'MensajeCanal', 'MensajeEstado', 'MensajeTipo_es', 'MensajeNivel_1_Organico', 'MensajeNivel_2_Organico', 'MensajeNivel_3_Organico', 'MensajeNivel_4_Organico',
+    'MensajeNum_referencia', 'MensajeSu_referencia', 'MensajeNum_expediente', 'MensajeUrlCarpeta', 'MensajeDireccion', 'MensajeCorreoElectronico', 'MensajeCSV'];
+  var ETIQUETAS = { MensajeFecha: 'Fecha', MensajeTipo_es: 'Tipo', MensajeEstado: 'Estado', MensajeCanal: 'Canal', MensajeAutoridad: 'Autoridad', MensajeNombre_Autoridad: 'Nombre autoridad',
+    MensajeNivel_1_Organico: 'Órgano (nivel 1)', MensajeNivel_2_Organico: 'Órgano (nivel 2)', MensajeNivel_3_Organico: 'Órgano (nivel 3)', MensajeNivel_4_Organico: 'Órgano (nivel 4)',
+    MensajeNum_referencia: 'N.º referencia', MensajeSu_referencia: 'Su referencia', MensajeNum_expediente: 'N.º expediente', MensajeId: 'Id. mensaje', MensajeDireccion: 'Dirección',
+    MensajeCorreoElectronico: 'Correo electrónico', MensajeCSV: 'CSV', MensajeUrlCarpeta: 'Carpeta de documentos' };
+
+  // REST de SharePoint: JSON ligero y, si el servidor no lo admite, «verbose». Solo GET.
+  function pedir(url) {
+    var una = function (accept) {
+      return fetch(url, { credentials: 'same-origin', headers: { Accept: accept } }).then(function (r) {
+        if (!r.ok) { var e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+        return r.json();
+      });
+    };
+    return una('application/json;odata=nometadata').catch(function (e) {
+      if ([400, 406, 415].indexOf(e.status) < 0) throw e;
+      return una('application/json;odata=verbose').then(function (d) {
+        d = d.d || d;
+        return d.results ? { value: d.results, 'odata.nextLink': d.__next } : d;
+      });
+    });
+  }
+  var api = function (ruta, base) { return pedir(base + '/_api/' + ruta); };
+  function todas(url, acumulado) {
+    acumulado = acumulado || [];
+    return pedir(url).then(function (d) {
+      acumulado = acumulado.concat(lista(d.value));
+      var sig = d['odata.nextLink'] || d.__next;
+      return sig ? todas(sig, acumulado) : acumulado;
+    });
+  }
+
+  function webDe(ruta) {
+    var partes = ruta.split('/').filter(Boolean), cand = [];
+    for (var i = partes.length; i >= 0; i--) cand.push(location.origin + (i ? '/' + partes.slice(0, i).join('/') : ''));
+    var probar = function (n) {
+      if (n >= cand.length) return Promise.reject(new Error('No se encontró el sitio de SharePoint'));
+      return api('web?$select=Url,Title', cand[n]).then(function (w) { return { url: w.Url || cand[n], titulo: w.Title }; }).catch(function () { return probar(n + 1); });
+    };
+    return probar(0);
+  }
+
+  var dosCifras = function (n) { return (n < 10 ? '0' : '') + n; };
+  var iso = function (d) { return d.getFullYear() + '-' + dosCifras(d.getMonth() + 1) + '-' + dosCifras(d.getDate()); };
+  var fechaDe = function (m) { var f = m.MensajeFecha || m.Created; return f ? new Date(f) : null; };
+  var verFecha = function (d) { return d ? dosCifras(d.getDate()) + '/' + dosCifras(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + dosCifras(d.getHours()) + ':' + dosCifras(d.getMinutes()) : ''; };
+  var organo = function (m) { return [m.MensajeNivel_1_Organico, m.MensajeNivel_2_Organico].filter(Boolean).join(' › '); };
+  var autoridad = function (m) { return m.MensajeNombre_Autoridad || m.MensajeAutoridad || ''; };
+  var texto = function (html) {
+    if (!html) return '';
+    if (!/<[a-z][\s\S]*>/i.test(html)) return html;
+    var limpio = String(html).replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li|tr|h\d)>/gi, '\n');
+    var d = new DOMParser().parseFromString(limpio, 'text/html');
+    return (d.body.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
+  };
+
+  var web = null, listasDia = [], listasHist = [], mensajes = [], filtrados = [], orden = { campo: 'fecha', desc: true }, abierto = null, mostrar = 300;
+
+  // Fechas por defecto: los últimos 3 días (o lo último que se usó)
+  var hoy = new Date();
+  $('desde').value = leer('desde', iso(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 2)));
+  $('hasta').value = leer('hasta', iso(hoy));
+  $('historicas').checked = !!leer('historicas', false);
+  Array.prototype.forEach.call(document.querySelectorAll('[data-dias]'), function (b) {
+    b.addEventListener('click', function () {
+      var n = +b.getAttribute('data-dias'), h = new Date();
+      $('hasta').value = iso(h); $('desde').value = iso(new Date(h.getFullYear(), h.getMonth(), h.getDate() - n)); cargar();
+    });
+  });
+
+  webDe(location.pathname).then(function (w) {
+    web = w;
+    api('web/currentuser?$select=Title', w.url).then(function (u) { $('quien').textContent = (w.titulo || '') + ' · ' + u.Title; }).catch(function () { $('quien').textContent = w.titulo || ''; });
+    $('estado').textContent = 'Buscando las listas de mensajes…';
+    return todas(w.url + '/_api/web/lists?$select=Id,Title,ItemCount,RootFolder/ServerRelativeUrl&$expand=RootFolder&$filter=Hidden eq false&$top=5000');
+  }).then(function (ls) {
+    ls.forEach(function (l) {
+      var m = /^SMDMDMensajes_(\d{4})(\d{2})(\d{2})$/.exec(l.Title);
+      if (m) listasDia.push({ id: l.Id, titulo: l.Title, dia: m[1] + '-' + m[2] + '-' + m[3], total: l.ItemCount, raiz: l.RootFolder && l.RootFolder.ServerRelativeUrl });
+      else if (/^SMDMDMensajes\d{5}(_\d+)?$/.test(l.Title)) listasHist.push({ id: l.Id, titulo: l.Title, total: l.ItemCount, raiz: l.RootFolder && l.RootFolder.ServerRelativeUrl });
+    });
+    listasDia.sort(function (a, b) { return a.dia < b.dia ? -1 : 1; });
+    if (!listasDia.length && !listasHist.length) throw new Error('No hay listas «SMDMDMensajes…» en este sitio. Abre la portada de tu ámbito de MENSADEF y vuelve a pulsar el marcador.');
+    $('estado').textContent = listasDia.length + ' días con lista de mensajes (del ' + listasDia[0].dia.split('-').reverse().join('/') + ' al ' + listasDia[listasDia.length - 1].dia.split('-').reverse().join('/') + ').';
+    return cargar();
+  }).catch(function (e) {
+    $('aviso').hidden = false; $('aviso').innerHTML = '<div class="bad">' + esc(e.message || e) + '</div>'; $('estado').textContent = '';
+  });
+
+  $('cargar').addEventListener('click', function () { cargar(); });
+
+  // Lee los mensajes de las listas del periodo, de 4 en 4
+  function leerLista(l, filtro) {
+    var sel = '$select=' + CAMPOS.join(',') + '&$top=2000' + (filtro ? '&$filter=' + encodeURIComponent(filtro) : '');
+    var url = web.url + "/_api/web/lists(guid'" + l.id + "')/items?" + sel;
+    return todas(url).catch(function (e) {
+      if (e.status !== 400) throw e;
+      // Alguna columna no existe en esta lista: se piden solo las que tiene
+      return api("web/lists(guid'" + l.id + "')/fields?$select=InternalName", web.url).then(function (d) {
+        var hay = {}; lista(d.value).forEach(function (f) { hay[f.InternalName] = 1; });
+        var campos = CAMPOS.filter(function (c) { return hay[c] || c === 'ID' || c === 'FileSystemObjectType'; });
+        return todas(web.url + "/_api/web/lists(guid'" + l.id + "')/items?$select=" + campos.join(',') + '&$top=2000' + (filtro && hay.MensajeFecha ? '&$filter=' + encodeURIComponent(filtro) : ''));
+      });
+    }).then(function (items) {
+      // El asunto es un campo de texto largo que puede traer HTML: se guarda ya como texto
+      return items.filter(function (i) { return i.FileSystemObjectType !== 1; }).map(function (i) { i._lista = l; i._asunto = texto(i.MensajeAsunto) || i.Title || ''; return i; });
+    });
+  }
+
+  function cargar() {
+    if (!web) return Promise.resolve();
+    var desde = $('desde').value, hasta = $('hasta').value;
+    if (!desde || !hasta || desde > hasta) { $('estado').textContent = 'Revisa las fechas.'; return Promise.resolve(); }
+    guardar('desde', desde); guardar('hasta', hasta); guardar('historicas', $('historicas').checked);
+    var tareas = listasDia.filter(function (l) { return l.dia >= desde && l.dia <= hasta; }).map(function (l) { return function () { return leerLista(l); }; });
+    if ($('historicas').checked) {
+      var f = "MensajeFecha ge datetime'" + desde + "T00:00:00Z' and MensajeFecha le datetime'" + hasta + "T23:59:59Z'";
+      listasHist.forEach(function (l) { if (l.total) tareas.push(function () { return leerLista(l, f); }); });
+    }
+    if (!tareas.length) { mensajes = []; pintarTodo(); $('estado').textContent = 'No hay listas de mensajes en ese periodo.'; return Promise.resolve(); }
+    $('cargar').disabled = true;
+    var hechas = 0, errores = [], res = [];
+    var avance = function () { $('progreso').style.width = Math.round(100 * hechas / tareas.length) + '%'; $('estado').textContent = 'Leyendo ' + hechas + ' de ' + tareas.length + ' listas…'; };
+    avance();
+    var cola = tareas.slice();
+    var trabajador = function () {
+      var t = cola.shift();
+      if (!t) return Promise.resolve();
+      return t().then(function (items) { res = res.concat(items); }, function (e) { errores.push(e.message || String(e)); })
+        .then(function () { hechas++; avance(); return trabajador(); });
+    };
+    return Promise.all([trabajador(), trabajador(), trabajador(), trabajador()]).then(function () {
+      // Sin duplicados entre listas diarias e históricas (mismo MensajeId)
+      var vistos = {};
+      mensajes = res.filter(function (m) { var k = m.MensajeId || (m._lista.id + ':' + m.ID); if (vistos[k]) return false; vistos[k] = 1; return true; });
+      $('cargar').disabled = false;
+      $('estado').textContent = mensajes.length + ' mensajes del ' + desde.split('-').reverse().join('/') + ' al ' + hasta.split('-').reverse().join('/') + (errores.length ? ' · ' + errores.length + ' listas no se pudieron leer (' + esc(errores[0]) + ')' : '') + '.';
+      pintarTodo();
+    });
+  }
+
+  // Filtros
+  var opciones = function (id, valores, todos) {
+    var sel = $(id), actual = sel.value;
+    var cuenta = {}; valores.forEach(function (v) { if (v) cuenta[v] = (cuenta[v] || 0) + 1; });
+    sel.innerHTML = '<option value="">' + todos + '</option>' + Object.keys(cuenta).sort().map(function (v) { return '<option value="' + esc(v) + '">' + esc(v) + ' (' + cuenta[v] + ')</option>'; }).join('');
+    sel.value = cuenta[actual] ? actual : '';
+  };
+  function pintarTodo() {
+    $('filtros').hidden = false; $('lista').hidden = false;
+    opciones('fTipo', mensajes.map(function (m) { return m.MensajeTipo_es; }), 'Todos');
+    opciones('fEstado', mensajes.map(function (m) { return m.MensajeEstado; }), 'Todos');
+    opciones('fCanal', mensajes.map(function (m) { return m.MensajeCanal; }), 'Todos');
+    opciones('fOrgano', mensajes.map(organo), 'Todos');
+    opciones('fAutoridad', mensajes.map(autoridad), 'Todas');
+    filtrar();
+  }
+  ['fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad', 'fAdjuntos'].forEach(function (id) { $(id).addEventListener('change', function () { mostrar = 300; filtrar(); }); });
+  var espera; $('buscar').addEventListener('input', function () { clearTimeout(espera); espera = setTimeout(function () { mostrar = 300; filtrar(); }, 200); });
+  $('limpiar').addEventListener('click', function () { ['buscar', 'fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad'].forEach(function (id) { $(id).value = ''; }); $('fAdjuntos').checked = false; filtrar(); });
+
+  var normal = function (s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
+  function filtrar() {
+    var q = normal($('buscar').value).split(/\s+/).filter(Boolean);
+    var t = $('fTipo').value, e = $('fEstado').value, c = $('fCanal').value, o = $('fOrgano').value, a = $('fAutoridad').value, adj = $('fAdjuntos').checked;
+    filtrados = mensajes.filter(function (m) {
+      if (t && m.MensajeTipo_es !== t) return false;
+      if (e && m.MensajeEstado !== e) return false;
+      if (c && m.MensajeCanal !== c) return false;
+      if (o && organo(m) !== o) return false;
+      if (a && autoridad(m) !== a) return false;
+      if (adj && !m.Attachments) return false;
+      if (q.length) {
+        var h = normal([m.Title, m._asunto, autoridad(m), m.MensajeAutoridad, m.MensajeNum_referencia, m.MensajeSu_referencia, m.MensajeNum_expediente, organo(m), m.MensajeTipo_es, m.MensajeId].join(' '));
+        for (var i = 0; i < q.length; i++) if (h.indexOf(q[i]) < 0) return false;
+      }
+      return true;
+    });
+    ordenar(); pintarChips(); pintarTabla();
+  }
+
+  var CLAVES = { fecha: function (m) { var d = fechaDe(m); return d ? d.getTime() : 0; }, tipo: function (m) { return m.MensajeTipo_es || ''; }, estado: function (m) { return m.MensajeEstado || ''; },
+    autoridad: autoridad, asunto: function (m) { return normal(m._asunto); }, referencia: function (m) { return m.MensajeNum_referencia || ''; }, organo: organo };
+  function ordenar() {
+    var k = CLAVES[orden.campo], s = orden.desc ? -1 : 1;
+    filtrados.sort(function (x, y) { var a = k(x), b = k(y); return a < b ? -s : a > b ? s : 0; });
+  }
+
+  function pintarChips() {
+    var cuenta = {}; filtrados.forEach(function (m) { var k = m.MensajeEstado || '(sin estado)'; cuenta[k] = (cuenta[k] || 0) + 1; });
+    $('chips').innerHTML = '<span class="chip on">' + filtrados.length + ' de ' + mensajes.length + '</span>' +
+      Object.keys(cuenta).sort().map(function (k) { return '<span class="chip" data-estado="' + esc(k) + '">' + esc(k) + ' · ' + cuenta[k] + '</span>'; }).join('');
+    Array.prototype.forEach.call($('chips').querySelectorAll('[data-estado]'), function (ch) {
+      ch.addEventListener('click', function () { var v = ch.getAttribute('data-estado'); $('fEstado').value = v === '(sin estado)' ? '' : v; filtrar(); });
+    });
+  }
+
+  function pintarTabla() {
+    var cab = [['fecha', 'Fecha'], ['tipo', 'Tipo'], ['estado', 'Estado'], ['autoridad', 'Autoridad'], ['asunto', 'Asunto'], ['referencia', 'Referencia'], ['organo', 'Órgano']];
+    var filas = filtrados.slice(0, mostrar);
+    $('lista').innerHTML = !mensajes.length ? '<p class="muted">No hay mensajes en el periodo elegido.</p>' :
+      '<table><thead><tr>' + cab.map(function (c) { return '<th data-orden="' + c[0] + '">' + c[1] + (orden.campo === c[0] ? (orden.desc ? ' ▾' : ' ▴') : '') + '</th>'; }).join('') + '<th>📎</th></tr></thead><tbody>' +
+      filas.map(function (m, i) {
+        return '<tr data-i="' + i + '"' + (m === abierto ? ' class="sel"' : '') + '><td class="fecha">' + esc(verFecha(fechaDe(m))) + '</td><td>' + (m.MensajeTipo_es ? '<span class="tag">' + esc(m.MensajeTipo_es) + '</span>' : '') +
+          '</td><td class="nowrap">' + esc(m.MensajeEstado) + '</td><td>' + esc(autoridad(m)) + '</td><td class="asunto">' + esc(m._asunto) + '</td><td class="nowrap">' + esc(m.MensajeNum_referencia) +
+          '</td><td>' + esc(organo(m)) + '</td><td>' + (m.Attachments ? '📎' : '') + '</td></tr>';
+      }).join('') + '</tbody></table>' +
+      (filtrados.length > mostrar ? '<p style="margin-top:8px"><button type="button" id="mas">Mostrar ' + Math.min(300, filtrados.length - mostrar) + ' más (quedan ' + (filtrados.length - mostrar) + ')</button></p>' : '');
+    Array.prototype.forEach.call($('lista').querySelectorAll('th[data-orden]'), function (th) {
+      th.addEventListener('click', function () { var c = th.getAttribute('data-orden'); orden = { campo: c, desc: orden.campo === c ? !orden.desc : c === 'fecha' }; ordenar(); pintarTabla(); });
+    });
+    Array.prototype.forEach.call($('lista').querySelectorAll('tbody tr'), function (tr) {
+      tr.addEventListener('click', function () { abrir(filas[+tr.getAttribute('data-i')]); });
+    });
+    if ($('mas')) $('mas').addEventListener('click', function () { mostrar += 300; pintarTabla(); });
+  }
+
+  // Detalle de un mensaje: metadatos, cuerpo (se pide al abrirlo), adjuntos y documentos
+  var enlaceCarpeta = function (v) { return !v ? '' : /^https?:\/\//i.test(v) ? v : v.charAt(0) === '/' ? location.origin + v : ''; };
+  function abrir(m) {
+    abierto = m; pintarTabla();
+    $('layout').classList.add('detalle-abierto'); $('detalle').hidden = false;
+    var l = m._lista, base = "web/lists(guid'" + l.id + "')/items(" + m.ID + ')';
+    var disp = l.raiz ? location.origin + l.raiz + '/DispForm.aspx?ID=' + m.ID : '';
+    var datos = Object.keys(ETIQUETAS).filter(function (k) { return m[k]; }).map(function (k) {
+      var v = k === 'MensajeFecha' ? verFecha(fechaDe(m)) : m[k];
+      var u = k === 'MensajeUrlCarpeta' ? enlaceCarpeta(v) : '';
+      return '<dt>' + esc(ETIQUETAS[k]) + '</dt><dd>' + (u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(v) + '</a>' : esc(v)) + '</dd>';
+    }).join('');
+    $('detalle').innerHTML = '<div class="acciones"><button type="button" id="cerrar">✕ Cerrar</button>' + (disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
+      '<button type="button" id="copiarTarea">Copiar para Gestor de Tareas</button></div>' +
+      '<h2>' + esc(m._asunto || '(sin asunto)') + '</h2><dl>' + datos + '<dt>Lista</dt><dd>' + esc(l.titulo) + '</dd></dl>' +
+      '<div id="adjuntos"></div><div id="docs"></div><div class="cuerpo" id="cuerpo">Cargando el texto del mensaje…</div>';
+    $('cerrar').addEventListener('click', function () { abierto = null; $('detalle').hidden = true; $('layout').classList.remove('detalle-abierto'); pintarTabla(); });
+    $('copiarTarea').addEventListener('click', function () {
+      var t = (m._asunto || '') + (m.MensajeNum_referencia ? ' — Ref. ' + m.MensajeNum_referencia : '') + (m.MensajeNum_expediente ? ' — Exp. ' + m.MensajeNum_expediente : '') +
+        ' — ' + verFecha(fechaDe(m)) + (autoridad(m) ? ' — ' + autoridad(m) : '');
+      var b = this;
+      (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { b.textContent = 'Copiado ✓'; }, function () { window.prompt('Copia este texto:', t); });
+    });
+    api(base + '?$select=MensajeCuerpo', web.url).then(function (d) {
+      if (abierto !== m) return;
+      var c = texto(d.MensajeCuerpo);
+      $('cuerpo').textContent = c || '(sin texto)';
+    }).catch(function (e) { if (abierto === m) $('cuerpo').textContent = 'No se pudo leer el texto (' + (e.message || e) + ').'; });
+    if (m.Attachments) {
+      api(base + '/AttachmentFiles', web.url).then(function (d) {
+        if (abierto !== m) return;
+        var fs = lista(d.value);
+        $('adjuntos').innerHTML = fs.length ? '<p style="margin:10px 0 4px"><b>Adjuntos</b></p>' + fs.map(function (f) { return '<div>📎 <a href="' + esc(location.origin + f.ServerRelativeUrl) + '" target="_blank" rel="noopener">' + esc(f.FileName) + '</a></div>'; }).join('') : '';
+      }).catch(function () { /* sin adjuntos legibles */ });
+    }
+    var carpeta = m.MensajeUrlCarpeta && m.MensajeUrlCarpeta.charAt(0) === '/' ? m.MensajeUrlCarpeta : /^https?:/i.test(m.MensajeUrlCarpeta || '') ? new URL(m.MensajeUrlCarpeta).pathname : '';
+    if (carpeta) {
+      var q = encodeURIComponent("'" + decodeURIComponent(carpeta).replace(/'/g, "''") + "'");
+      api('web/GetFolderByServerRelativeUrl(@f)/Files?@f=' + q + '&$select=Name,ServerRelativeUrl,Length', web.url).then(function (d) {
+        if (abierto !== m) return;
+        var fs = lista(d.value);
+        $('docs').innerHTML = fs.length ? '<p style="margin:10px 0 4px"><b>Documentos</b></p>' + fs.map(function (f) { return '<div>📄 <a href="' + esc(location.origin + f.ServerRelativeUrl) + '" target="_blank" rel="noopener">' + esc(f.Name) + '</a> <span class="muted">' + Math.max(1, Math.round((f.Length || 0) / 1024)) + ' KB</span></div>'; }).join('') : '';
+      }).catch(function () { /* la carpeta puede no existir */ });
+    }
+  }
+
+  // Exporta lo filtrado a CSV (se guarda en tu ordenador; no sale de él)
+  $('csv').addEventListener('click', function () {
+    var cols = [['Fecha', function (m) { return verFecha(fechaDe(m)); }], ['Tipo', 'MensajeTipo_es'], ['Estado', 'MensajeEstado'], ['Canal', 'MensajeCanal'], ['Autoridad', autoridad],
+      ['Asunto', function (m) { return m._asunto; }], ['Referencia', 'MensajeNum_referencia'], ['Su referencia', 'MensajeSu_referencia'], ['Expediente', 'MensajeNum_expediente'], ['Órgano', organo], ['Adjuntos', function (m) { return m.Attachments ? 'sí' : ''; }]];
+    var celda = function (v) { v = String(v == null ? '' : v); return /[";\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    var csv = '﻿' + cols.map(function (c) { return c[0]; }).join(';') + '\r\n' + filtrados.map(function (m) {
+      return cols.map(function (c) { return celda(typeof c[1] === 'function' ? c[1](m) : m[c[1]]); }).join(';');
+    }).join('\r\n');
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'mensajes-' + $('desde').value + '_' + $('hasta').value + '.csv';
+    document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  });
+})();
+</script>
+</body>
+</html>

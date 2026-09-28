@@ -27,6 +27,11 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   misma página con extensión `.aspx`. Si MENSADEF descarga ambos en vez de abrirlos, `marcador-mensadef.html`
   ofrece un favorito («marcador») que lanza la misma página sobre la lista de MENSADEF que esté abierta, con la
   sesión del usuario. Se genera con `generar-marcador.py`; hay que volver a generarlo si cambia la página.
+- `visor-mensadef.html` (se usa con `marcador-visor-mensadef.html`): visor de mensajes de MENSADEF. Lee las listas
+  diarias `SMDMDMensajes_AAAAMMDD` del periodo elegido (y, opcionalmente, las históricas `SMDMDMensajes2026…`),
+  con búsqueda, filtros (tipo, estado, canal, órgano, autoridad, con adjuntos), orden por columnas, detalle con el
+  texto (se pide al abrir cada mensaje), adjuntos, documentos de `MensajeUrlCarpeta`, enlace a la ficha en MENSADEF,
+  «Copiar para Gestor de Tareas» y exportación a CSV. Solo GET, con la sesión y los permisos del usuario.
 - `prueba-sharepoint.html`: página de diagnóstico que comprueba si el sitio ejecuta páginas propias y
   lista las listas y columnas (sin contenido).
 

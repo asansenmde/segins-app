@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Genera marcador-mensadef.html a partir de prueba-mensadef.html.
+"""Genera los marcadores de MENSADEF a partir de sus páginas.
 
-El marcador (favorito «javascript:») sustituye la página de MENSADEF que está abierta por la de
-diagnóstico, en el mismo servidor y con la misma sesión, así que no depende de que MENSADEF
-ejecute archivos subidos. Volver a ejecutar este script cada vez que cambie prueba-mensadef.html.
+- marcador-mensadef.html       ← prueba-mensadef.html (diagnóstico)
+- marcador-visor-mensadef.html ← visor-mensadef.html (visor de mensajes)
+
+Cada marcador (favorito «javascript:») sustituye la página de MENSADEF que está abierta por la
+página correspondiente, en el mismo servidor y con la misma sesión, así que no depende de que
+MENSADEF ejecute archivos subidos. Volver a ejecutar este script cada vez que cambie una página.
 """
 import html
 import json
@@ -11,16 +14,13 @@ import pathlib
 import urllib.parse
 
 aqui = pathlib.Path(__file__).parent
-pagina = (aqui / 'prueba-mensadef.html').read_text(encoding='utf-8')
-codigo = '(function(){var h=' + json.dumps(pagina) + ';document.open();document.write(h);document.close();})()'
-marcador = 'javascript:' + urllib.parse.quote(codigo, safe='')
 
-(aqui / 'marcador-mensadef.html').write_text(f'''<!doctype html>
+PLANTILLA = '''<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Marcador MENSADEF</title>
+<title>Marcador {nombre}</title>
 <style>
   body {{ font-family: system-ui, "Segoe UI", sans-serif; background: #f5f6f2; color: #1f2a1c; margin: 0; }}
   main {{ max-width: 720px; margin: 0 auto; padding: 24px 16px; line-height: 1.5; }}
@@ -33,14 +33,12 @@ marcador = 'javascript:' + urllib.parse.quote(codigo, safe='')
 </head>
 <body>
 <main>
-  <h1>Prueba de MENSADEF con un marcador</h1>
-  <p>MENSADEF descarga los archivos en vez de abrirlos, así que la prueba se lanza con un <b>favorito especial</b>
-  sobre la propia página de MENSADEF. Solo <b>lee</b>, con tu sesión, cómo está organizada tu carpeta; no modifica nada
-  ni envía nada fuera del servidor.</p>
+  <h1>{titulo}</h1>
+  <p>{intro}</p>
 
   <div class="card">
     <p><b>1. Guarda este botón en tus favoritos</b></p>
-    <p><a class="marcador" id="marcador" href="{html.escape(marcador, quote=True)}">Prueba MENSADEF</a></p>
+    <p><a class="marcador" id="marcador" href="{marcador}">{nombre}</a></p>
     <ul>
       <li>Muestra la barra de favoritos con <b>Ctrl + Mayús + B</b> y <b>arrastra</b> el botón verde hasta ella.</li>
       <li>Si no te deja arrastrarlo: pulsa <button id="copiar" type="button">Copiar marcador</button>, crea un favorito
@@ -52,9 +50,7 @@ marcador = 'javascript:' + urllib.parse.quote(codigo, safe='')
   <div class="card">
     <p><b>2. Úsalo en MENSADEF</b></p>
     <ol>
-      <li>Abre tu carpeta de mensajes en MENSADEF, como siempre.</li>
-      <li>Con la carpeta en pantalla, pulsa el favorito <b>Prueba MENSADEF</b>.</li>
-      <li>La página se sustituye por la de diagnóstico, que analiza esa carpeta. Para volver, recarga (F5).</li>
+{uso}
     </ol>
   </div>
 </main>
@@ -70,5 +66,32 @@ marcador = 'javascript:' + urllib.parse.quote(codigo, safe='')
 </script>
 </body>
 </html>
-''', encoding='utf-8')
-print('marcador-mensadef.html:', len(marcador), 'caracteres de marcador')
+'''
+
+
+def generar(fuente, salida, nombre, titulo, intro, pasos):
+    pagina = (aqui / fuente).read_text(encoding='utf-8')
+    codigo = '(function(){var h=' + json.dumps(pagina) + ';document.open();document.write(h);document.close();})()'
+    marcador = 'javascript:' + urllib.parse.quote(codigo, safe='')
+    uso = '\n'.join('      <li>' + p + '</li>' for p in pasos)
+    (aqui / salida).write_text(PLANTILLA.format(nombre=nombre, titulo=titulo, intro=intro, uso=uso,
+                                                marcador=html.escape(marcador, quote=True)), encoding='utf-8')
+    print(salida + ':', len(marcador), 'caracteres de marcador')
+
+
+generar('prueba-mensadef.html', 'marcador-mensadef.html', 'Prueba MENSADEF', 'Prueba de MENSADEF con un marcador',
+        'MENSADEF descarga los archivos en vez de abrirlos, así que la prueba se lanza con un <b>favorito especial</b> '
+        'sobre la propia página de MENSADEF. Solo <b>lee</b>, con tu sesión, cómo está organizado el sitio; no modifica '
+        'nada ni envía nada fuera del servidor.',
+        ['Abre MENSADEF (la portada de tu ámbito o una carpeta).',
+         'Pulsa el favorito <b>Prueba MENSADEF</b>.',
+         'La página se sustituye por la de diagnóstico. Para volver, recarga (F5).'])
+
+generar('visor-mensadef.html', 'marcador-visor-mensadef.html', 'Mensajes MENSADEF', 'Visor de mensajes de MENSADEF',
+        'Un <b>favorito especial</b> que convierte la página de MENSADEF en un visor de tus mensajes: búsqueda, filtros por '
+        'tipo, estado, canal, órgano y autoridad, detalle con texto, adjuntos y documentos, y exportación a CSV. Solo '
+        '<b>lee</b>, con tu sesión y tus permisos; no modifica nada ni envía nada fuera de MENSADEF.',
+        ['Abre la portada de tu ámbito de MENSADEF (por ejemplo, Segunda SUIGE).',
+         'Pulsa el favorito <b>Mensajes MENSADEF</b>.',
+         'Elige el periodo (por defecto, los últimos 3 días) y usa la búsqueda y los filtros. Pulsa un mensaje para ver el detalle.',
+         'Para volver a MENSADEF normal, recarga (F5).'])
