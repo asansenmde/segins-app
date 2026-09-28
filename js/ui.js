@@ -78,7 +78,27 @@ export function leerForm(root) {
 let capDescargas = null;
 const descargasVisor = () => (capDescargas ||= window.claude?.use ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null));
 
+// En la app nativa (Android/iOS) el archivo se guarda y se abre el menú del sistema para compartirlo o guardarlo.
+async function guardarNativo(blob, nombre) {
+  const { Filesystem, Share } = window.Capacitor.Plugins;
+  const b64 = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(blob);
+  });
+  const { uri } = await Filesystem.writeFile({ path: nombre, data: b64, directory: 'CACHE' });
+  try {
+    await Share.share({ title: nombre, files: [uri] });
+  } catch (e) {
+    if (!/cancel/i.test(e?.message || '')) throw e;
+  }
+}
+
+export const esNativa = () => !!window.Capacitor?.isNativePlatform?.();
+
 export async function descargar(blob, nombre) {
+  if (esNativa()) return guardarNativo(blob, nombre);
   const dl = await descargasVisor();
   if (dl) {
     try {
@@ -99,6 +119,7 @@ export async function descargar(blob, nombre) {
 
 // Comparte el archivo (correo, mensajería del móvil…) si el sistema lo permite; si no, lo descarga.
 export async function compartirODescargar(blob, nombre) {
+  if (esNativa()) return guardarNativo(blob, nombre);
   const file = new File([blob], nombre, { type: blob.type });
   if (navigator.canShare?.({ files: [file] })) {
     try {

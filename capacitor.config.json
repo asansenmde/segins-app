@@ -1,0 +1,7 @@
+{
+  "appId": "com.asansenmde.segins",
+  "appName": "SEGINS",
+  "webDir": "www",
+  "android": { "allowMixedContent": false },
+  "ios": { "contentInset": "always" }
+}

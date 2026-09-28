@@ -143,7 +143,7 @@ document.addEventListener('visibilitychange', () => {
 addEventListener('hashchange', render);
 
 (async () => {
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform?.()) navigator.serviceWorker.register('sw.js').catch(() => {});
   navigator.storage?.persist?.();
   if (!window.indexedDB || !crypto.subtle) {
     app.innerHTML = `<div class="lock"><p>${esc('Este navegador no admite almacenamiento cifrado. Abre la app con HTTPS en Chrome o Safari actualizados.')}</p></div>`;

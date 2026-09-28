@@ -1,0 +1,50 @@
+# Compila la app de Android en cada cambio y la publica en "Releases".
+# Enlace fijo a la última versión: https://github.com/asansenmde/segins-app/releases/latest/download/SEGINS.apk
+name: App Android
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Preparar la app web
+        run: |
+          npm ci
+          npm run www
+          npx cap sync android
+
+      - name: Compilar APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk SEGINS.apk
+
+      - name: Publicar
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-${{ github.run_number }}
+          name: SEGINS Android · versión ${{ github.run_number }}
+          body: |
+            Descarga **SEGINS.apk** en el móvil Android y ábrelo para instalar o actualizar.
+            Las actualizaciones se instalan encima de la versión anterior sin perder los datos.
+          files: SEGINS.apk
+          make_latest: true
