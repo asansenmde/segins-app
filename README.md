@@ -44,6 +44,20 @@ Para probarla en local: `python3 -m http.server 8000` y abrir `http://localhost:
 
 Al publicar cambios, sube la constante `VERSION` en `sw.js` para que los móviles se actualicen.
 
+## Apps nativas (Android e iOS)
+
+El mismo código se empaqueta como app nativa con [Capacitor](https://capacitorjs.com).
+
+- **Android**: cada cambio en `main` compila el APK con GitHub Actions (`.github/workflows/android.yml`)
+  y lo publica en *Releases*. Enlace a la última versión:
+  https://github.com/asansenmde/segins-app/releases/latest/download/SEGINS.apk
+  Va firmado siempre con la misma clave (`android/segins.keystore`), así que cada versión se instala
+  encima de la anterior sin perder datos.
+- **iOS**: el proyecto está en `ios/`. Para compilarlo e instalarlo hace falta un Mac con Xcode
+  y una cuenta de Apple Developer (o TestFlight).
+
+Para regenerar localmente: `npm install && npm run sync`.
+
 ## Estructura
 
 ```
