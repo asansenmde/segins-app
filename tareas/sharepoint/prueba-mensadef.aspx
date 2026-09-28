@@ -34,7 +34,7 @@
   <div class="card bad" id="sinjs">❌ Si ves este mensaje, el servidor no ejecuta el código de esta página (o la ha descargado en vez de abrirla): la versión para MENSADEF no es posible sin un administrador.</div>
 
   <div id="app" hidden>
-    <div class="card ok">✅ Funciona: el servidor ejecuta esta página.</div>
+    <div class="card ok" id="dondeCorre">✅ El código de esta página se ejecuta.</div>
     <div class="card" id="sitio"><p class="muted">Localizando el sitio donde está este archivo…</p></div>
     <div class="card">
       <p><b>¿Dónde están tus mensajes?</b> Si esta página está en tu carpeta de mensajes, se analiza sola. Si no, abre la carpeta en otra pestaña, copia la dirección y pégala aquí.</p>
@@ -65,7 +65,17 @@
   document.getElementById('app').hidden = false;
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
-  var resumen = { servidor: location.hostname, sitio: '', usuario: '', biblioteca: null, columnas: [], tiposDeContenido: [], carpeta: null, camposRellenos: null, errores: [] };
+  // Dónde se está ejecutando de verdad: servidor, tu ordenador (archivo descargado) o una vista previa aislada
+  var origen = location.protocol === 'file:' ? 'archivo local' : (location.origin === 'null' || !location.hostname) ? 'vista previa aislada' : location.origin;
+  var donde = origen === 'archivo local'
+    ? '⚠️ El código se ejecuta, pero la página se ha abierto <b>desde tu ordenador</b> (archivo descargado), no desde MENSADEF. Así no puede leer nada. Ábrela desde la biblioteca de MENSADEF, con su dirección directa.'
+    : origen === 'vista previa aislada'
+      ? '⚠️ El código se ejecuta, pero dentro de una <b>vista previa aislada</b>, sin acceso a MENSADEF. Ábrela con su dirección directa en una pestaña nueva.'
+      : location.hostname === 'mensadef.mdef.es' ? '✅ El código se ejecuta en <b>' + origen + '</b>.'
+        : '⚠️ El código se ejecuta en <b>' + origen.replace(/[<>&]/g, '') + '</b>, que <b>no es mensadef.mdef.es</b>: la página se está sirviendo desde otro servidor.';
+  document.getElementById('dondeCorre').innerHTML = donde;
+  if (origen === 'archivo local' || origen === 'vista previa aislada' || location.hostname !== 'mensadef.mdef.es') document.getElementById('dondeCorre').className = 'card bad';
+  var resumen = { servidor: origen, direccion: location.protocol === 'file:' ? '(local)' : location.pathname.replace(/[^/]+$/, ''), sitio: '', usuario: '', biblioteca: null, columnas: [], tiposDeContenido: [], carpeta: null, camposRellenos: null, errores: [] };
   var pintarResumen = function () { $('resumen').textContent = JSON.stringify(resumen, null, 1); };
   var anotarError = function (e) { resumen.errores.push(String(e && e.message || e)); pintarResumen(); };
   var fallo = function (id, txt, e) { anotarError(e); $(id).hidden = false; $(id).innerHTML = '<p class="bad" style="padding:8px;border-radius:8px">' + esc(txt) + ': ' + esc(e && e.message || e) + '</p>'; };
@@ -92,13 +102,14 @@
 
   // El sitio (web) de una ruta: se prueba de la ruta más larga a la más corta hasta que SharePoint responde
   function webDe(ruta) {
+    var intentos = [];
     var partes = ruta.split('/').filter(Boolean);
     var candidatas = [];
     for (var i = partes.length; i >= 0; i--) candidatas.push(location.origin + (i ? '/' + partes.slice(0, i).join('/') : ''));
     var probar = function (n) {
-      if (n >= candidatas.length) return Promise.reject(new Error('No se encontró el sitio de SharePoint'));
+      if (n >= candidatas.length) return Promise.reject(new Error('No se encontró el sitio de SharePoint' + (intentos.length ? ' [' + intentos.join('; ') + ']' : '')));
       return api('web?$select=Url,Title', candidatas[n]).then(function (w) { return { url: w.Url || candidatas[n], titulo: w.Title }; })
-        .catch(function () { return probar(n + 1); });
+        .catch(function (e) { intentos.push(candidatas[n].replace(location.origin, '') + ' → ' + (e.status ? 'HTTP ' + e.status : e.message || e)); return probar(n + 1); });
     };
     return probar(0);
   }
@@ -203,7 +214,7 @@
   $('analizar').addEventListener('click', function () {
     var u;
     try { u = new URL($('urlCarpeta').value.trim()); } catch (e) { $('aviso').textContent = 'Esa dirección no es válida.'; return; }
-    if (u.origin !== location.origin) { $('aviso').textContent = 'Esa dirección es de otro servidor (' + u.hostname + '). Sube este archivo a ' + u.hostname + '.'; return; }
+    if (u.origin !== location.origin) { $('aviso').textContent = 'Esta página se está ejecutando en «' + origen + '» y la carpeta está en ' + u.hostname + '. Solo puede leerla si se abre desde ' + u.hostname + ' (con la dirección directa del archivo).'; return; }
     var ruta = carpetaDe(u);
     webDe(ruta).then(function (w) { web = w; resumen.sitio = w.url; pintarResumen(); return analizar(w, ruta); })
       .catch(function (e) { anotarError(e); $('aviso').textContent = 'No se pudo abrir: ' + (e.message || e); });
