@@ -42,6 +42,7 @@
       <p style="margin-top:8px"><button class="prim" id="analizar">Analizar</button></p>
       <p class="muted" id="aviso"></p>
     </div>
+    <div class="card" id="listas" hidden></div>
     <div class="card" id="biblioteca" hidden></div>
     <div class="card" id="columnas" hidden></div>
     <div class="card" id="carpeta" hidden></div>
@@ -75,7 +76,7 @@
         : '⚠️ El código se ejecuta en <b>' + origen.replace(/[<>&]/g, '') + '</b>, que <b>no es mensadef.mdef.es</b>: la página se está sirviendo desde otro servidor.';
   document.getElementById('dondeCorre').innerHTML = donde;
   if (origen === 'archivo local' || origen === 'vista previa aislada' || location.hostname !== 'mensadef.mdef.es') document.getElementById('dondeCorre').className = 'card bad';
-  var resumen = { servidor: origen, direccion: location.protocol === 'file:' ? '(local)' : location.pathname.replace(/[^/]+$/, ''), sitio: '', usuario: '', biblioteca: null, columnas: [], tiposDeContenido: [], carpeta: null, camposRellenos: null, errores: [] };
+  var resumen = { servidor: origen, direccion: location.protocol === 'file:' ? '(local)' : location.pathname.replace(/[^/]+$/, ''), sitio: '', usuario: '', listas: [], subsitios: [], biblioteca: null, columnas: [], tiposDeContenido: [], carpeta: null, camposRellenos: null, errores: [] };
   var pintarResumen = function () { $('resumen').textContent = JSON.stringify(resumen, null, 1); };
   var anotarError = function (e) { resumen.errores.push(String(e && e.message || e)); pintarResumen(); };
   var fallo = function (id, txt, e) { anotarError(e); $(id).hidden = false; $(id).innerHTML = '<p class="bad" style="padding:8px;border-radius:8px">' + esc(txt) + ': ' + esc(e && e.message || e) + '</p>'; };
@@ -131,6 +132,35 @@
   var extension = function (n) { var m = /\.([a-z0-9]{1,6})$/i.exec(n || ''); return m ? m[1].toLowerCase() : '(sin extensión)'; };
   var mes = function (s) { return s ? String(s).slice(0, 7) : ''; };
   var vacio = function (v) { return v == null || v === '' || (typeof v === 'object' && (v.__deferred || (Array.isArray(v.results) && !v.results.length))); };
+
+  // Listas y bibliotecas visibles del sitio (solo nombre, tipo y recuentos) y sus subsitios, para localizar los mensajes
+  function listarSitio(web) {
+    $('listas').hidden = false;
+    $('listas').innerHTML = '<p class="muted">Buscando listas y bibliotecas…</p>';
+    var base = new URL(web.url).pathname.replace(/\/$/, '');
+    return Promise.all([
+      api('web/lists?$select=Title,BaseTemplate,ItemCount,LastItemModifiedDate,RootFolder/ServerRelativeUrl&$expand=RootFolder&$filter=Hidden eq false', web.url),
+      api('web/webs?$select=Title,ServerRelativeUrl', web.url).catch(function (e) { anotarError(e); return { value: [] }; })
+    ]).then(function (r) {
+      var ls = lista(r[0].value).sort(function (a, b) { return b.ItemCount - a.ItemCount; });
+      var ws = lista(r[1].value);
+      var ruta = function (l) { return l.RootFolder && l.RootFolder.ServerRelativeUrl || ''; };
+      resumen.listas = resumen.listas.concat(ls.map(function (l) { return { sitio: base, titulo: l.Title, plantilla: l.BaseTemplate, elementos: l.ItemCount, ultimoCambio: mes(l.LastItemModifiedDate), ruta: ruta(l).replace(base, '') }; }));
+      resumen.subsitios = resumen.subsitios.concat(ws.map(function (w) { return { titulo: w.Title, ruta: w.ServerRelativeUrl }; }));
+      pintarResumen();
+      $('listas').innerHTML = '<p><b>Listas y bibliotecas de ' + esc(web.titulo || base) + '</b> <span class="muted">(pulsa «Analizar» en la que creas que tiene tus mensajes)</span></p>' +
+        '<table><thead><tr><th>Nombre</th><th>Tipo</th><th>Elementos</th><th>Último cambio</th><th></th></tr></thead><tbody>' +
+        ls.map(function (l, i) { return '<tr><td>' + esc(l.Title) + '</td><td>' + (l.BaseTemplate === 101 ? 'biblioteca' : l.BaseTemplate === 100 ? 'lista' : esc(l.BaseTemplate)) + '</td><td>' + l.ItemCount + '</td><td>' + esc(mes(l.LastItemModifiedDate)) + '</td><td><button data-lista="' + i + '">Analizar</button></td></tr>'; }).join('') +
+        '</tbody></table>' +
+        (ws.length ? '<p style="margin-top:12px"><b>Subsitios</b></p><p>' + ws.map(function (w, i) { return '<button data-web="' + i + '" style="margin:2px">' + esc(w.Title) + '</button>'; }).join(' ') + '</p>' : '');
+      $('listas').querySelectorAll('[data-lista]').forEach(function (b) {
+        b.addEventListener('click', function () { var l = ls[b.getAttribute('data-lista')]; analizar(web, ruta(l)); $('biblioteca').scrollIntoView(); });
+      });
+      $('listas').querySelectorAll('[data-web]').forEach(function (b) {
+        b.addEventListener('click', function () { var w = ws[b.getAttribute('data-web')]; var sub = { url: location.origin + w.ServerRelativeUrl, titulo: w.Title }; web = sub; listarSitio(sub); });
+      });
+    }).catch(function (e) { fallo('listas', 'No se pudieron listar las listas del sitio', e); });
+  }
 
   function analizar(web, rutaCarpeta) {
     ['biblioteca', 'columnas', 'carpeta', 'muestra'].forEach(function (id) { $(id).hidden = true; });
@@ -208,6 +238,9 @@
     $('sitio').innerHTML = '<b>Este archivo está en el sitio:</b> ' + esc(w.titulo || '') + ' <span class="muted">(' + esc(w.url) + ')</span><div id="usuario"></div>';
     api('web/currentuser?$select=Title', w.url).then(function (u) { resumen.usuario = u.Title; pintarResumen(); $('usuario').innerHTML = '<b>Tu usuario:</b> ' + esc(u.Title); })
       .catch(anotarError);
+    listarSitio(w);
+    // En la portada del sitio no hay mensajes que analizar: basta con la relación de listas
+    if (/\/(SitePages|Pages)$/i.test(carpetaPropia)) return;
     return analizar(w, carpetaPropia);
   }).catch(function (e) {
     anotarError(e);
