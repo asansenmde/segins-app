@@ -1,4 +1,7 @@
-# Tareas NLT · Colabora (SharePoint interno)
+# Tareas Colabora · Gestor de Tareas en SharePoint interno
+
+> Proyecto independiente de SEGINS (raíz del repositorio), de la app personal [Tareas NLT](../tareas/) y del
+> [visor de MENSADEF](../mensadef/).
 
 Versión de Tareas NLT que se ejecuta **dentro de Colabora** (SharePoint interno del Ministerio) y trabaja
 sobre la lista **«Gestor de Tareas»** del sitio `/et/SUIGESUR/JSUIGE`, con la sesión del usuario.
@@ -20,18 +23,6 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   usuario**: la página no manda correos por sí misma. El enlace se limita a ~2000 caracteres. En el detalle
   de cada asunto, «Recordar por correo». También exporta los asuntos propios a Outlook (.ics) con alarma
   N días antes a las 9:00. Para avisos automáticos haría falta un flujo de trabajo en el servidor.
-- `prueba-mensadef.html`: diagnóstico para MENSADEF (`mensadef.mdef.es/ambito/2SUIGE`). Se sube a la carpeta
-  personal de mensajes y analiza la biblioteca: columnas, tipos de contenido, número de archivos por tipo,
-  meses que abarca y qué columnas vienen rellenas. El resumen para copiar no incluye asuntos, nombres de
-  archivo ni contenido. Solo GET. MENSADEF muestra el `.html` como texto; `prueba-mensadef.aspx` es la
-  misma página con extensión `.aspx`. Si MENSADEF descarga ambos en vez de abrirlos, `marcador-mensadef.html`
-  ofrece un favorito («marcador») que lanza la misma página sobre la lista de MENSADEF que esté abierta, con la
-  sesión del usuario. Se genera con `generar-marcador.py`; hay que volver a generarlo si cambia la página.
-- `visor-mensadef.html` (se usa con `marcador-visor-mensadef.html`): visor de mensajes de MENSADEF. Lee las listas
-  diarias `SMDMDMensajes_AAAAMMDD` del periodo elegido (y, opcionalmente, las históricas `SMDMDMensajes2026…`),
-  con búsqueda, filtros (tipo, estado, canal, órgano, autoridad, con adjuntos), orden por columnas, detalle con el
-  texto (se pide al abrir cada mensaje), adjuntos, documentos de `MensajeUrlCarpeta`, enlace a la ficha en MENSADEF,
-  «Copiar para Gestor de Tareas» y exportación a CSV. Solo GET, con la sesión y los permisos del usuario.
 - `prueba-sharepoint.html`: página de diagnóstico que comprueba si el sitio ejecuta páginas propias y
   lista las listas y columnas (sin contenido).
 

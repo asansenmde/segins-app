@@ -1,5 +1,8 @@
 # Tareas NLT · Gestor de tareas con fecha límite
 
+> Proyecto independiente de SEGINS (raíz del repositorio), de [Tareas Colabora](../colabora/) y del
+> [visor de MENSADEF](../mensadef/).
+
 App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber en todo momento
 **qué NLT (fecha límite para finalizar) tienes pendientes**.
 
