@@ -23,7 +23,8 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
 - `prueba-mensadef.html`: diagnóstico para MENSADEF (`mensadef.mdef.es/ambito/2SUIGE`). Se sube a la carpeta
   personal de mensajes y analiza la biblioteca: columnas, tipos de contenido, número de archivos por tipo,
   meses que abarca y qué columnas vienen rellenas. El resumen para copiar no incluye asuntos, nombres de
-  archivo ni contenido. Solo GET.
+  archivo ni contenido. Solo GET. MENSADEF muestra el `.html` como texto; `prueba-mensadef.aspx` es la
+  misma página con extensión `.aspx`, que SharePoint sirve como página y sí ejecuta.
 - `prueba-sharepoint.html`: página de diagnóstico que comprueba si el sitio ejecuta páginas propias y
   lista las listas y columnas (sin contenido).
 
