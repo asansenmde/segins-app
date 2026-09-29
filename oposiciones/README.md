@@ -10,6 +10,16 @@ informe de cómo va todo.
   al tacharlo se apunta el tiempo, el nuevo % de dominio del tema y si se completa una vuelta.
   Arriba: temas planificados, hechos y horas estudiadas frente al objetivo semanal. Si la semana está
   vacía, propone los temas que llevan más tiempo sin tocarse.
+- **Importancia de cada tema**: crítico (en rojo), alto, medio o bajo, y opcionalmente cuántas preguntas
+  suelen caer. Se marca en la ficha del tema o de golpe en Temario → *Marcar importancia*.
+- **Cómo se lleva cada tema**: quien estudia dice «Lo llevo muy bien», «Necesito repaso» o «No lo
+  controlo» (al tachar un tema o en su ficha). La app hace además su **diagnóstico**: combina el % de
+  dominio con la media de los últimos 3 tests (40/60), baja un nivel si el tema lleva más días sin tocar
+  de los que aguanta (10 días × (1 + vueltas), máx. 60) o si tiene 3 o más artículos fallados sin repasar,
+  y avisa («? Revisar») cuando lo que dice la opositora no cuadra con los datos.
+- **Prioridad**: importancia × lo que falta por controlar × tiempo sin tocarlo. *Sugerir* en el plan
+  semanal marca los N temas más urgentes y los reparte entre los días elegidos; «Según cómo lo lleve»
+  pone estudio a lo que no se controla y repaso a lo demás.
 - **Temario**: cuatro materias (Temario 1-23, Inglés, Psicotécnicos, Gramática y ortografía). Por tema:
   % de dominio, vueltas, días desde la última vez (verde ≤ 7, naranja ≤ 14, rojo más), horas, nota media
   de sus tests y fallos anotados. Los títulos se editan y se pueden añadir o borrar temas.
@@ -18,7 +28,10 @@ informe de cómo va todo.
   los **artículos fallados** (ley + artículo + qué se confundió).
 - **Artículos fallados**: agrupados por tema y ordenados por veces fallado. «Repasado» los aparta;
   si se vuelve a fallar el mismo artículo, reaparece.
-- **Informe**: avance del temario, temas sin estudiar, horas de la semana, media de los últimos 5 tests,
+- **Mapa del temario**: una casilla por tema coloreada según cómo se lleva, con borde rojo si es crítico.
+- **Informe**: alertas (críticos o altos sin controlar o sin tocar, autoevaluaciones que no cuadran),
+  mapa, tabla importancia × estado, preguntas del examen cubiertas por temas dominados, lo siguiente
+  que conviene estudiar, avance del temario, temas sin estudiar, horas de la semana, media de los últimos 5 tests,
   avance por materia, evolución de la nota, horas por semana (8 semanas), temas pendientes sin estudiar,
   temas con más de una semana sin tocar, artículos más fallados, temas con nota < 5 y tabla completa.
   Se puede **copiar como texto** (WhatsApp, correo) o **descargar** como página HTML.

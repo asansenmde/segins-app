@@ -21,7 +21,7 @@ function temasBase() {
     orto: ['Ortografía', 'Gramática', 'Vocabulario (sinónimos y antónimos)'],
   };
   Object.entries(extra).forEach(([m, l]) => l.forEach((titulo, i) => t.push({ id: `${m}${i + 1}`, materia: m, num: i + 1, titulo })));
-  return t.map(x => ({ progreso: 0, vueltas: 0, notas: '', mod: 0, ...x }));
+  return t.map(x => ({ progreso: 0, vueltas: 0, notas: '', importancia: 'media', preguntasExamen: 0, autoeval: '', mod: 0, ...x }));
 }
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -163,6 +163,97 @@ function idMarca(k) {
   return 'm' + (h >>> 0).toString(36) + k.length.toString(36);
 }
 const nombreArt = a => [a.articulo && (/^\d/.test(a.articulo) ? `Art. ${a.articulo}` : a.articulo), a.norma].filter(Boolean).join(' · ') || 'Sin artículo';
+
+// ---------- Importancia y diagnóstico ----------
+// Importancia: cuántas preguntas suelen caer del tema. La marca quien estudia (o su academia).
+const IMPORTANCIA = {
+  critica: { n: 'Crítico', peso: 4, desc: 'Caen muchas preguntas' },
+  alta: { n: 'Alto', peso: 3, desc: 'Caen bastantes' },
+  media: { n: 'Medio', peso: 2, desc: 'Caen algunas' },
+  baja: { n: 'Bajo', peso: 1, desc: 'Caen 2 o 3' },
+};
+const ORDEN_IMP = ['critica', 'alta', 'media', 'baja'];
+// Cómo se lleva el tema. Lo dice quien estudia (autoevaluación) y lo calcula la app (diagnóstico).
+const ESTADOS = {
+  reforzar: { n: 'No lo controlo', corto: 'Reforzar', ic: '!', rango: 0 },
+  repasar: { n: 'Necesito repaso', corto: 'Repasar', ic: '↻', rango: 1 },
+  dominado: { n: 'Lo llevo muy bien', corto: 'Dominado', ic: '✓', rango: 2 },
+  nuevo: { n: 'Sin empezar', corto: 'Sin empezar', ic: '○', rango: -1 },
+};
+const ORDEN_EST = ['reforzar', 'repasar', 'dominado', 'nuevo'];
+const imp = t => IMPORTANCIA[t?.importancia] ? t.importancia : 'media';
+const badgeImp = t => `<span class="imp imp-${imp(t)}">${IMPORTANCIA[imp(t)].n}</span>`;
+const pillEst = e => `<span class="est est-${e}"><i aria-hidden="true">${ESTADOS[e].ic}</i>${ESTADOS[e].corto}</span>`;
+const tipoSugerido = e => (e === 'repasar' || e === 'dominado') ? 'repaso' : 'estudio';
+
+// Días que aguanta un tema sin repasar antes de empezar a olvidarse: crece con cada vuelta
+const estabilidad = t => Math.min(60, 10 * (1 + num(t.vueltas)));
+
+function diagnostico(t, x, pendientes = 0) {
+  const d = diasSin(x), p = num(t.progreso), mot = [];
+  const ult = [...x.notas].sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(-3);
+  const nm = media(ult.map(n => n.n));
+  const estab = estabilidad(t);
+  let auto, punt = null;
+  if (d == null && !p) { auto = 'nuevo'; mot.push('todavía no se ha estudiado'); }
+  else {
+    // Control sobre 10: el % de dominio y, si hay tests, sobre todo la nota de los últimos 3
+    punt = nm == null ? p / 10 : 0.4 * p / 10 + 0.6 * nm;
+    auto = punt >= 7.5 ? 'dominado' : punt >= 5 ? 'repasar' : 'reforzar';
+    mot.push(`dominio ${p} %`);
+    mot.push(nm == null ? 'sin tests todavía' : `media de los últimos ${ult.length === 1 ? 'test' : ult.length + ' tests'}: ${fmt1(nm)}`);
+    if (d != null && d > estab) {
+      mot.push(`hace ${d} días que no se toca`);
+      if (auto === 'dominado') auto = 'repasar';
+    }
+    if (pendientes >= 3) {
+      mot.push(`${pendientes} artículos fallados sin repasar`);
+      if (auto === 'dominado') auto = 'repasar';
+    }
+  }
+  const propio = ESTADOS[t.autoeval] ? t.autoeval : '';
+  const estado = propio || auto;
+  const aviso = propio && punt != null && propio !== auto
+    ? `Tú dices «${ESTADOS[propio].n.toLowerCase()}», pero los datos dicen «${ESTADOS[auto].n.toLowerCase()}» (${mot.join(', ')}).` : '';
+  // Prioridad: importancia × lo que falta × lo olvidado
+  const necesidad = { nuevo: 3, reforzar: 3, repasar: 2, dominado: 0.5 }[estado];
+  const olvido = d == null ? 1 : Math.min(2, d / estab);
+  return { estado, auto, propio, punt, nm, d, mot, aviso, estab, prioridad: IMPORTANCIA[imp(t)].peso * necesidad * (1 + olvido) };
+}
+
+function diagnosticos() {
+  const st = statsTemas();
+  const pend = {};
+  articulosFallados().forEach(a => { if (!a.repasado) pend[a.temaId] = (pend[a.temaId] || 0) + 1; });
+  const dg = {};
+  lista('temas').forEach(t => { dg[t.id] = { ...diagnostico(t, st[t.id], pend[t.id] || 0), x: st[t.id], pend: pend[t.id] || 0 }; });
+  return dg;
+}
+
+const porPrioridad = (ts, dg) => [...ts].sort((a, b) => dg[b.id].prioridad - dg[a.id].prioridad || a.num - b.num);
+const motivoPrio = (t, g) => [`${num(t.progreso)} %`, g.d == null ? 'sin estudiar' : g.d === 0 ? 'hoy' : `hace ${g.d} d`, g.nm != null ? `tests ${fmt1(g.nm)}` : ''].filter(Boolean).join(' · ');
+// Peso de un tema en el examen: las preguntas que suelen caer o, si no se saben, su importancia
+const pesoExamen = t => num(t.preguntasExamen) || IMPORTANCIA[imp(t)].peso;
+const etiquetaCorta = t => t.materia === 'temario' ? String(t.num) : t.titulo.split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase();
+
+// Mapa de color del temario: relleno = cómo se lleva; borde = importancia
+function mapaTemas(ts, dg, conLeyenda = true) {
+  return `<div class="mapa">${ts.map(t => `<button type="button" class="celda est-${dg[t.id].estado} bi-${imp(t)}" data-tema="${t.id}"
+      title="${esc(nombreTema(t))}: ${IMPORTANCIA[imp(t)].n.toLowerCase()} · ${ESTADOS[dg[t.id].estado].n.toLowerCase()}">
+      <b>${esc(etiquetaCorta(t))}</b>${dg[t.id].aviso ? '<i class="av" aria-label="Revisar">?</i>' : ''}</button>`).join('')}</div>
+    ${conLeyenda ? leyendaMapa() : ''}`;
+}
+const leyendaMapa = () => `<div class="leyenda"><span><i class="sw est-dominado"></i>Dominado</span><span><i class="sw est-repasar"></i>Repasar</span><span><i class="sw est-reforzar"></i>Reforzar</span><span><i class="sw est-nuevo"></i>Sin empezar</span>
+  <span><i class="sw bo bi-critica"></i>Borde rojo: crítico</span><span><i class="sw bo bi-alta"></i>Naranja: alto</span></div>`;
+
+// Barra apilada con cuántos temas hay en cada estado
+function barraEstados(ts, dg) {
+  const n = ts.length || 1;
+  const c = Object.fromEntries(ORDEN_EST.map(e => [e, ts.filter(t => dg[t.id].estado === e).length]));
+  return `<div class="apilada" role="img" aria-label="${ORDEN_EST.map(e => `${c[e]} ${ESTADOS[e].corto.toLowerCase()}`).join(', ')}">
+      ${['dominado', 'repasar', 'reforzar', 'nuevo'].map(e => c[e] ? `<i class="est-${e}" style="width:${c[e] / n * 100}%"></i>` : '').join('')}</div>
+    <div class="leyenda">${['dominado', 'repasar', 'reforzar', 'nuevo'].map(e => `<span><i class="sw est-${e}"></i>${ESTADOS[e].corto} <b class="num">${c[e]}</b></span>`).join('')}</div>`;
+}
 
 // ---------- Sincronización (claude.ai, capacidad db) ----------
 const nube = { lista: false, estado: 'local', refs: null, cola: Promise.resolve() };
@@ -323,7 +414,7 @@ function vSemana() {
   const min = ses.reduce((a, s) => a + num(s.minutos), 0);
   const hechos = items.filter(p => p.hecho).length;
   const obj = num(cfg().objetivoH);
-  const st = statsTemas();
+  const dg = diagnosticos();
   const rango = `${fmtFecha(semana, { day: 'numeric', month: 'short' })} – ${fmtFecha(fin, { day: 'numeric', month: 'short' })}`;
 
   let html = `<div class="semhead">
@@ -339,12 +430,12 @@ function vSemana() {
     </div>`;
 
   if (!items.length && !ses.length) {
-    const olvidados = lista('temas').map(t => ({ t, d: diasSin(st[t.id]) }))
-      .sort((a, b) => (b.d ?? 1e9) - (a.d ?? 1e9) || a.t.num - b.t.num).slice(0, 5);
+    const top = porPrioridad(lista('temas'), dg).slice(0, 6);
     html += `<div class="card"><h3>Nada planificado esta semana</h3>
-      <p class="muted small">Pulsa «+ Planificar», elige los días y marca los temas. Cada día podrás tacharlos y apuntar el tiempo.</p>
-      <div class="sec" style="margin-top:12px">Llevan más tiempo sin tocarse</div>
-      <ul class="lista">${olvidados.map(({ t }) => `<li><span>${matChip(t.materia)} ${esc(nombreTema(t))}</span>${pillDias(st[t.id])}</li>`).join('')}</ul></div>`;
+      <p class="muted small">Pulsa «+ Planificar» y usa «Sugerir» para que la app proponga los temas que más urgen: primero los críticos que no controlas o llevas tiempo sin tocar.</p>
+      <div class="sec" style="margin-top:12px">Lo que más urge ahora</div>
+      <ul class="lista">${top.map(t => `<li><span>${badgeImp(t)} ${esc(nombreTema(t))} <span class="muted small">· ${esc(motivoPrio(t, dg[t.id]))}</span></span>${pillEst(dg[t.id].estado)}</li>`).join('')}</ul>
+      <button class="btn primary block" type="button" data-sugerir>Planificar la semana con estas prioridades</button></div>`;
   }
 
   html += dias.map((d, i) => {
@@ -360,7 +451,7 @@ function vSemana() {
         return `<div class="item ${p.hecho ? 'hecho' : ''}">
           <button class="tick ${p.hecho ? 'on' : ''}" type="button" data-tick="${p.id}" aria-label="${p.hecho ? 'Desmarcar' : 'Marcar como hecho'}">${p.hecho ? '✓' : ''}</button>
           <div class="grow" data-item="${p.id}"><div class="it">${esc(nombreTema(t))}</div>
-          <div class="it-meta">${t ? matChip(t.materia) : ''} ${TIPOS[p.tipo] || ''}${s ? ` · ${horas(num(s.minutos))}` : ''}${t && t.materia !== 'psico' ? ` · ${num(t.progreso)} %` : ''}</div></div></div>`;
+          <div class="it-meta">${t ? `${badgeImp(t)} ${pillEst(dg[t.id].estado)}` : ''} ${TIPOS[p.tipo] || ''}${s ? ` · ${horas(num(s.minutos))}` : ''}${t ? ` · ${num(t.progreso)} %` : ''}</div></div></div>`;
       }).join('')}
       ${libres.map(s => `<div class="item hecho"><span class="tick on" aria-hidden="true">✓</span>
           <div class="grow" data-ses="${s.id}"><div class="it">${esc(nombreTema(tema(s.temaId)))}</div>
@@ -370,9 +461,10 @@ function vSemana() {
   main.innerHTML = html;
 
   main.onclick = e => {
-    const b = e.target.closest('[data-sem],[data-plan-dia],[data-tick],[data-item],[data-ses]');
+    const b = e.target.closest('[data-sem],[data-plan-dia],[data-tick],[data-item],[data-ses],[data-sugerir]');
     if (!b) return;
-    if (b.dataset.sem != null) { semana = +b.dataset.sem ? sumarDias(semana, +b.dataset.sem) : lunes(hoy()); render(); }
+    if (b.dataset.sugerir != null) planificar(null, true);
+    else if (b.dataset.sem != null) { semana = +b.dataset.sem ? sumarDias(semana, +b.dataset.sem) : lunes(hoy()); render(); }
     else if (b.dataset.planDia) planificar(b.dataset.planDia);
     else if (b.dataset.tick) marcar(S.d.plan[b.dataset.tick]);
     else if (b.dataset.item) opcionesPlan(S.d.plan[b.dataset.item]);
@@ -388,43 +480,63 @@ function marcar(p) {
   render();
 }
 
-function pickTemas(sel = new Set(), st = statsTemas()) {
+function pickTemas(sel, dg, modo) {
+  const fila = t => `<label class="check fila">
+      <input type="checkbox" name="tema" value="${t.id}" ${sel.has(t.id) ? 'checked' : ''}>
+      <span class="grow"><span class="nm">${esc(nombreTema(t))}</span>
+      <span class="it-meta">${badgeImp(t)} ${pillEst(dg[t.id].estado)} ${esc(motivoPrio(t, dg[t.id]))}</span></span></label>`;
+  if (modo === 'prio') return porPrioridad(lista('temas'), dg).map(fila).join('');
   return MATERIAS.map(([m, nom]) => {
     const ts = temasDe(m);
-    if (!ts.length) return '';
-    return `<div class="gr">${esc(nom)}</div>` + ts.map(t => `<label class="check">
-      <input type="checkbox" name="tema" value="${t.id}" ${sel.has(t.id) ? 'checked' : ''}>
-      <span>${esc(nombreTema(t))}</span>
-      <span class="muted small num">${num(t.progreso)} %</span>${pillDias(st[t.id])}</label>`).join('');
+    return ts.length ? `<div class="gr">${esc(nom)}</div>${ts.map(fila).join('')}` : '';
   }).join('');
 }
 
-function planificar(dia) {
+function planificar(dia, sugerir = false) {
   const dias = [...Array(7)].map((_, i) => sumarDias(semana, i));
-  const inicial = dia || (dias.includes(hoy()) ? hoy() : semana);
-  let tipo = 'estudio';
+  const h = hoy();
+  const quedan = dias.filter(d => d >= h);
+  const iniciales = new Set(sugerir ? (quedan.length ? quedan : dias) : [dia || (dias.includes(h) ? h : semana)]);
+  const dg = diagnosticos();
+  let tipo = 'auto', modo = 'prio';
+  let sel = new Set(sugerir ? porPrioridad(lista('temas'), dg).slice(0, 6).map(t => t.id) : []);
   abrir(`${cabecera('Planificar temas')}
     <div class="dlg-b">
       <div class="dsec">Días</div>
-      <div class="chips" id="pdias">${dias.map((d, i) => `<button class="chipsel ${d === inicial ? 'on' : ''}" type="button" data-d="${d}">${DIAS[i].slice(0, 3)} ${aFecha(d).getDate()}</button>`).join('')}</div>
+      <div class="chips" id="pdias">${dias.map((d, i) => `<button class="chipsel ${iniciales.has(d) ? 'on' : ''}" type="button" data-d="${d}">${DIAS[i].slice(0, 3)} ${aFecha(d).getDate()}</button>`).join('')}</div>
+      <label class="check" style="margin-top:6px"><input type="checkbox" id="prepartir" checked> Repartir los temas entre los días elegidos</label>
       <div class="dsec">Qué toca</div>
-      <div class="seg" id="ptipo">${Object.entries(TIPOS).map(([k, v]) => `<button type="button" data-t="${k}" class="${k === tipo ? 'on' : ''}">${v}</button>`).join('')}</div>
+      <div class="seg" id="ptipo"><button type="button" data-t="auto" class="on">Según cómo lo lleve</button>${Object.entries(TIPOS).map(([k, v]) => `<button type="button" data-t="${k}">${v}</button>`).join('')}</div>
       <div class="dsec">Temas</div>
-      <div class="pick" id="ptemas">${pickTemas()}</div>
+      <div class="sugiere"><span>Sugerir los</span><input class="input num" type="number" id="pn" min="1" max="40" value="6" aria-label="Número de temas a sugerir"><span>más urgentes</span><button class="btn sm primary" type="button" id="psug">Sugerir</button></div>
+      <div class="seg" id="porden"><button type="button" data-o="prio" class="on">Por prioridad</button><button type="button" data-o="materia">Por materia</button></div>
+      <div class="pick" id="ptemas"></div>
+      <p class="muted small" style="margin-top:8px">La prioridad sube con la importancia del tema, lo poco que se controla y el tiempo que lleva sin tocarse.</p>
     </div>
     <div class="dlg-f"><button class="btn" type="button" data-cerrar>Cancelar</button><button class="btn primary" type="button" id="pok">Añadir al plan</button></div>`, d => {
+    const leerSel = () => { sel = new Set([...d.querySelectorAll('input[name=tema]:checked')].map(i => i.value)); };
+    const pintar = () => { $('#ptemas', d).innerHTML = pickTemas(sel, dg, modo); };
+    const contar = () => { const n = sel.size; $('#pok', d).textContent = n ? `Añadir ${n} ${n === 1 ? 'tema' : 'temas'} al plan` : 'Añadir al plan'; };
+    pintar(); contar();
+    $('#ptemas', d).onchange = () => { leerSel(); contar(); };
     $('#pdias', d).onclick = e => { const b = e.target.closest('[data-d]'); if (b) b.classList.toggle('on'); };
-    $('#ptipo', d).onclick = e => {
-      const b = e.target.closest('[data-t]'); if (!b) return;
-      tipo = b.dataset.t; $('#ptipo', d).querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    const seg = (id, attr, fn) => { $(id, d).onclick = e => { const b = e.target.closest(`[${attr}]`); if (!b) return; $(id, d).querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b); }; };
+    seg('#ptipo', 'data-t', b => { tipo = b.dataset.t; });
+    seg('#porden', 'data-o', b => { leerSel(); modo = b.dataset.o; pintar(); });
+    $('#psug', d).onclick = () => {
+      sel = new Set(porPrioridad(lista('temas'), dg).slice(0, Math.max(1, num($('#pn', d).value, 6))).map(t => t.id));
+      modo = 'prio'; $('#porden', d).querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.o === 'prio'));
+      pintar(); contar(); $('#ptemas', d).scrollTop = 0;
     };
     $('#pok', d).onclick = () => {
+      leerSel();
       const ds = [...d.querySelectorAll('#pdias .on')].map(b => b.dataset.d);
-      const ts = [...d.querySelectorAll('input[name=tema]:checked')].map(i => i.value);
+      const ts = porPrioridad([...sel].map(tema).filter(Boolean), dg);
       if (!ds.length || !ts.length) return toast('Elige al menos un día y un tema');
-      let n = 0;
-      ds.forEach(f => ts.forEach(id => { put('plan', { id: nuevoId(), fecha: f, temaId: id, tipo, hecho: false, orden: Date.now() + n++ }); }));
-      dlg.close(); render(); toast(n === 1 ? 'Añadido al plan' : `${n} temas añadidos al plan`);
+      const repartir = $('#prepartir', d).checked && ds.length > 1;
+      const pares = repartir ? ts.map((t, i) => [ds[i % ds.length], t]) : ds.flatMap(f => ts.map(t => [f, t]));
+      pares.forEach(([f, t], i) => put('plan', { id: nuevoId(), fecha: f, temaId: t.id, tipo: tipo === 'auto' ? tipoSugerido(dg[t.id].estado) : tipo, hecho: false, orden: Date.now() + i }));
+      dlg.close(); render(); toast(pares.length === 1 ? 'Añadido al plan' : `${pares.length} temas añadidos al plan`);
     };
   });
 }
@@ -450,28 +562,47 @@ function opcionesPlan(p) {
   });
 }
 
+function chipsEstado(actual, id) {
+  return `<div class="chips estados" id="${id}">${['dominado', 'repasar', 'reforzar'].map(e => `<button class="chipsel est-${e} ${actual === e ? 'on' : ''}" type="button" data-e="${e}"><i aria-hidden="true">${ESTADOS[e].ic}</i> ${ESTADOS[e].n}</button>`).join('')}</div>`;
+}
+function chipsSeleccion(el, attr) {
+  el.onclick = e => {
+    const b = e.target.closest(`[${attr}]`); if (!b) return;
+    const on = !b.classList.contains('on');
+    el.querySelectorAll('button').forEach(x => x.classList.toggle('on', on && x === b));
+  };
+}
+const leerChip = (el, attr) => el.querySelector('.on')?.getAttribute(attr) || '';
+
 function registrarEstudio({ temaId = '', plan = null, fecha = hoy(), tipo = 'estudio' } = {}) {
   const t0 = tema(temaId);
   abrir(`${cabecera(plan ? 'Hecho' : 'Registrar estudio')}
     <div class="dlg-b">
-      ${plan ? `<p><b>${esc(nombreTema(t0))}</b></p>` : `<label class="lbl" for="rtema">Tema<select class="input" id="rtema">${MATERIAS.map(([m, nom]) => `<optgroup label="${esc(nom)}">${temasDe(m).map(t => `<option value="${t.id}" ${t.id === temaId ? 'selected' : ''}>${esc(nombreTema(t))}</option>`).join('')}</optgroup>`).join('')}</select></label>`}
+      ${plan ? `<p><b>${esc(nombreTema(t0))}</b> ${badgeImp(t0)}</p>` : `<label class="lbl" for="rtema">Tema<select class="input" id="rtema">${MATERIAS.map(([m, nom]) => `<optgroup label="${esc(nom)}">${temasDe(m).map(t => `<option value="${t.id}" ${t.id === temaId ? 'selected' : ''}>${esc(nombreTema(t))}</option>`).join('')}</optgroup>`).join('')}</select></label>`}
       <div class="grid2">
         <label class="lbl" for="rfecha">Fecha<input class="input" type="date" id="rfecha" value="${fecha}" max="${hoy()}"></label>
         <label class="lbl" for="rtipo">Tipo<select class="input" id="rtipo">${Object.entries(TIPOS).map(([k, v]) => `<option value="${k}" ${k === tipo ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
       </div>
       <label class="lbl" for="rmin">Tiempo (minutos)<input class="input num" type="number" inputmode="numeric" min="0" step="5" id="rmin" value="60"></label>
       <div class="chips" id="rmins">${[30, 45, 60, 90, 120, 180].map(m => `<button class="chipsel ${m === 60 ? 'on' : ''}" type="button" data-m="${m}">${horas(m)}</button>`).join('')}</div>
-      <label class="lbl" for="rprog">¿Cuánto dominas el tema ahora? <output id="rprogv"></output><input type="range" id="rprog" min="0" max="100" step="5"></label>
+      <div class="lbl">¿Cómo lo llevas después de hoy?</div>
+      <div id="rest"></div>
+      <label class="lbl" for="rprog">Dominio del tema <output id="rprogv"></output><input type="range" id="rprog" min="0" max="100" step="5"></label>
       <label class="check"><input type="checkbox" id="rvuelta" ${tipo === 'repaso' ? 'checked' : ''}> Sumar una vuelta al tema</label>
       <label class="lbl" for="rnota">Nota (opcional)<textarea class="input" id="rnota" placeholder="Qué ha costado, qué hay que repasar…"></textarea></label>
     </div>
     <div class="dlg-f"><button class="btn" type="button" data-cerrar>Cancelar</button><button class="btn primary" type="button" id="rok">Guardar</button></div>`, d => {
     const prog = $('#rprog', d), out = $('#rprogv', d);
     const selTema = () => plan ? plan.temaId : $('#rtema', d).value;
-    const cargarProg = () => { prog.value = num(tema(selTema())?.progreso); out.textContent = prog.value + ' %'; };
-    cargarProg();
+    const cargarTema = () => {
+      const t = tema(selTema());
+      prog.value = num(t?.progreso); out.textContent = prog.value + ' %';
+      $('#rest', d).innerHTML = chipsEstado(t?.autoeval || '', 'restc');
+      chipsSeleccion($('#restc', d), 'data-e');
+    };
+    cargarTema();
     prog.oninput = () => { out.textContent = prog.value + ' %'; };
-    if (!plan) $('#rtema', d).onchange = cargarProg;
+    if (!plan) $('#rtema', d).onchange = cargarTema;
     $('#rtipo', d).onchange = e => { $('#rvuelta', d).checked = e.target.value === 'repaso'; };
     $('#rmins', d).onclick = e => {
       const b = e.target.closest('[data-m]'); if (!b) return;
@@ -483,7 +614,7 @@ function registrarEstudio({ temaId = '', plan = null, fecha = hoy(), tipo = 'est
       if (!t) return toast('Elige un tema');
       const f = $('#rfecha', d).value || hoy();
       put('sesiones', { id: nuevoId(), fecha: f, temaId: id, minutos: num($('#rmin', d).value), tipo: $('#rtipo', d).value, nota: $('#rnota', d).value.trim(), planId: plan?.id || '' });
-      put('temas', { ...t, progreso: num(prog.value), vueltas: num(t.vueltas) + ($('#rvuelta', d).checked ? 1 : 0) });
+      put('temas', { ...t, progreso: num(prog.value), vueltas: num(t.vueltas) + ($('#rvuelta', d).checked ? 1 : 0), autoeval: leerChip($('#restc', d), 'data-e') });
       if (plan) put('plan', { ...plan, hecho: true, tipo: $('#rtipo', d).value });
       dlg.close(); render(); toast('Estudio registrado');
     };
@@ -505,50 +636,105 @@ function verSesion(s) {
 }
 
 // ---------- Temario ----------
+let filtroTem = 'todos', ordenTem = 'num';
+
 function vTemario() {
-  const st = statsTemas();
+  const dg = diagnosticos();
   const ts = temasDe(matTemario);
-  const avance = media(ts.map(t => num(t.progreso)));
-  const sin = ts.filter(t => !st[t.id].ultimo).length;
+  const pesoT = ts.reduce((a, t) => a + pesoExamen(t), 0);
+  const avPond = pesoT ? ts.reduce((a, t) => a + pesoExamen(t) * num(t.progreso), 0) / pesoT : null;
+  const pasa = (t, f) => f === 'todos' || (f === 'critica' ? imp(t) === 'critica' : f === 'avisos' ? !!dg[t.id].aviso : dg[t.id].estado === f);
+  const filtros = [['todos', 'Todos'], ['critica', 'Críticos'], ['reforzar', 'Reforzar'], ['repasar', 'Repasar'], ['dominado', 'Dominados'], ['nuevo', 'Sin empezar'], ['avisos', 'A revisar']]
+    .map(([k, n]) => [k, n, ts.filter(t => pasa(t, k)).length]).filter(([k, , c]) => c || k === filtroTem || k === 'todos');
+  let vis = ts.filter(t => pasa(t, filtroTem));
+  if (ordenTem === 'prio') vis = porPrioridad(vis, dg);
+  else if (ordenTem === 'olvido') vis.sort((a, b) => (dg[b.id].d ?? 1e9) - (dg[a.id].d ?? 1e9) || a.num - b.num);
+  const criticosMal = ts.filter(t => imp(t) === 'critica' && ['reforzar', 'nuevo'].includes(dg[t.id].estado)).length;
+
   main.innerHTML = `<div class="seg" id="mats">${MATERIAS.map(([m, n]) => `<button type="button" data-m="${m}" class="${m === matTemario ? 'on' : ''}">${esc(n)}</button>`).join('')}</div>
-    <div class="card"><div class="row between"><b>${esc(NOMBRE_MAT[matTemario])}</b><span class="num"><b>${avance == null ? '–' : Math.round(avance)} %</b> <span class="muted small">de avance</span></span></div>
-      <div class="progress ${matTemario}" style="margin:8px 0 6px"><i style="width:${Math.round(avance || 0)}%"></i></div>
-      <p class="muted small" style="margin:0">${ts.length} temas · ${sin ? `${sin} sin estudiar todavía` : 'todos empezados'}</p></div>
-    ${ts.map(t => {
-      const x = st[t.id], nm = media(x.notas.map(n => n.n));
-      return `<div class="card tema" data-tema="${t.id}">
+    <div class="card">
+      <div class="row between"><b>${esc(NOMBRE_MAT[matTemario])}</b><span class="num"><b>${avPond == null ? '–' : Math.round(avPond)} %</b> <span class="muted small">de avance</span></span></div>
+      <div class="progress ${matTemario}" style="margin:8px 0 4px"><i style="width:${Math.round(avPond || 0)}%"></i></div>
+      <p class="muted small">Ponderado por lo que pesa cada tema en el examen.${criticosMal ? ` <b class="txt-bad">${criticosMal} ${criticosMal === 1 ? 'tema crítico' : 'temas críticos'} sin controlar.</b>` : ''}</p>
+      ${barraEstados(ts, dg)}
+    </div>
+    <div class="card">${mapaTemas(ts, dg)}</div>
+    <div class="chips" id="ftem" style="margin-bottom:8px">${filtros.map(([k, n, c]) => `<button class="chipsel ${k === filtroTem ? 'on' : ''}" type="button" data-f="${k}">${n}${k !== 'todos' ? ` <span class="num">${c}</span>` : ''}</button>`).join('')}</div>
+    <div class="row between" style="margin-bottom:10px">
+      <select class="input" id="otem" style="width:auto;min-height:36px;padding:4px 10px" aria-label="Ordenar">
+        ${[['num', 'Por número'], ['prio', 'Por prioridad'], ['olvido', 'Más olvidados primero']].map(([k, n]) => `<option value="${k}" ${k === ordenTem ? 'selected' : ''}>${n}</option>`).join('')}</select>
+      <button class="btn sm" type="button" id="clasif">Marcar importancia</button>
+    </div>
+    ${vis.map(t => {
+      const g = dg[t.id], x = g.x;
+      return `<div class="card tema bl-${imp(t)}" data-tema="${t.id}">
         <span class="n">${t.materia === 'temario' ? t.num : '·'}</span>
         <span class="t">${esc(t.materia === 'temario' ? (t.titulo || `Tema ${t.num}`) : t.titulo)}</span>
         <span class="pc">${num(t.progreso)} %</span>
         <div class="bar"><div class="progress ${t.materia}"><i style="width:${num(t.progreso)}%"></i></div></div>
-        <div class="meta">${pillDias(x)}${num(t.vueltas) ? `<span>${t.vueltas} ${t.vueltas == 1 ? 'vuelta' : 'vueltas'}</span>` : ''}${x.minutos ? `<span>${horas(x.minutos)}</span>` : ''}${nm != null ? `<span>Tests: ${fmt1(nm)}</span>` : ''}${x.fallos ? `<span>${x.fallos} fallos anotados</span>` : ''}</div>
+        <div class="meta">${badgeImp(t)}${pillEst(g.estado)}${pillDias(x)}${g.aviso ? '<span class="badge warn">? Revisar</span>' : ''}</div>
+        <div class="meta sub">${num(t.preguntasExamen) ? `<span>~${num(t.preguntasExamen)} preguntas</span>` : ''}${num(t.vueltas) ? `<span>${t.vueltas} ${t.vueltas == 1 ? 'vuelta' : 'vueltas'}</span>` : ''}${x.minutos ? `<span>${horas(x.minutos)}</span>` : ''}${g.nm != null ? `<span>Tests ${fmt1(g.nm)}</span>` : ''}${g.pend ? `<span>${g.pend} art. por repasar</span>` : ''}</div>
       </div>`;
-    }).join('')}
+    }).join('') || '<div class="card empty">Ningún tema en este filtro.</div>'}
     <button class="btn block" type="button" id="nuevoTema">+ Añadir tema a ${esc(NOMBRE_MAT[matTemario])}</button>`;
+  $('#otem').onchange = e => { ordenTem = e.target.value; render(); };
   main.onclick = e => {
     const m = e.target.closest('[data-m]');
-    if (m) { matTemario = m.dataset.m; return render(); }
+    if (m) { matTemario = m.dataset.m; filtroTem = 'todos'; return render(); }
+    const f = e.target.closest('[data-f]');
+    if (f) { filtroTem = f.dataset.f; return render(); }
     const t = e.target.closest('[data-tema]');
     if (t) return fichaTema(t.dataset.tema);
+    if (e.target.closest('#clasif')) return clasificar(matTemario);
     if (e.target.closest('#nuevoTema')) {
       const n = Math.max(0, ...temasDe(matTemario).map(x => num(x.num))) + 1;
       const id = nuevoId();
-      put('temas', { id, materia: matTemario, num: n, titulo: matTemario === 'temario' ? `Tema ${n}` : 'Nuevo tema', progreso: 0, vueltas: 0, notas: '' });
+      put('temas', { id, materia: matTemario, num: n, titulo: matTemario === 'temario' ? `Tema ${n}` : 'Nuevo tema', progreso: 0, vueltas: 0, notas: '', importancia: 'media' });
       render(); fichaTema(id);
     }
   };
 }
 
+function chipsImportancia(actual) {
+  return `<div class="impsel" id="fimp">${ORDEN_IMP.map(k => `<button type="button" class="imp-op imp-${k} ${k === actual ? 'on' : ''}" data-i="${k}"><b>${IMPORTANCIA[k].n}</b><span>${IMPORTANCIA[k].desc}</span></button>`).join('')}</div>`;
+}
+
+// Importancia de todos los temas de una materia en una sola pantalla
+function clasificar(m) {
+  const fila = t => `<div class="clas" data-id="${t.id}">
+      <span class="nm">${esc(nombreTema(t))}</span>
+      <div class="seg mini-seg">${ORDEN_IMP.map(k => `<button type="button" data-i="${k}" class="imp-${k} ${imp(t) === k ? 'on' : ''}">${IMPORTANCIA[k].n}</button>`).join('')}</div>
+      <input class="input num" type="number" inputmode="numeric" min="0" placeholder="nº" value="${num(t.preguntasExamen) || ''}" aria-label="Preguntas que suelen caer de ${esc(nombreTema(t))}">
+    </div>`;
+  abrir(`${cabecera('Importancia · ' + NOMBRE_MAT[m])}
+    <div class="dlg-b">
+      <p class="muted small">Marca cuánto cae de cada tema en el examen. En la casilla de la derecha, si lo sabes, el número de preguntas que suelen caer: se usa para calcular el avance y las prioridades.</p>
+      ${temasDe(m).map(fila).join('')}
+    </div>
+    <div class="dlg-f"><button class="btn primary" type="button" data-cerrar>Hecho</button></div>`, d => {
+    d.querySelectorAll('.clas').forEach(el => {
+      const t = () => tema(el.dataset.id);
+      el.querySelector('.seg').onclick = e => {
+        const b = e.target.closest('[data-i]'); if (!b) return;
+        el.querySelectorAll('.seg button').forEach(x => x.classList.toggle('on', x === b));
+        put('temas', { ...t(), importancia: b.dataset.i });
+      };
+      el.querySelector('input').onchange = e => put('temas', { ...t(), preguntasExamen: num(e.target.value) });
+    });
+    dlg.addEventListener('close', () => render(), { once: true });
+  });
+}
+
 function fichaTema(id) {
   const t = tema(id);
   if (!t) return;
-  const x = statsTemas()[id];
-  const nm = media(x.notas.map(n => n.n));
+  const g = diagnosticos()[id], x = g.x;
   const hist = [
     ...lista('sesiones').filter(s => s.temaId === id).map(s => ({ f: s.fecha, txt: `${TIPOS[s.tipo] || 'Estudio'} · ${horas(num(s.minutos))}${s.nota ? ' · ' + s.nota : ''}` })),
     ...lista('tests').filter(ts => (ts.temaIds || []).includes(id)).map(ts => { const n = notaTest(ts); return { f: ts.fecha, txt: `Test${ts.nombre ? ' «' + ts.nombre + '»' : ''} · ${n == null ? '–' : fmt1(n)}` }; }),
   ].sort((a, b) => b.f.localeCompare(a.f));
   const arts = articulosFallados().filter(a => a.temaId === id);
+  const proxRepaso = x.ultimo ? sumarDias(x.ultimo, g.estab) : '';
   abrir(`${cabecera(t.materia === 'temario' ? `Tema ${t.num}` : NOMBRE_MAT[t.materia])}
     <div class="dlg-b">
       <div class="dsec">El tema</div>
@@ -556,16 +742,29 @@ function fichaTema(id) {
         ${t.materia === 'temario' ? `<label class="lbl" for="fnum">Nº<input class="input num" type="number" id="fnum" min="1" value="${num(t.num)}"></label>` : ''}
         <label class="lbl" for="ftit">Título<input class="input" id="ftit" value="${esc(t.titulo)}" placeholder="Por ejemplo: Derecho Constitucional"></label>
       </div>
+      <div class="lbl">Importancia en el examen</div>
+      ${chipsImportancia(imp(t))}
+      <label class="lbl" for="fpreg">Preguntas que suelen caer (aprox., opcional)<input class="input num" type="number" inputmode="numeric" min="0" id="fpreg" value="${num(t.preguntasExamen) || ''}" placeholder="Por ejemplo: 8"></label>
+
+      <div class="dsec">Cómo lo llevo</div>
+      ${chipsEstado(g.propio, 'fest')}
+      <div class="diag est-borde-${g.auto}">
+        <div class="row between"><span class="small"><b>Diagnóstico de la app</b></span>${pillEst(g.auto)}</div>
+        <p class="small" style="margin:6px 0 0">${esc(g.mot.join(' · '))}${g.punt != null ? ` · control ${fmt1(g.punt)}/10` : ''}</p>
+        ${proxRepaso ? `<p class="small muted" style="margin:4px 0 0">Aguanta unos ${g.estab} días sin repasar (más con cada vuelta). Próximo repaso recomendado: <b>${esc(fmtFecha(proxRepaso))}</b>.</p>` : ''}
+        ${g.aviso ? `<p class="aviso small" style="margin:8px 0 0">${esc(g.aviso)}</p>` : ''}
+      </div>
       <label class="lbl" for="fprog">Dominio del tema <output id="fprogv">${num(t.progreso)} %</output><input type="range" id="fprog" min="0" max="100" step="5" value="${num(t.progreso)}"></label>
       <div class="row between"><span class="lbl" style="margin:0">Vueltas completas</span>
         <span class="row"><button class="btn sm" type="button" id="fmenos" aria-label="Quitar una vuelta">−</button><b class="num" id="fvueltas">${num(t.vueltas)}</b><button class="btn sm" type="button" id="fmas" aria-label="Sumar una vuelta">+</button></span></div>
       <label class="lbl" for="fnotas">Apuntes del tema<textarea class="input" id="fnotas" placeholder="Leyes que entran, trucos para recordar…">${esc(t.notas)}</textarea></label>
-      <div class="dsec">Cómo va</div>
+
+      <div class="dsec">Cifras</div>
       <div class="grid4">
-        <div class="kpi"><div class="kpi-l">Última vez</div><div class="kpi-v" style="font-size:1rem">${x.ultimo ? (diasSin(x) === 0 ? 'Hoy' : `${diasSin(x)} d`) : '–'}</div></div>
-        <div class="kpi"><div class="kpi-l">Tiempo</div><div class="kpi-v" style="font-size:1rem">${x.minutos ? horas(x.minutos) : '–'}</div></div>
-        <div class="kpi"><div class="kpi-l">Nota tests</div><div class="kpi-v" style="font-size:1rem">${nm == null ? '–' : fmt1(nm)}</div></div>
-        <div class="kpi"><div class="kpi-l">Fallos</div><div class="kpi-v" style="font-size:1rem">${x.fallos}</div></div>
+        <div class="kpi"><div class="kpi-l">Última vez</div><div class="kpi-v kpi-s">${x.ultimo ? (g.d === 0 ? 'Hoy' : `${g.d} d`) : '–'}</div></div>
+        <div class="kpi"><div class="kpi-l">Tiempo</div><div class="kpi-v kpi-s">${x.minutos ? horas(x.minutos) : '–'}</div></div>
+        <div class="kpi"><div class="kpi-l">Nota tests</div><div class="kpi-v kpi-s">${g.nm == null ? '–' : fmt1(g.nm)}</div></div>
+        <div class="kpi"><div class="kpi-l">Fallos</div><div class="kpi-v kpi-s">${x.fallos}</div></div>
       </div>
       ${arts.length ? `<div class="dsec">Artículos fallados</div><ul class="lista">${arts.map(a => `<li><span>${esc(nombreArt(a))}${a.repasado ? ' <span class="badge ok">Repasado</span>' : ''}</span><b class="num">${a.veces}×</b></li>`).join('')}</ul>` : ''}
       <div class="dsec">Historial</div>
@@ -573,13 +772,20 @@ function fichaTema(id) {
       <button class="btn block" type="button" id="freg">Registrar estudio de este tema</button>
     </div>
     <div class="dlg-f"><button class="btn danger" type="button" id="fborrar">Borrar tema</button><button class="btn primary" type="button" id="fok">Guardar</button></div>`, d => {
-    let vueltas = num(t.vueltas);
+    let vueltas = num(t.vueltas), importancia = imp(t);
+    chipsSeleccion($('#fest', d), 'data-e');
+    $('#fimp', d).onclick = e => {
+      const b = e.target.closest('[data-i]'); if (!b) return;
+      importancia = b.dataset.i;
+      $('#fimp', d).querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    };
     $('#fprog', d).oninput = e => { $('#fprogv', d).textContent = e.target.value + ' %'; };
     $('#fmenos', d).onclick = () => { vueltas = Math.max(0, vueltas - 1); $('#fvueltas', d).textContent = vueltas; };
     $('#fmas', d).onclick = () => { vueltas++; $('#fvueltas', d).textContent = vueltas; };
-    const leer = () => ({ ...t, titulo: $('#ftit', d).value.trim() || (t.materia === 'temario' ? `Tema ${t.num}` : t.titulo), num: $('#fnum', d) ? num($('#fnum', d).value, t.num) : t.num, progreso: num($('#fprog', d).value), vueltas, notas: $('#fnotas', d).value });
+    const leer = () => ({ ...t, titulo: $('#ftit', d).value.trim() || (t.materia === 'temario' ? `Tema ${t.num}` : t.titulo), num: $('#fnum', d) ? num($('#fnum', d).value, t.num) : t.num,
+      progreso: num($('#fprog', d).value), vueltas, notas: $('#fnotas', d).value, importancia, preguntasExamen: num($('#fpreg', d).value), autoeval: leerChip($('#fest', d), 'data-e') });
     $('#fok', d).onclick = () => { put('temas', leer()); dlg.close(); render(); toast('Tema guardado'); };
-    $('#freg', d).onclick = () => { put('temas', leer()); registrarEstudio({ temaId: id }); };
+    $('#freg', d).onclick = () => { put('temas', leer()); registrarEstudio({ temaId: id, tipo: tipoSugerido(g.estado) }); };
     $('#fborrar', d).onclick = async () => {
       if (!await preguntar(`¿Borrar «${nombreTema(t)}»? Se quitan también sus días planificados. El historial de tests se conserva.`)) return;
       lista('plan').filter(p => p.temaId === id).forEach(p => quitar('plan', p.id));
@@ -788,45 +994,103 @@ function graficoHoras(obj) {
 }
 
 function datosInforme() {
-  const st = statsTemas(), c = cfg(), h = hoy();
+  const dg = diagnosticos(), st = Object.fromEntries(Object.entries(dg).map(([k, g]) => [k, g.x])), c = cfg(), h = hoy();
   const temas = MATERIAS.flatMap(([m]) => temasDe(m));
   const ts = lista('tests').sort((a, b) => a.fecha.localeCompare(b.fecha) || num(a.mod) - num(b.mod));
   const ses = lista('sesiones');
   const l0 = lunes(h);
   const minSem = ses.filter(s => s.fecha >= l0).reduce((a, s) => a + num(s.minutos), 0);
   const ult5 = ts.slice(-5).map(notaTest).filter(n => n != null);
+  const tem = temasDe('temario'), pesoT = tem.reduce((a, t) => a + pesoExamen(t), 0);
+  const graves = temas.filter(t => ['critica', 'alta'].includes(imp(t)));
+  const alertas = [
+    ...porPrioridad(graves.filter(t => ['reforzar', 'nuevo'].includes(dg[t.id].estado)), dg)
+      .map(t => ({ t, cls: 'bad', txt: dg[t.id].estado === 'nuevo' ? 'sin empezar' : 'no lo controla: reforzar' })),
+    ...graves.filter(t => dg[t.id].estado !== 'nuevo' && dg[t.id].d != null && dg[t.id].d > dg[t.id].estab)
+      .map(t => ({ t, cls: 'warn', txt: `${dg[t.id].d} días sin tocar: toca repaso` })),
+    ...temas.filter(t => dg[t.id].aviso).map(t => ({ t, cls: 'warn', txt: dg[t.id].aviso })),
+  ];
   return {
-    st, c, temas, ts, ses, minSem,
-    avance: media(temasDe('temario').map(t => num(t.progreso))),
+    dg, st, c, temas, ts, ses, minSem, alertas,
+    avance: pesoT ? tem.reduce((a, t) => a + pesoExamen(t) * num(t.progreso), 0) / pesoT : null,
+    criticos: temas.filter(t => imp(t) === 'critica'),
     sinEstudiar: temas.filter(t => !st[t.id].ultimo),
     olvidados: temas.filter(t => st[t.id].ultimo && diasSin(st[t.id]) > 7).sort((a, b) => diasSin(st[b.id]) - diasSin(st[a.id])),
     notaMedia: media(ult5),
     diasExamen: c.fechaExamen ? diasEntre(h, c.fechaExamen) : null,
     arts: articulosFallados().filter(a => !a.repasado),
-    flojos: temas.filter(t => { const n = media(st[t.id].notas.map(x => x.n)); return n != null && n < 5; }),
+    flojos: temas.filter(t => dg[t.id].nm != null && dg[t.id].nm < 5),
+    prioridades: porPrioridad(temas, dg).filter(t => dg[t.id].estado !== 'dominado' || dg[t.id].d > dg[t.id].estab).slice(0, 10),
   };
 }
 
+function matrizImportancia(I) {
+  const { dg, temas } = I;
+  const cols = ['reforzar', 'nuevo', 'repasar', 'dominado'];
+  return `<div class="tabla-w"><table class="tabla matriz">
+    <thead><tr><th>Importancia</th>${cols.map(e => `<th class="r">${ESTADOS[e].corto}</th>`).join('')}<th class="r">Total</th></tr></thead>
+    <tbody>${ORDEN_IMP.map(k => {
+      const fila = temas.filter(t => imp(t) === k);
+      return `<tr><td><span class="imp imp-${k}">${IMPORTANCIA[k].n}</span></td>${cols.map(e => {
+        const n = fila.filter(t => dg[t.id].estado === e).length;
+        const alarma = n && (k === 'critica' || k === 'alta') && (e === 'reforzar' || e === 'nuevo');
+        return `<td class="r"><span class="celda-n ${n ? 'est-' + e : ''} ${alarma ? 'alarma' : ''}">${n || '·'}</span></td>`;
+      }).join('')}<td class="r"><b>${fila.length}</b></td></tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+
+function barraPreguntas(I) {
+  const { dg, temas } = I;
+  const con = temas.filter(t => num(t.preguntasExamen));
+  if (!con.length) return '';
+  const tot = con.reduce((a, t) => a + num(t.preguntasExamen), 0);
+  const por = e => con.filter(t => dg[t.id].estado === e).reduce((a, t) => a + num(t.preguntasExamen), 0);
+  const orden = ['dominado', 'repasar', 'reforzar', 'nuevo'];
+  return `<div class="sec">Preguntas que suelen caer</div>
+    <div class="card"><p style="margin:0 0 8px">De unas <b class="num">${tot}</b> preguntas de los ${con.length} temas con cifra, <b class="num">${por('dominado')}</b> son de temas que lleva muy bien.</p>
+      <div class="apilada">${orden.map(e => por(e) ? `<i class="est-${e}" style="width:${por(e) / tot * 100}%"></i>` : '').join('')}</div>
+      <div class="leyenda">${orden.map(e => `<span><i class="sw est-${e}"></i>${ESTADOS[e].corto} <b class="num">${por(e)}</b></span>`).join('')}</div></div>`;
+}
+
 function htmlInforme(I) {
-  const { st, c, temas } = I;
+  const { st, dg, c, temas } = I;
   const kpi = (l, v, cls = '') => `<div class="kpi"><div class="kpi-l">${l}</div><div class="kpi-v ${cls}">${v}</div></div>`;
+  const critOk = I.criticos.filter(t => dg[t.id].estado === 'dominado').length;
   return `
     <div class="grid4" style="margin-bottom:12px">
       ${kpi('Avance temario', `${I.avance == null ? '–' : Math.round(I.avance)}<small> %</small>`)}
-      ${kpi('Sin estudiar', `${I.sinEstudiar.length}<small> temas</small>`, I.sinEstudiar.length ? 'nota warn' : '')}
+      ${kpi('Críticos dominados', I.criticos.length ? `${critOk}<small>/${I.criticos.length}</small>` : '–', I.criticos.length && critOk < I.criticos.length ? 'nota bad' : '')}
       ${kpi('Esta semana', `${fmt1(I.minSem / 60)}<small> h${num(c.objetivoH) ? ' / ' + num(c.objetivoH) : ''}</small>`)}
       ${kpi('Media 5 tests', I.notaMedia == null ? '–' : fmt1(I.notaMedia), 'nota ' + claseNota(I.notaMedia))}
     </div>
     ${I.diasExamen != null && I.diasExamen >= 0 ? `<p class="muted">Quedan <b>${I.diasExamen} días</b> para el examen (${esc(fmtFecha(c.fechaExamen, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}).</p>` : ''}
+    ${!I.criticos.length ? '<p class="aviso">Aún no hay temas marcados como críticos. En Temario → «Marcar importancia» indica cuánto cae de cada tema: así las prioridades y las alertas serán mucho más útiles.</p>' : ''}
+
+    ${I.alertas.length ? `<div class="sec">Alertas (${I.alertas.length})</div>
+    <div class="card alertas"><ul class="lista">${I.alertas.slice(0, 15).map(a => `<li><span>${badgeImp(a.t)} <b>${esc(nombreTema(a.t))}</b><br><span class="small ${a.cls === 'bad' ? 'txt-bad' : 'muted'}">${esc(a.txt)}</span></span>${pillEst(dg[a.t.id].estado)}</li>`).join('')}</ul></div>` : ''}
+
+    <div class="sec">Mapa del temario</div>
+    <div class="card">${MATERIAS.map(([m, n]) => temasDe(m).length ? `<div class="submapa"><div class="small muted" style="margin-bottom:6px"><b>${esc(n)}</b></div>${mapaTemas(temasDe(m), dg, false)}</div>` : '').join('')}
+      ${leyendaMapa()}</div>
+
+    <div class="sec">Importancia frente a cómo se lleva</div>
+    <div class="card">${matrizImportancia(I)}<p class="muted small" style="margin:8px 0 0">En rojo, temas críticos o altos que no se controlan o no se han empezado: son los que más puntos cuestan.</p></div>
+
+    ${barraPreguntas(I)}
+
+    <div class="sec">Lo siguiente que conviene estudiar</div>
+    <div class="card"><ul class="lista">${I.prioridades.map((t, i) => `<li><span><b class="num">${i + 1}.</b> ${badgeImp(t)} ${esc(nombreTema(t))} <span class="muted small">· ${esc(motivoPrio(t, dg[t.id]))}</span></span>${pillEst(dg[t.id].estado)}</li>`).join('') || '<li><span class="muted">Todo al día.</span></li>'}</ul></div>
 
     <div class="sec">Por materia</div>
-    <div class="matgrid">${MATERIAS.map(([m, n]) => {
-      const tm = temasDe(m), av = media(tm.map(t => num(t.progreso)));
+    <div class="matgrid">${MATERIAS.map(([m]) => {
+      const tm = temasDe(m), pw = tm.reduce((a, t) => a + pesoExamen(t), 0);
+      const av = pw ? tm.reduce((a, t) => a + pesoExamen(t) * num(t.progreso), 0) / pw : null;
       const min = tm.reduce((a, t) => a + st[t.id].minutos, 0);
       const nt = media(I.ts.filter(t => t.materia === m).map(notaTest).filter(x => x != null));
       return `<div class="card"><div class="row between">${matChip(m)}<b class="num">${av == null ? '–' : Math.round(av)} %</b></div>
         <div class="progress ${m}" style="margin:8px 0"><i style="width:${Math.round(av || 0)}%"></i></div>
-        <div class="muted small">${min ? horas(min) : 'Sin horas'} · ${nt == null ? 'sin tests' : 'nota ' + fmt1(nt)} · ${tm.filter(t => !st[t.id].ultimo).length} sin estudiar</div></div>`;
+        <div class="muted small" style="margin-bottom:8px">${min ? horas(min) : 'Sin horas'} · ${nt == null ? 'sin tests' : 'nota ' + fmt1(nt)}</div>
+        ${barraEstados(tm, dg)}</div>`;
     }).join('')}</div>
 
     <div class="sec">Evolución de la nota en tests</div>
@@ -836,47 +1100,54 @@ function htmlInforme(I) {
     <div class="card">${graficoHoras(num(c.objetivoH))}${num(c.objetivoH) ? `<p class="muted small" style="margin:6px 0 0">La línea discontinua es el objetivo de ${num(c.objetivoH)} h semanales.</p>` : ''}</div>
 
     <div class="sec">Temas pendientes sin estudiar (${I.sinEstudiar.length})</div>
-    <div class="card">${I.sinEstudiar.length ? MATERIAS.map(([m, n]) => {
-      const ps = I.sinEstudiar.filter(t => t.materia === m);
+    <div class="card">${I.sinEstudiar.length ? MATERIAS.map(([m]) => {
+      const ps = porPrioridad(I.sinEstudiar.filter(t => t.materia === m), dg);
       return ps.length ? `<div class="pend"><div class="row between">${matChip(m)}<span class="muted small">${ps.length} de ${temasDe(m).length}</span></div>
-        <div class="chips">${ps.map(t => `<span class="badge none">${esc(m === 'temario' ? `Tema ${t.num}` : t.titulo)}</span>`).join('')}</div></div>` : '';
-    }).join('') : '<p class="muted" style="margin:0">Todos los temas se han estudiado al menos una vez.</p>'}</div>
+        <div class="chips">${ps.map(t => `<span class="imp imp-${imp(t)}">${esc(m === 'temario' ? `Tema ${t.num}` : t.titulo)}</span>`).join('')}</div></div>` : '';
+    }).join('') + '<p class="muted small" style="margin:8px 0 0">El color es la importancia: en rojo, los críticos.</p>' : '<p class="muted" style="margin:0">Todos los temas se han estudiado al menos una vez.</p>'}</div>
 
     <div class="sec">Hace más de una semana que no se tocan (${I.olvidados.length})</div>
-    <div class="card">${I.olvidados.length ? `<ul class="lista">${I.olvidados.map(t => `<li><span>${matChip(t.materia)} ${esc(nombreTema(t))} <span class="muted small">· ${num(t.progreso)} %</span></span>${pillDias(st[t.id])}</li>`).join('')}</ul>` : '<p class="muted" style="margin:0">Nada olvidado: todo lo estudiado se ha tocado en los últimos 7 días.</p>'}</div>
+    <div class="card">${I.olvidados.length ? `<ul class="lista">${I.olvidados.map(t => `<li><span>${badgeImp(t)} ${esc(nombreTema(t))} <span class="muted small">· ${num(t.progreso)} %</span></span>${pillDias(st[t.id])}</li>`).join('')}</ul>` : '<p class="muted" style="margin:0">Nada olvidado: todo lo estudiado se ha tocado en los últimos 7 días.</p>'}</div>
 
     <div class="sec">Artículos más fallados sin repasar (${I.arts.length})</div>
     <div class="card">${I.arts.length ? `<ul class="lista">${I.arts.slice(0, 20).map(a => `<li><span><b>${esc(nombreArt(a))}</b> <span class="muted small">· ${esc(nombreTema(tema(a.temaId)))}</span></span><b class="num txt-bad">${a.veces}×</b></li>`).join('')}</ul>` : '<p class="muted" style="margin:0">No hay artículos fallados pendientes de repasar.</p>'}</div>
 
     ${I.flojos.length ? `<div class="sec">Temas con nota media de test por debajo de 5</div>
-    <div class="card"><ul class="lista">${I.flojos.map(t => `<li><span>${esc(nombreTema(t))}</span><b class="num nota bad">${fmt1(media(st[t.id].notas.map(x => x.n)))}</b></li>`).join('')}</ul></div>` : ''}
+    <div class="card"><ul class="lista">${I.flojos.map(t => `<li><span>${badgeImp(t)} ${esc(nombreTema(t))}</span><b class="num nota bad">${fmt1(dg[t.id].nm)}</b></li>`).join('')}</ul></div>` : ''}
 
     <div class="sec">Todos los temas</div>
     <div class="card tabla-w"><table class="tabla">
-      <thead><tr><th>Tema</th><th class="r">Dominio</th><th class="r">Vueltas</th><th class="r">Sin tocar</th><th class="r">Horas</th><th class="r">Nota</th><th class="r">Fallos</th></tr></thead>
+      <thead><tr><th>Tema</th><th>Importancia</th><th>Cómo va</th><th class="r">Dominio</th><th class="r">Vueltas</th><th class="r">Sin tocar</th><th class="r">Horas</th><th class="r">Nota</th><th class="r">Fallos</th></tr></thead>
       <tbody>${temas.map(t => {
-        const x = st[t.id], d = diasSin(x), n = media(x.notas.map(v => v.n));
+        const x = st[t.id], g = dg[t.id], d = g.d;
         return `<tr><td class="t">${matChip(t.materia)} ${esc(nombreTema(t))}</td>
+          <td>${badgeImp(t)}${num(t.preguntasExamen) ? ` <span class="muted small">~${num(t.preguntasExamen)}</span>` : ''}</td>
+          <td>${pillEst(g.estado)}${g.aviso ? ' <span class="badge warn" title="' + esc(g.aviso) + '">?</span>' : ''}</td>
           <td class="r"><span class="mini"><i style="width:${num(t.progreso)}%"></i></span>${num(t.progreso)} %</td>
           <td class="r">${num(t.vueltas)}</td>
           <td class="r">${d == null ? '<span class="badge none">nunca</span>' : `<span class="badge ${d <= 7 ? 'ok' : d <= 14 ? 'warn' : 'bad'}">${d} d</span>`}</td>
           <td class="r">${x.minutos ? fmt1(x.minutos / 60) : '–'}</td>
-          <td class="r">${n == null ? '–' : `<span class="nota ${claseNota(n)}">${fmt1(n)}</span>`}</td>
+          <td class="r">${g.nm == null ? '–' : `<span class="nota ${claseNota(g.nm)}">${fmt1(g.nm)}</span>`}</td>
           <td class="r">${x.fallos || '–'}</td></tr>`;
       }).join('')}</tbody></table></div>`;
 }
 
 function textoInforme(I) {
-  const { st, c } = I;
+  const { st, dg, c } = I;
   const l = [`INFORME DE OPOSICIÓN · GUARDIA CIVIL${c.nombre ? ' · ' + c.nombre : ''}`, `Fecha: ${fmtFecha(hoy(), { day: 'numeric', month: 'long', year: 'numeric' })}`];
   if (I.diasExamen != null && I.diasExamen >= 0) l.push(`Días hasta el examen: ${I.diasExamen}`);
-  l.push('', `Avance del temario: ${I.avance == null ? '–' : Math.round(I.avance)} %`, `Horas esta semana: ${fmt1(I.minSem / 60)}${num(c.objetivoH) ? ' de ' + num(c.objetivoH) : ''}`,
-    `Nota media últimos 5 tests: ${I.notaMedia == null ? '–' : fmt1(I.notaMedia)}`, '', 'AVANCE POR TEMA');
+  l.push('', `Avance del temario (ponderado): ${I.avance == null ? '–' : Math.round(I.avance)} %`,
+    `Temas críticos dominados: ${I.criticos.filter(t => dg[t.id].estado === 'dominado').length} de ${I.criticos.length}`,
+    `Horas esta semana: ${fmt1(I.minSem / 60)}${num(c.objetivoH) ? ' de ' + num(c.objetivoH) : ''}`,
+    `Nota media últimos 5 tests: ${I.notaMedia == null ? '–' : fmt1(I.notaMedia)}`);
+  if (I.alertas.length) l.push('', `ALERTAS (${I.alertas.length})`, ...I.alertas.map(a => `- ${nombreTema(a.t)} [${IMPORTANCIA[imp(a.t)].n}]: ${a.txt}`));
+  l.push('', 'LO SIGUIENTE QUE CONVIENE ESTUDIAR', ...I.prioridades.map((t, i) => `${i + 1}. ${nombreTema(t)} [${IMPORTANCIA[imp(t)].n}] · ${ESTADOS[dg[t.id].estado].corto} · ${motivoPrio(t, dg[t.id])}`));
+  l.push('', 'TODOS LOS TEMAS');
   I.temas.forEach(t => {
     const x = st[t.id], d = diasSin(x);
-    l.push(`- [${NOMBRE_MAT[t.materia]}] ${nombreTema(t)}: ${num(t.progreso)} %, ${num(t.vueltas)} vueltas, ${d == null ? 'sin estudiar' : `hace ${d} días`}${x.fallos ? `, ${x.fallos} fallos` : ''}`);
+    l.push(`- [${NOMBRE_MAT[t.materia]}] ${nombreTema(t)} · ${IMPORTANCIA[imp(t)].n} · ${ESTADOS[dg[t.id].estado].n}: ${num(t.progreso)} %, ${num(t.vueltas)} vueltas, ${d == null ? 'sin estudiar' : `hace ${d} días`}${x.fallos ? `, ${x.fallos} fallos` : ''}`);
   });
-  l.push('', `PENDIENTES SIN ESTUDIAR (${I.sinEstudiar.length})`, ...I.sinEstudiar.map(t => `- ${nombreTema(t)}`));
+  l.push('', `PENDIENTES SIN ESTUDIAR (${I.sinEstudiar.length})`, ...porPrioridad(I.sinEstudiar, dg).map(t => `- ${nombreTema(t)} [${IMPORTANCIA[imp(t)].n}]`));
   l.push('', `MÁS DE UNA SEMANA SIN TOCAR (${I.olvidados.length})`, ...I.olvidados.map(t => `- ${nombreTema(t)}: hace ${diasSin(st[t.id])} días`));
   l.push('', `ARTÍCULOS FALLADOS SIN REPASAR (${I.arts.length})`, ...I.arts.map(a => `- ${nombreArt(a)} (${nombreTema(tema(a.temaId))}): ${a.veces} veces`));
   return l.join('\n');
@@ -889,6 +1160,7 @@ function vInforme() {
       <button class="btn sm" type="button" id="ibajar">Descargar informe</button></div>
     <textarea class="input small" id="itexto" hidden readonly rows="8"></textarea>
     ${htmlInforme(I)}`;
+  main.onclick = e => { const t = e.target.closest('[data-tema]'); if (t) fichaTema(t.dataset.tema); };
   $('#icopiar').onclick = async () => {
     const txt = textoInforme(I);
     try { await navigator.clipboard.writeText(txt); toast('Informe copiado: pégalo en WhatsApp o en un correo'); }
@@ -980,7 +1252,7 @@ function vAjustes() {
 // ---------- Arranque ----------
 $('#fab').onclick = () => {
   if (vista === 'semana') planificar();
-  else if (vista === 'temario') registrarEstudio({ temaId: temasDe(matTemario)[0]?.id });
+  else if (vista === 'temario') { const t = porPrioridad(temasDe(matTemario), diagnosticos())[0]; registrarEstudio({ temaId: t?.id }); }
   else if (vista === 'tests') editarTest(null);
 };
 window.addEventListener('hashchange', ir);
