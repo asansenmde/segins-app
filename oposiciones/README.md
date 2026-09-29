@@ -40,3 +40,9 @@ datos de una a otra: *Descargar copia de seguridad* y *Restaurar*.
 
 En GitHub Pages queda en `…/oposiciones/`. En local: `python3 -m http.server 8000` y abrir
 `http://localhost:8000/oposiciones/`. Al publicar cambios, sube `VERSION` en `oposiciones/sw.js`.
+
+### Acceso directo con icono propio (iPhone)
+
+`oposiciones/abrir.html` (publicado en GitHub Pages) se abre en Safari → Compartir → *Añadir a pantalla
+de inicio*. El icono redirige a la versión sincronizada de claude.ai, que se abre en Safari con la
+sesión ya iniciada. No hace falta tener instalada la app de Claude.
