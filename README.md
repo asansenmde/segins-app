@@ -4,6 +4,7 @@ App web instalable (PWA) para hacer evaluaciones SEGINS desde el móvil, sin con
 con fotos marcadas, agenda e informe en Word.
 
 > En [`tareas/`](tareas/) hay además un gestor de tareas con fechas límite (NLT), independiente de SEGINS.
+> En [`oposiciones/`](oposiciones/) hay un planificador de estudio para la oposición a la Guardia Civil.
 
 ## Qué hace
 
