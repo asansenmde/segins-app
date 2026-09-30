@@ -5,6 +5,7 @@ import { calcEval, calcArea, fmtNum } from '../scoring.js';
 import { procesarImagen, guardarFoto, urlFoto, verFoto, borrarFoto, elegirImagenes } from '../fotos.js';
 import { CAMPOS_CABECERA, badgeNivel, badgeEstado, barra, vacio } from './comun.js';
 import { CRITERIOS, CLASES, AMENAZAS_BASE, nuevaAmenaza, calcAmenaza, asegurarMosler, resumenMosler } from '../mosler.js';
+import { ESTADOS, propuestaItem, plazoPorDefecto, planAcciones, riesgosSugeridos, accionDeRiesgo, accionManual, accionesGenerales, fechaProxima } from '../acciones.js';
 
 const TXT_R = { C: 'Conforme', I: 'No conforme', NA: 'No aplica' };
 
@@ -75,7 +76,7 @@ export function detalle(main, id, tab = 'datos') {
   const ev = S.eval.get(id);
   if (!ev) { main.innerHTML = vacio('Evaluación no encontrada.'); return { titulo: 'Evaluación', atras: true }; }
   const { global: g } = calcEval(ev);
-  const tabs = [['datos', 'Datos'], ['areas', 'Cuestionario'], ['resultados', 'Resultados'], ['riesgos', 'Riesgos'], ['informe', 'Informe']];
+  const tabs = [['datos', 'Datos'], ['areas', 'Cuestionario'], ['resultados', 'Resultados'], ['riesgos', 'Riesgos'], ['acciones', 'Acciones'], ['informe', 'Informe']];
   main.innerHTML = `
     <div class="evhead">
       <div><strong>${esc(ev.cabecera.instalacion || 'Sin nombre')}</strong>
@@ -90,7 +91,7 @@ export function detalle(main, id, tab = 'datos') {
     e.preventDefault(); location.replace(a.getAttribute('href'));
   }));
   const cont = main.querySelector('#tab');
-  ({ datos: tabDatos, areas: tabAreas, resultados: tabResultados, riesgos: tabRiesgos, informe: tabInforme })[tab](cont, ev);
+  ({ datos: tabDatos, areas: tabAreas, resultados: tabResultados, riesgos: tabRiesgos, acciones: tabAcciones, informe: tabInforme })[tab](cont, ev);
   return { titulo: 'Evaluación', atras: true, seccion: 'evaluaciones' };
 }
 
@@ -196,6 +197,12 @@ export function area(main, id, aid) {
     if (b.dataset.r && card) {
       const r = resp(itemId);
       r.r = r.r === b.dataset.r ? null : b.dataset.r;
+      if (r.r === 'I') {
+        // Al marcar No conforme se propone la acción correctora y un plazo según la prioridad.
+        const it = ar.items.find(i => i.id === itemId);
+        if (r.accion == null) r.accion = propuestaItem(it);
+        if (!r.plazo) r.plazo = plazoPorDefecto(ev, it.prioridad);
+      }
       await guardar('eval', ev);
       repintar(itemId);
     } else if (b.dataset.foto && card) {
@@ -280,7 +287,9 @@ function tarjetaItem(ev, it) {
     <div class="seg">${['C', 'I', 'NA'].map(x => `<button type="button" data-r="${x}" class="${r.r === x ? 'on' : ''}" aria-pressed="${r.r === x}" title="${TXT_R[x]}">${x}</button>`).join('')}</div>
     <textarea class="input ${esI && !r.obs?.trim() ? 'required' : ''}" data-f="obs" rows="2"
       placeholder="${esI ? 'Observaciones (obligatorias si I)' : 'Observaciones'}">${esc(r.obs)}</textarea>
-    ${esI ? `<div class="grid2">
+    ${esI ? `<label class="lbl small">Acción correctora</label>
+    <textarea class="input" data-f="accion" rows="2" placeholder="Acción para subsanar la no conformidad">${esc(r.accion ?? propuestaItem(it))}</textarea>
+    <div class="grid2">
       <input class="input" data-f="ref" value="${esc(r.ref)}" placeholder="Ref. oficio / FDNO / SIMENDEF">
       <input class="input" data-f="responsable" value="${esc(r.responsable)}" placeholder="Responsable de subsanar">
       <label class="lbl small">Plazo de subsanación<input class="input" type="date" data-f="plazo" value="${esc(r.plazo)}"></label>
@@ -428,6 +437,7 @@ function tabInforme(cont, ev) {
       <label class="check"><input type="checkbox" id="optMosler" ${nMos ? 'checked' : 'disabled'}> <span>Incluir el análisis de riesgos (Mosler)<br><span class="muted small">${nMos
         ? `${nMos} de ${mos.filas.length} amenazas valoradas. Solo se incluyen las valoradas del todo.`
         : 'No has valorado ninguna amenaza: el informe será solo de la evaluación.'}</span></span></label>
+      <label class="check"><input type="checkbox" id="optAcciones" checked> Incluir el plan de acciones derivadas</label>
       <label class="check"><input type="checkbox" id="optDetalle" checked> Incluir la tabla completa de los ${g.total} ítems</label>
       <label class="check"><input type="checkbox" id="optFotos" checked> Incluir las fotos</label>
       <label class="check"><input type="checkbox" id="optFotosC"> Incluir también fotos de ítems conformes</label>
@@ -448,6 +458,7 @@ function tabInforme(cont, ev) {
       const blob = await generarInforme(ev, {
         detalle: cont.querySelector('#optDetalle').checked,
         mosler: cont.querySelector('#optMosler').checked,
+        acciones: cont.querySelector('#optAcciones').checked,
         fotos: cont.querySelector('#optFotos').checked,
         fotosC: cont.querySelector('#optFotosC').checked,
       });
@@ -632,5 +643,129 @@ function tabRiesgos(cont, ev) {
     if (!card || !e.target.dataset.notas) return;
     ev.mosler.find(x => x.id === card.dataset.am).notas = e.target.value;
     guardarLuego('eval', ev);
+  });
+}
+
+// ---------------- Acciones derivadas ----------------
+
+const CLS_ESTADO_ACC = { Pendiente: 'warn', 'En curso': 'info', Cumplida: 'ok' };
+
+function tarjetaAccion(ev, a) {
+  const vencida = a.estado !== 'Cumplida' && a.plazo && a.plazo < hoyISO();
+  const editablePrio = a.tipo !== 'item';
+  return `<div class="card accion ${a.estado === 'Cumplida' ? 'hecha' : ''}" data-tipo="${a.tipo}" data-clave="${esc(a.clave)}">
+    <div class="row between wrap">
+      <span class="row gap">${a.tipo === 'item'
+        ? `<a href="#/eval/${ev.id}/area/${a.areaId}" class="badge info">${esc(a.origen)}</a>`
+        : `<span class="badge none">${esc(a.origen)}</span>`}
+        ${editablePrio
+          ? `<select class="input mini" data-k="prioridad" aria-label="Prioridad"><option ${a.prioridad === 'P1' ? 'selected' : ''}>P1</option><option ${a.prioridad === 'P2' ? 'selected' : ''}>P2</option></select>`
+          : `<span class="badge ${a.prioridad === 'P1' ? 'p1' : 'p2'}">${a.prioridad}</span>`}</span>
+      ${vencida ? '<span class="badge alert">Plazo vencido</span>' : ''}
+    </div>
+    <textarea class="input" data-k="texto" rows="2" placeholder="Describe la acción">${esc(a.texto)}</textarea>
+    <div class="grid2">
+      <input class="input" data-k="responsable" value="${esc(a.responsable)}" placeholder="Responsable">
+      <input class="input" type="date" data-k="plazo" value="${esc(a.plazo)}" aria-label="Plazo">
+    </div>
+    <div class="row between gap">
+      <div class="seg3">${ESTADOS.map(e => `<button type="button" data-estado="${e}" class="${a.estado === e ? 'on ' + CLS_ESTADO_ACC[e] : ''}">${e}</button>`).join('')}</div>
+      ${a.tipo !== 'item' ? '<button type="button" class="icon-btn" data-borrar-acc="1" aria-label="Quitar acción">✕</button>' : ''}
+    </div>
+  </div>`;
+}
+
+function tabAcciones(cont, ev) {
+  ev.acciones ||= [];
+  const pintar = () => {
+    const plan = planAcciones(ev);
+    const cuenta = Object.fromEntries(ESTADOS.map(e => [e, plan.filter(a => a.estado === e).length]));
+    const p1 = plan.filter(a => a.prioridad === 'P1' && a.estado !== 'Cumplida').length;
+    const sugeridas = riesgosSugeridos(ev);
+    const generales = accionesGenerales(ev);
+    const prox = fechaProxima(ev);
+    const yaProgramada = prox && [...S.agenda.values()].some(e => e.evalOrigen === ev.id);
+    cont.innerHTML = `
+      <p class="muted small">Acciones que se desprenden de la evaluación. Las de los ítems no conformes se crean solas al marcar I; puedes editar el texto, el responsable, el plazo y el estado.</p>
+      <div class="kpis">
+        <div class="kpi"><div class="kpi-l">Pendientes</div><div class="kpi-v">${cuenta.Pendiente}</div></div>
+        <div class="kpi"><div class="kpi-l">En curso</div><div class="kpi-v">${cuenta['En curso']}</div></div>
+        <div class="kpi"><div class="kpi-l">Cumplidas</div><div class="kpi-v">${cuenta.Cumplida}</div></div>
+      </div>
+      ${p1 ? `<p class="aviso">${p1 === 1 ? '1 acción' : `${p1} acciones`} de prioridad P1 sin cumplir.</p>` : ''}
+      ${generales.length ? `<div class="card"><h3>Acciones generales</h3><ul class="viñetas">${generales.map(g => `<li>${esc(g)}</li>`).join('')}</ul>
+        ${prox && ev.instId ? (yaProgramada
+          ? '<p class="small muted">Próxima evaluación ya programada en la agenda.</p>'
+          : `<button type="button" class="btn block" id="programar">📅 Programar la próxima evaluación (${fmtFecha(prox.fecha)})</button>`) : ''}
+      </div>` : ''}
+      ${sugeridas.length ? `<div class="card"><h3>Sugeridas por el análisis de riesgos</h3>
+        ${sugeridas.map(({ a, r }) => `<div class="row between gap sug"><span>${esc(a.nombre)} ${badgeClase(r)}</span><button type="button" class="btn" data-sug="${esc(a.id)}">Añadir</button></div>`).join('')}
+      </div>` : ''}
+      <h3 class="sec">Plan de acciones (${plan.length})</h3>
+      ${plan.length ? plan.map(a => tarjetaAccion(ev, a)).join('') : '<div class="card"><p class="muted">Aún no hay acciones: aparecerán al marcar ítems como No conforme.</p></div>'}
+      <button type="button" class="btn block" id="addacc">＋ Añadir acción propia</button>`;
+  };
+  pintar();
+
+  const localizar = (card) => {
+    const { tipo, clave } = card.dataset;
+    if (tipo === 'item') {
+      const r = ev.respuestas[clave];
+      return {
+        get: k => ({ texto: r.accion, estado: r.estadoAccion || 'Pendiente' }[k] ?? r[k]),
+        set: (k, v) => { r[{ texto: 'accion', estado: 'estadoAccion' }[k] || k] = v; },
+      };
+    }
+    const a = ev.acciones.find(x => x.id === clave);
+    return { get: k => a[k], set: (k, v) => { a[k] = v; }, a };
+  };
+
+  cont.addEventListener('input', e => {
+    const card = e.target.closest('[data-clave]');
+    const k = e.target.dataset.k;
+    if (!card || !k) return;
+    localizar(card).set(k, e.target.value);
+    guardarLuego('eval', ev);
+  });
+  cont.addEventListener('change', e => {
+    if (e.target.dataset.k === 'plazo' || e.target.dataset.k === 'prioridad') { guardar('eval', ev); pintar(); }
+  });
+
+  cont.addEventListener('click', async e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const card = b.closest('[data-clave]');
+    if (b.dataset.estado && card) {
+      localizar(card).set('estado', b.dataset.estado);
+      await guardar('eval', ev);
+      pintar();
+    } else if (b.dataset.borrarAcc && card) {
+      if (!(await confirmar('¿Quitar esta acción del plan?', 'Quitar', 'danger'))) return;
+      ev.acciones = ev.acciones.filter(x => x.id !== card.dataset.clave);
+      await guardar('eval', ev);
+      pintar();
+    } else if (b.dataset.sug) {
+      const f = riesgosSugeridos(ev).find(x => x.a.id === b.dataset.sug);
+      if (f) ev.acciones.push(accionDeRiesgo(ev, f.a, f.r));
+      await guardar('eval', ev);
+      pintar();
+    } else if (b.id === 'addacc') {
+      const a = accionManual(ev);
+      ev.acciones.push(a);
+      await guardar('eval', ev);
+      pintar();
+      const nueva = cont.querySelector(`[data-clave="${a.id}"] textarea`);
+      nueva?.scrollIntoView({ block: 'center' });
+      nueva?.focus();
+    } else if (b.id === 'programar') {
+      const prox = fechaProxima(ev);
+      await guardar('agenda', {
+        id: 'a' + uid(), fecha: prox.fecha, hora: '', tipo: 'Evaluación / visita', instId: ev.instId,
+        titulo: `Próxima evaluación SEGINS · ${ev.cabecera.instalacion || ''}`, notas: 'Verificar el cumplimiento del plan de acciones de la evaluación anterior.',
+        hecho: false, evalOrigen: ev.id,
+      });
+      toast('Añadida a la agenda');
+      pintar();
+    }
   });
 }

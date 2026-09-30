@@ -12,13 +12,21 @@ export function elementosAgenda() {
     if (ev.cerrada) continue;
     for (const a of ev.areas) for (const it of a.items) {
       const r = ev.respuestas[it.id];
-      if (r?.r === 'I' && r.plazo) {
+      if (r?.r === 'I' && r.plazo && r.estadoAccion !== 'Cumplida') {
         out.push({
           id: `p-${ev.id}-${it.id}`, clase: 'plazo', fecha: r.plazo, tipo: 'Plazo',
           titulo: `Plazo ${it.codigo} · ${ev.cabecera.instalacion || ''}`,
           notas: r.obs, enlace: `#/eval/${ev.id}/area/${a.id}`, p1: it.prioridad === 'P1',
         });
       }
+    }
+    for (const acc of ev.acciones || []) {
+      if (!acc.plazo || acc.estado === 'Cumplida') continue;
+      out.push({
+        id: `p-${ev.id}-${acc.id}`, clase: 'plazo', fecha: acc.plazo, tipo: 'Plazo',
+        titulo: `Acción · ${ev.cabecera.instalacion || ''}`, notas: acc.texto,
+        enlace: `#/eval/${ev.id}/acciones`, p1: acc.prioridad === 'P1',
+      });
     }
   }
   return out.sort((a, b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')));

@@ -6,6 +6,7 @@ import { fmtFecha, hoyISO, MESES } from './ui.js';
 import { CAMPOS_CABECERA } from './views/comun.js';
 import { graficoSVG, graficoRiesgos, COLOR_CLASE } from './views/evaluaciones.js';
 import { CRITERIOS, CLASES, resumenMosler } from './mosler.js';
+import { planAcciones, accionesGenerales, propuestaItem } from './acciones.js';
 
 function cargarDocx() {
   if (window.docx) return Promise.resolve(window.docx);
@@ -196,6 +197,8 @@ export async function generarInforme(ev, opt) {
       ['Prioridad / peso', `${it.prioridad} / ${it.peso}`],
       ['Observaciones', r.obs || '—'],
     ];
+    const acc = r.accion ?? propuestaItem(it);
+    if (acc) filas.push(['Acción correctora', acc]);
     if (r.ref) filas.push(['Referencia', r.ref]);
     if (r.responsable) filas.push(['Responsable', r.responsable]);
     if (r.plazo) filas.push(['Plazo de subsanación', fmtFecha(r.plazo)]);
@@ -254,6 +257,36 @@ export async function generarInforme(ev, opt) {
       ...CRITERIOS.map(c => new TableRow({ children: [celda(`${c.k} · ${c.nombre}`, { size: 15, bold: true }), ...c.escala.map(e => celda(e, { size: 15 }))] })),
       new TableRow({ children: [celda('ER · Clase', { size: 15, bold: true }), ...CLASES.map((c, i) => celda(`${i ? CLASES[i - 1].max + 1 : 2}–${c.max} ${c.nombre}`, { size: 15 }))] }),
     ]));
+  }
+
+  // ---- Plan de acciones derivadas ----
+  const plan = planAcciones(ev);
+  const generales = accionesGenerales(ev);
+  if (opt.acciones && (plan.length || generales.length)) {
+    hijos.push(h1(`${sec++}. PLAN DE ACCIONES DERIVADAS`));
+    if (generales.length) {
+      hijos.push(h2('Acciones generales'));
+      for (const g of generales) hijos.push(new Paragraph({ bullet: { level: 0 }, spacing: { after: 60 }, children: [t(g, { size: 19 })] }));
+    }
+    if (plan.length) {
+      hijos.push(h2('Acciones concretas'));
+      const colEstado = { Pendiente: 'FFF3E0', 'En curso': 'E3F2FD', Cumplida: 'E8F5E9' };
+      hijos.push(tabla([
+        cabeceraBlanca(['Nº', 'Acción', 'Origen', 'Prio.', 'Responsable', 'Plazo', 'Estado'], [5, 38, 14, 7, 14, 11, 11]),
+        ...plan.map((a, i) => new TableRow({
+          children: [
+            celda(String(i + 1), { size: 16, align: AlignmentType.CENTER }),
+            celda(a.texto || '—', { size: 16 }),
+            celda(a.origen, { size: 15 }),
+            celda(a.prioridad, { size: 16, bold: true, align: AlignmentType.CENTER, fill: a.prioridad === 'P1' ? 'FFCDD2' : undefined }),
+            celda(a.responsable || '—', { size: 15 }),
+            celda(a.plazo ? fmtFecha(a.plazo) : '—', { size: 15, align: AlignmentType.CENTER }),
+            celda(a.estado, { size: 15, bold: true, fill: colEstado[a.estado] }),
+          ],
+        })),
+      ]));
+      hijos.push(p('Plazos por defecto: 30 días para prioridad P1 y 90 días para P2, contados desde la fecha de la evaluación.', { size: 15, italics: true, before: 60 }));
+    }
   }
 
   // ---- Detalle completo ----

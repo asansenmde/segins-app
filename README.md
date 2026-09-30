@@ -19,6 +19,9 @@ con fotos marcadas, agenda e informe en Word.
   alerta P1, gráfico y comparación con la evaluación anterior de la misma instalación.
 - **Informe Word (.docx)** generado en el móvil: datos, resultado global y por área, gráfico,
   alertas P1, no conformidades con fotos, detalle completo, conclusiones y firma.
+- **Acciones derivadas**: acción correctora propuesta para cada no conformidad (con plazo por defecto de
+  30 días para P1 y 90 para P2), acciones sugeridas por los riesgos Mosler, acciones generales, acciones
+  propias y estado de cada una. Aparecen en la agenda y en el informe.
 - **Agenda**: visitas y eventos + plazos de subsanación automáticos; plazos vencidos en Inicio.
 - **Instalaciones**: ficha e histórico de evaluaciones.
 
