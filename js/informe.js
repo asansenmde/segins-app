@@ -209,11 +209,11 @@ export async function generarInforme(ev, opt) {
 
   // ---- Análisis de riesgos (Mosler) ----
   const mos = resumenMosler(ev);
-  if (opt.mosler && mos.filas.length) {
+  if (opt.mosler && mos.completas.length) {
     hijos.push(h1(`${sec++}. ANÁLISIS DE RIESGOS (MÉTODO MOSLER)`));
     hijos.push(p('Evolución del riesgo ER = C × Pb, con C = F×S + P×E y Pb = A×V. Cada criterio se valora de 1 a 5. La vulnerabilidad (V) se propone a partir del resultado del cuestionario en las áreas relacionadas con cada amenaza.', { size: 18, after: 120 }));
     const hex = (c) => c.replace('#', '');
-    const ordenadas = [...mos.completas, ...mos.filas.filter(f => !f.r.completo)];
+    const ordenadas = mos.completas;
     hijos.push(tabla([
       cabeceraBlanca(['Amenaza', 'F', 'S', 'P', 'E', 'A', 'V', 'C', 'Pb', 'ER', 'Clase'], [27, 5, 5, 5, 5, 5, 6, 7, 7, 10, 18]),
       ...ordenadas.map(({ a, r }) => new TableRow({

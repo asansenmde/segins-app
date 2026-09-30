@@ -409,6 +409,8 @@ function tarjetaResumenMosler(ev) {
 
 function tabInforme(cont, ev) {
   const { global: g } = calcEval(ev);
+  const mos = resumenMosler(ev);
+  const nMos = mos.completas.length;
   const avisos = [];
   if (!ev.cabecera.fecha) avisos.push('Falta la fecha de la evaluación.');
   if (!ev.cabecera.instalacion) avisos.push('Falta el nombre de la instalación.');
@@ -423,7 +425,9 @@ function tabInforme(cont, ev) {
       <textarea class="input" name="conclusiones" rows="6" placeholder="Valoración general, medidas propuestas, prioridades…">${esc(ev.conclusiones)}</textarea>
       <label class="lbl">Lugar de firma</label>
       <input class="input" name="lugarFirma" value="${esc(ev.lugarFirma)}" placeholder="Ej.: Madrid">
-      <label class="check"><input type="checkbox" id="optMosler" checked> Incluir el análisis de riesgos (Mosler)</label>
+      <label class="check"><input type="checkbox" id="optMosler" ${nMos ? 'checked' : 'disabled'}> <span>Incluir el análisis de riesgos (Mosler)<br><span class="muted small">${nMos
+        ? `${nMos} de ${mos.filas.length} amenazas valoradas. Solo se incluyen las valoradas del todo.`
+        : 'No has valorado ninguna amenaza: el informe será solo de la evaluación.'}</span></span></label>
       <label class="check"><input type="checkbox" id="optDetalle" checked> Incluir la tabla completa de los ${g.total} ítems</label>
       <label class="check"><input type="checkbox" id="optFotos" checked> Incluir las fotos</label>
       <label class="check"><input type="checkbox" id="optFotosC"> Incluir también fotos de ítems conformes</label>
