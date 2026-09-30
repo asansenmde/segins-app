@@ -4,6 +4,7 @@ import { esc, uid, fmtFecha, hoyISO, modal, confirmar, toast, leerForm, comparti
 import { calcEval, calcArea, fmtNum } from '../scoring.js';
 import { procesarImagen, guardarFoto, urlFoto, verFoto, borrarFoto, elegirImagenes } from '../fotos.js';
 import { CAMPOS_CABECERA, badgeNivel, badgeEstado, barra, vacio } from './comun.js';
+import { CRITERIOS, CLASES, AMENAZAS_BASE, nuevaAmenaza, calcAmenaza, asegurarMosler, resumenMosler } from '../mosler.js';
 
 const TXT_R = { C: 'Conforme', I: 'No conforme', NA: 'No aplica' };
 
@@ -63,6 +64,7 @@ export async function nuevaEvaluacion(instId = '') {
     cabecera: cab, areas: structuredClone(S.config.areas), respuestas: {},
     conclusiones: '', lugarFirma: '',
   };
+  asegurarMosler(ev, S.eval.values(), S.config);
   await guardar('eval', ev);
   location.hash = `#/eval/${ev.id}/datos`;
 }
@@ -73,7 +75,7 @@ export function detalle(main, id, tab = 'datos') {
   const ev = S.eval.get(id);
   if (!ev) { main.innerHTML = vacio('Evaluación no encontrada.'); return { titulo: 'Evaluación', atras: true }; }
   const { global: g } = calcEval(ev);
-  const tabs = [['datos', 'Datos'], ['areas', 'Cuestionario'], ['resultados', 'Resultados'], ['informe', 'Informe']];
+  const tabs = [['datos', 'Datos'], ['areas', 'Cuestionario'], ['resultados', 'Resultados'], ['riesgos', 'Riesgos'], ['informe', 'Informe']];
   main.innerHTML = `
     <div class="evhead">
       <div><strong>${esc(ev.cabecera.instalacion || 'Sin nombre')}</strong>
@@ -83,11 +85,12 @@ export function detalle(main, id, tab = 'datos') {
     </div>
     <div class="tabs">${tabs.map(([t, n]) => `<a href="#/eval/${id}/${t}" class="${t === tab ? 'on' : ''}">${n}</a>`).join('')}</div>
     <div id="tab"></div>`;
+  main.querySelector('.tabs a.on')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   main.querySelectorAll('.tabs a').forEach(a => a.addEventListener('click', e => {
     e.preventDefault(); location.replace(a.getAttribute('href'));
   }));
   const cont = main.querySelector('#tab');
-  ({ datos: tabDatos, areas: tabAreas, resultados: tabResultados, informe: tabInforme })[tab](cont, ev);
+  ({ datos: tabDatos, areas: tabAreas, resultados: tabResultados, riesgos: tabRiesgos, informe: tabInforme })[tab](cont, ev);
   return { titulo: 'Evaluación', atras: true, seccion: 'evaluaciones' };
 }
 
@@ -387,7 +390,19 @@ function tabResultados(cont, ev) {
     </table></div>
     ${alertas.length ? `<div class="card alert-card"><h3>⚠ Alertas P1</h3><ul class="plain">${alertas.map(({ a, it }) => `
       <li><a href="#/eval/${ev.id}/area/${a.id}"><strong>${esc(it.codigo)}</strong> ${esc(it.texto)}</a>
-      ${ev.respuestas[it.id].obs ? `<div class="muted small">${esc(ev.respuestas[it.id].obs)}</div>` : ''}</li>`).join('')}</ul></div>` : ''}`;
+      ${ev.respuestas[it.id].obs ? `<div class="muted small">${esc(ev.respuestas[it.id].obs)}</div>` : ''}</li>`).join('')}</ul></div>` : ''}
+    ${tarjetaResumenMosler(ev)}`;
+}
+
+function tarjetaResumenMosler(ev) {
+  const { filas, completas, altos } = resumenMosler(ev);
+  if (!filas.length) return '';
+  const top = completas.slice(0, 3);
+  return `<a class="card link" href="#/eval/${ev.id}/riesgos">
+    <div class="row between"><h3>Riesgos (Mosler)</h3>${altos ? `<span class="badge alert">${altos} elevados</span>` : ''}</div>
+    <p class="muted small">${completas.length}/${filas.length} amenazas valoradas.</p>
+    ${top.length ? `<ul class="plain">${top.map(({ a, r }) => `<li class="row between"><span>${esc(a.nombre)}</span>${badgeClase(r)}</li>`).join('')}</ul>` : ''}
+  </a>`;
 }
 
 // ---------------- Informe ----------------
@@ -408,6 +423,7 @@ function tabInforme(cont, ev) {
       <textarea class="input" name="conclusiones" rows="6" placeholder="Valoración general, medidas propuestas, prioridades…">${esc(ev.conclusiones)}</textarea>
       <label class="lbl">Lugar de firma</label>
       <input class="input" name="lugarFirma" value="${esc(ev.lugarFirma)}" placeholder="Ej.: Madrid">
+      <label class="check"><input type="checkbox" id="optMosler" checked> Incluir el análisis de riesgos (Mosler)</label>
       <label class="check"><input type="checkbox" id="optDetalle" checked> Incluir la tabla completa de los ${g.total} ítems</label>
       <label class="check"><input type="checkbox" id="optFotos" checked> Incluir las fotos</label>
       <label class="check"><input type="checkbox" id="optFotosC"> Incluir también fotos de ítems conformes</label>
@@ -427,6 +443,7 @@ function tabInforme(cont, ev) {
       const { generarInforme } = await import('../informe.js');
       const blob = await generarInforme(ev, {
         detalle: cont.querySelector('#optDetalle').checked,
+        mosler: cont.querySelector('#optMosler').checked,
         fotos: cont.querySelector('#optFotos').checked,
         fotosC: cont.querySelector('#optFotosC').checked,
       });
@@ -440,4 +457,176 @@ function tabInforme(cont, ev) {
       b.textContent = 'Generar informe Word';
     }
   };
+}
+
+// ---------------- Riesgos (método Mosler) ----------------
+
+export const COLOR_CLASE = { 'Muy reducido': '#2e7d32', Reducido: '#689f38', Normal: '#c08a1e', Elevado: '#c62828', 'Muy elevado': '#7f1d1d' };
+
+const badgeClase = (r) => r.completo
+  ? `<span class="badge ${r.clase.cls}">${fmtNum(r.ER, 0)} · ${esc(r.clase.nombre)}</span>`
+  : `<span class="badge none">Pendiente</span>`;
+
+// Ranking horizontal de amenazas por ER, con las bandas de clase de fondo.
+export function graficoRiesgos(completas, { ancho = 640, oscuro = false } = {}) {
+  const estrecho = ancho < 500;
+  const fila = 26, m = { l: estrecho ? 150 : 190, r: 44, t: 22, b: 8 };
+  const maxC = estrecho ? 17 : 30;
+  const alto = m.t + m.b + completas.length * fila;
+  const w = ancho - m.l - m.r;
+  const x = v => m.l + (v / 1250) * w;
+  const txt = oscuro ? '#dfe5df' : '#1f261f';
+  const eje = oscuro ? '#9aa39a' : '#5b645b';
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${ancho} ${alto}" width="${ancho}" height="${alto}" font-family="system-ui,Arial,sans-serif" font-size="12">`;
+  let desde = 0;
+  for (const c of CLASES) {
+    s += `<rect x="${x(desde)}" y="${m.t - 4}" width="${x(c.max) - x(desde)}" height="${alto - m.t - m.b + 4}" fill="${COLOR_CLASE[c.nombre]}" fill-opacity=".08"/>`;
+    s += `<text x="${x(c.max)}" y="${m.t - 8}" text-anchor="end" fill="${eje}" font-size="10">${c.max}</text>`;
+    desde = c.max;
+  }
+  completas.forEach(({ a, r }, i) => {
+    const y = m.t + i * fila;
+    const nombre = a.nombre.length > maxC ? a.nombre.slice(0, maxC - 1) + '…' : a.nombre;
+    s += `<text x="${m.l - 8}" y="${y + fila / 2 + 4}" text-anchor="end" fill="${txt}">${esc(nombre)}</text>`;
+    s += `<rect x="${m.l}" y="${y + 4}" width="${Math.max(2, x(r.ER) - m.l)}" height="${fila - 8}" rx="3" fill="${COLOR_CLASE[r.clase.nombre]}"/>`;
+    s += `<text x="${x(r.ER) + 6}" y="${y + fila / 2 + 4}" fill="${txt}" font-weight="700">${r.ER}</text>`;
+  });
+  return s + '</svg>';
+}
+
+async function dialogoAmenaza(ev, a = null) {
+  return modal({
+    title: a ? 'Editar amenaza' : 'Nueva amenaza',
+    body: `<label class="lbl">Amenaza</label><input class="input" name="nombre" value="${esc(a?.nombre || '')}" placeholder="Ej.: Ciberataque a sistemas de seguridad">
+      <label class="lbl">Áreas del cuestionario que miden su vulnerabilidad</label>
+      <div class="chips">${ev.areas.map(ar => `<label class="chip"><input type="checkbox" name="area" value="${esc(ar.id)}" ${a?.areas.includes(ar.id) ? 'checked' : ''}> ${esc(ar.id)}. ${esc(ar.nombre)}</label>`).join('')}</div>
+      ${a ? '' : '<label class="check"><input type="checkbox" name="alBase"> Añadir también a la lista para futuras evaluaciones</label>'}`,
+    buttons: [{ label: 'Cancelar', value: null }, {
+      label: a ? 'Guardar' : 'Añadir', cls: 'primary', value: w => {
+        const nombre = w.querySelector('[name=nombre]').value.trim();
+        if (!nombre) { toast('Escribe el nombre de la amenaza'); return false; }
+        return {
+          nombre,
+          areas: [...w.querySelectorAll('[name=area]:checked')].map(x => x.value),
+          alBase: !!w.querySelector('[name=alBase]')?.checked,
+        };
+      },
+    }],
+  });
+}
+
+function tarjetaAmenaza(ev, a, r, abierta) {
+  const hechos = CRITERIOS.filter(c => r[c.k] != null).length;
+  return `<details class="card amen" data-am="${esc(a.id)}" ${abierta ? 'open' : ''}>
+    <summary class="row between"><strong>${esc(a.nombre)}</strong>${r.completo ? badgeClase(r) : `<span class="badge none">${hechos}/6</span>`}</summary>
+    ${CRITERIOS.map(c => {
+      const v = r[c.k];
+      let extra = '';
+      if (c.k === 'V') {
+        extra = r.prop
+          ? `<p class="small ${a.vManual ? 'muted' : ''}">Propuesta del cuestionario: <strong>${r.prop.v} (${c.escala[r.prop.v - 1]})</strong> · áreas ${r.prop.areas.join(', ')}: ${fmtNum(r.prop.puntos)} pts${r.prop.p1 ? ` · ${r.prop.p1} P1 no conforme` : ''}</p>`
+          : `<p class="small muted">Sin datos del cuestionario en las áreas ${esc(a.areas.join(', ') || '—')}: puntúala a mano.</p>`;
+        if (a.vManual) extra += `<p class="small">Ajustada a mano. ${r.prop ? '<button type="button" class="linkbtn" data-usarprop="1">Usar la propuesta</button>' : ''}</p>`;
+      }
+      return `<div class="crit">
+        <div class="crit-h"><strong>${c.k} · ${c.nombre}</strong><span class="muted small">${c.ayuda}</span></div>
+        <div class="seg5">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-c="${c.k}" data-v="${n}" class="${v === n ? 'on' : ''}" aria-pressed="${v === n}" title="${c.escala[n - 1]}">${n}</button>`).join('')}</div>
+        <div class="small crit-v">${v ? esc(c.escala[v - 1]) : '<span class="muted">Sin valorar</span>'}</div>
+        ${extra}
+      </div>`;
+    }).join('')}
+    <div class="calc small">I = F×S = <b>${r.I ?? '—'}</b> · D = P×E = <b>${r.D ?? '—'}</b> · C = I+D = <b>${r.C ?? '—'}</b> · Pb = A×V = <b>${r.Pb ?? '—'}</b> · <span class="er">ER = C×Pb = <b>${r.ER ?? '—'}</b></span></div>
+    <textarea class="input" data-notas="1" rows="2" placeholder="Justificación / medidas propuestas">${esc(a.notas)}</textarea>
+    <div class="row gap"><button type="button" class="btn grow" data-editar="1">Editar</button><button type="button" class="btn danger" data-quitaram="1">Quitar</button></div>
+  </details>`;
+}
+
+function tabRiesgos(cont, ev) {
+  if (asegurarMosler(ev, S.eval.values(), S.config)) guardar('eval', ev);
+  const abiertas = new Set();
+  const oscuro = matchMedia('(prefers-color-scheme: dark)').matches;
+
+  const ranking = () => {
+    const { completas, altos } = resumenMosler(ev);
+    return completas.length ? `<div class="card"><div class="row between"><h3>Ranking de riesgos</h3>${altos ? `<span class="badge alert">${altos} elevados</span>` : ''}</div>
+        <div class="chart">${graficoRiesgos(completas, { oscuro, ancho: Math.max(340, Math.min(640, (cont.clientWidth || 380) - 30)) })}</div>
+        <div class="legend small">${CLASES.map(c => `<span><i style="background:${COLOR_CLASE[c.nombre]}"></i>${c.nombre}</span>`).join('')}</div></div>`
+      : '<p class="aviso">Aún no hay amenazas valoradas del todo. Abre una y puntúa sus criterios.</p>';
+  };
+  const pintar = () => {
+    const { filas } = resumenMosler(ev);
+    cont.innerHTML = `
+      <p class="muted small">Método Mosler: ER = (F×S + P×E) × (A×V), de 2 a 1250. Puntúa cada criterio del 1 al 5. La V se propone con los resultados del cuestionario y puedes ajustarla.</p>
+      <div id="ranking">${ranking()}</div>
+      <div id="amenazas">${filas.map(({ a, r }) => tarjetaAmenaza(ev, a, r, abiertas.has(a.id))).join('')}</div>
+      <button type="button" class="btn block" id="addam">＋ Añadir amenaza</button>
+      <details class="card"><summary><strong>Escala de valoración</strong></summary>
+        <div class="scroll-x"><table class="tbl"><thead><tr><th>Criterio</th>${[1, 2, 3, 4, 5].map(n => `<th>${n}</th>`).join('')}</tr></thead>
+        <tbody>${CRITERIOS.map(c => `<tr><td><strong>${c.k}</strong> ${c.nombre}</td>${c.escala.map(e => `<td>${e}</td>`).join('')}</tr>`).join('')}
+        <tr><td><strong>ER</strong> Clase</td>${CLASES.map((c, i) => `<td>${i ? CLASES[i - 1].max + 1 : 2}–${c.max}<br>${c.nombre}</td>`).join('')}</tr></tbody></table></div>
+      </details>`;
+  };
+  pintar();
+
+  // Tras tocar una amenaza solo se redibujan su tarjeta y el ranking, para que la pantalla no salte.
+  const actualizar = (a) => {
+    cont.querySelector(`[data-am="${CSS.escape(a.id)}"]`).outerHTML = tarjetaAmenaza(ev, a, calcAmenaza(ev, a), true);
+    cont.querySelector('#ranking').innerHTML = ranking();
+  };
+
+  cont.addEventListener('toggle', e => {
+    const d = e.target.closest?.('[data-am]');
+    if (d) d.open ? abiertas.add(d.dataset.am) : abiertas.delete(d.dataset.am);
+  }, true);
+
+  cont.addEventListener('click', async e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const card = b.closest('[data-am]');
+    const a = card && ev.mosler.find(x => x.id === card.dataset.am);
+    if (b.dataset.c && a) {
+      const n = +b.dataset.v;
+      if (b.dataset.c === 'V') {
+        const actual = calcAmenaza(ev, a).V;
+        if (actual === n && a.vManual) { a.V = null; a.vManual = false; } else { a.V = n; a.vManual = true; }
+      } else a[b.dataset.c] = a[b.dataset.c] === n ? null : n;
+      actualizar(a);
+      await guardar('eval', ev);
+    } else if (b.dataset.usarprop && a) {
+      a.vManual = false; a.V = null;
+      actualizar(a);
+      await guardar('eval', ev);
+    } else if (b.dataset.editar && a) {
+      const v = await dialogoAmenaza(ev, a);
+      if (!v) return;
+      a.nombre = v.nombre; a.areas = v.areas;
+      actualizar(a);
+      await guardar('eval', ev);
+    } else if (b.dataset.quitaram && a) {
+      if (!(await confirmar(`¿Quitar "${a.nombre}" de esta evaluación?`, 'Quitar', 'danger'))) return;
+      ev.mosler = ev.mosler.filter(x => x !== a);
+      await guardar('eval', ev);
+      pintar();
+    } else if (b.id === 'addam') {
+      const v = await dialogoAmenaza(ev);
+      if (!v) return;
+      const nueva = nuevaAmenaza(v.nombre, v.areas);
+      ev.mosler.push(nueva);
+      if (v.alBase) {
+        S.config.amenazas = [...(S.config.amenazas || AMENAZAS_BASE), { id: nueva.id, nombre: v.nombre, areas: v.areas }];
+        await guardar('config', S.config);
+      }
+      await guardar('eval', ev);
+      abiertas.add(nueva.id);
+      pintar();
+      cont.querySelector(`[data-am="${CSS.escape(nueva.id)}"]`)?.scrollIntoView({ block: 'start' });
+    }
+  });
+
+  cont.addEventListener('input', e => {
+    const card = e.target.closest('[data-am]');
+    if (!card || !e.target.dataset.notas) return;
+    ev.mosler.find(x => x.id === card.dataset.am).notas = e.target.value;
+    guardarLuego('eval', ev);
+  });
 }

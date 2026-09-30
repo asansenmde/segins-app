@@ -1,10 +1,10 @@
 // Service worker: la app funciona sin conexión. Cambia VERSION al publicar una actualización.
-const VERSION = 'segins-v4';
+const VERSION = 'segins-v5';
 const ARCHIVOS = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
   'js/app.js', 'js/db.js', 'js/state.js', 'js/ui.js', 'js/scoring.js', 'js/plantilla.js',
-  'js/fotos.js', 'js/informe.js', 'js/lib/docx.iife.js',
+  'js/fotos.js', 'js/informe.js', 'js/mosler.js', 'js/lib/docx.iife.js',
   'js/views/comun.js', 'js/views/inicio.js', 'js/views/agenda.js', 'js/views/evaluaciones.js',
   'js/views/instalaciones.js', 'js/views/cuestionario.js', 'js/views/ajustes.js',
 ];

@@ -4,7 +4,8 @@ import * as db from './db.js';
 import { calcEval, fmtNum } from './scoring.js';
 import { fmtFecha, hoyISO, MESES } from './ui.js';
 import { CAMPOS_CABECERA } from './views/comun.js';
-import { graficoSVG } from './views/evaluaciones.js';
+import { graficoSVG, graficoRiesgos, COLOR_CLASE } from './views/evaluaciones.js';
+import { CRITERIOS, CLASES, resumenMosler } from './mosler.js';
 
 function cargarDocx() {
   if (window.docx) return Promise.resolve(window.docx);
@@ -204,8 +205,58 @@ export async function generarInforme(ev, opt) {
     if (opt.fotos && r.fotos?.length) hijos.push(...(await bloqueFotos(r.fotos)));
   }
 
-  // ---- 6. Detalle completo ----
   let sec = 6;
+
+  // ---- Análisis de riesgos (Mosler) ----
+  const mos = resumenMosler(ev);
+  if (opt.mosler && mos.filas.length) {
+    hijos.push(h1(`${sec++}. ANÁLISIS DE RIESGOS (MÉTODO MOSLER)`));
+    hijos.push(p('Evolución del riesgo ER = C × Pb, con C = F×S + P×E y Pb = A×V. Cada criterio se valora de 1 a 5. La vulnerabilidad (V) se propone a partir del resultado del cuestionario en las áreas relacionadas con cada amenaza.', { size: 18, after: 120 }));
+    const hex = (c) => c.replace('#', '');
+    const ordenadas = [...mos.completas, ...mos.filas.filter(f => !f.r.completo)];
+    hijos.push(tabla([
+      cabeceraBlanca(['Amenaza', 'F', 'S', 'P', 'E', 'A', 'V', 'C', 'Pb', 'ER', 'Clase'], [27, 5, 5, 5, 5, 5, 6, 7, 7, 10, 18]),
+      ...ordenadas.map(({ a, r }) => new TableRow({
+        children: [
+          celda(a.nombre, { size: 16, bold: true }),
+          ...['F', 'S', 'P', 'E', 'A', 'V'].map(k => celda(r[k] == null ? '—' : String(r[k]), { size: 16, align: AlignmentType.CENTER, fill: k === 'V' && !a.vManual && r.V != null ? 'EEF1EA' : undefined })),
+          celda(r.C == null ? '—' : String(r.C), { size: 16, align: AlignmentType.CENTER }),
+          celda(r.Pb == null ? '—' : String(r.Pb), { size: 16, align: AlignmentType.CENTER }),
+          celda(r.ER == null ? '—' : String(r.ER), { size: 16, bold: true, align: AlignmentType.CENTER }),
+          r.completo
+            ? new TableCell({
+              children: [new Paragraph({ children: [t(r.clase.nombre, { size: 16, bold: true, color: 'FFFFFF' })] })],
+              shading: { type: ShadingType.CLEAR, color: 'auto', fill: hex(COLOR_CLASE[r.clase.nombre]) },
+              margins: { top: 40, bottom: 40, left: 80, right: 80 },
+            })
+            : celda('Sin completar', { size: 15 }),
+        ],
+      })),
+    ]));
+    hijos.push(p('Fondo verde claro en V: valor propuesto por el cuestionario. Sin fondo: ajustado por el evaluador.', { size: 15, italics: true, before: 60 }));
+    if (mos.completas.length) {
+      const gr = await svgAPng(graficoRiesgos(mos.completas, { ancho: 640 }));
+      hijos.push(new Paragraph({
+        alignment: AlignmentType.CENTER, spacing: { before: 160 },
+        children: [new ImageRun({ type: 'png', data: gr.data, transformation: { width: 600, height: Math.round(600 * gr.h / gr.w) } })],
+      }));
+    }
+    const conNotas = ordenadas.filter(({ a }) => a.notas?.trim());
+    if (conNotas.length) {
+      hijos.push(h2('Justificación y medidas propuestas'));
+      for (const { a, r } of conNotas) {
+        hijos.push(p([t(`${a.nombre}${r.completo ? ` (ER ${r.ER}, ${r.clase.nombre})` : ''}: `, { bold: true, size: 18 }), t(a.notas, { size: 18 })], { after: 80 }));
+      }
+    }
+    hijos.push(h2('Escala de valoración'));
+    hijos.push(tabla([
+      cabeceraBlanca(['Criterio', '1', '2', '3', '4', '5'], [20, 16, 16, 16, 16, 16]),
+      ...CRITERIOS.map(c => new TableRow({ children: [celda(`${c.k} · ${c.nombre}`, { size: 15, bold: true }), ...c.escala.map(e => celda(e, { size: 15 }))] })),
+      new TableRow({ children: [celda('ER · Clase', { size: 15, bold: true }), ...CLASES.map((c, i) => celda(`${i ? CLASES[i - 1].max + 1 : 2}–${c.max} ${c.nombre}`, { size: 15 }))] }),
+    ]));
+  }
+
+  // ---- Detalle completo ----
   if (opt.detalle) {
     hijos.push(h1(`${sec++}. DETALLE DEL CUESTIONARIO`));
     for (const a of ev.areas) {

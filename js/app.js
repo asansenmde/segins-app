@@ -19,7 +19,7 @@ const RUTAS = [
   [/^agenda$/, vAgenda.agenda],
   [/^evaluaciones$/, vEval.lista],
   [/^eval\/([^/]+)\/area\/([^/]+)$/, vEval.area],
-  [/^eval\/([^/]+)(?:\/(datos|areas|resultados|informe))?$/, vEval.detalle],
+  [/^eval\/([^/]+)(?:\/(datos|areas|resultados|riesgos|informe))?$/, vEval.detalle],
   [/^instalaciones$/, vInst.lista],
   [/^inst\/([^/]+)$/, vInst.detalle],
   [/^mas$/, vAjustes.mas],
