@@ -3,6 +3,7 @@ import * as db from './db.js';
 import { S, cargar, vaciar, volcarPendientes } from './state.js';
 import { esc, toast } from './ui.js';
 import { limpiarCache } from './fotos.js';
+import { AUTOR } from './autor.js';
 import * as vInicio from './views/inicio.js';
 import * as vAgenda from './views/agenda.js';
 import * as vEval from './views/evaluaciones.js';
@@ -85,6 +86,7 @@ async function pantallaPIN() {
         <button class="btn primary big" type="submit">${nuevo ? 'Crear PIN' : 'Desbloquear'}</button>
         <p class="err" id="pinerr"></p>
       </form>
+      <p class="autor small muted">Desarrollada por el ${esc(AUTOR)}</p>
     </div>`;
   const f = document.getElementById('pinform');
   const err = document.getElementById('pinerr');

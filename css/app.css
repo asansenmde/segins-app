@@ -275,3 +275,7 @@ ul.plain a { color: inherit; text-decoration: none; }
 .tabs { overflow-x: auto; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }
 .tabs a { flex: 1 0 auto; padding-inline: 10px; white-space: nowrap; }
+
+/* Autoría */
+.lock .autor { margin-top: 28px; text-wrap: balance; }
+.acerca p:last-child { margin-bottom: 0; }

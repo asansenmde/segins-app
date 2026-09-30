@@ -3,6 +3,7 @@ import * as db from '../db.js';
 import { S, guardarLuego, cargar, volcarPendientes } from '../state.js';
 import { esc, hoyISO, modal, confirmar, toast, descargar } from '../ui.js';
 import { limpiarCache } from '../fotos.js';
+import { AUTOR, AVISO_DERECHOS } from '../autor.js';
 
 export function mas(main) {
   main.innerHTML = `
@@ -15,6 +16,12 @@ export function mas(main) {
       <p><strong>Android (Chrome):</strong> menú ⋮ → <em>Instalar aplicación</em> o <em>Añadir a pantalla de inicio</em>.</p>
       <p><strong>iPhone (Safari):</strong> botón Compartir → <em>Añadir a pantalla de inicio</em>.</p>
       <p class="muted">Una vez instalada funciona sin conexión. Los datos se guardan cifrados solo en este dispositivo.</p>
+    </div>
+    <div class="card acerca">
+      <h3>Acerca de</h3>
+      <p><strong>SEGINS · Evaluación de seguridad de instalaciones</strong></p>
+      <p>Desarrollada por el <strong>${esc(AUTOR)}</strong>.</p>
+      <p class="muted small">${esc(AVISO_DERECHOS)}</p>
     </div>`;
   return { titulo: 'Más' };
 }

@@ -1,5 +1,7 @@
 # SEGINS · Evaluación de seguridad de instalaciones
 
+**Desarrollada por el Comandante Alfredo Sánchez Sender.** © 2026. Todos los derechos reservados: ver [LICENSE](LICENSE).
+
 App web instalable (PWA) para hacer evaluaciones SEGINS desde el móvil, sin conexión,
 con fotos marcadas, agenda e informe en Word.
 
