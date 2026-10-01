@@ -8,8 +8,8 @@ sobre la lista **«Gestor de Tareas»** del sitio `/et/SUIGESUR/JSUIGE`, con la 
 Los datos no salen del servidor: la página no carga nada de internet ni envía nada fuera.
 
 - `tareas-nlt-colabora.html`: la app. Se sube a una biblioteca del sitio y se abre desde allí.
-  Lee la lista con la API REST y **solo escribe para dar de alta asuntos nuevos**; no modifica ni borra
-  los existentes (para eso, «Editar en Colabora» abre el formulario estándar de SharePoint).
+  Lee la lista con la API REST y escribe solo para **dar de alta, modificar y comentar** asuntos, con los
+  permisos del usuario (403 = sin permiso). **Nunca borra.**
 - **Alta de asuntos**: botón «＋ Nuevo asunto» o el campo rápido de *Mis NLT*, que entiende fechas escritas
   («informe de visita antes del viernes urgente» → NLT y prioridad Alta). El formulario rellena asunto, NLT,
   inicio, estado, prioridad, negociado(s), responsable (por defecto el usuario), personal implicado,
@@ -17,6 +17,15 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   `/_api/contextinfo`). También copia `NombreResponsable`, `correoResponsable`, `NombreImplicados` y
   `correoimplicados`. Se aplican los permisos de la lista (403 = sin permiso de añadir) y se ejecutan sus
   flujos o alertas como con el formulario normal. Enlace alternativo a `NewForm.aspx`.
+- **Modificar un asunto** («✎ Modificar» en la ficha): el mismo formulario del alta, relleno. Solo se envían los
+  campos cambiados (`MERGE` a `items(id)`). Antes de guardar se relee el asunto: si otra persona lo ha
+  modificado desde que se cargó la lista, no se guarda y se avisa (y `IF-MATCH` con su etag evita pisarlo).
+  Opcionalmente manda el correo de asignación a las personas añadidas. Incluye «Fecha finalización».
+- **Comentarios** (ficha del asunto): se guardan en la columna elegida en *Ajustes* (Observaciones o Registro de
+  actividad; por defecto la que tenga «Anexar cambios al texto existente»). Si la columna anexa, cada comentario
+  es una entrada nueva y el historial (autor y fecha) se lee de las versiones del elemento con
+  `/_vti_bin/Lists.asmx` `GetVersionCollection`, como en el formulario de Colabora. Si no anexa, el comentario se
+  escribe al principio del texto con fecha y autor.
 - **Buscar personas** (responsable y personal implicado, varias personas): sugiere al escribir, primero entre los
   usuarios del sitio y después en el directorio, como el selector de personas de SharePoint
   (`clientPeoplePickerSearchUser`). Al elegir a alguien del directorio se le da de alta en el sitio con

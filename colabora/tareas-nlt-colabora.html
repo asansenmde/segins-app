@@ -233,10 +233,14 @@
           " or (InternalName eq 'NegociadosImplicados') or (InternalName eq 'DescripcionDelAsunto') or (InternalName eq 'Comentarios') or (InternalName eq 'ControlExpediente') or (InternalName eq 'FechaVencimiento')")
           .then(function (d) { lista(d.value).forEach(function (f) {
             campos[f.InternalName] = lista(f.Choices).length ? lista(f.Choices) : (f.Choices || []);
-            infoCampo[f.InternalName] = { rico: !!f.RichText, obligatorio: !!f.Required, tipo: f.TypeAsString || '' };
+            infoCampo[f.InternalName] = Object.assign(infoCampo[f.InternalName] || {}, { rico: !!f.RichText, obligatorio: !!f.Required, tipo: f.TypeAsString || '' });
           }); })
           .catch(function () { /* las opciones se deducen de los datos */ }),
-      ]);
+      ].concat(['Comentarios', 'REGISTRODEACTIVIDAD'].map(function (k) {
+        return api(urlLista() + "/fields/getbyinternalnameortitle('" + k + "')").then(function (f) {
+          infoCampo[k] = Object.assign(infoCampo[k] || {}, { anexar: !!f.AppendOnly, rico: !!f.RichText, existe: true });
+        }).catch(function () { /* columna inexistente o sin permiso */ });
+      })));
     }).then(function () {
       var todos = [];
       var pagina = function (url) {
@@ -804,22 +808,106 @@
         return digest;
       });
   }
-  function enviarSP(url, cuerpo, sinPermiso) {
+  function enviarSP(url, cuerpo, sinPermiso, extra) {
     return obtenerDigest().then(function (dg) {
       return fetch(url, { method: 'POST', credentials: 'same-origin', body: JSON.stringify(cuerpo),
-        headers: { Accept: 'application/json;odata=verbose', 'Content-Type': 'application/json;odata=verbose', 'X-RequestDigest': dg } });
+        headers: Object.assign({ Accept: 'application/json;odata=verbose', 'Content-Type': 'application/json;odata=verbose', 'X-RequestDigest': dg }, extra || {}) });
     }).then(function (r) {
       return r.text().then(function (txt) {
         var j = null; try { j = JSON.parse(txt); } catch (e) { /* respuesta sin JSON */ }
         if (!r.ok) {
           var m = j && ((j.error && j.error.message && (j.error.message.value || j.error.message)) || (j['odata.error'] && j['odata.error'].message && j['odata.error'].message.value));
-          throw new Error(r.status === 403 ? sinPermiso : (m || 'HTTP ' + r.status));
+          throw new Error(r.status === 403 ? sinPermiso : r.status === 412 ? CONFLICTO : (m || 'HTTP ' + r.status));
         }
         return j && (j.d || j);
       });
     });
   }
   var crearElemento = function (cuerpo) { return enviarSP(urlLista() + '/items', cuerpo, 'No tienes permiso para añadir elementos a la lista'); };
+  var CONFLICTO = 'Otra persona ha modificado este asunto mientras lo tenías abierto. Pulsa Actualizar, revisa sus cambios y repite el tuyo.';
+  // Lee un asunto recién pedido al servidor, con su etag (versión) para no pisar cambios de otros
+  function leerElemento(id, sel) {
+    return fetch(urlLista() + '/items(' + id + ')?$select=' + ['Id', 'Modified'].concat(sel || []).join(','), { credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status === 404 ? 'El asunto ya no existe en Colabora' : 'HTTP ' + r.status); return r.json(); })
+      .then(function (d) { d = d.d || d; return { etag: (d.__metadata && d.__metadata.etag) || '*', datos: d }; });
+  }
+  var mismaFecha = function (a, b) { return new Date(a).getTime() === new Date(b).getTime(); };
+  // Modifica solo los campos de «cuerpo», si nadie lo ha cambiado desde que se cargó la lista
+  function modificarElemento(t, cuerpo) {
+    return leerElemento(t.id).then(function (x) {
+      if (t.modificada && x.datos.Modified && !mismaFecha(t.modificada, x.datos.Modified)) throw new Error(CONFLICTO);
+      return enviarSP(urlLista() + '/items(' + t.id + ')', cuerpo, 'No tienes permiso para modificar este asunto', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': x.etag });
+    });
+  }
+
+  // ---------- Comentarios ----------
+  // Se guardan en la columna de comentarios de la lista (Observaciones o Registro de actividad, se elige en Ajustes).
+  // Si la columna «añade cambios al texto existente» (como en el formulario de Colabora), cada comentario es una
+  // entrada nueva con su autor y fecha; si no, se escribe al principio del texto con fecha y autor.
+  var NOMBRE_CAMPO = { Comentarios: 'Observaciones', REGISTRODEACTIVIDAD: 'Registro de actividad' };
+  function campoComentarios() {
+    if (pref.campoComentarios && NOMBRE_CAMPO[pref.campoComentarios]) return pref.campoComentarios;
+    return ['Comentarios', 'REGISTRODEACTIVIDAD'].find(function (k) { return infoCampo[k] && infoCampo[k].anexar; }) || 'Comentarios';
+  }
+  // Columnas de texto simple: el contenido se muestra tal cual; las enriquecidas, sin formato
+  var valorTexto = function (k, v) { return infoCampo[k] && infoCampo[k].rico === false ? String(v || '').trim() : texto(v || ''); };
+  var anexa = function (k) { return !!(infoCampo[k] && infoCampo[k].anexar); };
+  // Historial de una columna «solo anexar»: versiones del elemento (servicio Lists.asmx, disponible desde SharePoint 2010)
+  function historialComentarios(t, campo) {
+    var xml = '<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body>' +
+      '<GetVersionCollection xmlns="http://schemas.microsoft.com/sharepoint/soap/"><strlistID>' + esc(listaInfo.Id || pref.lista) + '</strlistID>' +
+      '<strlistItemID>' + t.id + '</strlistItemID><strFieldName>' + campo + '</strFieldName></GetVersionCollection></soap:Body></soap:Envelope>';
+    return fetch(web.url + '/_vti_bin/Lists.asmx', { method: 'POST', credentials: 'same-origin', body: xml,
+      headers: { 'Content-Type': 'text/xml; charset=utf-8', SOAPAction: 'http://schemas.microsoft.com/sharepoint/soap/GetVersionCollection' } })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+      .then(function (txt) {
+        var doc = new DOMParser().parseFromString(txt, 'text/xml');
+        var vs = Array.from(doc.getElementsByTagName('Version'));
+        var res = [];
+        vs.forEach(function (v) {
+          var val = valorTexto(campo, v.getAttribute(campo));
+          if (!val) return;
+          var ed = String(v.getAttribute('Editor') || '').split(';#')[1] || '';
+          res.push({ texto: val, autor: ed.split(',#')[0], fecha: v.getAttribute('Modified') || '' });
+        });
+        // Sin repetir entradas consecutivas iguales
+        return res.filter(function (c, i) { return !i || c.texto !== res[i - 1].texto; });
+      });
+  }
+  var fHora = function (d) { var x = new Date(d); return isNaN(x) ? '' : x.toLocaleDateString('es-ES') + ' ' + x.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); };
+  function pintarComentarios(t) {
+    var caja = $('#comLista');
+    if (!caja) return;
+    var campo = campoComentarios();
+    var actual = campo === 'Comentarios' ? t.observaciones : t.registro;
+    var simple = function () { caja.innerHTML = actual ? '<div class="campo"><div>' + esc(actual) + '</div></div>' : '<p class="small muted">Sin comentarios todavía.</p>'; };
+    if (!anexa(campo)) return simple();
+    caja.innerHTML = '<p class="small muted">Cargando comentarios…</p>';
+    historialComentarios(t, campo).then(function (cs) {
+      if (!$('#comLista') || $('#comLista').dataset.id !== String(t.id)) return;
+      caja.innerHTML = cs.length ? cs.map(function (c) {
+        return '<div class="campo"><b>' + esc(c.autor || '—') + ' · ' + esc(fHora(c.fecha)) + '</b><div>' + esc(c.texto) + '</div></div>';
+      }).join('') : '<p class="small muted">Sin comentarios todavía.</p>';
+    }).catch(simple);
+  }
+  function anadirComentario(t, txt) {
+    var campo = campoComentarios();
+    var quien = yo ? yo.Title : '';
+    var cuerpo = { __metadata: { type: listaInfo.ListItemEntityTypeFullName } };
+    if (anexa(campo)) {
+      cuerpo[campo] = comoTexto(campo, txt);
+      return leerElemento(t.id).then(function (x) {
+        return enviarSP(urlLista() + '/items(' + t.id + ')', cuerpo, 'No tienes permiso para comentar en este asunto', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': x.etag });
+      });
+    }
+    // Columna normal: se lee el texto actual justo antes y se añade el comentario al principio
+    return leerElemento(t.id, [campo]).then(function (x) {
+      var previo = valorTexto(campo, x.datos[campo]);
+      var nuevo = fHora(new Date()) + (quien ? ' · ' + quien : '') + ':\n' + txt + (previo ? '\n\n' + previo : '');
+      cuerpo[campo] = comoTexto(campo, nuevo);
+      return enviarSP(urlLista() + '/items(' + t.id + ')', cuerpo, 'No tienes permiso para comentar en este asunto', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': x.etag });
+    });
+  }
 
   // ---------- Correo de asignación ----------
   // Lo envía el propio Colabora con su correo saliente (SP.Utilities.Utility.SendEmail): no pasa por internet.
@@ -850,9 +938,9 @@
       To: { results: d.para }, CC: { results: d.cc }, Subject: c.asunto, Body: c.html } }, 'Colabora no te deja enviar correos desde la página');
   }
   // Envía el aviso de asignación y lo cuenta en el detalle del asunto (#correoAsig)
-  function avisarAsignacion(t) {
+  function avisarAsignacion(t, solo) {
     var caja = function () { return $('#correoAsig'); };
-    var d = destinatarios(t), c = datosAsignacion(t);
+    var d = solo || destinatarios(t), c = datosAsignacion(t);
     if (!d.para.length) { if (caja()) caja().innerHTML = '<span class="badge warn">Sin correo del responsable ni de los implicados: avisa en persona</span>'; return Promise.resolve(); }
     if (caja()) caja().innerHTML = '<span class="small muted">Enviando correo de asignación…</span>';
     return enviarCorreoColabora(d, c).then(function () {
@@ -950,39 +1038,50 @@
   var comoTexto = function (campo, v) { return infoCampo[campo] && infoCampo[campo].rico ? esc(v).replace(/\n/g, '<br>') : v; };
   var AREA = 'style="width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:10px"';
 
-  function formularioNuevo(texto) {
-    var r = texto ? interpretar(texto) : { titulo: '', nlt: '', prioridad: '' };
+  // Alta (t vacío) o modificación (t = asunto existente). Al modificar solo se envían los campos cambiados.
+  function formularioNuevo(texto, t) {
+    var r = !t && texto ? interpretar(texto) : { titulo: '', nlt: '', prioridad: '' };
+    var con = function (lst, v) { return v && lst.indexOf(v) < 0 ? lst.concat(v) : lst; };
     var ests = valores('ESTADO', 'estado'), prios = valores('Prioridad', 'prioridad');
-    var estIni = ests.find(function (e) { return claseEstado(e) === 'pendiente'; }) || ests[0] || '';
-    var prioIni = r.prioridad ? (prios.find(function (p) { return clasePrio(p) === r.prioridad; }) || '') : '';
+    var estIni = t ? t.estado : ests.find(function (e) { return claseEstado(e) === 'pendiente'; }) || ests[0] || '';
+    var prioIni = t ? t.prioridad : r.prioridad ? (prios.find(function (p) { return clasePrio(p) === r.prioridad; }) || '') : '';
     var negs = valores('NegociadoAsignado', 'negociado').sort();
     var negsImpl = campos.NegociadosImplicados && campos.NegociadosImplicados.length ? campos.NegociadosImplicados : negs;
+    if (t) negsImpl = t.negociados.reduce(function (a, n) { return con(a, n); }, negsImpl);
     var base = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl : '';
     var obligNlt = infoCampo.FechaVencimiento && infoCampo.FechaVencimiento.obligatorio;
+    var campoCom = campoComentarios();
+    var conObs = !t || campoCom !== 'Comentarios';
     var dlg = $('#dlg');
-    dlg.innerHTML = '<div class="dh"><h2>Nuevo asunto en «' + esc(pref.lista) + '»</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db" id="fNuevo">' +
-      '<label class="lbl">Asunto *</label><input name="Title" value="' + esc(r.titulo || texto || '') + '">' +
+    dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Modificar asunto' : 'Nuevo asunto en «' + esc(pref.lista) + '»') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db" id="fNuevo">' +
+      '<label class="lbl">Asunto *</label><input name="Title" value="' + esc(t ? t.asunto : r.titulo || texto || '') + '">' +
       '<p class="small muted" id="nDetect"></p>' +
-      '<div class="grid"><div><label class="lbl">Fecha vencimiento (NLT)' + (obligNlt ? ' *' : '') + '</label><input type="date" name="nlt" value="' + (r.nlt || '') + '"></div>' +
-      '<div><label class="lbl">Fecha de inicio</label><input type="date" name="inicio" value="' + hoy() + '"></div>' +
-      '<div><label class="lbl">Estado</label><select name="ESTADO">' + opciones(ests, estIni, '—') + '</select></div>' +
-      '<div><label class="lbl">Prioridad</label><select name="Prioridad">' + opciones(prios, prioIni, '—') + '</select></div>' +
-      '<div><label class="lbl">Negociado asignado</label><select name="NegociadoAsignado">' + opciones(negs, pref.negociado, '—') + '</select></div>' +
-      '<div><label class="lbl">Responsable de la información</label><input name="resp" value="' + esc(yo ? yo.Title : '') + '" placeholder="Escribe nombre o apellido"><div class="sugs" id="nRespSug" hidden></div></div></div>' +
+      '<div class="grid"><div><label class="lbl">Fecha vencimiento (NLT)' + (obligNlt ? ' *' : '') + '</label><input type="date" name="nlt" value="' + ((t ? t.nlt : r.nlt) || '') + '"></div>' +
+      '<div><label class="lbl">Fecha de inicio</label><input type="date" name="inicio" value="' + (t ? t.inicio : hoy()) + '"></div>' +
+      '<div><label class="lbl">Estado</label><select name="ESTADO">' + opciones(con(ests, estIni), estIni, '—') + '</select></div>' +
+      '<div><label class="lbl">Prioridad</label><select name="Prioridad">' + opciones(con(prios, prioIni), prioIni, '—') + '</select></div>' +
+      '<div><label class="lbl">Negociado asignado</label><select name="NegociadoAsignado">' + opciones(con(negs, t ? t.negociado : ''), t ? t.negociado : pref.negociado, '—') + '</select></div>' +
+      '<div><label class="lbl">Responsable de la información</label><input name="resp" value="' + esc(t ? t.responsable : yo ? yo.Title : '') + '" placeholder="Escribe nombre o apellido"><div class="sugs" id="nRespSug" hidden></div></div>' +
+      (t ? '<div><label class="lbl">Fecha finalización</label><input type="date" name="fin" value="' + (t.fin || '') + '"></div>' : '') + '</div>' +
       '<label class="lbl">Personal implicado</label><div id="nImpl" class="meta"></div>' +
       '<div style="display:flex;gap:6px;margin-top:4px"><input id="nImplTxt" placeholder="Escribe nombre o apellido y elige (puedes añadir varias)"><button type="button" id="nImplAdd">＋</button></div>' +
       '<div class="sugs" id="nImplSug" hidden></div>' +
-      (negsImpl.length ? '<label class="lbl">Negociados implicados</label><div>' + negsImpl.map(function (n) { return '<label class="check"><input type="checkbox" name="negImpl" value="' + esc(n) + '"> ' + esc(n) + '</label>'; }).join('') + '</div>' : '') +
-      '<label class="lbl">Control expediente</label><input name="ControlExpediente">' +
-      '<label class="lbl">Descripción del asunto</label><textarea name="DescripcionDelAsunto" rows="4" ' + AREA + '></textarea>' +
-      '<label class="lbl">Observaciones</label><textarea name="Comentarios" rows="2" ' + AREA + '></textarea>' +
-      '<label class="check"><input type="checkbox" id="nCorreo"' + (pref.correoAlta !== false ? ' checked' : '') + '> Enviar correo de asignación al responsable y al personal implicado</label>' +
-      '<p class="small muted">Se creará en la lista compartida de Colabora, igual que si lo dieras de alta allí: los avisos o flujos automáticos de la lista se ejecutarán como siempre.</p>' +
+      (negsImpl.length ? '<label class="lbl">Negociados implicados</label><div>' + negsImpl.map(function (n) {
+        return '<label class="check"><input type="checkbox" name="negImpl" value="' + esc(n) + '"' + (t && t.negociados.indexOf(n) >= 0 ? ' checked' : '') + '> ' + esc(n) + '</label>';
+      }).join('') + '</div>' : '') +
+      '<label class="lbl">Control expediente</label><input name="ControlExpediente" value="' + esc(t ? t.expediente : '') + '">' +
+      '<label class="lbl">Descripción del asunto</label><textarea name="DescripcionDelAsunto" rows="4" ' + AREA + '>' + esc(t ? t.descripcion : '') + '</textarea>' +
+      (conObs ? '<label class="lbl">Observaciones</label><textarea name="Comentarios" rows="2" ' + AREA + '>' + esc(t ? t.observaciones : '') + '</textarea>' : '') +
+      '<label class="check"><input type="checkbox" id="nCorreo"' + (pref.correoAlta !== false ? ' checked' : '') + '> ' +
+        (t ? 'Enviar correo de asignación a las personas que añada' : 'Enviar correo de asignación al responsable y al personal implicado') + '</label>' +
+      '<p class="small muted">' + (t ? 'Se guardan en Colabora solo los datos que cambies; los comentarios se añaden desde la ficha del asunto.'
+        : 'Se creará en la lista compartida de Colabora, igual que si lo dieras de alta allí: los avisos o flujos automáticos de la lista se ejecutarán como siempre.') + '</p>' +
       '<div class="error" id="nError" hidden></div>' +
-      '<div class="acciones"><button type="button" data-cerrar>Cancelar</button><button type="button" class="btn prim" id="nCrear">Crear en Colabora</button></div>' +
-      (base ? '<p class="small"><a href="' + esc(base + '/NewForm.aspx?Source=' + encodeURIComponent(location.href)) + '">Prefiero el formulario de Colabora</a></p>' : '') + '</div>';
+      '<div class="acciones"><button type="button" data-cerrar>Cancelar</button><button type="button" class="btn prim" id="nCrear">' + (t ? 'Guardar cambios' : 'Crear en Colabora') + '</button></div>' +
+      (base ? '<p class="small"><a href="' + esc(base + (t ? '/EditForm.aspx?ID=' + t.id + '&' : '/NewForm.aspx?') + 'Source=' + encodeURIComponent(location.href)) + '">Prefiero el formulario de Colabora</a></p>' : '') + '</div>';
     dlg.showModal();
-    var implicados = [];
+    var porId = function (id) { return t && t.usuarios.find(function (u) { return u.Id === id; }); };
+    var implicados = t ? t.implicadosIds.map(porId).filter(Boolean) : [];
     var err = function (m) { $('#nError').hidden = false; $('#nError').textContent = m; };
     var pintarImpl = function () {
       $('#nImpl').innerHTML = implicados.map(function (u, i) { return '<span class="chip">' + esc(u.Title) + ' <a href="#" data-quitarimpl="' + i + '">✕</a></span>'; }).join('') || '<span class="small muted">Nadie</span>';
@@ -990,7 +1089,7 @@
     pintarImpl();
     cargarUsuarios();
     var unoSolo = infoCampo.PersonalImplicado0 && infoCampo.PersonalImplicado0.tipo === 'User';
-    var respElegido = null;
+    var respElegido = t && t.respId ? porId(t.respId) || null : null;
     var elegirResp = selectorPersona($('#fNuevo [name=resp]'), $('#nRespSug'), function (u, e) {
       if (!u) return err('No se pudo elegir a esa persona: ' + ((e && e.message) || e));
       respElegido = u; $('#fNuevo [name=resp]').value = u.Title; $('#nError').hidden = true;
@@ -1012,58 +1111,78 @@
     $('#nImplAdd').onclick = anadirImpl;
     $('#nImplTxt').onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); anadirImpl(); } };
     $('#nImpl').onclick = function (e) { var q = e.target.closest('[data-quitarimpl]'); if (q) { e.preventDefault(); implicados.splice(Number(q.dataset.quitarimpl), 1); pintarImpl(); } };
-    // Fechas escritas en el asunto («antes del viernes»): se usan como NLT si no se elige otra
+    // Fechas escritas en el asunto («antes del viernes»): se usan como NLT si no se elige otra (solo en el alta)
     var tit = $('#fNuevo [name=Title]');
-    tit.oninput = function () {
+    if (!t) tit.oninput = function () {
       var x = interpretar(tit.value);
       $('#nDetect').textContent = x.nlt && !$('#fNuevo [name=nlt]').value ? 'Fecha detectada en el texto: ' + fLarga(x.nlt) + ' (se usará como NLT)' : '';
     };
     $('#nCrear').onclick = function () {
       var f = $('#fNuevo');
-      var v = function (n) { return (f.querySelector('[name=' + n + ']').value || '').trim(); };
-      var x = interpretar(v('Title'));
+      var v = function (n) { var el = f.querySelector('[name=' + n + ']'); return el ? (el.value || '').trim() : ''; };
+      var x = t ? { titulo: '', nlt: '' } : interpretar(v('Title'));
       var nlt = v('nlt') || x.nlt;
-      var asunto = v('nlt') ? v('Title') : (x.titulo || v('Title'));
+      var asunto = t || v('nlt') ? v('Title') : (x.titulo || v('Title'));
       if (!asunto) return err('Escribe el asunto.');
       if (!nlt && obligNlt) return err('La fecha de vencimiento es obligatoria en esta lista.');
       var resp = !v('resp') ? null : respElegido && respElegido.Title === v('resp') ? respElegido : usuarioPorNombre(v('resp'));
       if (v('resp') && !resp) return err('No encuentro al responsable «' + v('resp') + '»: escribe al menos 3 letras del nombre o apellido y elígelo de la lista.');
       if (!listaInfo || !listaInfo.ListItemEntityTypeFullName) return err('No he podido leer el tipo de la lista; pulsa Actualizar y vuelve a intentarlo.');
-      var cuerpo = { __metadata: { type: listaInfo.ListItemEntityTypeFullName }, Title: asunto };
-      var fecha = function (s) { return aFecha(s).toISOString(); };
-      if (nlt) cuerpo.FechaVencimiento = fecha(nlt);
-      if (v('inicio')) cuerpo.FechaDeInicio = fecha(v('inicio'));
-      ['ESTADO', 'Prioridad', 'NegociadoAsignado'].forEach(function (k) { if (v(k)) cuerpo[k] = v(k); });
+      var cuerpo = { __metadata: { type: listaInfo.ListItemEntityTypeFullName } };
+      // En el alta se ponen los campos con valor; al modificar, solo los que han cambiado (vacío = borrar)
+      var poner = function (campo, nuevo, antes, valor) {
+        if (!t) { if (nuevo) cuerpo[campo] = valor === undefined ? nuevo : valor; return; }
+        if (String(nuevo || '') !== String(antes || '')) cuerpo[campo] = nuevo ? (valor === undefined ? nuevo : valor) : null;
+      };
+      var fecha = function (s) { return s ? aFecha(s).toISOString() : null; };
+      poner('Title', asunto, t && t.asunto);
+      poner('FechaVencimiento', nlt, t && t.nlt, fecha(nlt));
+      poner('FechaDeInicio', v('inicio'), t && t.inicio, fecha(v('inicio')));
+      if (t) poner('fECHAFINALIZACION', v('fin'), t.fin, fecha(v('fin')));
+      poner('ESTADO', v('ESTADO'), t && t.estado);
+      poner('Prioridad', v('Prioridad'), t && t.prioridad);
+      poner('NegociadoAsignado', v('NegociadoAsignado'), t && t.negociado);
       var negImpl = Array.from(f.querySelectorAll('[name=negImpl]:checked')).map(function (c) { return c.value; });
-      if (negImpl.length) cuerpo.NegociadosImplicados = { __metadata: { type: 'Collection(Edm.String)' }, results: negImpl };
-      ['ControlExpediente', 'DescripcionDelAsunto', 'Comentarios'].forEach(function (k) { if (v(k)) cuerpo[k] = comoTexto(k, v(k)); });
-      if (resp) {
-        cuerpo.ResponsableDeLaInformacionId = resp.Id;
-        cuerpo.NombreResponsable = resp.Title;
-        if (resp.Email) cuerpo.correoResponsable = resp.Email;
+      if (t ? negImpl.join('|') !== t.negociados.join('|') : negImpl.length) cuerpo.NegociadosImplicados = { __metadata: { type: 'Collection(Edm.String)' }, results: negImpl };
+      poner('ControlExpediente', v('ControlExpediente'), t && t.expediente, comoTexto('ControlExpediente', v('ControlExpediente')));
+      poner('DescripcionDelAsunto', v('DescripcionDelAsunto'), t && t.descripcion, comoTexto('DescripcionDelAsunto', v('DescripcionDelAsunto')));
+      if (conObs) poner('Comentarios', v('Comentarios'), t && t.observaciones, comoTexto('Comentarios', v('Comentarios')));
+      if (!t ? resp : (resp ? resp.Id : null) !== (t.respId || null)) {
+        cuerpo.ResponsableDeLaInformacionId = resp ? resp.Id : null;
+        cuerpo.NombreResponsable = resp ? resp.Title : '';
+        if (resp && resp.Email) cuerpo.correoResponsable = resp.Email; else if (t) cuerpo.correoResponsable = '';
       }
-      if (implicados.length) {
-        cuerpo.PersonalImplicado0Id = unoSolo ? implicados[0].Id : { results: implicados.map(function (u) { return u.Id; }) };
+      var idsImpl = implicados.map(function (u) { return u.Id; });
+      if (!t ? implicados.length : idsImpl.join('|') !== t.implicadosIds.join('|')) {
+        cuerpo.PersonalImplicado0Id = unoSolo ? (idsImpl[0] || null) : { results: idsImpl };
         cuerpo.NombreImplicados = implicados.map(function (u) { return u.Title; }).join('; ');
-        var mails = implicados.map(function (u) { return u.Email; }).filter(Boolean);
-        if (mails.length) cuerpo.correoimplicados = mails.join('; ');
+        cuerpo.correoimplicados = implicados.map(function (u) { return u.Email; }).filter(Boolean).join('; ');
+        if (!t && !cuerpo.correoimplicados) delete cuerpo.correoimplicados;
       }
+      // Personas nuevas (para el correo al modificar)
+      var antes = t ? t.correoResp.concat(t.correosImpl).map(function (c) { return c.toLowerCase(); }) : [];
+      var nuevas = (resp && resp.Email ? [resp.Email] : []).concat(implicados.map(function (u) { return u.Email; }))
+        .filter(function (c) { return c && antes.indexOf(c.toLowerCase()) < 0; }).filter(unico);
       var conCorreo = $('#nCorreo').checked;
       if (pref.correoAlta !== conCorreo) { pref.correoAlta = conCorreo; guardarPref(); }
-      $('#nCrear').disabled = true; $('#nCrear').textContent = 'Creando…';
-      crearElemento(cuerpo).then(function (nuevo) {
+      if (t && Object.keys(cuerpo).length === 1) { $('#dlg').close(); abrir(t.id); return; }
+      $('#nCrear').disabled = true; $('#nCrear').textContent = t ? 'Guardando…' : 'Creando…';
+      (t ? modificarElemento(t, cuerpo) : crearElemento(cuerpo)).then(function (nuevo) {
+        var id = t ? t.id : nuevo && nuevo.Id;
         $('#dlg').close();
-        if ($('#altaRapida')) $('#altaRapida').value = '';
-        aviso('Asunto creado en Colabora');
+        if (!t && $('#altaRapida')) $('#altaRapida').value = '';
+        aviso(t ? 'Cambios guardados en Colabora' : 'Asunto creado en Colabora');
         return cargar().then(function () {
-          if (!nuevo || !nuevo.Id) return;
-          abrir(nuevo.Id);
-          var t = tareas.find(function (x) { return x.id === nuevo.Id; });
-          if (conCorreo && t) return avisarAsignacion(t);
+          if (!id) return;
+          abrir(id);
+          var tt = tareas.find(function (y) { return y.id === id; });
+          if (!conCorreo || !tt) return;
+          if (!t) return avisarAsignacion(tt);
+          if (nuevas.length) return avisarAsignacion(tt, { para: nuevas, cc: [] });
         });
       }).catch(function (e) {
-        $('#nCrear').disabled = false; $('#nCrear').textContent = 'Crear en Colabora';
-        err('No se pudo crear: ' + (e.message || e));
+        $('#nCrear').disabled = false; $('#nCrear').textContent = t ? 'Guardar cambios' : 'Crear en Colabora';
+        err((t ? 'No se pudo guardar: ' : 'No se pudo crear: ') + (e.message || e));
       });
     };
   }
@@ -1075,13 +1194,16 @@
       '<p class="small muted">Sitio: ' + esc(web ? (web.titulo || '') + ' (' + web.url + ')' : '—') + '<br>Usuario: ' + esc(yo ? yo.Title : '—') +
       (listaInfo ? '<br>Lista: «' + esc(listaInfo.Title) + '», ' + listaInfo.ItemCount + ' elementos' : '') + (cargadoEn ? '<br>Leída a las ' + cargadoEn.toLocaleTimeString('es-ES') : '') + '</p>' +
       '<label class="lbl">Nombre de la lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
-      '<label class="lbl">Marcar en naranja cuando queden (días)</label><input id="aDias" type="number" min="1" max="30" value="' + pref.avisoDias + '"></div>' +
+      '<label class="lbl">Marcar en naranja cuando queden (días)</label><input id="aDias" type="number" min="1" max="30" value="' + pref.avisoDias + '">' +
+      '<label class="lbl">Columna donde se guardan los comentarios</label><select id="aCom">' + Object.keys(NOMBRE_CAMPO).filter(function (k) { return !infoCampo[k] || infoCampo[k].existe !== false; }).map(function (k) {
+        return '<option value="' + k + '"' + (campoComentarios() === k ? ' selected' : '') + '>' + NOMBRE_CAMPO[k] + (anexa(k) ? ' (con historial, como en Colabora)' : '') + '</option>';
+      }).join('') + '</select></div>' +
       '<div class="card"><h3 style="margin-top:0">Cómo se interpreta cada ESTADO</h3><p class="small muted">Sirve para saber qué asuntos siguen abiertos. Un asunto con «fecha finalización» cuenta siempre como terminado.</p>' +
       (ests.map(function (e) {
         return '<div class="grid" style="align-items:center;margin:4px 0"><div><b>' + esc(e) + '</b></div><div><select data-mapa="' + esc(e) + '">' +
           Object.keys(CLASES).map(function (k) { return '<option value="' + k + '"' + (claseEstado(e) === k ? ' selected' : '') + '>' + CLASES[k] + '</option>'; }).join('') + '</select></div></div>';
       }).join('') || '<p class="muted">Aún no se han leído los estados.</p>') + '</div>' +
-      '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">Esta página funciona dentro de Colabora con tu sesión. Lee la lista y <b>solo escribe cuando das de alta un asunto nuevo</b> (no modifica ni borra los existentes). El correo de asignación lo envía el propio Colabora con su correo interno. No envía nada fuera del servidor. ' +
+      '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">Esta página funciona dentro de Colabora con tu sesión. Lee la lista y <b>solo escribe cuando das de alta un asunto, lo modificas o añades un comentario</b> (nunca borra), con tus permisos de Colabora. El correo de asignación lo envía el propio Colabora con su correo interno. No envía nada fuera del servidor. ' +
       'Tus preferencias (filtros, estados, informe) se guardan solo en este navegador.</p></div>';
   }
 
@@ -1095,16 +1217,22 @@
     var c = [['Estado', t.estado], ['Prioridad', t.prioridad], ['NLT (fecha vencimiento)', t.nlt ? fLarga(t.nlt) + ' · ' + u.txt : '—'], ['Fecha de inicio', t.inicio && fLarga(t.inicio)],
       ['Fecha finalización', t.fin && fLarga(t.fin)], ['Responsable de la información', t.responsable], ['Personal implicado', t.implicados.join(', ')],
       ['Negociado asignado', t.negociado], ['Negociados implicados', t.negociados.join(', ')], ['Control expediente', t.expediente], ['Descripción del asunto', t.descripcion],
-      ['Observaciones', t.observaciones], ['Registro de actividad', t.registro],
+      [campoComentarios() === 'Comentarios' ? '' : 'Observaciones', t.observaciones], [campoComentarios() === 'REGISTRODEACTIVIDAD' ? '' : 'Registro de actividad', t.registro],
       ['Creado', new Date(t.creada).toLocaleString('es-ES') + (t.autor ? ' por ' + t.autor : '')], ['Modificado', new Date(t.modificada).toLocaleString('es-ES') + (t.editor ? ' por ' + t.editor : '')]];
     var dlg = $('#dlg');
     dlg.innerHTML = '<div class="dh"><h2>' + esc(t.asunto) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db">' +
-      c.filter(function (x) { return x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
-      (base ? '<div class="acciones"><a class="btn" href="' + esc(base + '/DispForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Ver en Colabora</a>' +
+      c.filter(function (x) { return x[0] && x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
+      '<div class="acciones"><button type="button" class="btn prim" data-modificar="' + t.id + '">✎ Modificar</button>' +
         (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
-        '<a class="btn prim" href="' + esc(base + '/EditForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Editar en Colabora</a></div>' : '') +
-      (t.clase !== 'hecha' && destinatarios(t).para.length ? '<div id="correoAsig" style="margin-top:10px"><button type="button" data-asignar="' + t.id + '">✉ Enviar aviso de asignación</button></div>' : '<div id="correoAsig"></div>') + '</div>';
+        (base ? '<a class="btn" href="' + esc(base + '/DispForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Ver en Colabora</a>' : '') + '</div>' +
+      (t.clase !== 'hecha' && destinatarios(t).para.length ? '<div id="correoAsig" style="margin-top:10px"><button type="button" data-asignar="' + t.id + '">✉ Enviar aviso de asignación</button></div>' : '<div id="correoAsig"></div>') +
+      '<h3 style="margin:18px 0 6px">Comentarios <span class="small muted">(' + esc(NOMBRE_CAMPO[campoComentarios()]) + ')</span></h3>' +
+      '<textarea id="comTxt" rows="3" placeholder="Escribe un comentario…" ' + AREA + '></textarea>' +
+      '<div class="error" id="comError" hidden></div>' +
+      '<div class="acciones"><button type="button" class="btn prim" data-comentar="' + t.id + '">💬 Añadir comentario</button></div>' +
+      '<div id="comLista" data-id="' + t.id + '"></div></div>';
     dlg.showModal();
+    pintarComentarios(t);
   }
 
   var aviso = function (txt) { $('#estadoCarga').textContent = txt; setTimeout(function () { if (cargadoEn) $('#estadoCarga').textContent = tareas.length + ' asuntos · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }, 2500); };
@@ -1133,6 +1261,23 @@
     if (p) { var r = periodo(p.dataset.infper); $('#infOpts [name=desde]').value = r[0]; $('#infOpts [name=hasta]').value = r[1]; actualizarInf(); return; }
     var env = el.closest('[data-enviado]');
     if (env) { pref.enviados = Object.fromEntries(Object.entries(pref.enviados || {}).filter(function (x) { return x[0].indexOf(hoy()) >= 0; })); pref.enviados[claveEnviado(env.dataset.enviado)] = 1; guardarPref(); setTimeout(render, 300); return; }
+    var mod = el.closest('[data-modificar]');
+    if (mod) { var tm = tareas.find(function (x) { return x.id === Number(mod.dataset.modificar); }); if (tm) formularioNuevo('', tm); return; }
+    var com = el.closest('[data-comentar]');
+    if (com) {
+      var tc = tareas.find(function (x) { return x.id === Number(com.dataset.comentar); });
+      var txtc = $('#comTxt').value.trim();
+      if (!tc || !txtc) return;
+      com.disabled = true; com.textContent = 'Guardando…';
+      anadirComentario(tc, txtc).then(function () {
+        aviso('Comentario añadido');
+        return cargar().then(function () { abrir(tc.id); });
+      }).catch(function (er) {
+        com.disabled = false; com.textContent = '💬 Añadir comentario';
+        $('#comError').hidden = false; $('#comError').textContent = 'No se pudo guardar el comentario: ' + (er.message || er);
+      });
+      return;
+    }
     var asg = el.closest('[data-asignar]');
     if (asg) { var ta = tareas.find(function (x) { return x.id === Number(asg.dataset.asignar); }); if (ta) avisarAsignacion(ta); return; }
     var ab = el.closest('[data-abrir]');
@@ -1161,6 +1306,7 @@
     else if (el.id === 'fest') pref.estado = el.value;
     else if (el.id === 'fprio') pref.prio = el.value;
     else if (el.id === 'aDias') pref.avisoDias = Math.max(1, Number(el.value) || 3);
+    else if (el.id === 'aCom') pref.campoComentarios = el.value;
     else if (el.id === 'aLista') { pref.lista = el.value.trim() || 'Gestor de Tareas'; guardarPref(); listaInfo = null; cargar(); return; }
     else if (el.dataset.mapa !== undefined) {
       pref.mapaEstados[el.dataset.mapa] = el.value;
