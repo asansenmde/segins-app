@@ -1038,12 +1038,19 @@
   var comoTexto = function (campo, v) { return infoCampo[campo] && infoCampo[campo].rico ? esc(v).replace(/\n/g, '<br>') : v; };
   var AREA = 'style="width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:10px"';
 
+  // Estado con el que se crean los asuntos: el elegido en Ajustes; si no, «Remitido al negociado» (como al
+  // enviarlo desde Colabora) o el primer estado pendiente que no sea borrador
+  function estadoAlta(ests) {
+    if (pref.estadoAlta && ests.indexOf(pref.estadoAlta) >= 0) return pref.estadoAlta;
+    return ests.find(function (e) { return /remitid/.test(sinTildes(e)); }) ||
+      ests.find(function (e) { return claseEstado(e) === 'pendiente' && !/borrador/.test(sinTildes(e)); }) || ests[0] || '';
+  }
   // Alta (t vacío) o modificación (t = asunto existente). Al modificar solo se envían los campos cambiados.
   function formularioNuevo(texto, t) {
     var r = !t && texto ? interpretar(texto) : { titulo: '', nlt: '', prioridad: '' };
     var con = function (lst, v) { return v && lst.indexOf(v) < 0 ? lst.concat(v) : lst; };
     var ests = valores('ESTADO', 'estado'), prios = valores('Prioridad', 'prioridad');
-    var estIni = t ? t.estado : ests.find(function (e) { return claseEstado(e) === 'pendiente'; }) || ests[0] || '';
+    var estIni = t ? t.estado : estadoAlta(ests);
     var prioIni = t ? t.prioridad : r.prioridad ? (prios.find(function (p) { return clasePrio(p) === r.prioridad; }) || '') : '';
     var negs = valores('NegociadoAsignado', 'negociado').sort();
     var negsImpl = campos.NegociadosImplicados && campos.NegociadosImplicados.length ? campos.NegociadosImplicados : negs;
@@ -1195,6 +1202,8 @@
       (listaInfo ? '<br>Lista: «' + esc(listaInfo.Title) + '», ' + listaInfo.ItemCount + ' elementos' : '') + (cargadoEn ? '<br>Leída a las ' + cargadoEn.toLocaleTimeString('es-ES') : '') + '</p>' +
       '<label class="lbl">Nombre de la lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
       '<label class="lbl">Marcar en naranja cuando queden (días)</label><input id="aDias" type="number" min="1" max="30" value="' + pref.avisoDias + '">' +
+      '<label class="lbl">Estado con el que se crean los asuntos</label><select id="aEstAlta">' +
+        valores('ESTADO', 'estado').map(function (e) { return '<option' + (estadoAlta(valores('ESTADO', 'estado')) === e ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select>' +
       '<label class="lbl">Columna donde se guardan los comentarios</label><select id="aCom">' + Object.keys(NOMBRE_CAMPO).filter(function (k) { return !infoCampo[k] || infoCampo[k].existe !== false; }).map(function (k) {
         return '<option value="' + k + '"' + (campoComentarios() === k ? ' selected' : '') + '>' + NOMBRE_CAMPO[k] + (anexa(k) ? ' (con historial, como en Colabora)' : '') + '</option>';
       }).join('') + '</select></div>' +
@@ -1307,6 +1316,7 @@
     else if (el.id === 'fprio') pref.prio = el.value;
     else if (el.id === 'aDias') pref.avisoDias = Math.max(1, Number(el.value) || 3);
     else if (el.id === 'aCom') pref.campoComentarios = el.value;
+    else if (el.id === 'aEstAlta') pref.estadoAlta = el.value;
     else if (el.id === 'aLista') { pref.lista = el.value.trim() || 'Gestor de Tareas'; guardarPref(); listaInfo = null; cargar(); return; }
     else if (el.dataset.mapa !== undefined) {
       pref.mapaEstados[el.dataset.mapa] = el.value;

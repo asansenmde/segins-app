@@ -23,6 +23,11 @@ etiqueta añadida a esta tabla y a `PROYECTOS.md`.
 
 ## Páginas para SharePoint (COLABORA, MENSADEF y las nuevas)
 
+Antes de hacer una nueva, lee **`SHAREPOINT.md`**: recetas probadas (lectura, alta, modificar sin pisar cambios,
+buscar personas en el directorio, correo desde el servidor, comentarios con historial) y las pruebas simuladas
+de cada proyecto (`*/pruebas/`).
+
+
 - HTML en un solo archivo, sin librerías ni recursos de internet: los datos no salen del servidor.
 - REST de SharePoint con `credentials: 'same-origin'`; primero `odata=nometadata` y, si responde 400/406/415,
   `odata=verbose` (SharePoint 2013). Seguir la paginación (`odata.nextLink` / `__next`).
