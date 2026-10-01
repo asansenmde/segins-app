@@ -17,6 +17,11 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   `/_api/contextinfo`). También copia `NombreResponsable`, `correoResponsable`, `NombreImplicados` y
   `correoimplicados`. Se aplican los permisos de la lista (403 = sin permiso de añadir) y se ejecutan sus
   flujos o alertas como con el formulario normal. Enlace alternativo a `NewForm.aspx`.
+- **Buscar personas** (responsable y personal implicado, varias personas): sugiere al escribir, primero entre los
+  usuarios del sitio y después en el directorio, como el selector de personas de SharePoint
+  (`clientPeoplePickerSearchUser`). Al elegir a alguien del directorio se le da de alta en el sitio con
+  `/_api/web/ensureuser`, igual que el formulario de Colabora. Si «Personal implicado» admitiera una sola
+  persona, la página lo respeta.
 - **Correo de asignación**: al dar de alta un asunto (casilla marcada por defecto en el formulario) se manda
   un correo al responsable, con copia al personal implicado, con los datos del asunto y el enlace a
   `DispForm.aspx`. Lo envía **el propio Colabora** con su correo saliente (`POST /_api/SP.Utilities.Utility.SendEmail`,

@@ -50,6 +50,10 @@
   .badge.bad { background: var(--bad-bg); color: var(--bad); } .badge.info { background: var(--info-bg); color: var(--info); }
   .badge.none { background: var(--na-bg); color: var(--na); } .badge.crit { background: var(--bad); color: #fff; }
   .chip { background: var(--surface-2); color: var(--muted); border-radius: 6px; padding: 1px 7px; font-weight: 600; font-size: .75rem; }
+  .sugs { border: 1px solid var(--line); border-radius: 10px; margin-top: 4px; max-height: 240px; overflow: auto; }
+  .sugs button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; padding: 8px 10px; font: inherit; color: inherit; cursor: pointer; }
+  .sugs button:hover, .sugs button:focus { background: var(--surface-2); }
+  .sugs .small { padding: 8px 10px; }
   .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
   .cal .dow { text-align: center; font-size: .72rem; color: var(--muted); font-weight: 700; }
   .dia { min-height: 62px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 4px; font-size: .78rem; cursor: pointer; text-align: left; }
@@ -225,11 +229,11 @@
       return Promise.all([
         yo ? yo : api(web.url + '/_api/web/currentuser?$select=Id,Title,Email').then(function (u) { yo = u; return u; }),
         api(urlLista() + '?$select=Id,Title,ItemCount,ListItemEntityTypeFullName,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { listaInfo = l; }),
-        api(urlLista() + "/fields?$select=InternalName,Title,Choices,RichText,Required&$filter=(InternalName eq 'ESTADO') or (InternalName eq 'Prioridad') or (InternalName eq 'NegociadoAsignado')" +
+        api(urlLista() + "/fields?$select=InternalName,Title,Choices,RichText,Required,TypeAsString&$filter=(InternalName eq 'ESTADO') or (InternalName eq 'PersonalImplicado0') or (InternalName eq 'Prioridad') or (InternalName eq 'NegociadoAsignado')" +
           " or (InternalName eq 'NegociadosImplicados') or (InternalName eq 'DescripcionDelAsunto') or (InternalName eq 'Comentarios') or (InternalName eq 'ControlExpediente') or (InternalName eq 'FechaVencimiento')")
           .then(function (d) { lista(d.value).forEach(function (f) {
             campos[f.InternalName] = lista(f.Choices).length ? lista(f.Choices) : (f.Choices || []);
-            infoCampo[f.InternalName] = { rico: !!f.RichText, obligatorio: !!f.Required };
+            infoCampo[f.InternalName] = { rico: !!f.RichText, obligatorio: !!f.Required, tipo: f.TypeAsString || '' };
           }); })
           .catch(function () { /* las opciones se deducen de los datos */ }),
       ]);
@@ -874,6 +878,75 @@
       .then(function () { usuariosSitio = Array.from(m.values()).sort(function (a, b) { return a.Title.localeCompare(b.Title, 'es'); }); return usuariosSitio; });
   }
   var usuarioPorNombre = function (n) { n = sinTildes(String(n || '').trim()); return (usuariosSitio || []).find(function (u) { return sinTildes(u.Title) === n; }); };
+
+  // ---------- Buscar personas ----------
+  // Primero entre los usuarios del sitio; luego en el directorio, como el selector de personas de SharePoint
+  // (quien nunca ha entrado al sitio no está en su lista de usuarios). Al elegir a alguien del directorio se
+  // le da de alta en el sitio con ensureuser, igual que hace el formulario de Colabora.
+  function buscarDirectorio(q) {
+    return enviarSP(web.url + '/_api/SP.UI.ApplicationPages.ClientPeoplePickerWebServiceInterface.clientPeoplePickerSearchUser', { queryParams: {
+      __metadata: { type: 'SP.UI.ApplicationPages.ClientPeoplePickerQueryParameters' }, QueryString: q, MaximumEntitySuggestions: 15,
+      AllowEmailAddresses: false, AllowMultipleEntities: false, AllUrlZones: false, ForceClaims: false, PrincipalSource: 15, PrincipalType: 1 } }, 'Sin permiso para buscar en el directorio')
+      .then(function (d) {
+        var v = d && (d.ClientPeoplePickerSearchUser !== undefined ? d.ClientPeoplePickerSearchUser : d.value);
+        var arr = typeof v === 'string' ? JSON.parse(v) : (v || []);
+        return arr.filter(function (e) { return e && e.Key && (!e.EntityType || e.EntityType === 'User'); })
+          .map(function (e) { return { clave: e.Key, Title: e.DisplayText || e.Key, Email: (e.EntityData && e.EntityData.Email) || '' }; });
+      });
+  }
+  function asegurarUsuario(u) {
+    if (u.Id) return Promise.resolve(u);
+    return enviarSP(web.url + '/_api/web/ensureuser', { logonName: u.clave }, 'No tienes permiso para añadir a esa persona al sitio').then(function (r) {
+      var x = { Id: r.Id, Title: r.Title || u.Title, Email: r.Email || u.Email || '' };
+      if (usuariosSitio && !usuariosSitio.some(function (y) { return y.Id === x.Id; })) usuariosSitio.push(x);
+      return x;
+    });
+  }
+  // Lista de sugerencias bajo un campo de texto; alElegir(usuario) o alElegir(null, error)
+  function selectorPersona(input, caja, alElegir) {
+    var espera = null, turno = 0;
+    var pintar = function (lst, buscando) {
+      caja.lista = lst;
+      caja.innerHTML = lst.map(function (u, i) {
+        return '<button type="button" data-sug="' + i + '">' + esc(u.Title) + (u.Email ? ' <span class="small muted">' + esc(u.Email) + '</span>' : '') + '</button>';
+      }).join('') + (buscando ? '<div class="small muted">Buscando en el directorio…</div>' : '');
+      caja.hidden = !lst.length && !buscando;
+    };
+    pintar([]);
+    input.setAttribute('autocomplete', 'off');
+    input.addEventListener('input', function () {
+      var q = input.value.trim(), id = ++turno;
+      clearTimeout(espera);
+      if (q.length < 2) return pintar([]);
+      var qn = sinTildes(q);
+      var locales = (usuariosSitio || []).filter(function (u) { return sinTildes(u.Title).indexOf(qn) >= 0 || sinTildes(u.Email).indexOf(qn) >= 0; }).slice(0, 8);
+      if (q.length < 3) return pintar(locales);
+      pintar(locales, true);
+      espera = setTimeout(function () {
+        buscarDirectorio(q).catch(function () { return []; }).then(function (dir) {
+          if (id !== turno) return;
+          var ya = locales.map(function (u) { return sinTildes(u.Email || u.Title); });
+          pintar(locales.concat(dir.filter(function (d) { return ya.indexOf(sinTildes(d.Email || d.Title)) < 0; })).slice(0, 15));
+        });
+      }, 350);
+    });
+    caja.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-sug]');
+      if (b) elegir(caja.lista[Number(b.dataset.sug)]);
+    });
+    var elegir = function (u) {
+      if (!u) return;
+      turno++; clearTimeout(espera); pintar([]);
+      asegurarUsuario(u).then(function (x) { alElegir(x); }).catch(function (er) { alElegir(null, er); });
+    };
+    // Intro o «＋»: el nombre exacto, o la primera sugerencia
+    return function () {
+      var exacto = usuarioPorNombre(input.value);
+      if (exacto) { turno++; pintar([]); alElegir(exacto); return true; }
+      if (caja.lista && caja.lista.length) { elegir(caja.lista[0]); return true; }
+      return false;
+    };
+  }
   var comoTexto = function (campo, v) { return infoCampo[campo] && infoCampo[campo].rico ? esc(v).replace(/\n/g, '<br>') : v; };
   var AREA = 'style="width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:10px"';
 
@@ -895,14 +968,14 @@
       '<div><label class="lbl">Estado</label><select name="ESTADO">' + opciones(ests, estIni, '—') + '</select></div>' +
       '<div><label class="lbl">Prioridad</label><select name="Prioridad">' + opciones(prios, prioIni, '—') + '</select></div>' +
       '<div><label class="lbl">Negociado asignado</label><select name="NegociadoAsignado">' + opciones(negs, pref.negociado, '—') + '</select></div>' +
-      '<div><label class="lbl">Responsable de la información</label><input name="resp" list="dlUsuarios" value="' + esc(yo ? yo.Title : '') + '" placeholder="Nombre de la persona"></div></div>' +
+      '<div><label class="lbl">Responsable de la información</label><input name="resp" value="' + esc(yo ? yo.Title : '') + '" placeholder="Escribe nombre o apellido"><div class="sugs" id="nRespSug" hidden></div></div></div>' +
       '<label class="lbl">Personal implicado</label><div id="nImpl" class="meta"></div>' +
-      '<div style="display:flex;gap:6px;margin-top:4px"><input id="nImplTxt" list="dlUsuarios" placeholder="Añadir persona (Intro)"><button type="button" id="nImplAdd">＋</button></div>' +
+      '<div style="display:flex;gap:6px;margin-top:4px"><input id="nImplTxt" placeholder="Escribe nombre o apellido y elige (puedes añadir varias)"><button type="button" id="nImplAdd">＋</button></div>' +
+      '<div class="sugs" id="nImplSug" hidden></div>' +
       (negsImpl.length ? '<label class="lbl">Negociados implicados</label><div>' + negsImpl.map(function (n) { return '<label class="check"><input type="checkbox" name="negImpl" value="' + esc(n) + '"> ' + esc(n) + '</label>'; }).join('') + '</div>' : '') +
       '<label class="lbl">Control expediente</label><input name="ControlExpediente">' +
       '<label class="lbl">Descripción del asunto</label><textarea name="DescripcionDelAsunto" rows="4" ' + AREA + '></textarea>' +
       '<label class="lbl">Observaciones</label><textarea name="Comentarios" rows="2" ' + AREA + '></textarea>' +
-      '<datalist id="dlUsuarios"></datalist>' +
       '<label class="check"><input type="checkbox" id="nCorreo"' + (pref.correoAlta !== false ? ' checked' : '') + '> Enviar correo de asignación al responsable y al personal implicado</label>' +
       '<p class="small muted">Se creará en la lista compartida de Colabora, igual que si lo dieras de alta allí: los avisos o flujos automáticos de la lista se ejecutarán como siempre.</p>' +
       '<div class="error" id="nError" hidden></div>' +
@@ -915,15 +988,26 @@
       $('#nImpl').innerHTML = implicados.map(function (u, i) { return '<span class="chip">' + esc(u.Title) + ' <a href="#" data-quitarimpl="' + i + '">✕</a></span>'; }).join('') || '<span class="small muted">Nadie</span>';
     };
     pintarImpl();
-    cargarUsuarios().then(function (us) { var dl = $('#dlUsuarios'); if (dl) dl.innerHTML = us.map(function (u) { return '<option value="' + esc(u.Title) + '">'; }).join(''); });
+    cargarUsuarios();
+    var unoSolo = infoCampo.PersonalImplicado0 && infoCampo.PersonalImplicado0.tipo === 'User';
+    var respElegido = null;
+    var elegirResp = selectorPersona($('#fNuevo [name=resp]'), $('#nRespSug'), function (u, e) {
+      if (!u) return err('No se pudo elegir a esa persona: ' + ((e && e.message) || e));
+      respElegido = u; $('#fNuevo [name=resp]').value = u.Title; $('#nError').hidden = true;
+    });
+    $('#fNuevo [name=resp]').onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); elegirResp(); } };
+    var ponerImpl = function (u, e) {
+      if (!u) return err('No se pudo añadir a esa persona: ' + ((e && e.message) || e));
+      $('#nError').hidden = true;
+      if (unoSolo) implicados = [];
+      if (!implicados.some(function (x) { return x.Id === u.Id; })) implicados.push(u);
+      $('#nImplTxt').value = ''; pintarImpl(); $('#nImplTxt').focus();
+    };
+    var elegirImpl = selectorPersona($('#nImplTxt'), $('#nImplSug'), ponerImpl);
     var anadirImpl = function () {
       var txt = $('#nImplTxt').value.trim();
       if (!txt) return;
-      var u = usuarioPorNombre(txt);
-      if (!u) return err('No encuentro a «' + txt + '» entre los usuarios del sitio: elígelo de la lista desplegable.');
-      $('#nError').hidden = true;
-      if (!implicados.some(function (x) { return x.Id === u.Id; })) implicados.push(u);
-      $('#nImplTxt').value = ''; pintarImpl();
+      if (!elegirImpl()) err('No encuentro a «' + txt + '»: escribe al menos 3 letras del nombre o apellido y elígelo de la lista.');
     };
     $('#nImplAdd').onclick = anadirImpl;
     $('#nImplTxt').onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); anadirImpl(); } };
@@ -942,8 +1026,8 @@
       var asunto = v('nlt') ? v('Title') : (x.titulo || v('Title'));
       if (!asunto) return err('Escribe el asunto.');
       if (!nlt && obligNlt) return err('La fecha de vencimiento es obligatoria en esta lista.');
-      var resp = v('resp') ? usuarioPorNombre(v('resp')) : null;
-      if (v('resp') && !resp) return err('No encuentro al responsable «' + v('resp') + '» entre los usuarios del sitio: elígelo de la lista desplegable.');
+      var resp = !v('resp') ? null : respElegido && respElegido.Title === v('resp') ? respElegido : usuarioPorNombre(v('resp'));
+      if (v('resp') && !resp) return err('No encuentro al responsable «' + v('resp') + '»: escribe al menos 3 letras del nombre o apellido y elígelo de la lista.');
       if (!listaInfo || !listaInfo.ListItemEntityTypeFullName) return err('No he podido leer el tipo de la lista; pulsa Actualizar y vuelve a intentarlo.');
       var cuerpo = { __metadata: { type: listaInfo.ListItemEntityTypeFullName }, Title: asunto };
       var fecha = function (s) { return aFecha(s).toISOString(); };
@@ -959,7 +1043,7 @@
         if (resp.Email) cuerpo.correoResponsable = resp.Email;
       }
       if (implicados.length) {
-        cuerpo.PersonalImplicado0Id = { results: implicados.map(function (u) { return u.Id; }) };
+        cuerpo.PersonalImplicado0Id = unoSolo ? implicados[0].Id : { results: implicados.map(function (u) { return u.Id; }) };
         cuerpo.NombreImplicados = implicados.map(function (u) { return u.Title; }).join('; ');
         var mails = implicados.map(function (u) { return u.Email; }).filter(Boolean);
         if (mails.length) cuerpo.correoimplicados = mails.join('; ');
