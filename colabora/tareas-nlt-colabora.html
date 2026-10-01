@@ -223,7 +223,7 @@
     var p = web ? Promise.resolve(web) : webDe(location.pathname.replace(/\/[^/]*$/, '')).then(function (w) { web = w; return w; });
     return p.then(function () {
       return Promise.all([
-        yo ? yo : api(web.url + '/_api/web/currentuser?$select=Id,Title').then(function (u) { yo = u; return u; }),
+        yo ? yo : api(web.url + '/_api/web/currentuser?$select=Id,Title,Email').then(function (u) { yo = u; return u; }),
         api(urlLista() + '?$select=Id,Title,ItemCount,ListItemEntityTypeFullName,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { listaInfo = l; }),
         api(urlLista() + "/fields?$select=InternalName,Title,Choices,RichText,Required&$filter=(InternalName eq 'ESTADO') or (InternalName eq 'Prioridad') or (InternalName eq 'NegociadoAsignado')" +
           " or (InternalName eq 'NegociadosImplicados') or (InternalName eq 'DescripcionDelAsunto') or (InternalName eq 'Comentarios') or (InternalName eq 'ControlExpediente') or (InternalName eq 'FechaVencimiento')")
@@ -800,25 +800,73 @@
         return digest;
       });
   }
-  function crearElemento(cuerpo) {
+  function enviarSP(url, cuerpo, sinPermiso) {
     return obtenerDigest().then(function (dg) {
-      return fetch(urlLista() + '/items', { method: 'POST', credentials: 'same-origin', body: JSON.stringify(cuerpo),
+      return fetch(url, { method: 'POST', credentials: 'same-origin', body: JSON.stringify(cuerpo),
         headers: { Accept: 'application/json;odata=verbose', 'Content-Type': 'application/json;odata=verbose', 'X-RequestDigest': dg } });
     }).then(function (r) {
       return r.text().then(function (txt) {
         var j = null; try { j = JSON.parse(txt); } catch (e) { /* respuesta sin JSON */ }
         if (!r.ok) {
           var m = j && ((j.error && j.error.message && (j.error.message.value || j.error.message)) || (j['odata.error'] && j['odata.error'].message && j['odata.error'].message.value));
-          throw new Error(r.status === 403 ? 'No tienes permiso para añadir elementos a la lista' : (m || 'HTTP ' + r.status));
+          throw new Error(r.status === 403 ? sinPermiso : (m || 'HTTP ' + r.status));
         }
         return j && (j.d || j);
       });
     });
   }
+  var crearElemento = function (cuerpo) { return enviarSP(urlLista() + '/items', cuerpo, 'No tienes permiso para añadir elementos a la lista'); };
+
+  // ---------- Correo de asignación ----------
+  // Lo envía el propio Colabora con su correo saliente (SP.Utilities.Utility.SendEmail): no pasa por internet.
+  // Si el servidor no lo permite, se prepara en Outlook para que lo envíe el usuario.
+  function destinatarios(t) {
+    var para = t.correoResp.slice();
+    var cc = t.correosImpl.filter(function (c) { return para.map(function (x) { return x.toLowerCase(); }).indexOf(c.toLowerCase()) < 0; });
+    return para.length ? { para: para, cc: cc } : { para: cc, cc: [] };
+  }
+  function datosAsignacion(t) {
+    var disp = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl + '/DispForm.aspx?ID=' + t.id : enlacePagina();
+    var filas = [['Asunto', t.asunto], ['NLT (fecha vencimiento)', t.nlt ? fLarga(t.nlt) : 'Sin fecha'], ['Prioridad', t.prioridad], ['Estado', t.estado],
+      ['Responsable de la información', t.responsable], ['Personal implicado', t.implicados.join(', ')], ['Negociado asignado', t.negociado],
+      ['Negociados implicados', t.negociados.join(', ')], ['Control expediente', t.expediente], ['Descripción del asunto', t.descripcion]].filter(function (x) { return x[1]; });
+    var quien = yo ? yo.Title : '';
+    return {
+      asunto: 'Asunto asignado: ' + t.asunto,
+      html: '<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px"><p>Se te ha asignado un asunto en el Gestor de Tareas' + (quien ? ' (lo ha dado de alta ' + esc(quien) + ')' : '') + ':</p>' +
+        '<table cellpadding="6" style="border-collapse:collapse">' + filas.map(function (x) {
+          return '<tr><td style="border:1px solid #ccc;background:#f3f3f3;vertical-align:top"><b>' + esc(x[0]) + '</b></td><td style="border:1px solid #ccc">' + esc(x[1]).replace(/\n/g, '<br>') + '</td></tr>';
+        }).join('') + '</table><p><a href="' + esc(disp) + '">Ver el asunto en Colabora</a></p></div>',
+      texto: 'Se te ha asignado un asunto en el Gestor de Tareas' + (quien ? ' (lo ha dado de alta ' + quien + ')' : '') + ':\n\n' +
+        filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\nVer en Colabora: ' + disp
+    };
+  }
+  function enviarCorreoColabora(d, c) {
+    return enviarSP(web.url + '/_api/SP.Utilities.Utility.SendEmail', { properties: { __metadata: { type: 'SP.Utilities.EmailProperties' },
+      To: { results: d.para }, CC: { results: d.cc }, Subject: c.asunto, Body: c.html } }, 'Colabora no te deja enviar correos desde la página');
+  }
+  // Envía el aviso de asignación y lo cuenta en el detalle del asunto (#correoAsig)
+  function avisarAsignacion(t) {
+    var caja = function () { return $('#correoAsig'); };
+    var d = destinatarios(t), c = datosAsignacion(t);
+    if (!d.para.length) { if (caja()) caja().innerHTML = '<span class="badge warn">Sin correo del responsable ni de los implicados: avisa en persona</span>'; return Promise.resolve(); }
+    if (caja()) caja().innerHTML = '<span class="small muted">Enviando correo de asignación…</span>';
+    return enviarCorreoColabora(d, c).then(function () {
+      if (caja()) caja().innerHTML = '<span class="badge ok">✓ Correo de asignación enviado</span> <span class="small muted">a ' + esc(d.para.concat(d.cc).join('; ')) + '</span>';
+    }).catch(function (e) {
+      if (caja()) caja().innerHTML = '<div class="small">No se ha podido enviar desde Colabora (' + esc(e.message || e) + '). Prepáralo en Outlook y pulsa Enviar:</div>' +
+        '<div class="acciones"><a class="btn prim" href="' + esc(mailto(d.para, d.cc, c.asunto, c.texto)) + '">✉ Preparar correo de asignación</a></div>';
+    });
+  }
   function cargarUsuarios() {
     if (usuariosSitio) return Promise.resolve(usuariosSitio);
     var m = new Map();
-    var poner = function (u) { if (u && u.Id && u.Title && !m.has(u.Id)) m.set(u.Id, { Id: u.Id, Title: u.Title, Email: u.Email || u.EMail || '' }); };
+    var poner = function (u) {
+      if (!u || !u.Id || !u.Title) return;
+      var x = m.get(u.Id);
+      if (!x) m.set(u.Id, { Id: u.Id, Title: u.Title, Email: u.Email || u.EMail || '' });
+      else if (!x.Email) x.Email = u.Email || u.EMail || '';
+    };
     if (yo) poner(yo);
     tareas.forEach(function (t) { t.usuarios.forEach(poner); });
     return api(web.url + '/_api/web/siteusers?$select=Id,Title,Email,PrincipalType&$filter=PrincipalType eq 1&$top=5000')
@@ -855,6 +903,7 @@
       '<label class="lbl">Descripción del asunto</label><textarea name="DescripcionDelAsunto" rows="4" ' + AREA + '></textarea>' +
       '<label class="lbl">Observaciones</label><textarea name="Comentarios" rows="2" ' + AREA + '></textarea>' +
       '<datalist id="dlUsuarios"></datalist>' +
+      '<label class="check"><input type="checkbox" id="nCorreo"' + (pref.correoAlta !== false ? ' checked' : '') + '> Enviar correo de asignación al responsable y al personal implicado</label>' +
       '<p class="small muted">Se creará en la lista compartida de Colabora, igual que si lo dieras de alta allí: los avisos o flujos automáticos de la lista se ejecutarán como siempre.</p>' +
       '<div class="error" id="nError" hidden></div>' +
       '<div class="acciones"><button type="button" data-cerrar>Cancelar</button><button type="button" class="btn prim" id="nCrear">Crear en Colabora</button></div>' +
@@ -915,12 +964,19 @@
         var mails = implicados.map(function (u) { return u.Email; }).filter(Boolean);
         if (mails.length) cuerpo.correoimplicados = mails.join('; ');
       }
+      var conCorreo = $('#nCorreo').checked;
+      if (pref.correoAlta !== conCorreo) { pref.correoAlta = conCorreo; guardarPref(); }
       $('#nCrear').disabled = true; $('#nCrear').textContent = 'Creando…';
       crearElemento(cuerpo).then(function (nuevo) {
         $('#dlg').close();
         if ($('#altaRapida')) $('#altaRapida').value = '';
         aviso('Asunto creado en Colabora');
-        return cargar().then(function () { if (nuevo && nuevo.Id) abrir(nuevo.Id); });
+        return cargar().then(function () {
+          if (!nuevo || !nuevo.Id) return;
+          abrir(nuevo.Id);
+          var t = tareas.find(function (x) { return x.id === nuevo.Id; });
+          if (conCorreo && t) return avisarAsignacion(t);
+        });
       }).catch(function (e) {
         $('#nCrear').disabled = false; $('#nCrear').textContent = 'Crear en Colabora';
         err('No se pudo crear: ' + (e.message || e));
@@ -941,7 +997,7 @@
         return '<div class="grid" style="align-items:center;margin:4px 0"><div><b>' + esc(e) + '</b></div><div><select data-mapa="' + esc(e) + '">' +
           Object.keys(CLASES).map(function (k) { return '<option value="' + k + '"' + (claseEstado(e) === k ? ' selected' : '') + '>' + CLASES[k] + '</option>'; }).join('') + '</select></div></div>';
       }).join('') || '<p class="muted">Aún no se han leído los estados.</p>') + '</div>' +
-      '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">Esta página funciona dentro de Colabora con tu sesión. Lee la lista y <b>solo escribe cuando das de alta un asunto nuevo</b> (no modifica ni borra los existentes). No envía nada fuera del servidor. ' +
+      '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">Esta página funciona dentro de Colabora con tu sesión. Lee la lista y <b>solo escribe cuando das de alta un asunto nuevo</b> (no modifica ni borra los existentes). El correo de asignación lo envía el propio Colabora con su correo interno. No envía nada fuera del servidor. ' +
       'Tus preferencias (filtros, estados, informe) se guardan solo en este navegador.</p></div>';
   }
 
@@ -962,7 +1018,8 @@
       c.filter(function (x) { return x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       (base ? '<div class="acciones"><a class="btn" href="' + esc(base + '/DispForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Ver en Colabora</a>' +
         (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
-        '<a class="btn prim" href="' + esc(base + '/EditForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Editar en Colabora</a></div>' : '') + '</div>';
+        '<a class="btn prim" href="' + esc(base + '/EditForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Editar en Colabora</a></div>' : '') +
+      (t.clase !== 'hecha' && destinatarios(t).para.length ? '<div id="correoAsig" style="margin-top:10px"><button type="button" data-asignar="' + t.id + '">✉ Enviar aviso de asignación</button></div>' : '<div id="correoAsig"></div>') + '</div>';
     dlg.showModal();
   }
 
@@ -992,6 +1049,8 @@
     if (p) { var r = periodo(p.dataset.infper); $('#infOpts [name=desde]').value = r[0]; $('#infOpts [name=hasta]').value = r[1]; actualizarInf(); return; }
     var env = el.closest('[data-enviado]');
     if (env) { pref.enviados = Object.fromEntries(Object.entries(pref.enviados || {}).filter(function (x) { return x[0].indexOf(hoy()) >= 0; })); pref.enviados[claveEnviado(env.dataset.enviado)] = 1; guardarPref(); setTimeout(render, 300); return; }
+    var asg = el.closest('[data-asignar]');
+    if (asg) { var ta = tareas.find(function (x) { return x.id === Number(asg.dataset.asignar); }); if (ta) avisarAsignacion(ta); return; }
     var ab = el.closest('[data-abrir]');
     if (ab) { e.preventDefault(); abrir(Number(ab.dataset.abrir)); return; }
     var ic = el.closest('[data-ics]');

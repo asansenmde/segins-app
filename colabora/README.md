@@ -17,6 +17,11 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   `/_api/contextinfo`). También copia `NombreResponsable`, `correoResponsable`, `NombreImplicados` y
   `correoimplicados`. Se aplican los permisos de la lista (403 = sin permiso de añadir) y se ejecutan sus
   flujos o alertas como con el formulario normal. Enlace alternativo a `NewForm.aspx`.
+- **Correo de asignación**: al dar de alta un asunto (casilla marcada por defecto en el formulario) se manda
+  un correo al responsable, con copia al personal implicado, con los datos del asunto y el enlace a
+  `DispForm.aspx`. Lo envía **el propio Colabora** con su correo saliente (`POST /_api/SP.Utilities.Utility.SendEmail`,
+  sin pasar por internet). Si el servidor no lo permite, el detalle del asunto ofrece «Preparar correo de
+  asignación» en Outlook (`mailto:`). El botón «Enviar aviso de asignación» del detalle lo vuelve a mandar.
 - **Avisos por correo** (pestaña *Avisos*): agrupa por responsable los asuntos abiertos que vencen en los
   próximos N días (y los vencidos) y prepara en Outlook, con `mailto:`, un correo por responsable
   (dirección de `correoResponsable` o del usuario; copia opcional a `correoimplicados`). **Lo envía el
