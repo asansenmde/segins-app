@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prueba SharePoint · Tareas NLT</title>
+<style>
+  :root { --bg: #f4f5f0; --card: #fff; --text: #1f261f; --muted: #5f685f; --line: #d9ddd3; --brand: #3b4a2f; --ok: #2e7d32; --okbg: #dcefdc; --bad: #b71c1c; --badbg: #fbdada; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; color: var(--brand); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 12px 0; }
+  .ok { background: var(--okbg); color: var(--ok); font-weight: 700; }
+  .bad { background: var(--badbg); color: var(--bad); font-weight: 700; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--brand); color: #fff; }
+  button { font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+  button.prim { background: var(--brand); color: #fff; border-color: var(--brand); }
+  input { width: 100%; font: inherit; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+  .tag { display: inline-block; font-size: .75rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: #dde8f7; color: #1d4f91; }
+  code { background: #eef1ea; padding: 1px 5px; border-radius: 4px; }
+  pre { white-space: pre-wrap; background: #eef1ea; padding: 10px; border-radius: 8px; font-size: .8rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Prueba de SharePoint para Tareas NLT</h1>
+  <p class="muted">Esta página solo <b>lee</b> nombres de listas y de columnas con tu sesión y los muestra aquí. No lee el contenido de las tareas, no modifica nada y no envía nada fuera.</p>
+
+  <noscript><div class="card bad">❌ SharePoint no ejecuta el código de esta página.</div></noscript>
+  <div class="card bad" id="sinjs">❌ Si ves este mensaje, SharePoint no ejecuta el código de esta página: la versión para SharePoint no es posible sin un administrador.</div>
+
+  <div id="app" hidden>
+    <div class="card ok">✅ Funciona: SharePoint ejecuta esta página.</div>
+    <div class="card">
+      <p><b>¿Dónde están tus tareas?</b> Abre en otra pestaña la lista de tareas (o la página donde las ves), copia la dirección de la barra del navegador y pégala aquí.</p>
+      <input id="urlLista" type="url" placeholder="https://…/SitePages/Gestor%20de%20Tareas.aspx  o  https://…/Lists/Tareas/AllItems.aspx">
+      <p style="margin-top:8px"><button class="prim" id="buscarLista">Buscar</button></p>
+      <p class="muted" id="urlAviso"></p>
+    </div>
+    <div class="card" id="sitio"><p class="muted">Localizando el sitio donde está este archivo…</p></div>
+    <div class="card" id="listas" hidden></div>
+    <div class="card" id="columnas" hidden></div>
+    <div class="card">
+      <p><b>Para enviar a Claude</b> (con permiso de tu responsable de seguridad): este resumen solo contiene nombres de sitios, listas y columnas.</p>
+      <button class="prim" id="copiar">Copiar resumen</button>
+      <pre id="resumen"></pre>
+    </div>
+  </div>
+</main>
+<script>
+(function () {
+  var sinjs = document.getElementById('sinjs');
+  // Modo Internet Explorer (habitual en SharePoint interno): no tiene lo necesario para la app
+  if (document.documentMode || !window.fetch || !window.Promise || !window.URL || !Element.prototype.closest) {
+    sinjs.innerHTML = '⚠️ SharePoint sí ejecuta esta página, pero se está abriendo en <b>modo Internet Explorer</b> (o un navegador muy antiguo). ' +
+      'Ábrela en Microsoft Edge o Chrome normal. Si tu SharePoint solo funciona en modo Internet Explorer, dímelo: la app necesitaría adaptarse.';
+    return;
+  }
+  sinjs.style.display = 'none';
+  document.getElementById('app').hidden = false;
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var resumen = { pagina: location.origin + location.pathname, servidor: '', sitio: '', usuario: '', listas: [], listaIndicada: '', columnas: null, errores: [] };
+  var pintarResumen = function () { $('resumen').textContent = JSON.stringify(resumen, null, 1); };
+  var anotarError = function (e) { resumen.errores.push(String(e && e.message || e)); pintarResumen(); };
+
+  // REST de SharePoint. Primero JSON ligero (2013 SP1 en adelante); si el servidor no lo admite, formato «verbose».
+  function api(ruta, base) {
+    var url = base + '/_api/' + ruta;
+    var pedir = function (accept) {
+      return fetch(url, { credentials: 'same-origin', headers: { Accept: accept } }).then(function (r) {
+        if (!r.ok) { var err = new Error('HTTP ' + r.status + ' en ' + ruta); err.status = r.status; throw err; }
+        return r.json();
+      });
+    };
+    return pedir('application/json;odata=nometadata').catch(function (e) {
+      if ([400, 406, 415].indexOf(e.status) < 0) throw e;
+      return pedir('application/json;odata=verbose').then(function (d) {
+        d = d.d || d;
+        return d.results ? { value: d.results } : d;
+      });
+    });
+  }
+
+  // El sitio (web) de una ruta: se prueba de la ruta más larga a la más corta hasta que SharePoint responde
+  function webDe(ruta) {
+    var partes = ruta.split('/').filter(Boolean);
+    var candidatas = [];
+    for (var i = partes.length; i >= 0; i--) candidatas.push(location.origin + (i ? '/' + partes.slice(0, i).join('/') : ''));
+    var probar = function (n) {
+      if (n >= candidatas.length) return Promise.reject(new Error('No se encontró el sitio de SharePoint'));
+      return api('web?$select=Url,Title', candidatas[n]).then(function (w) { return { url: w.Url || candidatas[n], titulo: w.Title }; })
+        .catch(function () { return probar(n + 1); });
+    };
+    return probar(0);
+  }
+
+  var PLANTILLAS = { 100: 'Lista', 107: 'Tareas (clásica)', 171: 'Tareas', 150: 'Proyecto', 106: 'Calendario', 101: 'Biblioteca' };
+
+  function cargarListas(web) {
+    $('listas').hidden = false;
+    $('listas').innerHTML = '<p class="muted">Leyendo las listas de ' + esc(web.titulo || web.url) + '…</p>';
+    return api("web/lists?$select=Id,Title,ItemCount,BaseTemplate,Hidden&$filter=Hidden eq false", web.url).then(function (d) {
+      var ls = (d.value || []).filter(function (l) { return [101, 109, 119, 850, 851].indexOf(l.BaseTemplate) < 0; });
+      resumen.listas = ls.map(function (l) { return { titulo: l.Title, tipo: PLANTILLAS[l.BaseTemplate] || String(l.BaseTemplate), elementos: l.ItemCount }; });
+      pintarResumen();
+      if (!ls.length) { $('listas').innerHTML = '<p>No hay listas visibles en ' + esc(web.url) + '.</p>'; return; }
+      $('listas').innerHTML = '<p><b>Listas de «' + esc(web.titulo || web.url) + '».</b> Pulsa «Columnas» en la de tareas.</p><table><thead><tr><th>Lista</th><th>Tipo</th><th>Elementos</th><th></th></tr></thead><tbody>' +
+        ls.map(function (l) {
+          var tareas = l.BaseTemplate === 107 || l.BaseTemplate === 171 || /tarea|task/i.test(l.Title);
+          return '<tr><td>' + esc(l.Title) + (tareas ? ' <span class="tag">tareas</span>' : '') + '</td><td>' + esc(PLANTILLAS[l.BaseTemplate] || l.BaseTemplate) +
+            '</td><td>' + l.ItemCount + '</td><td><button data-id="' + esc(l.Id) + '" data-web="' + esc(web.url) + '" data-titulo="' + esc(l.Title) + '">Columnas</button></td></tr>';
+        }).join('') + '</tbody></table>';
+    }).catch(function (e) {
+      anotarError(e);
+      $('listas').innerHTML = '<p class="bad" style="padding:8px;border-radius:8px">No se pudieron leer las listas: ' + esc(e.message || e) + '</p>';
+    });
+  }
+
+  var CAMPOS = '$select=Title,InternalName,TypeAsString,Hidden,ReadOnlyField&$filter=Hidden eq false';
+  function columnas(titulo, ruta, base) {
+    $('columnas').hidden = false;
+    $('columnas').innerHTML = '<p class="muted">Leyendo columnas de «' + esc(titulo) + '»…</p>';
+    return api(ruta, base).then(function (d) {
+      var cs = (d.value || []).filter(function (c) { return !c.ReadOnlyField || /^(Title|Created|Modified|Author|Editor)$/.test(c.InternalName); });
+      resumen.columnas = { lista: titulo, campos: cs.map(function (c) { return c.Title + ' = ' + c.InternalName + ' (' + c.TypeAsString + ')'; }) };
+      pintarResumen();
+      $('columnas').innerHTML = '<p><b>Columnas de «' + esc(titulo) + '»</b></p><table><thead><tr><th>Nombre</th><th>Nombre interno</th><th>Tipo</th></tr></thead><tbody>' +
+        cs.map(function (c) { return '<tr><td>' + esc(c.Title) + '</td><td><code>' + esc(c.InternalName) + '</code></td><td>' + esc(c.TypeAsString) + '</td></tr>'; }).join('') + '</tbody></table>';
+    }).catch(function (e) {
+      anotarError(e);
+      $('columnas').innerHTML = '<p class="bad" style="padding:8px;border-radius:8px">No se pudieron leer las columnas: ' + esc(e.message || e) + '</p>';
+    });
+  }
+
+  // Al abrir: el sitio donde está este archivo y el usuario
+  resumen.servidor = location.hostname;
+  webDe(location.pathname.replace(/\/[^/]*$/, '')).then(function (web) {
+    resumen.sitio = web.url; pintarResumen();
+    $('sitio').innerHTML = '<b>Este archivo está en el sitio:</b> ' + esc(web.titulo || '') + ' <span class="muted">(' + esc(web.url) + ')</span><div id="usuario"></div>';
+    api('web/currentuser?$select=Title', web.url).then(function (u) { resumen.usuario = u.Title; pintarResumen(); $('usuario').innerHTML = '<b>Tu usuario:</b> ' + esc(u.Title); })
+      .catch(anotarError);
+    return cargarListas(web);
+  }).catch(function (e) {
+    anotarError(e);
+    $('sitio').innerHTML = '<p class="bad" style="padding:8px;border-radius:8px">El código se ejecuta, pero no he podido hablar con SharePoint desde aquí (' + esc(e.message || e) + ').</p>';
+  });
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('button[data-id]');
+    if (b) columnas(b.getAttribute('data-titulo'), "web/lists(guid'" + b.getAttribute('data-id') + "')/fields?" + CAMPOS, b.getAttribute('data-web'));
+  });
+
+  // Dirección pegada: de una lista (…/Lists/Nombre/…) o de cualquier página del sitio (…/SitePages/…, …/Pages/…)
+  $('buscarLista').addEventListener('click', function () {
+    var aviso = $('urlAviso');
+    var u;
+    try { u = new URL($('urlLista').value.trim()); } catch (e) { aviso.textContent = 'Esa dirección no es válida.'; return; }
+    if (u.origin !== location.origin) {
+      aviso.textContent = 'Esa dirección es de otro servidor (' + u.hostname + '). Sube este archivo a un sitio de ' + u.hostname + '.'; return;
+    }
+    var ruta = decodeURIComponent(u.pathname);
+    var lista = ruta.match(/^(.*?)\/Lists\/([^/]+)/i);
+    if (lista) {
+      var rutaLista = lista[1] + '/Lists/' + lista[2];
+      var q = "@u='" + encodeURIComponent(rutaLista.replace(/'/g, "''")) + "'";
+      resumen.listaIndicada = rutaLista;
+      aviso.textContent = 'Buscando la lista…';
+      webDe(lista[1]).then(function (web) {
+        return api('web/GetList(@u)?' + q + '&$select=Title,ItemCount', web.url).then(function (l) {
+          aviso.textContent = 'Lista encontrada: «' + l.Title + '» (' + l.ItemCount + ' elementos) en ' + web.url;
+          return columnas(l.Title, 'web/GetList(@u)/fields?' + q + '&' + CAMPOS, web.url);
+        });
+      }).catch(function (e) { anotarError(e); aviso.textContent = 'No se pudo abrir la lista: ' + (e.message || e) + '. ¿Tienes permiso para verla?'; });
+      return;
+    }
+    // Página del sitio: se muestran las listas de ese sitio para elegir la de tareas
+    var corte = ruta.search(/\/(SitePages|Pages|Forms|_layouts|Shared Documents|Documentos compartidos)(\/|$)/i);
+    var base = corte >= 0 ? ruta.slice(0, corte) : ruta.replace(/\/[^/]*\.aspx$/i, '');
+    resumen.listaIndicada = ruta;
+    aviso.textContent = 'Buscando el sitio de esa página…';
+    webDe(base).then(function (web) {
+      aviso.textContent = 'Sitio de esa página: ' + (web.titulo || '') + ' (' + web.url + '). Abajo tienes sus listas: pulsa «Columnas» en la de tareas.';
+      resumen.sitio = web.url; pintarResumen();
+      return cargarListas(web);
+    }).catch(function (e) { anotarError(e); aviso.textContent = 'No se pudo abrir ese sitio: ' + (e.message || e) + '. ¿Tienes permiso para verlo?'; });
+  });
+
+  $('copiar').addEventListener('click', function () {
+    var txt = $('resumen').textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function () { $('copiar').textContent = 'Copiado ✓'; })
+      .catch(function () { var r = document.createRange(); r.selectNodeContents($('resumen')); var s = getSelection(); s.removeAllRanges(); s.addRange(r); $('copiar').textContent = 'Seleccionado: cópialo'; });
+  });
+  pintarResumen();
+})();
+</script>
+</body>
+</html>

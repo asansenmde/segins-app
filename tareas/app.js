@@ -2,14 +2,17 @@
 // Se guarda en este navegador (localStorage) y, abierta en claude.ai, se sincroniza con la cuenta
 // del usuario entre todos sus dispositivos (capacidad "db" del visor).
 
+import { interpretar } from './fechas.js?v=12';
+
 const CLAVE = 'tareas-nlt-v1';
+const VERSION_APP = '13 · 25 sep 2026'; // súbela en cada publicación (y el ?v= de index.html)
 const ESTADOS = [['pendiente', 'Pendiente'], ['curso', 'En curso'], ['espera', 'En espera'], ['hecha', 'Hecha']];
 const NOMBRE_ESTADO = Object.fromEntries(ESTADOS);
 const PRIOS = { critica: 'Crítica', alta: 'Alta', media: 'Media', baja: 'Baja' };
 const ORDEN_PRIO = { critica: 0, alta: 1, media: 2, baja: 3 };
 const REPETIR = { '': 'No se repite', diaria: 'Cada día', semanal: 'Cada semana', mensual: 'Cada mes', anual: 'Cada año' };
 const CATS_BASE = ['Evaluaciones SEGINS', 'Visitas', 'Informes', 'Reuniones', 'Administración', 'Formación', 'Personal'];
-const VISTAS = { nlt: 'Mis NLT', tablero: 'Tablero', calendario: 'Calendario', actividad: 'Lo que hago', ajustes: 'Ajustes' };
+const VISTAS = { nlt: 'Mis NLT', tablero: 'Tablero', calendario: 'Calendario', actividad: 'Lo que hago', informes: 'Informes', ajustes: 'Ajustes' };
 
 // Todos los campos de una tarea, con su valor por defecto
 const TAREA_BASE = {
@@ -26,6 +29,7 @@ const LISTAS = Object.keys(TAREA_BASE).filter(k => Array.isArray(TAREA_BASE[k]))
 const URL_NUBE = 'https://claude.ai/artifact/9Qqg68wrV3upUSdjZWwZWU';
 
 const $ = (s, el = document) => el.querySelector(s);
+const TITULO_PAGINA = document.title || 'Tareas NLT'; // el que tenga index.html (se puede renombrar)
 const main = $('#main');
 const dlg = $('#dlg');
 const dlg2 = $('#dlg2');
@@ -55,7 +59,7 @@ function normalizarTarea(t) {
 function normalizar(d) {
   return {
     tareas: (d.tareas || []).map(normalizarTarea),
-    categorias: d.categorias?.length ? d.categorias : [...CATS_BASE],
+    categorias: Array.isArray(d.categorias) ? d.categorias : [...CATS_BASE],
     personas: Array.isArray(d.personas) ? d.personas : [],
     gcalBorrar: Array.isArray(d.gcalBorrar) ? d.gcalBorrar : [],
     gcalMapa: d.gcalMapa && typeof d.gcalMapa === 'object' ? d.gcalMapa : {},
@@ -130,16 +134,22 @@ const tiempoTotal = t => t.tiempo.reduce((a, s) => a + (s.fin - s.inicio), 0)
 // Ventana propia de confirmación o texto (el visor de claude.ai bloquea confirm y prompt).
 function preguntar(msg, { ok = 'Aceptar', peligro = false, valor = null } = {}) {
   return new Promise(res => {
-    dlg2.innerHTML = `<form method="dialog"><div class="dlg-b"><p>${esc(msg)}</p>
-      ${valor !== null ? `<input class="input" name="v" value="${esc(valor)}">` : ''}</div>
-      <div class="dlg-f" style="flex-direction:row-reverse"><button class="btn ${peligro ? 'danger' : 'primary'}" value="si">${esc(ok)}</button>
-      <button class="btn" value="no">Cancelar</button></div></form>`;
-    dlg2.returnValue = '';
-    dlg2.onclose = () => {
-      const si = dlg2.returnValue === 'si';
-      res(valor === null ? si : si ? $('[name=v]', dlg2).value : null);
+    dlg2.innerHTML = `<div class="dlg-b"><p>${esc(msg)}</p>
+      ${valor !== null ? `<input class="input" name="v" value="${esc(valor)}" style="margin-top:10px">` : ''}</div>
+      <div class="dlg-f" style="flex-direction:row-reverse"><button type="button" class="btn ${peligro ? 'danger' : 'primary'}" data-r="si">${esc(ok)}</button>
+      <button type="button" class="btn" data-r="no">Cancelar</button></div>`;
+    const cerrar = si => {
+      const v = $('[name=v]', dlg2)?.value ?? null;
+      dlg2.onclick = dlg2.onkeydown = dlg2.oncancel = null;
+      dlg2.close();
+      res(valor === null ? si : si ? v : null);
     };
+    dlg2.onclose = null;
+    dlg2.onclick = e => { const b = e.target.closest('[data-r]'); if (b) cerrar(b.dataset.r === 'si'); };
+    dlg2.onkeydown = e => { if (e.key === 'Enter' && e.target.name === 'v') { e.preventDefault(); cerrar(true); } };
+    dlg2.oncancel = e => { e.preventDefault(); cerrar(false); };
     dlg2.showModal();
+    ($('[name=v]', dlg2) || $('[data-r=si]', dlg2)).focus();
   });
 }
 
@@ -150,6 +160,39 @@ function toast(txt) {
   el.classList.add('on');
   clearTimeout(toast.t);
   toast.t = setTimeout(() => el.classList.remove('on'), 3200);
+}
+
+// ---------- Diagnóstico ----------
+// Guarda los últimos errores y el estado de la sincronización; se ven en Ajustes y se copian a la nube
+// (data/users/<id>/diag) para poder revisarlos a distancia.
+const diag = { errores: [], ultimaOk: 0, temporizador: 0 };
+function registrarError(txt) {
+  diag.errores.unshift(`${new Date().toLocaleTimeString('es-ES')} · ${String(txt).slice(0, 300)}`);
+  diag.errores.length = Math.min(diag.errores.length, 20);
+  const el = $('#diagErrores');
+  if (el) el.innerHTML = diag.errores.map(e => `<li>${esc(e)}</li>`).join('');
+  clearTimeout(diag.temporizador);
+  diag.temporizador = setTimeout(enviarDiagnostico, 3000);
+}
+window.addEventListener('error', e => { registrarError(`Error: ${e.message} (${(e.filename || '').split('/').pop()}:${e.lineno})`); toast('Ha ocurrido un error: mira Ajustes → Diagnóstico'); });
+window.addEventListener('unhandledrejection', e => registrarError(`Promesa rechazada: ${e.reason?.code || ''} ${e.reason?.message || e.reason}`));
+
+function textoDiagnostico() {
+  let ls = 'sí';
+  try { localStorage.setItem(CLAVE + '-prueba', '1'); localStorage.removeItem(CLAVE + '-prueba'); } catch { ls = 'no'; }
+  return [`Versión: ${VERSION_APP}`, `Nube conectada: ${nube.lista ? 'sí' : 'no'} (estado: ${nube.estado})`,
+    `Usuario identificado: ${nube.uid ? 'sí' : 'no'}`, `Escrituras pendientes: ${nube.pendientes.size}`,
+    `Última escritura correcta: ${diag.ultimaOk ? new Date(diag.ultimaOk).toLocaleString('es-ES') : '—'}`,
+    `Memoria del navegador: ${ls}`, `Categorías: ${datos.categorias.length}`, `Navegador: ${navigator.userAgent}`,
+    '', 'Errores recientes:', ...(diag.errores.length ? diag.errores : ['ninguno'])].join('\n');
+}
+
+// Directa, fuera de la cola de envíos, para que llegue aunque la cola esté atascada
+async function enviarDiagnostico() {
+  if (!nube.diagRef) return;
+  try {
+    await nube.diagRef.set({ texto: textoDiagnostico(), momento: new Date().toISOString(), errores: diag.errores });
+  } catch (e) { /* sin nube, el diagnóstico se ve en Ajustes */ }
 }
 
 // Dentro de claude.ai la página no puede descargar por sí misma: se pide al visor con la capacidad "downloads".
@@ -360,6 +403,25 @@ function categoriasUsadas() {
   return [...s];
 }
 
+// Desplegable con todas las categorías (en el móvil una lista de sugerencias solo enseña las que coinciden con lo escrito)
+function selectorCategoria(actual, nombre = 'categoria') {
+  const cats = categoriasUsadas();
+  return `<select class="input" name="${nombre}" data-selcat>
+      <option value="">— Sin categoría —</option>
+      ${cats.map(c => `<option value="${esc(c)}" ${c === actual ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+      <option value="__nueva">+ Nueva categoría…</option></select>
+    <input class="input" name="${nombre}Nueva" placeholder="Nombre de la nueva categoría" hidden style="margin-top:6px">`;
+}
+document.addEventListener('change', e => {
+  if (!e.target.matches?.('[data-selcat]')) return;
+  const nueva = e.target.parentElement.querySelector(`[name="${e.target.name}Nueva"]`);
+  nueva.hidden = e.target.value !== '__nueva';
+  nueva.required = !nueva.hidden;
+  if (!nueva.hidden) nueva.focus();
+});
+const leerCategoria = (form, nombre = 'categoria') => form.elements[nombre].value === '__nueva'
+  ? form.elements[nombre + 'Nueva'].value.trim() : form.elements[nombre].value;
+
 const iniciales = n => n.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('');
 
 function tarjeta(t, extra = '') {
@@ -437,10 +499,12 @@ function vistaNlt() {
         <button class="btn sm" data-posponer="${t.id}">Recordar mañana</button></div>`)).join('')}</section>` : ''}
     <form class="card" id="rapida">
       <div class="row gap wrap">
-        <input class="input grow" name="titulo" placeholder="Tarea rápida… (para más datos, pulsa +)" required style="min-width:180px">
+        <input class="input grow" name="titulo" placeholder="Ej.: Informe extintores antes del viernes #Informes" required style="min-width:180px" autocomplete="off">
         <input class="input" type="date" name="nlt" title="NLT: fecha límite para finalizar" style="width:auto">
-        <button class="btn primary">Añadir</button>
+        <button type="button" class="btn primary" data-enviar>Añadir</button>
       </div>
+      <div class="small muted" id="rapidaPrev">Escribe la tarea con su plazo («mañana», «el viernes», «antes del 3 de octubre», «en 2 semanas», «a las 10»).
+        Opcional: <b>#categoría</b>, <b>urgente</b> o <b>!!</b> para crítica.</div>
     </form>
     <div class="kpis">
       ${kpi('vencidas', 'Vencidas', n.vencidas ? 'bad' : '')}${kpi('hoy', 'Hoy', n.hoy ? 'warn' : '')}
@@ -590,6 +654,7 @@ function vistaActividad() {
   const carga = cargaPorResponsable();
 
   return `
+    <div class="tabs"><a href="#actividad" class="on">Lo que hago</a><a href="#informes">Informes</a></div>
     <div class="row gap wrap" style="margin-bottom:12px">
       <select class="input grow" id="periodo" style="width:auto;min-width:160px">${Object.entries(PERIODOS).map(([k, v]) => `<option value="${k}" ${k === periodo ? 'selected' : ''}>${v}</option>`).join('')}</select>
       <button class="btn" data-accion="copiar-resumen">Copiar resumen</button>
@@ -606,10 +671,10 @@ function vistaActividad() {
       <p class="small muted">Para lo que no estaba planificado: llamadas, gestiones, imprevistos… Queda como tarea hecha con su tiempo.</p>
       <input class="input" name="titulo" placeholder="¿Qué has hecho?" required>
       <div class="grid2" style="margin-top:8px">
-        <input class="input" name="categoria" list="dlcats" placeholder="Categoría">
+        <div>${selectorCategoria(datos.ajustes.ultimaCat || '')}</div>
         <input class="input" name="min" type="number" min="0" step="5" placeholder="Minutos dedicados">
       </div>
-      <button class="btn primary block">Anotar</button>
+      <button type="button" class="btn primary block" data-enviar>Anotar</button>
     </form>
     <datalist id="dlcats">${categoriasUsadas().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
     <div class="card"><h3>Carga de trabajo por responsable</h3>
@@ -637,6 +702,387 @@ function resumenTexto() {
   return lineas.join('\n');
 }
 
+// ---------- Vista: Informes (para despachar) ----------
+// Selección de tareas por periodo, criterio de fecha, estados y filtros; agrupadas y con resumen.
+// Salidas: vista previa, Word (.docx, con la misma librería que SEGINS), CSV, texto e impresión.
+
+const CRITERIOS = {
+  actividad: 'Con actividad en el periodo (creadas, trabajadas o terminadas)',
+  nlt: 'Con NLT dentro del periodo', creadas: 'Creadas en el periodo', hechas: 'Terminadas en el periodo',
+  abiertas: 'Pendientes al final del periodo (situación a esa fecha)',
+};
+const AGRUPAR = { estado: 'Estado', categoria: 'Categoría', responsable: 'Responsable', prioridad: 'Prioridad', ninguno: 'Sin agrupar' };
+const PRESETS = { semana: 'Esta semana', semanaPasada: 'Semana pasada', mes: 'Este mes', mesPasado: 'Mes pasado', trimestre: 'Trimestre', anio: 'Este año', todo: 'Todo' };
+
+function informeDefecto() {
+  const h = aFecha(hoy());
+  return {
+    desde: iso(new Date(h.getFullYear(), h.getMonth(), 1)), hasta: hoy(), criterio: 'actividad',
+    estados: ESTADOS.map(e => e[0]), soloVencidas: false, cat: '', resp: '', esp: '', prio: '', agrupar: 'estado',
+    resumen: true, tabla: true, detalle: false,
+    titulo: 'Informe de situación de tareas', organismo: '', destinatario: '', marca: '',
+  };
+}
+const opcionesInforme = () => ({ ...informeDefecto(), ...(datos.ajustes.informe || {}) });
+
+function periodoPreset(p) {
+  const h = aFecha(hoy());
+  if (p === 'trimestre') {
+    const q = Math.floor(h.getMonth() / 3) * 3;
+    return [iso(new Date(h.getFullYear(), q, 1)), iso(new Date(h.getFullYear(), q + 3, 0))];
+  }
+  if (p === 'todo') {
+    const primera = datos.tareas.map(t => t.creada).filter(Boolean).sort()[0];
+    return [primera ? iso(new Date(primera)) : hoy(), hoy()];
+  }
+  const [a, b] = rango(p);
+  return [iso(new Date(a)), iso(new Date(b - 1))];
+}
+
+const msDia = (s, fin = false) => { const d = aFecha(s); if (fin) d.setDate(d.getDate() + 1); return d.getTime(); };
+
+function seleccionInforme(o) {
+  const a = msDia(o.desde), b = msDia(o.hasta, true);
+  const en = x => { const ms = typeof x === 'number' ? x : Date.parse(x); return ms >= a && ms < b; };
+  return datos.tareas.filter(t => {
+    let ok;
+    switch (o.criterio) {
+      case 'nlt': ok = !!t.nlt && t.nlt >= o.desde && t.nlt <= o.hasta; break;
+      case 'creadas': ok = !!t.creada && en(t.creada); break;
+      case 'hechas': ok = !!t.hecha && en(t.hecha); break;
+      case 'abiertas': ok = !!t.creada && Date.parse(t.creada) < b && (!t.hecha || Date.parse(t.hecha) >= b); break;
+      default: ok = (t.creada && en(t.creada)) || (t.hecha && en(t.hecha)) || t.registro.some(r => en(r.fecha))
+        || t.tiempo.some(s => s.fin >= a && s.inicio < b);
+    }
+    if (!ok) return false;
+    if (o.estados.length && !o.estados.includes(t.estado)) return false;
+    if (o.soloVencidas && !(urgencia(t).grupo === 'vencidas' || urgencia(t).txt === 'Hecha fuera de NLT')) return false;
+    if (o.cat && (t.categoria || '') !== (o.cat === '__sin' ? '' : o.cat)) return false;
+    if (o.resp && (o.resp === '__mias' ? !esMia(t) : o.resp === '__otros' ? esMia(t) : nombreResp(t) !== o.resp)) return false;
+    if (o.esp && t.espacio !== o.esp) return false;
+    if (o.prio && ORDEN_PRIO[t.prioridad] > ORDEN_PRIO[o.prio]) return false;
+    return true;
+  }).sort(ordenar);
+}
+
+function resumenInforme(ts, o) {
+  const a = msDia(o.desde), b = msDia(o.hasta, true);
+  const hechas = ts.filter(t => t.estado === 'hecha');
+  return {
+    total: ts.length,
+    porEstado: ESTADOS.map(([e, n]) => [n, ts.filter(t => t.estado === e).length]),
+    hechas: hechas.length,
+    enPlazo: hechas.filter(t => !t.nlt || !t.hecha || iso(new Date(t.hecha)) <= t.nlt).length,
+    vencidas: ts.filter(t => urgencia(t).grupo === 'vencidas').length,
+    criticas: ts.filter(t => t.prioridad === 'critica' && t.estado !== 'hecha').length,
+    prorrogadas: ts.filter(t => prorrogas(t)).length,
+    tiempo: ts.reduce((s, t) => s + t.tiempo.reduce((x, se) => x + Math.max(0, Math.min(se.fin, b) - Math.max(se.inicio, a)), 0), 0),
+    avance: ts.length ? Math.round(ts.reduce((s, t) => s + progreso(t), 0) / ts.length) : 0,
+  };
+}
+
+const quienEs = t => esMia(t) ? (datos.ajustes.miNombre || nube.miNombre || 'Yo') : (nombreResp(t) || 'Sin asignar');
+
+function gruposInforme(ts, o) {
+  if (o.agrupar === 'ninguno') return [['', ts]];
+  const clave = { estado: t => NOMBRE_ESTADO[t.estado], categoria: t => t.categoria || 'Sin categoría', responsable: quienEs,
+    prioridad: t => PRIOS[t.prioridad] }[o.agrupar];
+  const orden = o.agrupar === 'estado' ? ESTADOS.map(e => e[1]) : o.agrupar === 'prioridad' ? Object.values(PRIOS) : null;
+  const m = new Map();
+  ts.forEach(t => { const k = clave(t); if (!m.has(k)) m.set(k, []); m.get(k).push(t); });
+  return [...m.entries()].sort((x, y) => orden ? orden.indexOf(x[0]) - orden.indexOf(y[0]) : x[0].localeCompare(y[0], 'es'));
+}
+
+const fechaCorta = s => s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+function filaInforme(t) {
+  const u = urgencia(t);
+  return {
+    ref: t.referencia || '', asunto: t.titulo, resp: quienEs(t), prio: PRIOS[t.prioridad],
+    nlt: t.nlt ? fechaCorta(t.nlt) + (t.hora ? ' ' + t.hora : '') + (prorrogas(t) ? ` (prorr. ×${prorrogas(t)})` : '') : '—',
+    estado: NOMBRE_ESTADO[t.estado],
+    situacion: t.estado === 'hecha' ? `${u.txt} ${t.hecha ? fechaCorta(iso(new Date(t.hecha))) : ''}`.trim() : u.txt,
+    avance: `${progreso(t)} %`, cls: u.cls,
+  };
+}
+
+function detalleInforme(t, o) {
+  const a = msDia(o.desde), b = msDia(o.hasta, true);
+  const d = [];
+  if (t.descripcion.trim()) d.push(['Instrucciones', t.descripcion.trim()]);
+  if (t.ordenadaPor) d.push(['Ordenada por', t.ordenadaPor + (t.fechaOrden ? ` (${fechaCorta(t.fechaOrden)})` : '')]);
+  if (t.colaboradores.length) d.push(['Colaboradores', t.colaboradores.join(', ')]);
+  if (t.lugar) d.push(['Lugar', t.lugar]);
+  if (t.categoria) d.push(['Categoría', t.categoria]);
+  if (t.subtareas.length) d.push(['Pasos', t.subtareas.map(s => `${s.ok ? '☑' : '☐'} ${s.t}`).join('\n')]);
+  if (t.prorrogas.length) d.push(['Prórrogas', t.prorrogas.map(p => `${fechaCorta(p.de) || 'sin NLT'} → ${fechaCorta(p.a) || 'sin NLT'}${p.motivo ? ': ' + p.motivo : ''}`).join('\n')]);
+  const bit = t.registro.filter(r => { const ms = Date.parse(r.fecha); return ms >= a && ms < b; });
+  if (bit.length) d.push(['Seguimiento en el periodo', bit.map(r => `${new Date(r.fecha).toLocaleDateString('es-ES')}: ${r.texto}`).join('\n')]);
+  const tt = tiempoTotal(t);
+  if (tt) d.push(['Tiempo dedicado', fmtDur(tt) + (t.estimacionH ? ` de ${t.estimacionH} h estimadas` : '')]);
+  if (t.notas.trim()) d.push(['Observaciones', t.notas.trim()]);
+  if (t.resultado.trim()) d.push(['Resultado', t.resultado.trim()]);
+  return d;
+}
+
+function filtrosTexto(o) {
+  const f = [CRITERIOS[o.criterio]];
+  if (o.estados.length && o.estados.length < ESTADOS.length) f.push('Estados: ' + o.estados.map(e => NOMBRE_ESTADO[e]).join(', '));
+  if (o.soloVencidas) f.push('Solo vencidas o terminadas fuera de NLT');
+  if (o.cat) f.push('Categoría: ' + (o.cat === '__sin' ? 'sin categoría' : o.cat));
+  if (o.resp) f.push('Responsable: ' + ({ __mias: 'asignadas a mí', __otros: 'delegadas' }[o.resp] || o.resp));
+  if (o.esp) f.push(o.esp === 'equipo' ? 'Solo tareas de equipo' : 'Solo tareas personales');
+  if (o.prio) f.push('Prioridad: ' + PRIOS[o.prio] + (o.prio === 'critica' ? '' : ' o superior'));
+  return f;
+}
+
+const fechaLarga = s => aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+const emisor = () => datos.ajustes.miNombre || nube.miNombre || '';
+
+function htmlInforme(o) {
+  const ts = seleccionInforme(o);
+  const r = resumenInforme(ts, o);
+  const cab = `
+    ${o.marca ? `<p class="inf-marca">${esc(o.marca)}</p>` : ''}
+    ${o.organismo ? `<p class="inf-org">${esc(o.organismo)}</p>` : ''}
+    <h2 class="inf-tit">${esc(o.titulo || 'Informe de tareas')}</h2>
+    <p class="inf-sub">Periodo: <b>${fechaLarga(o.desde)}</b> a <b>${fechaLarga(o.hasta)}</b></p>
+    <p class="inf-sub">${esc(filtrosTexto(o).join(' · '))}</p>
+    ${o.destinatario ? `<p class="inf-sub">A la atención de: <b>${esc(o.destinatario)}</b></p>` : ''}
+    <p class="inf-sub">Emitido ${emisor() ? `por ${esc(emisor())} ` : ''}el ${new Date().toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' })}</p>`;
+  if (!ts.length) return cab + '<p class="empty">Ninguna tarea cumple estos criterios.</p>';
+  const resumen = o.resumen ? `<h3>Resumen</h3>
+    <table class="inf-tabla inf-res"><tbody>
+      <tr><td>Tareas incluidas</td><td>${r.total}</td></tr>
+      ${r.porEstado.map(([n, v]) => `<tr><td>${n}</td><td>${v}</td></tr>`).join('')}
+      <tr><td>Terminadas dentro de NLT</td><td>${r.hechas ? `${r.enPlazo} de ${r.hechas} (${Math.round(r.enPlazo / r.hechas * 100)} %)` : '—'}</td></tr>
+      <tr><td>Vencidas sin terminar</td><td class="${r.vencidas ? 'txt-bad' : ''}">${r.vencidas}</td></tr>
+      <tr><td>Críticas abiertas</td><td>${r.criticas}</td></tr>
+      <tr><td>Con NLT prorrogada</td><td>${r.prorrogadas}</td></tr>
+      <tr><td>Avance medio</td><td>${r.avance} %</td></tr>
+      <tr><td>Tiempo registrado en el periodo</td><td>${r.tiempo ? fmtDur(r.tiempo) : '—'}</td></tr>
+    </tbody></table>` : '';
+  const tablas = o.tabla ? gruposInforme(ts, o).map(([g, lista]) => `
+    ${g ? `<h3>${esc(g)} <span class="muted">(${lista.length})</span></h3>` : '<h3>Relación de tareas</h3>'}
+    <div class="inf-scroll"><table class="inf-tabla"><thead><tr><th>Ref.</th><th>Asunto</th><th>Responsable</th><th>Prior.</th><th>NLT</th>
+      ${o.agrupar === 'estado' ? '' : '<th>Estado</th>'}<th>Situación</th><th>Avance</th></tr></thead><tbody>
+      ${lista.map(filaInforme).map(f => `<tr><td>${esc(f.ref)}</td><td>${esc(f.asunto)}</td><td>${esc(f.resp)}</td><td>${f.prio}</td>
+        <td>${esc(f.nlt)}</td>${o.agrupar === 'estado' ? '' : `<td>${f.estado}</td>`}<td class="${f.cls === 'bad' ? 'txt-bad' : ''}">${esc(f.situacion)}</td><td>${f.avance}</td></tr>`).join('')}
+    </tbody></table></div>`).join('') : '';
+  const detalle = o.detalle ? `<h3>Detalle</h3>${ts.map(t => {
+    const f = filaInforme(t);
+    return `<div class="inf-det"><h4>${esc([f.ref, f.asunto].filter(Boolean).join(' · '))}</h4>
+      <p class="small">${esc(f.resp)} · ${f.prio} · NLT ${esc(f.nlt)} · ${f.estado} · ${esc(f.situacion)} · ${f.avance}</p>
+      ${detalleInforme(t, o).map(([k, v]) => `<p><b>${esc(k)}:</b> ${esc(v).replace(/\n/g, '<br>')}</p>`).join('')}</div>`;
+  }).join('')}` : '';
+  return cab + resumen + tablas + detalle + `<p class="inf-firma">${emisor() ? 'Fdo.: ' + esc(emisor()) : ''}</p>
+    ${o.marca ? `<p class="inf-marca">${esc(o.marca)}</p>` : ''}`;
+}
+
+function textoInforme(o) {
+  const ts = seleccionInforme(o);
+  const r = resumenInforme(ts, o);
+  const l = [];
+  if (o.marca) l.push(o.marca);
+  if (o.organismo) l.push(o.organismo);
+  l.push((o.titulo || 'Informe de tareas').toUpperCase(), `Periodo: ${fechaLarga(o.desde)} a ${fechaLarga(o.hasta)}`, filtrosTexto(o).join(' · '));
+  if (o.destinatario) l.push(`A la atención de: ${o.destinatario}`);
+  l.push('');
+  if (o.resumen) {
+    l.push('RESUMEN', `- Tareas: ${r.total} (${r.porEstado.map(([n, v]) => `${n.toLowerCase()} ${v}`).join(', ')})`);
+    if (r.hechas) l.push(`- Terminadas dentro de NLT: ${r.enPlazo} de ${r.hechas}`);
+    l.push(`- Vencidas sin terminar: ${r.vencidas} · Críticas abiertas: ${r.criticas} · Prorrogadas: ${r.prorrogadas}`, '');
+  }
+  for (const [g, lista] of gruposInforme(ts, o)) {
+    l.push(g ? `${g.toUpperCase()} (${lista.length})` : 'TAREAS');
+    lista.map(filaInforme).forEach(f => l.push(`- ${f.ref ? f.ref + ' ' : ''}${f.asunto} · ${f.resp} · NLT ${f.nlt} · ${f.situacion} · ${f.avance}`));
+    l.push('');
+  }
+  if (emisor()) l.push(`Fdo.: ${emisor()}`);
+  return l.join('\n');
+}
+
+let capDocx = null;
+function cargarDocx() {
+  // Publicada junto a la app en claude.ai (lib/) o la de SEGINS en GitHub Pages (../js/lib/)
+  capDocx ||= (async () => {
+    for (const src of ['lib/docx.iife.js', '../js/lib/docx.iife.js']) {
+      try {
+        await new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.append(s); });
+        if (window.docx) return window.docx;
+      } catch { /* se prueba la siguiente ruta */ }
+    }
+    capDocx = null;
+    throw new Error('No se pudo cargar el generador de Word');
+  })();
+  return capDocx;
+}
+
+async function wordInforme(o) {
+  const d = await cargarDocx();
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, Header, Footer, AlignmentType,
+    ShadingType, PageNumber, TableLayoutType, PageOrientation } = d;
+  const ts = seleccionInforme(o);
+  const r = resumenInforme(ts, o);
+  const F = 'Arial', VERDE = '3B4A2F';
+  const t = (text, x = {}) => new TextRun({ text: String(text ?? ''), font: F, size: x.size || 20, bold: x.bold, italics: x.italics, color: x.color });
+  const p = (text, x = {}) => new Paragraph({ alignment: x.align, spacing: { before: x.before || 0, after: x.after ?? 80 }, keepNext: x.keepNext,
+    children: String(text ?? '').split('\n').flatMap((linea, i) => i ? [new TextRun({ break: 1 }), t(linea, x)] : [t(linea, x)]) });
+  const h = (text, size = 24) => p(text, { bold: true, size, color: VERDE, before: 240, after: 100, keepNext: true });
+  const celda = (text, x = {}) => new TableCell({ children: [p(text, { size: x.size || 16, bold: x.bold, color: x.color, after: 0 })],
+    shading: x.fill ? { type: ShadingType.CLEAR, color: 'auto', fill: x.fill } : undefined,
+    width: x.w ? { size: x.w, type: WidthType.PERCENTAGE } : undefined, margins: { top: 40, bottom: 40, left: 60, right: 60 } });
+  const tabla = rows => new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE }, layout: TableLayoutType.FIXED });
+  const hijos = [];
+  if (o.organismo) hijos.push(p(o.organismo, { bold: true, align: AlignmentType.CENTER, size: 22 }));
+  hijos.push(p((o.titulo || 'Informe de tareas').toUpperCase(), { bold: true, align: AlignmentType.CENTER, size: 28, before: 120, after: 120 }));
+  hijos.push(p(`Periodo: ${fechaLarga(o.desde)} a ${fechaLarga(o.hasta)}`, { align: AlignmentType.CENTER }));
+  hijos.push(p(filtrosTexto(o).join(' · '), { align: AlignmentType.CENTER, size: 18, italics: true }));
+  if (o.destinatario) hijos.push(p(`A la atención de: ${o.destinatario}`, { align: AlignmentType.CENTER }));
+  hijos.push(p(`Emitido ${emisor() ? 'por ' + emisor() + ' ' : ''}el ${new Date().toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' })}`,
+    { align: AlignmentType.CENTER, size: 18, after: 200 }));
+  if (!ts.length) hijos.push(p('Ninguna tarea cumple estos criterios.', { italics: true }));
+  if (ts.length && o.resumen) {
+    hijos.push(h('1. RESUMEN'));
+    const filas = [['Tareas incluidas', r.total], ...r.porEstado,
+      ['Terminadas dentro de NLT', r.hechas ? `${r.enPlazo} de ${r.hechas} (${Math.round(r.enPlazo / r.hechas * 100)} %)` : '—'],
+      ['Vencidas sin terminar', r.vencidas], ['Críticas abiertas', r.criticas], ['Con NLT prorrogada', r.prorrogadas],
+      ['Avance medio', `${r.avance} %`], ['Tiempo registrado en el periodo', r.tiempo ? fmtDur(r.tiempo) : '—']];
+    hijos.push(tabla(filas.map(([k, v]) => new TableRow({ children: [celda(k, { w: 60, bold: true, size: 18, fill: 'EEF1EA' }),
+      celda(String(v), { w: 40, size: 18, color: k === 'Vencidas sin terminar' && v ? 'B71C1C' : undefined })] }))));
+  }
+  let n = o.resumen ? 2 : 1;
+  if (ts.length && o.tabla) {
+    hijos.push(h(`${n++}. RELACIÓN DE TAREAS`));
+    const conEstado = o.agrupar !== 'estado';
+    const cols = ['Ref.', 'Asunto', 'Responsable', 'Prior.', 'NLT', ...(conEstado ? ['Estado'] : []), 'Situación', 'Avance'];
+    const anchos = conEstado ? [10, 28, 15, 8, 11, 9, 12, 7] : [11, 32, 16, 8, 12, 13, 8];
+    for (const [g, lista] of gruposInforme(ts, o)) {
+      if (g) hijos.push(p(`${g} (${lista.length})`, { bold: true, size: 20, before: 160, keepNext: true }));
+      hijos.push(tabla([
+        new TableRow({ tableHeader: true, children: cols.map((c, i) => celda(c, { w: anchos[i], bold: true, color: 'FFFFFF', fill: VERDE })) }),
+        ...lista.map(filaInforme).map(f => new TableRow({ cantSplit: true, children: [f.ref, f.asunto, f.resp, f.prio, f.nlt,
+          ...(conEstado ? [f.estado] : []), f.situacion, f.avance].map((v, i) => celda(v, { w: anchos[i],
+            color: cols[i] === 'Situación' && f.cls === 'bad' ? 'B71C1C' : undefined, bold: cols[i] === 'Situación' && f.cls === 'bad' })) })),
+      ]));
+    }
+  }
+  if (ts.length && o.detalle) {
+    hijos.push(h(`${n++}. DETALLE`));
+    ts.forEach(tk => {
+      const f = filaInforme(tk);
+      hijos.push(p([f.ref, f.asunto].filter(Boolean).join(' · '), { bold: true, size: 20, before: 200, keepNext: true, color: VERDE }));
+      hijos.push(p(`${f.resp} · Prioridad ${f.prio} · NLT ${f.nlt} · ${f.estado} · ${f.situacion} · Avance ${f.avance}`, { size: 18, keepNext: true }));
+      const det = detalleInforme(tk, o);
+      if (det.length) hijos.push(tabla(det.map(([k, v]) => new TableRow({ cantSplit: true, children: [celda(k, { w: 25, bold: true, fill: 'EEF1EA' }), celda(v, { w: 75 })] }))));
+    });
+  }
+  hijos.push(p(`En ____________________, a ${fechaLarga(hoy())}`, { before: 400, after: 300 }));
+  if (emisor()) hijos.push(p(`Fdo.: ${emisor()}`, { bold: true }));
+  const marca = o.marca ? [p(o.marca, { bold: true, align: AlignmentType.CENTER, size: 18, color: 'B71C1C', after: 0 })] : [];
+  const doc = new Document({
+    creator: emisor() || 'Tareas NLT', title: o.titulo,
+    sections: [{
+      properties: { page: { size: { orientation: PageOrientation.PORTRAIT }, margin: { top: 1000, bottom: 1000, left: 1000, right: 1000 } } },
+      headers: { default: new Header({ children: marca }) },
+      footers: { default: new Footer({ children: [...marca, new Paragraph({ alignment: AlignmentType.CENTER, children: [
+        t('Página ', { size: 16 }), new TextRun({ children: [PageNumber.CURRENT], font: F, size: 16 }), t(' de ', { size: 16 }),
+        new TextRun({ children: [PageNumber.TOTAL_PAGES], font: F, size: 16 })] })] }) },
+      children: hijos,
+    }],
+  });
+  return Packer.toBlob(doc);
+}
+
+function vistaInformes() {
+  const o = opcionesInforme();
+  const n = seleccionInforme(o).length;
+  const sel = (nombre, obj, v) => `<select class="input" name="${nombre}">${Object.entries(obj).map(([k, l]) => `<option value="${esc(k)}" ${k === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  const cats = { '': 'Todas', __sin: 'Sin categoría', ...Object.fromEntries(categoriasUsadas().map(c => [c, c])) };
+  const resps = { '': 'Todos', __mias: 'Asignadas a mí', __otros: 'Delegadas en otros', ...Object.fromEntries(responsablesUsados().map(c => [c, c])) };
+  return `
+    <div class="tabs"><a href="#actividad">Lo que hago</a><a href="#informes" class="on">Informes</a></div>
+    <div class="card" id="infOpts">
+      <h3>Periodo</h3>
+      <div class="row wrap">${Object.entries(PRESETS).map(([k, l]) => `<button type="button" class="btn sm" data-infper="${k}">${l}</button>`).join('')}</div>
+      <div class="grid2">
+        <label class="lbl">Desde<input class="input" type="date" name="desde" value="${o.desde}"></label>
+        <label class="lbl">Hasta<input class="input" type="date" name="hasta" value="${o.hasta}"></label>
+      </div>
+      <label class="lbl">Qué tareas${sel('criterio', CRITERIOS, o.criterio)}</label>
+      <div class="lbl">Estados</div>
+      <div class="row wrap">${ESTADOS.map(([e, l]) => `<label class="check"><input type="checkbox" name="estados" value="${e}" ${o.estados.includes(e) ? 'checked' : ''}> ${l}</label>`).join('')}
+        <label class="check"><input type="checkbox" name="soloVencidas" ${o.soloVencidas ? 'checked' : ''}> Solo vencidas</label></div>
+      <div class="grid2">
+        <label class="lbl">Categoría${sel('cat', cats, o.cat)}</label>
+        <label class="lbl">Responsable${sel('resp', resps, o.resp)}</label>
+        <label class="lbl">Prioridad${sel('prio', { '': 'Todas', critica: 'Solo críticas', alta: 'Alta o superior', media: 'Media o superior' }, o.prio)}</label>
+        ${nube.equipo ? `<label class="lbl">Espacio${sel('esp', { '': 'Personales y de equipo', personal: 'Solo personales', equipo: 'Solo de equipo' }, o.esp)}</label>` : ''}
+        <label class="lbl">Agrupar por${sel('agrupar', AGRUPAR, o.agrupar)}</label>
+      </div>
+      <div class="lbl">Contenido</div>
+      <div class="row wrap">
+        <label class="check"><input type="checkbox" name="resumen" ${o.resumen ? 'checked' : ''}> Resumen</label>
+        <label class="check"><input type="checkbox" name="tabla" ${o.tabla ? 'checked' : ''}> Relación de tareas</label>
+        <label class="check"><input type="checkbox" name="detalle" ${o.detalle ? 'checked' : ''}> Detalle de cada tarea</label>
+      </div>
+      <details><summary class="lbl" style="cursor:pointer">Encabezado del informe</summary>
+        <label class="lbl">Título<input class="input" name="titulo" value="${esc(o.titulo)}"></label>
+        <label class="lbl">Unidad / organismo<input class="input" name="organismo" value="${esc(o.organismo)}" placeholder="Se muestra arriba del título"></label>
+        <label class="lbl">A la atención de<input class="input" name="destinatario" value="${esc(o.destinatario)}" placeholder="Opcional"></label>
+        <label class="lbl">Marca en cabecera y pie<input class="input" name="marca" value="${esc(o.marca)}" placeholder="Opcional, p. ej. USO INTERNO"></label>
+        <p class="small muted">Firma como: <b>${esc(emisor() || '— (pon tu nombre en Ajustes)')}</b></p>
+      </details>
+    </div>
+    <div class="acciones-inf">
+      <button type="button" class="btn primary" data-accion="inf-word">📄 Word</button>
+      <button type="button" class="btn" data-accion="inf-csv">📊 Excel (CSV)</button>
+      <button type="button" class="btn" data-accion="inf-texto">📋 Copiar texto</button>
+      <button type="button" class="btn" data-accion="inf-imprimir">🖨 Imprimir / PDF</button>
+    </div>
+    <p class="small muted" id="infCuenta">${n} tarea${n === 1 ? '' : 's'} en el informe. Vista previa:</p>
+    <div class="informe" id="informeDoc">${htmlInforme(o)}</div>`;
+}
+
+function leerOpcionesInforme() {
+  const f = $('#infOpts');
+  const q = n => f.querySelector(`[name=${n}]`);
+  const o = opcionesInforme();
+  ['desde', 'hasta', 'criterio', 'cat', 'resp', 'prio', 'agrupar', 'titulo', 'organismo', 'destinatario', 'marca'].forEach(k => { if (q(k)) o[k] = q(k).value; });
+  if (q('esp')) o.esp = q('esp').value;
+  o.estados = [...f.querySelectorAll('[name=estados]:checked')].map(x => x.value);
+  ['soloVencidas', 'resumen', 'tabla', 'detalle'].forEach(k => { o[k] = q(k).checked; });
+  if (o.desde > o.hasta) [o.desde, o.hasta] = [o.hasta, o.desde];
+  return o;
+}
+
+function actualizarInforme(o = leerOpcionesInforme()) {
+  datos.ajustes.informe = o;
+  guardar();
+  const n = seleccionInforme(o).length;
+  $('#infCuenta').textContent = `${n} tarea${n === 1 ? '' : 's'} en el informe. Vista previa:`;
+  $('#informeDoc').innerHTML = htmlInforme(o);
+}
+
+const nombreInforme = (o, ext) => `informe-tareas-${o.desde}-a-${o.hasta}.${ext}`;
+
+async function accionInforme(a) {
+  const o = opcionesInforme();
+  if (a === 'inf-word') {
+    toast('Preparando el Word…');
+    try { await descargar(nombreInforme(o, 'docx'), await wordInforme(o), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); }
+    catch (e) { registrarError(`Informe Word: ${e?.message || e}`); toast('No se pudo crear el Word; prueba con CSV o Copiar texto'); }
+  } else if (a === 'inf-csv') {
+    descargar(nombreInforme(o, 'csv'), csv(seleccionInforme(o)), 'text/csv;charset=utf-8');
+  } else if (a === 'inf-texto') {
+    try { await navigator.clipboard.writeText(textoInforme(o)); toast('Informe copiado: pégalo en un correo o documento'); }
+    catch { descargar(nombreInforme(o, 'txt'), textoInforme(o), 'text/plain;charset=utf-8'); }
+  } else if (a === 'inf-imprimir') {
+    document.body.classList.add('imprimiendo');
+    try { window.print(); } catch { toast('Este visor no permite imprimir: usa el Word'); }
+    setTimeout(() => document.body.classList.remove('imprimiendo'), 1000);
+  }
+}
+
 // ---------- Vista: Ajustes ----------
 let personaEdit = -1;
 
@@ -645,6 +1091,17 @@ function vistaAjustes() {
   const notif = 'Notification' in window ? Notification.permission : 'no';
   const pe = datos.personas[personaEdit] || {};
   return `
+    <div class="card">
+      <h3>Categorías</h3>
+      <p class="small muted">Organiza todo lo que haces. Para renombrar una, cambia el nombre y pulsa Intro o sal del campo: sus tareas se actualizan.</p>
+      <ul class="cats">${datos.categorias.map((c, i) => {
+        const n = datos.tareas.filter(t => t.categoria === c).length;
+        return `<li><input class="input" data-catnom="${i}" value="${esc(c)}" aria-label="Nombre de la categoría ${esc(c)}">
+          <span class="small muted">${n} tarea${n === 1 ? '' : 's'}</span>
+          <button class="btn sm danger" data-delcat="${i}" aria-label="Eliminar la categoría ${esc(c)}">Eliminar</button></li>`;
+      }).join('') || '<li class="small muted">No hay categorías.</li>'}</ul>
+      <form id="nuevaCat" class="row gap" style="margin-top:10px"><input class="input grow" name="c" placeholder="Nueva categoría" required><button type="button" class="btn" data-enviar>Añadir</button></form>
+    </div>
     ${tarjetaEquipo()}
     <div class="card">
       <h3>Personas externas y directorio</h3>
@@ -660,7 +1117,7 @@ function vistaAjustes() {
         <input class="input" name="cargo" placeholder="Empleo / cargo / unidad" value="${esc(pe.cargo || '')}">
         <input class="input" name="email" type="email" placeholder="Correo" value="${esc(pe.email || '')}">
         <input class="input" name="telefono" type="tel" placeholder="Teléfono (con prefijo, p. ej. 34…)" value="${esc(pe.telefono || '')}">
-        <button class="btn primary">${personaEdit >= 0 ? 'Guardar cambios' : 'Añadir persona'}</button>
+        <button type="button" class="btn primary" data-enviar>${personaEdit >= 0 ? 'Guardar cambios' : 'Añadir persona'}</button>
         ${personaEdit >= 0 ? '<button type="button" class="btn" data-accion="cancelar-persona">Cancelar</button>' : ''}
       </form>
     </div>
@@ -681,13 +1138,6 @@ function vistaAjustes() {
       <p class="small muted">Para Outlook o el calendario del iPhone. Con Google Calendar, mejor la sincronización automática de arriba.</p>
     </div>
     <div class="card">
-      <h3>Categorías</h3>
-      <p class="small muted">Organiza todo lo que haces. Pulsa una para renombrarla.</p>
-      <div class="row wrap">${datos.categorias.map((c, i) => `<span class="chip" style="font-size:.85rem;padding:6px 10px">
-        <a href="#" data-rencat="${i}" style="color:inherit">${esc(c)}</a> <a href="#" data-delcat="${i}" style="color:var(--bad);text-decoration:none" aria-label="Quitar">✕</a></span>`).join('')}</div>
-      <form id="nuevaCat" class="row gap" style="margin-top:10px"><input class="input grow" name="c" placeholder="Nueva categoría" required><button class="btn">Añadir</button></form>
-    </div>
-    <div class="card">
       <h3>Tema</h3>
       <select class="input" id="tema">${[['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']].map(([k, v]) => `<option value="${k}" ${k === a.tema ? 'selected' : ''}>${v}</option>`).join('')}</select>
     </div>
@@ -705,11 +1155,19 @@ function vistaAjustes() {
     <div class="card">
       <h3>Datos</h3>
       <p class="small muted">${datos.tareas.length} tareas. Haz copias de seguridad de vez en cuando.</p>
+      <p class="small muted">Versión de la app: <b>${VERSION_APP}</b></p>
       <button class="btn block" data-accion="exportar">Descargar copia de seguridad (.json)</button>
       <button class="btn block" data-accion="importar">Restaurar copia…</button>
       <button class="btn block" data-accion="csv-todo">Exportar todas las tareas (.csv, Excel)</button>
       <input type="file" id="fimport" accept="application/json,.json" hidden>
       <button class="btn danger block" data-accion="borrar">Borrar todos los datos</button>
+    </div>
+    <div class="card">
+      <h3>Diagnóstico</h3>
+      <pre class="diag">${esc(textoDiagnostico())}</pre>
+      <ul class="log small" id="diagErrores" hidden></ul>
+      <button type="button" class="btn block" data-accion="diag-sync">Reintentar sincronización</button>
+      <button type="button" class="btn block" data-accion="diag-copiar">Copiar diagnóstico</button>
     </div>`;
 }
 
@@ -744,7 +1202,7 @@ function abrirEditor(id, base = {}) {
       </div>
       <label class="lbl">Descripción e instrucciones<textarea class="input" name="descripcion" rows="3" placeholder="Qué se pide exactamente, alcance, criterios…">${esc(b.descripcion)}</textarea></label>
       <div class="grid2">
-        <label class="lbl">Categoría<input class="input" name="categoria" list="dlcats2" value="${esc(b.categoria)}"></label>
+        <label class="lbl">Categoría${selectorCategoria(b.categoria)}</label>
         <label class="lbl">Lugar / instalación<input class="input" name="lugar" value="${esc(b.lugar)}"></label>
       </div>
 
@@ -824,7 +1282,7 @@ function abrirEditor(id, base = {}) {
       <datalist id="dlcats2">${categoriasUsadas().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
       <datalist id="dlper">${nombres.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
     </div>
-    <div class="dlg-f">${bloqueada ? '<button class="btn" value="x">Cerrar</button>' : '<button class="btn primary" value="ok">Guardar</button>'}</div></form>`;
+    <div class="dlg-f">${bloqueada ? '<button type="button" class="btn" data-cerrar>Cerrar</button>' : '<button type="button" class="btn primary" data-guardar>Guardar</button>'}</div></form>`;
   pintarColabs(); pintarAvisos(); pintarSubs(); pintarDeps(); pintarTiempo(); pintarRegs(); pintarEnlaces(); pintarProgreso();
   dlg.showModal();
   if (!t) $('[name=titulo]', dlg).focus();
@@ -916,7 +1374,7 @@ function leerFormulario() {
   const v = n => f.elements[n].value;
   Object.assign(borrador, {
     titulo: v('titulo').trim(), referencia: v('referencia').trim(), prioridad: v('prioridad'), descripcion: v('descripcion'),
-    categoria: v('categoria').trim(), lugar: v('lugar').trim(), ordenadaPor: v('ordenadaPor').trim(), fechaOrden: v('fechaOrden'),
+    categoria: leerCategoria(f), lugar: v('lugar').trim(), ordenadaPor: v('ordenadaPor').trim(), fechaOrden: v('fechaOrden'),
     responsable: v('responsable').trim(), espacio: f.elements.espacio?.value || borrador.espacio,
     responsableId: (f.elements.espacio?.value || borrador.espacio) === 'equipo' ? f.elements.responsableId.value : '', nlt: v('nlt'), hora: v('hora'), repetir: v('repetir'), estimacionH: +v('estimacionH') || 0,
     estado: v('estado'), progreso: +v('progreso') || 0, notas: v('notas'), resultado: v('resultado'),
@@ -979,6 +1437,7 @@ dlg.addEventListener('click', e => {
   const d = e.target.closest('button, input[type=checkbox], a[data-delcolab]');
   if (!d) return;
   const ds = d.dataset;
+  if (d.hasAttribute('data-guardar')) { guardarEditor(); return; }
   if (d.hasAttribute('data-cerrar')) { cerrarEditor(); return; }
   if (ds.rapido !== undefined) {
     $('[name=nlt]', dlg).value = ds.rapido === '' ? '' : sumarDias(hoy(), +ds.rapido);
@@ -1104,11 +1563,15 @@ function addEnlace() {
   sucio = true; pintarEnlaces();
 }
 
-dlg.addEventListener('submit', e => {
-  if (e.submitter?.value !== 'ok') return;
-  if (!guardarBorrador()) { e.preventDefault(); return; }
+// El visor de claude.ai bloquea el envío de formularios: todo se hace con botones, nunca con «submit»
+dlg.addEventListener('submit', e => e.preventDefault());
+
+function guardarEditor() {
+  if (!$('#fed', dlg).reportValidity()) return;
+  if (!guardarBorrador()) return;
+  dlg.close();
   render();
-});
+}
 
 // ---------- Enviar la ficha al responsable ----------
 function fichaTexto(t) {
@@ -1135,13 +1598,14 @@ function compartir(t) {
   const asunto = `${t.referencia ? t.referencia + ' · ' : ''}${t.titulo}${t.nlt ? ' · NLT ' + fmtFecha(t.nlt, false) : ''}`;
   const mail = `mailto:${p?.email ? encodeURIComponent(p.email) : ''}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(txt)}`;
   const wa = `https://wa.me/${(p?.telefono || '').replace(/\D/g, '')}?text=${encodeURIComponent(txt)}`;
-  dlg2.onclose = null;
-  dlg2.innerHTML = `<form method="dialog">
-    <div class="dlg-h"><h2>Enviar ficha</h2><button class="icon-btn" value="x" aria-label="Cerrar">✕</button></div>
+  dlg2.onclose = dlg2.onkeydown = dlg2.oncancel = null;
+  dlg2.onclick = e => { if (e.target.closest('[data-x]')) dlg2.close(); };
+  dlg2.innerHTML = `<div>
+    <div class="dlg-h"><h2>Enviar ficha</h2><button type="button" class="icon-btn" data-x aria-label="Cerrar">✕</button></div>
     <div class="dlg-b"><textarea class="input" id="ficha" rows="14" readonly>${esc(txt)}</textarea></div>
     <div class="dlg-f"><button type="button" class="btn" id="copiarFicha">Copiar</button>
       <a class="btn" href="${esc(mail)}" target="_blank" rel="noopener">Correo${p?.email ? ' a ' + esc(p.nombre.split(' ')[0]) : ''}</a>
-      <a class="btn" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a></div></form>`;
+      <a class="btn" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a></div></div>`;
   $('#copiarFicha', dlg2).onclick = async () => {
     try { await navigator.clipboard.writeText(txt); toast('Ficha copiada'); }
     catch { $('#ficha', dlg2).select(); toast('Texto seleccionado: cópialo con el menú del sistema'); }
@@ -1250,34 +1714,66 @@ main.addEventListener('click', e => {
   if (mes) { mesVista = new Date(mesVista.getFullYear(), mesVista.getMonth() + +mes.dataset.mes, 1); render(); return; }
   const abrir = el.closest('[data-abrir]');
   if (abrir) { e.preventDefault(); abrirEditor(abrir.dataset.abrir); return; }
-  const ren = el.closest('[data-rencat]');
-  if (ren) { e.preventDefault(); renombrarCat(+ren.dataset.rencat); return; }
   const del = el.closest('[data-delcat]');
-  if (del) { e.preventDefault(); datos.categorias.splice(+del.dataset.delcat, 1); guardar(); render(); return; }
+  if (del) { borrarCat(+del.dataset.delcat); return; }
   const edp = el.closest('[data-editper]');
   if (edp) { e.preventDefault(); personaEdit = +edp.dataset.editper; render(); $('#fpersona [name=nombre]').focus(); return; }
   const dlp = el.closest('[data-delper]');
   if (dlp) { datos.personas.splice(+dlp.dataset.delper, 1); personaEdit = -1; guardar(); render(); return; }
+  const per = el.closest('[data-infper]');
+  if (per) {
+    const [desde, hasta] = periodoPreset(per.dataset.infper);
+    $('#infOpts [name=desde]').value = desde; $('#infOpts [name=hasta]').value = hasta;
+    actualizarInforme(); return;
+  }
+  const env = el.closest('[data-enviar]');
+  if (env) { enviarFormulario(env.closest('form')); return; }
   const acc = el.closest('[data-accion]');
   if (acc) { accion(acc.dataset.accion); return; }
   const t = el.closest('.tarea');
   if (t && !el.closest('button, a, input, summary')) abrirEditor(t.dataset.id);
 });
 
-async function renombrarCat(i) {
+// Renombrar pasa sus tareas al nombre nuevo; si ese nombre ya existe, las dos categorías se unen
+function renombrarCat(i, nueva) {
   const vieja = datos.categorias[i];
-  const nueva = (await preguntar('Nuevo nombre de la categoría', { ok: 'Renombrar', valor: vieja }))?.trim();
-  if (!nueva || nueva === vieja) return;
-  datos.categorias[i] = nueva;
-  datos.tareas.forEach(t => { if (t.categoria === vieja) t.categoria = nueva; });
-  guardar(); render();
+  nueva = nueva.trim();
+  if (vieja === undefined || !nueva || nueva === vieja) { render(); return; }
+  if (datos.categorias.includes(nueva)) datos.categorias.splice(i, 1);
+  else datos.categorias[i] = nueva;
+  datos.tareas.forEach(t => { if (t.categoria === vieja && !soloLectura(t)) t.categoria = nueva; });
+  if (datos.ajustes.ultimaCat === vieja) datos.ajustes.ultimaCat = nueva;
+  if (filtro.cat === vieja) filtro.cat = nueva;
+  guardar(); render(); toast(`Categoría renombrada: ${nueva}`); registrarError(`(info) categoría renombrada: ${vieja} → ${nueva}`);
+}
+
+async function borrarCat(i) {
+  const c = datos.categorias[i];
+  if (c === undefined) return;
+  const usadas = datos.tareas.filter(t => t.categoria === c && !soloLectura(t));
+  if (usadas.length && !(await preguntar(`${usadas.length} tarea${usadas.length > 1 ? 's usan' : ' usa'} «${c}» y quedará${usadas.length > 1 ? 'n' : ''} sin categoría. ¿Eliminarla?`,
+    { ok: 'Eliminar', peligro: true }))) return;
+  datos.categorias.splice(datos.categorias.indexOf(c), 1);
+  usadas.forEach(t => { t.categoria = ''; });
+  if (datos.ajustes.ultimaCat === c) datos.ajustes.ultimaCat = '';
+  if (filtro.cat === c) filtro.cat = '';
+  guardar(); render(); toast(`Categoría eliminada: ${c}`);
 }
 
 async function accion(a) {
+  if (a.startsWith('inf-')) return accionInforme(a);
   switch (a) {
     case 'ejemplos': ejemplos(); render(); break;
     case 'nueva-dia': abrirEditor(null, { nlt: diaSel }); break;
     case 'cancelar-persona': personaEdit = -1; render(); break;
+    case 'diag-sync':
+      if (!nube.lista) await conectarNube(); else subir();
+      await enviarDiagnostico(); render(); toast('Sincronización reintentada');
+      break;
+    case 'diag-copiar':
+      try { await navigator.clipboard.writeText(textoDiagnostico()); toast('Diagnóstico copiado'); }
+      catch { toast('No se pudo copiar: haz una captura de pantalla'); }
+      break;
     case 'gcal-sync': gcal.msg = ''; await pasarGcal(); break;
     case 'gcal-cals': await cargarCalendarios(); break;
     case 'copiar-resumen':
@@ -1314,10 +1810,12 @@ async function accion(a) {
 
 main.addEventListener('change', async e => {
   const el = e.target;
+  if (el.closest('#infOpts')) { actualizarInforme(); return; }
   const a = datos.ajustes;
   if (el.id === 'fcat') { filtro.cat = el.value; render(); }
   else if (el.id === 'fresp') { filtro.resp = el.value; render(); }
   else if (el.id === 'fesp') { filtro.esp = el.value; render(); }
+  else if (el.dataset.catnom !== undefined) renombrarCat(+el.dataset.catnom, el.value);
   else if (el.id === 'periodo') { periodo = el.value; render(); }
   else if (el.id === 'avisoDias') { a.avisoDias = +el.value; guardar(); }
   else if (el.id === 'avisoAntes') { a.avisoAntes = +el.value; guardar(); }
@@ -1355,7 +1853,36 @@ main.addEventListener('change', async e => {
   }
 });
 
+main.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.dataset?.catnom !== undefined) { e.preventDefault(); e.target.blur(); }
+});
+
+// Alta rápida: la fecha elegida a mano manda sobre la del texto; la categoría se ajusta a una existente
+function leerRapida(texto, nltManual) {
+  const r = interpretar(texto);
+  if (nltManual) { r.nlt = nltManual; r.hora = ''; }
+  if (r.categoria) {
+    const norm = c => c.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const igual = categoriasUsadas().find(c => norm(c) === norm(r.categoria)) || categoriasUsadas().find(c => norm(c).startsWith(norm(r.categoria)));
+    r.categoria = igual || r.categoria[0].toUpperCase() + r.categoria.slice(1);
+  }
+  return r;
+}
+
+function pintarPrevia() {
+  const f = $('#rapida');
+  const el = $('#rapidaPrev');
+  const texto = f?.elements.titulo.value.trim();
+  if (!el || !texto) return;
+  const r = leerRapida(texto, f.elements.nlt.value);
+  el.innerHTML = [`<b>${esc(r.titulo)}</b>`,
+    r.nlt ? `<span class="badge ${diasHasta(r.nlt) < 0 ? 'bad' : 'info'}">NLT ${esc(fmtFecha(r.nlt))}${r.hora ? ' · ' + r.hora : ''}</span>` : '<span class="badge none">Sin NLT</span>',
+    r.categoria ? `<span class="chip">${esc(r.categoria)}${datos.categorias.includes(r.categoria) ? '' : ' (nueva)'}</span>` : '',
+    r.prioridad ? `<span class="prio-${r.prioridad}">● ${PRIOS[r.prioridad]}</span>` : ''].filter(Boolean).join(' ');
+}
+
 main.addEventListener('input', e => {
+  if (e.target.form?.id === 'rapida') { pintarPrevia(); return; }
   if (e.target.id !== 'fq') return;
   filtro.q = e.target.value;
   const pos = e.target.selectionStart;
@@ -1363,19 +1890,32 @@ main.addEventListener('input', e => {
   const i = $('#fq'); i.focus(); i.setSelectionRange(pos, pos);
 });
 
-main.addEventListener('submit', e => {
+main.addEventListener('submit', e => e.preventDefault());
+
+// Los formularios de las vistas se envían con su botón o con Intro, sin depender del envío del navegador
+const FORMULARIOS = ['rapida', 'registrar', 'nuevaCat', 'fpersona'];
+main.addEventListener('keydown', e => {
+  const f = e.target.form;
+  if (e.key !== 'Enter' || !f || !FORMULARIOS.includes(f.id) || !e.target.matches('input:not([type=checkbox])')) return;
   e.preventDefault();
-  const f = e.target;
+  enviarFormulario(f);
+});
+
+function enviarFormulario(f) {
+  if (!f.reportValidity()) return;
   if (f.id === 'rapida') {
-    const titulo = f.elements.titulo.value.trim();
-    if (!titulo) return;
-    datos.tareas.push(nuevaTarea({ titulo, nlt: f.elements.nlt.value, categoria: filtro.cat || datos.ajustes.ultimaCat || '' }));
+    const texto = f.elements.titulo.value.trim();
+    if (!texto) return;
+    const r = leerRapida(texto, f.elements.nlt.value);
+    if (r.categoria && !datos.categorias.includes(r.categoria)) datos.categorias.push(r.categoria);
+    datos.tareas.push(nuevaTarea({ titulo: r.titulo, nlt: r.nlt, hora: r.hora, prioridad: r.prioridad || 'media',
+      categoria: r.categoria || filtro.cat || datos.ajustes.ultimaCat || '' }));
     guardar(); render();
-    toast('Añadida. Púlsala para completar la ficha');
+    toast(r.nlt ? `Añadida con NLT ${fmtFecha(r.nlt)}${r.hora ? ' a las ' + r.hora : ''}` : 'Añadida sin NLT. Púlsala para completar la ficha');
     $('#rapida [name=titulo]').focus();
   } else if (f.id === 'registrar') {
     const min = +f.elements.min.value || 0;
-    const cat = f.elements.categoria.value.trim();
+    const cat = leerCategoria(f);
     const fin = Date.now();
     if (cat && !datos.categorias.includes(cat)) datos.categorias.push(cat);
     datos.tareas.push(nuevaTarea({ titulo: f.elements.titulo.value.trim(), categoria: cat, estado: 'hecha', avisos: [],
@@ -1384,6 +1924,7 @@ main.addEventListener('submit', e => {
     guardar(); render(); toast('Anotado');
   } else if (f.id === 'nuevaCat') {
     const c = f.elements.c.value.trim();
+    registrarError(`(info) añadir categoría: ${c}`);
     if (c && !datos.categorias.includes(c)) { datos.categorias.push(c); guardar(); }
     render();
   } else if (f.id === 'fpersona') {
@@ -1403,7 +1944,7 @@ main.addEventListener('submit', e => {
     personaEdit = -1;
     guardar(); render();
   }
-});
+}
 
 // Arrastrar tarjetas entre columnas del tablero (escritorio)
 main.addEventListener('dragstart', e => {
@@ -1484,7 +2025,9 @@ const configDe = d => ({ categorias: d.categorias, personas: d.personas, gcalBor
   vistos: d.vistos, avisosPropios: d.avisosPropios, ajustes: d.ajustes, activo: d.activo });
 const CFG = '__config';
 const claveDe = t => (enEquipo(t) ? 'e:' : '') + t.id;
-const aTarea = (doc, espacio) => normalizarTarea({ ...doc.data(), id: doc.id, espacio });
+// La nube entrega los documentos congelados (solo lectura): se trabaja siempre sobre una copia modificable
+const copiaDe = v => (v == null ? v : JSON.parse(JSON.stringify(v)));
+const aTarea = (doc, espacio) => normalizarTarea({ ...copiaDe(doc.data()), id: doc.id, espacio });
 
 function cargarBase() {
   try { return new Map(Object.entries(JSON.parse(localStorage.getItem(CLAVE + '-nube')) || {})); } catch { return new Map(); }
@@ -1498,13 +2041,14 @@ async function conectarNube() {
   nube.estado = 'conectando'; pintarNube();
   const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]).catch(() => [null, null]);
   const uid = db && user ? await user.id().catch(() => null) : null;
-  if (!uid) { nube.estado = 'local'; pintarNube(); return; }
+  if (!uid) { nube.estado = 'local'; pintarNube(); registrarError(`Sin conexión a la nube: db ${db ? 'sí' : 'no'}, usuario ${user ? 'sí' : 'no'}, id ${uid ? 'sí' : 'no'}`); return; }
   nube.user = user; nube.uid = uid;
   // Tolerante con visores antiguos que no ofrezcan me() o can()
   Promise.resolve().then(() => user.me()).then(m => { nube.miNombre = m?.name || ''; }).catch(() => {});
   nube.equipoSoloLectura = (await Promise.resolve().then(() => user.can('data.write')).catch(() => null)) === false;
   nube.cfgRef = db.doc(`data/users/${uid}/config`);
   nube.lockRef = db.doc(`data/users/${uid}/gcal-lock`);
+  nube.diagRef = db.doc(`data/users/${uid}/diag`);
   nube.tareasRef = db.doc(`data/users/${uid}/nlt`).collection('tareas');
   nube.equipoRef = db.doc('equipo/principal').collection('tareas');
   nube.miembrosRef = db.doc('equipo/principal').collection('miembros');
@@ -1513,16 +2057,18 @@ async function conectarNube() {
     fusionarInicio(new Map([...st.docs.map(d => [d.id, aTarea(d, 'personal')]), ...se.docs.map(d => ['e:' + d.id, aTarea(d, 'equipo')])]), sc);
   } catch (e) {
     nube.estado = 'error'; pintarNube();
+    registrarError(`Al conectar: ${e?.code || ''} ${e?.message || e}`);
     if (e?.code === 'unavailable') setTimeout(conectarNube, 5000 + Math.random() * 5000);
     return;
   }
   nube.lista = true; nube.equipo = true; nube.estado = 'ok';
+  enviarDiagnostico();
   guardar();
   render(true); pintarCrono(); aplicarTema(); pintarNube();
   const caida = e => { if (e?.code === 'revoked') { nube.lista = false; nube.equipo = false; nube.estado = 'local'; pintarNube(); render(true); } };
   nube.tareasRef.onSnapshot(s => cambiosRemotos(s.docChanges(), 'personal'), caida);
   nube.equipoRef.onSnapshot(s => cambiosRemotos(s.docChanges(), 'equipo'), caida);
-  nube.cfgRef.onSnapshot(s => { if (s.exists) configRemota(s.data()); }, caida);
+  nube.cfgRef.onSnapshot(s => { if (s.exists) configRemota(copiaDe(s.data())); }, caida);
   nube.miembrosRef.onSnapshot(s => { nube.miembros = s.docs.map(d => d.id); pedirNombres(nube.miembros); render(true); }, () => {});
   registrarMiembro();
   pedirNombres(idsDePersonas());
@@ -1572,7 +2118,7 @@ function fusionarInicio(remotas, sc) {
   }
   datos.tareas = resultado;
   if (sc.exists) {
-    const R = sc.data(), B = nube.base.get(CFG);
+    const R = copiaDe(sc.data()), B = nube.base.get(CFG);
     nube.base.set(CFG, estable(R));
     if (!(B && estable(configDe(datos)) !== B && estable(R) === B)) Object.assign(datos, normalizar({ ...R, tareas: [] }), { tareas: datos.tareas });
   }
@@ -1653,7 +2199,9 @@ function encolar(k, json) {
   nube.estado = 'subiendo'; pintarNube();
   nube.cola = nube.cola.then(async () => {
     const ref = k === CFG ? nube.cfgRef : k.startsWith('e:') ? nube.equipoRef.doc(k.slice(2)) : nube.tareasRef.doc(k);
-    const enviar = () => json === null ? ref.delete() : ref.set(JSON.parse(json));
+    // Con plazo: una escritura que no contesta no debe bloquear todas las siguientes
+    const enviar = () => Promise.race([json === null ? ref.delete() : ref.set(JSON.parse(json)),
+      new Promise((_, no) => setTimeout(() => no({ code: 'timeout', message: 'la nube no contestó en 20 s' }), 20000))]);
     try {
       try { await enviar(); }
       catch (e) {
@@ -1661,7 +2209,9 @@ function encolar(k, json) {
         await new Promise(r => setTimeout(r, 800 + Math.random() * 1200));
         await enviar();
       }
+      diag.ultimaOk = Date.now();
     } catch (e) {
+      registrarError(`Guardar ${k === CFG ? 'ajustes' : 'tarea ' + k}: ${e?.code || ''} ${e?.message || e}`);
       // No se subió: se restaura la base para reintentarlo en el próximo guardado
       if (nube.base.get(k) === json) { if (anterior === undefined) nube.base.delete(k); else nube.base.set(k, anterior); guardarBase(); }
       if (k.startsWith('e:') && e?.code === 'invalid_argument') {
@@ -1670,7 +2220,7 @@ function encolar(k, json) {
         render(true);
       } else {
         nube.error = true;
-        toast(e?.code === 'quota_exceeded' ? 'La nube está llena: borra tareas antiguas' : 'No se pudo sincronizar; se reintentará');
+        toast(e?.code === 'quota_exceeded' ? 'La nube está llena: borra tareas antiguas' : `No se pudo guardar en la nube (${e?.code || 'error'}); mira Ajustes → Diagnóstico`);
       }
     } finally {
       const n = nube.pendientes.get(k) - 1;
@@ -1920,11 +2470,11 @@ function render(remoto = false) {
   render.pendiente = false;
   const v = VISTAS[location.hash.slice(1)] ? location.hash.slice(1) : 'nlt';
   $('#titulo').textContent = VISTAS[v];
-  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.v === v));
-  $('#fab').hidden = v === 'ajustes' || v === 'actividad';
-  main.innerHTML = { nlt: vistaNlt, tablero: vistaTablero, calendario: vistaCalendario, actividad: vistaActividad, ajustes: vistaAjustes }[v]();
+  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.v === (v === 'informes' ? 'actividad' : v)));
+  $('#fab').hidden = v === 'ajustes' || v === 'actividad' || v === 'informes';
+  main.innerHTML = { nlt: vistaNlt, tablero: vistaTablero, calendario: vistaCalendario, actividad: vistaActividad, informes: vistaInformes, ajustes: vistaAjustes }[v]();
   const venc = datos.tareas.filter(t => t.estado !== 'hecha' && ['vencidas', 'hoy'].includes(urgencia(t).grupo)).length;
-  document.title = venc ? `(${venc}) Tareas NLT` : 'Tareas NLT';
+  document.title = venc ? `(${venc}) ${TITULO_PAGINA}` : TITULO_PAGINA;
 }
 
 main.addEventListener('focusout', () => setTimeout(() => { if (render.pendiente && !main.contains(document.activeElement)) render(); }));

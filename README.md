@@ -5,7 +5,13 @@
 App web instalable (PWA) para hacer evaluaciones SEGINS desde el móvil, sin conexión,
 con fotos marcadas, agenda e informe en Word.
 
-> En [`tareas/`](tareas/) hay además un gestor de tareas con fechas límite (NLT), independiente de SEGINS.
+> Este repositorio contiene, además, tres proyectos **independientes de SEGINS**, cada uno en su carpeta:
+>
+> - [`tareas/`](tareas/): **Tareas NLT**, gestor personal de tareas con fechas límite (NLT).
+> - [`colabora/`](colabora/): **Tareas Colabora**, gestor de la lista «Gestor de Tareas» del SharePoint interno.
+> - [`mensadef/`](mensadef/): **visor de mensajes de MENSADEF**.
+>
+> Cómo pedir cambios en cada uno y páginas nuevas: [`PROYECTOS.md`](PROYECTOS.md).
 
 ## Qué hace
 

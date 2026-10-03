@@ -1,0 +1,44 @@
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
+const O = 'https://mensadef.mdef.es', WEB = '/ambito/2SUIGE', LIB = WEB + '/Mensajes';
+const verbose = process.argv[2] === 'v';
+const files = Array.from({ length: 7 }, (_, i) => ({ Name: `MSG-${i}.pdf`, TimeCreated: '2026-09-10T08:00:00Z', Length: 5000, ListItemAllFields: { Id: i, DTG: 'x' } }));
+const b = await chromium.launch();
+const mp = await b.newPage();
+await mp.goto(new URL('../marcador-mensadef.html', import.meta.url).href);
+const codigo = decodeURIComponent((await mp.getAttribute('#marcador', 'href')).slice(11));
+const p = await b.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message)); const metodos = new Set();
+await p.route(O + '/**', async r => {
+  const u = decodeURIComponent(r.request().url()); metodos.add(r.request().method());
+  const acc = r.request().headers().accept || '';
+  if (verbose && acc.includes('nometadata') && u.includes('/_api/')) return r.fulfill({ status: 406, body: '' });
+  const J = o => r.fulfill({ contentType: 'application/json', body: JSON.stringify(verbose ? { d: Array.isArray(o.value) ? { results: o.value } : o } : o) });
+  if (!u.includes('/_api/')) return r.fulfill({ contentType: 'text/html', body: '<html><body>Portada</body></html>' });
+  if (u.startsWith(O + WEB + '/Sub/_api/web/lists')) return J({ value: [{ Title: 'Registro', BaseTemplate: 100, ItemCount: 33, LastItemModifiedDate: '2026-09-27T00:00:00Z', RootFolder: { ServerRelativeUrl: WEB + '/Sub/Lists/Registro' } }] });
+  if (u.startsWith(O + WEB + '/Sub/_api/web/webs')) return J({ value: [] });
+  if (u.startsWith(O + WEB + '/_api/web/lists?')) return J({ value: [
+    { Title: 'Páginas del sitio', BaseTemplate: 119, ItemCount: 2, LastItemModifiedDate: '2024-06-01T00:00:00Z', RootFolder: { ServerRelativeUrl: WEB + '/SitePages' } },
+    { Title: 'Mensajes', BaseTemplate: 101, ItemCount: 1234, LastItemModifiedDate: '2026-09-28T07:00:00Z', RootFolder: { ServerRelativeUrl: LIB } }] });
+  if (u.startsWith(O + WEB + '/_api/web/webs')) return J({ value: [{ Title: 'Subsitio', ServerRelativeUrl: WEB + '/Sub' }] });
+  if (u.startsWith(O + WEB + '/_api/web?')) return J({ Url: O + WEB, Title: '2SUIGE' });
+  if (u.includes('/_api/web?')) return r.fulfill({ status: 404, body: '' });
+  if (u.includes('currentuser')) return J({ Title: 'usuario' });
+  if (u.includes('GetList(')) return u.includes(`'${LIB}'`) ? J({ Id: 'abc', Title: 'Mensajes', ItemCount: 1234, BaseTemplate: 101, RootFolder: { ServerRelativeUrl: LIB } }) : r.fulfill({ status: 404, body: '' });
+  if (u.includes('/fields')) return J({ value: [{ Title: 'DTG', InternalName: 'DTG', TypeAsString: 'Text' }] });
+  if (u.includes('/contenttypes')) return J({ value: [{ Name: 'Mensaje' }] });
+  if (u.includes(`'${LIB}'`) && u.includes('/Files')) return J({ value: files });
+  if (u.includes(`'${LIB}'`) && u.includes('/Folders')) return J({ value: [] });
+  r.fulfill({ status: 404, body: '' });
+});
+await p.goto(O + WEB + '/SitePages/Inicio.aspx');
+await p.evaluate(codigo); await p.waitForTimeout(800);
+console.log('listas:', (await p.textContent('#listas')).slice(0, 200));
+console.log('biblioteca oculta en portada:', await p.isHidden('#biblioteca'));
+await p.click('#listas button[data-lista="0"]'); await p.waitForTimeout(600);
+let res = JSON.parse(await p.textContent('#resumen'));
+console.log('tras analizar Mensajes:', res.biblioteca && res.biblioteca.titulo, res.carpeta && res.carpeta.archivos, '| listas en resumen:', res.listas.length, res.subsitios);
+await p.click('#listas button[data-web="0"]'); await p.waitForTimeout(600);
+res = JSON.parse(await p.textContent('#resumen'));
+console.log('tras subsitio:', (await p.textContent('#listas')).slice(0, 80), '| listas:', res.listas.map(l => l.titulo), '| nombres de archivo en resumen:', JSON.stringify(res).includes('MSG-'), '| errores:', res.errores, '| métodos:', [...metodos], '| errs:', errs);
+await b.close();
