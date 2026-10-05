@@ -62,12 +62,67 @@ export async function nuevaEvaluacion(instId = '') {
   const ev = {
     id: 'e' + uid(), instId: inst?.id || '', creado: new Date().toISOString(), cerrada: false,
     umbrales: { umbralSat: S.config.umbralSat, umbralMej: S.config.umbralMej },
-    cabecera: cab, areas: structuredClone(S.config.areas), respuestas: {},
+    cabecera: cab, areas: cuestionarioPara(inst?.id), respuestas: {},
     conclusiones: '', lugarFirma: '',
   };
   asegurarMosler(ev, S.eval.values(), S.config);
   await guardar('eval', ev);
   location.hash = `#/eval/${ev.id}/datos`;
+}
+
+// Cuestionario de una evaluación nueva: el general más las áreas e ítems propios que tenía
+// la última evaluación de la misma instalación (cada instalación conserva lo suyo).
+function cuestionarioPara(instId) {
+  const areas = structuredClone(S.config.areas);
+  const previa = instId && [...S.eval.values()]
+    .filter(e => e.instId === instId)
+    .sort((a, b) => (b.cabecera.fecha || b.creado).localeCompare(a.cabecera.fecha || a.creado))[0];
+  if (!previa) return areas;
+  for (const pa of previa.areas) {
+    const a = areas.find(x => x.id === pa.id);
+    if (!a) { areas.push({ ...structuredClone(pa), propia: true }); continue; }
+    for (const it of pa.items) {
+      if (!it.base && !a.items.some(i => i.id === it.id || i.codigo === it.codigo)) a.items.push(structuredClone(it));
+    }
+  }
+  return areas.sort((x, y) => x.id.length - y.id.length || x.id.localeCompare(y.id));
+}
+
+// Primera letra libre: A…Z, después AA, AB…
+export function siguienteLetra(usadas) {
+  const set = new Set(usadas);
+  const L = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  for (const c of L) if (!set.has(c)) return c;
+  for (const a of L) for (const b of L) if (!set.has(a + b)) return a + b;
+  return 'X' + Date.now();
+}
+
+async function dialogoArea(ev, ar = null) {
+  const letra = ar?.id || siguienteLetra([...ev.areas.map(a => a.id), ...S.config.areas.map(a => a.id)]);
+  return modal({
+    title: ar ? `Área ${ar.id}` : 'Nueva área',
+    body: `<div class="grid2">
+        <label class="lbl">Letra<input class="input" name="id" value="${esc(letra)}" ${ar ? 'disabled' : ''} maxlength="3"></label>
+        <label class="lbl">Peso<input class="input" name="peso" type="number" min="0" value="${esc(ar?.peso ?? 10)}"></label>
+      </div>
+      <label class="lbl">Nombre del área</label><input class="input" name="nombre" value="${esc(ar?.nombre || '')}" placeholder="Ej.: Helipuerto y zona de aterrizaje">
+      <p class="muted small">El peso indica cuánto cuenta el área en el resultado global; los pesos se reparten automáticamente.</p>
+      ${ar ? '' : `<label class="check"><input type="checkbox" name="general"> Añadirla también al cuestionario general (todas las instalaciones)</label>
+      <p class="muted small">Si no la marcas, el área queda solo para esta instalación y se repetirá en sus próximas evaluaciones.</p>`}`,
+    buttons: [
+      ...(ar ? [{ label: 'Quitar área', cls: 'danger', value: 'quitar' }] : []),
+      { label: 'Cancelar', value: null },
+      {
+        label: ar ? 'Guardar' : 'Crear', cls: 'primary', value: w => {
+          const o = leerForm(w);
+          const id = (o.id || letra).toUpperCase().replace(/[^A-Z0-9]/g, '');
+          if (!o.nombre) { toast('Escribe el nombre del área'); return false; }
+          if (!ar && (!id || ev.areas.some(a => a.id === id))) { toast(`Ya existe un área ${id}`); return false; }
+          return { id, nombre: o.nombre, peso: Number(o.peso) || 0, general: !!o.general };
+        },
+      },
+    ],
+  });
 }
 
 // ---------------- Detalle (pestañas) ----------------
@@ -137,13 +192,29 @@ function tabDatos(cont, ev) {
 
 function tabAreas(cont, ev) {
   const { areas } = calcEval(ev);
+  const general = new Set(S.config.areas.map(a => a.id));
   cont.innerHTML = areas.map(a => `
     <a class="card link" href="#/eval/${ev.id}/area/${a.id}">
       <div class="row between"><strong>${esc(a.id)}. ${esc(a.nombre)}</strong>
-        ${a.p1EnI ? `<span class="badge alert">${a.p1EnI} P1</span>` : a.pend === 0 ? '<span class="badge ok">✓</span>' : ''}</div>
+        <span class="row gap">${general.has(a.id) ? '' : '<span class="badge info">propia</span>'}
+        ${a.p1EnI ? `<span class="badge alert">${a.p1EnI} P1</span>` : a.total && a.pend === 0 ? '<span class="badge ok">✓</span>' : ''}</span></div>
       ${barra(a.total - a.pend, a.total)}
-      <div class="row gap small muted"><span>C ${a.c}</span><span>I ${a.i}</span><span>NA ${a.na}</span><span>Pendientes ${a.pend}</span></div>
-    </a>`).join('');
+      <div class="row gap small muted">${a.total ? `<span>C ${a.c}</span><span>I ${a.i}</span><span>NA ${a.na}</span><span>Pendientes ${a.pend}</span>` : '<span>Sin ítems todavía</span>'}</div>
+    </a>`).join('') + `
+    <button type="button" class="btn block" id="addarea">＋ Añadir área</button>
+    <p class="muted small">Las áreas propias se guardan con la instalación y aparecen en sus próximas evaluaciones.</p>`;
+  cont.querySelector('#addarea').onclick = async () => {
+    const v = await dialogoArea(ev);
+    if (!v) return;
+    const nueva = { id: v.id, nombre: v.nombre, peso: v.peso, items: [] };
+    ev.areas.push(nueva);
+    if (v.general && !S.config.areas.some(a => a.id === v.id)) {
+      S.config.areas.push(structuredClone(nueva));
+      await guardar('config', S.config);
+    }
+    await guardar('eval', ev);
+    location.hash = `#/eval/${ev.id}/area/${v.id}`;
+  };
 }
 
 // ---------------- Cuestionario de un área ----------------
@@ -158,7 +229,7 @@ export function area(main, id, aid) {
   const pintarCabecera = () => {
     const r = calcArea(ar, ev.respuestas, ev.umbrales);
     main.querySelector('#ahead').innerHTML = `
-      <div class="row between"><strong>${esc(ar.id)}. ${esc(ar.nombre)}</strong><span class="muted small">Peso ${ar.peso}</span></div>
+      <div class="row between"><strong>${esc(ar.id)}. ${esc(ar.nombre)}</strong><span class="row gap"><span class="muted small">Peso ${ar.peso}</span><button type="button" class="icon-btn" id="editarea" aria-label="Editar área" title="Editar área">✎</button></span></div>
       ${barra(r.total - r.pend, r.total)}
       <div class="row wrap gap small"><span>C ${r.c} · I ${r.i} · NA ${r.na} · Pend. ${r.pend}</span>
         <span>Puntos <strong>${fmtNum(r.puntos)}</strong></span><span>Conf. <strong>${fmtNum(r.pct)} %</strong></span>
@@ -167,7 +238,7 @@ export function area(main, id, aid) {
 
   main.innerHTML = `
     <div class="evhead sticky" id="ahead"></div>
-    <div id="items">${ar.items.map(it => tarjetaItem(ev, it)).join('')}</div>
+    <div id="items">${ar.items.length ? ar.items.map(it => tarjetaItem(ev, it)).join('') : '<p class="aviso">Esta área aún no tiene ítems. Añádelos con el botón de abajo.</p>'}</div>
     <button class="btn block" id="additem">＋ Añadir ítem a esta área</button>
     ${ar.items.some(i => !ev.respuestas[i.id]?.r)
       ? '<button class="btn block ghost" id="restoC">Marcar los pendientes de esta área como Conforme</button>' : ''}
@@ -236,6 +307,25 @@ export function area(main, id, aid) {
       await guardar('eval', ev);
       card.remove();
       pintarCabecera();
+    } else if (b.id === 'editarea') {
+      const v = await dialogoArea(ev, ar);
+      if (!v) return;
+      if (v === 'quitar') {
+        const conResp = ar.items.filter(it => ev.respuestas[it.id]?.r).length;
+        if (!(await confirmar(`Se quitará el área ${ar.id} de esta evaluación${conResp ? ` con sus ${conResp} respuestas y fotos` : ''}.`, 'Quitar', 'danger'))) return;
+        for (const it of ar.items) {
+          for (const f of ev.respuestas[it.id]?.fotos || []) await borrarFoto(f);
+          delete ev.respuestas[it.id];
+        }
+        ev.areas = ev.areas.filter(x => x !== ar);
+        await guardar('eval', ev);
+        location.replace(`#/eval/${id}/areas`);
+        return;
+      }
+      ar.nombre = v.nombre;
+      ar.peso = v.peso;
+      await guardar('eval', ev);
+      pintarCabecera();
     } else if (b.id === 'additem') {
       const it = await dialogoItem(ar);
       if (!it) return;
@@ -248,6 +338,7 @@ export function area(main, id, aid) {
         }
       }
       await guardar('eval', ev);
+      main.querySelector('#items .aviso')?.remove();
       main.querySelector('#items').insertAdjacentHTML('beforeend', tarjetaItem(ev, it.item));
       pintarCabecera();
     } else if (b.id === 'restoC') {
@@ -319,7 +410,9 @@ async function dialogoItem(ar) {
       <label class="lbl">Cuestión / acción a verificar</label><textarea class="input" name="texto" rows="3"></textarea>
       <div class="grid2"><label class="lbl">Prioridad<select class="input" name="prioridad"><option>P1</option><option selected>P2</option></select></label>
       <label class="lbl">Peso<input class="input" name="peso" type="number" min="1" max="10" value="3"></label></div>
-      <label class="check"><input type="checkbox" name="alBase"> Añadir también al cuestionario para futuras evaluaciones</label>`,
+      ${S.config.areas.some(a => a.id === ar.id)
+        ? '<label class="check"><input type="checkbox" name="alBase"> Añadir también al cuestionario general (todas las instalaciones)</label><p class="muted small">Si no la marcas, el ítem queda para esta instalación y se repetirá en sus próximas evaluaciones.</p>'
+        : '<p class="muted small">Área propia de esta instalación: el ítem se repetirá en sus próximas evaluaciones.</p>'}`,
     buttons: [{ label: 'Cancelar', value: null }, {
       label: 'Añadir', cls: 'primary', value: w => {
         const o = leerForm(w);

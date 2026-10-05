@@ -15,8 +15,9 @@ con fotos marcadas, agenda e informe en Word.
 
 ## Qué hace
 
-- **Cuestionario**: 7 áreas y 44 ítems de base (C / I / NA, prioridad P1/P2, peso). Puedes añadir,
-  editar o quitar ítems y áreas. Los cambios solo afectan a evaluaciones nuevas.
+- **Cuestionario**: 7 áreas y 44 ítems de base (C / I / NA, prioridad P1/P2, peso), abierto: en cada
+  evaluación se pueden añadir áreas (H, I, J…) e ítems propios de la instalación, que se repiten en sus
+  próximas evaluaciones, o pasarlos al cuestionario general para todas.
 - **Evaluación**: datos de cabecera (empiezan vacíos), respuesta por ítem, observaciones
   (obligatorias si I), referencia, responsable, plazo y fotos.
 - **Fotos**: cámara o galería, sello opcional con código y fecha, marcas (flecha, círculo,
