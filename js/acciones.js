@@ -1,7 +1,7 @@
 // Plan de acciones derivadas de la evaluación: no conformidades, riesgos Mosler,
 // acciones generales y acciones añadidas a mano.
 import { calcEval } from './scoring.js';
-import { resumenMosler } from './mosler.js';
+import { resumenMosler, umbralAlto, clases } from './mosler.js';
 import { uid } from './ui.js';
 
 // Acción correctora propuesta para cada ítem base cuando se marca como No conforme.
@@ -81,22 +81,30 @@ export function fechaProxima(ev) {
   return { fecha: d.toISOString().slice(0, 10), meses };
 }
 
-// Riesgos Mosler que merecen acción: Normal (ER > 500) o superior y aún no añadidos al plan.
+// Amenazas con algún elemento por encima de la clase más baja, aún no añadidas al plan.
 export function riesgosSugeridos(ev) {
   const ya = new Set((ev.acciones || []).filter(a => a.origen === 'mosler').map(a => a.ref));
-  return resumenMosler(ev).completas.filter(({ a, r }) => r.ER > 500 && !ya.has(a.id));
+  const porAmenaza = new Map();
+  for (const f of resumenMosler(ev).conAccion) {
+    if (ya.has(f.a.id)) continue;
+    if (!porAmenaza.has(f.a.id)) porAmenaza.set(f.a.id, { a: f.a, filas: [] });
+    porAmenaza.get(f.a.id).filas.push(f);
+  }
+  return [...porAmenaza.values()];
 }
 
-export function accionDeRiesgo(ev, a, r) {
+export function accionDeRiesgo(ev, a, filas) {
   const areas = ev.areas.filter(x => a.areas.includes(x.id)).map(x => `${x.id}. ${x.nombre}`);
   const noConf = ev.areas.filter(x => a.areas.includes(x.id))
     .flatMap(x => x.items.filter(it => ev.respuestas[it.id]?.r === 'I').map(it => it.codigo));
-  let texto = `Reducir el riesgo de «${a.nombre}» (ER ${r.ER}, ${r.clase.nombre}): reforzar las medidas de seguridad`;
+  const donde = filas.map(f => `${f.e.nombre} (ER ${f.r.ER}, ${f.r.clase.nombre})`).join('; ');
+  let texto = `Reducir el riesgo de «${a.nombre}» en ${donde}: reforzar las medidas de seguridad`;
   texto += areas.length ? ` en ${areas.join(', ')}` : '';
   texto += noConf.length ? ` y subsanar con prioridad ${noConf.join(', ')}.` : '.';
+  const p1 = filas.some(f => f.r.ER > umbralAlto());
   return {
     id: 'a' + uid(), origen: 'mosler', ref: a.id, texto,
-    prioridad: r.ER > 750 ? 'P1' : 'P2', responsable: '', plazo: plazoPorDefecto(ev, r.ER > 750 ? 'P1' : 'P2'), estado: 'Pendiente',
+    prioridad: p1 ? 'P1' : 'P2', responsable: '', plazo: plazoPorDefecto(ev, p1 ? 'P1' : 'P2'), estado: 'Pendiente',
   };
 }
 
@@ -132,8 +140,9 @@ export function accionesGenerales(ev) {
   const { global: g } = calcEval(ev);
   const out = [];
   if (g.p1EnI) out.push(`Comunicar al mando ${g.p1EnI === 1 ? 'la alerta P1 detectada' : `las ${g.p1EnI} alertas P1 detectadas`} y adoptar medidas compensatorias inmediatas hasta su subsanación.`);
-  const altos = resumenMosler(ev).completas.filter(f => f.r.ER > 750).length;
-  if (altos) out.push(`Revisar el Plan de Seguridad frente ${altos === 1 ? 'al riesgo de nivel elevado o superior identificado' : `a los ${altos} riesgos de nivel elevado o superior identificados`} en el análisis Mosler.`);
+  const altos = resumenMosler(ev).altos;
+  const alto = clases()[clases().length - 1].nombre.toLowerCase();
+  if (altos) out.push(`Revisar el Plan de Seguridad frente ${altos === 1 ? `al riesgo de nivel ${alto} identificado` : `a los ${altos} riesgos de nivel ${alto} identificados`} en el análisis Mosler.`);
   const prox = fechaProxima(ev);
   if (prox) out.push(`Realizar la próxima evaluación SEGINS en un plazo de ${prox.meses} meses (antes del ${prox.fecha.split('-').reverse().join('/')}), verificando el cumplimiento de las acciones de este plan.`);
   return out;

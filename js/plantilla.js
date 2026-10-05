@@ -88,5 +88,6 @@ export const CONFIG_INICIAL = {
   evaluadorNombre: '',
   sellarFotos: true,
   bloqueoMin: 30,
+  escalaRiesgo: 'et3',
   areas: PLANTILLA_BASE,
 };

@@ -25,6 +25,10 @@ con fotos marcadas, agenda e informe en Word.
   alerta P1, gráfico y comparación con la evaluación anterior de la misma instalación.
 - **Informe Word (.docx)** generado en el móvil: datos, resultado global y por área, gráfico,
   alertas P1, no conformidades con fotos, detalle completo, conclusiones y firma.
+- **Análisis de riesgos (Mosler)**: cada amenaza se valora sobre cada elemento de la instalación
+  (22 amenazas en dos grupos y 14 elementos de base, ampliables). Clasificación Bajo ≤ 200, Normal ≤ 600,
+  Alto > 600 (o Mosler clásica de 5 niveles, en Ajustes). Matriz de riesgos, importación de la tabla
+  copiada desde Excel y sección en el informe con el mismo formato.
 - **Acciones derivadas**: acción correctora propuesta para cada no conformidad (con plazo por defecto de
   30 días para P1 y 90 para P2), acciones sugeridas por los riesgos Mosler, acciones generales, acciones
   propias y estado de cada una. Aparecen en la agenda y en el informe.

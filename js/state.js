@@ -1,6 +1,7 @@
 // Estado en memoria (descifrado tras el desbloqueo) y persistencia.
 import * as db from './db.js';
 import { CONFIG_INICIAL } from './plantilla.js';
+import { fijarEscala } from './mosler.js';
 
 export const S = { config: null, inst: new Map(), eval: new Map(), agenda: new Map() };
 
@@ -10,6 +11,7 @@ export async function cargar() {
     S.config = structuredClone(CONFIG_INICIAL);
     await db.put('config', S.config);
   }
+  fijarEscala(S.config.escalaRiesgo || 'et3');
   for (const k of ['inst', 'eval', 'agenda']) {
     S[k] = new Map((await db.all(k)).map(o => [o.id, o]));
   }
@@ -24,7 +26,7 @@ export function vaciar() {
 
 export async function guardar(store, obj) {
   obj.modificado = new Date().toISOString();
-  if (store === 'config') S.config = obj;
+  if (store === 'config') { S.config = obj; fijarEscala(obj.escalaRiesgo || 'et3'); }
   else S[store].set(obj.id, obj);
   await db.put(store, obj);
 }

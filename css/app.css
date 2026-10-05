@@ -295,3 +295,20 @@ ul.viñetas li { margin-bottom: 6px; }
 .sug { padding: 6px 0; border-bottom: 1px solid var(--line); }
 .sug:last-child { border-bottom: 0; }
 a.badge { text-decoration: none; }
+
+/* ---------- Mosler: amenaza × elemento ---------- */
+table.mosler { border-collapse: collapse; font-size: .82rem; font-variant-numeric: tabular-nums; width: 100%; }
+table.mosler th, table.mosler td { padding: 3px 2px; border-bottom: 1px solid var(--line); text-align: center; white-space: nowrap; }
+table.mosler .el { text-align: left; white-space: normal; min-width: 84px; max-width: 110px; font-size: .78rem; font-weight: 600; line-height: 1.2; position: sticky; left: 0; background: var(--surface); z-index: 1; }
+table.mosler select { appearance: none; -webkit-appearance: none; width: 34px; min-height: 36px; padding: 0; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-2); color: var(--text); font: inherit; font-size: .95rem; font-weight: 800; text-align: center; text-align-last: center; }
+table.mosler select:focus { outline: 2px solid var(--brand-2); }
+table.mosler button.col { min-width: 34px; min-height: 30px; padding: 0; border-radius: 7px; border: 1px dashed var(--brand-2); background: var(--surface-2); color: var(--text); font: inherit; font-weight: 800; cursor: pointer; }
+.amen > table, .amen .scroll-x { margin-bottom: 8px; }
+table.matriz { border-collapse: separate; border-spacing: 2px; font-size: .75rem; font-variant-numeric: tabular-nums; }
+table.matriz thead th { vertical-align: bottom; height: 120px; padding: 0; }
+table.matriz thead th span { display: inline-block; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; font-weight: 600; color: var(--muted); padding: 2px 0; }
+table.matriz tbody th { text-align: left; padding-right: 6px; white-space: nowrap; position: sticky; left: 0; background: var(--surface); z-index: 1; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+table.matriz td { min-width: 30px; height: 26px; text-align: center; border-radius: 4px; font-weight: 700; color: var(--text); }
+table.matriz td.vacia { background: var(--surface-2); }
+.el-ed { margin-bottom: 6px; }
+.er-mini { font-size: .68rem; padding: 1px 6px; margin-top: 3px; }

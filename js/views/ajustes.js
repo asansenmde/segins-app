@@ -4,6 +4,7 @@ import { S, guardarLuego, cargar, volcarPendientes } from '../state.js';
 import { esc, hoyISO, modal, confirmar, toast, descargar } from '../ui.js';
 import { limpiarCache } from '../fotos.js';
 import { AUTOR, AVISO_DERECHOS } from '../autor.js';
+import { ESCALAS, fijarEscala } from '../mosler.js';
 
 export function mas(main) {
   main.innerHTML = `
@@ -42,6 +43,11 @@ export async function ajustes(main) {
         <label class="lbl">Mejorable desde<input class="input" type="number" min="0" max="100" name="umbralMej" value="${c.umbralMej}"></label>
       </div>
       <p class="muted small">Por debajo de "Mejorable" es Deficiente. Se aplica a las evaluaciones nuevas.</p>
+      <h3>Análisis de riesgos (Mosler)</h3>
+      <label class="lbl" for="escalaRiesgo">Clasificación del riesgo (ER)</label>
+      <select class="input" id="escalaRiesgo" name="escalaRiesgo">
+        ${Object.entries(ESCALAS).map(([k, e]) => `<option value="${k}" ${(c.escalaRiesgo || 'et3') === k ? 'selected' : ''}>${esc(e.nombre)}: ${e.clases.map((x, i, arr) => `${x.nombre} ${i === arr.length - 1 ? '> ' + arr[i - 1].max : '≤ ' + x.max}`).join(', ')}</option>`).join('')}
+      </select>
       <h3>Informe</h3>
       <label class="lbl">Encabezado (organismo)</label><input class="input" name="cabeceraOrganismo" value="${esc(c.cabeceraOrganismo)}">
       <label class="lbl">Marca de clasificación (encabezado y pie)</label><input class="input" name="marcaClasificacion" value="${esc(c.marcaClasificacion)}" placeholder="Vacío = sin marca">
@@ -81,6 +87,7 @@ export async function ajustes(main) {
   main.querySelector('#f').addEventListener('input', e => {
     const el = e.target;
     c[el.name] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
+    if (el.name === 'escalaRiesgo') fijarEscala(el.value);
     guardarLuego('config', c);
   });
 
