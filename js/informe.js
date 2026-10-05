@@ -5,7 +5,7 @@ import { calcEval, fmtNum } from './scoring.js';
 import { fmtFecha, hoyISO, MESES } from './ui.js';
 import { CAMPOS_CABECERA } from './views/comun.js';
 import { graficoSVG, graficoRiesgos } from './views/evaluaciones.js';
-import { CRITERIOS, clases, escala, calcFila, umbralAccion, resumenMosler } from './mosler.js';
+import { CRITERIOS, clases, escala, resumenMosler } from './mosler.js';
 import { planAcciones, accionesGenerales, propuestaItem } from './acciones.js';
 
 function cargarDocx() {
@@ -214,55 +214,38 @@ export async function generarInforme(ev, opt) {
   const mos = resumenMosler(ev);
   if (opt.mosler && mos.completas.length) {
     const hex = (c) => c.replace('#', '');
-    const celdaClase = (r, size = 15) => r.completo
-      ? new TableCell({
-        children: [new Paragraph({ children: [t(r.clase.nombre.toUpperCase(), { size, bold: true, color: 'FFFFFF' })] })],
-        shading: { type: ShadingType.CLEAR, color: 'auto', fill: hex(r.clase.color) },
-        margins: { top: 30, bottom: 30, left: 60, right: 60 },
-      })
-      : celda('', { size });
+    const celdaClase = (r) => new TableCell({
+      children: [new Paragraph({ children: [t(r.clase.nombre.toUpperCase(), { size: 15, bold: true, color: 'FFFFFF' })] })],
+      shading: { type: ShadingType.CLEAR, color: 'auto', fill: hex(r.clase.color) },
+      margins: { top: 30, bottom: 30, left: 60, right: 60 },
+    });
     const escalaTxt = clases().map((c, i) => `${c.nombre} ${i ? `${clases()[i - 1].max + 1}–${c.max}` : `≤ ${c.max}`}`).join(' · ');
     hijos.push(h1(`${sec++}. ANÁLISIS DE RIESGOS (MÉTODO MOSLER)`));
-    hijos.push(p(`Cada amenaza se valora sobre cada elemento de la instalación. I = F×S; D = P×E; C = I+D; PR = A×V; ER = C×PR (de 2 a 1250). Clasificación del riesgo: ${escalaTxt}.`, { size: 18, after: 120 }));
-
-    // Riesgos que requieren atención
-    const atencion = mos.conAccion;
-    hijos.push(h2(`Riesgos con ER mayor de ${umbralAccion()} (${atencion.length})`));
-    if (!atencion.length) hijos.push(p(`Todas las valoraciones tienen ER ≤ ${umbralAccion()}.`, { size: 18 }));
-    else hijos.push(tabla([
-      cabeceraBlanca(['Amenaza', 'Elemento', 'C', 'PR', 'ER', 'Riesgo'], [32, 30, 8, 8, 9, 13]),
-      ...atencion.map(({ a, e, r }) => new TableRow({
-        children: [celda(a.nombre, { size: 16, bold: true }), celda(e.nombre, { size: 16 }), celda(String(r.C), { size: 16, align: AlignmentType.CENTER }),
-          celda(String(r.PR), { size: 16, align: AlignmentType.CENTER }), celda(String(r.ER), { size: 16, bold: true, align: AlignmentType.CENTER }), celdaClase(r, 15)],
-      })),
-    ]));
-    const gr = await svgAPng(graficoRiesgos(mos.completas, { ancho: 640, max: 10 }));
+    hijos.push(p(`I = F×S; D = P×E; C = I+D; PR = A×V; ER = C×PR (de 2 a 1250). Cada criterio se valora de 1 a 5. Clasificación del riesgo: ${escalaTxt}.`, { size: 18, after: 120 }));
+    const n = (x) => celda(x == null ? '—' : String(x), { size: 15, align: AlignmentType.CENTER });
+    let grupoActual = null;
+    const filas = [];
+    for (const { a, r } of [...mos.completas].sort((x, y) => (x.a.grupo || '').localeCompare(y.a.grupo || '') || y.r.ER - x.r.ER)) {
+      if (a.grupo !== grupoActual) {
+        grupoActual = a.grupo;
+        filas.push(new TableRow({ children: [celda((grupoActual || '').toUpperCase(), { size: 15, bold: true, fill: 'EEF1EA', span: 13 })] }));
+      }
+      filas.push(new TableRow({
+        children: [celda(a.nombre + (a.elementoRef ? ` (${a.elementoRef})` : ''), { size: 15, bold: true }), n(r.F), n(r.S), n(r.I), n(r.P), n(r.E), n(r.D), n(r.C), n(r.A), n(r.V), n(r.PR),
+          celda(String(r.ER), { size: 15, bold: true, align: AlignmentType.CENTER }), celdaClase(r)],
+      }));
+    }
+    hijos.push(tabla([cabeceraBlanca(['Amenaza', 'F', 'S', 'I', 'P', 'E', 'D', 'C', 'A', 'V', 'PR', 'ER', 'RIESGO'], [25, 5, 5, 5, 5, 5, 5, 6, 5, 5, 6, 8, 15]), ...filas]));
+    const gr = await svgAPng(graficoRiesgos(mos.completas, { ancho: 640 }));
     hijos.push(new Paragraph({
       alignment: AlignmentType.CENTER, spacing: { before: 160 },
       children: [new ImageRun({ type: 'png', data: gr.data, transformation: { width: 600, height: Math.round(600 * gr.h / gr.w) } })],
     }));
-
-    // Detalle por amenaza, con el mismo formato que la hoja de cálculo Mosler
-    if (opt.moslerDetalle !== false) {
-      hijos.push(h2('Detalle por amenaza'));
-      let grupoActual = null;
-      for (const a of ev.mosler) {
-        const filas = ev.moslerElementos.map(e => ({ e, v: a.valores?.[e.id] || {}, r: calcFila(a.valores?.[e.id]) })).filter(f => f.r.completo);
-        if (!filas.length) continue;
-        if (a.grupo !== grupoActual) { grupoActual = a.grupo; hijos.push(p(grupoActual.toUpperCase(), { bold: true, size: 18, before: 160, after: 60 })); }
-        const n = (x) => celda(x == null ? '' : String(x), { size: 14, align: AlignmentType.CENTER });
-        hijos.push(tabla([
-          cabeceraBlanca([a.nombre.toUpperCase(), 'F', 'S', 'I', 'P', 'E', 'D', 'C', 'A', 'V', 'PR', 'ER', 'RIESGO'], [24, 5, 5, 5, 5, 5, 5, 6, 5, 5, 6, 8, 16]),
-          ...filas.map(({ e, v, r }) => new TableRow({
-            children: [celda(e.nombre, { size: 14 }), n(v.F), n(v.S), n(r.I), n(v.P), n(v.E), n(r.D), n(r.C), n(v.A), n(v.V), n(r.PR),
-              celda(String(r.ER), { size: 14, bold: true, align: AlignmentType.CENTER }), celdaClase(r, 13)],
-          })),
-        ]));
-        if (a.notas?.trim()) hijos.push(p([t('Justificación / medidas: ', { bold: true, size: 16 }), t(a.notas, { size: 16 })], { before: 60, after: 120 }));
-        else hijos.push(p('', { after: 120 }));
-      }
+    const conNotas = mos.completas.filter(({ a }) => a.notas?.trim());
+    if (conNotas.length) {
+      hijos.push(h2('Justificación y medidas propuestas'));
+      for (const { a, r } of conNotas) hijos.push(p([t(`${a.nombre} (ER ${r.ER}, ${r.clase.nombre}): `, { bold: true, size: 18 }), t(a.notas, { size: 18 })], { after: 80 }));
     }
-
     hijos.push(h2('Escala de valoración'));
     hijos.push(tabla([
       cabeceraBlanca(['Criterio', '1', '2', '3', '4', '5'], [20, 16, 16, 16, 16, 16]),

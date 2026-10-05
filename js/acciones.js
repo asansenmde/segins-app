@@ -81,27 +81,20 @@ export function fechaProxima(ev) {
   return { fecha: d.toISOString().slice(0, 10), meses };
 }
 
-// Amenazas con algún elemento por encima de la clase más baja, aún no añadidas al plan.
+// Amenazas valoradas por encima de la clase más baja y aún no añadidas al plan.
 export function riesgosSugeridos(ev) {
   const ya = new Set((ev.acciones || []).filter(a => a.origen === 'mosler').map(a => a.ref));
-  const porAmenaza = new Map();
-  for (const f of resumenMosler(ev).conAccion) {
-    if (ya.has(f.a.id)) continue;
-    if (!porAmenaza.has(f.a.id)) porAmenaza.set(f.a.id, { a: f.a, filas: [] });
-    porAmenaza.get(f.a.id).filas.push(f);
-  }
-  return [...porAmenaza.values()];
+  return resumenMosler(ev).conAccion.filter(({ a }) => !ya.has(a.id));
 }
 
-export function accionDeRiesgo(ev, a, filas) {
+export function accionDeRiesgo(ev, a, r) {
   const areas = ev.areas.filter(x => a.areas.includes(x.id)).map(x => `${x.id}. ${x.nombre}`);
   const noConf = ev.areas.filter(x => a.areas.includes(x.id))
     .flatMap(x => x.items.filter(it => ev.respuestas[it.id]?.r === 'I').map(it => it.codigo));
-  const donde = filas.map(f => `${f.e.nombre} (ER ${f.r.ER}, ${f.r.clase.nombre})`).join('; ');
-  let texto = `Reducir el riesgo de «${a.nombre}» en ${donde}: reforzar las medidas de seguridad`;
+  let texto = `Reducir el riesgo de «${a.nombre}»${a.elementoRef ? ` en ${a.elementoRef}` : ''} (ER ${r.ER}, ${r.clase.nombre}): reforzar las medidas de seguridad`;
   texto += areas.length ? ` en ${areas.join(', ')}` : '';
   texto += noConf.length ? ` y subsanar con prioridad ${noConf.join(', ')}.` : '.';
-  const p1 = filas.some(f => f.r.ER > umbralAlto());
+  const p1 = r.ER > umbralAlto();
   return {
     id: 'a' + uid(), origen: 'mosler', ref: a.id, texto,
     prioridad: p1 ? 'P1' : 'P2', responsable: '', plazo: plazoPorDefecto(ev, p1 ? 'P1' : 'P2'), estado: 'Pendiente',

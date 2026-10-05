@@ -1,4 +1,4 @@
-// Análisis de riesgos por el método Mosler: cada amenaza se valora sobre cada elemento de la instalación.
+// Análisis de riesgos por el método Mosler: una valoración por amenaza para el conjunto de la instalación.
 // I = F×S · D = P×E · C = I+D · PR = A×V · ER = C×PR (2–1250)
 import { calcArea } from './scoring.js';
 import { uid } from './ui.js';
@@ -66,12 +66,6 @@ export function clase(er) {
   return clases().find(c => er <= c.max) || clases()[clases().length - 1];
 }
 
-export const ELEMENTOS_BASE = [
-  'Almacén munición', 'C. Guardia / CECONSEG', 'Pabellones', 'Aparc. vehículos', 'Armería', 'Accesos',
-  'Alojamiento', 'Edificio Mando', 'Edificio UAPO', 'Depósito gasoil', 'Centros transformación',
-  'Grupo electrógeno', 'Cocina', 'CECOM',
-];
-
 const G1 = 'Amenazas con intervención del enemigo';
 const G2 = 'Amenazas sin intervención del enemigo';
 
@@ -103,9 +97,17 @@ export const AMENAZAS_BASE = [
 
 export const GRUPOS = [G1, G2];
 
-export const nuevoElemento = (nombre) => ({ id: 'el' + uid(), nombre });
-export const nuevaAmenaza = (nombre, grupo = G2, areas = []) => ({ id: 'm' + uid(), nombre, grupo, areas, notas: '', valores: {} });
+export const nuevaAmenaza = (nombre, grupo = G2, areas = []) =>
+  ({ id: 'm' + uid(), nombre, grupo, areas, F: null, S: null, P: null, E: null, A: null, V: null, vManual: false, notas: '' });
 const deBase = (a) => ({ ...nuevaAmenaza(a.nombre, a.grupo, [...a.areas]), id: a.id });
+
+// Lista de base: las 22 amenazas más las propias que el usuario guardó para futuras evaluaciones.
+function listaBase(config) {
+  const propias = [...(config.amenazasPropias || []), ...(config.amenazas || []).filter(a => !/^M\d\d$/.test(a.id))];
+  const out = [...AMENAZAS_BASE];
+  for (const a of propias) if (!out.some(x => norm(x.nombre) === norm(a.nombre))) out.push({ grupo: G2, areas: [], ...a });
+  return out;
+}
 
 export function calcFila(v = {}) {
   const ok = k => v[k] != null && v[k] !== '';
@@ -131,57 +133,59 @@ export function vPropuesta(ev, amenaza) {
   return { v, puntos, p1, areas: conDatos.map(r => r.id) };
 }
 
-// Convierte el formato antiguo (un valor por amenaza) al de amenaza × elemento.
-function migrar(ev) {
-  if (!ev.mosler || ev.moslerElementos) return false;
-  const gen = nuevoElemento('General');
-  ev.moslerElementos = [gen];
-  ev.mosler = ev.mosler.map(a => {
-    const v = Object.fromEntries(CLAVES.filter(k => a[k] != null).map(k => [k, a[k]]));
-    return { id: a.id, nombre: a.nombre, grupo: a.grupo || G2, areas: a.areas || [], notas: a.notas || '', valores: Object.keys(v).length ? { [gen.id]: v } : {} };
-  });
-  return true;
+export function calcAmenaza(ev, a) {
+  const prop = vPropuesta(ev, a);
+  const V = a.vManual ? a.V : prop?.v ?? null;
+  const val = { F: a.F, S: a.S, P: a.P, E: a.E, A: a.A, V };
+  return { ...val, ...calcFila(val), prop };
 }
 
-// Crea el análisis de una evaluación copiando la última de la misma instalación, o desde la lista de base.
+// Adapta análisis guardados con formatos anteriores: sin grupo, o valorados por elementos
+// (de cada amenaza se toma el elemento con el ER más alto).
+function migrar(ev) {
+  if (!ev.mosler) return false;
+  let cambio = false;
+  const elems = ev.moslerElementos;
+  for (const a of ev.mosler) {
+    if (!a.grupo) { a.grupo = AMENAZAS_BASE.find(x => norm(x.nombre) === norm(a.nombre))?.grupo || G2; cambio = true; }
+    if (a.valores) {
+      let mejor = null;
+      for (const e of elems || []) {
+        const r = calcFila(a.valores[e.id]);
+        if (r.completo && (!mejor || r.ER > mejor.r.ER)) mejor = { e, r, v: a.valores[e.id] };
+      }
+      for (const k of CLAVES) a[k] = mejor ? mejor.v[k] : null;
+      a.vManual = !!mejor;
+      if (mejor) a.elementoRef = mejor.e.nombre;
+      delete a.valores;
+      cambio = true;
+    }
+  }
+  if (elems) { delete ev.moslerElementos; cambio = true; }
+  return cambio;
+}
+
+// Crea el análisis de una evaluación copiando la última de la misma instalación (sin la V, que se
+// recalcula con el cuestionario nuevo salvo que se hubiera ajustado a mano) o desde la lista de base.
 export function asegurarMosler(ev, evaluaciones, config) {
-  if (migrar(ev)) return true;
-  if (ev.mosler && ev.moslerElementos) return false;
+  if (ev.mosler) return migrar(ev);
   const previa = ev.instId && [...evaluaciones]
     .filter(e => e.id !== ev.id && e.instId === ev.instId && e.mosler?.length)
     .sort((a, b) => (b.cabecera.fecha || b.creado).localeCompare(a.cabecera.fecha || a.creado))[0];
   if (previa) {
     migrar(previa);
-    ev.moslerElementos = structuredClone(previa.moslerElementos);
-    ev.mosler = structuredClone(previa.mosler);
-  } else {
-    ev.moslerElementos = (config.elementosMosler || ELEMENTOS_BASE).map(n => nuevoElemento(n));
-    ev.mosler = (config.amenazas || AMENAZAS_BASE).map(deBase);
-  }
+    ev.mosler = previa.mosler.map(a => ({ ...structuredClone(a), V: a.vManual ? a.V : null }));
+  } else ev.mosler = listaBase(config).map(deBase);
   return true;
 }
 
 export function resumenMosler(ev) {
   migrar(ev);
-  const elems = ev.moslerElementos || [];
-  const filas = [];
-  for (const a of ev.mosler || []) {
-    for (const e of elems) filas.push({ a, e, r: calcFila(a.valores?.[e.id]) });
-  }
+  const filas = (ev.mosler || []).map(a => ({ a, r: calcAmenaza(ev, a) }));
   const completas = filas.filter(f => f.r.completo).sort((x, y) => y.r.ER - x.r.ER);
   const altos = completas.filter(f => f.r.ER > umbralAlto()).length;
   const conAccion = completas.filter(f => f.r.ER > umbralAccion());
-  return { filas, completas, altos, conAccion, elems };
-}
-
-// Máximo ER de una amenaza sobre todos sus elementos.
-export function maxAmenaza(ev, a) {
-  let max = null;
-  for (const e of ev.moslerElementos || []) {
-    const r = calcFila(a.valores?.[e.id]);
-    if (r.ER != null && (max == null || r.ER > max.ER)) max = { ...r, e };
-  }
-  return max;
+  return { filas, completas, altos, conAccion };
 }
 
 const norm = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
@@ -226,24 +230,22 @@ export function leerTablaPegada(texto) {
   return { amenazas: amenazas.filter(a => a.filas.length), elementos };
 }
 
-// Aplica una tabla leída a la evaluación: crea elementos y amenazas que falten y sobrescribe sus valores.
+// Aplica una tabla pegada de Excel: de cada amenaza se toma la fila (elemento) con el ER más alto.
 export function aplicarTabla(ev, tabla) {
-  const elems = ev.moslerElementos;
-  const idElem = (nombre) => {
-    let e = elems.find(x => norm(x.nombre) === norm(nombre));
-    if (!e) { e = nuevoElemento(nombre); elems.push(e); }
-    return e.id;
-  };
-  let celdas = 0;
+  let n = 0;
   for (const t of tabla.amenazas) {
+    const filas = t.filas.map(f => ({ ...f, r: calcFila(f.v) })).filter(f => f.r.completo).sort((x, y) => y.r.ER - x.r.ER);
+    if (!filas.length) continue;
     let a = ev.mosler.find(x => norm(x.nombre) === norm(t.nombre));
     if (!a) {
       const base = AMENAZAS_BASE.find(x => norm(x.nombre) === norm(t.nombre));
-      a = nuevaAmenaza(t.nombre, base?.grupo || (GRUPOS.includes(t.grupo) ? t.grupo : G2), base ? [...base.areas] : []);
+      a = nuevaAmenaza(base?.nombre || t.nombre, base?.grupo || (GRUPOS.includes(t.grupo) ? t.grupo : G2), base ? [...base.areas] : []);
       ev.mosler.push(a);
     }
-    a.valores ||= {};
-    for (const f of t.filas) { a.valores[idElem(f.elemento)] = { ...f.v }; celdas++; }
+    for (const k of CLAVES) a[k] = filas[0].v[k];
+    a.vManual = true;
+    a.elementoRef = filas[0].elemento;
+    n++;
   }
-  return celdas;
+  return n;
 }

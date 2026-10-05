@@ -4,7 +4,7 @@ import { esc, uid, fmtFecha, hoyISO, modal, confirmar, toast, leerForm, comparti
 import { calcEval, calcArea, fmtNum } from '../scoring.js';
 import { procesarImagen, guardarFoto, urlFoto, verFoto, borrarFoto, elegirImagenes } from '../fotos.js';
 import { CAMPOS_CABECERA, badgeNivel, badgeEstado, barra, vacio } from './comun.js';
-import { CRITERIOS, CLAVES, GRUPOS, AMENAZAS_BASE, clases, umbralAccion, umbralAlto, nuevaAmenaza, nuevoElemento, calcFila, vPropuesta, maxAmenaza, asegurarMosler, resumenMosler, leerTablaPegada, aplicarTabla } from '../mosler.js';
+import { CRITERIOS, GRUPOS, clases, umbralAccion, umbralAlto, nuevaAmenaza, calcAmenaza, asegurarMosler, resumenMosler, leerTablaPegada, aplicarTabla } from '../mosler.js';
 import { ESTADOS, propuestaItem, plazoPorDefecto, planAcciones, riesgosSugeridos, accionDeRiesgo, accionManual, accionesGenerales, fechaProxima } from '../acciones.js';
 
 const TXT_R = { C: 'Conforme', I: 'No conforme', NA: 'No aplica' };
@@ -409,8 +409,8 @@ function tarjetaResumenMosler(ev) {
   const top = completas.slice(0, 3);
   return `<a class="card link" href="#/eval/${ev.id}/riesgos">
     <div class="row between"><h3>Riesgos (Mosler)</h3>${altos ? `<span class="badge alert">${altos} · ${etiquetaRango(umbralAlto(), 1250)}</span>` : ''}</div>
-    <p class="muted small">${completas.length} valoraciones · ${conAccion.length} con ER mayor de ${umbralAccion()}.</p>
-    <ul class="plain">${top.map(({ a, e, r }) => `<li class="row between"><span>${esc(a.nombre)} · ${esc(e.nombre)}</span>${badgeClase(r)}</li>`).join('')}</ul>
+    <p class="muted small">${completas.length} amenazas valoradas · ${conAccion.length} con ER mayor de ${umbralAccion()}.</p>
+    <ul class="plain">${top.map(({ a, r }) => `<li class="row between"><span>${esc(a.nombre)}</span>${badgeClase(r)}</li>`).join('')}</ul>
   </a>`;
 }
 
@@ -435,7 +435,7 @@ function tabInforme(cont, ev) {
       <label class="lbl">Lugar de firma</label>
       <input class="input" name="lugarFirma" value="${esc(ev.lugarFirma)}" placeholder="Ej.: Madrid">
       <label class="check"><input type="checkbox" id="optMosler" ${nMos ? 'checked' : 'disabled'}> <span>Incluir el análisis de riesgos (Mosler)<br><span class="muted small">${nMos
-        ? `${nMos} valoraciones (amenaza × elemento). Solo se incluyen las completas.`
+        ? `${nMos} de ${mos.filas.length} amenazas valoradas. Solo se incluyen las valoradas del todo.`
         : 'No has valorado ninguna amenaza: el informe será solo de la evaluación.'}</span></span></label>
       <label class="check"><input type="checkbox" id="optAcciones" checked> Incluir el plan de acciones derivadas</label>
       <label class="check"><input type="checkbox" id="optDetalle" checked> Incluir la tabla completa de los ${g.total} ítems</label>
@@ -474,13 +474,11 @@ function tabInforme(cont, ev) {
   };
 }
 
-// ---------------- Riesgos (método Mosler: amenaza × elemento) ----------------
-
-const colorClase = (nombre) => clases().find(c => c.nombre === nombre)?.color || '#888';
+// ---------------- Riesgos (método Mosler) ----------------
 
 const badgeClase = (r) => r?.completo
   ? `<span class="badge ${r.clase.cls}">${r.ER} · ${esc(r.clase.nombre)}</span>`
-  : '<span class="badge none">Sin valorar</span>';
+  : '<span class="badge none">Pendiente</span>';
 
 // Nombre de las clases comprendidas entre dos umbrales: «Normal», «Elevado o más»…
 function etiquetaRango(desde, hasta) {
@@ -490,12 +488,12 @@ function etiquetaRango(desde, hasta) {
 
 const textoEscala = () => clases().map((c, i) => `${c.nombre} ${i ? `${clases()[i - 1].max + 1}–${c.max}` : `≤ ${c.max}`}`).join(' · ');
 
-// Ranking horizontal de los riesgos más altos (amenaza · elemento), con las bandas de clase de fondo.
-export function graficoRiesgos(completas, { ancho = 640, oscuro = false, max = 12 } = {}) {
+// Ranking horizontal de amenazas por ER, con las bandas de clase de fondo.
+export function graficoRiesgos(completas, { ancho = 640, oscuro = false, max = 22 } = {}) {
   const lista = completas.slice(0, max);
   const estrecho = ancho < 500;
-  const fila = 26, m = { l: estrecho ? 150 : 250, r: 44, t: 22, b: 8 };
-  const maxC = estrecho ? 20 : 40;
+  const fila = 26, m = { l: estrecho ? 150 : 210, r: 44, t: 22, b: 8 };
+  const maxC = estrecho ? 18 : 32;
   const alto = m.t + m.b + lista.length * fila;
   const w = ancho - m.l - m.r;
   const x = v => m.l + (v / 1250) * w;
@@ -508,10 +506,9 @@ export function graficoRiesgos(completas, { ancho = 640, oscuro = false, max = 1
     s += `<text x="${x(c.max)}" y="${m.t - 8}" text-anchor="end" fill="${eje}" font-size="10">${c.max}</text>`;
     desde = c.max;
   }
-  lista.forEach(({ a, e, r }, i) => {
+  lista.forEach(({ a, r }, i) => {
     const y = m.t + i * fila;
-    const t = `${a.nombre} · ${e.nombre}`;
-    const nombre = t.length > maxC ? t.slice(0, maxC - 1) + '…' : t;
+    const nombre = a.nombre.length > maxC ? a.nombre.slice(0, maxC - 1) + '…' : a.nombre;
     s += `<text x="${m.l - 8}" y="${y + fila / 2 + 4}" text-anchor="end" fill="${txt}">${esc(nombre)}</text>`;
     s += `<rect x="${m.l}" y="${y + 4}" width="${Math.max(2, x(r.ER) - m.l)}" height="${fila - 8}" rx="3" fill="${r.clase.color}"/>`;
     s += `<text x="${x(r.ER) + 6}" y="${y + fila / 2 + 4}" fill="${txt}" font-weight="700">${r.ER}</text>`;
@@ -519,58 +516,12 @@ export function graficoRiesgos(completas, { ancho = 640, oscuro = false, max = 1
   return s + '</svg>';
 }
 
-// Matriz amenazas × elementos con el ER de cada cruce coloreado por su clase.
-function matrizRiesgos(ev) {
-  const elems = ev.moslerElementos;
-  const conDatos = ev.mosler.filter(a => elems.some(e => calcFila(a.valores?.[e.id]).completo));
-  if (!conDatos.length) return '';
-  return `<div class="card"><h3>Matriz de riesgos</h3>
-    <div class="scroll-x"><table class="matriz">
-      <thead><tr><th></th>${elems.map(e => `<th><span>${esc(e.nombre)}</span></th>`).join('')}</tr></thead>
-      <tbody>${conDatos.map(a => `<tr><th><button type="button" class="linkbtn" data-ir="${esc(a.id)}">${esc(a.nombre)}</button></th>${elems.map(e => {
-        const r = calcFila(a.valores?.[e.id]);
-        return r.completo ? `<td style="background:${r.clase.color}${r.clase.cls === 'ok' ? '26' : '40'}" title="${esc(e.nombre)}: ${r.clase.nombre}">${r.ER}</td>` : '<td class="vacia"></td>';
-      }).join('')}</tr>`).join('')}</tbody>
-    </table></div>
-    <div class="legend small">${clases().map(c => `<span><i style="background:${c.color}"></i>${c.nombre}</span>`).join('')}</div>
-  </div>`;
-}
-
-function tablaAmenaza(ev, a) {
-  const prop = vPropuesta(ev, a);
-  return `<div class="scroll-x"><table class="mosler">
-    <thead><tr><th class="el">Elemento</th>${CLAVES.map(k => `<th><button type="button" class="col" data-col="${k}" title="Poner el mismo valor de ${k} a todos los elementos">${k}</button></th>`).join('')}<th>C</th><th>PR</th><th>ER</th><th>Riesgo</th></tr></thead>
-    <tbody>${ev.moslerElementos.map(e => {
-      const v = a.valores?.[e.id] || {};
-      const r = calcFila(v);
-      return `<tr data-el="${esc(e.id)}"><th class="el">${esc(e.nombre)}${r.completo ? `<br><span class="badge ${r.clase.cls} er-mini">${r.ER} · ${esc(r.clase.nombre)}</span>` : ''}</th>${CLAVES.map(k => `<td><select data-k="${k}" aria-label="${k} ${esc(e.nombre)}">
-          <option value=""></option>${[1, 2, 3, 4, 5].map(n => `<option ${v[k] === n ? 'selected' : ''}>${n}</option>`).join('')}</select></td>`).join('')}
-        <td>${r.C ?? ''}</td><td>${r.PR ?? ''}</td><td><b>${r.ER ?? ''}</b></td>
-        <td>${r.completo ? `<span class="badge ${r.clase.cls}">${esc(r.clase.nombre)}</span>` : ''}</td></tr>`;
-    }).join('')}</tbody>
-  </table></div>
-  <p class="small muted">${prop
-    ? `V orientativa según el cuestionario (áreas ${prop.areas.join(', ')}: ${fmtNum(prop.puntos)} pts${prop.p1 ? `, ${prop.p1} P1 no conforme` : ''}): <strong>${prop.v}</strong>. <button type="button" class="linkbtn" data-vprop="${prop.v}">Ponerla en los elementos sin V</button>`
-    : 'Pulsa la letra de una columna para dar el mismo valor a todos los elementos.'}</p>`;
-}
-
-function tarjetaAmenaza(ev, a, abierta) {
-  const max = maxAmenaza(ev, a);
-  const valorados = ev.moslerElementos.filter(e => calcFila(a.valores?.[e.id]).completo).length;
-  return `<details class="card amen" data-am="${esc(a.id)}" ${abierta ? 'open' : ''}>
-    <summary class="row between"><span><strong>${esc(a.nombre)}</strong><br><span class="muted small">${valorados}/${ev.moslerElementos.length} elementos${max ? ` · máx. en ${esc(max.e.nombre)}` : ''}</span></span>${max ? badgeClase(max) : '<span class="badge none">Sin valorar</span>'}</summary>
-    ${abierta ? tablaAmenaza(ev, a) : ''}
-    <textarea class="input" data-notas="1" rows="2" placeholder="Justificación / medidas propuestas">${esc(a.notas)}</textarea>
-    <div class="row gap"><button type="button" class="btn grow" data-editar="1">Editar</button><button type="button" class="btn danger" data-quitaram="1">Quitar</button></div>
-  </details>`;
-}
-
 async function dialogoAmenaza(ev, a = null) {
   return modal({
     title: a ? 'Editar amenaza' : 'Nueva amenaza',
     body: `<label class="lbl">Amenaza</label><input class="input" name="nombre" value="${esc(a?.nombre || '')}" placeholder="Ej.: Dron hostil">
       <label class="lbl">Grupo</label><select class="input" name="grupo">${GRUPOS.map(g => `<option ${(a?.grupo || GRUPOS[1]) === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select>
-      <label class="lbl">Áreas del cuestionario que orientan su vulnerabilidad</label>
+      <label class="lbl">Áreas del cuestionario que miden su vulnerabilidad</label>
       <div class="chips">${ev.areas.map(ar => `<label class="chip"><input type="checkbox" name="area" value="${esc(ar.id)}" ${a?.areas.includes(ar.id) ? 'checked' : ''}> ${esc(ar.id)}. ${esc(ar.nombre)}</label>`).join('')}</div>
       ${a ? '' : '<label class="check"><input type="checkbox" name="alBase"> Añadir también a la lista para futuras evaluaciones</label>'}`,
     buttons: [{ label: 'Cancelar', value: null }, {
@@ -587,37 +538,41 @@ async function dialogoAmenaza(ev, a = null) {
   });
 }
 
-async function dialogoElementos(ev) {
-  const filas = (lista) => lista.map(e => `<div class="row gap el-ed" data-elid="${esc(e.id)}"><input class="input" value="${esc(e.nombre)}" aria-label="Elemento"><button type="button" class="icon-btn" data-quitar-el="1" aria-label="Quitar">✕</button></div>`).join('');
-  return modal({
-    title: 'Elementos de la instalación',
-    body: `<p class="muted small">Cada amenaza se valora sobre estos elementos. Al quitar uno se borran sus valoraciones.</p>
-      <div id="els">${filas(ev.moslerElementos)}</div>
-      <button type="button" class="btn block" id="addel">＋ Añadir elemento</button>
-      <label class="check"><input type="checkbox" name="defecto"> Usar esta lista en las evaluaciones nuevas</label>`,
-    onOpen: w => w.addEventListener('click', e => {
-      if (e.target.id === 'addel') {
-        w.querySelector('#els').insertAdjacentHTML('beforeend', filas([nuevoElemento('')]));
-        w.querySelector('#els .el-ed:last-child input').focus();
-      } else if (e.target.closest('[data-quitar-el]')) e.target.closest('.el-ed').remove();
-    }),
-    buttons: [{ label: 'Cancelar', value: null }, {
-      label: 'Guardar', cls: 'primary', value: w => ({
-        lista: [...w.querySelectorAll('.el-ed')].map(d => ({ id: d.dataset.elid, nombre: d.querySelector('input').value.trim() })).filter(e => e.nombre),
-        defecto: w.querySelector('[name=defecto]').checked,
-      }),
-    }],
-  });
-}
-
 async function dialogoImportar() {
   return modal({
     title: 'Importar desde Excel',
-    body: `<p class="small">Selecciona en Excel la tabla Mosler completa (con las filas de título de cada amenaza: <em>AMENAZA · F · S · I=FxS · P · E · D=PxE · C=I+D · A · V · PR=AxV · ER=CxPR · RIESGO</em>), cópiala y pégala aquí. Se rellenan las amenazas y los elementos que coincidan y se crean los que falten.</p>
+    body: `<p class="small">Copia en Excel tu tabla Mosler (con la fila de título de cada amenaza: <em>AMENAZA · F · S · I=FxS · P · E · D=PxE · C=I+D · A · V · PR=AxV · ER=CxPR · RIESGO</em>) y pégala aquí.</p>
+      <p class="small muted">Si la tabla tiene varios elementos por amenaza, se toma el de riesgo más alto y se indica cuál es.</p>
       <textarea class="input" name="tabla" rows="8" placeholder="Pega aquí la tabla"></textarea>`,
     onOpen: w => setTimeout(() => w.querySelector('textarea').focus(), 50),
     buttons: [{ label: 'Cancelar', value: null }, { label: 'Importar', cls: 'primary', value: w => w.querySelector('textarea').value }],
   });
+}
+
+function tarjetaAmenaza(ev, a, r, abierta) {
+  const hechos = CRITERIOS.filter(c => r[c.k] != null).length;
+  return `<details class="card amen" data-am="${esc(a.id)}" ${abierta ? 'open' : ''}>
+    <summary class="row between"><span><strong>${esc(a.nombre)}</strong>${a.elementoRef ? `<br><span class="muted small">Valorada en: ${esc(a.elementoRef)}</span>` : ''}</span>${r.completo ? badgeClase(r) : `<span class="badge none">${hechos}/6</span>`}</summary>
+    ${CRITERIOS.map(c => {
+      const v = r[c.k];
+      let extra = '';
+      if (c.k === 'V') {
+        extra = r.prop
+          ? `<p class="small ${a.vManual ? 'muted' : ''}">Propuesta del cuestionario: <strong>${r.prop.v} (${c.escala[r.prop.v - 1]})</strong> · áreas ${r.prop.areas.join(', ')}: ${fmtNum(r.prop.puntos)} pts${r.prop.p1 ? ` · ${r.prop.p1} P1 no conforme` : ''}</p>`
+          : `<p class="small muted">Sin datos del cuestionario en las áreas ${esc(a.areas.join(', ') || '—')}: puntúala a mano.</p>`;
+        if (a.vManual) extra += `<p class="small">Ajustada a mano. ${r.prop ? '<button type="button" class="linkbtn" data-usarprop="1">Usar la propuesta</button>' : ''}</p>`;
+      }
+      return `<div class="crit">
+        <div class="crit-h"><strong>${c.k} · ${c.nombre}</strong><span class="muted small">${c.ayuda}</span></div>
+        <div class="seg5">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-c="${c.k}" data-v="${n}" class="${v === n ? 'on' : ''}" aria-pressed="${v === n}" title="${c.escala[n - 1]}">${n}</button>`).join('')}</div>
+        <div class="small crit-v">${v ? esc(c.escala[v - 1]) : '<span class="muted">Sin valorar</span>'}</div>
+        ${extra}
+      </div>`;
+    }).join('')}
+    <div class="calc small">I = F×S = <b>${r.I ?? '—'}</b> · D = P×E = <b>${r.D ?? '—'}</b> · C = I+D = <b>${r.C ?? '—'}</b> · PR = A×V = <b>${r.PR ?? '—'}</b> · <span class="er">ER = C×PR = <b>${r.ER ?? '—'}</b></span></div>
+    <textarea class="input" data-notas="1" rows="2" placeholder="Justificación / medidas propuestas">${esc(a.notas)}</textarea>
+    <div class="row gap"><button type="button" class="btn grow" data-editar="1">Editar</button><button type="button" class="btn danger" data-quitaram="1">Quitar</button></div>
+  </details>`;
 }
 
 function tabRiesgos(cont, ev) {
@@ -625,91 +580,62 @@ function tabRiesgos(cont, ev) {
   const abiertas = new Set();
   const oscuro = matchMedia('(prefers-color-scheme: dark)').matches;
 
-  const resumen = () => {
+  const ranking = () => {
     const { completas, altos, conAccion } = resumenMosler(ev);
     const k = (n, l, cls = '') => `<div class="kpi"><div class="kpi-l">${l}</div><div class="kpi-v ${cls}">${n}</div></div>`;
     return completas.length ? `
-      <div class="kpis">${k(completas.length, 'Valoraciones')}${k(conAccion.length - altos, etiquetaRango(umbralAccion(), umbralAlto()))}${k(altos, etiquetaRango(umbralAlto(), 1250), altos ? 'txt-alert' : '')}</div>
-      ${matrizRiesgos(ev)}
-      <div class="card"><h3>Riesgos más altos</h3><div class="chart">${graficoRiesgos(completas, { oscuro, max: 10, ancho: Math.max(340, Math.min(640, (cont.clientWidth || 380) - 30)) })}</div></div>`
-      : '<p class="aviso">Aún no hay valoraciones. Abre una amenaza y puntúa sus elementos, o importa tu tabla de Excel.</p>';
+      <div class="kpis">${k(`${completas.length}/${ev.mosler.length}`, 'Valoradas')}${k(conAccion.length - altos, etiquetaRango(umbralAccion(), umbralAlto()))}${k(altos, etiquetaRango(umbralAlto(), 1250), altos ? 'txt-alert' : '')}</div>
+      <div class="card"><h3>Ranking de riesgos</h3>
+        <div class="chart">${graficoRiesgos(completas, { oscuro, ancho: Math.max(340, Math.min(640, (cont.clientWidth || 380) - 30)) })}</div>
+        <div class="legend small">${clases().map(c => `<span><i style="background:${c.color}"></i>${c.nombre}</span>`).join('')}</div></div>`
+      : '<p class="aviso">Aún no hay amenazas valoradas. Abre una y puntúa sus 6 criterios, o importa tu tabla de Excel.</p>';
   };
-
+  const grupos = () => GRUPOS.concat([...new Set(ev.mosler.map(a => a.grupo))].filter(g => g && !GRUPOS.includes(g)));
   const pintar = () => {
     cont.innerHTML = `
-      <p class="muted small">Método Mosler: ER = (F×S + P×E) × (A×V), de 2 a 1250. Cada amenaza se valora sobre cada elemento de la instalación. Clasificación: ${esc(textoEscala())} (se cambia en Ajustes).</p>
-      <div class="row gap wrap"><button type="button" class="btn grow" id="elementos">Elementos (${ev.moslerElementos.length})</button><button type="button" class="btn grow" id="importar">Importar desde Excel</button></div>
-      <div id="resumen">${resumen()}</div>
-      ${GRUPOS.concat([...new Set(ev.mosler.map(a => a.grupo))].filter(g => !GRUPOS.includes(g))).map(g => {
+      <p class="muted small">Método Mosler: ER = (F×S + P×E) × (A×V), de 2 a 1250. Clasificación: ${esc(textoEscala())}. Puntúa cada criterio del 1 al 5; la V se propone con el cuestionario y puedes ajustarla.</p>
+      <button type="button" class="btn block" id="importar">Importar desde Excel</button>
+      <div id="ranking">${ranking()}</div>
+      ${grupos().map(g => {
         const del = ev.mosler.filter(a => (a.grupo || GRUPOS[1]) === g);
-        return del.length ? `<h3 class="sec">${esc(g)}</h3>${del.map(a => tarjetaAmenaza(ev, a, abiertas.has(a.id))).join('')}` : '';
+        return del.length ? `<h3 class="sec">${esc(g)}</h3>${del.map(a => tarjetaAmenaza(ev, a, calcAmenaza(ev, a), abiertas.has(a.id))).join('')}` : '';
       }).join('')}
       <button type="button" class="btn block" id="addam">＋ Añadir amenaza</button>
       <details class="card"><summary><strong>Escala de valoración</strong></summary>
         <div class="scroll-x"><table class="tbl"><thead><tr><th>Criterio</th>${[1, 2, 3, 4, 5].map(n => `<th>${n}</th>`).join('')}</tr></thead>
         <tbody>${CRITERIOS.map(c => `<tr><td><strong>${c.k}</strong> ${c.nombre}</td>${c.escala.map(e => `<td>${e}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
-        <p class="small">Riesgo (ER): ${esc(textoEscala())}.</p>
+        <p class="small">Riesgo (ER): ${esc(textoEscala())}. Se cambia en Ajustes.</p>
       </details>`;
   };
   pintar();
 
-  const tarjeta = (a) => {
-    cont.querySelector(`[data-am="${CSS.escape(a.id)}"]`).outerHTML = tarjetaAmenaza(ev, a, true);
-    cont.querySelector('#resumen').innerHTML = resumen();
+  // Tras tocar una amenaza solo se redibujan su tarjeta y el ranking, para que la pantalla no salte.
+  const actualizar = (a) => {
+    cont.querySelector(`[data-am="${CSS.escape(a.id)}"]`).outerHTML = tarjetaAmenaza(ev, a, calcAmenaza(ev, a), true);
+    cont.querySelector('#ranking').innerHTML = ranking();
   };
 
   cont.addEventListener('toggle', e => {
     const d = e.target.closest?.('[data-am]');
-    if (!d || e.target !== d) return;
-    const a = ev.mosler.find(x => x.id === d.dataset.am);
-    if (d.open && !abiertas.has(a.id)) { abiertas.add(a.id); d.outerHTML = tarjetaAmenaza(ev, a, true); }
-    else if (!d.open) abiertas.delete(a.id);
+    if (d) d.open ? abiertas.add(d.dataset.am) : abiertas.delete(d.dataset.am);
   }, true);
-
-  cont.addEventListener('change', async e => {
-    const sel = e.target.closest('select[data-k]');
-    if (!sel) return;
-    const card = sel.closest('[data-am]');
-    const a = ev.mosler.find(x => x.id === card.dataset.am);
-    const el = sel.closest('[data-el]').dataset.el;
-    const v = (a.valores ||= {})[el] ||= {};
-    if (sel.value) v[sel.dataset.k] = +sel.value; else delete v[sel.dataset.k];
-    tarjeta(a);
-    await guardar('eval', ev);
-  });
 
   cont.addEventListener('click', async e => {
     const b = e.target.closest('button');
     if (!b) return;
     const card = b.closest('[data-am]');
     const a = card && ev.mosler.find(x => x.id === card.dataset.am);
-    if (b.dataset.ir) {
-      abiertas.add(b.dataset.ir);
-      pintar();
-      cont.querySelector(`[data-am="${CSS.escape(b.dataset.ir)}"]`)?.scrollIntoView({ block: 'start' });
-    } else if (b.dataset.col && a) {
-      const k = b.dataset.col;
-      const c = CRITERIOS.find(x => x.k === k);
-      const n = await modal({
-        title: `${k} · ${c.nombre} en todos los elementos`,
-        body: `<p class="small muted">${c.ayuda}. Se aplica a los ${ev.moslerElementos.length} elementos de «${esc(a.nombre)}».</p>
-          <div class="seg5">${[1, 2, 3, 4, 5].map(x => `<button type="button" data-n="${x}" title="${c.escala[x - 1]}">${x}</button>`).join('')}</div>`,
-        onOpen: w => w.querySelectorAll('[data-n]').forEach(x => x.addEventListener('click', () => { w.dataset.n = x.dataset.n; w.querySelector('.modal-actions .primary').click(); })),
-        buttons: [{ label: 'Cancelar', value: null }, { label: 'Vaciar columna', value: 'vaciar' }, { label: 'Aplicar', cls: 'primary', value: w => (w.dataset.n ? +w.dataset.n : false) }],
-      });
-      if (!n) return;
-      for (const el of ev.moslerElementos) {
-        const v = (a.valores ||= {})[el.id] ||= {};
-        if (n === 'vaciar') delete v[k]; else v[k] = n;
-      }
-      tarjeta(a);
+    if (b.dataset.c && a) {
+      const n = +b.dataset.v;
+      if (b.dataset.c === 'V') {
+        const actual = calcAmenaza(ev, a).V;
+        if (actual === n && a.vManual) { a.V = null; a.vManual = false; } else { a.V = n; a.vManual = true; }
+      } else a[b.dataset.c] = a[b.dataset.c] === n ? null : n;
+      actualizar(a);
       await guardar('eval', ev);
-    } else if (b.dataset.vprop && a) {
-      for (const el of ev.moslerElementos) {
-        const v = (a.valores ||= {})[el.id] ||= {};
-        if (v.V == null) v.V = +b.dataset.vprop;
-      }
-      tarjeta(a);
+    } else if (b.dataset.usarprop && a) {
+      a.vManual = false; a.V = null;
+      actualizar(a);
       await guardar('eval', ev);
     } else if (b.dataset.editar && a) {
       const v = await dialogoAmenaza(ev, a);
@@ -718,7 +644,7 @@ function tabRiesgos(cont, ev) {
       await guardar('eval', ev);
       pintar();
     } else if (b.dataset.quitaram && a) {
-      if (!(await confirmar(`¿Quitar «${a.nombre}» y sus valoraciones de esta evaluación?`, 'Quitar', 'danger'))) return;
+      if (!(await confirmar(`¿Quitar «${a.nombre}» de esta evaluación?`, 'Quitar', 'danger'))) return;
       ev.mosler = ev.mosler.filter(x => x !== a);
       ev.acciones = (ev.acciones || []).filter(x => !(x.origen === 'mosler' && x.ref === a.id));
       await guardar('eval', ev);
@@ -729,22 +655,13 @@ function tabRiesgos(cont, ev) {
       const nueva = nuevaAmenaza(v.nombre, v.grupo, v.areas);
       ev.mosler.push(nueva);
       if (v.alBase) {
-        S.config.amenazas = [...(S.config.amenazas || AMENAZAS_BASE), { id: nueva.id, nombre: v.nombre, grupo: v.grupo, areas: v.areas }];
+        S.config.amenazasPropias = [...(S.config.amenazasPropias || []), { id: nueva.id, nombre: v.nombre, grupo: v.grupo, areas: v.areas }];
         await guardar('config', S.config);
       }
       await guardar('eval', ev);
       abiertas.add(nueva.id);
       pintar();
       cont.querySelector(`[data-am="${CSS.escape(nueva.id)}"]`)?.scrollIntoView({ block: 'start' });
-    } else if (b.id === 'elementos') {
-      const v = await dialogoElementos(ev);
-      if (!v) return;
-      const quedan = new Set(v.lista.map(x => x.id));
-      for (const a2 of ev.mosler) for (const id of Object.keys(a2.valores || {})) if (!quedan.has(id)) delete a2.valores[id];
-      ev.moslerElementos = v.lista;
-      if (v.defecto) { S.config.elementosMosler = v.lista.map(x => x.nombre); await guardar('config', S.config); }
-      await guardar('eval', ev);
-      pintar();
     } else if (b.id === 'importar') {
       const texto = await dialogoImportar();
       if (!texto?.trim()) return;
@@ -753,7 +670,7 @@ function tabRiesgos(cont, ev) {
       const n = aplicarTabla(ev, tabla);
       await guardar('eval', ev);
       pintar();
-      toast(`Importadas ${tabla.amenazas.length} amenazas (${n} valoraciones).`, 4000);
+      toast(`Importadas ${n} amenazas.`, 4000);
     }
   });
 
@@ -818,7 +735,7 @@ function tabAcciones(cont, ev) {
           : `<button type="button" class="btn block" id="programar">📅 Programar la próxima evaluación (${fmtFecha(prox.fecha)})</button>`) : ''}
       </div>` : ''}
       ${sugeridas.length ? `<div class="card"><h3>Sugeridas por el análisis de riesgos</h3>
-        ${sugeridas.map(({ a, filas }) => `<div class="row between gap sug"><span><strong>${esc(a.nombre)}</strong> ${badgeClase(filas[0].r)}<br><span class="muted small">${filas.map(f => esc(f.e.nombre)).join(', ')}</span></span><button type="button" class="btn" data-sug="${esc(a.id)}">Añadir</button></div>`).join('')}
+        ${sugeridas.map(({ a, r }) => `<div class="row between gap sug"><span>${esc(a.nombre)} ${badgeClase(r)}</span><button type="button" class="btn" data-sug="${esc(a.id)}">Añadir</button></div>`).join('')}
       </div>` : ''}
       <h3 class="sec">Plan de acciones (${plan.length})</h3>
       ${plan.length ? plan.map(a => tarjetaAccion(ev, a)).join('') : '<div class="card"><p class="muted">Aún no hay acciones: aparecerán al marcar ítems como No conforme.</p></div>'}
@@ -865,7 +782,7 @@ function tabAcciones(cont, ev) {
       pintar();
     } else if (b.dataset.sug) {
       const f = riesgosSugeridos(ev).find(x => x.a.id === b.dataset.sug);
-      if (f) ev.acciones.push(accionDeRiesgo(ev, f.a, f.filas));
+      if (f) ev.acciones.push(accionDeRiesgo(ev, f.a, f.r));
       await guardar('eval', ev);
       pintar();
     } else if (b.id === 'addacc') {
