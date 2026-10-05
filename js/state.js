@@ -11,7 +11,12 @@ export async function cargar() {
     S.config = structuredClone(CONFIG_INICIAL);
     await db.put('config', S.config);
   }
-  fijarEscala(S.config.escalaRiesgo || 'et3');
+  // La escala de 3 niveles con límites 200/600 no tenía base oficial: si no la eligió el usuario, vuelve la clásica.
+  if (!S.config.escalaElegida && S.config.escalaRiesgo !== 'mosler5') {
+    S.config.escalaRiesgo = 'mosler5';
+    await db.put('config', S.config);
+  }
+  fijarEscala(S.config.escalaRiesgo, S.config.limitesRiesgo);
   for (const k of ['inst', 'eval', 'agenda']) {
     S[k] = new Map((await db.all(k)).map(o => [o.id, o]));
   }
@@ -26,7 +31,7 @@ export function vaciar() {
 
 export async function guardar(store, obj) {
   obj.modificado = new Date().toISOString();
-  if (store === 'config') { S.config = obj; fijarEscala(obj.escalaRiesgo || 'et3'); }
+  if (store === 'config') { S.config = obj; fijarEscala(obj.escalaRiesgo, obj.limitesRiesgo); }
   else S[store].set(obj.id, obj);
   await db.put(store, obj);
 }

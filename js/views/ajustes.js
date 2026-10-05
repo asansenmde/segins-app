@@ -4,7 +4,7 @@ import { S, guardarLuego, cargar, volcarPendientes } from '../state.js';
 import { esc, hoyISO, modal, confirmar, toast, descargar } from '../ui.js';
 import { limpiarCache } from '../fotos.js';
 import { AUTOR, AVISO_DERECHOS } from '../autor.js';
-import { ESCALAS, fijarEscala } from '../mosler.js';
+import { ESCALAS, fijarEscala, limitesValidos } from '../mosler.js';
 
 export function mas(main) {
   main.innerHTML = `
@@ -46,8 +46,14 @@ export async function ajustes(main) {
       <h3>Análisis de riesgos (Mosler)</h3>
       <label class="lbl" for="escalaRiesgo">Clasificación del riesgo (ER)</label>
       <select class="input" id="escalaRiesgo" name="escalaRiesgo">
-        ${Object.entries(ESCALAS).map(([k, e]) => `<option value="${k}" ${(c.escalaRiesgo || 'et3') === k ? 'selected' : ''}>${esc(e.nombre)}: ${e.clases.map((x, i, arr) => `${x.nombre} ${i === arr.length - 1 ? '> ' + arr[i - 1].max : '≤ ' + x.max}`).join(', ')}</option>`).join('')}
+        <option value="mosler5" ${(c.escalaRiesgo || 'mosler5') === 'mosler5' ? 'selected' : ''}>Mosler clásica: ≤250 Muy reducido, ≤500 Reducido, ≤750 Normal, ≤1000 Elevado, >1000 Muy elevado</option>
+        <option value="tres" ${c.escalaRiesgo === 'tres' ? 'selected' : ''}>Bajo / Normal / Alto con límites propios</option>
       </select>
+      <div class="grid2" id="limites" ${c.escalaRiesgo === 'tres' ? '' : 'hidden'}>
+        <label class="lbl">Bajo hasta (ER)<input class="input" type="number" min="2" max="1248" id="limNormal" value="${limitesValidos(c.limitesRiesgo).normal}"></label>
+        <label class="lbl">Normal hasta (ER)<input class="input" type="number" min="3" max="1249" id="limAlto" value="${limitesValidos(c.limitesRiesgo).alto}"></label>
+      </div>
+      <p class="muted small" id="limAyuda" ${c.escalaRiesgo === 'tres' ? '' : 'hidden'}>Por encima del segundo límite el riesgo es Alto. Pon los límites de tu norma; los iniciales (500 y 750) son los cortes de la escala clásica.</p>
       <h3>Informe</h3>
       <label class="lbl">Encabezado (organismo)</label><input class="input" name="cabeceraOrganismo" value="${esc(c.cabeceraOrganismo)}">
       <label class="lbl">Marca de clasificación (encabezado y pie)</label><input class="input" name="marcaClasificacion" value="${esc(c.marcaClasificacion)}" placeholder="Vacío = sin marca">
@@ -86,8 +92,25 @@ export async function ajustes(main) {
 
   main.querySelector('#f').addEventListener('input', e => {
     const el = e.target;
+    if (el.id === 'limNormal' || el.id === 'limAlto') {
+      const lim = { normal: main.querySelector('#limNormal').value, alto: main.querySelector('#limAlto').value };
+      const ok = limitesValidos(lim);
+      const valido = ok.normal === Math.round(+lim.normal) && ok.alto === Math.round(+lim.alto);
+      main.querySelectorAll('#limNormal, #limAlto').forEach(x => x.classList.toggle('required', !valido));
+      if (valido) {
+        c.limitesRiesgo = ok;
+        fijarEscala(c.escalaRiesgo, ok);
+        guardarLuego('config', c);
+      }
+      return;
+    }
     c[el.name] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
-    if (el.name === 'escalaRiesgo') fijarEscala(el.value);
+    if (el.name === 'escalaRiesgo') {
+      c.escalaElegida = true;
+      fijarEscala(el.value, c.limitesRiesgo);
+      main.querySelector('#limites').hidden = main.querySelector('#limAyuda').hidden = el.value !== 'tres';
+    }
+
     guardarLuego('config', c);
   });
 

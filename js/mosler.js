@@ -31,16 +31,13 @@ export const CRITERIOS = [
 ];
 export const CLAVES = CRITERIOS.map(c => c.k);
 
-// Escalas de clasificación del ER. La de 3 niveles es la que se usa en los análisis de la unidad.
+// Escalas de clasificación del ER.
+// - mosler5: escala clásica del método Mosler (por defecto).
+// - tres: Bajo / Normal / Alto con límites configurables en Ajustes; sin valores oficiales,
+//   sus límites iniciales coinciden con los cortes de la escala clásica (500 y 750).
+export const LIMITES_TRES = { normal: 500, alto: 750 };
+
 export const ESCALAS = {
-  et3: {
-    nombre: 'Bajo / Normal / Alto',
-    clases: [
-      { max: 200, nombre: 'Bajo', cls: 'ok', color: '#2e7d32' },
-      { max: 600, nombre: 'Normal', cls: 'warn', color: '#c08a1e' },
-      { max: 1250, nombre: 'Alto', cls: 'alert', color: '#c62828' },
-    ],
-  },
   mosler5: {
     nombre: 'Mosler clásica (5 niveles)',
     clases: [
@@ -51,15 +48,37 @@ export const ESCALAS = {
       { max: 1250, nombre: 'Muy elevado', cls: 'alert', color: '#7f1d1d' },
     ],
   },
+  tres: { nombre: 'Bajo / Normal / Alto (límites configurables)', clases: [] },
 };
 
-let escalaActiva = 'et3';
-export const fijarEscala = (k) => { escalaActiva = ESCALAS[k] ? k : 'et3'; };
+function clasesTres({ normal, alto }) {
+  return [
+    { max: normal, nombre: 'Bajo', cls: 'ok', color: '#2e7d32' },
+    { max: alto, nombre: 'Normal', cls: 'warn', color: '#c08a1e' },
+    { max: 1250, nombre: 'Alto', cls: 'alert', color: '#c62828' },
+  ];
+}
+
+// Límites válidos: enteros, Bajo < Normal < 1250.
+export function limitesValidos(l = {}) {
+  const normal = Math.round(Number(l.normal)), alto = Math.round(Number(l.alto));
+  if (normal >= 2 && alto > normal && alto < 1250) return { normal, alto };
+  return { ...LIMITES_TRES };
+}
+
+let escalaActiva = 'mosler5';
+let limites = { ...LIMITES_TRES };
+export function fijarEscala(k, lim) {
+  escalaActiva = ESCALAS[k] ? k : 'mosler5';
+  limites = limitesValidos(lim);
+  ESCALAS.tres.clases = clasesTres(limites);
+}
+fijarEscala('mosler5');
 export const escala = () => ESCALAS[escalaActiva];
 export const clases = () => escala().clases;
 // Umbral a partir del cual un riesgo pide acción (clase intermedia) y a partir del cual es prioritario (clase alta).
-export const umbralAccion = () => (escalaActiva === 'et3' ? 200 : 500);
-export const umbralAlto = () => (escalaActiva === 'et3' ? 600 : 750);
+export const umbralAccion = () => (escalaActiva === 'tres' ? limites.normal : 500);
+export const umbralAlto = () => (escalaActiva === 'tres' ? limites.alto : 750);
 
 export function clase(er) {
   if (er == null) return null;
