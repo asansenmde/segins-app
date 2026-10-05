@@ -210,6 +210,20 @@ export async function generarInforme(ev, opt) {
 
   let sec = 6;
 
+  // ---- Ítems no aplicables ----
+  const noAplica = [];
+  for (const a of ev.areas) for (const it of a.items) if (ev.respuestas[it.id]?.r === 'NA') noAplica.push({ it, r: ev.respuestas[it.id] });
+  if (noAplica.length) {
+    hijos.push(h1(`${sec++}. ÍTEMS NO APLICABLES`));
+    hijos.push(p('Ítems que no se han evaluado por no corresponder a esta instalación. No computan en los resultados.', { size: 18, after: 100 }));
+    hijos.push(tabla([
+      cabeceraBlanca(['Nº', 'Cuestión', 'Motivo'], [8, 52, 40]),
+      ...noAplica.map(({ it, r }) => new TableRow({
+        children: [celda(it.codigo, { size: 16, bold: true }), celda(it.texto, { size: 16 }), celda(r.obs?.trim() || 'Sin motivo indicado', { size: 16 })],
+      })),
+    ]));
+  }
+
   // ---- Análisis de riesgos (Mosler) ----
   const mos = resumenMosler(ev);
   if (opt.mosler && mos.completas.length) {

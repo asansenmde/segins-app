@@ -65,6 +65,7 @@ export async function nuevaEvaluacion(instId = '') {
     cabecera: cab, areas: cuestionarioPara(inst?.id), respuestas: {},
     conclusiones: '', lugarFirma: '',
   };
+  heredarNA(ev);
   asegurarMosler(ev, S.eval.values(), S.config);
   await guardar('eval', ev);
   location.hash = `#/eval/${ev.id}/datos`;
@@ -86,6 +87,19 @@ function cuestionarioPara(instId) {
     }
   }
   return areas.sort((x, y) => x.id.length - y.id.length || x.id.localeCompare(y.id));
+}
+
+// Los ítems que no aplicaban en la última evaluación de la instalación salen ya como NA, con su motivo.
+function heredarNA(ev) {
+  if (!ev.instId) return;
+  const previa = [...S.eval.values()]
+    .filter(e => e.id !== ev.id && e.instId === ev.instId)
+    .sort((a, b) => (b.cabecera.fecha || b.creado).localeCompare(a.cabecera.fecha || a.creado))[0];
+  if (!previa) return;
+  const ids = new Set(ev.areas.flatMap(a => a.items.map(i => i.id)));
+  for (const [id, r] of Object.entries(previa.respuestas)) {
+    if (r?.r === 'NA' && ids.has(id)) ev.respuestas[id] = { r: 'NA', obs: r.obs || '', ref: '', responsable: '', plazo: '', fotos: [], heredado: true };
+  }
 }
 
 // Primera letra libre: A…Z, después AA, AB…
@@ -268,6 +282,7 @@ export function area(main, id, aid) {
     if (b.dataset.r && card) {
       const r = resp(itemId);
       r.r = r.r === b.dataset.r ? null : b.dataset.r;
+      delete r.heredado;
       if (r.r === 'I') {
         // Al marcar No conforme se propone la acción correctora y un plazo según la prioridad.
         const it = ar.items.find(i => i.id === itemId);
@@ -358,7 +373,7 @@ export function area(main, id, aid) {
     if (!card || !el.dataset.f) return;
     const r = resp(card.dataset.item);
     r[el.dataset.f] = el.value;
-    if (el.dataset.f === 'obs') el.classList.toggle('required', r.r === 'I' && !el.value.trim());
+    if (el.dataset.f === 'obs') el.classList.toggle('required', (r.r === 'I' || r.r === 'NA') && !el.value.trim());
     guardarLuego('eval', ev);
   });
 
@@ -369,15 +384,18 @@ export function area(main, id, aid) {
 function tarjetaItem(ev, it) {
   const r = ev.respuestas[it.id] || {};
   const esI = r.r === 'I';
+  const esNA = r.r === 'NA';
+  const falta = (esI || esNA) && !r.obs?.trim();
   return `<div class="card item ${r.r ? 'r-' + r.r : ''}" data-item="${esc(it.id)}">
     <div class="row between"><span><strong>${esc(it.codigo)}</strong>
       <span class="badge ${it.prioridad === 'P1' ? 'p1' : 'p2'}">${esc(it.prioridad)}</span>
       <span class="muted small">peso ${esc(it.peso)}</span>${it.base ? '' : ' <span class="badge info">añadido</span>'}</span>
       ${it.base ? '' : '<button class="icon-btn" data-quitar="1" aria-label="Quitar ítem">✕</button>'}</div>
     <p class="item-txt">${esc(it.texto)}</p>
-    <div class="seg">${['C', 'I', 'NA'].map(x => `<button type="button" data-r="${x}" class="${r.r === x ? 'on' : ''}" aria-pressed="${r.r === x}" title="${TXT_R[x]}">${x}</button>`).join('')}</div>
-    <textarea class="input ${esI && !r.obs?.trim() ? 'required' : ''}" data-f="obs" rows="2"
-      placeholder="${esI ? 'Observaciones (obligatorias si I)' : 'Observaciones'}">${esc(r.obs)}</textarea>
+    <div class="seg">${['C', 'I', 'NA'].map(x => `<button type="button" data-r="${x}" class="${r.r === x ? 'on' : ''}" aria-pressed="${r.r === x}">${x}<small>${TXT_R[x]}</small></button>`).join('')}</div>
+    ${esNA && r.heredado ? '<p class="small muted">No aplica según la evaluación anterior de esta instalación. Desmárcalo si ha cambiado.</p>' : ''}
+    <textarea class="input ${falta ? 'required' : ''}" data-f="obs" rows="2"
+      placeholder="${esI ? 'Observaciones (obligatorias si I)' : esNA ? 'Motivo por el que no aplica (obligatorio)' : 'Observaciones'}">${esc(r.obs)}</textarea>
     ${esI ? `<label class="lbl small">Acción correctora</label>
     <textarea class="input" data-f="accion" rows="2" placeholder="Acción para subsanar la no conformidad">${esc(r.accion ?? propuestaItem(it))}</textarea>
     <div class="grid2">
@@ -468,6 +486,7 @@ function tabResultados(cont, ev) {
     if (it.prioridad === 'P1' && ev.respuestas[it.id]?.r === 'I') alertas.push({ a, it });
   }
   const sinObs = ev.areas.flatMap(a => a.items.filter(it => ev.respuestas[it.id]?.r === 'I' && !ev.respuestas[it.id].obs?.trim()).map(it => ({ a, it })));
+  const naSinMotivo = ev.areas.flatMap(a => a.items.filter(it => ev.respuestas[it.id]?.r === 'NA' && !ev.respuestas[it.id].obs?.trim()).map(it => ({ a, it })));
   const oscuro = matchMedia('(prefers-color-scheme: dark)').matches;
 
   cont.innerHTML = `
@@ -479,6 +498,7 @@ function tabResultados(cont, ev) {
     ${ant ? `<p class="muted small">Comparado con la evaluación anterior de esta instalación (${fmtFecha(ant.cabecera.fecha)}).</p>` : ''}
     ${g.respondidos < g.total ? `<p class="aviso">Quedan ${g.total - g.respondidos} ítems sin responder. No cuentan en el cálculo.</p>` : ''}
     ${sinObs.length ? `<p class="aviso">${sinObs.length} no conformidades sin observaciones: ${sinObs.map(x => `<a href="#/eval/${ev.id}/area/${x.a.id}">${esc(x.it.codigo)}</a>`).join(', ')}</p>` : ''}
+    ${naSinMotivo.length ? `<p class="aviso">${naSinMotivo.length === 1 ? '1 ítem' : `${naSinMotivo.length} ítems`} «No aplica» sin motivo: ${naSinMotivo.map(x => `<a href="#/eval/${ev.id}/area/${x.a.id}">${esc(x.it.codigo)}</a>`).join(', ')}</p>` : ''}
     <div class="card"><h3>Resultado por área</h3>
       <div class="chart">${graficoSVG(areas, u, { oscuro })}</div>
       <div class="legend small"><span><i style="background:#5b7a3a"></i>% conformidad</span><span><i style="background:#c08a1e"></i>Puntos ponderados</span>
@@ -519,6 +539,8 @@ function tabInforme(cont, ev) {
   if (g.respondidos < g.total) avisos.push(`${g.total - g.respondidos} ítems sin responder.`);
   const sinObs = ev.areas.flatMap(a => a.items).filter(it => ev.respuestas[it.id]?.r === 'I' && !ev.respuestas[it.id].obs?.trim()).length;
   if (sinObs) avisos.push(`${sinObs} no conformidades sin observaciones (son obligatorias).`);
+  const naSin = ev.areas.flatMap(a => a.items).filter(it => ev.respuestas[it.id]?.r === 'NA' && !ev.respuestas[it.id].obs?.trim()).length;
+  if (naSin) avisos.push(`${naSin === 1 ? '1 ítem' : `${naSin} ítems`} «No aplica» sin motivo (es obligatorio).`);
 
   cont.innerHTML = `
     ${avisos.length ? `<div class="aviso"><strong>Revisa antes de generar:</strong><ul>${avisos.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>` : '<p class="ok-msg">✓ Evaluación completa.</p>'}

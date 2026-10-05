@@ -20,6 +20,8 @@ con fotos marcadas, agenda e informe en Word.
   próximas evaluaciones, o pasarlos al cuestionario general para todas.
 - **Evaluación**: datos de cabecera (empiezan vacíos), respuesta por ítem, observaciones
   (obligatorias si I), referencia, responsable, plazo y fotos.
+- **No aplica (NA)**: exige motivo, se lista en el informe y se recuerda en la siguiente evaluación
+  de la misma instalación.
 - **Fotos**: cámara o galería, sello opcional con código y fecha, marcas (flecha, círculo,
   rectángulo, trazo libre y texto). Se quitan los metadatos GPS.
 - **Resultados**: los dos criterios (% de conformidad y puntos ponderados), nivel de cada uno,
