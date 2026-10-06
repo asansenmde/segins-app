@@ -11,7 +11,7 @@ App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber 
 - **Alta rápida escribiendo** (`fechas.js`): «Informe extintores antes del viernes a las 10 #Informes urgente» crea
   la tarea con NLT, hora, categoría y prioridad. Entiende hoy/mañana/pasado mañana, días de la semana, «en 2
   semanas», «fin de mes», «el 15», «3/10», «3 de octubre»… Se procesa en el dispositivo, sin enviar el texto.
-- **Mis NLT** (inicio): contador de NLT vencidas, que vencen hoy, en los próximos 7 días y abiertas.
+- **Inicio** («TAREAS DEL NEGOCIADO DE SEGURIDAD DE SUIGESUR»): arriba el contador de NLT vencidas, que vencen hoy, en los próximos 7 días y abiertas.
   Las tareas se agrupan por urgencia con semáforo (rojo: vencida u hoy; naranja: quedan pocos días;
   verde: con margen). Alta rápida con título + NLT, búsqueda y filtro por categoría.
 - **Ficha de la tarea**, en seis apartados:
@@ -26,7 +26,7 @@ App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber 
   5. *Observaciones y documentos*: observaciones y enlaces (Drive, SharePoint, web).
   6. *Cierre*: resultado o informe de cumplimiento.
   Desde la ficha se puede **enviar al responsable** (texto listo para correo o WhatsApp) y pasarla al calendario.
-- **Avisos**: los que han llegado a su hora aparecen arriba en *Mis NLT* con «Visto» y «Recordar mañana»;
+- **Avisos**: los que han llegado a su hora aparecen en el inicio, debajo de los contadores y la búsqueda con «Visto» y «Recordar mañana»;
   con la app abierta, además, notificación. Para alarmas con la app cerrada, exportar a calendario (.ics).
 - **Google Calendar** (en Ajustes, versión de claude.ai): cada tarea abierta con NLT se convierte en un
   evento de tu calendario con los avisos como alarmas (hasta 5, como mucho 4 semanas antes), en la zona
@@ -50,9 +50,12 @@ App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber 
   prioridad; con resumen, relación de tareas y detalle opcional (instrucciones, pasos, prórrogas,
   seguimiento del periodo, observaciones, resultado). Encabezado con unidad, destinatario y marca en
   cabecera y pie. Se exporta a **Word** (misma librería que SEGINS: `lib/docx.iife.js` publicada junto a
-  la app en claude.ai, o `../js/lib/` en GitHub Pages), **CSV**, texto para correo o impresión.
+  la app en claude.ai, o `../js/lib/` en GitHub Pages), **PDF**, **CSV** o texto para correo. Con
+  «📅 Calendario (PDF)» sale un calendario mensual (A4 apaisado, un mes por página) con cada tarea en el
+  día de su NLT, con los mismos filtros. El PDF se genera en el propio navegador con jsPDF y
+  jspdf-autotable (MIT, en `lib/`), porque dentro de claude.ai la página no puede abrir el diálogo de imprimir.
 - **Tablero** por estados: arrastrar y soltar en escritorio, botones ◀ ▶ en el móvil.
-- **Calendario** mensual con las NLT de cada día; se pueden crear tareas en un día concreto.
+- **Calendario** mensual con las NLT de cada día; se pueden crear tareas en un día concreto, y «📄 PDF» descarga el mes.
 - **Lo que hago** (actividad): por periodo (hoy, semana, mes…) muestra tareas hechas, % entregadas
   dentro de NLT, tiempo dedicado por categoría y una cronología de todo. Permite **anotar lo no
   planificado** (llamadas, imprevistos) con su tiempo, copiar un resumen de texto o exportar a CSV.
@@ -69,7 +72,8 @@ por separado y los cambios hechos sin conexión se fusionan al volver. Las tarea
 usuario: aunque compartas el enlace, nadie más ve las tuyas.
 
 Para actualizar esa versión se vuelve a publicar `tareas/index.html` con `app.js`, `app.css`,
-`fechas.js`, `icon.svg`, `manifest.webmanifest` y `lib/docx.iife.js` (desde `js/lib/`), y las capacidades `db`, `user` (con el ámbito `profile`, para ver los nombres del equipo), `downloads` y `mcp` (Google Calendar: `create_event`, `update_event`,
+`fechas.js`, `icon.svg`, `manifest.webmanifest`, `lib/docx.iife.js` (desde `js/lib/`), `lib/jspdf.umd.min.js` y
+`lib/jspdf.plugin.autotable.min.js`, y las capacidades `db`, `user` (con el ámbito `profile`, para ver los nombres del equipo), `downloads` y `mcp` (Google Calendar: `create_event`, `update_event`,
 `delete_event`, `list_events`, `list_calendars`).
 
 ### Acceso directo con icono propio

@@ -1,6 +1,6 @@
 // Service worker: la app funciona sin conexión. Cambia VERSION al publicar una actualización.
-const VERSION = 'tareas-v13';
-const ARCHIVOS = ['./', 'index.html', 'manifest.webmanifest', 'app.css', 'app.js', 'fechas.js', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
+const VERSION = 'tareas-v14';
+const ARCHIVOS = ['./', 'index.html', 'manifest.webmanifest', 'app.css', 'app.js', 'fechas.js', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'lib/jspdf.umd.min.js', 'lib/jspdf.plugin.autotable.min.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(ARCHIVOS)).then(() => self.skipWaiting()));

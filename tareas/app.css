@@ -40,6 +40,7 @@ p { margin: 0 0 8px; }
   padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; min-height: 56px;
 }
 .top h1 { flex: 1; margin: 0; font-size: 1.1rem; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 560px) { .top h1 { font-size: .86rem; white-space: normal; line-height: 1.15; } }
 .topbtn { background: rgba(255,255,255,.15); color: inherit; border: 0; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: .85rem; font-weight: 700; cursor: pointer; font-variant-numeric: tabular-nums; }
 main { padding: 14px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 90px); max-width: 980px; margin: 0 auto; }
 .bottom {

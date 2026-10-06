@@ -5,14 +5,14 @@
 import { interpretar } from './fechas.js?v=12';
 
 const CLAVE = 'tareas-nlt-v1';
-const VERSION_APP = '13 · 25 sep 2026'; // súbela en cada publicación (y el ?v= de index.html)
+const VERSION_APP = '14 · 6 oct 2026'; // súbela en cada publicación (y el ?v= de index.html)
 const ESTADOS = [['pendiente', 'Pendiente'], ['curso', 'En curso'], ['espera', 'En espera'], ['hecha', 'Hecha']];
 const NOMBRE_ESTADO = Object.fromEntries(ESTADOS);
 const PRIOS = { critica: 'Crítica', alta: 'Alta', media: 'Media', baja: 'Baja' };
 const ORDEN_PRIO = { critica: 0, alta: 1, media: 2, baja: 3 };
 const REPETIR = { '': 'No se repite', diaria: 'Cada día', semanal: 'Cada semana', mensual: 'Cada mes', anual: 'Cada año' };
 const CATS_BASE = ['Evaluaciones SEGINS', 'Visitas', 'Informes', 'Reuniones', 'Administración', 'Formación', 'Personal'];
-const VISTAS = { nlt: 'Mis NLT', tablero: 'Tablero', calendario: 'Calendario', actividad: 'Lo que hago', informes: 'Informes', ajustes: 'Ajustes' };
+const VISTAS = { nlt: 'TAREAS DEL NEGOCIADO DE SEGURIDAD DE SUIGESUR', tablero: 'Tablero', calendario: 'Calendario', actividad: 'Lo que hago', informes: 'Informes', ajustes: 'Ajustes' };
 
 // Todos los campos de una tarea, con su valor por defecto
 const TAREA_BASE = {
@@ -489,6 +489,11 @@ function vistaNlt() {
   const hechas = lista.filter(t => t.estado === 'hecha').sort((a, b) => (b.hecha || '').localeCompare(a.hecha || ''));
 
   return `
+    <div class="kpis">
+      ${kpi('vencidas', 'Vencidas', n.vencidas ? 'bad' : '')}${kpi('hoy', 'Hoy', n.hoy ? 'warn' : '')}
+      ${kpi('semana', '7 días', '')}${kpi('abiertas', 'Abiertas', '')}
+    </div>
+    ${barraFiltros()}
     ${asignadas.length ? `<section class="card asignadas"><h3>📥 Te han asignado (${asignadas.length})</h3>
       <p class="small muted">Confirma con «Enterado» para que quien la encargó sepa que la has recibido.</p>
       ${asignadas.map(t => tarjeta(t, `<div class="row gap" style="margin-top:8px">
@@ -506,11 +511,6 @@ function vistaNlt() {
       <div class="small muted" id="rapidaPrev">Escribe la tarea con su plazo («mañana», «el viernes», «antes del 3 de octubre», «en 2 semanas», «a las 10»).
         Opcional: <b>#categoría</b>, <b>urgente</b> o <b>!!</b> para crítica.</div>
     </form>
-    <div class="kpis">
-      ${kpi('vencidas', 'Vencidas', n.vencidas ? 'bad' : '')}${kpi('hoy', 'Hoy', n.hoy ? 'warn' : '')}
-      ${kpi('semana', '7 días', '')}${kpi('abiertas', 'Abiertas', '')}
-    </div>
-    ${barraFiltros()}
     ${bloques || (datos.tareas.length
       ? '<div class="empty">No hay tareas pendientes con este filtro. 🎉</div>'
       : `<div class="empty"><p>Aún no tienes tareas.</p><p class="small">Pulsa <b>+</b> para crear una, o carga unos ejemplos para ver cómo funciona.</p>
@@ -562,7 +562,8 @@ function vistaCalendario() {
     <div class="calhead">
       <button class="btn sm" data-mes="-1" aria-label="Mes anterior">◀</button>
       <b>${titulo}</b>
-      <button class="btn sm" data-mes="1" aria-label="Mes siguiente">▶</button>
+      <span class="row gap"><button class="btn sm" data-accion="cal-pdf" title="Calendario de este mes en PDF">📄 PDF</button>
+      <button class="btn sm" data-mes="1" aria-label="Mes siguiente">▶</button></span>
     </div>
     <div class="cal">${['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => `<div class="dow">${d}</div>`).join('')}${celdas}</div>
     <h2 class="sec"><span>NLT del ${fmtFecha(diaSel)}</span><span>${delDia.length}</span></h2>
@@ -1037,8 +1038,10 @@ function vistaInformes() {
       <button type="button" class="btn primary" data-accion="inf-word">📄 Word</button>
       <button type="button" class="btn" data-accion="inf-csv">📊 Excel (CSV)</button>
       <button type="button" class="btn" data-accion="inf-texto">📋 Copiar texto</button>
-      <button type="button" class="btn" data-accion="inf-imprimir">🖨 Imprimir / PDF</button>
+      <button type="button" class="btn" data-accion="inf-pdf">📄 PDF</button>
+      <button type="button" class="btn" data-accion="inf-calendario">📅 Calendario (PDF)</button>
     </div>
+    <p class="small muted">«Calendario» pone en cada día del periodo las tareas con ese NLT (mismos filtros), un mes por página, para imprimir.</p>
     <p class="small muted" id="infCuenta">${n} tarea${n === 1 ? '' : 's'} en el informe. Vista previa:</p>
     <div class="informe" id="informeDoc">${htmlInforme(o)}</div>`;
 }
@@ -1076,11 +1079,182 @@ async function accionInforme(a) {
   } else if (a === 'inf-texto') {
     try { await navigator.clipboard.writeText(textoInforme(o)); toast('Informe copiado: pégalo en un correo o documento'); }
     catch { descargar(nombreInforme(o, 'txt'), textoInforme(o), 'text/plain;charset=utf-8'); }
-  } else if (a === 'inf-imprimir') {
-    document.body.classList.add('imprimiendo');
-    try { window.print(); } catch { toast('Este visor no permite imprimir: usa el Word'); }
-    setTimeout(() => document.body.classList.remove('imprimiendo'), 1000);
+  } else if (a === 'inf-pdf' || a === 'inf-calendario') {
+    // Dentro de claude.ai la página no puede abrir el diálogo de imprimir: se genera el PDF y se descarga
+    toast('Preparando el PDF…');
+    try {
+      const pdf = a === 'inf-pdf' ? await pdfInforme(o)
+        : await pdfCalendario(seleccionInforme({ ...o, criterio: 'nlt' }), o.desde, o.hasta,
+          { titulo: 'Calendario de tareas', organismo: o.organismo, marca: o.marca, sub: filtrosTexto({ ...o, criterio: 'nlt' }).slice(1).join(' · ') });
+      await descargar(a === 'inf-pdf' ? nombreInforme(o, 'pdf') : `calendario-tareas-${o.desde}-a-${o.hasta}.pdf`, pdf, 'application/pdf');
+    } catch (e) { registrarError(`PDF: ${e?.message || e}`); toast('No se pudo crear el PDF; prueba con el Word'); }
   }
+}
+
+// ---------- PDF (jsPDF, publicado junto a la app en lib/) ----------
+let capPdf = null;
+function cargarPdf() {
+  const cargarJs = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.append(s); });
+  capPdf ||= (async () => {
+    try {
+      if (!window.jspdf) await cargarJs('lib/jspdf.umd.min.js');
+      if (!window.jspdf?.jsPDF?.API?.autoTable) await cargarJs('lib/jspdf.plugin.autotable.min.js');
+      if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+    } catch { /* abajo */ }
+    capPdf = null;
+    throw new Error('No se pudo cargar el generador de PDF');
+  })();
+  return capPdf;
+}
+// Las fuentes estándar del PDF solo tienen caracteres latinos: se cambian o quitan los demás (☑, →, emojis…)
+const WINANSI = '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ';
+const pdfTxt = v => String(v ?? '').replace(/☑/g, '[x]').replace(/☐/g, '[ ]').replace(/→/g, '->').replace(/[\u2028\u2029]/g, '\n')
+  .replace(/[^\n\x20-\xff]/g, c => WINANSI.includes(c) ? c : '');
+const VERDE_PDF = [59, 74, 47], ROJO_PDF = [183, 28, 28];
+
+function pieYMarca(doc, marca) {
+  const n = doc.getNumberOfPages(), w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
+  for (let i = 1; i <= n; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(90);
+    doc.text(`Página ${i} de ${n}`, w / 2, h - 6, { align: 'center' });
+    if (marca) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...ROJO_PDF);
+      doc.text(pdfTxt(marca), w / 2, 7, { align: 'center' });
+      doc.text(pdfTxt(marca), w / 2, h - 10, { align: 'center' });
+    }
+  }
+}
+
+async function pdfInforme(o) {
+  const JsPDF = await cargarPdf();
+  const doc = new JsPDF({ unit: 'mm', format: 'a4' });
+  const ts = seleccionInforme(o), r = resumenInforme(ts, o);
+  const W = doc.internal.pageSize.getWidth(), M = 14;
+  let y = 16;
+  const linea = (txt, x = {}) => {
+    doc.setFont('helvetica', x.bold ? 'bold' : x.italic ? 'italic' : 'normal'); doc.setFontSize(x.size || 10);
+    doc.setTextColor(...(x.color || [0, 0, 0]));
+    const ls = doc.splitTextToSize(pdfTxt(txt), W - 2 * M);
+    if (y + ls.length * (x.size || 10) * 0.45 > doc.internal.pageSize.getHeight() - 16) { doc.addPage(); y = 16; }
+    doc.text(ls, x.center ? W / 2 : M, y, { align: x.center ? 'center' : 'left' });
+    y += ls.length * (x.size || 10) * 0.45 + (x.after ?? 2);
+  };
+  const titulo = txt => { if (y > doc.internal.pageSize.getHeight() - 40) { doc.addPage(); y = 16; } y += 3; linea(txt, { bold: true, size: 12, color: VERDE_PDF, after: 2 }); };
+  const tabla = (head, body, extra = {}) => {
+    doc.autoTable({ startY: y, head: head ? [head.map(pdfTxt)] : undefined, body: body.map(f => f.map(c => typeof c === 'object' && c ? { ...c, content: pdfTxt(c.content) } : pdfTxt(c))),
+      margin: { left: M, right: M, top: 14, bottom: 16 }, styles: { font: 'helvetica', fontSize: 8, cellPadding: 1.4, overflow: 'linebreak', lineColor: [205, 210, 200], lineWidth: 0.2 },
+      headStyles: { fillColor: VERDE_PDF, textColor: 255, fontStyle: 'bold' }, theme: 'grid', ...extra });
+    y = doc.lastAutoTable.finalY + 4;
+  };
+  if (o.organismo) linea(o.organismo, { bold: true, center: true, size: 11 });
+  linea((o.titulo || 'Informe de tareas').toUpperCase(), { bold: true, center: true, size: 14, after: 3 });
+  linea(`Periodo: ${fechaLarga(o.desde)} a ${fechaLarga(o.hasta)}`, { center: true });
+  linea(filtrosTexto(o).join(' · '), { center: true, italic: true, size: 9 });
+  if (o.destinatario) linea(`A la atención de: ${o.destinatario}`, { center: true });
+  linea(`Emitido ${emisor() ? 'por ' + emisor() + ' ' : ''}el ${new Date().toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' })}`, { center: true, size: 9, after: 5 });
+  if (!ts.length) linea('Ninguna tarea cumple estos criterios.', { italic: true });
+  let n = 1;
+  if (ts.length && o.resumen) {
+    titulo(`${n++}. RESUMEN`);
+    tabla(null, [['Tareas incluidas', r.total], ...r.porEstado,
+      ['Terminadas dentro de NLT', r.hechas ? `${r.enPlazo} de ${r.hechas} (${Math.round(r.enPlazo / r.hechas * 100)} %)` : '—'],
+      ['Vencidas sin terminar', r.vencidas ? { content: String(r.vencidas), styles: { textColor: ROJO_PDF, fontStyle: 'bold' } } : 0],
+      ['Críticas abiertas', r.criticas], ['Con NLT prorrogada', r.prorrogadas], ['Avance medio', `${r.avance} %`],
+      ['Tiempo registrado en el periodo', r.tiempo ? fmtDur(r.tiempo) : '—']].map(([k, v]) => [k, typeof v === 'object' ? v : String(v)]),
+      { tableWidth: 110, styles: { fontSize: 9, cellPadding: 1.4, lineColor: [205, 210, 200], lineWidth: 0.2 }, columnStyles: { 0: { fontStyle: 'bold', fillColor: [238, 241, 234] } } });
+  }
+  if (ts.length && o.tabla) {
+    titulo(`${n++}. RELACIÓN DE TAREAS`);
+    const conEstado = o.agrupar !== 'estado';
+    const cols = ['Ref.', 'Asunto', 'Responsable', 'Prior.', 'NLT', ...(conEstado ? ['Estado'] : []), 'Situación', 'Avance'];
+    for (const [g, lista] of gruposInforme(ts, o)) {
+      if (g) linea(`${g} (${lista.length})`, { bold: true, size: 10, after: 1 });
+      tabla(cols, lista.map(filaInforme).map(f => [f.ref, f.asunto, f.resp, f.prio, f.nlt, ...(conEstado ? [f.estado] : []),
+        f.cls === 'bad' ? { content: f.situacion, styles: { textColor: ROJO_PDF, fontStyle: 'bold' } } : f.situacion, f.avance]),
+        { columnStyles: { 1: { cellWidth: conEstado ? 50 : 60 } } });
+    }
+  }
+  if (ts.length && o.detalle) {
+    titulo(`${n++}. DETALLE`);
+    ts.forEach(tk => {
+      const f = filaInforme(tk);
+      linea([f.ref, f.asunto].filter(Boolean).join(' · '), { bold: true, color: VERDE_PDF, after: 1 });
+      linea(`${f.resp} · Prioridad ${f.prio} · NLT ${f.nlt} · ${f.estado} · ${f.situacion} · Avance ${f.avance}`, { size: 8.5, after: 1 });
+      const det = detalleInforme(tk, o);
+      if (det.length) tabla(null, det, { columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold', fillColor: [238, 241, 234] } } });
+      else y += 2;
+    });
+  }
+  y += 6;
+  linea(`En ____________________, a ${fechaLarga(hoy())}`, { after: 8 });
+  if (emisor()) linea(`Fdo.: ${emisor()}`, { bold: true });
+  pieYMarca(doc, o.marca);
+  return doc.output('blob');
+}
+
+// Calendario mensual: un mes por página (A4 apaisado), cada tarea en el día de su NLT
+async function pdfCalendario(ts, desde, hasta, cab = {}) {
+  const JsPDF = await cargarPdf();
+  const doc = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 10;
+  const porDia = {};
+  ts.filter(t => t.nlt && t.nlt >= desde && t.nlt <= hasta).forEach(t => (porDia[t.nlt] ||= []).push(t));
+  const ini = aFecha(desde), fin = aFecha(hasta), meses = [];
+  for (let m = new Date(ini.getFullYear(), ini.getMonth(), 1); m <= fin && meses.length < 24; m = new Date(m.getFullYear(), m.getMonth() + 1, 1)) meses.push(m);
+  meses.forEach((m0, im) => {
+    if (im) doc.addPage();
+    const y0 = m0.getFullYear(), mm = m0.getMonth();
+    const primero = new Date(y0, mm, 1 - ((m0.getDay() + 6) % 7));
+    const semanas = Math.ceil(((m0.getDay() + 6) % 7 + new Date(y0, mm + 1, 0).getDate()) / 7);
+    let y = 12;
+    doc.setTextColor(0);
+    if (cab.organismo) { doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text(pdfTxt(cab.organismo), W / 2, y, { align: 'center' }); y += 5; }
+    const nom = m0.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    const delMes = Object.keys(porDia).filter(k => k.startsWith(`${y0}-${String(mm + 1).padStart(2, '0')}`)).reduce((s, k) => s + porDia[k].length, 0);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(...VERDE_PDF);
+    doc.text(pdfTxt(`${(cab.titulo || 'Calendario de tareas').toUpperCase()} · ${nom[0].toUpperCase() + nom.slice(1)}`), W / 2, y + 2, { align: 'center' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(70);
+    doc.text(pdfTxt(`${delMes} tarea${delMes === 1 ? '' : 's'} con NLT este mes${cab.sub ? ' · ' + cab.sub : ''}`), W / 2, y + 7, { align: 'center' });
+    const top = y + 11, cabH = 6, cw = (W - 2 * M) / 7, ch = (H - top - cabH - 14) / semanas;
+    ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].forEach((d, i) => {
+      doc.setFillColor(...VERDE_PDF); doc.rect(M + i * cw, top, cw, cabH, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(255);
+      doc.text(pdfTxt(d), M + i * cw + cw / 2, top + 4.2, { align: 'center' });
+    });
+    for (let s = 0; s < semanas; s++) for (let i = 0; i < 7; i++) {
+      const d = new Date(primero); d.setDate(primero.getDate() + s * 7 + i);
+      const x = M + i * cw, yy = top + cabH + s * ch, dentro = d.getMonth() === mm, k = iso(d);
+      if (!dentro) { doc.setFillColor(242, 242, 242); doc.rect(x, yy, cw, ch, 'F'); }
+      if (k === hoy()) { doc.setFillColor(238, 241, 234); doc.rect(x, yy, cw, ch, 'F'); }
+      doc.setDrawColor(170); doc.setLineWidth(0.2); doc.rect(x, yy, cw, ch);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(dentro ? 0 : 160);
+      doc.text(String(d.getDate()), x + 1.5, yy + 4);
+      if (!dentro) continue;
+      const lista = (porDia[k] || []).sort(ordenar);
+      let ly = yy + 7.5;
+      const maxY = yy + ch - 1.5;
+      doc.setFontSize(6.8);
+      for (let j = 0; j < lista.length; j++) {
+        const t = lista[j], hecha = t.estado === 'hecha', venc = !hecha && urgencia(t).grupo === 'vencidas';
+        const resp = nombreResp(t) && !esMia(t) ? ` (${nombreResp(t).split(' ').slice(0, 2).join(' ')})` : '';
+        const ls = doc.splitTextToSize(pdfTxt(`${t.hora ? t.hora + ' ' : ''}${t.titulo}${resp}`), cw - 4.5).slice(0, 2);
+        if (ly + ls.length * 2.7 > maxY) {
+          doc.setFont('helvetica', 'italic'); doc.setTextColor(90);
+          doc.text(`+${lista.length - j} más`, x + 1.5, Math.min(ly, maxY)); break;
+        }
+        doc.setFont('helvetica', venc || t.prioridad === 'critica' ? 'bold' : 'normal');
+        doc.setTextColor(...(venc ? ROJO_PDF : hecha ? [140, 140, 140] : [0, 0, 0]));
+        doc.text('•', x + 1.2, ly); doc.text(ls, x + 3.2, ly);
+        if (hecha) ls.forEach((l, li) => { const lw = doc.getTextWidth(l); doc.setDrawColor(140); doc.line(x + 3.2, ly + li * 2.7 - 0.9, x + 3.2 + lw, ly + li * 2.7 - 0.9); });
+        ly += ls.length * 2.7 + 0.6;
+      }
+    }
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(90);
+    doc.text(pdfTxt(`En rojo, vencidas sin terminar; tachadas, hechas; en negrita, críticas. Emitido ${emisor() ? 'por ' + emisor() + ' ' : ''}el ${fechaLarga(hoy())}.`), M, H - 9);
+  });
+  pieYMarca(doc, cab.marca);
+  return doc.output('blob');
 }
 
 // ---------- Vista: Ajustes ----------
@@ -1788,6 +1962,13 @@ async function accion(a) {
       break;
     }
     case 'csv-todo': descargar(`tareas-${hoy()}.csv`, csv(datos.tareas), 'text/csv;charset=utf-8'); break;
+    case 'cal-pdf': {
+      const ini = iso(mesVista), fin = iso(new Date(mesVista.getFullYear(), mesVista.getMonth() + 1, 0));
+      toast('Preparando el PDF…');
+      try { await descargar(`calendario-${ini.slice(0, 7)}.pdf`, await pdfCalendario(filtrar(datos.tareas), ini, fin, { titulo: 'Calendario de tareas' }), 'application/pdf'); }
+      catch (e) { registrarError(`PDF calendario: ${e?.message || e}`); toast('No se pudo crear el PDF'); }
+      break;
+    }
     case 'ics': descargar(`nlt-${hoy()}.ics`, ics(datos.tareas), 'text/calendar;charset=utf-8'); break;
     case 'exportar': descargar(`tareas-nlt-copia-${hoy()}.json`, JSON.stringify(datos, null, 1), 'application/json'); break;
     case 'importar': $('#fimport').click(); break;
