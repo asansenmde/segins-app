@@ -60,13 +60,22 @@
   .dia.fuera { opacity: .4; } .dia.hoy { outline: 2px solid var(--brand-2); } .dia.sel { background: var(--surface-2); }
   .dia i { display: block; font-style: normal; font-size: .68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 4px; padding: 0 3px; margin-top: 2px; background: var(--info-bg); color: var(--info); }
   .dia i.bad { background: var(--bad-bg); color: var(--bad); }
-  dialog { width: min(760px, calc(100vw - 16px)); max-height: calc(100vh - 16px); border: 0; border-radius: 14px; padding: 0; }
+  dialog { width: min(1280px, calc(100vw - 24px)); height: calc(100vh - 24px); max-height: calc(100vh - 24px); border: 0; border-radius: 14px; padding: 0; font-size: 16px; }
+  dialog input, dialog select, dialog textarea, dialog button, dialog .btn { font-size: 16px; }
+  dialog textarea { min-height: 7em; resize: vertical; }
+  dialog #comTxt { min-height: 9em; }
+  dialog label.lbl { font-size: .85rem; }
+  .ficha { display: grid; gap: 18px; }
+  @media (min-width: 1000px) {
+    .ficha { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
+    .ficha-com { position: sticky; top: 64px; max-height: calc(100vh - 110px); overflow: auto; }
+  }
   dialog::backdrop { background: rgba(0,0,0,.45); }
   .dh { position: sticky; top: 0; background: var(--brand); color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; gap: 10px; }
-  .dh h2 { margin: 0; font-size: 1.05rem; }
-  .db { padding: 12px 16px; }
+  .dh h2 { margin: 0; font-size: 1.25rem; }
+  .db { padding: 16px 22px; }
   .campo { border-bottom: 1px solid var(--line); padding: 7px 0; }
-  .campo b { display: block; font-size: .78rem; color: var(--muted); }
+  .campo b { display: block; font-size: .85rem; color: var(--muted); }
   .campo div { white-space: pre-wrap; overflow-wrap: anywhere; }
   .informe { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px; font-size: .88rem; overflow-x: auto; }
   .informe h2 { text-align: center; text-transform: uppercase; font-size: 1.1rem; margin: 6px 0; }
@@ -1133,8 +1142,8 @@
         return '<label class="check"><input type="checkbox" name="negImpl" value="' + esc(n) + '"' + (t && t.negociados.indexOf(n) >= 0 ? ' checked' : '') + '> ' + esc(n) + '</label>';
       }).join('') + '</div>' : '') +
       '<label class="lbl">Control expediente</label><input name="ControlExpediente" value="' + esc(t ? t.expediente : '') + '">' +
-      '<label class="lbl">Descripción del asunto</label><textarea name="DescripcionDelAsunto" rows="4" ' + AREA + '>' + esc(t ? t.descripcion : '') + '</textarea>' +
-      (conObs ? '<label class="lbl">Observaciones</label><textarea name="Comentarios" rows="2" ' + AREA + '>' + esc(t ? t.observaciones : '') + '</textarea>' : '') +
+      '<label class="lbl">Descripción del asunto</label><textarea name="DescripcionDelAsunto" rows="8" ' + AREA + '>' + esc(t ? t.descripcion : '') + '</textarea>' +
+      (conObs ? '<label class="lbl">Observaciones</label><textarea name="Comentarios" rows="4" ' + AREA + '>' + esc(t ? t.observaciones : '') + '</textarea>' : '') +
       '<label class="check"><input type="checkbox" id="nCorreo"' + (pref.correoAlta !== false ? ' checked' : '') + '> ' +
         (t ? 'Enviar correo de asignación a las personas que añada' : 'Enviar correo de asignación al responsable y al personal implicado') + '</label>' +
       '<p class="small muted">' + (t ? 'Se guardan en Colabora solo los datos que cambies; los comentarios se añaden desde la ficha del asunto.'
@@ -1142,7 +1151,7 @@
       '<div class="error" id="nError" hidden></div>' +
       '<div class="acciones"><button type="button" data-cerrar>Cancelar</button><button type="button" class="btn prim" id="nCrear">' + (t ? 'Guardar cambios' : 'Crear en Colabora') + '</button></div>' +
       (base ? '<p class="small"><a href="' + esc(base + (t ? '/EditForm.aspx?ID=' + t.id + '&' : '/NewForm.aspx?') + 'Source=' + encodeURIComponent(location.href)) + '">Prefiero el formulario de Colabora</a></p>' : '') + '</div>';
-    dlg.showModal();
+    dlg.showModal(); dlg.scrollTop = 0;
     var porId = function (id) { return t && t.usuarios.find(function (u) { return u.Id === id; }); };
     var implicados = t ? t.implicadosIds.map(porId).filter(Boolean) : [];
     var err = function (m) { $('#nError').hidden = false; $('#nError').textContent = m; };
@@ -1285,18 +1294,18 @@
       [campoComentarios() === 'Comentarios' ? '' : 'Observaciones', t.observaciones], [campoComentarios() === 'REGISTRODEACTIVIDAD' ? '' : 'Registro de actividad', t.registro],
       ['Creado', new Date(t.creada).toLocaleString('es-ES') + (t.autor ? ' por ' + t.autor : '')], ['Modificado', new Date(t.modificada).toLocaleString('es-ES') + (t.editor ? ' por ' + t.editor : '')]];
     var dlg = $('#dlg');
-    dlg.innerHTML = '<div class="dh"><h2>' + esc(t.asunto) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db">' +
+    dlg.innerHTML = '<div class="dh"><h2>' + esc(t.asunto) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db ficha"><div class="ficha-datos">' +
       c.filter(function (x) { return x[0] && x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       '<div class="acciones"><button type="button" class="btn prim" data-modificar="' + t.id + '">✎ Modificar</button>' +
         (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
         (base ? '<a class="btn" href="' + esc(base + '/DispForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Ver en Colabora</a>' : '') + '</div>' +
-      (t.clase !== 'hecha' && destinatarios(t).para.length ? '<div id="correoAsig" style="margin-top:10px"><button type="button" data-asignar="' + t.id + '">✉ Enviar aviso de asignación</button></div>' : '<div id="correoAsig"></div>') +
-      '<h3 style="margin:18px 0 6px">Comentarios <span class="small muted">(' + esc(NOMBRE_CAMPO[campoComentarios()]) + ')</span></h3>' +
-      '<textarea id="comTxt" rows="3" placeholder="Escribe un comentario…" ' + AREA + '></textarea>' +
+      (t.clase !== 'hecha' && destinatarios(t).para.length ? '<div id="correoAsig" style="margin-top:10px"><button type="button" data-asignar="' + t.id + '">✉ Enviar aviso de asignación</button></div>' : '<div id="correoAsig"></div>') + '</div><div class="ficha-com">' +
+      '<h3 style="margin:0 0 6px">Comentarios <span class="small muted">(' + esc(NOMBRE_CAMPO[campoComentarios()]) + ')</span></h3>' +
+      '<textarea id="comTxt" rows="6" placeholder="Escribe un comentario…" ' + AREA + '></textarea>' +
       '<div class="error" id="comError" hidden></div>' +
       '<div class="acciones"><button type="button" class="btn prim" data-comentar="' + t.id + '">💬 Añadir comentario</button></div>' +
-      '<div id="comLista" data-id="' + t.id + '"></div></div>';
-    dlg.showModal();
+      '<div id="comLista" data-id="' + t.id + '"></div></div></div>';
+    dlg.showModal(); dlg.scrollTop = 0;
     pintarComentarios(t);
   }
 
