@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tareas NLT · Colabora</title>
+<title>GESTOR DE TAREAS DE LA JEFATURA DE SUIGESUR</title>
 <!--
   Tareas NLT para el SharePoint interno (Colabora).
   Se sube a una biblioteca del sitio y trabaja con la lista «Gestor de Tareas» usando la sesión del usuario.
@@ -89,7 +89,7 @@
 </head>
 <body>
 <header class="top">
-  <h1>Tareas NLT · Colabora</h1>
+  <h1>GESTOR DE TAREAS DE LA JEFATURA DE SUIGESUR</h1>
   <span class="estado" id="estadoCarga">Cargando…</span>
   <button id="nuevo" title="Dar de alta un asunto en Colabora">＋ Nuevo asunto</button>
   <button id="recargar" title="Volver a leer la lista">↻ Actualizar</button>
@@ -97,7 +97,7 @@
 <main>
   <noscript><div class="error">Esta página necesita JavaScript.</div></noscript>
   <nav class="tabs" id="tabs">
-    <a data-v="nlt" class="on">Mis NLT</a><a data-v="calendario">Calendario</a><a data-v="avisos">Avisos</a><a data-v="informes">Informes</a><a data-v="ajustes">Ajustes</a>
+    <a data-v="nlt" class="on">Tareas</a><a data-v="calendario">Calendario</a><a data-v="avisos">Avisos</a><a data-v="informes">Informes</a><a data-v="ajustes">Ajustes</a>
   </nav>
   <div id="vista"><p class="muted">Leyendo la lista «Gestor de Tareas»…</p></div>
 </main>
@@ -339,7 +339,7 @@
     var cuenta = function (g) { return abiertas.filter(function (t) { return urgencia(t).grupo === g; }).length; };
     var n = { vencidas: cuenta('vencidas'), hoy: cuenta('hoy'), semana: cuenta('semana'), abiertas: abiertas.length };
     var kpi = function (k, l, cls) { return '<button class="kpi ' + cls + (kpiSel === k ? ' on' : '') + '" data-kpi="' + k + '">' + l + '<b>' + n[k] + '</b></button>'; };
-    var grupos = [['vencidas', 'NLT vencidas'], ['hoy', 'Vencen hoy'], ['semana', 'Próximos 7 días'], ['despues', 'Más adelante'], ['sin', 'Sin NLT']]
+    var grupos = [['vencidas', 'Tareas fuera de plazo establecido'], ['hoy', 'Vencen hoy'], ['semana', 'Próximos 7 días'], ['despues', 'Tareas con NLT'], ['sin', 'Sin NLT']]
       .filter(function (g) { return !kpiSel || kpiSel === 'abiertas' || kpiSel === g[0]; });
     var html = grupos.map(function (g) {
       var l = abiertas.filter(function (t) { return urgencia(t).grupo === g[0]; }).sort(ordenar);
@@ -371,8 +371,8 @@
     }
     var titulo = mes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
     var delDia = (porDia[diaSel] || []).sort(ordenar);
-    return barraFiltros() + '<div class="card" style="display:flex;justify-content:space-between;align-items:center"><button data-mes="-1">◀</button><b>' + esc(titulo[0].toUpperCase() + titulo.slice(1)) +
-      '</b><button data-mes="1">▶</button></div><div class="cal">' + ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(function (x) { return '<div class="dow">' + x + '</div>'; }).join('') + celdas + '</div>' +
+    return barraFiltros() + '<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><button data-mes="-1">◀</button><b>' + esc(titulo[0].toUpperCase() + titulo.slice(1)) +
+      '</b><span><button data-impcal="1" title="Imprimir o guardar en PDF el calendario de este mes">🖨 Imprimir / PDF</button> <button data-mes="1">▶</button></span></div><div class="cal">' + ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(function (x) { return '<div class="dow">' + x + '</div>'; }).join('') + celdas + '</div>' +
       '<div class="sec"><span>NLT del ' + esc(fMedia(diaSel)) + '</span><span>' + delDia.length + '</span></div>' + (delDia.map(tarjeta).join('') || '<p class="muted">Ningún asunto vence ese día.</p>');
   }
 
@@ -578,6 +578,62 @@
     } else if (a === 'imprimir') {
       document.body.classList.add('imprimiendo'); window.print(); setTimeout(function () { document.body.classList.remove('imprimiendo'); }, 800);
     }
+  }
+
+  // ---------- Calendario imprimible ----------
+  // Se abre en una ventana propia y se imprime desde allí («Guardar como PDF» en el diálogo). Si el navegador
+  // no deja abrir ventanas (o la página está en un marco que no permite imprimir), se descarga como .html.
+  function imprimirHtml(titulo, cuerpo, nombre) {
+    var doc = '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>' + esc(titulo) + '</title><style>' +
+      '@page{size:A4 landscape;margin:1cm}body{font-family:Arial,sans-serif;font-size:10pt;color:#000;margin:0}h2{font-size:14pt}' +
+      '.cal{width:100%;border-collapse:collapse;table-layout:fixed}.cal th{background:#3b4a2f;color:#fff;padding:3px;border:1px solid #3b4a2f;font-size:9pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+      '.cal td{border:1px solid #bbb;vertical-align:top;height:2.7cm;padding:2px 3px;font-size:7.5pt;overflow:hidden}' +
+      '.cal td.fuera{background:#f2f2f2;color:#999;-webkit-print-color-adjust:exact;print-color-adjust:exact}.cal .n{font-weight:bold;font-size:9pt}' +
+      '.cal .t{margin:1px 0;line-height:1.15}.cal .v{color:#b71c1c;font-weight:bold}.cal .c{font-weight:bold}' +
+      '.aviso{background:#fff4d6;padding:8px;margin:0 0 8px}@media print{.aviso{display:none}}' +
+      '</style></head><body><div class="aviso">Si no se abre el diálogo de impresión, pulsa Ctrl+P. Para PDF, elige «Guardar como PDF» y orientación horizontal.</div>' + cuerpo +
+      '<scr' + 'ipt>window.onload=function(){setTimeout(function(){window.print()},400)}</scr' + 'ipt></body></html>';
+    var w = null;
+    try { w = window.open('', '_blank'); } catch (e) { w = null; }
+    if (w && w.document) { w.document.open(); w.document.write(doc); w.document.close(); return; }
+    descargar(nombre + '.html', doc, 'text/html;charset=utf-8');
+    aviso('Descargado: ábrelo y elige Imprimir → Guardar como PDF');
+  }
+  function imprimirCalendario() {
+    var y = mes.getFullYear(), m = mes.getMonth(), ini = iso(mes), fin = iso(new Date(y, m + 1, 0));
+    var porDia = {};
+    filtrar(tareas).forEach(function (t) { if (t.nlt && t.nlt >= ini && t.nlt <= fin && t.clase !== 'hecha') (porDia[t.nlt] = porDia[t.nlt] || []).push(t); });
+    var d = new Date(y, m, 1 - ((mes.getDay() + 6) % 7)), filas = '', total = 0;
+    for (var sem = 0; sem < 6; sem++) {
+      if (sem && d.getMonth() !== m) break;
+      filas += '<tr>';
+      for (var i = 0; i < 7; i++) {
+        var k = iso(d), dentro = d.getMonth() === m, l = dentro ? (porDia[k] || []).sort(ordenar) : [];
+        total += l.length;
+        filas += '<td class="' + (dentro ? '' : 'fuera') + '"><div class="n">' + d.getDate() + '</div>' +
+          l.slice(0, 9).map(function (t) {
+            var cls = urgencia(t).grupo === 'vencidas' ? 'v' : t.prio === 'critica' ? 'c' : '';
+            return '<div class="t ' + cls + '">• ' + esc(t.asunto.slice(0, 80)) + (t.responsable ? ' <i>(' + esc(t.responsable.split(' ').slice(0, 2).join(' ')) + ')</i>' : '') + '</div>';
+          }).join('') + (l.length > 9 ? '<div class="t"><i>+' + (l.length - 9) + ' más</i></div>' : '') + '</td>';
+        d.setDate(d.getDate() + 1);
+      }
+      filas += '</tr>';
+    }
+    var nom = mes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    nom = nom[0].toUpperCase() + nom.slice(1);
+    var f = [];
+    if (pref.quien === 'mias') f.push('Asuntos de ' + (yo ? yo.Title : 'mi responsabilidad'));
+    if (pref.quien === 'implicado') f.push('Asuntos en los que intervengo');
+    if (pref.negociado) f.push('Negociado: ' + pref.negociado);
+    if (pref.estado) f.push('Estado: ' + pref.estado);
+    if (pref.prio) f.push('Prioridad: ' + pref.prio);
+    if (pref.q) f.push('Búsqueda: «' + pref.q + '»');
+    var cuerpo = '<h2 style="text-align:center;margin:0 0 2px">' + esc(document.title) + '</h2>' +
+      '<p style="text-align:center;margin:0 0 6px"><b>Calendario de NLT · ' + esc(nom) + '</b> · ' + total + ' asunto' + (total === 1 ? '' : 's') + ' abierto' + (total === 1 ? '' : 's') +
+      (f.length ? ' · ' + esc(f.join(' · ')) : '') + '</p>' +
+      '<table class="cal"><tr>' + ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(function (x) { return '<th>' + x + '</th>'; }).join('') + '</tr>' + filas + '</table>' +
+      '<p style="font-size:8pt;margin-top:4px">En rojo, fuera de plazo; en negrita, prioridad crítica. Emitido por ' + esc(yo ? yo.Title : '') + ' el ' + fLarga(hoy()) + '.</p>';
+    imprimirHtml('Calendario ' + nom, cuerpo, 'calendario-' + iso(mes).slice(0, 7));
   }
 
   // ---------- Avisos por correo (se preparan en Outlook; los envía el usuario) ----------
@@ -1299,6 +1355,7 @@
       descargar('nlt-colabora-' + hoy() + '.ics', r.txt, 'text/calendar;charset=utf-8'); aviso(r.n + ' citas exportadas');
       return;
     }
+    if (el.closest('[data-impcal]')) { imprimirCalendario(); return; }
     var inf = el.closest('[data-inf]');
     if (inf) { accionInforme(inf.dataset.inf); return; }
     if (el.closest('#nuevo')) { if (cargadoEn) formularioNuevo(''); return; }
