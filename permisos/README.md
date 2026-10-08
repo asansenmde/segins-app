@@ -55,6 +55,8 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
   representante, aprobador, autorizador, registrador o autor) y, si está en un grupo de registro, las autorizadas,
   registradas y anuladas. Quien tiene «Administrar listas» en la lista (gestor) ve todas. Es un filtro de la página:
   la protección real depende de los permisos de la lista en Colabora. Adjuntos: desde el formulario de Colabora.
+- **Enlace de los correos**: `permisos.html?id=N` abre la página directamente en esa solicitud (si le corresponde a
+  quien la abre). Los correos que envía el formulario InfoPath siguen llevando sus enlaces antiguos.
 - `img/`: logo del Ministerio de Defensa y sello «USO OFICIAL», sacados de la plantilla del
   formulario. La página los lleva incrustados (cabecera e impresiones). **Para que salgan en los correos** hay que
   subir los dos archivos `permisos-*.png` a la misma biblioteca que `permisos.html`: el correo los enlaza desde allí

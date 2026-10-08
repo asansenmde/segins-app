@@ -158,6 +158,9 @@
   var esBorrador = function (t) { return t.estado === E.BS || t.estado === E.BR || t.estado === E.SI || !t.estado; };
   var concedido = function (t) { return t.estado === E.AP || t.estado === E.AU || t.estado === E.RG; };
 
+  // Solicitud que hay que abrir al entrar (enlace de los correos: permisos.html?id=N)
+  var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
+
   // ---------- SharePoint ----------
   var web = null, yo = null, misGrupos = [], esGestor = false, listaInfo = null, opciones = {}, empleos = [], unidades = [], items = [], cargadoEn = null;
   function api(url) {
@@ -262,6 +265,12 @@
       cargadoEn = new Date();
       $('#estadoCarga').textContent = items.length + ' solicitudes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
       render();
+      if (idInicial) {
+        var pedida = idInicial; idInicial = null;
+        if (items.some(function (x) { return x.id === pedida; })) abrir(pedida);
+        else aviso('La solicitud nº ' + pedida + ' no está entre las que te corresponden');
+        try { history.replaceState(null, '', location.pathname); } catch (e) { /* sin historial */ }
+      }
     }).catch(function (e) {
       $('#estadoCarga').textContent = 'Error';
       $('#vista').innerHTML = '<div class="error">No se pudo leer la lista: ' + esc(e.message || e) + '. ¿Tienes permiso para verla? Revisa el sitio y la lista en Ajustes.</div>' + (pref.vista === 'ajustes' ? vistaAjustes() : '');
@@ -597,19 +606,19 @@
       '<tr><td><table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:13px">' +
       filas.map(function (x) { return '<tr><td width="32%" style="border:1px solid #c9cdc3;background:#eef1ea;color:' + verde + ';font-weight:bold">' + esc(x[0]) + '</td><td style="border:1px solid #c9cdc3">' + esc(x[1]).replace(/\n/g, '<br>') + '</td></tr>'; }).join('') +
       '</table></td></tr>' +
-      (enlace ? '<tr><td style="padding:12px 0"><a href="' + esc(enlace) + '" style="background:' + verde + ';color:#fff;padding:8px 14px;text-decoration:none;font-weight:bold;display:inline-block">Abrir la solicitud en Colabora</a></td></tr>' : '') +
+      (enlace ? '<tr><td style="padding:12px 0"><a href="' + esc(enlace) + '" style="background:' + verde + ';color:#fff;padding:8px 14px;text-decoration:none;font-weight:bold;display:inline-block">Abrir la solicitud</a><div style="font-size:11px;color:#555;padding-top:6px">' + esc(enlace) + '</div></td></tr>' : '') +
       '<tr><td style="border-top:4px solid ' + oro + ';padding-top:6px;font-size:11px;color:#555" align="center">Aviso generado por la aplicación de Solicitud de Permisos de SUIGESUR (Colabora).<br><br>' + uso + '</td></tr></table>';
   }
-  var AREA_APROB = function (w) { return w + '/_layouts/15/start.aspx#/SitePages/Area%20Aprobadores%20de%20Permisos.aspx'; };
-  var AREA_AUTOR = function (w) { return w + '/_layouts/15/start.aspx#/SitePages/AREA%20AUTORIZADORES%20FINALES.aspx'; };
+  // Enlace del correo: esta misma página, abriendo directamente la solicitud (?id=N)
+  var enlaceSolicitud = function (t) { return enlacePagina() + '?id=' + t.id; };
   // Los siete correos del formulario InfoPath (mismos destinatarios, asuntos y textos)
   function correoDe(tipo, t, obs) {
     var rep = t.rep ? t.rep.Title : '';
     var C = {
       solicitud: { to: [t.correoSol], cc: [t.correoApr], asunto: 'Pendiente de APROBAR un Permiso solicitado por: ' + t.nombre + ' Representado por: ' + rep + ' de tipo: ' + t.tipo,
-        intro: 'PENDIENTE DE APROBAR POR SU AUTORIDAD UNA SOLICITUD DE PERMISO. PARA ACCEDER AL FORMULARIO PUEDE DIRIGIRSE AL ÁREA DE GESTIÓN DE PERMISOS O MEDIANTE EL SIGUIENTE ENLACE: ' + AREA_APROB(web) },
+        intro: 'PENDIENTE DE APROBAR POR SU AUTORIDAD UNA SOLICITUD DE PERMISO. Para tramitarla, pulse «Abrir la solicitud» al final de este aviso.' },
       aprobado: { to: [t.correoSol], cc: [t.correoAut], bcc: [t.correoApr], asunto: 'El usuario: ' + t.aprTexto + ' Ha APROBADO su Solicitud de permiso: ' + t.asunto + ', siendo trasladada para AUTORIZACIÓN al usuario: ' + t.autTexto,
-        intro: 'LA SOLICITUD DE PERMISO ha sido APROBADA y remitida al AUTORIZADOR para su curso reglamentario. Para acceder al formulario de la Solicitud puede dirigirse al ÁREA DE AUTORIZADORES FINALES: ' + AREA_AUTOR(web) },
+        intro: 'LA SOLICITUD DE PERMISO ha sido APROBADA y remitida al AUTORIZADOR para su curso reglamentario. Para tramitarla, pulse «Abrir la solicitud» al final de este aviso.' },
       devueltaAprob: { to: [t.correoSol], cc: [t.correoApr], asunto: 'El Aprobador: ' + t.aprTexto + ' Ha DEVUELTO su Solicitud de permiso: ' + t.asunto + '. Consulte las Observaciones y tramítela nuevamente.',
         intro: 'LA SOLICITUD de Permiso ha sido DEVUELTA por el APROBADOR con las observaciones que se indican. Por favor, resuélvalas y vuelva a tramitarla.' },
       rechazoAprob: { to: [t.correoSol], cc: [], asunto: 'El Aprobador: ' + t.aprTexto + ' Ha rechazado su Solicitud de permiso: ' + t.asunto,
@@ -630,7 +639,7 @@
     var filas = [['Asunto', t.asunto], ['Solicitante', t.nombre], ['Representante', rep], ['Tipo de permiso', t.tipo], ['Cupo de año', t.cupo],
       ['Desde', fLarga(t.ini)], ['Hasta', fLarga(t.fin)], ['Días festivos', t.festivos], ['Unidad', t.unidad && t.unidad.Title], ['Dependencia', t.dependencia],
       ['Estado', t.estado], ['Observaciones', obs]].filter(function (x) { return x[1]; });
-    var f = enlaceFormulario(t);
+    var f = t.id ? enlaceSolicitud(t) : enlacePagina();
     C.html = htmlCorreo(C.intro, filas, f);
     C.texto = 'USO OFICIAL\n\n' + C.intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + (f ? '\n\nAbrir la solicitud: ' + f : '');
     return C;

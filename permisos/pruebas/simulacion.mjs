@@ -66,7 +66,11 @@ async function prueba(verbose, soloAlcance) {
     return r.fulfill({ status: 404, body: '' });
   });
   const tag = verbose ? '[verbose]' : '[ligero]';
-  await p.goto(O + WEB + '/Documentos%20compartidos/permisos.html'); await p.waitForTimeout(800);
+  await p.goto(O + WEB + '/Documentos%20compartidos/permisos.html' + (soloAlcance === 'enlace' ? '?id=1' : '')); await p.waitForTimeout(800);
+  if (soloAlcance === 'enlace') {
+    console.log(tag, 'enlace del correo abre:', await p.textContent('#dlg h2').catch(() => 'nada'), '| URL limpia:', p.url().endsWith('permisos.html'));
+    await b.close(); return;
+  }
   if (soloAlcance) {
     await p.click('#tabs a[data-v=todas]'); await p.waitForTimeout(300);
     console.log(tag, soloAlcance, '| pestañas:', await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | ')));
@@ -89,7 +93,7 @@ async function prueba(verbose, soloAlcance) {
   const alta = posts.find(x => x.ruta.endsWith('/items')), cAlta = JSON.parse(alta.cuerpo);
   console.log(tag, 'alta:', JSON.stringify({ Estado: cAlta.Estado, Sol: cAlta.SolicitanteId, Apr: cAlta.AprobadorDePermisoId, AprT: cAlta.AprobadorTexto, Cor: cAlta.CorreoDeAPROBADOR, Uni: cAlta.Unidad0Id, mas1: cAlta.dia_x0020_mas_x0020_uno, Motivo: cAlta.MotivoSeleccionado, Reg: cAlta.RegistroDeBorrador.slice(0, 50), Titulo: cAlta.Title }));
   const m1 = JSON.parse(posts.find(x => x.ruta.startsWith('SP.Utilities')).cuerpo).properties;
-  console.log(tag, 'correo alta:', m1.To.results, m1.CC.results, '|', m1.Subject);
+  console.log(tag, 'correo alta:', m1.To.results, m1.CC.results, '|', m1.Subject, '| enlace:', (m1.Body.match(/href="([^"]+)"/) || [])[1]);
   console.log(tag, 'mensaje:', await p.textContent('#dlg .okmsg, #dlg .aviso'));
   await p.click('#dlg [data-cerrar]');
   // Aprobar: sin autorizador → error; con autorizador → 2-Aprobado
@@ -165,3 +169,4 @@ await prueba(false); await prueba(true);
 registro = false; await prueba(false, 'usuario normal');
 registro = true; await prueba(false, 'registro');
 gestor = true; await prueba(true, 'gestor');
+gestor = false; await prueba(false, 'enlace');
