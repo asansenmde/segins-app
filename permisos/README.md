@@ -46,7 +46,11 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
   de registro), **Calendario** de permisos concedidos (y pendientes, opcional) por dependencia y unidad, imprimible en
   PDF, **Consulta** con filtros y exportación a CSV, y **Ajustes**. Reproduce las acciones, campos y correos del
   formulario InfoPath descritos en `CIRCUITO.md`; cada cambio se guarda solo si nadie ha tocado la solicitud desde que
-  se cargó (`IF-MATCH`). El NIF solo se muestra a quien interviene. Adjuntos: desde el formulario de Colabora.
+  se cargó (`IF-MATCH`). El NIF solo se muestra a quien interviene.
+  **Alcance por papel**: la página pide al servidor solo las solicitudes en las que el usuario figura (solicitante,
+  representante, aprobador, autorizador, registrador o autor) y, si está en un grupo de registro, las autorizadas,
+  registradas y anuladas. Quien tiene «Administrar listas» en la lista (gestor) ve todas. Es un filtro de la página:
+  la protección real depende de los permisos de la lista en Colabora. Adjuntos: desde el formulario de Colabora.
 - `CIRCUITO.md`: reglas del formulario InfoPath (sacadas de la plantilla `.xsn`).
 - `pruebas/simulacion.mjs`: prueba completa contra una lista simulada (ligero y *verbose*): alta con validaciones,
   aprobar y elevar, devolver sin observaciones, autorizar, registrar, NIF, conflicto, calendario, impresión y CSV.

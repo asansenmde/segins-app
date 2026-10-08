@@ -140,7 +140,7 @@
   var concedido = function (t) { return t.estado === E.AP || t.estado === E.AU || t.estado === E.RG; };
 
   // ---------- SharePoint ----------
-  var web = null, yo = null, misGrupos = [], listaInfo = null, opciones = {}, empleos = [], unidades = [], items = [], cargadoEn = null;
+  var web = null, yo = null, misGrupos = [], esGestor = false, listaInfo = null, opciones = {}, empleos = [], unidades = [], items = [], cargadoEn = null;
   function api(url) {
     var pedir = function (accept) {
       return fetch(url, { credentials: 'same-origin', headers: { Accept: accept } }).then(function (r) {
@@ -225,13 +225,17 @@
     return Promise.all([
       api(web + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) { yo = { Id: u.Id, Title: u.Title, Email: u.Email || '', LoginName: u.LoginName }; }),
       api(web + '/_api/web/currentuser/groups?$select=Title').then(function (d) { misGrupos = lista(d.value).map(function (x) { return x.Title; }); }).catch(function () { misGrupos = []; }),
-      api(urlLista() + '?$select=Id,Title,ListItemEntityTypeFullName,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { listaInfo = l; }),
+      api(urlLista() + '?$select=Id,Title,ListItemEntityTypeFullName,EffectiveBasePermissions,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) {
+        listaInfo = l;
+        // Gestor = quien puede administrar la lista en Colabora (permiso «Administrar listas»)
+        esGestor = ((Number(l.EffectiveBasePermissions && l.EffectiveBasePermissions.Low) || 0) & 0x800) !== 0;
+      }),
       api(urlLista() + "/fields?$select=InternalName,Choices&$filter=(InternalName eq 'Estado') or (InternalName eq 'TipoDePermiso') or (InternalName eq 'CupoDeA_x00f1_o') or (InternalName eq 'Dependencia') or (InternalName eq 'JEFE')")
         .then(function (d) { lista(d.value).forEach(function (f) { opciones[f.InternalName] = lista(f.Choices).length ? lista(f.Choices) : (f.Choices || []); }); }).catch(function () { /* se deducen de los datos */ }),
       todas(web + "/_api/web/lists/getbytitle('empleos')/items?$select=Title&$top=500").then(function (l) { empleos = l.map(function (x) { return x.Title; }).filter(Boolean); }).catch(function () { empleos = []; }),
       todas(web + "/_api/web/lists/getbytitle('UNIDADES')/items?$select=Id,Title&$top=500").then(function (l) { unidades = l.map(function (x) { return { Id: x.Id, Title: x.Title || '' }; }).sort(function (a, b) { return a.Title.localeCompare(b.Title, 'es'); }); }).catch(function () { unidades = []; })
     ]).then(function () {
-      return todas(urlLista() + '/items?$top=1000&$select=' + SEL.join(',') + '&$expand=' + EXPAND);
+      return todas(urlLista() + '/items?$top=1000&$select=' + SEL.join(',') + '&$expand=' + EXPAND + filtroAlcance());
     }).then(function (its) {
       items = its.map(aSol);
       cargadoEn = new Date();
@@ -241,6 +245,23 @@
       $('#estadoCarga').textContent = 'Error';
       $('#vista').innerHTML = '<div class="error">No se pudo leer la lista: ' + esc(e.message || e) + '. ¿Tienes permiso para verla? Revisa el sitio y la lista en Ajustes.</div>' + (pref.vista === 'ajustes' ? vistaAjustes() : '');
     });
+  }
+
+  // ---------- Alcance: cada uno lee solo lo que le corresponde por su papel ----------
+  // Se filtra en el servidor: las solicitudes en las que figuras (solicitante, representante, aprobador, autorizador,
+  // registrador o autor) y, si perteneces a un grupo de registro, las autorizadas, registradas y anuladas.
+  // El gestor de la lista (permiso «Administrar listas» en Colabora) ve todas.
+  function filtroAlcance() {
+    if (esGestor) return '';
+    var id = yo.Id;
+    var c = ['SolicitanteId', 'RepresentanteDelSolicitanteId', 'AprobadorDePermisoId', 'AutorizadorDelPermisoId', 'Registro_x0020_SIPERDEFId', 'AuthorId']
+      .map(function (k) { return '(' + k + ' eq ' + id + ')'; });
+    if (enRegistro()) c = c.concat([E.AU, E.RG, E.AN].map(function (e) { return "(Estado eq '" + e + "')"; }));
+    return '&$filter=' + encodeURIComponent(c.join(' or '));
+  }
+  function alcanceTxt() {
+    if (esGestor) return 'Ves todas las solicitudes porque administras la lista en Colabora.';
+    return 'Ves tus solicitudes y las que te corresponde aprobar o autorizar' + (enRegistro() ? ', y las autorizadas, registradas y anuladas (registro SIPERDEF)' : '') + '.';
   }
 
   // ---------- Roles ----------
@@ -315,7 +336,7 @@
       '<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><button data-mes="-1">◀</button><b>' + esc(titulo[0].toUpperCase() + titulo.slice(1)) +
       '</b><span><button data-impcal="1">🖨 Imprimir / PDF</button> <button data-mes="1">▶</button></span></div>' +
       '<div class="cal">' + ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(function (x) { return '<div class="dow">' + x + '</div>'; }).join('') + celdas + '</div>' +
-      '<p class="muted small">En verde, permisos aprobados, autorizados o registrados; pulsa un nombre para ver la solicitud.</p>';
+      '<p class="muted small">En verde, permisos aprobados, autorizados o registrados; pulsa un nombre para ver la solicitud. ' + esc(alcanceTxt()) + '</p>';
   }
   function filtrarTodas() {
     var f = pref.f, q = sinTildes(f.q);
@@ -343,16 +364,16 @@
       '<div><label class="lbl">Unidad</label>' + sel('fUni', unidades, f.unidad, 'Todas', function (u) { return u.Id; }) + '</div>' +
       '<div><label class="lbl">Cupo de año</label>' + sel('fCupo', valores('cupo', 'CupoDeA_x00f1_o'), f.cupo, 'Todos') + '</div>' +
       '</div><div class="acciones"><button data-csv="1">📊 Exportar a Excel (CSV)</button></div></div>' +
-      '<p class="muted small">' + ts.length + ' solicitud' + (ts.length === 1 ? '' : 'es') + (ts.length > 300 ? ' (se muestran las 300 más recientes)' : '') + '</p>' +
+      '<p class="muted small">' + esc(alcanceTxt()) + '</p><p class="muted small">' + ts.length + ' solicitud' + (ts.length === 1 ? '' : 'es') + (ts.length > 300 ? ' (se muestran las 300 más recientes)' : '') + '</p>' +
       ts.slice(0, 300).map(function (t) { return tarjeta(t); }).join('');
   }
   function vistaAjustes() {
     return '<div class="card"><h3 style="margin-top:0">Lista de SharePoint</h3>' +
       '<label class="lbl">Sitio</label><input id="aSitio" value="' + esc(pref.sitio) + '">' +
       '<label class="lbl">Lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
-      '<p class="small muted">Usuario: ' + esc(yo ? yo.Title : '—') + (misGrupos.length ? '<br>Tus grupos: ' + esc(misGrupos.join(', ')) : '') + '</p>' +
+      '<p class="small muted">Usuario: ' + esc(yo ? yo.Title : '—') + '<br>' + esc(alcanceTxt()) + (misGrupos.length ? '<br>Tus grupos: ' + esc(misGrupos.join(', ')) : '') + '</p>' +
       '<label class="check"><input type="checkbox" id="aCorreo"' + (pref.correo ? ' checked' : '') + '> Enviar los avisos por correo al tramitar (como el formulario de Colabora)</label></div>' +
-      '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">La página trabaja dentro de Colabora con tu sesión y tus permisos: ve lo que ya puedes ver en la lista y escribe solo cuando guardas o tramitas una solicitud. Nunca borra. No envía nada fuera del servidor. El NIF solo se muestra a las personas que intervienen en la solicitud.</p></div>';
+      '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">La página trabaja dentro de Colabora con tu sesión y tus permisos. Solo carga las solicitudes que te corresponden por tu papel (solicitante, representante, aprobador, autorizador o registro); el gestor de la lista ve todas. Escribe solo cuando guardas o tramitas una solicitud. Nunca borra. No envía nada fuera del servidor. El NIF solo se muestra a las personas que intervienen en la solicitud.</p></div>';
   }
   var VISTAS = [['mias', 'Mis solicitudes'], ['pendientes', 'Pendientes de mí'], ['calendario', 'Calendario'], ['todas', 'Consulta'], ['ajustes', 'Ajustes']];
   function render() {

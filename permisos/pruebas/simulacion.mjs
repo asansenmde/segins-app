@@ -9,16 +9,17 @@ const WEB = '/et/SUIGESUR/colaborativo/CALIDAD-VIDA', O = 'https://colabora.mdef
 const U = { 279: { Id: 279, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.es' }, 11: { Id: 11, Title: 'APROBADOR UNO', EMail: 'aprob1@et.mde.es' },
   12: { Id: 12, Title: 'AUTORIZADOR UNO', EMail: 'autor1@et.mde.es' }, 13: { Id: 13, Title: 'SOLICITANTE DOS', EMail: 'sol2@et.mde.es' } };
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(0, 0, 0, 0); return x.toISOString(); };
-let items;
+let ultimoFiltro = '', items, gestor = false, registro = true;
 const nuevoStore = () => {
   items = [
     { Id: 1, Title: 'Vacaciones', Estado: '1-Pendiente de Aprobar', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(5), FechaDeFin: d(9), Solicitante: U[13], AprobadorDePermiso: U[279], CorreoDelSolicitante: 'sol2@et.mde.es', CorreoDeAPROBADOR: 'usuario@et.mde.es', AprobadorTexto: 'USUARIO DE PRUEBA', EstadoDeAprobacion: 'SIN APROBAR', Unidad0: { Id: 2, Title: 'UNIDAD B' }, Dependencia: 'SEGURIDAD' },
     { Id: 2, Title: 'Asuntos propios', Estado: '2-Aprobado', TipoDePermiso: 'Permiso por asuntos particulares (Art.6.a)', CupoDeA_x00f1_o: '2026', FechaInicio: d(1), FechaDeFin: d(1), Solicitante: U[13], AprobadorDePermiso: U[11], AutorizadorDelPermiso: U[279], CorreoDelSolicitante: 'sol2@et.mde.es', CorreoDeAPROBADOR: 'aprob1@et.mde.es', CorreoDeAUTORIZADOR: 'usuario@et.mde.es', AprobadorTexto: 'APROBADOR UNO', AutorizadorTexto: 'USUARIO DE PRUEBA', EstadoDeAprobacion: 'APROBADO', Unidad0: { Id: 1, Title: 'UNIDAD A' }, Dependencia: 'JEFATURA' },
     { Id: 3, Title: 'Compensa servicio', Estado: '3-Autorizado', TipoDePermiso: 'Permiso para compensar un servicio.', CupoDeA_x00f1_o: '2026', FechaInicio: d(0), FechaDeFin: d(2), Solicitante: U[279], AprobadorDePermiso: U[11], AutorizadorDelPermiso: U[12], EstadoDeRegistro: 'Pendiente de Registro', Unidad0: { Id: 1, Title: 'UNIDAD A' } },
+    { Id: 5, Title: 'Ajena', Estado: '1-Pendiente de Aprobar', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(3), FechaDeFin: d(4), Solicitante: U[13], AprobadorDePermiso: U[11], Unidad0: { Id: 2, Title: 'UNIDAD B' } },
     { Id: 4, Title: 'Viejo', Estado: '4-Registrado SIPERDEF', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2025', FechaInicio: d(-40), FechaDeFin: d(-30), Solicitante: U[279], Unidad0: { Id: 1, Title: 'UNIDAD A' } },
   ].map(x => ({ Created: d(-3), Modified: d(-2) + '', Author: { Id: x.Solicitante.Id, Title: x.Solicitante.Title }, Editor: { Title: 'X' }, NIF: '00000000T', RegistroDeBorrador: '', ...x }));
 };
-async function prueba(verbose) {
+async function prueba(verbose, soloAlcance) {
   nuevoStore();
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1366, height: 800 }, acceptDownloads: true }); const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message)); const posts = [];
@@ -44,7 +45,7 @@ async function prueba(verbose) {
       if (resto.endsWith('/items')) { const it = { Id: items.length + 1, Created: new Date().toISOString(), Author: { Id: 279, Title: U[279].Title }, Editor: { Title: U[279].Title } }; aplica(it, c); items.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } }); }
       return r.fulfill({ status: 400, body: '' });
     }
-    if (resto.startsWith('web/currentuser/groups')) return J({ value: [{ Title: 'Personal de Registro' }] });
+    if (resto.startsWith('web/currentuser/groups')) return J({ value: registro ? [{ Title: 'Personal de Registro' }] : [{ Title: 'Integrantes cdv' }] });
     if (resto.startsWith('web/currentuser')) return J({ Id: 279, Title: U[279].Title, Email: U[279].EMail, LoginName: 'i:0#.w|et\\usuario' });
     if (resto.startsWith('web/siteusers')) return J({ value: Object.values(U).map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail })) });
     if (resto.includes("getbytitle('empleos')")) return J({ value: [{ Title: 'Comandante' }, { Title: 'Sargento' }] });
@@ -54,12 +55,22 @@ async function prueba(verbose) {
       { InternalName: 'Dependencia', Choices: ['JEFATURA', 'SEGURIDAD'] }] });
     const mi = resto.match(/items\((\d+)\)/);
     if (mi) { const it = items.find(x => x.Id === +mi[1]); return r.fulfill({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, ...it } } }); }
-    if (resto.includes('/items')) return J({ value: items });
-    if (resto.includes("getbytitle('Solicitud de Permisos')")) return J({ Id: 'g', Title: 'Solicitud de Permisos', ListItemEntityTypeFullName: 'SP.Data.Solicitud_x0020_de_x0020_PermisosListItem', RootFolder: { ServerRelativeUrl: WEB + '/Lists/Solicitud de Permisos' } });
+    if (resto.includes('/items')) {
+      ultimoFiltro = (u.match(/\$filter=([^&]*)/) || [])[1] || '';
+      if (!ultimoFiltro) return J({ value: items });
+      const ids = [...ultimoFiltro.matchAll(/(\w+)Id eq (\d+)/g)], est = [...ultimoFiltro.matchAll(/Estado eq '([^']+)'/g)].map(x => x[1]);
+      return J({ value: items.filter(it => ids.some(([, k, v]) => it[k] && it[k].Id === +v) || est.includes(it.Estado)) });
+    }
+    if (resto.includes("getbytitle('Solicitud de Permisos')")) return J({ Id: 'g', Title: 'Solicitud de Permisos', ListItemEntityTypeFullName: 'SP.Data.Solicitud_x0020_de_x0020_PermisosListItem', EffectiveBasePermissions: { High: '0', Low: String(gestor ? 0x80F : 0x7) }, RootFolder: { ServerRelativeUrl: WEB + '/Lists/Solicitud de Permisos' } });
     return r.fulfill({ status: 404, body: '' });
   });
   const tag = verbose ? '[verbose]' : '[ligero]';
   await p.goto(O + WEB + '/Documentos%20compartidos/permisos.html'); await p.waitForTimeout(800);
+  if (soloAlcance) {
+    await p.click('#tabs a[data-v=todas]'); await p.waitForTimeout(300);
+    console.log(tag, soloAlcance, '| filtro en servidor:', ultimoFiltro ? 'sí' : 'no', '| ids en consulta:', await p.$$eval('.sol', n => n.map(x => x.dataset.id).join(',')), '|', await p.textContent('#vista p.muted.small'));
+    await b.close(); return;
+  }
   console.log(tag, 'pestañas:', await p.$$eval('#tabs a', a => a.map(x => x.textContent)), '| mis:', await p.$$eval('.sol', n => n.length));
   // Nueva solicitud propia con aprobador
   await p.click('[data-nueva]'); await p.waitForTimeout(400);
@@ -131,3 +142,6 @@ async function prueba(verbose) {
   await b.close();
 }
 await prueba(false); await prueba(true);
+registro = false; await prueba(false, 'usuario normal');
+registro = true; await prueba(false, 'registro');
+gestor = true; await prueba(true, 'gestor');
