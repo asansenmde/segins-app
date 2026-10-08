@@ -55,6 +55,13 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
   representante, aprobador, autorizador, registrador o autor) y, si está en un grupo de registro, las autorizadas,
   registradas y anuladas. Quien tiene «Administrar listas» en la lista (gestor) ve todas. Es un filtro de la página:
   la protección real depende de los permisos de la lista en Colabora. Adjuntos: desde el formulario de Colabora.
+- `img/`: logo del Ministerio de Defensa, sello «USO OFICIAL» y escudo de SUIGESUR, sacados de la plantilla del
+  formulario. La página los lleva incrustados (cabecera e impresiones). **Para que salgan en los correos** hay que
+  subir los tres archivos `permisos-*.png` a la misma biblioteca que `permisos.html`: el correo los enlaza desde allí
+  (los clientes de correo no muestran imágenes incrustadas). Si no están, el correo sale con la cabecera en texto.
+- **Impresión / PDF** con formato oficial (logo, «USO OFICIAL», escudo, pie con emisor y fecha): ficha de cada
+  solicitud (con casillas de firma), relación de la pestaña Consulta según los filtros, calendario del mes y relación
+  de registro por unidad.
 - `CIRCUITO.md`: reglas del formulario InfoPath (sacadas de la plantilla `.xsn`).
 - `pruebas/simulacion.mjs`: prueba completa contra una lista simulada (ligero y *verbose*): alta con validaciones,
   aprobar y elevar, devolver sin observaciones, autorizar, registrar, NIF, conflicto, calendario, impresión y CSV.

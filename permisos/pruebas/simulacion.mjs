@@ -106,6 +106,7 @@ async function prueba(verbose, soloAlcance) {
   const ap = posts.find(x => /items\(1\)/.test(x.ruta)); const cAp = JSON.parse(ap.cuerpo);
   console.log(tag, 'aprobar:', ap.cab['x-http-method'], JSON.stringify({ Estado: cAp.Estado, EA: cAp.EstadoDeAprobacion, Aut: cAp.AutorizadorDelPermisoId, AutT: cAp.AutorizadorTexto, Cor: cAp.CorreoDeAUTORIZADOR }));
   const m2 = JSON.parse(posts.find(x => x.ruta.startsWith('SP.Utilities')).cuerpo).properties;
+  if (!verbose) fs.writeFileSync(new URL('correo.html', import.meta.url), m2.Body);
   console.log(tag, 'correo aprobado:', m2.To.results, m2.CC.results, m2.BCC.results, '|', m2.Subject);
   await p.click('#dlg [data-cerrar]');
   // Autorizar la 2
@@ -147,6 +148,15 @@ async function prueba(verbose, soloAlcance) {
   await p.click('#tabs a[data-v=todas]'); await p.waitForTimeout(300);
   const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-csv]')]);
   console.log(tag, 'CSV:', dl.suggestedFilename(), '| errores:', errs);
+  const [rel] = await Promise.all([ctx.waitForEvent('page'), p.click('[data-relimp]')]); await rel.waitForLoadState();
+  console.log(tag, 'relación impresa:', await rel.title(), (await rel.$$eval('table.r tr', r => r.length)) - 1, 'filas | logos:', await rel.$$eval('img', i => i.filter(x => x.naturalWidth > 0).length));
+  if (!verbose) { await rel.setViewportSize({ width: 1123, height: 794 }); await rel.screenshot({ path: new URL('relacion.png', import.meta.url).pathname }); }
+  await rel.close();
+  await p.click('.sol[data-id="1"]'); await p.waitForTimeout(600);
+  const [fic] = await Promise.all([ctx.waitForEvent('page'), p.click('[data-fichaimp]')]); await fic.waitForLoadState();
+  console.log(tag, 'ficha impresa:', await fic.title(), '| secciones:', await fic.$$eval('h3', h => h.map(x => x.textContent)));
+  if (!verbose) { await fic.setViewportSize({ width: 794, height: 1123 }); await fic.screenshot({ path: new URL('ficha-impresa.png', import.meta.url).pathname, fullPage: true }); }
+  await fic.close(); await p.click('#dlg [data-cerrar]');
   await p.click('#tabs a[data-v=mias]'); await p.waitForTimeout(200);
   await p.screenshot({ path: new URL('inicio.png', import.meta.url).pathname });
   await b.close();
