@@ -47,6 +47,10 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
   PDF, **Consulta** con filtros y exportación a CSV, y **Ajustes**. Reproduce las acciones, campos y correos del
   formulario InfoPath descritos en `CIRCUITO.md`; cada cambio se guarda solo si nadie ha tocado la solicitud desde que
   se cargó (`IF-MATCH`). El NIF solo se muestra a quien interviene.
+  **Registro SIPERDEF**: pestaña aparte, visible solo para el grupo de Colabora «Personal de Registro»: solicitudes
+  autorizadas pendientes de registrar (y registradas o anuladas en los últimos 30 días) **agrupadas por unidad**, con
+  solicitante, empleo, NIF, tipo, cupo, fechas, días y festivos; «✓ Registrado» con confirmación, relación imprimible
+  en PDF y CSV. Ya no aparece en «Pendientes de mí».
   **Alcance por papel**: la página pide al servidor solo las solicitudes en las que el usuario figura (solicitante,
   representante, aprobador, autorizador, registrador o autor) y, si está en un grupo de registro, las autorizadas,
   registradas y anuladas. Quien tiene «Administrar listas» en la lista (gestor) ve todas. Es un filtro de la página:

@@ -66,6 +66,7 @@
   .dia span.p { background: var(--warn-bg); color: var(--warn); }
   table.t { width: 100%; border-collapse: collapse; font-size: .85rem; }
   table.t th, table.t td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  table.t button { white-space: nowrap; }
   dialog { width: min(1200px, calc(100vw - 24px)); height: calc(100vh - 24px); max-height: calc(100vh - 24px); border: 0; border-radius: 14px; padding: 0; font-size: 16px; }
   dialog::backdrop { background: rgba(0,0,0,.45); }
   dialog input, dialog select, dialog textarea, dialog button, dialog .btn { font-size: 16px; }
@@ -238,6 +239,8 @@
       return todas(urlLista() + '/items?$top=1000&$select=' + SEL.join(',') + '&$expand=' + EXPAND + filtroAlcance());
     }).then(function (its) {
       items = its.map(aSol);
+      return cargarNifs();
+    }).then(function () {
       cargadoEn = new Date();
       $('#estadoCarga').textContent = items.length + ' solicitudes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
       render();
@@ -267,14 +270,14 @@
   // ---------- Roles ----------
   var soy = function (p) { return !!(p && yo && p.Id === yo.Id); };
   var esMia = function (t) { return soy(t.sol) || soy(t.rep) || (!t.sol && t.autorId === (yo && yo.Id)); };
-  var enRegistro = function () { return misGrupos.some(function (g) { return /registro/i.test(g); }); };
+  // Registro SIPERDEF: solo quien pertenece al grupo de Colabora «Personal de Registro»
+  var GRUPO_REGISTRO = /^personal de registro$/i;
+  var enRegistro = function () { return misGrupos.some(function (g) { return GRUPO_REGISTRO.test(String(g).trim()); }); };
   var puedeEditar = function (t) { return esBorrador(t) && esMia(t); };
   var puedeAprobar = function (t) { return t.estado === E.PA && soy(t.apr); };
   var puedeAutorizar = function (t) { return t.estado === E.AP && soy(t.aut); };
-  var puedeRegistrar = function (t) { return t.estado === E.AU && (soy(t.reg) || enRegistro()); };
-  var pendientes = function () {
-    return { aprobar: items.filter(puedeAprobar), autorizar: items.filter(puedeAutorizar), registrar: items.filter(puedeRegistrar) };
-  };
+  var puedeRegistrar = function (t) { return t.estado === E.AU && enRegistro(); };
+  var pendientes = function () { return { aprobar: items.filter(puedeAprobar), autorizar: items.filter(puedeAutorizar) }; };
 
   // ---------- Vistas ----------
   function tarjeta(t, extra) {
@@ -299,10 +302,82 @@
   function vistaPendientes() {
     var p = pendientes();
     var bloque = function (tit, ls, txt) { return '<div class="sec"><span>' + tit + '</span><span>' + ls.length + '</span></div>' + (ls.map(function (t) { return tarjeta(t); }).join('') || '<p class="muted small">' + txt + '</p>'); };
-    return '<p class="muted small">Solicitudes que esperan una acción tuya: como aprobador o autorizador indicado en la solicitud, o como registro en SIPERDEF.</p>' +
+    return '<p class="muted small">Solicitudes que esperan una acción tuya como aprobador o autorizador indicado en la solicitud.' +
+      (enRegistro() ? ' Lo pendiente de registro está en la pestaña «Registro SIPERDEF».' : '') + '</p>' +
       bloque('Pendientes de aprobar', p.aprobar, 'Ninguna solicitud espera tu aprobación.') +
-      bloque('Pendientes de autorizar', p.autorizar, 'Ninguna solicitud espera tu autorización.') +
-      (enRegistro() || p.registrar.length ? bloque('Pendientes de registrar en SIPERDEF', p.registrar, 'Nada pendiente de registro.') : '');
+      bloque('Pendientes de autorizar', p.autorizar, 'Ninguna solicitud espera tu autorización.');
+  }
+
+  // ---------- Registro SIPERDEF (solo grupo «Personal de Registro»), agrupado por unidad ----------
+  var nifs = {}, regVista = 'pendientes', regUnidad = '', confirmando = null;
+  function cargarNifs() {
+    nifs = {};
+    if (!enRegistro()) return Promise.resolve();
+    return todas(urlLista() + "/items?$top=1000&$select=Id,NIF&$filter=" + encodeURIComponent("Estado eq '" + E.AU + "'"))
+      .then(function (l) { l.forEach(function (x) { nifs[x.Id] = x.NIF || ''; }); }).catch(function () { /* sin NIF: se ve en la ficha */ });
+  }
+  var porRegistrar = function () { return items.filter(puedeRegistrar); };
+  function registroSel() {
+    var hace30 = new Date(Date.now() - 30 * 864e5).toISOString();
+    var ts = regVista === 'pendientes' ? porRegistrar() : items.filter(function (t) { return (t.estado === E.RG || t.estado === E.AN) && String(t.modificado) >= hace30; });
+    if (regUnidad) ts = ts.filter(function (t) { return t.unidad ? String(t.unidad.Id) === String(regUnidad) : regUnidad === 'sin'; });
+    return ts;
+  }
+  function gruposUnidad(ts) {
+    var m = new Map();
+    ts.forEach(function (t) { var k = t.unidad ? t.unidad.Title : 'Sin unidad'; if (!m.has(k)) m.set(k, []); m.get(k).push(t); });
+    return Array.from(m.entries()).sort(function (a, b) { return a[0] === 'Sin unidad' ? 1 : b[0] === 'Sin unidad' ? -1 : a[0].localeCompare(b[0], 'es'); })
+      .map(function (g) { g[1].sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es') || String(a.ini).localeCompare(String(b.ini)); }); return g; });
+  }
+  function vistaRegistro() {
+    if (!enRegistro()) return '<div class="card vacio">Esta pestaña es solo para el personal de registro.</div>';
+    var ts = registroSel(), pend = regVista === 'pendientes';
+    var uniOps = '<option value="">Todas las unidades</option>' + unidades.map(function (u) { return '<option value="' + u.Id + '"' + (String(regUnidad) === String(u.Id) ? ' selected' : '') + '>' + esc(u.Title) + '</option>'; }).join('') +
+      '<option value="sin"' + (regUnidad === 'sin' ? ' selected' : '') + '>Sin unidad</option>';
+    var cab = ['Solicitante', 'Empleo', 'NIF', 'Tipo de permiso', 'Cupo', 'Desde', 'Hasta', 'Días', 'Festivos', pend ? 'Autorizado' : 'Estado', ''];
+    return '<div class="card"><div class="acciones" style="margin-top:0">' +
+      '<button class="' + (pend ? 'prim' : '') + '" data-regv="pendientes">Pendientes de registrar (' + porRegistrar().length + ')</button>' +
+      '<button class="' + (!pend ? 'prim' : '') + '" data-regv="hechos">Registrados o anulados (últimos 30 días)</button></div>' +
+      '<div class="grid"><div><label class="lbl">Unidad</label><select id="rUni">' + uniOps + '</select></div></div>' +
+      '<div class="acciones"><button data-regimp="1">🖨 Imprimir relación / PDF</button><button data-regcsv="1">📊 Excel (CSV)</button></div></div>' +
+      (ts.length ? gruposUnidad(ts).map(function (g) {
+        return '<div class="sec"><span>' + esc(g[0]) + '</span><span>' + g[1].length + '</span></div><div class="card" style="overflow-x:auto"><table class="t"><tr>' +
+          cab.map(function (c) { return '<th>' + c + '</th>'; }).join('') + '</tr>' + g[1].map(function (t) {
+            return '<tr><td><a href="#" data-ver="' + t.id + '">' + esc(t.nombre) + '</a>' + (t.rep ? '<div class="small muted">rep.: ' + esc(t.rep.Title) + '</div>' : '') + '</td><td>' + esc(t.empleo) + '</td><td>' + esc(pend ? (nifs[t.id] || '—') : '') +
+              '</td><td>' + esc(t.tipo) + '</td><td>' + esc(t.cupo) + '</td><td>' + esc(fCorta(t.ini)) + '</td><td>' + esc(fCorta(t.fin)) + '</td><td>' + dias(t.ini, t.fin) + '</td><td>' + esc(t.festivos) + '</td><td>' +
+              (pend ? esc(t.fAutor ? new Date(t.fAutor).toLocaleDateString('es-ES') : '') : '<span class="badge ' + claseEstado(t.estado) + '">' + esc(t.estado) + '</span>') + '</td><td>' +
+              (pend ? '<button class="' + (confirmando === t.id ? 'peligro' : 'prim') + '" data-regok="' + t.id + '">' + (confirmando === t.id ? '¿Confirmar?' : '✓ Registrado') + '</button>' : '') + '</td></tr>';
+          }).join('') + '</table></div>';
+      }).join('') : '<div class="card vacio">' + (pend ? 'No hay solicitudes pendientes de registrar.' : 'Nada registrado o anulado en los últimos 30 días.') + '</div>') +
+      '<p class="muted small">«✓ Registrado» marca la solicitud como «4-Registrado SIPERDEF» con tu nombre (pide confirmación). Para anularla, ábrela pulsando el nombre.</p>';
+  }
+  function registrarRapido(t, boton) {
+    boton.disabled = true; boton.textContent = 'Guardando…';
+    guardarCambios(t, { Estado: E.RG, ValidacionEstado: E.RG, EstadoDeRegistro: 'REGISTRADO', Registro_x0020_SIPERDEFId: yo.Id, RegistradorTexto: yo.Title }, null)
+      .then(function () { confirmando = null; aviso('Registrada: ' + t.nombre); return cargar(); })
+      .catch(function (e) { confirmando = null; render(); alert('No se pudo registrar: ' + (e.message || e)); });
+  }
+  function csvRegistro() {
+    var c = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+    var f = [['Unidad', 'Solicitante', 'Representante', 'Empleo', 'NIF', 'Tipo de permiso', 'Cupo', 'Desde', 'Hasta', 'Días', 'Festivos', 'Estado', 'Fecha de autorización']];
+    gruposUnidad(registroSel()).forEach(function (g) { g[1].forEach(function (t) { f.push([g[0], t.nombre, t.rep && t.rep.Title, t.empleo, nifs[t.id] || '', t.tipo, t.cupo, fCorta(t.ini), fCorta(t.fin), dias(t.ini, t.fin), t.festivos, t.estado, t.fAutor ? new Date(t.fAutor).toLocaleDateString('es-ES') : '']); }); });
+    descargar('registro-siperdef-' + hoy() + '.csv', '﻿' + f.map(function (r) { return r.map(c).join(';'); }).join('\r\n'), 'text/csv;charset=utf-8');
+  }
+  function imprimirRegistro() {
+    var pend = regVista === 'pendientes';
+    var cuerpo = '<h2 style="text-align:center;margin:0 0 2px">REGISTRO SIPERDEF · ' + (pend ? 'PENDIENTES DE REGISTRAR' : 'REGISTRADOS O ANULADOS (30 DÍAS)') + '</h2>' +
+      '<p style="text-align:center;margin:0 0 8px">' + new Date().toLocaleDateString('es-ES', { dateStyle: 'long' }) + ' · ' + esc(yo ? yo.Title : '') + '</p>' +
+      gruposUnidad(registroSel()).map(function (g) {
+        return '<h3 style="margin:10px 0 4px">' + esc(g[0]) + ' (' + g[1].length + ')</h3><table class="r"><tr><th>Solicitante</th><th>Empleo</th><th>NIF</th><th>Tipo de permiso</th><th>Cupo</th><th>Desde</th><th>Hasta</th><th>Días</th><th>Fest.</th><th>Registrado</th></tr>' +
+          g[1].map(function (t) { return '<tr><td>' + esc(t.nombre) + '</td><td>' + esc(t.empleo) + '</td><td>' + esc(nifs[t.id] || '') + '</td><td>' + esc(t.tipo) + '</td><td>' + esc(t.cupo) + '</td><td>' + esc(fCorta(t.ini)) + '</td><td>' + esc(fCorta(t.fin)) + '</td><td>' + dias(t.ini, t.fin) + '</td><td>' + esc(t.festivos) + '</td><td>' + (pend ? '☐' : esc(t.estado)) + '</td></tr>'; }).join('') + '</table>';
+      }).join('');
+    var doc = '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Registro SIPERDEF</title><style>@page{size:A4 landscape;margin:1cm}body{font-family:Arial,sans-serif;font-size:9pt;margin:0}' +
+      'table.r{width:100%;border-collapse:collapse}table.r th{background:#3b4a2f;color:#fff;text-align:left;padding:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact}table.r td{border:1px solid #bbb;padding:3px}tr{page-break-inside:avoid}' +
+      '.aviso{background:#fff4d6;padding:8px;margin:0 0 8px}@media print{.aviso{display:none}}</style></head><body><div class="aviso">Si no se abre el diálogo de impresión, pulsa Ctrl+P. Para PDF, elige «Guardar como PDF».</div>' + cuerpo +
+      '<scr' + 'ipt>window.onload=function(){setTimeout(function(){window.print()},400)}</scr' + 'ipt></body></html>';
+    var w = null; try { w = window.open('', '_blank'); } catch (e) { w = null; }
+    if (w && w.document) { w.document.open(); w.document.write(doc); w.document.close(); return; }
+    descargar('registro-siperdef-' + hoy() + '.html', doc, 'text/html;charset=utf-8'); aviso('Descargado: ábrelo y elige Imprimir → Guardar como PDF');
   }
   var mes = (function () { var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })();
   function delCalendario() {
@@ -375,12 +450,15 @@
       '<label class="check"><input type="checkbox" id="aCorreo"' + (pref.correo ? ' checked' : '') + '> Enviar los avisos por correo al tramitar (como el formulario de Colabora)</label></div>' +
       '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">La página trabaja dentro de Colabora con tu sesión y tus permisos. Solo carga las solicitudes que te corresponden por tu papel (solicitante, representante, aprobador, autorizador o registro); el gestor de la lista ve todas. Escribe solo cuando guardas o tramitas una solicitud. Nunca borra. No envía nada fuera del servidor. El NIF solo se muestra a las personas que intervienen en la solicitud.</p></div>';
   }
-  var VISTAS = [['mias', 'Mis solicitudes'], ['pendientes', 'Pendientes de mí'], ['calendario', 'Calendario'], ['todas', 'Consulta'], ['ajustes', 'Ajustes']];
   function render() {
-    var p = cargadoEn ? pendientes() : { aprobar: [], autorizar: [], registrar: [] }, np = p.aprobar.length + p.autorizar.length + p.registrar.length;
-    $('#tabs').innerHTML = VISTAS.map(function (v) { return '<a data-v="' + v[0] + '" class="' + (pref.vista === v[0] ? 'on' : '') + '">' + v[1] + (v[0] === 'pendientes' && np ? '<i>' + np + '</i>' : '') + '</a>'; }).join('');
+    var vistas = [['mias', 'Mis solicitudes'], ['pendientes', 'Pendientes de mí']].concat(cargadoEn && enRegistro() ? [['registro', 'Registro SIPERDEF']] : [])
+      .concat([['calendario', 'Calendario'], ['todas', 'Consulta'], ['ajustes', 'Ajustes']]);
+    if (pref.vista === 'registro' && cargadoEn && !enRegistro()) pref.vista = 'mias';
+    var p = cargadoEn ? pendientes() : { aprobar: [], autorizar: [] };
+    var cuenta = { pendientes: p.aprobar.length + p.autorizar.length, registro: cargadoEn ? porRegistrar().length : 0 };
+    $('#tabs').innerHTML = vistas.map(function (v) { return '<a data-v="' + v[0] + '" class="' + (pref.vista === v[0] ? 'on' : '') + '">' + v[1] + (cuenta[v[0]] ? '<i>' + cuenta[v[0]] + '</i>' : '') + '</a>'; }).join('');
     if (!cargadoEn && pref.vista !== 'ajustes') return;
-    $('#vista').innerHTML = ({ mias: vistaMias, pendientes: vistaPendientes, calendario: vistaCalendario, todas: vistaTodas, ajustes: vistaAjustes }[pref.vista] || vistaMias)();
+    $('#vista').innerHTML = ({ mias: vistaMias, pendientes: vistaPendientes, registro: vistaRegistro, calendario: vistaCalendario, todas: vistaTodas, ajustes: vistaAjustes }[pref.vista] || vistaMias)();
   }
   var aviso = function (txt) { $('#estadoCarga').textContent = txt; setTimeout(function () { if (cargadoEn) $('#estadoCarga').textContent = items.length + ' solicitudes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }, 3000); };
 
@@ -802,6 +880,19 @@
     if (m) { mes = new Date(mes.getFullYear(), mes.getMonth() + Number(m.dataset.mes), 1); render(); return; }
     if (el.closest('[data-impcal]')) { imprimirCalendario(); return; }
     if (el.closest('[data-csv]')) { csv(); return; }
+    var rv = el.closest('[data-regv]');
+    if (rv) { regVista = rv.dataset.regv; confirmando = null; render(); return; }
+    if (el.closest('[data-regimp]')) { imprimirRegistro(); return; }
+    if (el.closest('[data-regcsv]')) { csvRegistro(); return; }
+    var ver = el.closest('[data-ver]');
+    if (ver) { e.preventDefault(); abrir(Number(ver.dataset.ver)); return; }
+    var rok = el.closest('[data-regok]');
+    if (rok) {
+      var tr = items.find(function (x) { return x.id === Number(rok.dataset.regok); });
+      if (!tr) return;
+      if (confirmando !== tr.id) { confirmando = tr.id; render(); return; }
+      registrarRapido(tr, rok); return;
+    }
     var ed = el.closest('[data-editar]');
     if (ed) { var te = items.find(function (x) { return x.id === Number(ed.dataset.editar); }); if (te) formulario(te); return; }
     var ac = el.closest('[data-acc]');
@@ -816,6 +907,7 @@
     if (el.id === 'cDep') pref.cal.dependencia = el.value;
     else if (el.id === 'cUni') pref.cal.unidad = el.value;
     else if (el.id === 'cPend') pref.cal.pendientes = el.checked;
+    else if (el.id === 'rUni') { regUnidad = el.value; confirmando = null; render(); return; }
     else if (el.id === 'aCorreo') pref.correo = el.checked;
     else if (el.id === 'aSitio' || el.id === 'aLista') { pref.sitio = $('#aSitio').value.trim() || pref.sitio; pref.lista = $('#aLista').value.trim() || pref.lista; guardarPref(); cargadoEn = null; cargar(); return; }
     else return;
