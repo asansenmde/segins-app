@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prueba · Solicitud de Permisos</title>
+<!--
+  Diagnóstico de la lista «Solicitud de Permisos» (Colabora, sitio CALIDAD-VIDA) para preparar la página [PERMISOS].
+  Solo lee, con la sesión del usuario. El resumen lleva estructura y recuentos: nombres de columnas y sus opciones,
+  estados y combinaciones de estados (solo los valores que se repiten), flujos de trabajo, nombres de grupos y
+  permisos del propio usuario. Nunca nombres de personas, fechas concretas, motivos ni observaciones.
+-->
+<style>
+  :root { --bg: #f4f5f0; --card: #fff; --text: #1f261f; --muted: #5f685f; --line: #d9ddd3; --brand: #3b4a2f; --ok: #2e7d32; --okbg: #dcefdc; --bad: #b71c1c; --badbg: #fbdada; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; color: var(--brand); }
+  h2 { font-size: 1.05rem; margin: 0 0 8px; color: var(--brand); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 12px 0; }
+  .ok { background: var(--okbg); color: var(--ok); font-weight: 700; }
+  .bad { background: var(--badbg); color: var(--bad); font-weight: 700; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--brand); color: #fff; }
+  button { font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+  button.prim { background: var(--brand); color: #fff; border-color: var(--brand); }
+  input { width: 100%; font: inherit; padding: 9px; border: 1px solid var(--line); border-radius: 10px; }
+  pre { white-space: pre-wrap; background: #eef1ea; padding: 10px; border-radius: 8px; font-size: .8rem; max-height: 420px; overflow: auto; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Prueba · Solicitud de Permisos</h1>
+  <p class="muted">Esta página solo <b>lee</b> con tu sesión. Muestra la estructura de la lista y recuentos: no enseña nombres de personas, fechas, motivos ni observaciones, no modifica nada y no envía nada fuera de Colabora.</p>
+  <div class="card bad" id="sinjs">❌ Si ves este mensaje, Colabora no ejecuta el código de esta página, o se ha abierto en modo Internet Explorer: ábrela en Edge o Chrome.</div>
+  <div id="app" hidden>
+    <div class="card">
+      <div class="grid">
+        <div><label class="muted">Sitio</label><input id="sitio" value="/et/SUIGESUR/colaborativo/CALIDAD-VIDA"></div>
+        <div><label class="muted">Lista</label><input id="lista" value="Solicitud de Permisos"></div>
+      </div>
+      <p style="margin:10px 0 0"><button class="prim" id="analizar">Analizar</button> <span class="muted" id="estado"></span></p>
+    </div>
+    <div id="salida"></div>
+    <div class="card">
+      <p><b>Para enviar a Claude</b> (con permiso de tu responsable de seguridad): estructura y recuentos, sin datos de personas.</p>
+      <button class="prim" id="copiar">Copiar resumen</button>
+      <pre id="resumen">Pulsa «Analizar».</pre>
+    </div>
+  </div>
+</main>
+<script>
+(function () {
+  if (document.documentMode || !window.fetch || !window.Promise || !Element.prototype.closest) return;
+  document.getElementById('sinjs').style.display = 'none';
+  document.getElementById('app').hidden = false;
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var R = null;
+  var pintar = function () { $('resumen').textContent = JSON.stringify(R, null, 1); };
+  var error = function (donde) { return function (e) { R.errores.push(donde + ': ' + (e && e.message || e)); pintar(); return null; }; };
+
+  // REST: JSON ligero y, si el servidor no lo admite, «verbose» (SharePoint 2013)
+  function api(url) {
+    var pedir = function (accept) {
+      return fetch(url, { credentials: 'same-origin', headers: { Accept: accept } }).then(function (r) {
+        if (!r.ok) { var e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+        return r.json();
+      });
+    };
+    return pedir('application/json;odata=nometadata').catch(function (e) {
+      if ([400, 406, 415].indexOf(e.status) < 0) throw e;
+      return pedir('application/json;odata=verbose').then(function (d) {
+        d = d.d || d;
+        return d.results ? { value: d.results, 'odata.nextLink': d.__next } : d;
+      });
+    });
+  }
+  var lista = function (v) { return v == null ? [] : Array.isArray(v) ? v : Array.isArray(v.results) ? v.results : []; };
+  function todas(url) {
+    var acc = [];
+    var pag = function (u) {
+      return api(u).then(function (d) {
+        acc = acc.concat(lista(d.value));
+        $('estado').textContent = 'Leyendo… ' + acc.length;
+        var sig = d['odata.nextLink'] || d['@odata.nextLink'];
+        return sig ? pag(sig) : acc;
+      });
+    };
+    return pag(url);
+  }
+  // Petición POST de solo lectura (consultar los flujos de SharePoint 2013 la requiere)
+  function postLectura(web, ruta) {
+    return fetch(web + '/_api/contextinfo', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) {
+        var dg = (d.d ? d.d.GetContextWebInformation : d).FormDigestValue;
+        return fetch(web + '/_api/' + ruta, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose', 'X-RequestDigest': dg } });
+      })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) { d = d.d || d; return lista(d.results || d.value || d); });
+  }
+
+  var corto = function (v) { var s = String(v == null ? '' : v).replace(/\s+/g, ' ').trim(); return s.length > 45 ? s.slice(0, 45) + '…' : s; };
+  // Estados en texto libre: se quita lo que vaya tras «por», «:» o «-» (podría ser un nombre) y las cifras (fechas)
+  var estadoLimpio = function (v) { return String(v == null ? '' : v).replace(/\s(por|de parte de)\s.*$/i, ' por …').replace(/[:\-–].*$/, '').replace(/\d+/g, '#').trim(); };
+  var cuenta = function (arr) { var m = {}; arr.forEach(function (v) { var k = v === '' || v == null ? '(vacío)' : corto(v); m[k] = (m[k] || 0) + 1; }); return m; };
+  // Solo valores que se repiten (3 o más veces): estados y opciones, nunca textos libres de una persona
+  var frecuentes = function (m, min) {
+    var o = {}, otros = 0;
+    Object.keys(m).sort(function (a, b) { return m[b] - m[a]; }).forEach(function (k) { if (m[k] >= (min || 3)) o[k] = m[k]; else otros += m[k]; });
+    if (otros) o['(otros valores sueltos)'] = otros;
+    return o;
+  };
+  // Opciones de columnas de elección que pueden ser nombres de personas: solo el número
+  var SOLO_NUMERO = /^(JEFE|Solicitante|Aprobador|Autorizador|Registr)/i;
+  var PERM = { ver: 0x1, anadir: 0x2, editar: 0x4, borrar: 0x8, aprobarElementos: 0x10, gestionarLista: 0x800, gestionarPermisos: 0x2000000 };
+
+  $('analizar').onclick = function () {
+    var web = location.origin + $('sitio').value.trim().replace(/\/+$/, '');
+    var titulo = $('lista').value.trim();
+    var L = web + "/_api/web/lists/getbytitle('" + encodeURIComponent(titulo.replace(/'/g, "''")) + "')";
+    R = { sitio: web, lista: titulo, lista_info: null, tipos_de_contenido: [], columnas: [], flujos_2010: null, flujos_2013: null,
+      yo: null, mis_grupos: [], grupos_del_sitio: [], elementos: null, errores: [] };
+    $('salida').innerHTML = ''; $('estado').textContent = 'Analizando…'; pintar();
+    var yoId = null;
+    Promise.all([
+      api(web + '/_api/web/currentuser?$select=Id').then(function (u) { yoId = u.Id; R.yo = 'leído (Id interno ' + u.Id + ')'; }).catch(error('usuario')),
+      api(web + '/_api/web/currentuser/groups?$select=Title').then(function (d) { R.mis_grupos = lista(d.value).map(function (g) { return g.Title; }); }).catch(error('mis grupos')),
+      api(web + '/_api/web/sitegroups?$select=Title').then(function (d) { R.grupos_del_sitio = lista(d.value).map(function (g) { return g.Title; }); }).catch(error('grupos del sitio')),
+      api(L + '?$select=Id,Title,ItemCount,EnableVersioning,EnableModeration,ContentTypesEnabled,EffectiveBasePermissions,DefaultNewFormUrl,DefaultEditFormUrl,DefaultDisplayFormUrl')
+        .then(function (l) {
+          var low = Number(l.EffectiveBasePermissions && l.EffectiveBasePermissions.Low) || 0;
+          var mis = {}; Object.keys(PERM).forEach(function (k) { mis[k] = (low & PERM[k]) !== 0; });
+          R.lista_info = { id: l.Id, elementos: l.ItemCount, versiones: l.EnableVersioning, aprobacion_de_contenido: l.EnableModeration,
+            tipos_de_contenido_activos: l.ContentTypesEnabled, mis_permisos_en_la_lista: mis,
+            formularios: { nuevo: l.DefaultNewFormUrl, editar: l.DefaultEditFormUrl, ver: l.DefaultDisplayFormUrl } };
+          return l.Id;
+        }).catch(error('lista')),
+      api(L + '/contenttypes?$select=Name,NewFormUrl,EditFormUrl,DisplayFormUrl').then(function (d) {
+        R.tipos_de_contenido = lista(d.value).map(function (c) { return { nombre: c.Name, nuevo: c.NewFormUrl || '', editar: c.EditFormUrl || '', ver: c.DisplayFormUrl || '' }; });
+      }).catch(error('tipos de contenido')),
+      api(L + "/fields?$select=Title,InternalName,TypeAsString,Required,ReadOnlyField,Choices,DefaultValue,FillInChoice&$filter=Hidden eq false").then(function (d) {
+        R.columnas = lista(d.value).filter(function (f) { return !f.ReadOnlyField || /^(Author|Editor|Created|Modified)$/.test(f.InternalName); }).map(function (f) {
+          var c = { interno: f.InternalName, tipo: f.TypeAsString };
+          if (f.Required) c.obligatoria = true;
+          var ops = lista(f.Choices);
+          if (ops.length) c.opciones = SOLO_NUMERO.test(f.InternalName) ? ops.length + ' opciones (no se muestran: pueden ser nombres)' : ops;
+          if (f.FillInChoice) c.admite_otro_valor = true;
+          if (f.DefaultValue && !SOLO_NUMERO.test(f.InternalName)) c.por_defecto = corto(f.DefaultValue);
+          return c;
+        });
+      }).catch(error('columnas')),
+      api(L + '/WorkflowAssociations?$select=Name,Enabled,AutoStartCreate,AutoStartChange,AllowManual').then(function (d) {
+        R.flujos_2010 = lista(d.value).map(function (w) { return { nombre: w.Name, activo: w.Enabled, al_crear: w.AutoStartCreate, al_cambiar: w.AutoStartChange, manual: w.AllowManual }; });
+      }).catch(error('flujos 2010'))
+    ]).then(function (res) {
+      var listId = res[3];
+      var flujos13 = !listId ? Promise.resolve() : postLectura(web, "SP.WorkflowServices.WorkflowSubscriptionService.Current/EnumerateSubscriptionsByList('" + listId + "')")
+        .then(function (subs) { R.flujos_2013 = subs.map(function (s) { return { nombre: s.Name, eventos: lista(s.EventTypes), columna_de_estado: s.StatusFieldName || '' }; }); })
+        .catch(error('flujos 2013'));
+      var sel = ['Id', 'Estado', 'EstadoDeAprobacion', 'EstadoDeAutorizacion', 'EstadoDeRegistro', 'ValidacionEstado', 'AutorizarDirecto', 'TipoDePermiso',
+        'CupoDeA_x00f1_o', 'Created', 'FechaInicio', 'FechaDeFin', 'SolicitanteId', 'AuthorId', 'AprobadorDePermisoId', 'AutorizadorDelPermisoId', 'Registro_x0020_SIPERDEFId', 'RepresentanteDelSolicitanteId'];
+      var leer = function (campos) { return todas(L + '/items?$top=1000&$select=' + campos.join(',')); };
+      var items = leer(sel).catch(function () {
+        R.errores.push('elementos: no se pudieron leer todas las columnas; se repite con las básicas');
+        return leer(['Id', 'Estado', 'Created', 'AuthorId']);
+      });
+      return Promise.all([flujos13, items.then(analizar(yoId)).catch(error('elementos'))]);
+    }).then(function () {
+      $('estado').textContent = R.errores.length ? 'Terminado con avisos (mira «errores» al final del resumen).' : 'Terminado.';
+      pintar(); pintarTablas();
+    });
+  };
+
+  function analizar(yoId) {
+    return function (its) {
+      var v = function (k) { return its.map(function (i) { return i[k]; }); };
+      var dia = function (s) { return s ? String(s).slice(0, 10) : ''; };
+      var hoy = new Date().toISOString().slice(0, 10);
+      var anio = {}; its.forEach(function (i) { var a = String(i.Created || '').slice(0, 4); if (a) anio[a] = (anio[a] || 0) + 1; });
+      var combos = cuenta(its.map(function (i) {
+        return ['Estado: ' + corto(i.Estado || '—'), 'Aprob.: ' + corto(estadoLimpio(i.EstadoDeAprobacion) || '—'), 'Autoriz.: ' + corto(estadoLimpio(i.EstadoDeAutorizacion) || '—'),
+          'Registro: ' + corto(estadoLimpio(i.EstadoDeRegistro) || '—'), i.AutorizarDirecto ? 'DIRECTO' : ''].filter(Boolean).join(' | ');
+      }));
+      var ids = function (k) { var s = {}; its.forEach(function (i) { if (i[k]) s[i[k]] = 1; }); return Object.keys(s).length; };
+      var conmigo = function (k) { return yoId ? its.filter(function (i) { return i[k] === yoId; }).length : null; };
+      var pend = function (k, estadoK) { return yoId ? its.filter(function (i) { return i[k] === yoId && !/(aprob|autoriz|deneg|rechaz|registr|anul|cancel)/i.test(i[estadoK] || ''); }).length : null; };
+      R.elementos = {
+        total: its.length,
+        por_año_de_creacion: anio,
+        en_curso_hoy: its.filter(function (i) { return dia(i.FechaInicio) && dia(i.FechaInicio) <= hoy && (!i.FechaDeFin || dia(i.FechaDeFin) >= hoy); }).length,
+        futuros: its.filter(function (i) { return dia(i.FechaInicio) > hoy; }).length,
+        Estado: frecuentes(cuenta(v('Estado'))),
+        EstadoDeAprobacion: frecuentes(cuenta(v('EstadoDeAprobacion').map(estadoLimpio))),
+        EstadoDeAutorizacion: frecuentes(cuenta(v('EstadoDeAutorizacion').map(estadoLimpio))),
+        EstadoDeRegistro: frecuentes(cuenta(v('EstadoDeRegistro').map(estadoLimpio))),
+        ValidacionEstado: frecuentes(cuenta(v('ValidacionEstado').map(estadoLimpio))),
+        TipoDePermiso: frecuentes(cuenta(v('TipoDePermiso'))),
+        CupoDeAño: frecuentes(cuenta(v('CupoDeA_x00f1_o'))),
+        autorizar_directo: its.filter(function (i) { return i.AutorizarDirecto; }).length,
+        con_aprobador: its.filter(function (i) { return i.AprobadorDePermisoId; }).length,
+        con_autorizador: its.filter(function (i) { return i.AutorizadorDelPermisoId; }).length,
+        con_registrador: its.filter(function (i) { return i.Registro_x0020_SIPERDEFId; }).length,
+        con_representante: its.filter(function (i) { return i.RepresentanteDelSolicitanteId; }).length,
+        solicitante_distinto_de_quien_crea: its.filter(function (i) { return i.SolicitanteId && i.AuthorId && i.SolicitanteId !== i.AuthorId; }).length,
+        aprobador_y_autorizador_misma_persona: its.filter(function (i) { return i.AprobadorDePermisoId && i.AprobadorDePermisoId === i.AutorizadorDelPermisoId; }).length,
+        personas_distintas: { solicitantes: ids('SolicitanteId'), aprobadores: ids('AprobadorDePermisoId'), autorizadores: ids('AutorizadorDelPermisoId'), registradores: ids('Registro_x0020_SIPERDEFId') },
+        combinaciones_de_estados: frecuentes(combos, 3),
+        yo_figuro_como: { solicitante: conmigo('SolicitanteId'), aprobador: conmigo('AprobadorDePermisoId'), autorizador: conmigo('AutorizadorDelPermisoId'), registrador: conmigo('Registro_x0020_SIPERDEFId'),
+          aprobador_sin_resolver: pend('AprobadorDePermisoId', 'EstadoDeAprobacion'), autorizador_sin_resolver: pend('AutorizadorDelPermisoId', 'EstadoDeAutorizacion') }
+      };
+    };
+  }
+
+  function pintarTablas() {
+    var h = '';
+    var tabla = function (tit, obj) {
+      var ks = obj ? Object.keys(obj) : [];
+      if (!ks.length) return '';
+      return '<div class="card"><h2>' + esc(tit) + '</h2><table>' + ks.map(function (k) { return '<tr><td>' + esc(k) + '</td><td>' + esc(typeof obj[k] === 'object' ? JSON.stringify(obj[k]) : obj[k]) + '</td></tr>'; }).join('') + '</table></div>';
+    };
+    if (R.lista_info) h += '<div class="card ok">✅ Lista «' + esc(R.lista) + '» leída: ' + esc(R.lista_info.elementos) + ' elementos.</div>' + tabla('Mis permisos en la lista', R.lista_info.mis_permisos_en_la_lista);
+    if (R.elementos) {
+      h += tabla('Estado', R.elementos.Estado) + tabla('Estado de aprobación', R.elementos.EstadoDeAprobacion) + tabla('Estado de autorización', R.elementos.EstadoDeAutorizacion) +
+        tabla('Estado de registro', R.elementos.EstadoDeRegistro) + tabla('Combinaciones de estados más habituales', R.elementos.combinaciones_de_estados) + tabla('Tipo de permiso', R.elementos.TipoDePermiso);
+    }
+    if (R.errores.length) h += '<div class="card bad">' + R.errores.map(esc).join('<br>') + '</div>';
+    $('salida').innerHTML = h;
+  }
+
+  $('copiar').onclick = function () {
+    var txt = $('resumen').textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function () { $('copiar').textContent = 'Copiado ✓'; })
+      .catch(function () { var r = document.createRange(); r.selectNodeContents($('resumen')); var s = getSelection(); s.removeAllRanges(); s.addRange(r); $('copiar').textContent = 'Seleccionado: cópialo'; });
+  };
+})();
+</script>
+</body>
+</html>

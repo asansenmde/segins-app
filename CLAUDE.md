@@ -9,6 +9,7 @@ entre ellos (salvo la librería de Word de SEGINS, que Tareas NLT carga desde `.
 | `[NLT]` | `tareas/` | Tareas NLT, gestor personal de tareas con fecha límite | claude.ai (artefacto) y GitHub Pages |
 | `[COLABORA]` | `colabora/` | Tareas Colabora, lista «Gestor de Tareas» del SharePoint interno | Se sube a Colabora y se abre allí |
 | `[MENSADEF]` | `mensadef/` | Visor de mensajes de MENSADEF | Marcador del navegador en `mensadef.mdef.es` |
+| `[PERMISOS]` | `permisos/` | Solicitud, aprobación y autorización de permisos (lista «Solicitud de Permisos», CALIDAD-VIDA) | Se sube a Colabora y se abre allí |
 
 Las páginas nuevas de SharePoint van en **su propia carpeta** (por ejemplo `incidentes/`), con su README y su
 etiqueta añadida a esta tabla y a `PROYECTOS.md`.
