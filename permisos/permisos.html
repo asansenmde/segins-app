@@ -1,0 +1,815 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Permisos · Calidad de Vida</title>
+<!--
+  [PERMISOS] Solicitud, aprobación, autorización y registro de permisos sobre la lista «Solicitud de Permisos» del sitio
+  CALIDAD-VIDA de Colabora, con la sesión del usuario. Reproduce las reglas del formulario InfoPath (ver CIRCUITO.md)
+  para que ambos convivan: mismos estados, mismos campos de texto y correo, mismos avisos por correo.
+  Escribe solo al guardar o tramitar una solicitud, con los permisos del usuario; nunca borra. No carga ni envía nada
+  fuera del servidor.
+-->
+<style>
+  :root {
+    --bg: #f4f5f0; --surface: #fff; --surface-2: #eef1ea; --text: #1f261f; --muted: #5f685f; --line: #d9ddd3;
+    --brand: #3b4a2f; --on-brand: #fff;
+    --ok: #2e7d32; --ok-bg: #dcefdc; --warn: #9a5b00; --warn-bg: #fdebc8; --bad: #b71c1c; --bad-bg: #fbdada;
+    --info: #1d4f91; --info-bg: #dde8f7; --na: #555; --na-bg: #e7e7e7;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .top { position: sticky; top: 0; z-index: 5; background: var(--brand); color: var(--on-brand); padding: 10px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .top h1 { margin: 0; font-size: 1.05rem; flex: 1; min-width: 180px; }
+  .top .estado { font-size: .8rem; opacity: .9; }
+  .top button { background: rgba(255,255,255,.15); color: inherit; border: 0; }
+  main { max-width: 1100px; margin: 0 auto; padding: 0 16px 60px; }
+  nav.tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; margin: 12px 0; flex-wrap: wrap; }
+  nav.tabs a { flex: 1; text-align: center; padding: 8px 4px; border-radius: 9px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .9rem; cursor: pointer; white-space: nowrap; }
+  nav.tabs a.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  nav.tabs a i { font-style: normal; background: var(--bad); color: #fff; border-radius: 999px; padding: 0 7px; margin-left: 4px; font-size: .78rem; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+  .muted { color: var(--muted); } .small { font-size: .85rem; }
+  button, .btn { font: inherit; font-size: .9rem; font-weight: 600; padding: 7px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); color: var(--text); cursor: pointer; text-decoration: none; display: inline-block; text-align: center; }
+  button:disabled { opacity: .55; cursor: default; }
+  .prim { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .peligro { background: var(--bad); color: #fff; border-color: var(--bad); }
+  input, select, textarea { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff; width: 100%; }
+  textarea { min-height: 6em; resize: vertical; }
+  label.lbl { display: block; font-size: .82rem; font-weight: 600; color: var(--muted); margin: 10px 0 3px; }
+  label.check { display: inline-flex; gap: 6px; align-items: center; margin: 8px 12px 4px 0; font-size: .95rem; }
+  label.check input { width: auto; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 12px; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0 12px; }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; text-align: center; font-size: .82rem; color: var(--muted); }
+  .kpi b { display: block; font-size: 1.5rem; color: var(--text); }
+  .sec { margin: 18px 0 6px; font-size: .85rem; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; display: flex; justify-content: space-between; font-weight: 700; }
+  .sol { cursor: pointer; border-left: 5px solid var(--line); }
+  .sol:hover { border-color: var(--brand); }
+  .sol .tit { font-weight: 650; }
+  .meta { display: flex; flex-wrap: wrap; gap: 5px 10px; margin-top: 4px; font-size: .84rem; align-items: center; }
+  .badge { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: .75rem; font-weight: 700; white-space: nowrap; }
+  .e0 { background: var(--na-bg); color: var(--na); } .e1 { background: var(--warn-bg); color: var(--warn); } .e2 { background: var(--info-bg); color: var(--info); }
+  .e3 { background: var(--ok-bg); color: var(--ok); } .e4 { background: var(--brand); color: #fff; } .e5 { background: var(--bad-bg); color: var(--bad); }
+  .vacio { padding: 18px; text-align: center; color: var(--muted); }
+  .aviso { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
+  .error { background: var(--bad-bg); color: var(--bad); border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-weight: 600; }
+  .okmsg { background: var(--ok-bg); color: var(--ok); border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-weight: 600; }
+  .acciones { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+  .cal .dow { text-align: center; font-size: .75rem; color: var(--muted); font-weight: 700; }
+  .dia { min-height: 86px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 3px 4px; font-size: .72rem; overflow: hidden; }
+  .dia.fuera { opacity: .4; } .dia.hoy { outline: 2px solid var(--brand); }
+  .dia b { font-size: .8rem; }
+  .dia span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--ok-bg); color: var(--ok); border-radius: 4px; padding: 0 3px; margin-top: 2px; }
+  .dia span.p { background: var(--warn-bg); color: var(--warn); }
+  table.t { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  table.t th, table.t td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  dialog { width: min(1200px, calc(100vw - 24px)); height: calc(100vh - 24px); max-height: calc(100vh - 24px); border: 0; border-radius: 14px; padding: 0; font-size: 16px; }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  dialog input, dialog select, dialog textarea, dialog button, dialog .btn { font-size: 16px; }
+  .dh { position: sticky; top: 0; z-index: 2; background: var(--brand); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+  .dh h2 { margin: 0; font-size: 1.2rem; }
+  .db { padding: 14px 20px 24px; }
+  .ficha { display: grid; gap: 18px; }
+  @media (min-width: 1000px) { .ficha { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
+  .campo { border-bottom: 1px solid var(--line); padding: 6px 0; }
+  .campo b { display: block; font-size: .8rem; color: var(--muted); }
+  .campo div { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .panel { background: var(--surface-2); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+  .panel h3 { margin: 0 0 6px; font-size: 1.02rem; }
+  .sugs { border: 1px solid var(--line); border-radius: 10px; margin-top: 4px; max-height: 240px; overflow: auto; background: #fff; }
+  .sugs button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; padding: 8px 10px; font-weight: 400; }
+  .sugs button:hover { background: var(--surface-2); }
+  .elegido { font-weight: 600; margin-top: 4px; }
+  @media (max-width: 600px) { .kpis { grid-template-columns: repeat(2, 1fr); } .dia { min-height: 54px; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>PERMISOS · CALIDAD DE VIDA</h1>
+  <span class="estado" id="estadoCarga">Cargando…</span>
+  <button id="nueva" title="Nueva solicitud de permiso">＋ Nueva solicitud</button>
+  <button id="recargar" title="Volver a leer la lista">↻ Actualizar</button>
+</header>
+<main>
+  <noscript><div class="error">Esta página necesita JavaScript.</div></noscript>
+  <nav class="tabs" id="tabs"></nav>
+  <div id="vista"><p class="muted">Leyendo la lista «Solicitud de Permisos»…</p></div>
+</main>
+<dialog id="dlg"></dialog>
+<script>
+(function () {
+  'use strict';
+  if (document.documentMode || !window.fetch || !window.Promise || !Element.prototype.closest) {
+    document.getElementById('vista').innerHTML = '<div class="error">Tu navegador abre esta página en modo Internet Explorer o es muy antiguo. Ábrela en Microsoft Edge o Chrome.</div>';
+    return;
+  }
+  var $ = function (s, el) { return (el || document).querySelector(s); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  var iso = function (d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+  var hoy = function () { return iso(new Date()); };
+  var aFecha = function (s) { var p = s.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); };
+  var fechaSP = function (v) { return v ? iso(new Date(v)) : ''; };
+  var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
+  var fLarga = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : ''; };
+  var sinTildes = function (s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); };
+  var dias = function (a, b) { return a && b ? Math.round((aFecha(b) - aFecha(a)) / 864e5) + 1 : 0; };
+  // Texto sin formato de un campo HTML (DOMParser no ejecuta nada)
+  var texto = function (html) {
+    if (!html) return '';
+    if (!/[<&]/.test(html)) return String(html).trim();
+    var d = new DOMParser().parseFromString(String(html).replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li)>/gi, '\n'), 'text/html');
+    return (d.body.textContent || '').replace(/​/g, '').replace(/\n{3,}/g, '\n\n').trim();
+  };
+
+  // ---------- Preferencias (solo en este navegador) ----------
+  var CLAVE = 'permisos-calidad-vida';
+  var pref = { sitio: '/et/SUIGESUR/colaborativo/CALIDAD-VIDA', lista: 'Solicitud de Permisos', vista: 'mias', correo: true,
+    f: { q: '', estado: '', tipo: '', dependencia: '', unidad: '', cupo: '' }, cal: { dependencia: '', unidad: '', pendientes: true } };
+  try { var g = JSON.parse(localStorage.getItem(CLAVE) || 'null'); if (g) pref = Object.assign(pref, g, { f: Object.assign(pref.f, g.f || {}), cal: Object.assign(pref.cal, g.cal || {}) }); } catch (e) { /* sin memoria local */ }
+  var guardarPref = function () { try { localStorage.setItem(CLAVE, JSON.stringify(pref)); } catch (e) { /* sin memoria local */ } };
+
+  // ---------- Estados (los del formulario InfoPath) ----------
+  var E = { BS: '0-Borrador de Solicitante', BR: '0-Borrador de Representante', PA: '1-Pendiente de Aprobar', AP: '2-Aprobado',
+    AU: '3-Autorizado', RG: '4-Registrado SIPERDEF', RE: '5-Rechazado', AN: '5-Anulado en SIPERDEF', SI: 'Sin Identificar Solicitante' };
+  var claseEstado = function (e) { var n = String(e || '').charAt(0); return /[0-5]/.test(n) ? 'e' + n : 'e0'; };
+  var esBorrador = function (t) { return t.estado === E.BS || t.estado === E.BR || t.estado === E.SI || !t.estado; };
+  var concedido = function (t) { return t.estado === E.AP || t.estado === E.AU || t.estado === E.RG; };
+
+  // ---------- SharePoint ----------
+  var web = null, yo = null, misGrupos = [], listaInfo = null, opciones = {}, empleos = [], unidades = [], items = [], cargadoEn = null;
+  function api(url) {
+    var pedir = function (accept) {
+      return fetch(url, { credentials: 'same-origin', headers: { Accept: accept } }).then(function (r) {
+        if (!r.ok) { var e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+        return r.json();
+      });
+    };
+    return pedir('application/json;odata=nometadata').catch(function (e) {
+      if ([400, 406, 415].indexOf(e.status) < 0) throw e;
+      return pedir('application/json;odata=verbose').then(function (d) {
+        d = d.d || d;
+        if (d.results) return { value: d.results, 'odata.nextLink': d.__next };
+        return d;
+      });
+    });
+  }
+  var lista = function (v) { return v == null ? [] : Array.isArray(v) ? v : Array.isArray(v.results) ? v.results : []; };
+  function todas(url) {
+    var acc = [];
+    var pag = function (u) { return api(u).then(function (d) { acc = acc.concat(lista(d.value)); var s = d['odata.nextLink'] || d['@odata.nextLink']; return s ? pag(s) : acc; }); };
+    return pag(url);
+  }
+  var urlLista = function () { return web + "/_api/web/lists/getbytitle('" + encodeURIComponent(pref.lista.replace(/'/g, "''")) + "')"; };
+  var digest = null, digestHasta = 0;
+  function obtenerDigest() {
+    if (digest && Date.now() < digestHasta) return Promise.resolve(digest);
+    return fetch(web + '/_api/contextinfo', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+      .then(function (r) { if (!r.ok) throw new Error('Colabora no da permiso de escritura (HTTP ' + r.status + ')'); return r.json(); })
+      .then(function (d) { var i = d.d ? d.d.GetContextWebInformation : d; digest = i.FormDigestValue; digestHasta = Date.now() + ((i.FormDigestTimeoutSeconds || 1800) - 60) * 1000; return digest; });
+  }
+  var CONFLICTO = 'Otra persona ha cambiado esta solicitud mientras la tenías abierta. Pulsa Actualizar, revísala y repite la acción.';
+  function enviarSP(url, cuerpo, sinPermiso, extra) {
+    return obtenerDigest().then(function (dg) {
+      return fetch(url, { method: 'POST', credentials: 'same-origin', body: JSON.stringify(cuerpo),
+        headers: Object.assign({ Accept: 'application/json;odata=verbose', 'Content-Type': 'application/json;odata=verbose', 'X-RequestDigest': dg }, extra || {}) });
+    }).then(function (r) {
+      return r.text().then(function (txt) {
+        var j = null; try { j = JSON.parse(txt); } catch (e) { /* sin JSON */ }
+        if (!r.ok) {
+          var m = j && ((j.error && j.error.message && (j.error.message.value || j.error.message)) || (j['odata.error'] && j['odata.error'].message && j['odata.error'].message.value));
+          throw new Error(r.status === 403 ? sinPermiso : r.status === 412 ? CONFLICTO : (m || 'HTTP ' + r.status));
+        }
+        return j && (j.d || j);
+      });
+    });
+  }
+  function leerElemento(id, sel) {
+    return fetch(urlLista() + '/items(' + id + ')?$select=' + ['Id', 'Modified'].concat(sel || []).join(','), { credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status === 404 ? 'La solicitud ya no existe' : 'HTTP ' + r.status); return r.json(); })
+      .then(function (d) { d = d.d || d; return { etag: (d.__metadata && d.__metadata.etag) || '*', datos: d }; });
+  }
+  var mismaFecha = function (a, b) { return new Date(a).getTime() === new Date(b).getTime(); };
+
+  // ---------- Carga ----------
+  var PERSONAS = ['Solicitante', 'RepresentanteDelSolicitante', 'AprobadorDePermiso', 'AutorizadorDelPermiso', 'Registro_x0020_SIPERDEF'];
+  var SEL = ['Id', 'Title', 'Estado', 'TipoDePermiso', 'CupoDeA_x00f1_o', 'FechaInicio', 'FechaDeFin', 'DiasFestivos', 'Dependencia', 'Empleo', 'AutorizarDirecto',
+    'EstadoDeAprobacion', 'EstadoDeAutorizacion', 'EstadoDeRegistro', 'FechaDeAprobacion', 'FechaDeAutorizacion', 'SolicitanteTexto', 'RepresentanteTexto',
+    'AprobadorTexto', 'AutorizadorTexto', 'CorreoDelSolicitante', 'CorreoDeAPROBADOR', 'CorreoDeAUTORIZADOR', 'JEFE', 'Created', 'Modified',
+    'Unidad0/Id', 'Unidad0/Title', 'Author/Id', 'Author/Title', 'Editor/Title']
+    .concat([].concat.apply([], PERSONAS.map(function (p) { return [p + '/Id', p + '/Title', p + '/EMail']; })));
+  var EXPAND = ['Unidad0', 'Author', 'Editor'].concat(PERSONAS).join(',');
+  var persona = function (u) { return u && u.Id ? { Id: u.Id, Title: u.Title || '', Email: u.EMail || '' } : null; };
+  function aSol(it) {
+    var t = {
+      id: it.Id, asunto: it.Title || '(sin asunto)', estado: it.Estado || '', tipo: it.TipoDePermiso || '', cupo: it.CupoDeA_x00f1_o || '',
+      ini: fechaSP(it.FechaInicio), fin: fechaSP(it.FechaDeFin), festivos: it.DiasFestivos || '', dependencia: it.Dependencia || '', empleo: it.Empleo || '',
+      unidad: it.Unidad0 && it.Unidad0.Id ? { Id: it.Unidad0.Id, Title: it.Unidad0.Title || '' } : null, directo: it.AutorizarDirecto === true || it.AutorizarDirecto === 'true',
+      eAprob: it.EstadoDeAprobacion || '', eAutor: it.EstadoDeAutorizacion || '', eReg: it.EstadoDeRegistro || '',
+      fAprob: it.FechaDeAprobacion || '', fAutor: it.FechaDeAutorizacion || '', jefe: it.JEFE || '',
+      sol: persona(it.Solicitante), rep: persona(it.RepresentanteDelSolicitante), apr: persona(it.AprobadorDePermiso),
+      aut: persona(it.AutorizadorDelPermiso), reg: persona(it.Registro_x0020_SIPERDEF),
+      solTexto: it.SolicitanteTexto || '', aprTexto: it.AprobadorTexto || '', autTexto: it.AutorizadorTexto || '',
+      correoSol: it.CorreoDelSolicitante || '', correoApr: it.CorreoDeAPROBADOR || '', correoAut: it.CorreoDeAUTORIZADOR || '',
+      creado: it.Created, modificado: it.Modified, autorId: it.Author && it.Author.Id, editor: it.Editor && it.Editor.Title
+    };
+    t.nombre = (t.sol && t.sol.Title) || t.solTexto || '(sin solicitante)';
+    return t;
+  }
+  function cargar() {
+    $('#estadoCarga').textContent = 'Cargando…';
+    web = location.origin + pref.sitio.replace(/\/+$/, '');
+    return Promise.all([
+      api(web + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) { yo = { Id: u.Id, Title: u.Title, Email: u.Email || '', LoginName: u.LoginName }; }),
+      api(web + '/_api/web/currentuser/groups?$select=Title').then(function (d) { misGrupos = lista(d.value).map(function (x) { return x.Title; }); }).catch(function () { misGrupos = []; }),
+      api(urlLista() + '?$select=Id,Title,ListItemEntityTypeFullName,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { listaInfo = l; }),
+      api(urlLista() + "/fields?$select=InternalName,Choices&$filter=(InternalName eq 'Estado') or (InternalName eq 'TipoDePermiso') or (InternalName eq 'CupoDeA_x00f1_o') or (InternalName eq 'Dependencia') or (InternalName eq 'JEFE')")
+        .then(function (d) { lista(d.value).forEach(function (f) { opciones[f.InternalName] = lista(f.Choices).length ? lista(f.Choices) : (f.Choices || []); }); }).catch(function () { /* se deducen de los datos */ }),
+      todas(web + "/_api/web/lists/getbytitle('empleos')/items?$select=Title&$top=500").then(function (l) { empleos = l.map(function (x) { return x.Title; }).filter(Boolean); }).catch(function () { empleos = []; }),
+      todas(web + "/_api/web/lists/getbytitle('UNIDADES')/items?$select=Id,Title&$top=500").then(function (l) { unidades = l.map(function (x) { return { Id: x.Id, Title: x.Title || '' }; }).sort(function (a, b) { return a.Title.localeCompare(b.Title, 'es'); }); }).catch(function () { unidades = []; })
+    ]).then(function () {
+      return todas(urlLista() + '/items?$top=1000&$select=' + SEL.join(',') + '&$expand=' + EXPAND);
+    }).then(function (its) {
+      items = its.map(aSol);
+      cargadoEn = new Date();
+      $('#estadoCarga').textContent = items.length + ' solicitudes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      render();
+    }).catch(function (e) {
+      $('#estadoCarga').textContent = 'Error';
+      $('#vista').innerHTML = '<div class="error">No se pudo leer la lista: ' + esc(e.message || e) + '. ¿Tienes permiso para verla? Revisa el sitio y la lista en Ajustes.</div>' + (pref.vista === 'ajustes' ? vistaAjustes() : '');
+    });
+  }
+
+  // ---------- Roles ----------
+  var soy = function (p) { return !!(p && yo && p.Id === yo.Id); };
+  var esMia = function (t) { return soy(t.sol) || soy(t.rep) || (!t.sol && t.autorId === (yo && yo.Id)); };
+  var enRegistro = function () { return misGrupos.some(function (g) { return /registro/i.test(g); }); };
+  var puedeEditar = function (t) { return esBorrador(t) && esMia(t); };
+  var puedeAprobar = function (t) { return t.estado === E.PA && soy(t.apr); };
+  var puedeAutorizar = function (t) { return t.estado === E.AP && soy(t.aut); };
+  var puedeRegistrar = function (t) { return t.estado === E.AU && (soy(t.reg) || enRegistro()); };
+  var pendientes = function () {
+    return { aprobar: items.filter(puedeAprobar), autorizar: items.filter(puedeAutorizar), registrar: items.filter(puedeRegistrar) };
+  };
+
+  // ---------- Vistas ----------
+  function tarjeta(t, extra) {
+    var d = dias(t.ini, t.fin);
+    return '<div class="card sol" data-id="' + t.id + '"><div class="tit">' + esc(t.nombre) + ' · ' + esc(t.tipo || t.asunto) + '</div><div class="meta">' +
+      '<span class="badge ' + claseEstado(t.estado) + '">' + esc(t.estado || 'Sin estado') + '</span>' +
+      (t.ini ? '<span>📅 ' + esc(fCorta(t.ini)) + (t.fin && t.fin !== t.ini ? ' → ' + esc(fCorta(t.fin)) : '') + ' (' + d + ' día' + (d === 1 ? '' : 's') + ')</span>' : '') +
+      (t.dependencia ? '<span class="muted">' + esc(t.dependencia) + '</span>' : '') + (t.unidad ? '<span class="muted">' + esc(t.unidad.Title) + '</span>' : '') +
+      (t.directo ? '<span class="badge e2">Autorización directa</span>' : '') + (extra || '') + '</div></div>';
+  }
+  function vistaMias() {
+    var ms = items.filter(esMia).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); });
+    var n = function (f) { return ms.filter(f).length; };
+    var ahora = hoy();
+    return '<div class="kpis"><div class="kpi">En borrador<b>' + n(esBorrador) + '</b></div><div class="kpi">En trámite<b>' + n(function (t) { return t.estado === E.PA || t.estado === E.AP; }) + '</b></div>' +
+      '<div class="kpi">Concedidos ' + new Date().getFullYear() + '<b>' + n(function (t) { return (t.estado === E.AU || t.estado === E.RG) && String(t.ini).slice(0, 4) === String(new Date().getFullYear()); }) + '</b></div>' +
+      '<div class="kpi">Próximos<b>' + n(function (t) { return concedido(t) && t.ini >= ahora; }) + '</b></div></div>' +
+      '<div class="acciones"><button class="prim" data-nueva="1">＋ Nueva solicitud de permiso</button></div>' +
+      (ms.length ? ms.map(function (t) { return tarjeta(t, soy(t.rep) && !soy(t.sol) ? '<span class="muted">(como representante)</span>' : ''); }).join('') :
+        '<div class="card vacio">No tienes solicitudes. Pulsa «Nueva solicitud de permiso».</div>');
+  }
+  function vistaPendientes() {
+    var p = pendientes();
+    var bloque = function (tit, ls, txt) { return '<div class="sec"><span>' + tit + '</span><span>' + ls.length + '</span></div>' + (ls.map(function (t) { return tarjeta(t); }).join('') || '<p class="muted small">' + txt + '</p>'); };
+    return '<p class="muted small">Solicitudes que esperan una acción tuya: como aprobador o autorizador indicado en la solicitud, o como registro en SIPERDEF.</p>' +
+      bloque('Pendientes de aprobar', p.aprobar, 'Ninguna solicitud espera tu aprobación.') +
+      bloque('Pendientes de autorizar', p.autorizar, 'Ninguna solicitud espera tu autorización.') +
+      (enRegistro() || p.registrar.length ? bloque('Pendientes de registrar en SIPERDEF', p.registrar, 'Nada pendiente de registro.') : '');
+  }
+  var mes = (function () { var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })();
+  function delCalendario() {
+    var c = pref.cal;
+    return items.filter(function (t) {
+      if (!t.ini) return false;
+      if (!(concedido(t) || (c.pendientes && t.estado === E.PA))) return false;
+      if (c.dependencia && t.dependencia !== c.dependencia) return false;
+      if (c.unidad && (!t.unidad || String(t.unidad.Id) !== String(c.unidad))) return false;
+      return true;
+    });
+  }
+  function vistaCalendario() {
+    var y = mes.getFullYear(), m = mes.getMonth(), ini = new Date(y, m, 1 - ((mes.getDay() + 6) % 7));
+    var ts = delCalendario(), celdas = '';
+    for (var i = 0; i < 42; i++) {
+      var d = new Date(ini); d.setDate(ini.getDate() + i);
+      var s = iso(d), del = ts.filter(function (t) { return t.ini <= s && (t.fin || t.ini) >= s; }).sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
+      celdas += '<div class="dia' + (d.getMonth() !== m ? ' fuera' : '') + (s === hoy() ? ' hoy' : '') + '"><b>' + d.getDate() + '</b>' +
+        del.slice(0, 5).map(function (t) { return '<span class="' + (t.estado === E.PA ? 'p' : '') + '" data-id="' + t.id + '" title="' + esc(t.nombre + ' · ' + t.tipo) + '">' + esc(t.nombre) + '</span>'; }).join('') +
+        (del.length > 5 ? '<small>+' + (del.length - 5) + '</small>' : '') + '</div>';
+      var sig = new Date(d); sig.setDate(d.getDate() + 1);
+      if (i % 7 === 6 && sig.getMonth() !== m && i >= 27) break;
+    }
+    var titulo = mes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    var deps = (opciones.Dependencia || []).slice();
+    return '<div class="card"><div class="grid">' +
+      '<div><label class="lbl">Dependencia</label><select id="cDep"><option value="">Todas</option>' + deps.map(function (x) { return '<option' + (pref.cal.dependencia === x ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="lbl">Unidad</label><select id="cUni"><option value="">Todas</option>' + unidades.map(function (u) { return '<option value="' + u.Id + '"' + (String(pref.cal.unidad) === String(u.Id) ? ' selected' : '') + '>' + esc(u.Title) + '</option>'; }).join('') + '</select></div>' +
+      '</div><label class="check"><input type="checkbox" id="cPend"' + (pref.cal.pendientes ? ' checked' : '') + '> Incluir pendientes de aprobar (en naranja)</label></div>' +
+      '<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><button data-mes="-1">◀</button><b>' + esc(titulo[0].toUpperCase() + titulo.slice(1)) +
+      '</b><span><button data-impcal="1">🖨 Imprimir / PDF</button> <button data-mes="1">▶</button></span></div>' +
+      '<div class="cal">' + ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(function (x) { return '<div class="dow">' + x + '</div>'; }).join('') + celdas + '</div>' +
+      '<p class="muted small">En verde, permisos aprobados, autorizados o registrados; pulsa un nombre para ver la solicitud.</p>';
+  }
+  function filtrarTodas() {
+    var f = pref.f, q = sinTildes(f.q);
+    return items.filter(function (t) {
+      if (f.estado && t.estado !== f.estado) return false;
+      if (f.tipo && t.tipo !== f.tipo) return false;
+      if (f.dependencia && t.dependencia !== f.dependencia) return false;
+      if (f.unidad && (!t.unidad || String(t.unidad.Id) !== String(f.unidad))) return false;
+      if (f.cupo && t.cupo !== f.cupo) return false;
+      if (q && sinTildes([t.nombre, t.asunto, t.tipo, t.aprTexto, t.autTexto, t.unidad && t.unidad.Title, t.dependencia].join(' ')).indexOf(q) < 0) return false;
+      return true;
+    }).sort(function (a, b) { return String(b.ini).localeCompare(String(a.ini)); });
+  }
+  var sel = function (id, ops, v, vacio, val) {
+    return '<select id="' + id + '"><option value="">' + esc(vacio) + '</option>' + ops.map(function (o) { var k = val ? val(o) : o, l = val ? o.Title : o; return '<option value="' + esc(k) + '"' + (String(v) === String(k) ? ' selected' : '') + '>' + esc(l) + '</option>'; }).join('') + '</select>';
+  };
+  var valores = function (k, campo) { var s = new Set(opciones[campo] || []); items.forEach(function (t) { if (t[k]) s.add(t[k]); }); return Array.from(s); };
+  function vistaTodas() {
+    var ts = filtrarTodas(), f = pref.f;
+    return '<div class="card"><div class="grid">' +
+      '<div><label class="lbl">Buscar</label><input id="fq" type="search" value="' + esc(f.q) + '" placeholder="Nombre, tipo, unidad…"></div>' +
+      '<div><label class="lbl">Estado</label>' + sel('fEst', valores('estado', 'Estado'), f.estado, 'Todos') + '</div>' +
+      '<div><label class="lbl">Tipo de permiso</label>' + sel('fTipo', valores('tipo', 'TipoDePermiso'), f.tipo, 'Todos') + '</div>' +
+      '<div><label class="lbl">Dependencia</label>' + sel('fDep', valores('dependencia', 'Dependencia'), f.dependencia, 'Todas') + '</div>' +
+      '<div><label class="lbl">Unidad</label>' + sel('fUni', unidades, f.unidad, 'Todas', function (u) { return u.Id; }) + '</div>' +
+      '<div><label class="lbl">Cupo de año</label>' + sel('fCupo', valores('cupo', 'CupoDeA_x00f1_o'), f.cupo, 'Todos') + '</div>' +
+      '</div><div class="acciones"><button data-csv="1">📊 Exportar a Excel (CSV)</button></div></div>' +
+      '<p class="muted small">' + ts.length + ' solicitud' + (ts.length === 1 ? '' : 'es') + (ts.length > 300 ? ' (se muestran las 300 más recientes)' : '') + '</p>' +
+      ts.slice(0, 300).map(function (t) { return tarjeta(t); }).join('');
+  }
+  function vistaAjustes() {
+    return '<div class="card"><h3 style="margin-top:0">Lista de SharePoint</h3>' +
+      '<label class="lbl">Sitio</label><input id="aSitio" value="' + esc(pref.sitio) + '">' +
+      '<label class="lbl">Lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
+      '<p class="small muted">Usuario: ' + esc(yo ? yo.Title : '—') + (misGrupos.length ? '<br>Tus grupos: ' + esc(misGrupos.join(', ')) : '') + '</p>' +
+      '<label class="check"><input type="checkbox" id="aCorreo"' + (pref.correo ? ' checked' : '') + '> Enviar los avisos por correo al tramitar (como el formulario de Colabora)</label></div>' +
+      '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">La página trabaja dentro de Colabora con tu sesión y tus permisos: ve lo que ya puedes ver en la lista y escribe solo cuando guardas o tramitas una solicitud. Nunca borra. No envía nada fuera del servidor. El NIF solo se muestra a las personas que intervienen en la solicitud.</p></div>';
+  }
+  var VISTAS = [['mias', 'Mis solicitudes'], ['pendientes', 'Pendientes de mí'], ['calendario', 'Calendario'], ['todas', 'Consulta'], ['ajustes', 'Ajustes']];
+  function render() {
+    var p = cargadoEn ? pendientes() : { aprobar: [], autorizar: [], registrar: [] }, np = p.aprobar.length + p.autorizar.length + p.registrar.length;
+    $('#tabs').innerHTML = VISTAS.map(function (v) { return '<a data-v="' + v[0] + '" class="' + (pref.vista === v[0] ? 'on' : '') + '">' + v[1] + (v[0] === 'pendientes' && np ? '<i>' + np + '</i>' : '') + '</a>'; }).join('');
+    if (!cargadoEn && pref.vista !== 'ajustes') return;
+    $('#vista').innerHTML = ({ mias: vistaMias, pendientes: vistaPendientes, calendario: vistaCalendario, todas: vistaTodas, ajustes: vistaAjustes }[pref.vista] || vistaMias)();
+  }
+  var aviso = function (txt) { $('#estadoCarga').textContent = txt; setTimeout(function () { if (cargadoEn) $('#estadoCarga').textContent = items.length + ' solicitudes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }, 3000); };
+
+  // ---------- Buscar personas (usuarios del sitio y directorio) ----------
+  var usuariosSitio = null;
+  function cargarUsuarios() {
+    if (usuariosSitio) return Promise.resolve(usuariosSitio);
+    var m = new Map();
+    var poner = function (u) { if (u && u.Id && u.Title && !m.has(u.Id)) m.set(u.Id, { Id: u.Id, Title: u.Title, Email: u.Email || u.EMail || '' }); };
+    if (yo) poner(yo);
+    items.forEach(function (t) { PERSONAS.forEach(function (k, i) { poner([t.sol, t.rep, t.apr, t.aut, t.reg][i]); }); });
+    return api(web + '/_api/web/siteusers?$select=Id,Title,Email,PrincipalType&$filter=PrincipalType eq 1&$top=5000')
+      .then(function (d) { lista(d.value).forEach(poner); }).catch(function () { /* solo los conocidos */ })
+      .then(function () { usuariosSitio = Array.from(m.values()); return usuariosSitio; });
+  }
+  function buscarDirectorio(q) {
+    return enviarSP(web + '/_api/SP.UI.ApplicationPages.ClientPeoplePickerWebServiceInterface.clientPeoplePickerSearchUser', { queryParams: {
+      __metadata: { type: 'SP.UI.ApplicationPages.ClientPeoplePickerQueryParameters' }, QueryString: q, MaximumEntitySuggestions: 15,
+      AllowEmailAddresses: false, AllowMultipleEntities: false, AllUrlZones: false, ForceClaims: false, PrincipalSource: 15, PrincipalType: 1 } }, 'Sin permiso para buscar en el directorio')
+      .then(function (d) {
+        var v = d && (d.ClientPeoplePickerSearchUser !== undefined ? d.ClientPeoplePickerSearchUser : d.value);
+        var arr = typeof v === 'string' ? JSON.parse(v) : (v || []);
+        return arr.filter(function (e) { return e && e.Key && (!e.EntityType || e.EntityType === 'User'); })
+          .map(function (e) { return { clave: e.Key, Title: e.DisplayText || e.Key, Email: (e.EntityData && e.EntityData.Email) || '' }; });
+      });
+  }
+  function asegurarUsuario(u) {
+    if (u.Id) return Promise.resolve(u);
+    return enviarSP(web + '/_api/web/ensureuser', { logonName: u.clave }, 'No tienes permiso para añadir a esa persona al sitio').then(function (r) {
+      var x = { Id: r.Id, Title: r.Title || u.Title, Email: r.Email || u.Email || '' };
+      if (usuariosSitio && !usuariosSitio.some(function (y) { return y.Id === x.Id; })) usuariosSitio.push(x);
+      return x;
+    });
+  }
+  // Campo de persona: escribe 3 letras, elige de la lista. Devuelve un objeto con .valor()
+  function campoPersona(cont, inicial, alCambiar) {
+    var elegido = inicial || null, espera = null, turno = 0;
+    cont.innerHTML = '<input placeholder="Escribe nombre o apellido (3 letras) y elige" autocomplete="off"><div class="sugs" hidden></div><div class="elegido"></div>';
+    var input = $('input', cont), caja = $('.sugs', cont), ver = $('.elegido', cont);
+    var pintarElegido = function () { ver.innerHTML = elegido ? '✓ ' + esc(elegido.Title) + ' <a href="#" data-quitar="1">quitar</a>' : '<span class="muted small">Nadie elegido</span>'; };
+    var pintar = function (lst, buscando) {
+      caja.lista = lst;
+      caja.innerHTML = lst.map(function (u, i) { return '<button type="button" data-sug="' + i + '">' + esc(u.Title) + (u.Email ? ' <span class="small muted">' + esc(u.Email) + '</span>' : '') + '</button>'; }).join('') + (buscando ? '<div class="small muted" style="padding:8px">Buscando en el directorio…</div>' : '');
+      caja.hidden = !lst.length && !buscando;
+    };
+    pintarElegido();
+    input.addEventListener('input', function () {
+      var q = input.value.trim(), id = ++turno;
+      clearTimeout(espera);
+      if (q.length < 2) return pintar([]);
+      var qn = sinTildes(q);
+      var locales = (usuariosSitio || []).filter(function (u) { return sinTildes(u.Title).indexOf(qn) >= 0 || sinTildes(u.Email).indexOf(qn) >= 0; }).slice(0, 8);
+      if (q.length < 3) return pintar(locales);
+      pintar(locales, true);
+      espera = setTimeout(function () {
+        buscarDirectorio(q).catch(function () { return []; }).then(function (dir) {
+          if (id !== turno) return;
+          var ya = locales.map(function (u) { return sinTildes(u.Email || u.Title); });
+          pintar(locales.concat(dir.filter(function (d) { return ya.indexOf(sinTildes(d.Email || d.Title)) < 0; })).slice(0, 15));
+        });
+      }, 350);
+    });
+    cont.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-sug]');
+      if (b) {
+        var u = caja.lista[Number(b.dataset.sug)]; turno++; pintar([]); input.value = '';
+        asegurarUsuario(u).then(function (x) { elegido = x; pintarElegido(); if (alCambiar) alCambiar(x); })
+          .catch(function (er) { ver.innerHTML = '<span class="error">' + esc(er.message || er) + '</span>'; });
+      }
+      if (e.target.closest('[data-quitar]')) { e.preventDefault(); elegido = null; pintarElegido(); if (alCambiar) alCambiar(null); }
+    });
+    return { valor: function () { return elegido; } };
+  }
+
+  // ---------- Correo (lo envía el propio Colabora; si no puede, se prepara en Outlook) ----------
+  var enlaceFormulario = function (t) { return listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl + '/Item/displayifs.aspx?ID=' + t.id : ''; };
+  var enlacePagina = function () { return location.origin + location.pathname; };
+  var AREA_APROB = function (w) { return w + '/_layouts/15/start.aspx#/SitePages/Area%20Aprobadores%20de%20Permisos.aspx'; };
+  var AREA_AUTOR = function (w) { return w + '/_layouts/15/start.aspx#/SitePages/AREA%20AUTORIZADORES%20FINALES.aspx'; };
+  // Los siete correos del formulario InfoPath (mismos destinatarios, asuntos y textos)
+  function correoDe(tipo, t, obs) {
+    var rep = t.rep ? t.rep.Title : '';
+    var C = {
+      solicitud: { to: [t.correoSol], cc: [t.correoApr], asunto: 'Pendiente de APROBAR un Permiso solicitado por: ' + t.nombre + ' Representado por: ' + rep + ' de tipo: ' + t.tipo,
+        intro: 'PENDIENTE DE APROBAR POR SU AUTORIDAD UNA SOLICITUD DE PERMISO. PARA ACCEDER AL FORMULARIO PUEDE DIRIGIRSE AL ÁREA DE GESTIÓN DE PERMISOS O MEDIANTE EL SIGUIENTE ENLACE: ' + AREA_APROB(web) },
+      aprobado: { to: [t.correoSol], cc: [t.correoAut], bcc: [t.correoApr], asunto: 'El usuario: ' + t.aprTexto + ' Ha APROBADO su Solicitud de permiso: ' + t.asunto + ', siendo trasladada para AUTORIZACIÓN al usuario: ' + t.autTexto,
+        intro: 'LA SOLICITUD DE PERMISO ha sido APROBADA y remitida al AUTORIZADOR para su curso reglamentario. Para acceder al formulario de la Solicitud puede dirigirse al ÁREA DE AUTORIZADORES FINALES: ' + AREA_AUTOR(web) },
+      devueltaAprob: { to: [t.correoSol], cc: [t.correoApr], asunto: 'El Aprobador: ' + t.aprTexto + ' Ha DEVUELTO su Solicitud de permiso: ' + t.asunto + '. Consulte las Observaciones y tramítela nuevamente.',
+        intro: 'LA SOLICITUD de Permiso ha sido DEVUELTA por el APROBADOR con las observaciones que se indican. Por favor, resuélvalas y vuelva a tramitarla.' },
+      rechazoAprob: { to: [t.correoSol], cc: [], asunto: 'El Aprobador: ' + t.aprTexto + ' Ha rechazado su Solicitud de permiso: ' + t.asunto,
+        intro: 'LA SOLICITUD DE PERMISO HA SIDO RECHAZADA POR EL APROBADOR.' },
+      autorizado: { to: [t.correoSol], cc: [t.correoApr], asunto: 'El usuario: ' + t.autTexto + ' Ha AUTORIZADO su Solicitud de permiso: ' + t.asunto + ', siendo trasladada para REGISTRO',
+        intro: 'Permiso Autorizado y con pase a REGISTRO DE SIPERDEF.' },
+      devueltaAutor: { to: [t.correoApr], cc: [t.correoSol], asunto: 'El AUTORIZADOR FINAL DEL PERMISO: ' + t.autTexto + ' Ha DEVUELTO la solicitud de permiso: ' + t.asunto + '. Consulte las Observaciones y tramítela nuevamente.',
+        intro: 'LA SOLICITUD de Permiso ha sido DEVUELTA por el AUTORIZADOR con las observaciones que se indican. Por favor, resuélvalas y vuelva a tramitarla.' },
+      devueltaAutorSol: { to: [t.correoSol], cc: [t.correoApr], asunto: 'El AUTORIZADOR: ' + t.autTexto + ' Ha DEVUELTO su Solicitud de permiso: ' + t.asunto + '. Consulte las Observaciones y tramítela nuevamente.',
+        intro: 'LA SOLICITUD de Permiso ha sido DEVUELTA por el AUTORIZADOR con las observaciones que se indican. Por favor, resuélvalas y vuelva a tramitarla.' },
+      rechazoAutor: { to: [t.correoSol], cc: [t.correoApr], asunto: 'El AUTORIZADOR: ' + t.autTexto + ' Ha RECHAZADO UNA Solicitud de permiso: ' + t.asunto + '. Consulte las Observaciones y tramítela nuevamente.',
+        intro: 'LA SOLICITUD DE PERMISO HA SIDO RECHAZADA POR EL AUTORIZADOR.' }
+    }[tipo];
+    if (!C) return null;
+    var limpia = function (l) { return (l || []).filter(function (x) { return x && /@/.test(x); }).filter(function (x, i, a) { return a.indexOf(x) === i; }); };
+    C.to = limpia(C.to); C.cc = limpia(C.cc).filter(function (x) { return C.to.indexOf(x) < 0; }); C.bcc = limpia(C.bcc);
+    if (!C.to.length) { C.to = C.cc; C.cc = []; }
+    var filas = [['Asunto', t.asunto], ['Solicitante', t.nombre], ['Representante', rep], ['Tipo de permiso', t.tipo], ['Cupo de año', t.cupo],
+      ['Desde', fLarga(t.ini)], ['Hasta', fLarga(t.fin)], ['Días festivos', t.festivos], ['Unidad', t.unidad && t.unidad.Title], ['Dependencia', t.dependencia],
+      ['Estado', t.estado], ['Observaciones', obs]].filter(function (x) { return x[1]; });
+    var f = enlaceFormulario(t);
+    C.html = '<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px"><p><b>' + esc(C.intro) + '</b></p><table cellpadding="6" style="border-collapse:collapse">' +
+      filas.map(function (x) { return '<tr><td style="border:1px solid #ccc;background:#f3f3f3"><b>' + esc(x[0]) + '</b></td><td style="border:1px solid #ccc">' + esc(x[1]).replace(/\n/g, '<br>') + '</td></tr>'; }).join('') +
+      '</table>' + (f ? '<p><a href="' + esc(f) + '">Abrir la solicitud en Colabora</a></p>' : '') + '</div>';
+    C.texto = C.intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + (f ? '\n\nAbrir la solicitud: ' + f : '');
+    return C;
+  }
+  function mailto(c) {
+    var u = 'mailto:' + c.to.map(encodeURIComponent).join(';') + '?' + (c.cc.length ? 'cc=' + c.cc.map(encodeURIComponent).join(';') + '&' : '') +
+      (c.bcc.length ? 'bcc=' + c.bcc.map(encodeURIComponent).join(';') + '&' : '') + 'subject=' + encodeURIComponent(c.asunto) + '&body=';
+    var cuerpo = c.texto;
+    while ((u + encodeURIComponent(cuerpo)).length > 2000 && cuerpo.length > 200) cuerpo = cuerpo.slice(0, cuerpo.length - 100) + '…';
+    return u + encodeURIComponent(cuerpo);
+  }
+  function enviarCorreo(c) {
+    if (!c || !c.to.length) return Promise.resolve({ ok: false, motivo: 'sin direcciones de correo en la solicitud' });
+    return enviarSP(web + '/_api/SP.Utilities.Utility.SendEmail', { properties: { __metadata: { type: 'SP.Utilities.EmailProperties' },
+      To: { results: c.to }, CC: { results: c.cc }, BCC: { results: c.bcc }, Subject: c.asunto, Body: c.html } }, 'Colabora no te deja enviar correos desde la página')
+      .then(function () { return { ok: true }; }, function (e) { return { ok: false, motivo: e.message || String(e), mailto: mailto(c) }; });
+  }
+
+  // ---------- Guardar (sin pisar cambios de otros) ----------
+  var tipoEntidad = function () { return { type: listaInfo.ListItemEntityTypeFullName }; };
+  var aISO = function (s) { return s ? aFecha(s).toISOString() : null; };
+  var masUno = function (s) { if (!s) return null; var d = aFecha(s); d.setDate(d.getDate() + 1); return d.toISOString(); };
+  var ahoraTxt = function () { return new Date().toLocaleString('es-ES'); };
+  // Anotación que el formulario añade a «Registro de Borrador»
+  var anotacion = function (sol, rep, estado) { return ' / SOLICITADA APROBACIÓN por: ' + (sol || '') + ' En su Nombre o Representado por. ' + (rep || '') + '  A las  ' + ahoraTxt() + '. En Estado: ' + estado; };
+  function guardarCambios(t, cuerpo, anotar) {
+    return leerElemento(t.id, ['RegistroDeBorrador']).then(function (x) {
+      if (t.modificado && x.datos.Modified && !mismaFecha(t.modificado, x.datos.Modified)) throw new Error(CONFLICTO);
+      if (anotar) cuerpo.RegistroDeBorrador = (x.datos.RegistroDeBorrador || '') + esc(anotar);
+      cuerpo.__metadata = tipoEntidad();
+      return enviarSP(urlLista() + '/items(' + t.id + ')', cuerpo, 'No tienes permiso para modificar esta solicitud', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': x.etag });
+    });
+  }
+
+  // ---------- Detalle ----------
+  var dlgId = null;
+  function abrir(id, msg) {
+    var t = items.find(function (x) { return x.id === id; });
+    if (!t) return;
+    dlgId = id;
+    var interviene = esMia(t) || soy(t.apr) || soy(t.aut) || soy(t.reg) || enRegistro();
+    var c = [['Estado', t.estado], ['Tipo de permiso', t.tipo], ['Cupo de año', t.cupo], ['Desde', fLarga(t.ini)], ['Hasta', fLarga(t.fin)],
+      ['Días naturales', t.ini ? String(dias(t.ini, t.fin)) : ''], ['Días festivos', t.festivos], ['Solicitante', t.nombre], ['Representante', t.rep && t.rep.Title],
+      ['Empleo', t.empleo], ['Dependencia', t.dependencia], ['Unidad', t.unidad && t.unidad.Title],
+      ['Aprobador', t.directo ? '— (autorización directa)' : (t.apr ? t.apr.Title : t.aprTexto)], ['Aprobación', t.eAprob + (t.fAprob ? ' · ' + new Date(t.fAprob).toLocaleString('es-ES') : '')],
+      ['Autorizador', t.aut ? t.aut.Title : t.autTexto], ['Autorización', t.eAutor + (t.fAutor ? ' · ' + new Date(t.fAutor).toLocaleString('es-ES') : '')],
+      ['Registro SIPERDEF', t.eReg + (t.reg ? ' · ' + t.reg.Title : '')],
+      ['Creada', new Date(t.creado).toLocaleString('es-ES')], ['Modificada', new Date(t.modificado).toLocaleString('es-ES') + (t.editor ? ' por ' + t.editor : '')]];
+    var dlg = $('#dlg');
+    dlg.innerHTML = '<div class="dh"><h2>' + esc(t.nombre) + ' · ' + esc(t.tipo || t.asunto) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.4rem">✕</button></div>' +
+      '<div class="db">' + (msg || '') + '<div class="ficha"><div>' +
+      '<div class="campo"><b>Asunto</b><div>' + esc(t.asunto) + '</div></div>' +
+      c.filter(function (x) { return x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
+      '<div id="detMas"><p class="muted small">Cargando observaciones…</p></div>' +
+      (enlaceFormulario(t) ? '<div class="acciones"><a class="btn" href="' + esc(enlaceFormulario(t)) + '" target="_blank" rel="noopener">Abrir en el formulario de Colabora</a></div>' : '') +
+      '</div><div id="detAcc">' + panelAcciones(t) + '</div></div></div>';
+    dlg.showModal(); dlg.scrollTop = 0;
+    prepararAcciones(t);
+    leerElemento(t.id, ['NIF', 'Observaciones', 'Observaci_x00f3_nesAprobador', 'ObservacionesAutorizador', 'ObservacionesDelRegistro', 'RegistroDeBorrador', 'Attachments']).then(function (x) {
+      var d = x.datos;
+      var m = [['NIF', interviene ? d.NIF : ''], ['Observaciones del solicitante', texto(d.Observaciones)], ['Observaciones del aprobador', d.Observaci_x00f3_nesAprobador],
+        ['Observaciones del autorizador', d.ObservacionesAutorizador], ['Observaciones del registro', d.ObservacionesDelRegistro],
+        ['Historial', texto(d.RegistroDeBorrador).split(' / ').map(function (s) { return s.trim(); }).filter(Boolean).join('\n')]];
+      var el = $('#detMas'); if (!el) return;
+      el.innerHTML = m.filter(function (y) { return y[1]; }).map(function (y) { return '<div class="campo"><b>' + esc(y[0]) + '</b><div>' + esc(y[1]) + '</div></div>'; }).join('') +
+        (d.Attachments ? '<div class="campo"><b>Datos adjuntos</b><div class="muted small">Tiene adjuntos: ábrelos en el formulario de Colabora.</div></div>' : '');
+    }).catch(function () { var el = $('#detMas'); if (el) el.innerHTML = ''; });
+  }
+  function panelAcciones(t) {
+    var h = '';
+    var obs = function (id, txt) { return '<label class="lbl">' + txt + '</label><textarea id="' + id + '"></textarea>'; };
+    if (puedeEditar(t)) {
+      h += '<div class="panel"><h3>Tu solicitud (borrador)</h3><p class="small muted">Puedes completarla o enviarla a ' + (t.directo ? 'autorización directa' : 'aprobación') + '.</p>' +
+        '<div class="acciones"><button class="prim" data-editar="' + t.id + '">✎ Completar o enviar</button></div></div>';
+    }
+    if (puedeAprobar(t)) {
+      h += '<div class="panel"><h3>Aprobación (eres el aprobador)</h3>' +
+        '<label class="lbl">Autorizador al que se eleva *</label><div id="pAut"></div>' +
+        obs('oAprob', 'Observaciones (obligatorias para devolver o rechazar)') +
+        '<div class="acciones"><button class="prim" data-acc="aprobar">✓ Aprobar y elevar al autorizador</button><button data-acc="devolverAprob">↩ Devolver al solicitante</button><button class="peligro" data-acc="rechazarAprob">✕ Rechazar</button></div></div>';
+    }
+    if (puedeAutorizar(t)) {
+      h += '<div class="panel"><h3>Autorización (eres el autorizador)</h3>' + obs('oAutor', 'Observaciones (obligatorias para devolver o rechazar)') +
+        '<div class="acciones"><button class="prim" data-acc="autorizar">✓ Autorizar</button>' + (t.apr && !t.directo ? '<button data-acc="devolverAutor">↩ Devolver al aprobador</button>' : '') +
+        '<button data-acc="devolverAutorSol">↩ Devolver al solicitante</button><button class="peligro" data-acc="rechazarAutor">✕ Rechazar</button></div></div>';
+    }
+    if (puedeRegistrar(t)) {
+      h += '<div class="panel"><h3>Registro en SIPERDEF</h3>' + obs('oReg', 'Observaciones del registro (obligatorias para anular)') +
+        '<div class="acciones"><button class="prim" data-acc="registrar">✓ Registrado en SIPERDEF</button><button class="peligro" data-acc="anular">✕ Anular</button></div></div>';
+    }
+    if (!h) h = '<div class="panel"><h3>Tramitación</h3><p class="small muted">' + esc(siguientePaso(t)) + '</p></div>';
+    return h + '<div id="accMsg"></div>';
+  }
+  function siguientePaso(t) {
+    if (esBorrador(t)) return 'En borrador: debe enviarla el solicitante o su representante.';
+    if (t.estado === E.PA) return 'Esperando la aprobación de ' + (t.apr ? t.apr.Title : t.aprTexto || 'su aprobador') + '.';
+    if (t.estado === E.AP) return 'Esperando la autorización de ' + (t.aut ? t.aut.Title : t.autTexto || 'su autorizador') + '.';
+    if (t.estado === E.AU) return 'Autorizada: pendiente de registro en SIPERDEF.';
+    if (t.estado === E.RG) return 'Tramitación terminada: registrada en SIPERDEF.';
+    return 'Tramitación terminada.';
+  }
+  var pAut = null;
+  function prepararAcciones(t) {
+    pAut = null;
+    if ($('#pAut')) cargarUsuarios().then(function () { pAut = campoPersona($('#pAut'), t.aut, null); });
+  }
+  var msgAcc = function (cls, txt) { var el = $('#accMsg'); if (el) el.innerHTML = '<div class="' + cls + '">' + txt + '</div>'; };
+
+  // Acciones del aprobador, autorizador y registro (mismos cambios que el formulario InfoPath)
+  function accion(t, a, boton) {
+    var ob = function (id) { var el = $('#' + id); return el ? el.value.trim() : ''; };
+    var c = {}, correo = null, persona_ = null, nuevo = Object.assign({}, t);
+    var exige = function (v, txt) { if (!v) { msgAcc('error', txt); throw 0; } };
+    try {
+      if (a === 'aprobar') {
+        persona_ = pAut && pAut.valor();
+        exige(persona_, 'Antes de solicitar AUTORIZACIÓN debe elegir al AUTORIZADOR.');
+        exige(persona_.Email, 'Esa persona no tiene correo en Colabora: no podría recibir el aviso. Elige otra o tramítala en el formulario de Colabora.');
+        Object.assign(c, { AutorizadorDelPermisoId: persona_.Id, AutorizadorTexto: persona_.Title, CorreoDeAUTORIZADOR: persona_.Email, Estado: E.AP, EstadoDeAprobacion: 'APROBADO',
+          FechaDeAprobacion: new Date().toISOString(), AprobadorTexto: (t.apr && t.apr.Title) || yo.Title, Observaci_x00f3_nesAprobador: ob('oAprob') || null, ValidacionEstado: E.AP, mensajeAPROBADOR: '' });
+        Object.assign(nuevo, { aut: persona_, autTexto: persona_.Title, correoAut: persona_.Email, aprTexto: c.AprobadorTexto, estado: E.AP });
+        correo = 'aprobado';
+      } else if (a === 'devolverAprob' || a === 'rechazarAprob') {
+        exige(ob('oAprob'), 'Antes de ' + (a === 'rechazarAprob' ? 'rechazar' : 'devolver') + ' la solicitud debe indicar el motivo en Observaciones.');
+        if (a === 'rechazarAprob') { Object.assign(c, { Estado: E.RE, ValidacionEstado: E.RE, Observaci_x00f3_nesAprobador: ob('oAprob') }); correo = 'rechazoAprob'; }
+        else {
+          var est = t.rep ? E.BR : E.BS;
+          Object.assign(c, { Estado: est, ValidacionEstado: est, Observaci_x00f3_nesAprobador: ob('oAprob'), AprobadorDePermisoId: null, AutorizadorDelPermisoId: null,
+            AprobadorTexto: '', AutorizadorTexto: '', CorreoDeAPROBADOR: '', JEFE: null });
+          correo = 'devueltaAprob';
+        }
+        nuevo.estado = c.Estado; nuevo.aprTexto = t.aprTexto || (t.apr && t.apr.Title) || yo.Title;
+      } else if (a === 'autorizar') {
+        Object.assign(c, { Estado: E.AU, ValidacionEstado: E.AU, EstadoDeAutorizacion: 'AUTORIZADO', FechaDeAutorizacion: new Date().toISOString(), EstadoDeRegistro: 'Pendiente de Registro',
+          ObservacionesAutorizador: ob('oAutor') || null, AutorizadorTexto: (t.aut && t.aut.Title) || yo.Title, mensajeAutorizador: '' });
+        nuevo.estado = E.AU; nuevo.autTexto = c.AutorizadorTexto; correo = 'autorizado';
+      } else if (a === 'devolverAutor' || a === 'devolverAutorSol' || a === 'rechazarAutor') {
+        exige(ob('oAutor'), 'Antes de ' + (a === 'rechazarAutor' ? 'rechazar' : 'devolver') + ' la solicitud debe anotar el motivo en Observaciones.');
+        if (a === 'devolverAutor') {
+          Object.assign(c, { Estado: E.PA, ValidacionEstado: E.PA, EstadoDeAprobacion: 'SIN APROBAR', EstadoDeAutorizacion: 'SIN AUTORIZAR', FechaDeAutorizacion: null, FechaDeAprobacion: null,
+            ObservacionesAutorizador: ob('oAutor'), AutorizadorDelPermisoId: null, AutorizadorTexto: '', CorreoDeAUTORIZADOR: '' });
+          correo = 'devueltaAutor';
+        } else if (a === 'devolverAutorSol') {
+          Object.assign(c, { Estado: E.BS, ValidacionEstado: E.BS, ObservacionesAutorizador: ob('oAutor'), AutorizadorDelPermisoId: null, AutorizadorTexto: '', CorreoDeAUTORIZADOR: '', JEFE: null });
+          correo = 'devueltaAutorSol';
+        } else { Object.assign(c, { Estado: E.RE, ValidacionEstado: E.RE, ObservacionesAutorizador: ob('oAutor') }); correo = 'rechazoAutor'; }
+        nuevo.estado = c.Estado; nuevo.autTexto = t.autTexto || (t.aut && t.aut.Title) || yo.Title;
+      } else if (a === 'registrar') {
+        Object.assign(c, { Estado: E.RG, ValidacionEstado: E.RG, EstadoDeRegistro: 'REGISTRADO', Registro_x0020_SIPERDEFId: yo.Id, RegistradorTexto: yo.Title, ObservacionesDelRegistro: ob('oReg') || null });
+      } else if (a === 'anular') {
+        exige(ob('oReg'), 'Debe poner el motivo de la anulación en el campo de observaciones.');
+        Object.assign(c, { Estado: E.AN, ValidacionEstado: E.AN, ObservacionesDelRegistro: ob('oReg'), Registro_x0020_SIPERDEFId: yo.Id, RegistradorTexto: yo.Title });
+      }
+    } catch (e) { if (e === 0) return; throw e; }
+    boton.disabled = true;
+    var obsTxt = ob('oAprob') || ob('oAutor') || ob('oReg');
+    guardarCambios(t, c, null).then(function () {
+      var cr = pref.correo && correo ? correoDe(correo, nuevo, obsTxt) : null;
+      return (cr ? enviarCorreo(cr) : Promise.resolve(null)).then(function (r) {
+        return cargar().then(function () {
+          var txt = '✓ Guardado: la solicitud pasa a «' + esc(c.Estado) + '».';
+          var m = !r ? '<div class="okmsg">' + txt + '</div>' : r.ok ? '<div class="okmsg">' + txt + ' Aviso enviado por correo.</div>' :
+            '<div class="aviso">' + txt + ' No se pudo enviar el aviso desde Colabora (' + esc(r.motivo) + ').' + (r.mailto ? ' <a class="btn" href="' + esc(r.mailto) + '">✉ Preparar el correo en Outlook</a>' : '') + '</div>';
+          abrir(t.id, m);
+        });
+      });
+    }).catch(function (e) { boton.disabled = false; msgAcc('error', 'No se pudo guardar: ' + esc(e.message || e)); });
+  }
+
+  // ---------- Nueva solicitud / completar borrador ----------
+  function formulario(t) {
+    var dlg = $('#dlg'), ops = function (l, v, vacio) { return '<option value="">' + esc(vacio || '—') + '</option>' + l.map(function (o) { return '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join(''); };
+    var anioActual = String(new Date().getFullYear());
+    var cupos = opciones.CupoDeA_x00f1_o || [anioActual];
+    var paraOtro = t ? (t.rep && soy(t.rep)) : false;
+    dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Completar solicitud' : 'Nueva solicitud de permiso') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.4rem">✕</button></div><div class="db" id="fSol">' +
+      '<label class="check"><input type="checkbox" id="nOtro"' + (paraOtro ? ' checked' : '') + '> La solicito en nombre de otra persona (soy su representante)</label>' +
+      '<div id="nOtroCaja"' + (paraOtro ? '' : ' hidden') + '><label class="lbl">Solicitante *</label><div id="nSol"></div></div>' +
+      '<div class="grid">' +
+      '<div><label class="lbl">Tipo de permiso *</label><select name="tipo">' + ops(opciones.TipoDePermiso || [], t && t.tipo) + '</select></div>' +
+      '<div><label class="lbl">Cupo de año *</label><select name="cupo">' + ops(cupos, t ? t.cupo : (cupos.indexOf(anioActual) >= 0 ? anioActual : '')) + '</select></div>' +
+      '<div><label class="lbl">Fecha de inicio *</label><input type="date" name="ini" value="' + (t ? t.ini : '') + '"></div>' +
+      '<div><label class="lbl">Fecha de fin *</label><input type="date" name="fin" value="' + (t ? t.fin : '') + '"></div>' +
+      '<div><label class="lbl">Días festivos incluidos</label><input name="festivos" value="' + esc(t ? t.festivos : '0') + '"></div>' +
+      '<div><label class="lbl">Empleo *</label><select name="empleo">' + ops(empleos.length ? empleos : (t && t.empleo ? [t.empleo] : []), t && t.empleo) + '</select></div>' +
+      '<div><label class="lbl">NIF del solicitante *</label><input name="nif" autocomplete="off"></div>' +
+      '<div><label class="lbl">Unidad *</label><select name="unidad"><option value="">—</option>' + unidades.map(function (u) { return '<option value="' + u.Id + '"' + (t && t.unidad && t.unidad.Id === u.Id ? ' selected' : '') + '>' + esc(u.Title) + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="lbl">Dependencia</label><select name="dependencia">' + ops(opciones.Dependencia || [], t && t.dependencia) + '</select></div>' +
+      '</div>' +
+      '<label class="lbl">Asunto *</label><input name="asunto" value="' + esc(t ? t.asunto : '') + '" placeholder="Se rellena solo con el tipo y las fechas si lo dejas vacío">' +
+      '<label class="lbl">Observaciones (motivos, aclaraciones)</label><textarea name="obs"></textarea>' +
+      '<label class="check"><input type="checkbox" id="nDirecto"' + (t && t.directo ? ' checked' : '') + '> Autorización directa (sin aprobador intermedio)</label>' +
+      '<div id="nAprCaja"' + (t && t.directo ? ' hidden' : '') + '><label class="lbl">Aprobador *</label><div id="nApr"></div></div>' +
+      '<div id="nAutCaja"' + (t && t.directo ? '' : ' hidden') + '><label class="lbl">Autorizador *</label><div id="nAut"></div></div>' +
+      '<p class="small muted">Para adjuntar documentos, guarda la solicitud y añádelos desde el formulario de Colabora.</p>' +
+      '<div id="nError"></div>' +
+      '<div class="acciones"><button type="button" data-cerrar>Cancelar</button><button type="button" id="nBorrador">💾 Guardar borrador</button><button type="button" class="prim" id="nEnviar">📨 Enviar</button></div></div>';
+    dlg.showModal(); dlg.scrollTop = 0;
+    if (t) leerElemento(t.id, ['NIF', 'Observaciones']).then(function (x) { $('#fSol [name=nif]').value = x.datos.NIF || ''; $('#fSol [name=obs]').value = texto(x.datos.Observaciones); }).catch(function () { /* se rellenan a mano */ });
+    var pSol, pApr, pAut2;
+    cargarUsuarios().then(function () {
+      pSol = campoPersona($('#nSol'), t && paraOtro ? t.sol : null);
+      pApr = campoPersona($('#nApr'), t ? t.apr : null);
+      pAut2 = campoPersona($('#nAut'), t ? t.aut : null);
+    });
+    $('#nOtro').onchange = function () { $('#nOtroCaja').hidden = !this.checked; };
+    $('#nDirecto').onchange = function () { $('#nAprCaja').hidden = this.checked; $('#nAutCaja').hidden = !this.checked; };
+    var err = function (m) { $('#nError').innerHTML = '<div class="error">' + esc(m) + '</div>'; };
+    var guardar = function (enviar, boton) {
+      var f = $('#fSol'), v = function (n) { return (f.querySelector('[name=' + n + ']').value || '').trim(); };
+      var otro = $('#nOtro').checked, directo = $('#nDirecto').checked;
+      var sol = otro ? (pSol && pSol.valor()) : yo, rep = otro ? yo : null;
+      if (!sol) return err('Elige al solicitante (la persona que disfruta el permiso).');
+      if (!v('tipo') || !v('cupo') || !v('ini') || !v('fin') || !v('empleo') || !v('unidad')) return err('Faltan datos obligatorios (*): tipo, cupo, fechas, empleo y unidad.');
+      if (v('fin') < v('ini')) return err('La fecha de fin no puede ser anterior a la de inicio.');
+      var apr = pApr && pApr.valor(), aut = pAut2 && pAut2.valor();
+      if (enviar) {
+        if (!v('nif')) return err('Antes de solicitar la aprobación debe añadir el NIF del solicitante, para facilitar el registro en SIPERDEF.');
+        if (!directo && !apr) return err('Antes de solicitar la APROBACIÓN debe identificar al APROBADOR.');
+        if (directo && !aut) return err('Antes de solicitar la AUTORIZACIÓN debe identificar al AUTORIZADOR.');
+        if (!directo && !apr.Email) return err('El aprobador elegido no tiene correo en Colabora.');
+        if (directo && !aut.Email) return err('El autorizador elegido no tiene correo en Colabora.');
+      }
+      var estado = !enviar ? (otro ? E.BR : E.BS) : directo ? E.AP : E.PA;
+      var asunto = v('asunto') || (v('tipo').replace(/\s*\(.*$/, '') + ' del ' + fCorta(v('ini')) + ' al ' + fCorta(v('fin')));
+      var c = { Title: asunto, SolicitanteId: sol.Id, SolicitanteTexto: sol.Title, CorreoDelSolicitante: sol.Email || '',
+        RepresentanteDelSolicitanteId: rep ? rep.Id : null, RepresentanteTexto: rep ? rep.Title : '', TipoDePermiso: v('tipo'), MotivoSeleccionado: v('tipo'),
+        CupoDeA_x00f1_o: v('cupo'), FechaInicio: aISO(v('ini')), FechaDeFin: aISO(v('fin')), dia_x0020_mas_x0020_uno: masUno(v('fin')), DiasFestivos: v('festivos') || '0',
+        Empleo: v('empleo'), NIF: v('nif'), Unidad0Id: Number(v('unidad')), Dependencia: v('dependencia') || null, Observaciones: v('obs') ? esc(v('obs')).replace(/\n/g, '<br>') : null,
+        AutorizarDirecto: directo, AprobadorDePermisoId: !directo && apr ? apr.Id : null, AprobadorTexto: !directo && apr ? apr.Title : '', CorreoDeAPROBADOR: !directo && apr ? apr.Email : '',
+        AutorizadorDelPermisoId: directo && aut ? aut.Id : null, AutorizadorTexto: directo && aut ? aut.Title : '', CorreoDeAUTORIZADOR: directo && aut ? aut.Email : '',
+        Estado: estado, ValidacionEstado: estado, mensajeAPROBADOR: '',
+        TextoResumen: 'Solicitado por el : ' + v('empleo') + ' D. ' + sol.Title + ', el día: ' + (t ? new Date(t.creado).toISOString() : '') + ' ' };
+      if (enviar && directo) Object.assign(c, { EstadoDeAprobacion: 'APROBADO', FechaDeAprobacion: new Date().toISOString() });
+      var anotar = enviar ? anotacion(sol.Title, rep ? rep.Title : '', estado) : null;
+      boton.disabled = true;
+      var hecho = t ? guardarCambios(t, c, anotar).then(function () { return t.id; }) :
+        enviarSP(urlLista() + '/items', Object.assign({ __metadata: tipoEntidad(), RegistroDeBorrador: anotar ? esc(anotar) : null }, c), 'No tienes permiso para crear solicitudes en esta lista')
+          .then(function (n) { return n && n.Id; });
+      hecho.then(function (id) {
+        var nuevo = { id: id, asunto: asunto, nombre: sol.Title, rep: rep, tipo: v('tipo'), cupo: v('cupo'), ini: v('ini'), fin: v('fin'), festivos: v('festivos'),
+          unidad: unidades.find(function (u) { return String(u.Id) === v('unidad'); }) || null, dependencia: v('dependencia'), estado: estado,
+          correoSol: sol.Email || '', correoApr: c.CorreoDeAPROBADOR, correoAut: c.CorreoDeAUTORIZADOR, aprTexto: c.AprobadorTexto, autTexto: c.AutorizadorTexto };
+        var cr = enviar && pref.correo ? correoDe(directo ? 'aprobado' : 'solicitud', nuevo, v('obs')) : null;
+        return (cr ? enviarCorreo(cr) : Promise.resolve(null)).then(function (r) {
+          return cargar().then(function () {
+            var txt = enviar ? '✓ Solicitud enviada a ' + (directo ? 'autorización' : 'aprobación') + '.' : '✓ Borrador guardado.';
+            var m = !r ? '<div class="okmsg">' + txt + '</div>' : r.ok ? '<div class="okmsg">' + txt + ' Aviso enviado por correo.</div>' :
+              '<div class="aviso">' + txt + ' No se pudo enviar el aviso desde Colabora (' + esc(r.motivo) + ').' + (r.mailto ? ' <a class="btn" href="' + esc(r.mailto) + '">✉ Preparar el correo en Outlook</a>' : '') + '</div>';
+            pref.vista = 'mias'; guardarPref(); render();
+            if (id) abrir(id, m); else $('#dlg').close();
+          });
+        });
+      }).catch(function (e) { boton.disabled = false; err('No se pudo guardar: ' + (e.message || e)); });
+    };
+    $('#nBorrador').onclick = function () { guardar(false, this); };
+    $('#nEnviar').onclick = function () { guardar(true, this); };
+  }
+
+  // ---------- Impresión del calendario ----------
+  function descargar(nombre, contenido, tipo) {
+    var url = URL.createObjectURL(new Blob([contenido], { type: tipo }));
+    var a = document.createElement('a'); a.href = url; a.download = nombre; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
+  }
+  function imprimirCalendario() {
+    var y = mes.getFullYear(), m = mes.getMonth(), ts = delCalendario();
+    var d = new Date(y, m, 1 - ((mes.getDay() + 6) % 7)), filas = '';
+    for (var s = 0; s < 6; s++) {
+      if (s && d.getMonth() !== m) break;
+      filas += '<tr>';
+      for (var i = 0; i < 7; i++) {
+        var k = iso(d), dentro = d.getMonth() === m;
+        var del = dentro ? ts.filter(function (t) { return t.ini <= k && (t.fin || t.ini) >= k; }).sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); }) : [];
+        filas += '<td class="' + (dentro ? '' : 'fuera') + '"><div class="n">' + d.getDate() + '</div>' + del.slice(0, 10).map(function (t) { return '<div class="t' + (t.estado === E.PA ? ' p' : '') + '">• ' + esc(t.nombre) + '</div>'; }).join('') + (del.length > 10 ? '<div class="t"><i>+' + (del.length - 10) + ' más</i></div>' : '') + '</td>';
+        d.setDate(d.getDate() + 1);
+      }
+      filas += '</tr>';
+    }
+    var nom = mes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }); nom = nom[0].toUpperCase() + nom.slice(1);
+    var f = [pref.cal.dependencia, (unidades.find(function (u) { return String(u.Id) === String(pref.cal.unidad); }) || {}).Title].filter(Boolean).join(' · ');
+    var doc = '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Permisos ' + esc(nom) + '</title><style>@page{size:A4 landscape;margin:1cm}body{font-family:Arial,sans-serif;font-size:10pt;margin:0}' +
+      '.cal{width:100%;border-collapse:collapse;table-layout:fixed}.cal th{background:#3b4a2f;color:#fff;padding:3px;font-size:9pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+      '.cal td{border:1px solid #bbb;vertical-align:top;height:2.7cm;padding:2px 3px;font-size:7.5pt;overflow:hidden}.fuera{background:#f2f2f2;-webkit-print-color-adjust:exact;print-color-adjust:exact}.n{font-weight:bold;font-size:9pt}.p{color:#9a5b00}' +
+      '.aviso{background:#fff4d6;padding:8px;margin:0 0 8px}@media print{.aviso{display:none}}</style></head><body><div class="aviso">Si no se abre el diálogo de impresión, pulsa Ctrl+P. Para PDF, elige «Guardar como PDF».</div>' +
+      '<h2 style="text-align:center;margin:0 0 2px">PERMISOS · ' + esc(nom.toUpperCase()) + '</h2><p style="text-align:center;margin:0 0 6px">' + esc(f || 'Todas las dependencias y unidades') + (pref.cal.pendientes ? ' · en naranja, pendientes de aprobar' : '') + '</p>' +
+      '<table class="cal"><tr>' + ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(function (x) { return '<th>' + x + '</th>'; }).join('') + '</tr>' + filas + '</table>' +
+      '<p style="font-size:8pt">Emitido por ' + esc(yo ? yo.Title : '') + ' el ' + new Date().toLocaleDateString('es-ES') + '.</p><scr' + 'ipt>window.onload=function(){setTimeout(function(){window.print()},400)}</scr' + 'ipt></body></html>';
+    var w = null; try { w = window.open('', '_blank'); } catch (e) { w = null; }
+    if (w && w.document) { w.document.open(); w.document.write(doc); w.document.close(); return; }
+    descargar('permisos-' + iso(mes).slice(0, 7) + '.html', doc, 'text/html;charset=utf-8'); aviso('Descargado: ábrelo y elige Imprimir → Guardar como PDF');
+  }
+  function csv() {
+    var c = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+    var f = [['Id', 'Solicitante', 'Representante', 'Tipo de permiso', 'Cupo', 'Desde', 'Hasta', 'Días', 'Festivos', 'Dependencia', 'Unidad', 'Estado', 'Aprobador', 'Autorizador', 'Registro', 'Creada']];
+    filtrarTodas().forEach(function (t) { f.push([t.id, t.nombre, t.rep && t.rep.Title, t.tipo, t.cupo, fCorta(t.ini), fCorta(t.fin), dias(t.ini, t.fin), t.festivos, t.dependencia, t.unidad && t.unidad.Title, t.estado, t.aprTexto, t.autTexto, t.eReg, fechaSP(t.creado)]); });
+    descargar('permisos-' + hoy() + '.csv', '﻿' + f.map(function (r) { return r.map(c).join(';'); }).join('\r\n'), 'text/csv;charset=utf-8');
+  }
+
+  // ---------- Eventos ----------
+  document.addEventListener('click', function (e) {
+    var el = e.target;
+    var tab = el.closest('#tabs a');
+    if (tab) { pref.vista = tab.dataset.v; guardarPref(); render(); return; }
+    if (el.closest('#recargar')) { cargar(); return; }
+    if (el.closest('#nueva') || el.closest('[data-nueva]')) { if (cargadoEn) formulario(null); return; }
+    if (el.closest('[data-cerrar]')) { $('#dlg').close(); return; }
+    var m = el.closest('[data-mes]');
+    if (m) { mes = new Date(mes.getFullYear(), mes.getMonth() + Number(m.dataset.mes), 1); render(); return; }
+    if (el.closest('[data-impcal]')) { imprimirCalendario(); return; }
+    if (el.closest('[data-csv]')) { csv(); return; }
+    var ed = el.closest('[data-editar]');
+    if (ed) { var te = items.find(function (x) { return x.id === Number(ed.dataset.editar); }); if (te) formulario(te); return; }
+    var ac = el.closest('[data-acc]');
+    if (ac) { var ta = items.find(function (x) { return x.id === dlgId; }); if (ta) accion(ta, ac.dataset.acc, ac); return; }
+    var s = el.closest('[data-id]');
+    if (s && !el.closest('dialog')) abrir(Number(s.dataset.id));
+  });
+  document.addEventListener('change', function (e) {
+    var el = e.target;
+    var f = { fEst: 'estado', fTipo: 'tipo', fDep: 'dependencia', fUni: 'unidad', fCupo: 'cupo' }[el.id];
+    if (f) { pref.f[f] = el.value; guardarPref(); render(); return; }
+    if (el.id === 'cDep') pref.cal.dependencia = el.value;
+    else if (el.id === 'cUni') pref.cal.unidad = el.value;
+    else if (el.id === 'cPend') pref.cal.pendientes = el.checked;
+    else if (el.id === 'aCorreo') pref.correo = el.checked;
+    else if (el.id === 'aSitio' || el.id === 'aLista') { pref.sitio = $('#aSitio').value.trim() || pref.sitio; pref.lista = $('#aLista').value.trim() || pref.lista; guardarPref(); cargadoEn = null; cargar(); return; }
+    else return;
+    guardarPref(); render();
+  });
+  document.addEventListener('input', function (e) {
+    if (e.target.id !== 'fq') return;
+    pref.f.q = e.target.value; guardarPref();
+    var pos = e.target.selectionStart; render();
+    var i = $('#fq'); if (i) { i.focus(); i.setSelectionRange(pos, pos); }
+  });
+
+  render();
+  cargar();
+})();
+</script>
+</body>
+</html>

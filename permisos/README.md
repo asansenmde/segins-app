@@ -8,7 +8,7 @@ autorizarlos o elevarlos**, sobre la lista **«Solicitud de Permisos»** del sit
 
 ## Estado
 
-En análisis. Estructura conocida (resumen del diagnóstico general, sin datos):
+Primera versión (8 oct 2026), probada con datos simulados; pendiente de prueba en Colabora. Estructura conocida (resumen del diagnóstico general, sin datos):
 
 - Listas del sitio: `Solicitud de Permisos` (≈2.500), `Permisos y Vacaciones IGE` (vacía), `UNIDADES` (búsqueda de
   `Unidad0`), `empleos`, `GRADO COBERTURA RPM`, `Workflow Tasks` (vacía: indica flujos de SharePoint 2013).
@@ -39,6 +39,17 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
 `4-Registrado SIPERDEF`; en cualquier paso `5-Rechazado`.
 
 ## Archivos
+
+- `permisos.html`: la página. Se sube a una biblioteca de Colabora (p. ej. Documentos compartidos de CALIDAD-VIDA) y
+  se abre desde allí. Pestañas: **Mis solicitudes** (como solicitante o representante; nueva solicitud, borrador y
+  envío), **Pendientes de mí** (aprobar, autorizar y registrar, según figures en la solicitud o pertenezcas a un grupo
+  de registro), **Calendario** de permisos concedidos (y pendientes, opcional) por dependencia y unidad, imprimible en
+  PDF, **Consulta** con filtros y exportación a CSV, y **Ajustes**. Reproduce las acciones, campos y correos del
+  formulario InfoPath descritos en `CIRCUITO.md`; cada cambio se guarda solo si nadie ha tocado la solicitud desde que
+  se cargó (`IF-MATCH`). El NIF solo se muestra a quien interviene. Adjuntos: desde el formulario de Colabora.
+- `CIRCUITO.md`: reglas del formulario InfoPath (sacadas de la plantilla `.xsn`).
+- `pruebas/simulacion.mjs`: prueba completa contra una lista simulada (ligero y *verbose*): alta con validaciones,
+  aprobar y elevar, devolver sin observaciones, autorizar, registrar, NIF, conflicto, calendario, impresión y CSV.
 
 - `prueba-permisos.html`: diagnóstico específico. Se sube a cualquier biblioteca de Colabora y se pulsa «Analizar».
   Solo lee; el resumen lleva estructura y recuentos (los estados en texto libre se recortan: nada tras «por», «:» o
