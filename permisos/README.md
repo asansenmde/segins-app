@@ -49,7 +49,9 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
   se cargó (`IF-MATCH`). El NIF solo se muestra a quien interviene.
   **Registro SIPERDEF**: pestaña aparte, visible solo para el grupo de Colabora «Personal de Registro»: solicitudes
   autorizadas pendientes de registrar (y registradas o anuladas en los últimos 30 días) **agrupadas por unidad**, con
-  solicitante, empleo, NIF, tipo, cupo, fechas, días y festivos; «✓ Registrado» con confirmación, relación imprimible
+  solicitante, empleo, NIF, tipo, cupo, fechas, días y festivos. Cada fila lleva el botón rojo **«PENDIENTE DE
+  REGISTRO»**: al pulsarlo pide confirmación («¿Ya está registrado en SIPERDEF?») y pasa a verde **«REGISTRADO EN
+  SIPERDEF»**, el estado final (también desde la ficha, con la misma confirmación). Relación imprimible
   en PDF y CSV. Ya no aparece en «Pendientes de mí».
   **Alcance por papel**: la página pide al servidor solo las solicitudes en las que el usuario figura (solicitante,
   representante, aprobador, autorizador, registrador o autor) y, si está en un grupo de registro, las autorizadas,

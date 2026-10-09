@@ -158,12 +158,18 @@ async function prueba(verbose, soloAlcance) {
   console.log(tag, 'pendientes de mí (sin registro):', await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | ')));
   await p.click('#tabs a[data-v=registro]'); await p.waitForTimeout(300);
   console.log(tag, 'registro por unidad:', await p.$$eval('#vista .sec span:first-child', n => n.map(x => x.textContent)), '| NIF en tabla:', (await p.textContent('#vista')).includes('00000000T'));
-  await p.screenshot({ path: new URL('registro.png', import.meta.url).pathname });
+  await p.screenshot({ path: new URL('registro-antes.png', import.meta.url).pathname });
   const [popR] = await Promise.all([ctx.waitForEvent('page'), p.click('[data-regimp]')]); await popR.waitForLoadState();
   console.log(tag, 'relación impresa:', await popR.$$eval('h3', h => h.map(x => x.textContent))); await popR.close();
+  console.log(tag, 'botón pendiente:', await p.textContent('[data-regok="3"]'), await p.$eval('[data-regok="3"]', b => getComputedStyle(b).backgroundColor));
   posts.length = 0; await p.click('[data-regok="3"]'); await p.waitForTimeout(200);
   console.log(tag, 'primer clic:', await p.textContent('[data-regok="3"]'), '| sin guardar:', !posts.some(x => /items\(3\)/.test(x.ruta)));
+  await p.click('[data-regcancel]'); await p.waitForTimeout(100);
+  console.log(tag, 'cancelar vuelve a:', await p.textContent('[data-regok="3"]'));
+  await p.click('[data-regok="3"]'); await p.waitForTimeout(100);
   await p.click('[data-regok="3"]'); await p.waitForTimeout(1500);
+  console.log(tag, 'tras registrar, en la fila:', await p.textContent('#vista .regok').catch(() => 'nada'), await p.$eval('#vista .regok', x => getComputedStyle(x).backgroundColor).catch(() => ''));
+  if (!verbose) await p.screenshot({ path: new URL('registro.png', import.meta.url).pathname, fullPage: true });
   const cRg = JSON.parse(posts.find(x => /items\(3\)/.test(x.ruta)).cuerpo);
   console.log(tag, 'registrar:', JSON.stringify({ Estado: cRg.Estado, ER: cRg.EstadoDeRegistro, Reg: cRg.Registro_x0020_SIPERDEFId, RegT: cRg.RegistradorTexto }));
   console.log(tag, 'quedan por registrar:', await p.$$eval('[data-regok]', n => n.map(x => x.dataset.regok)));
@@ -175,6 +181,8 @@ async function prueba(verbose, soloAlcance) {
   await p.click('#tabs a[data-v=registro]'); await p.waitForTimeout(200);
   await p.click('[data-ver="2"]'); await p.waitForTimeout(400);
   items.find(x => x.Id === 2).Modified = new Date(Date.now() + 99999).toISOString();
+  await p.click('[data-acc=registrar]'); await p.waitForTimeout(200);
+  console.log(tag, 'ficha, primer clic:', await p.textContent('[data-acc=registrar]'));
   await p.click('[data-acc=registrar]'); await p.waitForTimeout(800);
   console.log(tag, 'conflicto:', await p.textContent('#accMsg'));
   await p.click('#dlg [data-cerrar]');

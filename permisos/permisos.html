@@ -68,7 +68,7 @@
   .meta { display: flex; flex-wrap: wrap; gap: 5px 10px; margin-top: 4px; font-size: .84rem; align-items: center; }
   .badge { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: .75rem; font-weight: 700; white-space: nowrap; }
   .e0 { background: var(--na-bg); color: var(--na); } .e1 { background: var(--warn-bg); color: var(--warn); } .e2 { background: var(--info-bg); color: var(--info); }
-  .e3 { background: var(--ok-bg); color: var(--ok); } .e4 { background: var(--brand); color: #fff; } .e5 { background: var(--bad-bg); color: var(--bad); }
+  .e3 { background: var(--ok-bg); color: var(--ok); } .e4 { background: #2e7d32; color: #fff; } .e5 { background: var(--bad-bg); color: var(--bad); }
   .vacio { padding: 18px; text-align: center; color: var(--muted); }
   .aviso { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
   .error { background: var(--bad-bg); color: var(--bad); border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-weight: 600; }
@@ -87,6 +87,11 @@
   .leyenda i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
   .espera { background: var(--na-bg); color: var(--na); } .espera.tarde { background: var(--bad-bg); color: var(--bad); }
   table.t.resumen td:not(:first-child), table.t.resumen th:not(:first-child) { text-align: right; }
+  /* Registro SIPERDEF: rojo = pendiente de registro; verde = registrado (estado final) */
+  .regpend { background: var(--bad); color: #fff; border-color: var(--bad); line-height: 1.2; font-size: .8rem; padding: 6px 8px; }
+  .regconf { background: #d99a00; color: #fff; border-color: #d99a00; }
+  .regok { display: inline-block; background: #2e7d32; color: #fff; border-radius: 9px; padding: 6px 8px; font-weight: 700; font-size: .8rem; line-height: 1.2; }
+  button.verde { background: #2e7d32; color: #fff; border-color: #2e7d32; }
   .solape { background: #fff4dc; border-left: 4px solid #d99a00; border-radius: 8px; padding: 8px 10px; margin: 8px 0; font-size: .9rem; }
   table.t { width: 100%; border-collapse: collapse; font-size: .85rem; }
   table.t th, table.t td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
@@ -344,7 +349,7 @@
       '<span class="badge ' + claseEstado(t.estado) + '">' + esc(t.estado || 'Sin estado') + '</span>' +
       (t.ini ? '<span>📅 ' + esc(fCorta(t.ini)) + (t.fin && t.fin !== t.ini ? ' → ' + esc(fCorta(t.fin)) : '') + ' (' + d + ' día' + (d === 1 ? '' : 's') + ')</span>' : '') +
       (t.dependencia ? '<span class="muted">' + esc(t.dependencia) + '</span>' : '') + (t.unidad ? '<span class="muted">' + esc(t.unidad.Title) + '</span>' : '') +
-      (t.directo ? '<span class="badge e2">Autorización directa</span>' : '') + (extra || '') + '</div></div>';
+      (t.directo ? '<span class="badge e2">Autorización directa</span>' : '') + (t.estado === E.AU ? '<span class="badge e5">Pendiente de registro SIPERDEF</span>' : '') + (extra || '') + '</div></div>';
   }
   function vistaMias() {
     var ms = items.filter(esMia).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); });
@@ -423,7 +428,7 @@
   }
 
   // ---------- Registro SIPERDEF (solo grupo «Personal de Registro»), agrupado por unidad ----------
-  var nifs = {}, regVista = 'pendientes', regUnidad = '', confirmando = null;
+  var nifs = {}, regVista = 'pendientes', regUnidad = '', confirmando = null, recien = new Set();
   function cargarNifs() {
     nifs = {};
     if (!enRegistro()) return Promise.resolve();
@@ -442,7 +447,7 @@
   var anotarRegistro = function (txt) { return ' / ' + txt + ' por: ' + yo.Title + '  A las  ' + ahoraTxt(); };
   function registroSel() {
     var hace30 = new Date(Date.now() - 30 * 864e5).toISOString();
-    var ts = regVista === 'pendientes' ? porRegistrar() : items.filter(function (t) { return (t.estado === E.RG || t.estado === E.AN) && String(t.modificado) >= hace30; });
+    var ts = regVista === 'pendientes' ? porRegistrar().concat(items.filter(function (t) { return t.estado === E.RG && recien.has(t.id); })) : items.filter(function (t) { return (t.estado === E.RG || t.estado === E.AN) && String(t.modificado) >= hace30; });
     if (regUnidad) ts = ts.filter(function (t) { return t.unidad ? String(t.unidad.Id) === String(regUnidad) : regUnidad === 'sin'; });
     return ts;
   }
@@ -457,7 +462,7 @@
     var ts = registroSel(), pend = regVista === 'pendientes';
     var uniOps = '<option value="">Todas las unidades</option>' + unidades.map(function (u) { return '<option value="' + u.Id + '"' + (String(regUnidad) === String(u.Id) ? ' selected' : '') + '>' + esc(u.Title) + '</option>'; }).join('') +
       '<option value="sin"' + (regUnidad === 'sin' ? ' selected' : '') + '>Sin unidad</option>';
-    var cab = ['Solicitante', 'Empleo', 'NIF', 'Tipo de permiso', 'Cupo', 'Desde', 'Hasta', 'Días', 'Festivos', pend ? 'Autorizado' : 'Estado', ''];
+    var cab = ['Solicitante', 'Empleo', 'NIF', 'Tipo de permiso', 'Cupo', 'Desde', 'Hasta', 'Días', 'Festivos', pend ? 'Autorizado' : 'Estado', 'Registro SIPERDEF'];
     return '<div class="card"><div class="acciones" style="margin-top:0">' +
       '<button class="' + (pend ? 'prim' : '') + '" data-regv="pendientes">Pendientes de registrar (' + porRegistrar().length + ')</button>' +
       '<button class="' + (!pend ? 'prim' : '') + '" data-regv="hechos">Registrados o anulados (últimos 30 días)</button></div>' +
@@ -469,10 +474,12 @@
             return '<tr><td><a href="#" data-ver="' + t.id + '">' + esc(t.nombre) + '</a>' + (t.rep ? '<div class="small muted">rep.: ' + esc(t.rep.Title) + '</div>' : '') + '</td><td>' + esc(t.empleo) + '</td><td>' + esc(pend ? (nifs[t.id] || '—') : '') +
               '</td><td>' + esc(t.tipo) + '</td><td>' + esc(t.cupo) + '</td><td>' + esc(fCorta(t.ini)) + '</td><td>' + esc(fCorta(t.fin)) + '</td><td>' + dias(t.ini, t.fin) + '</td><td>' + esc(t.festivos) + '</td><td>' +
               (pend ? esc(t.fAutor ? new Date(t.fAutor).toLocaleDateString('es-ES') : '') : '<span class="badge ' + claseEstado(t.estado) + '">' + esc(t.estado) + '</span>') + '</td><td>' +
-              (pend ? '<button class="' + (confirmando === t.id ? 'peligro' : 'prim') + '" data-regok="' + t.id + '">' + (confirmando === t.id ? '¿Confirmar?' : '✓ Registrado') + '</button>' : '') + '</td></tr>';
+              (t.estado === E.RG ? '<span class="regok">✔ REGISTRADO EN SIPERDEF</span>' : t.estado === E.AN ? '<span class="badge e5">ANULADO</span>' :
+                confirmando === t.id ? '<button class="regconf" data-regok="' + t.id + '">¿Ya está registrado en SIPERDEF? Pulsa para confirmar</button> <a href="#" data-regcancel="1" class="small">cancelar</a>' :
+                '<button class="regpend" data-regok="' + t.id + '" title="Púlsalo cuando lo hayas registrado en SIPERDEF">⏳ PENDIENTE DE REGISTRO</button>') + '</td></tr>';
           }).join('') + '</table></div>';
       }).join('') : '<div class="card vacio">' + (pend ? 'No hay solicitudes pendientes de registrar.' : 'Nada registrado o anulado en los últimos 30 días.') + '</div>') +
-      '<p class="muted small">«✓ Registrado» marca la solicitud como «4-Registrado SIPERDEF» con tu nombre (pide confirmación). Para anularla, ábrela pulsando el nombre.</p>';
+      '<p class="muted small">En rojo, <b>PENDIENTE DE REGISTRO</b>. Cuando la hayas registrado en SIPERDEF, púlsalo y confirma: pasa a verde, <b>REGISTRADO EN SIPERDEF</b>, que es el estado final (queda tu nombre y la hora en el historial). Para anularla, ábrela pulsando el nombre.</p>';
   }
   function registrarRapido(t, boton) {
     if (!puedeRegistrar(t)) return;
@@ -480,7 +487,7 @@
     verificarRegistro().then(function () {
       return guardarCambios(t, { Estado: E.RG, ValidacionEstado: E.RG, EstadoDeRegistro: 'REGISTRADO', Registro_x0020_SIPERDEFId: yo.Id, RegistradorTexto: yo.Title }, anotarRegistro('REGISTRADA EN SIPERDEF') + '. En Estado: ' + E.RG);
     })
-      .then(function () { confirmando = null; aviso('Registrada: ' + t.nombre); return cargar(); })
+      .then(function () { confirmando = null; recien.add(t.id); aviso('Registrada en SIPERDEF: ' + t.nombre); return cargar(); })
       .catch(function (e) { confirmando = null; render(); alert('No se pudo registrar: ' + (e.message || e)); });
   }
   function csvRegistro() {
@@ -495,7 +502,7 @@
     var pend = regVista === 'pendientes';
     var cuerpo = gruposUnidad(registroSel()).map(function (g) {
       return '<h3>' + esc(g[0]) + ' (' + g[1].length + ')</h3><table class="r"><tr><th>Solicitante</th><th>Empleo</th><th>NIF</th><th>Tipo de permiso</th><th>Cupo</th><th>Desde</th><th>Hasta</th><th>Días</th><th>Fest.</th><th>' + (pend ? 'Registrado' : 'Estado') + '</th></tr>' +
-        g[1].map(function (t) { return '<tr><td>' + esc(t.nombre) + '</td><td>' + esc(t.empleo) + '</td><td>' + esc(nifs[t.id] || '') + '</td><td>' + esc(t.tipo) + '</td><td>' + esc(t.cupo) + '</td><td>' + esc(fCorta(t.ini)) + '</td><td>' + esc(fCorta(t.fin)) + '</td><td>' + dias(t.ini, t.fin) + '</td><td>' + esc(t.festivos) + '</td><td>' + (pend ? '☐' : esc(t.estado)) + '</td></tr>'; }).join('') + '</table>';
+        g[1].map(function (t) { return '<tr><td>' + esc(t.nombre) + '</td><td>' + esc(t.empleo) + '</td><td>' + esc(nifs[t.id] || '') + '</td><td>' + esc(t.tipo) + '</td><td>' + esc(t.cupo) + '</td><td>' + esc(fCorta(t.ini)) + '</td><td>' + esc(fCorta(t.fin)) + '</td><td>' + dias(t.ini, t.fin) + '</td><td>' + esc(t.festivos) + '</td><td>' + (t.estado === E.RG ? '✔ Registrado' : pend ? '☐' : esc(t.estado)) + '</td></tr>'; }).join('') + '</table>';
     }).join('') || '<p>No hay solicitudes.</p>';
     ventanaImprimir({ titulo: 'REGISTRO SIPERDEF · ' + (pend ? 'PENDIENTES DE REGISTRAR' : 'REGISTRADOS O ANULADOS (30 DÍAS)'), subtitulo: esc(new Date().toLocaleDateString('es-ES', { dateStyle: 'long' })),
       cuerpo: cuerpo, nombre: 'registro-siperdef-' + hoy(), apaisado: true });
@@ -860,8 +867,9 @@
         '<button data-acc="devolverAutorSol">↩ Devolver al solicitante</button><button class="peligro" data-acc="rechazarAutor">✕ Rechazar</button></div></div>';
     }
     if (puedeRegistrar(t)) {
-      h += '<div class="panel"><h3>Registro en SIPERDEF</h3>' + obs('oReg', 'Observaciones del registro (obligatorias para anular)') +
-        '<div class="acciones"><button class="prim" data-acc="registrar">✓ Registrado en SIPERDEF</button><button class="peligro" data-acc="anular">✕ Anular</button></div></div>';
+      h += '<div class="panel"><h3>Registro en SIPERDEF · <span class="badge e5">PENDIENTE DE REGISTRO</span></h3><p class="small muted">Cuando la hayas registrado en SIPERDEF, márcala: pasa al estado final «REGISTRADO EN SIPERDEF».</p>' +
+        obs('oReg', 'Observaciones del registro (obligatorias para anular)') +
+        '<div class="acciones"><button class="verde" data-acc="registrar">✔ Marcar como REGISTRADO EN SIPERDEF</button><button class="peligro" data-acc="anular">✕ Anular</button></div></div>';
     }
     if (!h) h = '<div class="panel"><h3>Tramitación</h3><p class="small muted">' + esc(siguientePaso(t)) + '</p>' + (t.estado === E.PA || t.estado === E.AP ? '<div class="meta">' + marcaEspera(t) + '</div>' : '') + '</div>';
     var dest = destRecordatorio(t);
@@ -891,8 +899,8 @@
     if (esBorrador(t)) return 'En borrador: debe enviarla el solicitante o su representante.';
     if (t.estado === E.PA) return 'Esperando la aprobación de ' + (t.apr ? t.apr.Title : t.aprTexto || 'su aprobador') + '.';
     if (t.estado === E.AP) return 'Esperando la autorización de ' + (t.aut ? t.aut.Title : t.autTexto || 'su autorizador') + '.';
-    if (t.estado === E.AU) return 'Autorizada: pendiente de registro en SIPERDEF.';
-    if (t.estado === E.RG) return 'Tramitación terminada: registrada en SIPERDEF.';
+    if (t.estado === E.AU) return 'Autorizada: PENDIENTE DE REGISTRO en SIPERDEF.';
+    if (t.estado === E.RG) return 'Estado final: REGISTRADO EN SIPERDEF.';
     return 'Tramitación terminada.';
   }
   var pAut = null;
@@ -949,6 +957,9 @@
       }
     } catch (e) { if (e === 0) return; throw e; }
     // Comprobación de papel en el momento de guardar (por si la solicitud o tus permisos han cambiado)
+    if (a === 'registrar' && boton.dataset.conf !== '1') {
+      boton.dataset.conf = '1'; boton.className = 'regconf'; boton.textContent = '¿Ya está registrado en SIPERDEF? Pulsa para confirmar'; return;
+    }
     var permitido = { aprobar: puedeAprobar, devolverAprob: puedeAprobar, rechazarAprob: puedeAprobar, autorizar: puedeAutorizar, devolverAutor: puedeAutorizar,
       devolverAutorSol: puedeAutorizar, rechazarAutor: puedeAutorizar, registrar: puedeRegistrar, anular: puedeRegistrar }[a];
     if (!permitido || !permitido(t)) { msgAcc('error', 'No te corresponde esta acción en el estado actual de la solicitud.'); return; }
@@ -1154,7 +1165,8 @@
     var el = e.target;
     var tab = el.closest('#tabs a');
     if (tab) { pref.vista = tab.dataset.v; guardarPref(); render(); return; }
-    if (el.closest('#recargar')) { cargar(); return; }
+    if (el.closest('#recargar')) { recien.clear(); cargar(); return; }
+    if (el.closest('[data-regcancel]')) { e.preventDefault(); confirmando = null; render(); return; }
     if (el.closest('#nueva') || el.closest('[data-nueva]')) { if (cargadoEn) formulario(null); return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); return; }
     var m = el.closest('[data-mes]');
@@ -1170,7 +1182,7 @@
     var fi = el.closest('[data-fichaimp]');
     if (fi) { var tf = items.find(function (x) { return x.id === Number(fi.dataset.fichaimp); }); if (tf) imprimirFicha(tf); return; }
     var rv = el.closest('[data-regv]');
-    if (rv) { regVista = rv.dataset.regv; confirmando = null; render(); return; }
+    if (rv) { regVista = rv.dataset.regv; confirmando = null; recien.clear(); render(); return; }
     if (el.closest('[data-regimp]')) { imprimirRegistro(); return; }
     if (el.closest('[data-regcsv]')) { csvRegistro(); return; }
     var ver = el.closest('[data-ver]');
