@@ -9,7 +9,7 @@ const WEB = '/et/SUIGESUR/colaborativo/CALIDAD-VIDA', O = 'https://colabora.mdef
 const U = { 279: { Id: 279, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.es' }, 11: { Id: 11, Title: 'APROBADOR UNO', EMail: 'aprob1@et.mde.es' },
   12: { Id: 12, Title: 'AUTORIZADOR UNO', EMail: 'autor1@et.mde.es' }, 13: { Id: 13, Title: 'SOLICITANTE DOS', EMail: 'sol2@et.mde.es' } };
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(0, 0, 0, 0); return x.toISOString(); };
-let ultimoFiltro = '', items, gestor = false, registro = true;
+let ultimoFiltro = '', items, gestor = false, registro = true, admin = false;
 const nuevoStore = () => {
   items = [
     { Id: 1, Title: 'Vacaciones', Estado: '1-Pendiente de Aprobar', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(5), FechaDeFin: d(9), Solicitante: U[13], AprobadorDePermiso: U[279], CorreoDelSolicitante: 'sol2@et.mde.es', CorreoDeAPROBADOR: 'usuario@et.mde.es', AprobadorTexto: 'USUARIO DE PRUEBA', EstadoDeAprobacion: 'SIN APROBAR', Unidad0: { Id: 2, Title: 'UNIDAD B' }, Dependencia: 'SEGURIDAD' },
@@ -67,7 +67,7 @@ async function prueba(verbose, soloAlcance) {
     if (resto.includes('sitegroups/getbyname')) return J({ value: [{ Title: 'REGISTRADOR UNO' }, { Title: U[279].Title }] });
     if (resto.includes('/roleassignments')) return J({ value: [{ Member: { Title: 'Integrantes CALIDAD-VIDA', PrincipalType: 8 }, RoleDefinitionBindings: [{ Name: 'Leer' }] },
       { Member: { Title: 'Personal de Registro', PrincipalType: 8 }, RoleDefinitionBindings: [{ Name: 'Colaborar' }, { Name: 'Acceso limitado' }] }] });
-    if (resto.includes("getbytitle('Solicitud de Permisos')")) return J({ Id: 'g', Title: 'Solicitud de Permisos', ListItemEntityTypeFullName: 'SP.Data.Solicitud_x0020_de_x0020_PermisosListItem', EffectiveBasePermissions: { High: '0', Low: String(gestor ? 0x80F : 0x7) }, RootFolder: { ServerRelativeUrl: WEB + '/Lists/Solicitud de Permisos' } });
+    if (resto.includes("getbytitle('Solicitud de Permisos')")) return J({ Id: 'g', Title: 'Solicitud de Permisos', ListItemEntityTypeFullName: 'SP.Data.Solicitud_x0020_de_x0020_PermisosListItem', EffectiveBasePermissions: { High: '0', Low: String((gestor ? 0x80F : 0x7) | (admin ? 0x2000000 : 0)) }, RootFolder: { ServerRelativeUrl: WEB + '/Lists/Solicitud de Permisos' } });
     return r.fulfill({ status: 404, body: '' });
   });
   const tag = verbose ? '[verbose]' : '[ligero]';
@@ -98,10 +98,13 @@ async function prueba(verbose, soloAlcance) {
     await p.click('#dlg [data-cerrar]'); gestor = false;
     // 4) Comprobar accesos
     registro = true; await p.click('#recargar'); await p.waitForTimeout(600);
+    console.log(tag, 'sin control total, pestaña Ajustes:', await p.$$eval('#tabs a[data-v=ajustes]', a => a.length));
+    admin = true; await p.click('#recargar'); await p.waitForTimeout(600);
+    console.log(tag, 'con control total, pestaña Ajustes:', await p.$$eval('#tabs a[data-v=ajustes]', a => a.length));
     await p.click('#tabs a[data-v=ajustes]'); await p.waitForTimeout(200); await p.click('[data-seguridad]'); await p.waitForTimeout(600);
     console.log(tag, 'accesos:', (await p.textContent('#segRes')).replace(/\s+/g, ' ').slice(0, 520));
     await p.screenshot({ path: new URL('seguridad.png', import.meta.url).pathname, fullPage: true });
-    console.log(tag, 'errores:', errs);
+    console.log(tag, 'errores:', errs); admin = false;
     await b.close(); return;
   }
   if (soloAlcance) {

@@ -160,6 +160,7 @@
   var CLAVE = 'permisos-calidad-vida';
   var pref = { sitio: '/et/SUIGESUR/colaborativo/CALIDAD-VIDA', lista: 'Solicitud de Permisos', vista: 'mias', correo: true,
     f: { q: '', estado: '', tipo: '', dependencia: '', unidad: '', cupo: '' }, cal: { dependencia: '', unidad: '', pendientes: true, ver: 'control' }, recordados: {} };
+  var POR_DEFECTO = { sitio: pref.sitio, lista: pref.lista };
   try { var g = JSON.parse(localStorage.getItem(CLAVE) || 'null'); if (g) pref = Object.assign(pref, g, { f: Object.assign(pref.f, g.f || {}), cal: Object.assign(pref.cal, g.cal || {}) }); } catch (e) { /* sin memoria local */ }
   var guardarPref = function () { try { localStorage.setItem(CLAVE, JSON.stringify(pref)); } catch (e) { /* sin memoria local */ } };
 
@@ -174,7 +175,7 @@
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
 
   // ---------- SharePoint ----------
-  var web = null, yo = null, misGrupos = [], esGestor = false, listaInfo = null, opciones = {}, empleos = [], unidades = [], items = [], cargadoEn = null;
+  var web = null, yo = null, misGrupos = [], esGestor = false, esAdmin = false, listaInfo = null, opciones = {}, empleos = [], unidades = [], items = [], cargadoEn = null;
   function api(url) {
     var pedir = function (accept) {
       return fetch(url, { credentials: 'same-origin', headers: { Accept: accept } }).then(function (r) {
@@ -263,6 +264,9 @@
         listaInfo = l;
         // Gestor = quien puede administrar la lista en Colabora (permiso «Administrar listas»)
         esGestor = ((Number(l.EffectiveBasePermissions && l.EffectiveBasePermissions.Low) || 0) & 0x800) !== 0;
+        // Ajustes: solo «Control total» o administradores (permiso «Administrar permisos», que no tiene «Diseño»)
+        esAdmin = ((Number(l.EffectiveBasePermissions && l.EffectiveBasePermissions.Low) || 0) & 0x2000000) !== 0;
+        if (!esAdmin) pref.correo = true; // sin Ajustes, los avisos por correo siempre se envían, como el formulario
       }),
       api(urlLista() + "/fields?$select=InternalName,Choices&$filter=(InternalName eq 'Estado') or (InternalName eq 'TipoDePermiso') or (InternalName eq 'CupoDeA_x00f1_o') or (InternalName eq 'Dependencia') or (InternalName eq 'JEFE')")
         .then(function (d) { lista(d.value).forEach(function (f) { opciones[f.InternalName] = lista(f.Choices).length ? lista(f.Choices) : (f.Choices || []); }); }).catch(function () { /* se deducen de los datos */ }),
@@ -285,7 +289,8 @@
       }
     }).catch(function (e) {
       $('#estadoCarga').textContent = 'Error';
-      $('#vista').innerHTML = '<div class="error">No se pudo leer la lista: ' + esc(e.message || e) + '. ¿Tienes permiso para verla? Revisa el sitio y la lista en Ajustes.</div>' + (pref.vista === 'ajustes' ? vistaAjustes() : '');
+      $('#vista').innerHTML = '<div class="error">No se pudo leer la lista: ' + esc(e.message || e) + '. ¿Tienes permiso para verla?</div>' +
+        (pref.sitio !== POR_DEFECTO.sitio || pref.lista !== POR_DEFECTO.lista ? '<div class="acciones"><button class="prim" data-restablecer="1">Volver al sitio y la lista de siempre</button></div>' : '');
     });
   }
 
@@ -591,6 +596,7 @@
       ts.slice(0, 300).map(function (t) { return tarjeta(t); }).join('');
   }
   function vistaAjustes() {
+    if (!esAdmin) return '<div class="card vacio">Los ajustes solo están disponibles para quien tiene «Control total» en la lista.</div>';
     return '<div class="card"><h3 style="margin-top:0">Lista de SharePoint</h3>' +
       '<label class="lbl">Sitio</label><input id="aSitio" value="' + esc(pref.sitio) + '">' +
       '<label class="lbl">Lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
@@ -615,8 +621,8 @@
       res(api(urlLista() + '?$select=HasUniqueRoleAssignments')),
       res(todas(urlLista() + '/roleassignments?$expand=Member,RoleDefinitionBindings'))
     ]).then(function (r) {
-      var h = '<table class="t"><tr><th colspan="5">Tus permisos en la lista</th></tr><tr><td>Ver ' + si(BIT.ver) + '</td><td>Crear ' + si(BIT.crear) + '</td><td>Modificar ' + si(BIT.modificar) +
-        '</td><td>Borrar ' + si(BIT.borrar) + '</td><td>Administrar ' + si(BIT.administrar) + '</td></tr></table>' +
+      var h = '<table class="t"><tr><th colspan="6">Tus permisos en la lista</th></tr><tr><td>Ver ' + si(BIT.ver) + '</td><td>Crear ' + si(BIT.crear) + '</td><td>Modificar ' + si(BIT.modificar) +
+        '</td><td>Borrar ' + si(BIT.borrar) + '</td><td>Administrar ' + si(BIT.administrar) + '</td><td>Control total ' + si(0x2000000) + '</td></tr></table>' +
         '<p class="small">Grupo de registro: ' + (enRegistro() ? '<b>perteneces</b> a «' + esc(grupo) + '».' : 'no perteneces a «' + esc(grupo) + '»: no ves la pestaña ni los NIF de registro.') + '</p>';
       if (r[0]) h += r[0].ok ? '<details class="small"><summary>Integrantes de «' + esc(grupo) + '» (' + r[0].v.length + ')</summary><p>' + r[0].v.map(function (u) { return esc(u.Title); }).join('<br>') + '</p></details>' :
         '<p class="small muted">No se puede ver quién está en «' + esc(grupo) + '» (el grupo oculta sus integrantes o no existe con ese nombre).</p>';
@@ -637,12 +643,13 @@
   }
   function render() {
     var vistas = [['mias', 'Mis solicitudes'], ['pendientes', 'Pendientes de mí']].concat(cargadoEn && enRegistro() ? [['registro', 'Registro SIPERDEF']] : [])
-      .concat([['calendario', 'Calendario'], ['todas', 'Consulta'], ['ajustes', 'Ajustes']]);
+      .concat([['calendario', 'Calendario'], ['todas', 'Consulta']]).concat(cargadoEn && esAdmin ? [['ajustes', 'Ajustes']] : []);
     if (pref.vista === 'registro' && cargadoEn && !enRegistro()) pref.vista = 'mias';
+    if (pref.vista === 'ajustes' && (!cargadoEn || !esAdmin)) pref.vista = 'mias';
     var p = cargadoEn ? pendientes() : { aprobar: [], autorizar: [] };
     var cuenta = { pendientes: p.aprobar.length + p.autorizar.length, registro: cargadoEn ? porRegistrar().length : 0 };
     $('#tabs').innerHTML = vistas.map(function (v) { return '<a data-v="' + v[0] + '" class="' + (pref.vista === v[0] ? 'on' : '') + '">' + v[1] + (cuenta[v[0]] ? '<i>' + cuenta[v[0]] + '</i>' : '') + '</a>'; }).join('');
-    if (!cargadoEn && pref.vista !== 'ajustes') return;
+    if (!cargadoEn) return;
     $('#vista').innerHTML = ({ mias: vistaMias, pendientes: vistaPendientes, registro: vistaRegistro, calendario: vistaCalendario, todas: vistaTodas, ajustes: vistaAjustes }[pref.vista] || vistaMias)();
   }
   var aviso = function (txt) { $('#estadoCarga').textContent = txt; setTimeout(function () { if (cargadoEn) $('#estadoCarga').textContent = items.length + ' solicitudes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }, 3000); };
@@ -1172,7 +1179,8 @@
     var m = el.closest('[data-mes]');
     if (m) { mes = new Date(mes.getFullYear(), mes.getMonth() + Number(m.dataset.mes), 1); render(); return; }
     if (el.closest('[data-impcal]')) { imprimirCalendario(); return; }
-    if (el.closest('[data-seguridad]')) { comprobarSeguridad(); return; }
+    if (el.closest('[data-seguridad]')) { if (esAdmin) comprobarSeguridad(); return; }
+    if (el.closest('[data-restablecer]')) { pref.sitio = POR_DEFECTO.sitio; pref.lista = POR_DEFECTO.lista; guardarPref(); cargar(); return; }
     var ic = el.closest('[data-ics]');
     if (ic) { if (ic.dataset.ics === 'mias') exportarIcs(items.filter(esMia), 'mis-permisos'); else exportarIcs(delCalendario(), 'calendario-permisos'); return; }
     var rc = el.closest('[data-recordar]');
@@ -1211,8 +1219,8 @@
     else if (el.id === 'cVer') pref.cal.ver = el.value;
     else if (el.id === 'rUni') { regUnidad = el.value; confirmando = null; render(); return; }
     else if (el.id === 'mCupo') { mCupo = el.value; render(); return; }
-    else if (el.id === 'aCorreo') pref.correo = el.checked;
-    else if (el.id === 'aSitio' || el.id === 'aLista') { pref.sitio = $('#aSitio').value.trim() || pref.sitio; pref.lista = $('#aLista').value.trim() || pref.lista; guardarPref(); cargadoEn = null; cargar(); return; }
+    else if (el.id === 'aCorreo') { if (!esAdmin) return; pref.correo = el.checked; }
+    else if ((el.id === 'aSitio' || el.id === 'aLista') && esAdmin) { pref.sitio = $('#aSitio').value.trim() || pref.sitio; pref.lista = $('#aLista').value.trim() || pref.lista; guardarPref(); cargadoEn = null; cargar(); return; }
     else return;
     guardarPref(); render();
   });

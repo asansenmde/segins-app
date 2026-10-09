@@ -44,7 +44,8 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
   se abre desde allí. Pestañas: **Mis solicitudes** (como solicitante o representante; nueva solicitud, borrador y
   envío), **Pendientes de mí** (aprobar, autorizar y registrar, según figures en la solicitud o pertenezcas a un grupo
   de registro), **Calendario** de permisos concedidos (y pendientes, opcional) por dependencia y unidad, imprimible en
-  PDF, **Consulta** con filtros y exportación a CSV, y **Ajustes**. Reproduce las acciones, campos y correos del
+  PDF, **Consulta** con filtros y exportación a CSV, y **Ajustes** (solo para quien tiene «Control total» en la lista o
+  es administrador: permiso «Administrar permisos»; los demás no ven la pestaña y los avisos por correo se envían siempre). Reproduce las acciones, campos y correos del
   formulario InfoPath descritos en `CIRCUITO.md`; cada cambio se guarda solo si nadie ha tocado la solicitud desde que
   se cargó (`IF-MATCH`). El NIF solo se muestra a quien interviene.
   **Registro SIPERDEF**: pestaña aparte, visible solo para el grupo de Colabora «Personal de Registro»: solicitudes
