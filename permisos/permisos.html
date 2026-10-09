@@ -311,6 +311,8 @@
   var puedeAprobar = function (t) { return t.estado === E.PA && soy(t.apr); };
   var puedeAutorizar = function (t) { return t.estado === E.AP && soy(t.aut); };
   var puedeRegistrar = function (t) { return t.estado === E.AU && enRegistro(); };
+  // Datos personales (NIF): solo quien interviene en la solicitud; el registro, solo en las que le llegan (autorizadas o ya tramitadas por él)
+  var veNif = function (t) { return esMia(t) || soy(t.apr) || soy(t.aut) || soy(t.reg) || (enRegistro() && [E.AU, E.RG, E.AN].indexOf(t.estado) >= 0); };
   var pendientes = function () { return { aprobar: items.filter(puedeAprobar), autorizar: items.filter(puedeAutorizar) }; };
 
   // ---------- Tiempo de espera y solapes ----------
@@ -429,6 +431,15 @@
       .then(function (l) { l.forEach(function (x) { nifs[x.Id] = x.NIF || ''; }); }).catch(function () { /* sin NIF: se ve en la ficha */ });
   }
   var porRegistrar = function () { return items.filter(puedeRegistrar); };
+  // Antes de registrar o anular se vuelve a preguntar al servidor si sigues en el grupo de registro (la página
+  // pudo quedarse abierta después de que te quitaran del grupo). Colabora, además, rechaza la escritura sin permiso.
+  function verificarRegistro() {
+    return api(web + '/_api/web/currentuser/groups?$select=Title').then(function (d) { misGrupos = lista(d.value).map(function (x) { return x.Title; }); },
+      function () { misGrupos = []; }).then(function () {
+      if (!enRegistro()) { nifs = {}; if (pref.vista === 'registro') pref.vista = 'mias'; throw new Error('No perteneces al grupo «Personal de Registro» de Colabora: no puedes registrar ni anular. Pulsa Actualizar.'); }
+    });
+  }
+  var anotarRegistro = function (txt) { return ' / ' + txt + ' por: ' + yo.Title + '  A las  ' + ahoraTxt(); };
   function registroSel() {
     var hace30 = new Date(Date.now() - 30 * 864e5).toISOString();
     var ts = regVista === 'pendientes' ? porRegistrar() : items.filter(function (t) { return (t.estado === E.RG || t.estado === E.AN) && String(t.modificado) >= hace30; });
@@ -464,18 +475,23 @@
       '<p class="muted small">«✓ Registrado» marca la solicitud como «4-Registrado SIPERDEF» con tu nombre (pide confirmación). Para anularla, ábrela pulsando el nombre.</p>';
   }
   function registrarRapido(t, boton) {
+    if (!puedeRegistrar(t)) return;
     boton.disabled = true; boton.textContent = 'Guardando…';
-    guardarCambios(t, { Estado: E.RG, ValidacionEstado: E.RG, EstadoDeRegistro: 'REGISTRADO', Registro_x0020_SIPERDEFId: yo.Id, RegistradorTexto: yo.Title }, null)
+    verificarRegistro().then(function () {
+      return guardarCambios(t, { Estado: E.RG, ValidacionEstado: E.RG, EstadoDeRegistro: 'REGISTRADO', Registro_x0020_SIPERDEFId: yo.Id, RegistradorTexto: yo.Title }, anotarRegistro('REGISTRADA EN SIPERDEF') + '. En Estado: ' + E.RG);
+    })
       .then(function () { confirmando = null; aviso('Registrada: ' + t.nombre); return cargar(); })
       .catch(function (e) { confirmando = null; render(); alert('No se pudo registrar: ' + (e.message || e)); });
   }
   function csvRegistro() {
+    if (!enRegistro()) return;
     var c = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
     var f = [['Unidad', 'Solicitante', 'Representante', 'Empleo', 'NIF', 'Tipo de permiso', 'Cupo', 'Desde', 'Hasta', 'Días', 'Festivos', 'Estado', 'Fecha de autorización']];
     gruposUnidad(registroSel()).forEach(function (g) { g[1].forEach(function (t) { f.push([g[0], t.nombre, t.rep && t.rep.Title, t.empleo, nifs[t.id] || '', t.tipo, t.cupo, fCorta(t.ini), fCorta(t.fin), dias(t.ini, t.fin), t.festivos, t.estado, t.fAutor ? new Date(t.fAutor).toLocaleDateString('es-ES') : '']); }); });
     descargar('registro-siperdef-' + hoy() + '.csv', '﻿' + f.map(function (r) { return r.map(c).join(';'); }).join('\r\n'), 'text/csv;charset=utf-8');
   }
   function imprimirRegistro() {
+    if (!enRegistro()) return;
     var pend = regVista === 'pendientes';
     var cuerpo = gruposUnidad(registroSel()).map(function (g) {
       return '<h3>' + esc(g[0]) + ' (' + g[1].length + ')</h3><table class="r"><tr><th>Solicitante</th><th>Empleo</th><th>NIF</th><th>Tipo de permiso</th><th>Cupo</th><th>Desde</th><th>Hasta</th><th>Días</th><th>Fest.</th><th>' + (pend ? 'Registrado' : 'Estado') + '</th></tr>' +
@@ -573,7 +589,44 @@
       '<label class="lbl">Lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
       '<p class="small muted">Usuario: ' + esc(yo ? yo.Title : '—') + '<br>' + esc(alcanceTxt()) + (misGrupos.length ? '<br>Tus grupos: ' + esc(misGrupos.join(', ')) : '') + '</p>' +
       '<label class="check"><input type="checkbox" id="aCorreo"' + (pref.correo ? ' checked' : '') + '> Enviar los avisos por correo al tramitar (como el formulario de Colabora)</label></div>' +
-      '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">La página trabaja dentro de Colabora con tu sesión y tus permisos. Solo carga las solicitudes que te corresponden por tu papel (solicitante, representante, aprobador, autorizador o registro); el gestor de la lista ve todas. Escribe solo cuando guardas o tramitas una solicitud. Nunca borra. No envía nada fuera del servidor. El NIF solo se muestra a las personas que intervienen en la solicitud.</p></div>';
+      '<div class="card"><h3 style="margin-top:0">🔒 Seguridad y accesos</h3><p class="small muted">Comprueba en Colabora tus permisos en la lista, quién forma el grupo de registro y quién tiene acceso a la lista. Solo lee.</p>' +
+      '<div class="acciones"><button data-seguridad="1">Comprobar accesos</button></div><div id="segRes"></div></div>' +
+      '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">La página trabaja dentro de Colabora con tu sesión y tus permisos. Solo carga las solicitudes que te corresponden por tu papel (solicitante, representante, aprobador, autorizador o registro); el gestor de la lista ve todas. Antes de guardar vuelve a comprobar en el servidor el estado de la solicitud y tu papel (y, para registrar o anular, que sigues en el grupo de registro); cada trámite queda anotado en el historial con tu nombre y la hora. Escribe solo cuando guardas o tramitas una solicitud. Nunca borra. No envía nada fuera del servidor. El NIF solo se pide al servidor y se muestra a las personas que intervienen en la solicitud (el registro, solo en las autorizadas, registradas o anuladas).</p></div>';
+  }
+  // ---------- Comprobación de accesos (solo lectura) ----------
+  var BIT = { ver: 0x1, crear: 0x2, modificar: 0x4, borrar: 0x8, administrar: 0x800 };
+  var abiertoATodos = /todos|everyone|autenticad|authenticated|nt authority|integrantes|visitantes|members|visitors|usuarios del dominio|domain users/i;
+  function comprobarSeguridad() {
+    var el = $('#segRes'); if (!el || !listaInfo) return;
+    el.innerHTML = '<p class="muted small">Comprobando…</p>';
+    var low = Number(listaInfo.EffectiveBasePermissions && listaInfo.EffectiveBasePermissions.Low) || 0;
+    var si = function (b) { return (low & b) ? '✔' : '—'; };
+    var grupo = misGrupos.filter(function (g) { return GRUPO_REGISTRO.test(String(g).trim()); })[0] || 'Personal de Registro';
+    var res = function (pr) { return pr.then(function (v) { return { ok: true, v: v }; }, function (e) { return { ok: false, e: e }; }); };
+    Promise.all([
+      enRegistro() || esGestor ? res(todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(grupo.replace(/'/g, "''")) + "')/users?$select=Title,Email&$top=500")) : Promise.resolve(null),
+      res(api(urlLista() + '?$select=HasUniqueRoleAssignments')),
+      res(todas(urlLista() + '/roleassignments?$expand=Member,RoleDefinitionBindings'))
+    ]).then(function (r) {
+      var h = '<table class="t"><tr><th colspan="5">Tus permisos en la lista</th></tr><tr><td>Ver ' + si(BIT.ver) + '</td><td>Crear ' + si(BIT.crear) + '</td><td>Modificar ' + si(BIT.modificar) +
+        '</td><td>Borrar ' + si(BIT.borrar) + '</td><td>Administrar ' + si(BIT.administrar) + '</td></tr></table>' +
+        '<p class="small">Grupo de registro: ' + (enRegistro() ? '<b>perteneces</b> a «' + esc(grupo) + '».' : 'no perteneces a «' + esc(grupo) + '»: no ves la pestaña ni los NIF de registro.') + '</p>';
+      if (r[0]) h += r[0].ok ? '<details class="small"><summary>Integrantes de «' + esc(grupo) + '» (' + r[0].v.length + ')</summary><p>' + r[0].v.map(function (u) { return esc(u.Title); }).join('<br>') + '</p></details>' :
+        '<p class="small muted">No se puede ver quién está en «' + esc(grupo) + '» (el grupo oculta sus integrantes o no existe con ese nombre).</p>';
+      if (r[1].ok) h += '<p class="small">Permisos de la lista: ' + (r[1].v.HasUniqueRoleAssignments ? '<b>propios</b> (no heredados del sitio).' : '<b>heredados del sitio</b>: quien entra al sitio CALIDAD-VIDA tiene el mismo acceso a la lista.') + '</p>';
+      if (r[2].ok) {
+        var filas = r[2].v.map(function (ra) {
+          var m = ra.Member || {}, niveles = lista(ra.RoleDefinitionBindings).map(function (x) { return x.Name; }).filter(function (n) { return !/acceso limitado|limited access/i.test(n); });
+          return { nombre: m.Title || m.LoginName || '?', tipo: { 1: 'persona', 4: 'grupo de dominio', 8: 'grupo de Colabora' }[m.PrincipalType] || '', niveles: niveles };
+        }).filter(function (x) { return x.niveles.length; });
+        var anchos = filas.filter(function (x) { return abiertoATodos.test(x.nombre); });
+        h += '<div style="overflow-x:auto"><table class="t"><tr><th>Quién tiene acceso a la lista</th><th>Tipo</th><th>Nivel</th></tr>' +
+          filas.map(function (x) { return '<tr' + (abiertoATodos.test(x.nombre) ? ' style="background:var(--warn-bg)"' : '') + '><td>' + esc(x.nombre) + '</td><td>' + esc(x.tipo) + '</td><td>' + esc(x.niveles.join(', ')) + '</td></tr>'; }).join('') + '</table></div>' +
+          (anchos.length ? '<div class="aviso">⚠ ' + anchos.map(function (x) { return '«' + esc(x.nombre) + '»'; }).join(', ') + ' parece un grupo amplio: sus integrantes pueden abrir <b>todas</b> las solicitudes (con NIF) desde la propia lista de Colabora, aunque esta página solo les enseñe las suyas.</div>' : '');
+      } else h += '<p class="small muted">No tienes permiso para ver quién tiene acceso a la lista (solo el propietario del sitio). Pídele que lo revise.</p>';
+      h += '<p class="small muted">Esta página filtra lo que ve cada uno y comprueba tu papel antes de guardar, pero la protección real es la de la lista en Colabora: quien tenga permiso de lectura sobre la lista puede abrir todas las solicitudes desde sus vistas. Lo recomendable es que la lista no herede los permisos del sitio y que solo tengan acceso las personas que tramitan permisos, revisado con el propietario del sitio y el oficial de seguridad.</p>';
+      el.innerHTML = h;
+    });
   }
   function render() {
     var vistas = [['mias', 'Mis solicitudes'], ['pendientes', 'Pendientes de mí']].concat(cargadoEn && enRegistro() ? [['registro', 'Registro SIPERDEF']] : [])
@@ -742,8 +795,9 @@
   // Anotación que el formulario añade a «Registro de Borrador»
   var anotacion = function (sol, rep, estado) { return ' / SOLICITADA APROBACIÓN por: ' + (sol || '') + ' En su Nombre o Representado por. ' + (rep || '') + '  A las  ' + ahoraTxt() + '. En Estado: ' + estado; };
   function guardarCambios(t, cuerpo, anotar) {
-    return leerElemento(t.id, ['RegistroDeBorrador']).then(function (x) {
+    return leerElemento(t.id, ['RegistroDeBorrador', 'Estado']).then(function (x) {
       if (t.modificado && x.datos.Modified && !mismaFecha(t.modificado, x.datos.Modified)) throw new Error(CONFLICTO);
+      if (x.datos.Estado !== undefined && (x.datos.Estado || '') !== (t.estado || '')) throw new Error(CONFLICTO);
       if (anotar) cuerpo.RegistroDeBorrador = (x.datos.RegistroDeBorrador || '') + esc(anotar);
       cuerpo.__metadata = tipoEntidad();
       return enviarSP(urlLista() + '/items(' + t.id + ')', cuerpo, 'No tienes permiso para modificar esta solicitud', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': x.etag });
@@ -756,7 +810,7 @@
     var t = items.find(function (x) { return x.id === id; });
     if (!t) return;
     dlgId = id;
-    var interviene = esMia(t) || soy(t.apr) || soy(t.aut) || soy(t.reg) || enRegistro();
+    var interviene = veNif(t);
     var c = [['Estado', t.estado], ['Tipo de permiso', t.tipo], ['Cupo de año', t.cupo], ['Desde', fLarga(t.ini)], ['Hasta', fLarga(t.fin)],
       ['Días naturales', t.ini ? String(dias(t.ini, t.fin)) : ''], ['Días festivos', t.festivos], ['Solicitante', t.nombre], ['Representante', t.rep && t.rep.Title],
       ['Empleo', t.empleo], ['Dependencia', t.dependencia], ['Unidad', t.unidad && t.unidad.Title],
@@ -775,8 +829,9 @@
       '</div><div id="detAcc">' + panelAcciones(t) + '</div></div></div>';
     dlg.showModal(); dlg.scrollTop = 0;
     prepararAcciones(t);
-    leerElemento(t.id, ['NIF', 'Observaciones', 'Observaci_x00f3_nesAprobador', 'ObservacionesAutorizador', 'ObservacionesDelRegistro', 'RegistroDeBorrador', 'Attachments']).then(function (x) {
+    leerElemento(t.id, (interviene ? ['NIF'] : []).concat(['Observaciones', 'Observaci_x00f3_nesAprobador', 'ObservacionesAutorizador', 'ObservacionesDelRegistro', 'RegistroDeBorrador', 'Attachments'])).then(function (x) {
       var d = x.datos;
+      if (!interviene) delete d.NIF;
       detalle[t.id] = d;
       var m = [['NIF', interviene ? d.NIF : ''], ['Observaciones del solicitante', texto(d.Observaciones)], ['Observaciones del aprobador', d.Observaci_x00f3_nesAprobador],
         ['Observaciones del autorizador', d.ObservacionesAutorizador], ['Observaciones del registro', d.ObservacionesDelRegistro],
@@ -893,9 +948,17 @@
         Object.assign(c, { Estado: E.AN, ValidacionEstado: E.AN, ObservacionesDelRegistro: ob('oReg'), Registro_x0020_SIPERDEFId: yo.Id, RegistradorTexto: yo.Title });
       }
     } catch (e) { if (e === 0) return; throw e; }
+    // Comprobación de papel en el momento de guardar (por si la solicitud o tus permisos han cambiado)
+    var permitido = { aprobar: puedeAprobar, devolverAprob: puedeAprobar, rechazarAprob: puedeAprobar, autorizar: puedeAutorizar, devolverAutor: puedeAutorizar,
+      devolverAutorSol: puedeAutorizar, rechazarAutor: puedeAutorizar, registrar: puedeRegistrar, anular: puedeRegistrar }[a];
+    if (!permitido || !permitido(t)) { msgAcc('error', 'No te corresponde esta acción en el estado actual de la solicitud.'); return; }
+    var HIST = { aprobar: 'APROBADA Y ELEVADA AL AUTORIZADOR ' + (persona_ ? persona_.Title : ''), devolverAprob: 'DEVUELTA AL SOLICITANTE POR EL APROBADOR', rechazarAprob: 'RECHAZADA POR EL APROBADOR',
+      autorizar: 'AUTORIZADA', devolverAutor: 'DEVUELTA AL APROBADOR', devolverAutorSol: 'DEVUELTA AL SOLICITANTE POR EL AUTORIZADOR', rechazarAutor: 'RECHAZADA POR EL AUTORIZADOR',
+      registrar: 'REGISTRADA EN SIPERDEF', anular: 'ANULADA EN SIPERDEF' };
     boton.disabled = true;
     var obsTxt = ob('oAprob') || ob('oAutor') || ob('oReg');
-    guardarCambios(t, c, null).then(function () {
+    var previo = a === 'registrar' || a === 'anular' ? verificarRegistro() : Promise.resolve();
+    previo.then(function () { return guardarCambios(t, c, anotarRegistro(HIST[a]) + '. En Estado: ' + c.Estado); }).then(function () {
       var cr = pref.correo && correo ? correoDe(correo, nuevo, obsTxt) : null;
       return (cr ? enviarCorreo(cr) : Promise.resolve(null)).then(function (r) {
         return cargar().then(function () {
@@ -1064,7 +1127,7 @@
   // Ficha de una solicitud, con el formato del formulario oficial
   var detalle = {};
   function imprimirFicha(t) {
-    var d = detalle[t.id] || {}, interviene = esMia(t) || soy(t.apr) || soy(t.aut) || soy(t.reg) || enRegistro();
+    var d = detalle[t.id] || {}, interviene = veNif(t);
     var tabla = function (filas) { return '<table class="f">' + filas.filter(function (x) { return x[1]; }).map(function (x) { return '<tr><td class="k">' + esc(x[0]) + '</td><td>' + esc(x[1]).replace(/\n/g, '<br>') + '</td></tr>'; }).join('') + '</table>'; };
     var fh = function (v) { return v ? new Date(v).toLocaleString('es-ES') : ''; };
     var cuerpo = '<h3>DATOS PERSONALES DEL SOLICITANTE</h3>' + tabla([['Apellidos y nombre', t.nombre], ['NIF', interviene ? d.NIF : ''], ['Empleo o categoría profesional', t.empleo],
@@ -1097,6 +1160,7 @@
     var m = el.closest('[data-mes]');
     if (m) { mes = new Date(mes.getFullYear(), mes.getMonth() + Number(m.dataset.mes), 1); render(); return; }
     if (el.closest('[data-impcal]')) { imprimirCalendario(); return; }
+    if (el.closest('[data-seguridad]')) { comprobarSeguridad(); return; }
     var ic = el.closest('[data-ics]');
     if (ic) { if (ic.dataset.ics === 'mias') exportarIcs(items.filter(esMia), 'mis-permisos'); else exportarIcs(delCalendario(), 'calendario-permisos'); return; }
     var rc = el.closest('[data-recordar]');

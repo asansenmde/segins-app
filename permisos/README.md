@@ -73,11 +73,26 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
   por fecha de inicio; botón «✉ Enviar recordatorio» al aprobador o autorizador de mi solicitud (correo oficial, uno
   al día); aviso de **solapes** solo cuando la misma persona tiene dos solicitudes en las mismas fechas: al pedirla
   y al aprobador y al autorizador. Que coincidan varias personas de una unidad no se avisa (lo decide quien autoriza).
+- **Seguridad del registro**:
+  - La pestaña, los NIF de la tabla, la relación impresa y el CSV solo funcionan para el grupo «Personal de Registro»
+    (si no se puede leer el grupo, se trata como «no pertenece»).
+  - Antes de registrar o anular se vuelve a preguntar al servidor si sigues en el grupo (por si te quitaron con la
+    página abierta).
+  - Antes de cualquier trámite se comprueba en el servidor que la solicitud no ha cambiado (fecha y estado) y que te
+    corresponde la acción.
+  - Cada trámite (aprobar, devolver, rechazar, autorizar, registrar, anular) se anota en el historial
+    (`RegistroDeBorrador`) con nombre y hora.
+  - El NIF solo se pide al servidor para quien interviene; el registro, solo en las autorizadas, registradas o anuladas.
+  - En Ajustes, «Comprobar accesos» (solo lectura) enseña tus permisos en la lista, los integrantes del grupo de
+    registro, si la lista hereda permisos del sitio y quién tiene acceso, y avisa si hay grupos amplios con lectura.
+  - **Límite**: la protección real es la de la lista en Colabora. Quien tenga lectura sobre la lista ve todas las
+    solicitudes desde sus vistas. Hay que revisarlo con el propietario del sitio y el oficial de seguridad.
 - Colores: azul marino y oro (página, impresiones y correos), para distinguirla del resto de aplicaciones.
 - `CIRCUITO.md`: reglas del formulario InfoPath (sacadas de la plantilla `.xsn`).
 - `pruebas/simulacion.mjs`: prueba completa contra una lista simulada (ligero y *verbose*): alta con validaciones,
   aprobar y elevar, devolver sin observaciones, autorizar, registrar, NIF, conflicto, calendario (filtro «Ver», control del mes, .ics), impresión, CSV, espera, solapes,
-  recordatorio y resumen de días.
+  recordatorio y resumen de días; escenario «seguridad»: fuera del grupo con la página abierta, estado
+  cambiado en el servidor, NIF no pedido por el gestor ajeno y «Comprobar accesos».
 
 - `prueba-permisos.html`: diagnóstico específico. Se sube a cualquier biblioteca de Colabora y se pulsa «Analizar».
   Solo lee; el resumen lleva estructura y recuentos (los estados en texto libre se recortan: nada tras «por», «:» o

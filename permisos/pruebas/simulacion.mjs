@@ -23,13 +23,15 @@ const nuevoStore = () => {
 async function prueba(verbose, soloAlcance) {
   nuevoStore();
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1366, height: 800 }, acceptDownloads: true }); const p = await ctx.newPage();
-  const errs = []; p.on('pageerror', e => errs.push(e.message)); const posts = [];
+  const errs = []; p.on('pageerror', e => errs.push(e.message)); const posts = [], gets = [], alertas = [];
+  p.on('dialog', dl => { alertas.push(dl.message()); dl.dismiss(); });
   await p.route(O + '/**', async r => {
     const req = r.request(), u = decodeURIComponent(req.url());
     if (!u.includes('/_api/')) return r.fulfill({ body: html, contentType: 'text/html' });
     if (verbose && req.method() === 'GET' && (req.headers()['accept'] || '').includes('nometadata')) return r.fulfill({ status: 415, body: '' });
     const J = x => r.fulfill({ json: verbose ? { d: Array.isArray(x.value) ? { results: x.value, __next: x['odata.nextLink'] } : x } : x });
     const resto = u.split('/_api/')[1];
+    if (req.method() === 'GET') gets.push(resto);
     if (req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
@@ -62,6 +64,9 @@ async function prueba(verbose, soloAlcance) {
       const ids = [...filtro.matchAll(/(\w+)Id eq (\d+)/g)], est = [...filtro.matchAll(/Estado eq '([^']+)'/g)].map(x => x[1]);
       return J({ value: items.filter(it => ids.some(([, k, v]) => it[k] && it[k].Id === +v) || est.includes(it.Estado)) });
     }
+    if (resto.includes('sitegroups/getbyname')) return J({ value: [{ Title: 'REGISTRADOR UNO' }, { Title: U[279].Title }] });
+    if (resto.includes('/roleassignments')) return J({ value: [{ Member: { Title: 'Integrantes CALIDAD-VIDA', PrincipalType: 8 }, RoleDefinitionBindings: [{ Name: 'Leer' }] },
+      { Member: { Title: 'Personal de Registro', PrincipalType: 8 }, RoleDefinitionBindings: [{ Name: 'Colaborar' }, { Name: 'Acceso limitado' }] }] });
     if (resto.includes("getbytitle('Solicitud de Permisos')")) return J({ Id: 'g', Title: 'Solicitud de Permisos', ListItemEntityTypeFullName: 'SP.Data.Solicitud_x0020_de_x0020_PermisosListItem', EffectiveBasePermissions: { High: '0', Low: String(gestor ? 0x80F : 0x7) }, RootFolder: { ServerRelativeUrl: WEB + '/Lists/Solicitud de Permisos' } });
     return r.fulfill({ status: 404, body: '' });
   });
@@ -69,6 +74,34 @@ async function prueba(verbose, soloAlcance) {
   await p.goto(O + WEB + '/Documentos%20compartidos/permisos.html' + (soloAlcance === 'enlace' ? '?id=1' : '')); await p.waitForTimeout(800);
   if (soloAlcance === 'enlace') {
     console.log(tag, 'enlace del correo abre:', await p.textContent('#dlg h2').catch(() => 'nada'), '| URL limpia:', p.url().endsWith('permisos.html'));
+    await b.close(); return;
+  }
+  if (soloAlcance === 'seguridad') {
+    // 1) Te quitan del grupo de registro con la página abierta: no se registra
+    await p.click('#tabs a[data-v=registro]'); await p.waitForTimeout(200);
+    registro = false; posts.length = 0;
+    await p.click('[data-regok="3"]'); await p.waitForTimeout(100); await p.click('[data-regok="3"]'); await p.waitForTimeout(800);
+    console.log(tag, 'fuera del grupo:', alertas.pop(), '| MERGE enviado:', posts.some(x => /items\(3\)/.test(x.ruta)));
+    await p.click('#recargar'); await p.waitForTimeout(600);
+    console.log(tag, 'pestañas tras actualizar:', await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | ')));
+    // 2) El estado cambió en el servidor (sin cambiar la fecha): no se pisa
+    await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200);
+    await p.click('.sol[data-id="2"]'); await p.waitForTimeout(500);
+    items.find(x => x.Id === 2).Estado = '5-Rechazado'; posts.length = 0;
+    await p.click('[data-acc=autorizar]'); await p.waitForTimeout(800);
+    console.log(tag, 'estado cambiado en el servidor:', await p.textContent('#accMsg'), '| MERGE enviado:', posts.some(x => /items\(2\)/.test(x.ruta) && x.cab['x-http-method']));
+    await p.click('#dlg [data-cerrar]');
+    // 3) NIF: el gestor que no interviene ni lo pide ni lo ve
+    gestor = true; await p.click('#recargar'); await p.waitForTimeout(600); gets.length = 0;
+    await p.click('#tabs a[data-v=todas]'); await p.waitForTimeout(200); await p.click('.sol[data-id="5"]'); await p.waitForTimeout(500);
+    console.log(tag, 'gestor ajeno: NIF pedido:', gets.some(g => /items\(5\).*NIF/.test(g)), '| NIF visible:', (await p.textContent('#dlg')).includes('00000000T'));
+    await p.click('#dlg [data-cerrar]'); gestor = false;
+    // 4) Comprobar accesos
+    registro = true; await p.click('#recargar'); await p.waitForTimeout(600);
+    await p.click('#tabs a[data-v=ajustes]'); await p.waitForTimeout(200); await p.click('[data-seguridad]'); await p.waitForTimeout(600);
+    console.log(tag, 'accesos:', (await p.textContent('#segRes')).replace(/\s+/g, ' ').slice(0, 520));
+    await p.screenshot({ path: new URL('seguridad.png', import.meta.url).pathname, fullPage: true });
+    console.log(tag, 'errores:', errs);
     await b.close(); return;
   }
   if (soloAlcance) {
@@ -110,7 +143,7 @@ async function prueba(verbose, soloAlcance) {
   posts.length = 0;
   await p.click('[data-acc=aprobar]'); await p.waitForTimeout(1500);
   const ap = posts.find(x => /items\(1\)/.test(x.ruta)); const cAp = JSON.parse(ap.cuerpo);
-  console.log(tag, 'aprobar:', ap.cab['x-http-method'], JSON.stringify({ Estado: cAp.Estado, EA: cAp.EstadoDeAprobacion, Aut: cAp.AutorizadorDelPermisoId, AutT: cAp.AutorizadorTexto, Cor: cAp.CorreoDeAUTORIZADOR }));
+  console.log(tag, 'aprobar:', ap.cab['x-http-method'], JSON.stringify({ Hist: (cAp.RegistroDeBorrador || '').slice(0, 70), Estado: cAp.Estado, EA: cAp.EstadoDeAprobacion, Aut: cAp.AutorizadorDelPermisoId, AutT: cAp.AutorizadorTexto, Cor: cAp.CorreoDeAUTORIZADOR }));
   const m2 = JSON.parse(posts.find(x => x.ruta.startsWith('SP.Utilities')).cuerpo).properties;
   if (!verbose) fs.writeFileSync(new URL('correo.html', import.meta.url), m2.Body);
   console.log(tag, 'correo aprobado:', m2.To.results, m2.CC.results, m2.BCC.results, '|', m2.Subject);
@@ -197,3 +230,4 @@ registro = false; await prueba(false, 'usuario normal');
 registro = true; await prueba(false, 'registro');
 gestor = true; await prueba(true, 'gestor');
 gestor = false; await prueba(false, 'enlace');
+registro = true; await prueba(false, 'seguridad'); await prueba(true, 'seguridad');
