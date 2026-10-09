@@ -64,9 +64,20 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
 - **Impresión / PDF** con formato oficial (logo, «USO OFICIAL», pie con emisor y fecha): ficha de cada
   solicitud (con casillas de firma), relación de la pestaña Consulta según los filtros, calendario del mes y relación
   de registro por unidad.
+- **Calendario para llevar el control**: por defecto muestra *mis permisos* (azul) y *los que he aprobado, autorizado
+  o registrado* (morado); el selector «Ver» permite solo los míos, solo los tramitados o todos los que puedo ver.
+  Debajo, la tabla «Control del mes» con mi papel en cada uno. Exporta a Outlook (`.ics`, días completos; los míos
+  marcan «fuera de la oficina»).
+- **Otras ayudas**: días por tipo de permiso y cupo de año en «Mis solicitudes» (orientativo: manda SIPERDEF);
+  «⏳ esperando N días» y «empieza en N días» (en rojo si pasan de 3 días o empieza pronto) en lo pendiente, ordenado
+  por fecha de inicio; botón «✉ Enviar recordatorio» al aprobador o autorizador de mi solicitud (correo oficial, uno
+  al día); aviso de **solapes** al pedir un permiso que coincide con otro mío y, al aprobador y al autorizador, de
+  otras solicitudes en esas fechas del mismo solicitante o de su unidad (entre las que puede ver).
+- Colores: azul marino y oro (página, impresiones y correos), para distinguirla del resto de aplicaciones.
 - `CIRCUITO.md`: reglas del formulario InfoPath (sacadas de la plantilla `.xsn`).
 - `pruebas/simulacion.mjs`: prueba completa contra una lista simulada (ligero y *verbose*): alta con validaciones,
-  aprobar y elevar, devolver sin observaciones, autorizar, registrar, NIF, conflicto, calendario, impresión y CSV.
+  aprobar y elevar, devolver sin observaciones, autorizar, registrar, NIF, conflicto, calendario (filtro «Ver», control del mes, .ics), impresión, CSV, espera, solapes,
+  recordatorio y resumen de días.
 
 - `prueba-permisos.html`: diagnóstico específico. Se sube a cualquier biblioteca de Colabora y se pulsa «Analizar».
   Solo lee; el resumen lleva estructura y recuentos (los estados en texto libre se recortan: nada tras «por», «:» o

@@ -99,7 +99,9 @@ async function prueba(verbose, soloAlcance) {
   // Aprobar: sin autorizador → error; con autorizador → 2-Aprobado
   await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200);
   console.log(tag, 'pendientes:', await p.$$eval('.sec span:first-child', n => n.map(x => x.textContent)), await p.$$eval('.sec span:last-child', n => n.map(x => x.textContent)));
+  console.log(tag, 'espera en pendientes:', await p.$$eval('.badge.espera', n => n.map(x => x.textContent).join(' / ')));
   await p.click('.sol[data-id="1"]'); await p.waitForTimeout(500);
+  console.log(tag, 'aviso de solape al aprobador:', (await p.textContent('#dlg .solape').catch(() => 'ninguno')).replace(/\s+/g, ' '));
   await p.click('[data-acc=aprobar]'); await p.waitForTimeout(200);
   console.log(tag, 'aprobar sin autorizador:', await p.textContent('#accMsg'));
   await p.click('[data-acc=devolverAprob]'); await p.waitForTimeout(200);
@@ -145,7 +147,16 @@ async function prueba(verbose, soloAlcance) {
   await p.click('#dlg [data-cerrar]');
   // Calendario e impresión
   await p.click('#tabs a[data-v=calendario]'); await p.waitForTimeout(300);
-  console.log(tag, 'calendario: nombres pintados', await p.$$eval('.dia span', n => n.length));
+  const clases = async () => p.$$eval('.dia span', n => { const c = {}; n.forEach(x => { const k = x.className || 'otros'; c[k] = (c[k] || 0) + 1; }); return JSON.stringify(c); });
+  console.log(tag, 'calendario (mis + tramitados):', await clases(), '| control del mes:', await p.$$eval('#vista table.t tr', r => r.length - 1), 'filas');
+  await p.selectOption('#cVer', 'mios'); await p.waitForTimeout(200); console.log(tag, 'calendario solo míos:', await clases());
+  await p.selectOption('#cVer', 'tramitados'); await p.waitForTimeout(200); console.log(tag, 'calendario tramitados:', await clases());
+  await p.selectOption('#cVer', 'todos'); await p.waitForTimeout(200); console.log(tag, 'calendario todos:', await clases());
+  await p.selectOption('#cVer', 'control'); await p.waitForTimeout(200);
+  if (!verbose) await p.screenshot({ path: new URL('calendario.png', import.meta.url).pathname, fullPage: true });
+  const [ics] = await Promise.all([p.waitForEvent('download'), p.click('[data-ics=cal]')]);
+  const icsTxt = fs.readFileSync(await ics.path(), 'utf8');
+  console.log(tag, 'ics:', ics.suggestedFilename(), (icsTxt.match(/BEGIN:VEVENT/g) || []).length, 'eventos | CRLF:', icsTxt.includes('\r\n'), '|', (icsTxt.match(/SUMMARY:.*/g) || []).join(' ; '));
   const [pop] = await Promise.all([ctx.waitForEvent('page'), p.click('[data-impcal]')]); await pop.waitForLoadState();
   console.log(tag, 'impresión:', await pop.title(), (await pop.$$eval('.cal td .t', n => n.length)) + ' entradas');
   await pop.close();
@@ -162,7 +173,23 @@ async function prueba(verbose, soloAlcance) {
   if (!verbose) { await fic.setViewportSize({ width: 794, height: 1123 }); await fic.screenshot({ path: new URL('ficha-impresa.png', import.meta.url).pathname, fullPage: true }); }
   await fic.close(); await p.click('#dlg [data-cerrar]');
   await p.click('#tabs a[data-v=mias]'); await p.waitForTimeout(200);
-  await p.screenshot({ path: new URL('inicio.png', import.meta.url).pathname });
+  console.log(tag, 'resumen de días:', await p.$$eval('table.resumen tr', r => r.map(x => x.textContent.replace(/\s+/g, ' ')).join(' | ')));
+  await p.screenshot({ path: new URL('inicio.png', import.meta.url).pathname, fullPage: true });
+  // Recordatorio al aprobador de mi solicitud pendiente (la 7, creada arriba)
+  await p.click('.sol[data-id="7"]'); await p.waitForTimeout(500);
+  posts.length = 0; await p.click('[data-recordar]'); await p.waitForTimeout(800);
+  const mr = posts.find(x => x.ruta.startsWith('SP.Utilities')); const pr = mr && JSON.parse(mr.cuerpo).properties;
+  console.log(tag, 'recordatorio:', pr ? [pr.To.results, pr.CC.results, pr.Subject].join(' | ') : 'no enviado', '|', await p.textContent('#accMsg'), '| botón desactivado:', await p.$eval('[data-recordar]', b => b.disabled));
+  await p.click('#dlg [data-cerrar]');
+  // Solape con una solicitud mía al dar de alta otra en las mismas fechas
+  await p.click('[data-nueva]'); await p.waitForTimeout(400);
+  await p.selectOption('#fSol [name=tipo]', 'Vacaciones (Art.5)'); await p.fill('#fSol [name=ini]', d(21).slice(0, 10)); await p.fill('#fSol [name=fin]', d(22).slice(0, 10));
+  await p.selectOption('#fSol [name=empleo]', 'Comandante'); await p.selectOption('#fSol [name=unidad]', '1');
+  posts.length = 0; await p.click('#fSol #nBorrador'); await p.waitForTimeout(300);
+  console.log(tag, 'solape al guardar:', await p.textContent('#nError'), '| sin guardar:', !posts.some(x => x.ruta.endsWith('/items')));
+  await p.click('#fSol #nBorrador'); await p.waitForTimeout(1200);
+  console.log(tag, 'segundo clic guarda:', posts.some(x => x.ruta.endsWith('/items')), '| errores:', errs);
+  await p.click('#dlg [data-cerrar]');
   await b.close();
 }
 await prueba(false); await prueba(true);

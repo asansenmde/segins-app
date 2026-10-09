@@ -13,14 +13,14 @@
 -->
 <style>
   :root {
-    --bg: #f4f5f0; --surface: #fff; --surface-2: #eef1ea; --text: #1f261f; --muted: #5f685f; --line: #d9ddd3;
-    --brand: #2f3b24; --on-brand: #fff; --oro: #b8962e;
+    --bg: #f3f5f8; --surface: #fff; --surface-2: #e8eef6; --text: #1b2430; --muted: #5a6575; --line: #d5dce6;
+    --brand: #1b3a5c; --on-brand: #fff; --oro: #b8962e;
     --ok: #2e7d32; --ok-bg: #dcefdc; --warn: #9a5b00; --warn-bg: #fdebc8; --bad: #b71c1c; --bad-bg: #fbdada;
     --info: #1d4f91; --info-bg: #dde8f7; --na: #555; --na-bg: #e7e7e7;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  /* Cabecera oficial: franja blanca con el logo del Ministerio y «USO OFICIAL»; banda verde con el título */
+  /* Cabecera oficial: franja blanca con el logo del Ministerio y «USO OFICIAL»; banda azul con el título */
   .oficial { background: #fff; border-bottom: 1px solid var(--line); }
   .oficial > div { max-width: 1100px; margin: 0 auto; padding: 6px 16px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; }
   .oficial .izq { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -28,7 +28,7 @@
   .oficial .org { flex: 1; font-size: .78rem; color: #333; letter-spacing: .06em; line-height: 1.3; border-left: 1px solid #bbb; padding-left: 12px; }
   .oficial .org b { font-size: .86rem; letter-spacing: .08em; }
   .oficial .uso { height: 28px; }
-  .top { position: sticky; top: 0; z-index: 5; background: linear-gradient(90deg, #26311d, var(--brand) 55%, #3d4b2f); color: var(--on-brand); border-bottom: 4px solid var(--oro); box-shadow: 0 2px 6px rgba(0,0,0,.25); }
+  .top { position: sticky; top: 0; z-index: 5; background: linear-gradient(90deg, #102840, var(--brand) 55%, #24507a); color: var(--on-brand); border-bottom: 4px solid var(--oro); box-shadow: 0 2px 6px rgba(0,0,0,.25); }
   .top > div { max-width: 1100px; margin: 0 auto; padding: 8px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .top .tit { flex: 1; min-width: 220px; }
   .top h1 { margin: 0; font-size: 1.25rem; letter-spacing: .05em; font-weight: 800; }
@@ -60,7 +60,7 @@
   .kpi.borrador { background: #f1f1ef; border-color: #c9c9c4; border-top: 5px solid #8a8a84; } .kpi.borrador b { color: #55554f; }
   .kpi.tramite { background: #fff4dc; border-color: #f0d08a; border-top: 5px solid #d99a00; } .kpi.tramite b { color: #9a5b00; }
   .kpi.concedido { background: #e3f2e3; border-color: #a9d3a9; border-top: 5px solid #2e7d32; } .kpi.concedido b { color: #2e7d32; }
-  .kpi.proximo { background: #e3ecf8; border-color: #a9c1e3; border-top: 5px solid #1d4f91; } .kpi.proximo b { color: #1d4f91; }
+  .kpi.proximo { background: #efe7f8; border-color: #c9b3e6; border-top: 5px solid #6a3d9a; } .kpi.proximo b { color: #6a3d9a; }
   .sec { margin: 18px 0 6px; font-size: .85rem; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; display: flex; justify-content: space-between; font-weight: 700; }
   .sol { cursor: pointer; border-left: 5px solid var(--line); }
   .sol:hover { border-color: var(--brand); }
@@ -79,8 +79,15 @@
   .dia { min-height: 86px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 3px 4px; font-size: .72rem; overflow: hidden; }
   .dia.fuera { opacity: .4; } .dia.hoy { outline: 2px solid var(--brand); }
   .dia b { font-size: .8rem; }
-  .dia span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--ok-bg); color: var(--ok); border-radius: 4px; padding: 0 3px; margin-top: 2px; }
+  /* Calendario: azul = mis permisos; morado = los que he aprobado, autorizado o registrado; gris = el resto; naranja = pendientes de aprobar */
+  .dia span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: #e6e9ee; color: #3d4654; border-radius: 4px; padding: 0 3px; margin-top: 2px; cursor: pointer; }
+  .dia span.m { background: #d6e6fa; color: #12407a; font-weight: 600; } .dia span.t { background: #ece2f8; color: #5b2f8c; }
   .dia span.p { background: var(--warn-bg); color: var(--warn); }
+  .leyenda { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .8rem; color: var(--muted); margin: 6px 0; }
+  .leyenda i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
+  .espera { background: var(--na-bg); color: var(--na); } .espera.tarde { background: var(--bad-bg); color: var(--bad); }
+  table.t.resumen td:not(:first-child), table.t.resumen th:not(:first-child) { text-align: right; }
+  .solape { background: #fff4dc; border-left: 4px solid #d99a00; border-radius: 8px; padding: 8px 10px; margin: 8px 0; font-size: .9rem; }
   table.t { width: 100%; border-collapse: collapse; font-size: .85rem; }
   table.t th, table.t td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
   table.t button { white-space: nowrap; }
@@ -147,7 +154,7 @@
   // ---------- Preferencias (solo en este navegador) ----------
   var CLAVE = 'permisos-calidad-vida';
   var pref = { sitio: '/et/SUIGESUR/colaborativo/CALIDAD-VIDA', lista: 'Solicitud de Permisos', vista: 'mias', correo: true,
-    f: { q: '', estado: '', tipo: '', dependencia: '', unidad: '', cupo: '' }, cal: { dependencia: '', unidad: '', pendientes: true } };
+    f: { q: '', estado: '', tipo: '', dependencia: '', unidad: '', cupo: '' }, cal: { dependencia: '', unidad: '', pendientes: true, ver: 'control' }, recordados: {} };
   try { var g = JSON.parse(localStorage.getItem(CLAVE) || 'null'); if (g) pref = Object.assign(pref, g, { f: Object.assign(pref.f, g.f || {}), cal: Object.assign(pref.cal, g.cal || {}) }); } catch (e) { /* sin memoria local */ }
   var guardarPref = function () { try { localStorage.setItem(CLAVE, JSON.stringify(pref)); } catch (e) { /* sin memoria local */ } };
 
@@ -306,6 +313,27 @@
   var puedeRegistrar = function (t) { return t.estado === E.AU && enRegistro(); };
   var pendientes = function () { return { aprobar: items.filter(puedeAprobar), autorizar: items.filter(puedeAutorizar) }; };
 
+  // ---------- Tiempo de espera y solapes ----------
+  var desdeEstado = function (t) { return t.estado === E.AP && t.fAprob ? t.fAprob : t.estado === E.AU && t.fAutor ? t.fAutor : t.modificado; };
+  var diasEspera = function (t) { var d = desdeEstado(t); return d ? Math.max(0, Math.floor((Date.now() - new Date(d)) / 864e5)) : 0; };
+  function marcaEspera(t) {
+    var n = diasEspera(t), falta = t.ini ? dias(hoy(), t.ini) - 1 : null;
+    return '<span class="badge espera' + (n > 3 ? ' tarde' : '') + '" title="Tiempo en el estado actual">⏳ ' + (n ? 'esperando ' + n + ' día' + (n === 1 ? '' : 's') : 'desde hoy') + '</span>' +
+      (falta !== null && falta <= 3 ? '<span class="badge espera tarde">' + (falta < 0 ? 'ya ha empezado' : falta === 0 ? 'empieza hoy' : 'empieza en ' + falta + ' día' + (falta === 1 ? '' : 's')) + '</span>' : '');
+  }
+  var activa = function (t) { return t.estado !== E.RE && t.estado !== E.AN; };
+  var seSolapan = function (a, b) { return !!(a.ini && b.ini && a.ini <= (b.fin || b.ini) && b.ini <= (a.fin || a.ini)); };
+  var mismaPersona = function (a, b) { return !!(a.sol && b.sol && a.sol.Id === b.sol.Id); };
+  var lineaSol = function (x) { return esc(x.nombre) + ' · ' + esc(x.tipo || x.asunto) + ' · ' + esc(fCorta(x.ini)) + (x.fin && x.fin !== x.ini ? ' → ' + esc(fCorta(x.fin)) : '') + ' · <i>' + esc(x.estado) + '</i>'; };
+  // Para el aprobador y el autorizador: otras solicitudes (que puede ver) en las mismas fechas, del mismo solicitante o de su unidad
+  function avisoSolape(t) {
+    var ls = items.filter(function (x) { return x.id !== t.id && activa(x) && !esBorrador(x) && seSolapan(x, t) && (mismaPersona(x, t) || (t.unidad && x.unidad && x.unidad.Id === t.unidad.Id)); })
+      .sort(function (a, b) { return String(a.ini).localeCompare(String(b.ini)); });
+    if (!ls.length) return '';
+    return '<div class="solape"><b>⚠ Coinciden en esas fechas</b> (mismo solicitante o misma unidad, entre las solicitudes que puedes ver):<br>' +
+      ls.slice(0, 8).map(function (x) { return '• ' + (mismaPersona(x, t) ? '<b>mismo solicitante</b>: ' : '') + lineaSol(x); }).join('<br>') + (ls.length > 8 ? '<br>… y ' + (ls.length - 8) + ' más' : '') + '</div>';
+  }
+
   // ---------- Vistas ----------
   function tarjeta(t, extra) {
     var d = dias(t.ini, t.fin);
@@ -322,14 +350,39 @@
     return '<div class="kpis"><div class="kpi borrador">En borrador<b>' + n(esBorrador) + '</b></div><div class="kpi tramite">En trámite<b>' + n(function (t) { return t.estado === E.PA || t.estado === E.AP; }) + '</b></div>' +
       '<div class="kpi concedido">Concedidos ' + new Date().getFullYear() + '<b>' + n(function (t) { return (t.estado === E.AU || t.estado === E.RG) && String(t.ini).slice(0, 4) === String(new Date().getFullYear()); }) + '</b></div>' +
       '<div class="kpi proximo">Próximos<b>' + n(function (t) { return concedido(t) && t.ini >= ahora; }) + '</b></div></div>' +
-      '<div class="acciones"><button class="prim" data-nueva="1">＋ Nueva solicitud de permiso</button></div>' +
-      (ms.length ? ms.map(function (t) { return tarjeta(t, soy(t.rep) && !soy(t.sol) ? '<span class="muted">(como representante)</span>' : ''); }).join('') :
+      '<div class="acciones"><button class="prim" data-nueva="1">＋ Nueva solicitud de permiso</button><button data-ics="mias" title="Descarga tus permisos concedidos para abrirlos en el calendario de Outlook">📅 Mis permisos a Outlook (.ics)</button></div>' +
+      resumenDias(ms) +
+      (ms.length ? ms.map(function (t) { return tarjeta(t, (soy(t.rep) && !soy(t.sol) ? '<span class="muted">(como representante)</span>' : '') + (t.estado === E.PA || t.estado === E.AP ? marcaEspera(t) : '')); }).join('') :
         '<div class="card vacio">No tienes solicitudes. Pulsa «Nueva solicitud de permiso».</div>');
+  }
+  // Días por tipo de permiso en un cupo de año (días naturales, festivos incluidos y días descontando festivos)
+  var mCupo = String(new Date().getFullYear());
+  function resumenDias(ms) {
+    var cupos = Array.from(new Set(ms.map(function (t) { return t.cupo; }).filter(Boolean).concat([mCupo]))).sort().reverse();
+    var ts = ms.filter(function (t) { return t.cupo === mCupo && t.ini && activa(t) && !esBorrador(t); });
+    var fest = function (t) { return parseInt(t.festivos, 10) || 0; };
+    var g = new Map();
+    ts.forEach(function (t) {
+      var k = t.tipo || '(sin tipo)'; if (!g.has(k)) g.set(k, { n: 0, nat: 0, fes: 0, tram: 0 });
+      var x = g.get(k), d = dias(t.ini, t.fin);
+      if (concedido(t)) { x.n++; x.nat += d; x.fes += fest(t); } else x.tram += d - fest(t);
+    });
+    var filas = Array.from(g.entries()).sort(function (a, b) { return a[0].localeCompare(b[0], 'es'); });
+    var tot = filas.reduce(function (a, f) { a.n += f[1].n; a.nat += f[1].nat; a.fes += f[1].fes; a.tram += f[1].tram; return a; }, { n: 0, nat: 0, fes: 0, tram: 0 });
+    var fila = function (k, x, b) { var o = b ? '<b>' : '', c = b ? '</b>' : ''; return '<tr><td>' + o + esc(k) + c + '</td><td>' + o + x.n + c + '</td><td>' + o + x.nat + c + '</td><td>' + o + x.fes + c + '</td><td>' + o + (x.nat - x.fes) + c + '</td><td>' + o + (x.tram || '—') + c + '</td></tr>'; };
+    return '<details class="card"' + (filas.length ? ' open' : '') + '><summary style="cursor:pointer;font-weight:700">Mis días por tipo de permiso · cupo ' + esc(mCupo) + '</summary>' +
+      '<div class="grid" style="margin-top:6px;max-width:260px"><div><label class="lbl">Cupo de año</label><select id="mCupo">' + cupos.map(function (c) { return '<option' + (c === mCupo ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select></div></div>' +
+      (filas.length ? '<div style="overflow-x:auto"><table class="t resumen"><tr><th>Tipo de permiso</th><th>Concedidos</th><th>Días naturales</th><th>Festivos incl.</th><th>Días sin festivos</th><th>En trámite (días)</th></tr>' +
+        filas.map(function (f) { return fila(f[0], f[1]); }).join('') + (filas.length > 1 ? fila('Total', tot, true) : '') + '</table></div>' +
+        '<p class="small muted">Cuenta las solicitudes aprobadas, autorizadas o registradas del cupo elegido. «Días sin festivos» resta los festivos que indicaste en cada solicitud. Es orientativo: la referencia es SIPERDEF.</p>' :
+        '<p class="small muted">Sin permisos concedidos ni en trámite con cargo al cupo ' + esc(mCupo) + '.</p>') + '</details>';
   }
   function vistaPendientes() {
     var p = pendientes();
-    var bloque = function (tit, ls, txt) { return '<div class="sec"><span>' + tit + '</span><span>' + ls.length + '</span></div>' + (ls.map(function (t) { return tarjeta(t); }).join('') || '<p class="muted small">' + txt + '</p>'); };
-    return '<p class="muted small">Solicitudes que esperan una acción tuya como aprobador o autorizador indicado en la solicitud.' +
+    var porFecha = function (a, b) { return String(a.ini).localeCompare(String(b.ini)); };
+    p.aprobar.sort(porFecha); p.autorizar.sort(porFecha);
+    var bloque = function (tit, ls, txt) { return '<div class="sec"><span>' + tit + '</span><span>' + ls.length + '</span></div>' + (ls.map(function (t) { return tarjeta(t, marcaEspera(t)); }).join('') || '<p class="muted small">' + txt + '</p>'); };
+    return '<p class="muted small">Solicitudes que esperan una acción tuya como aprobador o autorizador indicado en la solicitud, ordenadas por fecha de inicio. En rojo, las que llevan más de 3 días esperando o empiezan pronto.' +
       (enRegistro() ? ' Lo pendiente de registro está en la pestaña «Registro SIPERDEF».' : '') + '</p>' +
       bloque('Pendientes de aprobar', p.aprobar, 'Ninguna solicitud espera tu aprobación.') +
       bloque('Pendientes de autorizar', p.autorizar, 'Ninguna solicitud espera tu autorización.');
@@ -345,13 +398,13 @@
     var doc = '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>' + esc(o.titulo) + '</title><style>' +
       '@page{size:A4' + (o.apaisado ? ' landscape' : '') + ';margin:1cm 1cm 1.8cm}body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#111;margin:0}' +
       '.sup{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding-bottom:4px}.sup .m{height:50px}.sup .u{height:26px}' +
-      '.banda{display:flex;align-items:center;gap:10px;background:#2f3b24;color:#fff;border-bottom:3px solid #b8962e;padding:6px 10px;' + exacto + '}' +
+      '.banda{display:flex;align-items:center;gap:10px;background:#1b3a5c;color:#fff;border-bottom:3px solid #b8962e;padding:6px 10px;' + exacto + '}' +
       '.banda .o{font-size:7.5pt;letter-spacing:1.5px;color:#e6d9a8}.banda .t{font-size:13pt;font-weight:bold;letter-spacing:.5px}' +
-      '.sub{text-align:center;margin:6px 0 8px;font-size:9pt;color:#333}h3{color:#2f3b24;margin:12px 0 4px;font-size:10.5pt;border-bottom:1px solid #b8962e;padding-bottom:2px}' +
-      'table.r{width:100%;border-collapse:collapse}table.r th{background:#2f3b24;color:#fff;text-align:left;padding:3px 4px;font-size:8.5pt;' + exacto + '}table.r td{border:1px solid #bbb;padding:3px 4px;vertical-align:top}tr{page-break-inside:avoid}' +
-      'table.f{width:100%;border-collapse:collapse;margin-bottom:6px}table.f td{border:1px solid #bbb;padding:4px 6px;vertical-align:top}table.f td.k{width:30%;background:#eef1ea;font-weight:bold;color:#2f3b24;' + exacto + '}' +
-      '.cal{width:100%;border-collapse:collapse;table-layout:fixed}.cal th{background:#2f3b24;color:#fff;padding:3px;font-size:8.5pt;' + exacto + '}' +
-      '.cal td{border:1px solid #bbb;vertical-align:top;height:2.35cm;padding:2px 3px;font-size:7.3pt;overflow:hidden}.fuera{background:#f2f2f2;' + exacto + '}.n{font-weight:bold;font-size:8.5pt}.p{color:#9a5b00}' +
+      '.sub{text-align:center;margin:6px 0 8px;font-size:9pt;color:#333}h3{color:#1b3a5c;margin:12px 0 4px;font-size:10.5pt;border-bottom:1px solid #b8962e;padding-bottom:2px}' +
+      'table.r{width:100%;border-collapse:collapse}table.r th{background:#1b3a5c;color:#fff;text-align:left;padding:3px 4px;font-size:8.5pt;' + exacto + '}table.r td{border:1px solid #bbb;padding:3px 4px;vertical-align:top}tr{page-break-inside:avoid}' +
+      'table.f{width:100%;border-collapse:collapse;margin-bottom:6px}table.f td{border:1px solid #bbb;padding:4px 6px;vertical-align:top}table.f td.k{width:30%;background:#e8eef6;font-weight:bold;color:#1b3a5c;' + exacto + '}' +
+      '.cal{width:100%;border-collapse:collapse;table-layout:fixed}.cal th{background:#1b3a5c;color:#fff;padding:3px;font-size:8.5pt;' + exacto + '}' +
+      '.cal td{border:1px solid #bbb;vertical-align:top;height:2.35cm;padding:2px 3px;font-size:7.3pt;overflow:hidden}.fuera{background:#f2f2f2;' + exacto + '}.n{font-weight:bold;font-size:8.5pt}.p{color:#9a5b00}.cm{color:#12407a;font-weight:bold}.ct{color:#5b2f8c}.cp{color:#9a5b00}' +
       '.firmas{display:flex;gap:20px;margin-top:22px}.firmas div{flex:1;border-top:1px solid #555;padding-top:4px;font-size:8.5pt;text-align:center}' +
       '.pie{position:fixed;bottom:-1.2cm;left:0;right:0;text-align:center;font-size:7.5pt;color:#555}.pie img{height:16px;vertical-align:middle}' +
       '.aviso{background:#fff4d6;padding:8px;margin:0 0 8px}@media print{.aviso{display:none}}</style></head><body>' +
@@ -431,11 +484,18 @@
       cuerpo: cuerpo, nombre: 'registro-siperdef-' + hoy(), apaisado: true });
   }
   var mes = (function () { var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })();
+  // Para llevar el control: mis permisos y los que he tramitado yo (aprobados, autorizados o registrados por mí)
+  var tramitadoPorMi = function (t) { return soy(t.apr) || soy(t.aut) || soy(t.reg); };
+  var VER_CAL = [['control', 'Mis permisos y los que he tramitado'], ['mios', 'Solo mis permisos'], ['tramitados', 'Solo los que he aprobado, autorizado o registrado'], ['todos', 'Todos los que puedo ver']];
+  var claseCal = function (t) { return t.estado === E.PA ? 'p' : esMia(t) ? 'm' : tramitadoPorMi(t) ? 't' : ''; };
   function delCalendario() {
     var c = pref.cal;
     return items.filter(function (t) {
       if (!t.ini) return false;
       if (!(concedido(t) || (c.pendientes && t.estado === E.PA))) return false;
+      if (c.ver === 'mios' && !esMia(t)) return false;
+      if (c.ver === 'tramitados' && !tramitadoPorMi(t)) return false;
+      if (c.ver === 'control' && !esMia(t) && !tramitadoPorMi(t)) return false;
       if (c.dependencia && t.dependencia !== c.dependencia) return false;
       if (c.unidad && (!t.unidad || String(t.unidad.Id) !== String(c.unidad))) return false;
       return true;
@@ -448,21 +508,34 @@
       var d = new Date(ini); d.setDate(ini.getDate() + i);
       var s = iso(d), del = ts.filter(function (t) { return t.ini <= s && (t.fin || t.ini) >= s; }).sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
       celdas += '<div class="dia' + (d.getMonth() !== m ? ' fuera' : '') + (s === hoy() ? ' hoy' : '') + '"><b>' + d.getDate() + '</b>' +
-        del.slice(0, 5).map(function (t) { return '<span class="' + (t.estado === E.PA ? 'p' : '') + '" data-id="' + t.id + '" title="' + esc(t.nombre + ' · ' + t.tipo) + '">' + esc(t.nombre) + '</span>'; }).join('') +
+        del.slice(0, 5).map(function (t) { return '<span class="' + claseCal(t) + '" data-id="' + t.id + '" title="' + esc(t.nombre + ' · ' + t.tipo + ' · ' + t.estado) + '">' + esc(t.nombre) + '</span>'; }).join('') +
         (del.length > 5 ? '<small>+' + (del.length - 5) + '</small>' : '') + '</div>';
       var sig = new Date(d); sig.setDate(d.getDate() + 1);
       if (i % 7 === 6 && sig.getMonth() !== m && i >= 27) break;
     }
     var titulo = mes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
     var deps = (opciones.Dependencia || []).slice();
+    var ver = VER_CAL.some(function (v) { return v[0] === pref.cal.ver; }) ? pref.cal.ver : 'control';
+    // Permisos que tocan el mes, para la lista de control bajo el calendario
+    var p1 = iso(new Date(y, m, 1)), p2 = iso(new Date(y, m + 1, 0));
+    var delMes = ts.filter(function (t) { return t.ini <= p2 && (t.fin || t.ini) >= p1; }).sort(function (a, b) { return String(a.ini).localeCompare(String(b.ini)) || a.nombre.localeCompare(b.nombre, 'es'); });
+    var papel = function (t) { return [esMia(t) ? 'mío' : '', soy(t.apr) ? 'aprobado por mí' : '', soy(t.aut) ? 'autorizado por mí' : '', soy(t.reg) ? 'registrado por mí' : ''].filter(Boolean).join(', '); };
     return '<div class="card"><div class="grid">' +
+      '<div><label class="lbl">Ver</label><select id="cVer">' + VER_CAL.map(function (v) { return '<option value="' + v[0] + '"' + (ver === v[0] ? ' selected' : '') + '>' + esc(v[1]) + '</option>'; }).join('') + '</select></div>' +
       '<div><label class="lbl">Dependencia</label><select id="cDep"><option value="">Todas</option>' + deps.map(function (x) { return '<option' + (pref.cal.dependencia === x ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select></div>' +
       '<div><label class="lbl">Unidad</label><select id="cUni"><option value="">Todas</option>' + unidades.map(function (u) { return '<option value="' + u.Id + '"' + (String(pref.cal.unidad) === String(u.Id) ? ' selected' : '') + '>' + esc(u.Title) + '</option>'; }).join('') + '</select></div>' +
       '</div><label class="check"><input type="checkbox" id="cPend"' + (pref.cal.pendientes ? ' checked' : '') + '> Incluir pendientes de aprobar (en naranja)</label></div>' +
       '<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><button data-mes="-1">◀</button><b>' + esc(titulo[0].toUpperCase() + titulo.slice(1)) +
-      '</b><span><button data-impcal="1">🖨 Imprimir / PDF</button> <button data-mes="1">▶</button></span></div>' +
+      '</b><span><button data-impcal="1">🖨 Imprimir / PDF</button> <button data-ics="cal" title="Exportar a Outlook los permisos que se ven con estos filtros">📅 Outlook (.ics)</button> <button data-mes="1">▶</button></span></div>' +
       '<div class="cal">' + ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(function (x) { return '<div class="dow">' + x + '</div>'; }).join('') + celdas + '</div>' +
-      '<p class="muted small">En verde, permisos aprobados, autorizados o registrados; pulsa un nombre para ver la solicitud. ' + esc(alcanceTxt()) + '</p>';
+      '<div class="leyenda"><span><i style="background:#d6e6fa"></i>Mis permisos</span><span><i style="background:#ece2f8"></i>Aprobados, autorizados o registrados por mí</span>' +
+      (ver === 'todos' ? '<span><i style="background:#e6e9ee"></i>Otros</span>' : '') + (pref.cal.pendientes ? '<span><i style="background:var(--warn-bg)"></i>Pendientes de aprobar</span>' : '') + '</div>' +
+      '<p class="muted small">Se muestran los permisos aprobados, autorizados o registrados; pulsa un nombre para ver la solicitud. ' + esc(alcanceTxt()) + '</p>' +
+      '<div class="sec"><span>Control del mes</span><span>' + delMes.length + '</span></div>' +
+      (delMes.length ? '<div class="card" style="overflow-x:auto"><table class="t"><tr><th>Solicitante</th><th>Tipo de permiso</th><th>Desde</th><th>Hasta</th><th>Días</th><th>Estado</th><th>Mi papel</th></tr>' +
+        delMes.map(function (t) { return '<tr><td><a href="#" data-ver="' + t.id + '">' + esc(t.nombre) + '</a></td><td>' + esc(t.tipo) + '</td><td>' + esc(fCorta(t.ini)) + '</td><td>' + esc(fCorta(t.fin)) + '</td><td>' + dias(t.ini, t.fin) +
+          '</td><td><span class="badge ' + claseEstado(t.estado) + '">' + esc(t.estado) + '</span></td><td class="small">' + esc(papel(t) || '—') + '</td></tr>'; }).join('') + '</table></div>' :
+        '<div class="card vacio">Ningún permiso este mes con estos filtros.</div>');
   }
   function filtrarTodas() {
     var f = pref.f, q = sinTildes(f.q);
@@ -592,21 +665,21 @@
   var imgsCorreo = false;
   fetch(IMG.minisdef, { method: 'HEAD', credentials: 'same-origin' }).then(function (r) { imgsCorreo = r.ok; }).catch(function () { imgsCorreo = false; });
   function htmlCorreo(intro, filas, enlace) {
-    var oro = '#b8962e', verde = '#2f3b24';
+    var oro = '#b8962e', azul = '#1b3a5c';
     var uso = imgsCorreo ? '<img src="' + esc(IMG.uso) + '" alt="USO OFICIAL" height="28" style="height:28px;border:0">'
       : '<span style="display:inline-block;border:2px solid #1f6fb2;color:#1f6fb2;padding:3px 10px;font-weight:bold;letter-spacing:1px">USO OFICIAL</span>';
     var minis = imgsCorreo ? '<img src="' + esc(IMG.minisdef) + '" alt="MINISTERIO DE DEFENSA" height="54" style="height:54px;border:0">'
       : '<span style="font-weight:bold;letter-spacing:1px;color:#222">MINISTERIO<br>DE DEFENSA</span>';
     return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:760px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#222">' +
       '<tr><td style="padding:4px 0 6px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="33%">' + minis + '</td><td width="34%" align="center">' + uso + '</td><td width="33%"></td></tr></table></td></tr>' +
-      '<tr><td style="background:' + verde + ';border-bottom:4px solid ' + oro + ';padding:10px 14px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>' +
+      '<tr><td style="background:' + azul + ';border-bottom:4px solid ' + oro + ';padding:10px 14px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>' +
       '<td style="color:#fff"><div style="font-size:11px;letter-spacing:2px;color:#e6d9a8">EJÉRCITO DE TIERRA · INSPECCIÓN GENERAL DEL EJÉRCITO · SUIGESUR</div>' +
       '<div style="font-size:18px;font-weight:bold;letter-spacing:1px">FORMULARIO DE SOLICITUD DE PERMISO</div></td></tr></table></td></tr>' +
       '<tr><td style="padding:14px 0 8px;font-weight:bold">' + esc(intro) + '</td></tr>' +
       '<tr><td><table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:13px">' +
-      filas.map(function (x) { return '<tr><td width="32%" style="border:1px solid #c9cdc3;background:#eef1ea;color:' + verde + ';font-weight:bold">' + esc(x[0]) + '</td><td style="border:1px solid #c9cdc3">' + esc(x[1]).replace(/\n/g, '<br>') + '</td></tr>'; }).join('') +
+      filas.map(function (x) { return '<tr><td width="32%" style="border:1px solid #c5d0dd;background:#e8eef6;color:' + azul + ';font-weight:bold">' + esc(x[0]) + '</td><td style="border:1px solid #c5d0dd">' + esc(x[1]).replace(/\n/g, '<br>') + '</td></tr>'; }).join('') +
       '</table></td></tr>' +
-      (enlace ? '<tr><td style="padding:12px 0"><a href="' + esc(enlace) + '" style="background:' + verde + ';color:#fff;padding:8px 14px;text-decoration:none;font-weight:bold;display:inline-block">Abrir la solicitud</a><div style="font-size:11px;color:#555;padding-top:6px">' + esc(enlace) + '</div></td></tr>' : '') +
+      (enlace ? '<tr><td style="padding:12px 0"><a href="' + esc(enlace) + '" style="background:' + azul + ';color:#fff;padding:8px 14px;text-decoration:none;font-weight:bold;display:inline-block">Abrir la solicitud</a><div style="font-size:11px;color:#555;padding-top:6px">' + esc(enlace) + '</div></td></tr>' : '') +
       '<tr><td style="border-top:4px solid ' + oro + ';padding-top:6px;font-size:11px;color:#555" align="center">Aviso generado por la aplicación de Solicitud de Permisos de SUIGESUR (Colabora).<br><br>' + uso + '</td></tr></table>';
   }
   // Enlace del correo: esta misma página, abriendo directamente la solicitud (?id=N)
@@ -630,7 +703,9 @@
       devueltaAutorSol: { to: [t.correoSol], cc: [t.correoApr], asunto: 'El AUTORIZADOR: ' + t.autTexto + ' Ha DEVUELTO su Solicitud de permiso: ' + t.asunto + '. Consulte las Observaciones y tramítela nuevamente.',
         intro: 'LA SOLICITUD de Permiso ha sido DEVUELTA por el AUTORIZADOR con las observaciones que se indican. Por favor, resuélvalas y vuelva a tramitarla.' },
       rechazoAutor: { to: [t.correoSol], cc: [t.correoApr], asunto: 'El AUTORIZADOR: ' + t.autTexto + ' Ha RECHAZADO UNA Solicitud de permiso: ' + t.asunto + '. Consulte las Observaciones y tramítela nuevamente.',
-        intro: 'LA SOLICITUD DE PERMISO HA SIDO RECHAZADA POR EL AUTORIZADOR.' }
+        intro: 'LA SOLICITUD DE PERMISO HA SIDO RECHAZADA POR EL AUTORIZADOR.' },
+      recordatorio: { to: [t.estado === E.PA ? t.correoApr : t.correoAut], cc: [t.correoSol], asunto: 'RECORDATORIO: Pendiente de ' + (t.estado === E.PA ? 'APROBAR' : 'AUTORIZAR') + ' un Permiso solicitado por: ' + t.nombre + ' de tipo: ' + t.tipo,
+        intro: 'RECORDATORIO: SIGUE PENDIENTE DE ' + (t.estado === E.PA ? 'APROBAR' : 'AUTORIZAR') + ' POR SU AUTORIDAD ESTA SOLICITUD DE PERMISO. Para tramitarla, pulse «Abrir la solicitud» al final de este aviso.' }
     }[tipo];
     if (!C) return null;
     var limpia = function (l) { return (l || []).filter(function (x) { return x && /@/.test(x); }).filter(function (x, i, a) { return a.indexOf(x) === i; }); };
@@ -718,13 +793,13 @@
         '<div class="acciones"><button class="prim" data-editar="' + t.id + '">✎ Completar o enviar</button></div></div>';
     }
     if (puedeAprobar(t)) {
-      h += '<div class="panel"><h3>Aprobación (eres el aprobador)</h3>' +
+      h += '<div class="panel"><h3>Aprobación (eres el aprobador)</h3>' + avisoSolape(t) +
         '<label class="lbl">Autorizador al que se eleva *</label><div id="pAut"></div>' +
         obs('oAprob', 'Observaciones (obligatorias para devolver o rechazar)') +
         '<div class="acciones"><button class="prim" data-acc="aprobar">✓ Aprobar y elevar al autorizador</button><button data-acc="devolverAprob">↩ Devolver al solicitante</button><button class="peligro" data-acc="rechazarAprob">✕ Rechazar</button></div></div>';
     }
     if (puedeAutorizar(t)) {
-      h += '<div class="panel"><h3>Autorización (eres el autorizador)</h3>' + obs('oAutor', 'Observaciones (obligatorias para devolver o rechazar)') +
+      h += '<div class="panel"><h3>Autorización (eres el autorizador)</h3>' + avisoSolape(t) + obs('oAutor', 'Observaciones (obligatorias para devolver o rechazar)') +
         '<div class="acciones"><button class="prim" data-acc="autorizar">✓ Autorizar</button>' + (t.apr && !t.directo ? '<button data-acc="devolverAutor">↩ Devolver al aprobador</button>' : '') +
         '<button data-acc="devolverAutorSol">↩ Devolver al solicitante</button><button class="peligro" data-acc="rechazarAutor">✕ Rechazar</button></div></div>';
     }
@@ -732,8 +807,29 @@
       h += '<div class="panel"><h3>Registro en SIPERDEF</h3>' + obs('oReg', 'Observaciones del registro (obligatorias para anular)') +
         '<div class="acciones"><button class="prim" data-acc="registrar">✓ Registrado en SIPERDEF</button><button class="peligro" data-acc="anular">✕ Anular</button></div></div>';
     }
-    if (!h) h = '<div class="panel"><h3>Tramitación</h3><p class="small muted">' + esc(siguientePaso(t)) + '</p></div>';
+    if (!h) h = '<div class="panel"><h3>Tramitación</h3><p class="small muted">' + esc(siguientePaso(t)) + '</p>' + (t.estado === E.PA || t.estado === E.AP ? '<div class="meta">' + marcaEspera(t) + '</div>' : '') + '</div>';
+    var dest = destRecordatorio(t);
+    if (esMia(t) && dest) {
+      var ya = pref.recordados && pref.recordados[t.id];
+      h += '<div class="panel"><h3>Recordatorio</h3><p class="small muted">Envía por correo un recordatorio a ' + esc(dest.nombre) + ' (' + (t.estado === E.PA ? 'aprobador' : 'autorizador') + ') para que tramite la solicitud.' +
+        (ya ? ' Último recordatorio enviado desde este equipo: ' + esc(fCorta(ya)) + '.' : '') + '</p><div class="acciones"><button data-recordar="' + t.id + '"' + (ya === hoy() ? ' disabled title="Ya enviaste uno hoy"' : '') + '>✉ Enviar recordatorio</button></div></div>';
+    }
     return h + '<div id="accMsg"></div>';
+  }
+  // A quién se recuerda: al aprobador si está pendiente de aprobar y al autorizador si está aprobada
+  function destRecordatorio(t) {
+    var p = t.estado === E.PA ? t.apr : t.estado === E.AP ? t.aut : null;
+    var correo = t.estado === E.PA ? (t.correoApr || (p && p.Email)) : t.estado === E.AP ? (t.correoAut || (p && p.Email)) : '';
+    return correo && /@/.test(correo) ? { nombre: (p && p.Title) || (t.estado === E.PA ? t.aprTexto : t.autTexto) || correo, correo: correo } : null;
+  }
+  function recordar(t, boton) {
+    var dest = destRecordatorio(t), c = correoDe('recordatorio', Object.assign({}, t, { correoApr: t.estado === E.PA ? dest.correo : t.correoApr, correoAut: t.estado === E.AP ? dest.correo : t.correoAut }), '');
+    boton.disabled = true;
+    enviarCorreo(c).then(function (r) {
+      if (r.ok) { pref.recordados = pref.recordados || {}; pref.recordados[t.id] = hoy(); guardarPref(); msgAcc('okmsg', '✓ Recordatorio enviado a ' + esc(dest.nombre) + '.'); return; }
+      boton.disabled = false;
+      msgAcc('aviso', 'No se pudo enviar desde Colabora (' + esc(r.motivo) + ').' + (r.mailto ? ' <a class="btn" href="' + esc(r.mailto) + '">✉ Preparar el correo en Outlook</a>' : ''));
+    });
   }
   function siguientePaso(t) {
     if (esBorrador(t)) return 'En borrador: debe enviarla el solicitante o su representante.';
@@ -850,6 +946,7 @@
     $('#nOtro').onchange = function () { $('#nOtroCaja').hidden = !this.checked; };
     $('#nDirecto').onchange = function () { $('#nAprCaja').hidden = this.checked; $('#nAutCaja').hidden = !this.checked; };
     var err = function (m) { $('#nError').innerHTML = '<div class="error">' + esc(m) + '</div>'; };
+    var solapeVisto = '';
     var guardar = function (enviar, boton) {
       var f = $('#fSol'), v = function (n) { return (f.querySelector('[name=' + n + ']').value || '').trim(); };
       var otro = $('#nOtro').checked, directo = $('#nDirecto').checked;
@@ -857,6 +954,12 @@
       if (!sol) return err('Elige al solicitante (la persona que disfruta el permiso).');
       if (!v('tipo') || !v('cupo') || !v('ini') || !v('fin') || !v('empleo') || !v('unidad')) return err('Faltan datos obligatorios (*): tipo, cupo, fechas, empleo y unidad.');
       if (v('fin') < v('ini')) return err('La fecha de fin no puede ser anterior a la de inicio.');
+      var choca = items.filter(function (x) { return x.id !== (t && t.id) && activa(x) && x.sol && x.sol.Id === sol.Id && seSolapan(x, { ini: v('ini'), fin: v('fin') }); });
+      var claveSolape = sol.Id + v('ini') + v('fin');
+      if (choca.length && solapeVisto !== claveSolape) {
+        solapeVisto = claveSolape;
+        return err('Atención: ' + (otro ? sol.Title + ' ya tiene' : 'ya tienes') + ' otra solicitud en esas fechas: ' + choca.map(function (x) { return (x.tipo || x.asunto) + ' del ' + fCorta(x.ini) + ' al ' + fCorta(x.fin) + ' (' + x.estado + ')'; }).join('; ') + '. Si es correcto, pulsa otra vez el botón.');
+      }
       var apr = pApr && pApr.valor(), aut = pAut2 && pAut2.valor();
       if (enviar) {
         if (!v('nif')) return err('Antes de solicitar la aprobación debe añadir el NIF del solicitante, para facilitar el registro en SIPERDEF.');
@@ -916,16 +1019,36 @@
       for (var i = 0; i < 7; i++) {
         var k = iso(d), dentro = d.getMonth() === m;
         var del = dentro ? ts.filter(function (t) { return t.ini <= k && (t.fin || t.ini) >= k; }).sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); }) : [];
-        filas += '<td class="' + (dentro ? '' : 'fuera') + '"><div class="n">' + d.getDate() + '</div>' + del.slice(0, 10).map(function (t) { return '<div class="t' + (t.estado === E.PA ? ' p' : '') + '">• ' + esc(t.nombre) + '</div>'; }).join('') + (del.length > 10 ? '<div class="t"><i>+' + (del.length - 10) + ' más</i></div>' : '') + '</td>';
+        filas += '<td class="' + (dentro ? '' : 'fuera') + '"><div class="n">' + d.getDate() + '</div>' + del.slice(0, 10).map(function (t) { return '<div class="t c' + claseCal(t) + '">• ' + esc(t.nombre) + '</div>'; }).join('') + (del.length > 10 ? '<div class="t"><i>+' + (del.length - 10) + ' más</i></div>' : '') + '</td>';
         d.setDate(d.getDate() + 1);
       }
       filas += '</tr>';
     }
     var nom = mes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }); nom = nom[0].toUpperCase() + nom.slice(1);
     var f = [pref.cal.dependencia, (unidades.find(function (u) { return String(u.Id) === String(pref.cal.unidad); }) || {}).Title].filter(Boolean).join(' · ');
-    ventanaImprimir({ titulo: 'CALENDARIO DE PERMISOS · ' + nom.toUpperCase(), subtitulo: esc(f || 'Todas las dependencias y unidades') + (pref.cal.pendientes ? ' · en naranja, pendientes de aprobar' : ''),
+    ventanaImprimir({ titulo: 'CALENDARIO DE PERMISOS · ' + nom.toUpperCase(), subtitulo: esc([(VER_CAL.find(function (v) { return v[0] === pref.cal.ver; }) || VER_CAL[0])[1], f || 'Todas las dependencias y unidades'].join(' · ')) +
+        '<br><small><span class="cm">■ mis permisos</span> · <span class="ct">■ aprobados, autorizados o registrados por mí</span>' + (pref.cal.pendientes ? ' · <span class="cp">■ pendientes de aprobar</span>' : '') + '</small>',
       cuerpo: '<table class="cal"><tr>' + ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(function (x) { return '<th>' + x + '</th>'; }).join('') + '</tr>' + filas + '</table>',
       nombre: 'permisos-' + iso(mes).slice(0, 7), apaisado: true });
+  }
+  // Calendario de Outlook (.ics): días completos; mis permisos marcan «fuera de la oficina»
+  function exportarIcs(ts, nombre) {
+    ts = ts.filter(function (t) { return t.ini && concedido(t); });
+    if (!ts.length) { aviso('No hay permisos concedidos que exportar'); return; }
+    var f = function (x) { return x.replace(/-/g, ''); };
+    var e = function (x) { return String(x || '').replace(/\\/g, '\\\\').replace(/[,;]/g, '\\$&').replace(/\r?\n/g, '\\n'); };
+    var sello = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+    var l = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//SUIGESUR//Solicitud de permisos//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+    ts.forEach(function (t) {
+      var fin = aFecha(t.fin || t.ini); fin.setDate(fin.getDate() + 1);
+      var mio = esMia(t);
+      l.push('BEGIN:VEVENT', 'UID:permiso-' + t.id + '@' + (location.hostname || 'colabora'), 'DTSTAMP:' + sello, 'DTSTART;VALUE=DATE:' + f(t.ini), 'DTEND;VALUE=DATE:' + f(iso(fin)),
+        'SUMMARY:' + e((mio ? 'Permiso: ' : t.nombre + ' · ') + (t.tipo || t.asunto)), 'DESCRIPTION:' + e(t.estado + '\n' + enlaceSolicitud(t)),
+        'TRANSP:' + (mio ? 'OPAQUE' : 'TRANSPARENT'), 'X-MICROSOFT-CDO-BUSYSTATUS:' + (mio ? 'OOF' : 'FREE'), 'END:VEVENT');
+    });
+    l.push('END:VCALENDAR');
+    descargar(nombre + '.ics', l.join('\r\n') + '\r\n', 'text/calendar;charset=utf-8');
+    aviso(ts.length + ' permiso' + (ts.length === 1 ? '' : 's') + ' exportado' + (ts.length === 1 ? '' : 's') + ': abre el archivo con Outlook');
   }
   // Relación de la pestaña Consulta, con los filtros aplicados
   function imprimirRelacion() {
@@ -973,6 +1096,10 @@
     var m = el.closest('[data-mes]');
     if (m) { mes = new Date(mes.getFullYear(), mes.getMonth() + Number(m.dataset.mes), 1); render(); return; }
     if (el.closest('[data-impcal]')) { imprimirCalendario(); return; }
+    var ic = el.closest('[data-ics]');
+    if (ic) { if (ic.dataset.ics === 'mias') exportarIcs(items.filter(esMia), 'mis-permisos'); else exportarIcs(delCalendario(), 'calendario-permisos'); return; }
+    var rc = el.closest('[data-recordar]');
+    if (rc) { var trc = items.find(function (x) { return x.id === Number(rc.dataset.recordar); }); if (trc) recordar(trc, rc); return; }
     if (el.closest('[data-csv]')) { csv(); return; }
     if (el.closest('[data-relimp]')) { imprimirRelacion(); return; }
     var fi = el.closest('[data-fichaimp]');
@@ -1004,7 +1131,9 @@
     if (el.id === 'cDep') pref.cal.dependencia = el.value;
     else if (el.id === 'cUni') pref.cal.unidad = el.value;
     else if (el.id === 'cPend') pref.cal.pendientes = el.checked;
+    else if (el.id === 'cVer') pref.cal.ver = el.value;
     else if (el.id === 'rUni') { regUnidad = el.value; confirmando = null; render(); return; }
+    else if (el.id === 'mCupo') { mCupo = el.value; render(); return; }
     else if (el.id === 'aCorreo') pref.correo = el.checked;
     else if (el.id === 'aSitio' || el.id === 'aLista') { pref.sitio = $('#aSitio').value.trim() || pref.sitio; pref.lista = $('#aLista').value.trim() || pref.lista; guardarPref(); cargadoEn = null; cargar(); return; }
     else return;
