@@ -71,8 +71,8 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
 - **Otras ayudas**: días por tipo de permiso y cupo de año en «Mis solicitudes» (orientativo: manda SIPERDEF);
   «⏳ esperando N días» y «empieza en N días» (en rojo si pasan de 3 días o empieza pronto) en lo pendiente, ordenado
   por fecha de inicio; botón «✉ Enviar recordatorio» al aprobador o autorizador de mi solicitud (correo oficial, uno
-  al día); aviso de **solapes** al pedir un permiso que coincide con otro mío y, al aprobador y al autorizador, de
-  otras solicitudes en esas fechas del mismo solicitante o de su unidad (entre las que puede ver).
+  al día); aviso de **solapes** solo cuando la misma persona tiene dos solicitudes en las mismas fechas: al pedirla
+  y al aprobador y al autorizador. Que coincidan varias personas de una unidad no se avisa (lo decide quien autoriza).
 - Colores: azul marino y oro (página, impresiones y correos), para distinguirla del resto de aplicaciones.
 - `CIRCUITO.md`: reglas del formulario InfoPath (sacadas de la plantilla `.xsn`).
 - `pruebas/simulacion.mjs`: prueba completa contra una lista simulada (ligero y *verbose*): alta con validaciones,

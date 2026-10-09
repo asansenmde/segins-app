@@ -325,13 +325,14 @@
   var seSolapan = function (a, b) { return !!(a.ini && b.ini && a.ini <= (b.fin || b.ini) && b.ini <= (a.fin || a.ini)); };
   var mismaPersona = function (a, b) { return !!(a.sol && b.sol && a.sol.Id === b.sol.Id); };
   var lineaSol = function (x) { return esc(x.nombre) + ' · ' + esc(x.tipo || x.asunto) + ' · ' + esc(fCorta(x.ini)) + (x.fin && x.fin !== x.ini ? ' → ' + esc(fCorta(x.fin)) : '') + ' · <i>' + esc(x.estado) + '</i>'; };
-  // Para el aprobador y el autorizador: otras solicitudes (que puede ver) en las mismas fechas, del mismo solicitante o de su unidad
+  // Para el aprobador y el autorizador: otras solicitudes del MISMO solicitante en esas fechas (que coincidan varias
+  // personas de una unidad es normal y lo decide quien autoriza)
   function avisoSolape(t) {
-    var ls = items.filter(function (x) { return x.id !== t.id && activa(x) && !esBorrador(x) && seSolapan(x, t) && (mismaPersona(x, t) || (t.unidad && x.unidad && x.unidad.Id === t.unidad.Id)); })
+    var ls = items.filter(function (x) { return x.id !== t.id && activa(x) && !esBorrador(x) && seSolapan(x, t) && mismaPersona(x, t); })
       .sort(function (a, b) { return String(a.ini).localeCompare(String(b.ini)); });
     if (!ls.length) return '';
-    return '<div class="solape"><b>⚠ Coinciden en esas fechas</b> (mismo solicitante o misma unidad, entre las solicitudes que puedes ver):<br>' +
-      ls.slice(0, 8).map(function (x) { return '• ' + (mismaPersona(x, t) ? '<b>mismo solicitante</b>: ' : '') + lineaSol(x); }).join('<br>') + (ls.length > 8 ? '<br>… y ' + (ls.length - 8) + ' más' : '') + '</div>';
+    return '<div class="solape"><b>⚠ ' + esc(t.nombre) + ' ya tiene otra solicitud en esas fechas</b>:<br>' +
+      ls.slice(0, 8).map(function (x) { return '• ' + lineaSol(x); }).join('<br>') + (ls.length > 8 ? '<br>… y ' + (ls.length - 8) + ' más' : '') + '</div>';
   }
 
   // ---------- Vistas ----------
