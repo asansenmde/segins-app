@@ -433,7 +433,7 @@
   }
 
   // ---------- Registro SIPERDEF (solo grupo «Personal de Registro»), agrupado por unidad ----------
-  var nifs = {}, regVista = 'pendientes', regUnidad = '', confirmando = null, recien = new Set();
+  var nifs = {}, regVista = 'pendientes', regUnidad = '', confirmando = null, recien = new Set(), ultimaReg = '';
   function cargarNifs() {
     nifs = {};
     if (!enRegistro()) return Promise.resolve();
@@ -449,6 +449,7 @@
       if (!enRegistro()) { nifs = {}; if (pref.vista === 'registro') pref.vista = 'mias'; throw new Error('No perteneces al grupo «Personal de Registro» de Colabora: no puedes registrar ni anular. Pulsa Actualizar.'); }
     });
   }
+  var limpiarUltimaReg = function () { ultimaReg = ''; };
   var anotarRegistro = function (txt) { return ' / ' + txt + ' por: ' + yo.Title + '  A las  ' + ahoraTxt(); };
   function registroSel() {
     var hace30 = new Date(Date.now() - 30 * 864e5).toISOString();
@@ -470,7 +471,8 @@
     var cab = ['Solicitante', 'Empleo', 'NIF', 'Tipo de permiso', 'Cupo', 'Desde', 'Hasta', 'Días', 'Festivos', pend ? 'Autorizado' : 'Estado', 'Registro SIPERDEF'];
     return '<div class="card"><div class="acciones" style="margin-top:0">' +
       '<button class="' + (pend ? 'prim' : '') + '" data-regv="pendientes">Pendientes de registrar (' + porRegistrar().length + ')</button>' +
-      '<button class="' + (!pend ? 'prim' : '') + '" data-regv="hechos">Registrados o anulados (últimos 30 días)</button></div>' +
+      '<button class="' + (!pend ? 'prim' : '') + '" data-regv="hechos">Ya registrados o anulados (últimos 30 días)</button></div>' +
+      (pend && ultimaReg ? '<div class="okmsg">✔ ' + esc(ultimaReg) + ': REGISTRADO EN SIPERDEF. Ya no está en pendientes; la tienes en «Ya registrados o anulados».</div>' : '') +
       '<div class="grid"><div><label class="lbl">Unidad</label><select id="rUni">' + uniOps + '</select></div></div>' +
       '<div class="acciones"><button data-regimp="1">🖨 Imprimir relación / PDF</button><button data-regcsv="1">📊 Excel (CSV)</button></div></div>' +
       (ts.length ? gruposUnidad(ts).map(function (g) {
@@ -484,7 +486,7 @@
                 '<button class="regpend" data-regok="' + t.id + '" title="Púlsalo cuando lo hayas registrado en SIPERDEF">⏳ PENDIENTE DE REGISTRO</button>') + '</td></tr>';
           }).join('') + '</table></div>';
       }).join('') : '<div class="card vacio">' + (pend ? 'No hay solicitudes pendientes de registrar.' : 'Nada registrado o anulado en los últimos 30 días.') + '</div>') +
-      '<p class="muted small">En rojo, <b>PENDIENTE DE REGISTRO</b>. Cuando la hayas registrado en SIPERDEF, púlsalo y confirma: pasa a verde, <b>REGISTRADO EN SIPERDEF</b>, que es el estado final (queda tu nombre y la hora en el historial). Para anularla, ábrela pulsando el nombre.</p>';
+      '<p class="muted small">En rojo, <b>PENDIENTE DE REGISTRO</b>. Cuando la hayas registrado en SIPERDEF, púlsalo y confirma: pasa a verde, <b>REGISTRADO EN SIPERDEF</b> (estado final, con tu nombre y la hora en el historial), y desaparece de esta lista; la verás en «Ya registrados o anulados». Para anularla, ábrela pulsando el nombre.</p>';
   }
   function registrarRapido(t, boton) {
     if (!puedeRegistrar(t)) return;
@@ -492,7 +494,12 @@
     verificarRegistro().then(function () {
       return guardarCambios(t, { Estado: E.RG, ValidacionEstado: E.RG, EstadoDeRegistro: 'REGISTRADO', Registro_x0020_SIPERDEFId: yo.Id, RegistradorTexto: yo.Title }, anotarRegistro('REGISTRADA EN SIPERDEF') + '. En Estado: ' + E.RG);
     })
-      .then(function () { confirmando = null; recien.add(t.id); aviso('Registrada en SIPERDEF: ' + t.nombre); return cargar(); })
+      .then(function () {
+        // Se ve en verde un momento y desaparece de pendientes: queda en «Registrados o anulados»
+        confirmando = null; recien.add(t.id); ultimaReg = t.nombre; aviso('Registrada en SIPERDEF: ' + t.nombre);
+        setTimeout(function () { recien.delete(t.id); if (pref.vista === 'registro') render(); }, 2500);
+        return cargar();
+      })
       .catch(function (e) { confirmando = null; render(); alert('No se pudo registrar: ' + (e.message || e)); });
   }
   function csvRegistro() {
@@ -1172,7 +1179,7 @@
     var el = e.target;
     var tab = el.closest('#tabs a');
     if (tab) { pref.vista = tab.dataset.v; guardarPref(); render(); return; }
-    if (el.closest('#recargar')) { recien.clear(); cargar(); return; }
+    if (el.closest('#recargar')) { recien.clear(); limpiarUltimaReg(); cargar(); return; }
     if (el.closest('[data-regcancel]')) { e.preventDefault(); confirmando = null; render(); return; }
     if (el.closest('#nueva') || el.closest('[data-nueva]')) { if (cargadoEn) formulario(null); return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); return; }
@@ -1190,7 +1197,7 @@
     var fi = el.closest('[data-fichaimp]');
     if (fi) { var tf = items.find(function (x) { return x.id === Number(fi.dataset.fichaimp); }); if (tf) imprimirFicha(tf); return; }
     var rv = el.closest('[data-regv]');
-    if (rv) { regVista = rv.dataset.regv; confirmando = null; recien.clear(); render(); return; }
+    if (rv) { regVista = rv.dataset.regv; confirmando = null; recien.clear(); limpiarUltimaReg(); render(); return; }
     if (el.closest('[data-regimp]')) { imprimirRegistro(); return; }
     if (el.closest('[data-regcsv]')) { csvRegistro(); return; }
     var ver = el.closest('[data-ver]');

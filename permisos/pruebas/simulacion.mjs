@@ -173,6 +173,11 @@ async function prueba(verbose, soloAlcance) {
   await p.click('[data-regok="3"]'); await p.waitForTimeout(1500);
   console.log(tag, 'tras registrar, en la fila:', await p.textContent('#vista .regok').catch(() => 'nada'), await p.$eval('#vista .regok', x => getComputedStyle(x).backgroundColor).catch(() => ''));
   if (!verbose) await p.screenshot({ path: new URL('registro.png', import.meta.url).pathname, fullPage: true });
+  await p.waitForTimeout(2800);
+  console.log(tag, 'después: filas pendientes', await p.$$eval('#vista [data-regok]', n => n.map(x => x.dataset.regok)), '| verde aún:', await p.$$eval('#vista .regok', n => n.length), '|', await p.textContent('#vista .okmsg').catch(() => ''));
+  await p.click('[data-regv=hechos]'); await p.waitForTimeout(200);
+  console.log(tag, 'en «Ya registrados»:', await p.$$eval('#vista table.t tr td:first-child a', n => n.map(x => x.dataset.ver)));
+  await p.click('[data-regv=pendientes]'); await p.waitForTimeout(200);
   const cRg = JSON.parse(posts.find(x => /items\(3\)/.test(x.ruta)).cuerpo);
   console.log(tag, 'registrar:', JSON.stringify({ Estado: cRg.Estado, ER: cRg.EstadoDeRegistro, Reg: cRg.Registro_x0020_SIPERDEFId, RegT: cRg.RegistradorTexto }));
   console.log(tag, 'quedan por registrar:', await p.$$eval('[data-regok]', n => n.map(x => x.dataset.regok)));
