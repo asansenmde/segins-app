@@ -92,6 +92,7 @@
   .regconf { background: #d99a00; color: #fff; border-color: #d99a00; }
   .regok { display: inline-block; background: #2e7d32; color: #fff; border-radius: 9px; padding: 6px 8px; font-weight: 700; font-size: .8rem; line-height: 1.2; }
   button.verde { background: #2e7d32; color: #fff; border-color: #2e7d32; }
+  .expediente summary { list-style-position: outside; } .expediente .sol { margin: 8px 0 0; }
   .solape { background: #fff4dc; border-left: 4px solid #d99a00; border-radius: 8px; padding: 8px 10px; margin: 8px 0; font-size: .9rem; }
   table.t { width: 100%; border-collapse: collapse; font-size: .85rem; }
   table.t th, table.t td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
@@ -370,9 +371,9 @@
   }
   // Días por tipo de permiso en un cupo de año (días naturales, festivos incluidos y días descontando festivos)
   var mCupo = String(new Date().getFullYear());
-  function resumenDias(ms) {
-    var cupos = Array.from(new Set(ms.map(function (t) { return t.cupo; }).filter(Boolean).concat([mCupo]))).sort().reverse();
-    var ts = ms.filter(function (t) { return t.cupo === mCupo && t.ini && activa(t) && !esBorrador(t); });
+  // Tabla de días por tipo de permiso de un conjunto de solicitudes en un cupo de año
+  function tablaDias(ms, cupo) {
+    var ts = ms.filter(function (t) { return t.cupo === cupo && t.ini && activa(t) && !esBorrador(t); });
     var fest = function (t) { return parseInt(t.festivos, 10) || 0; };
     var g = new Map();
     ts.forEach(function (t) {
@@ -383,15 +384,20 @@
     var filas = Array.from(g.entries()).sort(function (a, b) { return a[0].localeCompare(b[0], 'es'); });
     var tot = filas.reduce(function (a, f) { a.n += f[1].n; a.nat += f[1].nat; a.fes += f[1].fes; a.tram += f[1].tram; return a; }, { n: 0, nat: 0, fes: 0, tram: 0 });
     var fila = function (k, x, b) { var o = b ? '<b>' : '', c = b ? '</b>' : ''; return '<tr><td>' + o + esc(k) + c + '</td><td>' + o + x.n + c + '</td><td>' + o + x.nat + c + '</td><td>' + o + x.fes + c + '</td><td>' + o + (x.nat - x.fes) + c + '</td><td>' + o + (x.tram || '—') + c + '</td></tr>'; };
-    return '<details class="card"' + (filas.length ? ' open' : '') + '><summary style="cursor:pointer;font-weight:700">Mis días por tipo de permiso · cupo ' + esc(mCupo) + '</summary>' +
+    return { n: filas.length, tot: tot, html: filas.length ? '<div style="overflow-x:auto"><table class="t resumen"><tr><th>Tipo de permiso</th><th>Concedidos</th><th>Días naturales</th><th>Festivos incl.</th><th>Días sin festivos</th><th>En trámite (días)</th></tr>' +
+      filas.map(function (f) { return fila(f[0], f[1]); }).join('') + (filas.length > 1 ? fila('Total', tot, true) : '') + '</table></div>' : '' };
+  }
+  function resumenDias(ms) {
+    var cupos = Array.from(new Set(ms.map(function (t) { return t.cupo; }).filter(Boolean).concat([mCupo]))).sort().reverse();
+    var td = tablaDias(ms, mCupo);
+    return '<details class="card"' + (td.n ? ' open' : '') + '><summary style="cursor:pointer;font-weight:700">Mis días por tipo de permiso · cupo ' + esc(mCupo) + '</summary>' +
       '<div class="grid" style="margin-top:6px;max-width:260px"><div><label class="lbl">Cupo de año</label><select id="mCupo">' + cupos.map(function (c) { return '<option' + (c === mCupo ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select></div></div>' +
-      (filas.length ? '<div style="overflow-x:auto"><table class="t resumen"><tr><th>Tipo de permiso</th><th>Concedidos</th><th>Días naturales</th><th>Festivos incl.</th><th>Días sin festivos</th><th>En trámite (días)</th></tr>' +
-        filas.map(function (f) { return fila(f[0], f[1]); }).join('') + (filas.length > 1 ? fila('Total', tot, true) : '') + '</table></div>' +
+      (td.n ? td.html +
         '<p class="small muted">Cuenta las solicitudes aprobadas, autorizadas o registradas del cupo elegido. «Días sin festivos» resta los festivos que indicaste en cada solicitud. Es orientativo: la referencia es SIPERDEF.</p>' :
         '<p class="small muted">Sin permisos concedidos ni en trámite con cargo al cupo ' + esc(mCupo) + '.</p>') + '</details>';
   }
   // Lo que ya he tramitado como aprobador o autorizador (para seguirlo después)
-  var pendVista = 'pendientes', tramTipo = '';
+  var pendVista = 'pendientes', tramTipo = '', tramCupo = String(new Date().getFullYear()), tramBusca = '';
   function papelTramitado(t) {
     var aprobe = soy(t.apr) && !t.directo && (t.eAprob === 'APROBADO' || [E.AP, E.AU, E.RG, E.AN].indexOf(t.estado) >= 0);
     var autorice = soy(t.aut) && (t.eAutor === 'AUTORIZADO' || [E.AU, E.RG, E.AN].indexOf(t.estado) >= 0);
@@ -403,13 +409,36 @@
   };
   function vistaTramitadas() {
     var todas = tramitadasPorMi();
-    var ts = todas.filter(function (t) { var pp = papelTramitado(t).join(' '); return !tramTipo || pp.indexOf(tramTipo) >= 0; });
+    var q = sinTildes(tramBusca);
+    var ts = todas.filter(function (t) { return (!tramTipo || papelTramitado(t).join(' ').indexOf(tramTipo) >= 0) && (!q || sinTildes(t.nombre).indexOf(q) >= 0); });
     var cuenta = function (k) { return todas.filter(function (t) { return papelTramitado(t).join(' ').indexOf(k) >= 0; }).length; };
-    return '<div class="card"><div class="grid"><div><label class="lbl">Mostrar</label><select id="tTipo">' +
+    var cupos = Array.from(new Set(todas.map(function (t) { return t.cupo; }).filter(Boolean).concat([tramCupo]))).sort().reverse();
+    // Expediente por persona: sus solicitudes que he tramitado y los días por tipo en el cupo elegido
+    var g = new Map();
+    ts.forEach(function (t) { var k = t.sol ? 'p' + t.sol.Id : 'n' + t.nombre; if (!g.has(k)) g.set(k, []); g.get(k).push(t); });
+    var grupos = Array.from(g.values()).sort(function (a, b) { return a[0].nombre.localeCompare(b[0].nombre, 'es'); });
+    var abrirTodo = grupos.length <= 3 || !!q;
+    return '<div class="card"><div class="grid">' +
+      '<div><label class="lbl">Buscar persona</label><input id="tBusca" type="search" value="' + esc(tramBusca) + '" placeholder="Nombre…"></div>' +
+      '<div><label class="lbl">Mostrar</label><select id="tTipo">' +
       [['', 'Todas las que he tramitado (' + todas.length + ')'], ['aprobada', 'Aprobadas por mí (' + cuenta('aprobada') + ')'], ['autorizada', 'Autorizadas por mí (' + cuenta('autorizada') + ')'], ['rechazada', 'Rechazadas por mí (' + cuenta('rechazada') + ')']]
-        .map(function (o) { return '<option value="' + o[0] + '"' + (tramTipo === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></div></div>' +
-      '<p class="small muted">Cada solicitud muestra su estado actual (por ejemplo, si ya está autorizada o registrada en SIPERDEF). Ordenadas por fecha de inicio, de la más reciente a la más antigua. Las que se devolvieron al solicitante no aparecen, porque la devolución quita al aprobador de la solicitud.</p></div>' +
-      (ts.map(function (t) { return tarjeta(t, '<span class="badge" style="background:#ece2f8;color:#5b2f8c">✔ ' + esc(papelTramitado(t).join(' · ')) + '</span>'); }).join('') || '<div class="card vacio">Todavía no has tramitado ninguna solicitud' + (tramTipo ? ' de este tipo' : '') + '.</div>');
+        .map(function (o) { return '<option value="' + o[0] + '"' + (tramTipo === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="lbl">Días del cupo de año</label><select id="tCupo">' + cupos.map(function (c) { return '<option' + (c === tramCupo ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select></div></div>' +
+      '<p class="small muted">Agrupadas por persona: pulsa un nombre para ver su expediente (días por tipo de permiso y sus solicitudes, con el estado actual). Solo cuenta las solicitudes que has tramitado tú; la referencia es SIPERDEF. Las devueltas al solicitante no aparecen, porque la devolución quita al aprobador de la solicitud.</p></div>' +
+      '<div class="sec"><span>' + grupos.length + ' persona' + (grupos.length === 1 ? '' : 's') + '</span><span>' + ts.length + ' solicitud' + (ts.length === 1 ? '' : 'es') + '</span></div>' +
+      (grupos.map(function (ls) {
+        var t0 = ls[0], td = tablaDias(ls, tramCupo);
+        ls.sort(function (a, b) { return String(b.ini).localeCompare(String(a.ini)); });
+        var ult = ls.filter(function (t) { return t.unidad; })[0];
+        return '<details class="card expediente"' + (abrirTodo ? ' open' : '') + '><summary style="cursor:pointer">' +
+          '<b>' + esc(t0.nombre) + '</b>' + (t0.empleo ? ' <span class="muted small">· ' + esc(t0.empleo) + '</span>' : '') + (ult ? ' <span class="muted small">· ' + esc(ult.unidad.Title) + '</span>' : '') +
+          '<div class="meta"><span class="badge e2">' + ls.length + ' solicitud' + (ls.length === 1 ? '' : 'es') + '</span>' +
+          '<span class="badge e3">' + (td.tot.nat - td.tot.fes) + ' día' + (td.tot.nat - td.tot.fes === 1 ? '' : 's') + ' concedido' + (td.tot.nat - td.tot.fes === 1 ? '' : 's') + ' en ' + esc(tramCupo) + '</span>' +
+          (td.tot.tram ? '<span class="badge e1">' + td.tot.tram + ' día' + (td.tot.tram === 1 ? '' : 's') + ' en trámite</span>' : '') +
+          (ls.some(function (t) { return t.estado === E.AU; }) ? '<span class="badge e5">pendiente de registro</span>' : '') + '</div></summary>' +
+          '<div style="margin-top:8px">' + (td.html || '<p class="small muted">Sin días concedidos ni en trámite con cargo al cupo ' + esc(tramCupo) + '.</p>') + '</div>' +
+          ls.map(function (t) { return tarjeta(t, '<span class="badge" style="background:#ece2f8;color:#5b2f8c">✔ ' + esc(papelTramitado(t).join(' · ')) + '</span>'); }).join('') + '</details>';
+      }).join('') || '<div class="card vacio">' + (q ? 'Nadie con ese nombre entre las que has tramitado.' : 'Todavía no has tramitado ninguna solicitud' + (tramTipo ? ' de este tipo' : '') + '.') + '</div>');
   }
   function vistaPendientes() {
     var pend = pendVista === 'pendientes', nt = tramitadasPorMi().length;
@@ -1254,12 +1283,17 @@
     else if (el.id === 'rUni') { regUnidad = el.value; confirmando = null; render(); return; }
     else if (el.id === 'mCupo') { mCupo = el.value; render(); return; }
     else if (el.id === 'tTipo') { tramTipo = el.value; render(); return; }
+    else if (el.id === 'tCupo') { tramCupo = el.value; render(); return; }
     else if (el.id === 'aCorreo') { if (!esAdmin) return; pref.correo = el.checked; }
     else if ((el.id === 'aSitio' || el.id === 'aLista') && esAdmin) { pref.sitio = $('#aSitio').value.trim() || pref.sitio; pref.lista = $('#aLista').value.trim() || pref.lista; guardarPref(); cargadoEn = null; cargar(); return; }
     else return;
     guardarPref(); render();
   });
   document.addEventListener('input', function (e) {
+    if (e.target.id === 'tBusca') {
+      tramBusca = e.target.value; var p0 = e.target.selectionStart; render();
+      var b = $('#tBusca'); if (b) { b.focus(); b.setSelectionRange(p0, p0); } return;
+    }
     if (e.target.id !== 'fq') return;
     pref.f.q = e.target.value; guardarPref();
     var pos = e.target.selectionStart; render();

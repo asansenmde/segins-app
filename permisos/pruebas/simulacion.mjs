@@ -162,6 +162,11 @@ async function prueba(verbose, soloAlcance) {
   console.log(tag, 'conmutador:', await p.$$eval('[data-pv]', n => n.map(x => x.textContent)));
   await p.click('[data-pv=tramitadas]'); await p.waitForTimeout(200);
   console.log(tag, 'ya tramitadas:', await p.$$eval('#vista .sol', n => n.map(x => x.dataset.id + ' ' + x.querySelector('.badge[style]').textContent + ' [' + x.querySelector('.badge').textContent + ']')));
+  console.log(tag, 'expedientes:', await p.$$eval('#vista details.expediente summary', n => n.map(x => x.textContent.replace(/\s+/g, ' '))));
+  await p.fill('#tBusca', 'nadie'); await p.waitForTimeout(200);
+  console.log(tag, 'buscar «nadie»:', await p.textContent('#vista .vacio'), '| foco:', await p.evaluate(() => document.activeElement.id));
+  await p.fill('#tBusca', 'dos'); await p.waitForTimeout(200);
+  console.log(tag, 'buscar «dos»:', await p.$$eval('#vista details.expediente', n => n.length), 'expediente(s)');
   await p.selectOption('#tTipo', 'autorizada'); await p.waitForTimeout(200);
   console.log(tag, 'solo autorizadas por mí:', await p.$$eval('#vista .sol', n => n.map(x => x.dataset.id)));
   if (!verbose) await p.screenshot({ path: new URL('tramitadas.png', import.meta.url).pathname, fullPage: true });
