@@ -390,12 +390,37 @@
         '<p class="small muted">Cuenta las solicitudes aprobadas, autorizadas o registradas del cupo elegido. «Días sin festivos» resta los festivos que indicaste en cada solicitud. Es orientativo: la referencia es SIPERDEF.</p>' :
         '<p class="small muted">Sin permisos concedidos ni en trámite con cargo al cupo ' + esc(mCupo) + '.</p>') + '</details>';
   }
+  // Lo que ya he tramitado como aprobador o autorizador (para seguirlo después)
+  var pendVista = 'pendientes', tramTipo = '';
+  function papelTramitado(t) {
+    var aprobe = soy(t.apr) && !t.directo && (t.eAprob === 'APROBADO' || [E.AP, E.AU, E.RG, E.AN].indexOf(t.estado) >= 0);
+    var autorice = soy(t.aut) && (t.eAutor === 'AUTORIZADO' || [E.AU, E.RG, E.AN].indexOf(t.estado) >= 0);
+    var rechace = t.estado === E.RE && (soy(t.aut) || (soy(t.apr) && !aprobe));
+    return [aprobe ? 'aprobada por mí' : '', autorice ? 'autorizada por mí' : '', rechace ? 'rechazada por mí' : ''].filter(Boolean);
+  }
+  var tramitadasPorMi = function () {
+    return items.filter(function (t) { return papelTramitado(t).length; }).sort(function (a, b) { return String(b.ini).localeCompare(String(a.ini)); });
+  };
+  function vistaTramitadas() {
+    var todas = tramitadasPorMi();
+    var ts = todas.filter(function (t) { var pp = papelTramitado(t).join(' '); return !tramTipo || pp.indexOf(tramTipo) >= 0; });
+    var cuenta = function (k) { return todas.filter(function (t) { return papelTramitado(t).join(' ').indexOf(k) >= 0; }).length; };
+    return '<div class="card"><div class="grid"><div><label class="lbl">Mostrar</label><select id="tTipo">' +
+      [['', 'Todas las que he tramitado (' + todas.length + ')'], ['aprobada', 'Aprobadas por mí (' + cuenta('aprobada') + ')'], ['autorizada', 'Autorizadas por mí (' + cuenta('autorizada') + ')'], ['rechazada', 'Rechazadas por mí (' + cuenta('rechazada') + ')']]
+        .map(function (o) { return '<option value="' + o[0] + '"' + (tramTipo === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></div></div>' +
+      '<p class="small muted">Cada solicitud muestra su estado actual (por ejemplo, si ya está autorizada o registrada en SIPERDEF). Ordenadas por fecha de inicio, de la más reciente a la más antigua. Las que se devolvieron al solicitante no aparecen, porque la devolución quita al aprobador de la solicitud.</p></div>' +
+      (ts.map(function (t) { return tarjeta(t, '<span class="badge" style="background:#ece2f8;color:#5b2f8c">✔ ' + esc(papelTramitado(t).join(' · ')) + '</span>'); }).join('') || '<div class="card vacio">Todavía no has tramitado ninguna solicitud' + (tramTipo ? ' de este tipo' : '') + '.</div>');
+  }
   function vistaPendientes() {
+    var pend = pendVista === 'pendientes', nt = tramitadasPorMi().length;
+    var conmutador = '<div class="acciones" style="margin-top:12px"><button class="' + (pend ? 'prim' : '') + '" data-pv="pendientes">Esperan mi acción (' + (pendientes().aprobar.length + pendientes().autorizar.length) + ')</button>' +
+      '<button class="' + (!pend ? 'prim' : '') + '" data-pv="tramitadas">Ya tramitadas por mí (' + nt + ')</button></div>';
+    if (!pend) return conmutador + vistaTramitadas();
     var p = pendientes();
     var porFecha = function (a, b) { return String(a.ini).localeCompare(String(b.ini)); };
     p.aprobar.sort(porFecha); p.autorizar.sort(porFecha);
     var bloque = function (tit, ls, txt) { return '<div class="sec"><span>' + tit + '</span><span>' + ls.length + '</span></div>' + (ls.map(function (t) { return tarjeta(t, marcaEspera(t)); }).join('') || '<p class="muted small">' + txt + '</p>'); };
-    return '<p class="muted small">Solicitudes que esperan una acción tuya como aprobador o autorizador indicado en la solicitud, ordenadas por fecha de inicio. En rojo, las que llevan más de 3 días esperando o empiezan pronto.' +
+    return conmutador + '<p class="muted small">Solicitudes que esperan una acción tuya como aprobador o autorizador indicado en la solicitud, ordenadas por fecha de inicio. En rojo, las que llevan más de 3 días esperando o empiezan pronto.' +
       (enRegistro() ? ' Lo pendiente de registro está en la pestaña «Registro SIPERDEF».' : '') + '</p>' +
       bloque('Pendientes de aprobar', p.aprobar, 'Ninguna solicitud espera tu aprobación.') +
       bloque('Pendientes de autorizar', p.autorizar, 'Ninguna solicitud espera tu autorización.');
@@ -1196,6 +1221,8 @@
     if (el.closest('[data-relimp]')) { imprimirRelacion(); return; }
     var fi = el.closest('[data-fichaimp]');
     if (fi) { var tf = items.find(function (x) { return x.id === Number(fi.dataset.fichaimp); }); if (tf) imprimirFicha(tf); return; }
+    var pv = el.closest('[data-pv]');
+    if (pv) { pendVista = pv.dataset.pv; render(); return; }
     var rv = el.closest('[data-regv]');
     if (rv) { regVista = rv.dataset.regv; confirmando = null; recien.clear(); limpiarUltimaReg(); render(); return; }
     if (el.closest('[data-regimp]')) { imprimirRegistro(); return; }
@@ -1226,6 +1253,7 @@
     else if (el.id === 'cVer') pref.cal.ver = el.value;
     else if (el.id === 'rUni') { regUnidad = el.value; confirmando = null; render(); return; }
     else if (el.id === 'mCupo') { mCupo = el.value; render(); return; }
+    else if (el.id === 'tTipo') { tramTipo = el.value; render(); return; }
     else if (el.id === 'aCorreo') { if (!esAdmin) return; pref.correo = el.checked; }
     else if ((el.id === 'aSitio' || el.id === 'aLista') && esAdmin) { pref.sitio = $('#aSitio').value.trim() || pref.sitio; pref.lista = $('#aLista').value.trim() || pref.lista; guardarPref(); cargadoEn = null; cargar(); return; }
     else return;

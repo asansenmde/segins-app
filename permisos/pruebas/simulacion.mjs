@@ -157,6 +157,15 @@ async function prueba(verbose, soloAlcance) {
   const cAu = JSON.parse(posts.find(x => /items\(2\)/.test(x.ruta)).cuerpo);
   console.log(tag, 'autorizar:', JSON.stringify({ Estado: cAu.Estado, EAu: cAu.EstadoDeAutorizacion, ER: cAu.EstadoDeRegistro }));
   await p.click('#dlg [data-cerrar]');
+  // Ya tramitadas por mí: la 1 (aprobada) y la 2 (autorizada) dejan de estar pendientes pero se siguen viendo
+  await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200);
+  console.log(tag, 'conmutador:', await p.$$eval('[data-pv]', n => n.map(x => x.textContent)));
+  await p.click('[data-pv=tramitadas]'); await p.waitForTimeout(200);
+  console.log(tag, 'ya tramitadas:', await p.$$eval('#vista .sol', n => n.map(x => x.dataset.id + ' ' + x.querySelector('.badge[style]').textContent + ' [' + x.querySelector('.badge').textContent + ']')));
+  await p.selectOption('#tTipo', 'autorizada'); await p.waitForTimeout(200);
+  console.log(tag, 'solo autorizadas por mí:', await p.$$eval('#vista .sol', n => n.map(x => x.dataset.id)));
+  if (!verbose) await p.screenshot({ path: new URL('tramitadas.png', import.meta.url).pathname, fullPage: true });
+  await p.selectOption('#tTipo', ''); await p.click('[data-pv=pendientes]'); await p.waitForTimeout(200);
   // Registro SIPERDEF: pestaña aparte, agrupada por unidad, con NIF; registrar pide confirmación
   console.log(tag, 'pendientes de mí (sin registro):', await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | ')));
   await p.click('#tabs a[data-v=registro]'); await p.waitForTimeout(300);
