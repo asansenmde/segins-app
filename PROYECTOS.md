@@ -9,6 +9,7 @@
 | `[COLABORA]` | `colabora/` | Tareas Colabora, lista «Gestor de Tareas» del SharePoint interno |
 | `[MENSADEF]` | `mensadef/` | Visor de mensajes de MENSADEF |
 | `[PERMISOS]` | `permisos/` | Solicitud, aprobación y autorización de permisos (Colabora, CALIDAD-VIDA) |
+| `[INCIDENTES]` | `incidentes/` | Incidentes de seguridad (Colabora, sitio JIGE) |
 
 Para el desarrollo, las piezas reutilizables y las pruebas están en `SHAREPOINT.md`.
 
