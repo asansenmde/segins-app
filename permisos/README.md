@@ -72,7 +72,9 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
   o registrado* (morado); el selector «Ver» permite solo los míos, solo los tramitados o todos los que puedo ver.
   Debajo, la tabla «Control del mes» con mi papel en cada uno. Exporta a Outlook (`.ics`, días completos; los míos
   marcan «fuera de la oficina»).
-- **Otras ayudas**: días por tipo de permiso y cupo de año en «Mis solicitudes» (orientativo: manda SIPERDEF);
+- **Otras ayudas**: tabla «Tipo de permiso · Fechas · Días concedidos hábiles» (días del permiso menos festivos
+  indicados; solo concedidos) por cupo de año en «Mis solicitudes», con el nombre del solicitante arriba (orientativo:
+  manda SIPERDEF); en «Pendientes de mí», «Esperan mi acción» en rojo y «Ya tramitadas por mí» en verde;
   «⏳ esperando N días» y «empieza en N días» (en rojo si pasan de 3 días o empieza pronto) en lo pendiente, ordenado
   por fecha de inicio; botón «✉ Enviar recordatorio» al aprobador o autorizador de mi solicitud (correo oficial, uno
   al día); aviso de **solapes** solo cuando la misma persona tiene dos solicitudes en las mismas fechas: al pedirla
