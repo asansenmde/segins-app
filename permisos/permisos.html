@@ -171,6 +171,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
+  var VERSION = '2026-10-15 · 3';
   var CLAVE = 'permisos-calidad-vida';
   var pref = { sitio: '/et/SUIGESUR/colaborativo/CALIDAD-VIDA', lista: 'Solicitud de Permisos', vista: 'mias', correo: true,
     f: { q: '', estado: '', tipo: '', dependencia: '', unidad: '', cupo: '' }, cal: { dependencia: '', unidad: '', pendientes: true, ver: 'control' }, recordados: {} };
@@ -341,6 +342,7 @@
     }).then(function () {
       cargadoEn = new Date();
       $('#estadoCarga').textContent = items.length + ' solicitudes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      $('#estadoCarga').title = 'Versión de la página: ' + VERSION;
       render();
       if (idInicial) {
         var pedida = idInicial; idInicial = null;
@@ -555,7 +557,7 @@
       (enRegistro() ? ' Lo pendiente de registro está en la pestaña «Registro SIPERDEF».' : '') + '</p>' +
       bloque('Pendientes de aprobar', p.aprobar, 'Ninguna solicitud espera tu aprobación.') +
       bloque('Pendientes de autorizar', p.autorizar, 'Ninguna solicitud espera tu autorización.') +
-      '<details class="card" style="margin-top:16px"' + (items.length ? '' : ' open') + '><summary style="cursor:pointer;font-weight:700">¿Echas en falta alguna solicitud?</summary>' +
+      '<details class="card" style="margin-top:16px"' + (items.length && (p.aprobar.length + p.autorizar.length) ? '' : ' open') + '><summary style="cursor:pointer;font-weight:700">¿Echas en falta alguna solicitud?</summary>' +
       '<p class="small muted">Pregunta a Colabora en cuántas solicitudes figuras como aprobador o autorizador y en qué estado están (solo cuenta, no cambia nada). Antes, recarga la página con Ctrl+F5.</p>' +
       '<div class="acciones"><button data-comprobar="1">Comprobar en Colabora</button></div><div id="compRes"></div></details>';
   }
@@ -571,8 +573,21 @@
             n(function (x) { return mismoCorreo(x[correo]) || (x[per] && mismoCorreo(x[per].EMail)); }) + '</td><td>' + n(function (x) { return mismoNombre(x[per] && x[per].Title) || mismoNombre(x[texto]); }) + '</td><td>' +
             n(function (x) { return mismoNombre(x.JEFE); }) + '</td><td>' + n(function (x) { return !x[per] || !x[per].Id; }) + '</td></tr>';
         };
-        return '<div style="overflow-x:auto"><table class="t"><tr><th>En Colabora (que puedes leer)</th><th>Total</th><th>Con tu cuenta</th><th>Con tu correo</th><th>Con tu nombre</th><th>Tú en «JEFE»</th><th>Sin persona</th></tr>' +
-          fila(E.PA, 'AprobadorDePermiso', 'AprobadorTexto', 'CorreoDeAPROBADOR') + fila(E.AP, 'AutorizadorDelPermiso', 'AutorizadorTexto', 'CorreoDeAUTORIZADOR') + '</table></div>';
+        var quienes = function (est, per, texto, correo) {
+          var m = {};
+          ls.filter(function (x) { return estadoCanon(x.Estado) === est; }).forEach(function (x) {
+            var k = [(x[per] && x[per].Title) || '—', x[texto] || '—', x[correo] || (x[per] && x[per].EMail) || '—'].join(' | ');
+            m[k] = (m[k] || 0) + 1;
+          });
+          return Object.keys(m).sort().map(function (k) { var tu = k.split(' | ').some(function (v) { return mismoNombre(v) || mismoCorreo(v); }); return '<tr' + (tu ? ' style="background:var(--ok-bg)"' : '') + '><td>' + esc(k.replace(/ \| /g, ' · ')) + '</td><td>' + m[k] + '</td></tr>'; }).join('');
+        };
+        var lista_ = '<details class="small" style="margin-top:8px"><summary style="cursor:pointer">Ver cómo están escritos los aprobadores y autorizadores en lo pendiente</summary>' +
+          '<p class="muted">Persona guardada · nombre en texto · correo. En verde, lo que la página reconoce como tú. Si tú apareces escrito de otra forma, dímelo.</p>' +
+          '<table class="t"><tr><th>Aprobador (pendientes de aprobar)</th><th>Nº</th></tr>' + quienes(E.PA, 'AprobadorDePermiso', 'AprobadorTexto', 'CorreoDeAPROBADOR') + '</table>' +
+          '<table class="t" style="margin-top:6px"><tr><th>Autorizador (pendientes de autorizar)</th><th>Nº</th></tr>' + quienes(E.AP, 'AutorizadorDelPermiso', 'AutorizadorTexto', 'CorreoDeAUTORIZADOR') + '</table></details>';
+        return '<p class="small muted">Versión de la página: ' + esc(VERSION) + ' · tu nombre: ' + esc(yo.Title) + ' · tu correo: ' + esc(yo.Email || '(vacío)') + '</p>' +
+          '<div style="overflow-x:auto"><table class="t"><tr><th>En Colabora (que puedes leer)</th><th>Total</th><th>Con tu cuenta</th><th>Con tu correo</th><th>Con tu nombre</th><th>Tú en «JEFE»</th><th>Sin persona</th></tr>' +
+          fila(E.PA, 'AprobadorDePermiso', 'AprobadorTexto', 'CorreoDeAPROBADOR') + fila(E.AP, 'AutorizadorDelPermiso', 'AutorizadorTexto', 'CorreoDeAUTORIZADOR') + '</table></div>' + lista_;
       }).catch(function (e) { return '<p class="small muted">No se pudo hacer el recuento detallado (' + esc(e.message || e) + ').</p>'; });
   }
   function comprobarPendientes() {
