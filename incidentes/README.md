@@ -6,60 +6,77 @@ Página para la lista de incidentes de seguridad que usa la página del sitio
 ## Estado
 
 1. Diagnóstico (`prueba-incidentes.html`): hecho. Lista «INCIDENTES DE SEGURIDAD» (URL `Lists/INTRUSIONES`).
-2. **Página `incidentes.html`**: primera versión, para probar en Colabora.
+2. **Página `incidentes.html`**: formulario y circuito del InfoPath reproducidos en la página.
 
 ## La página `incidentes.html`
-
-> **Alta del parte en la página**: escribe `SUIGES` (por eso la página sabe qué SUIGE lo valora) y `MANDO1N–3N`. No
-> rellena `MN1–MN4` ni `grupo`, porque aún no sabemos cómo los rellena el formulario de Colabora (paso 2 del
-> diagnóstico). Si las vistas de Colabora de cada SUIGE dependen de esas columnas, los partes dados de alta aquí no
-> saldrán en ellas, aunque sí en esta página.
 
 Se sube a una biblioteca de Colabora (la misma que `permisos.html` vale) junto con `img/incidentes-minisdef.png` e
 `img/incidentes-uso-oficial.png` (sin la carpeta `img`, al lado de la página: los usan los correos). Consulta el sitio
 `/et/jige/colaborativo` con la sesión del usuario.
 
-**Circuito** (los mismos campos que el formulario de Colabora):
+**Reproduce el formulario InfoPath** `incidentes_de_seguridad.xsn` (se analizó la plantilla; no se copia al repositorio):
+mismos campos, textos de ayuda, botones, valores de `ESTADO` y reglas.
 
-| Fase | Quién | Qué guarda la página |
-|---|---|---|
-| Parte (BORRADOR → REMITIDO A M1) | quien lo da de alta | **«＋ Nuevo parte» en la página**: datos, SUIGE que lo valora (`SUIGES`), mandos de 1.º–3.º nivel (`MANDO1N–3N`, con sugerencias de M1N–M3N), responsable, correos a informar y los cinco textos; «Guardar borrador» o «Remitir a M1» (aviso a la SUIGE). Los adjuntos, desde Colabora |
-| Valoración SUIGE | grupo `SEGURIDAD_<SUIGE>` (SUIGESUR, SUIGENOR, SUIGECAN, SUIGEPIR, SECORCEN, DIIN y DIAPER) | `VALORACIONSUIGES`, `ValoradoPorSUIGE` = sí, `ESTADO` = EN SEGUIMIENTO |
-| DIACU | `SEGURIDAD_IGE` (DIACU está en el grupo de IGE) | `DIACU` = visto / elevado / rechazado, `VALORACIONDIACU`, `ValoradoPorDIACU`; rechazar devuelve a la SUIGE (`ValoradoPorSUIGE` = no) |
-| IGE (solo si DIACU eleva) | `SEGURIDAD_IGE` | `valoracionIGE`, `ValoradoPorIGE` = sí |
-| Cierre | IGE (o DIACU si fue «visto») | `ESTADO` = EXP CERRADO; IGE o quien administra la lista puede reabrir (con motivo) |
+### Formulario de notificación («＋ Nuevo parte» y «Completar e informar a SUIGE»)
 
-Cada trámite y cada observación se anotan con nombre y hora en `ObservacionesDelExpediente` (historial). Antes de
-guardar se comprueba que nadie ha cambiado el incidente (fecha y estado) y que te corresponde la acción.
-`REGISTRODEACTIVIDAD` no se toca (es del formulario).
+| Sección | Campos (columna) |
+|---|---|
+| Datos del responsable de la información | Empleo (lista `empleos` del sitio CALIDAD-VIDA de SUIGESUR; si no se puede leer, los 16 empleos del formulario) · Responsable que va a tramitar la información (`ResponsableDeLaInformacion`; «Gestor identificado correctamente» si eres tú) · Personal que puede visualizar la información (`grupo`, varias personas) |
+| Datos de la unidad a la que pertenece | Mando de primer nivel › segundo nivel › unidad, **en cascada** como el InfoPath: listas `M1N` › `M2N` (por `ID_M1N`) › `M3N` (por `M2N`). Se guarda el **número** del elemento en `MANDO1N–3N` y el **nombre** en `MN1–MN3`; al cambiar un nivel se vacían los inferiores |
+| Datos del incidente | Tipo · Lugar (provincia, lista `PROVINCIAS`) · Fecha y hora (`FechaNotificacion`) · ¿Zona señalizada? · ¿Reiterada? · Probabilidad · ¿Denuncia? y nº |
+| Responda a todas las preguntas | Observación, análisis, medidas, control de medidas, conclusión (con las ayudas del InfoPath) · Aceptación de los protocolos (`ACEPTACION`) · Adjuntos |
 
-**SUIGE de cada parte**: columna `SUIGES` si está rellena; si no, el nombre del `grupo`; si no, la cadena de mando
-(`MANDO1N–3N`, `MN1–MN4`) que contenga SUIGESUR, SUIGENOR, SUIGECAN, SUIGEPIR, SECOORCEN/SECORCEN o DIIN.
+- **Guardar borrador**: `ESTADO` = BORRADOR (basta la fecha, que la lista exige). Se puede modificar cuantas veces haga falta.
+- **Informar a SUIGE** (botón azul): **solo el responsable de la información**, como en el InfoPath. Exige todos los
+  campos y la aceptación. La SUIGE sale del **mando de 2.º nivel** (`MN2`): SUIGESUR, SUIGENOR, SUIGEPIR, SUIGECAN,
+  SECOORCEN, DIAPER, DIIN; **MADOC va a la SUIGESUR** (así lo hace la plantilla). Si el mando no tiene SUIGE, avisa y no envía.
+  Guarda `ESTADO` = REMITIDO A SUIGE, `ResponsableDelParte`, `SUIGES` (si es una de sus opciones), `Title` = fecha de
+  alta, `correosPersonasInfo` = correos del «personal que puede visualizar», y sube los adjuntos.
+
+### Circuito (valores de `ESTADO` que escribe el InfoPath)
+
+| Fase | Quién | Botones | Qué guarda |
+|---|---|---|---|
+| BORRADOR | responsable / autor | Guardar borrador · Informar a SUIGE | ver arriba |
+| REMITIDO A SUIGE | grupo `SEGURIDAD_<SUIGE>` | Informar a DIACU · INFORMAR A IGE | `VALORACIONSUIGES`, `ValoradoPorSUIGE`; `ESTADO` = REMITIDO A DIACU o REMITIDO A M1 |
+| REMITIDO A DIACU | `SEGURIDAD_IGE` | Actualizar información · INFORMAR A IGE | `VALORACIONDIACU`, `ValoradoPorDIACU`; al informar, `DIACU` = ELEVADO POR DIACU y `ESTADO` = REMITIDO A M1 |
+| REMITIDO A M1 (en IGE) | `SEGURIDAD_IGE` | Valoración de IGE | `valoracionIGE`, `ValoradoPorIGE`; `ESTADO` = VALORADO INCIDENTE POR JIGE |
+| VALORADO INCIDENTE POR JIGE / EN SEGUIMIENTO | `SEGURIDAD_IGE` | Cerrar expediente | `ESTADO` = EXP CERRADO (en el InfoPath no hay botón; se hacía a mano). Se puede reabrir con motivo (EN SEGUIMIENTO) |
+
+Los partes antiguos con otros valores se colocan así: ENVIADO → remitido a SUIGE; REMITIDO A IGE → en IGE; CERRADO →
+cerrado. Cada trámite se anota con nombre y hora en `ObservacionesDelExpediente`. Antes de guardar se comprueba que
+nadie ha cambiado el parte (fecha y estado) y que te corresponde la acción. `REGISTRODEACTIVIDAD` no se toca.
 
 **Quién ve qué**: DIACU e IGE (grupo `SEGURIDAD_IGE`), todo. **Administrar la lista o tener Control total NO da acceso a
-los partes de otras SUIGE**; cada SUIGE, los suyos (filtro en el servidor por
-`SUIGES`, grupo o cadena de mando; si Colabora no admite buscar texto, se leen solo número, SUIGES, grupo y cadena de
-mando para localizarlos); el resto, los que dio de alta o en los que figura. La protección real es la de la lista.
+los partes de otras SUIGE**. Cada SUIGE, los de su mando de 2.º nivel (o columna `SUIGES`); todos, los que dieron de
+alta, de los que son responsables o en los que figuran como «personal que puede visualizar». Filtro en el servidor; si
+Colabora no lo admite, se leen solo número, autor, responsable, personas, SUIGES y cadena de mando para localizarlos.
+La protección real es la de la lista.
 
-**Pestañas**: Incidentes registrados (antes «Panel»: recuadros por fase, probabilidad alta, reiterados, denuncias, últimos partes), Pendiente de valoración y tramitación
-(«Esperan mi acción» en rojo por papel, los más antiguos primero, ⏳ días en rojo a partir de 7; «Ya tramitados por
-mí» en verde), Búsqueda y consulta (filtros, **agrupada** por provincia, unidad/lugar, probabilidad, SUIGE, tipo, fase o mes, con el
-nº de abiertos y de probabilidad alta de cada grupo; PDF de la relación, CSV), Estadísticas (barras por tipo, mes, SUIGE,
-probabilidad, fase, provincia, reiterado, zona señalizada y denuncia, con los mismos filtros) y Ajustes (solo Control
-total).
+**Pestañas**: Incidentes registrados (recuadros por fase, probabilidad alta, reiterados, denuncias, últimos partes),
+Pendiente de valoración y tramitación (mis borradores y lo que espera a mi papel, en rojo; «Ya tramitados por mí» en
+verde), Búsqueda y consulta (filtros, agrupada por provincia, unidad, probabilidad, SUIGE, tipo, fase o mes; PDF y CSV),
+Estadísticas y Ajustes (solo Control total).
 
-**Ficha**: pasos del circuito, aviso si hay más partes del mismo tipo en el mismo lugar, datos del parte, los cinco
-textos, valoraciones, historial, acciones del papel que toque, «Añadir observación», «Enviar recordatorio», ficha
-oficial en PDF y enlaces al formulario de Colabora (adjuntos, editar el borrador).
+**Correos** (formato oficial, enlace `incidentes.html?id=N`, nunca con los textos del parte), con los asuntos del InfoPath:
 
-**Correos** (formato oficial, con enlace `incidentes.html?id=N`; nunca llevan los textos del parte):
-valorado por SUIGE → SEGURIDAD_IGE (DIACU); visto → SUIGE; elevado → SEGURIDAD_IGE (copia SUIGE); rechazado → SUIGE;
-valorado por IGE → SEGURIDAD_IGE (copia SUIGE); cerrado → SUIGE con copia al responsable, al autor y a `correosPersonasInfo`. Siempre copia a
-`correosPersonasInfo`. Los destinatarios son los integrantes de los grupos; si un grupo oculta sus integrantes, se
-ofrece preparar el correo en Outlook. Los avisos del formulario InfoPath siguen funcionando aparte.
+| Paso | Asunto | Para | Copia |
+|---|---|---|---|
+| Informar a SUIGE | NUEVO INCIDENTE DE SEGURIDAD EN ARG <SUIGE> | `SEGURIDAD_<SUIGE>` | personal que puede visualizar |
+| SUIGE › DIACU | NUEVO INCIDENTE DE SEGURIDAD VALORADO POR SUIGE | `SEGURIDAD_IGE` | personal que puede visualizar (oculta) |
+| SUIGE o DIACU › IGE | INCIDENTE DE SEGURIDAD VALORADO POR <DIACU o SUIGE> | `SEGURIDAD_IGE` | SUIGE |
+| Valoración de IGE | INCIDENTE DE SEGURIDAD ACTUALIZADO | SUIGE | personal que puede visualizar |
+| Cierre | … EXPEDIENTE CERRADO | SUIGE | responsable, autor y personal que puede visualizar |
+
+La plantilla InfoPath envía a **buzones escritos a mano**; la página, en cambio, a los **integrantes de los grupos**
+de Colabora (no se copian buzones al código). Si un grupo oculta sus integrantes, se ofrece preparar el correo en Outlook.
+
+**Fallos de la plantilla InfoPath** (no se reproducen): las reglas de SUIGEPIR y SECORCEN envían el correo al buzón de
+SUIGESUR; la regla de DIIN comprueba DIAPER (un parte de DIIN no se envía); «Actualizar información» de DIACU manda el
+correo de «valorado por JIGE».
 
 **Grupos** (constantes `ROLES` y `GRUPO_CORREO` al principio del código): confirmados con los permisos de la lista.
-DIACU e IGE comparten `SEGURIDAD_IGE`. DIAPER valora como una SUIGE (tiene su propia vista en la lista).
+DIACU e IGE comparten `SEGURIDAD_IGE`.
 
 ## Archivos
 
@@ -82,7 +99,8 @@ DIACU e IGE comparten `SEGURIDAD_IGE`. DIAPER valora como una SUIGE (tiene su pr
 - **Nombre REST de MN1–MN4**: su nombre interno empieza por «_» (`_x004d_N1`), y en el REST de SharePoint se llaman
   `OData__x004d_N1`. Pedirlos con el nombre corto daba «HTTP 400» al leer la lista. Además, si Colabora rechaza otra
   columna, la página la quita, repite la lectura y lo avisa en el panel.
-- `pruebas/simulacion.mjs`: prueba de la página con un sitio simulado (ligero y *verbose*): papeles, alcance, las
-  cinco acciones, correos, conflicto, impresión, CSV, estadísticas y enlace. Uso: `node incidentes/pruebas/simulacion.mjs`.
+- `pruebas/simulacion.mjs`: prueba de la página con un sitio simulado (ligero y *verbose*): papeles, alcance (SUIGE,
+  MADOC, «personal que puede visualizar»), el circuito completo, correos, conflicto, formulario (cascada de mandos,
+  personas, adjuntos, borrador, informar a SUIGE, solo el responsable), impresión, CSV, estadísticas y enlace. Uso: `node incidentes/pruebas/simulacion.mjs`.
 - `pruebas/diagnostico.mjs`: prueba con un sitio simulado (formato ligero y *verbose*, paginación, privacidad).
   Uso: `node incidentes/pruebas/diagnostico.mjs`.

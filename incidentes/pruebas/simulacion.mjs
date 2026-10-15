@@ -12,25 +12,49 @@ const GRUPOS = { SEGURIDAD_SUIGESUR: 101, SEGURIDAD_SUIGENOR: 102, SEGURIDAD_SUI
 const MIEMBROS = { SEGURIDAD_SUIGESUR: ['sur1@et.mde.es', 'sur2@et.mde.es'], SEGURIDAD_SUIGENOR: ['nor1@et.mde.es'], SEGURIDAD_SUIGECAN: ['can1@et.mde.es'], SEGURIDAD_DIAPER: ['diacu1@et.mde.es'], SEGURIDAD_IGE: ['ige1@et.mde.es'] };
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(9, 0, 0, 0); return x.toISOString(); };
 let expandRoto = false, faltaCampo = null, items, misGrupos = [], admin = false, sinSubstringof = false, ultimoFiltro = '', lecturaMinima = '';
-const base = { A_x00f1_o: '2026', Provincia: 'SEVILLA', Empleo: 'Sargento', ZONASE_x00d1_ALIZADA: true, Reiterada: 'NO', Denuncia: false, ValoradoPorSUIGE: false, ValoradoPorDIACU: false, ValoradoPorIGE: false,
+const base = { A_x00f1_o: '2026', Provincia: 'SEVILLA', Empleo: 'SARGENTO', ZONASE_x00d1_ALIZADA: true, Reiterada: 'NO', Denuncia: false, ValoradoPorSUIGE: false, ValoradoPorDIACU: false, ValoradoPorIGE: false,
   OBSERVACION: '<p>TEXTO RESERVADO DEL PARTE</p>', ANALISIS: '<div>Análisis</div>', MEDIDAS: 'Medidas', CONTROLMEDIDASADOPTADAS: 'Control', CONCLUSION: 'Conclusión', ObservacionesDelExpediente: '',
-  ResponsableDeLaInformacion: P[61], correosPersonasInfo: 'info1@et.mde.es; info2@et.mde.es', MANDO1N: 'FUTER', MANDO2N: '', MANDO3N: '', OData__x004d_N1: '', OData__x004d_N2: '', OData__x004d_N3: '', OData__x004d_N4: '',
-  Title: '', ESTADO: '', REGISTRODEACTIVIDAD: '', ModificadoPorTEXTO: '', SUIGES: null, Unidad: null, OTRO: '', NDenuncia: '', PROBABILIDADES: '', ACEPTACION: null, TipoDeIncidente: '', ResponsableDelParte: '', DIACU: null, VALORACIONSUIGES: '', VALORACIONDIACU: '', valoracionIGE: '', Usuario: null, grupo: null };
+  ResponsableDeLaInformacion: P[61], correosPersonasInfo: 'info1@et.mde.es; info2@et.mde.es', MANDO1N: '1', MANDO2N: '', MANDO3N: '', OData__x004d_N1: 'FUTER', OData__x004d_N2: '', OData__x004d_N3: '', OData__x004d_N4: '',
+  Title: '', ESTADO: '', REGISTRODEACTIVIDAD: '', ModificadoPorTEXTO: '', SUIGES: null, Unidad: null, OTRO: '', NDenuncia: '', PROBABILIDADES: '', ACEPTACION: true, TipoDeIncidente: '', ResponsableDelParte: '', DIACU: null, VALORACIONSUIGES: '', VALORACIONDIACU: '', valoracionIGE: '', Usuario: null, grupo: [] };
+// Listas auxiliares del formulario: M2N apunta a M1N (ID_M1N) y M3N a M2N; «OFICINA X» no tiene SUIGE
+const AUXL = {
+  M1N: [{ Id: 1, Title: 'FUTER' }, { Id: 2, Title: 'MCANA' }],
+  M2N: [{ Id: 1, Title: 'SUIGESUR', ID_M1NId: 1 }, { Id: 2, Title: 'SUIGENOR', ID_M1NId: 1 }, { Id: 3, Title: 'SUIGECAN', ID_M1NId: 2 }, { Id: 4, Title: 'OFICINA X', ID_M1NId: 1 }],
+  M3N: [{ Id: 1, Title: 'ACUARTELAMIENTO X', M1NId: 1, M2NId: 1 }, { Id: 2, Title: 'BASE NORTE', M1NId: 1, M2NId: 2 }, { Id: 3, Title: 'BASE CANARIAS', M1NId: 2, M2NId: 3 }, { Id: 4, Title: 'UNIDAD SIN SUIGE', M1NId: 1, M2NId: 4 }],
+  PROVINCIAS: [{ Id: 1, Title: 'SEVILLA' }, { Id: 2, Title: 'LEÓN' }, { Id: 3, Title: 'BURGOS' }],
+  empleos: [{ Id: 1, Title: 'CORONEL' }, { Id: 2, Title: 'COMANDANTE' }, { Id: 3, Title: 'SARGENTO' }]
+};
+let sinEmpleos = false;
+const sur = { MANDO2N: '1', MANDO3N: '1', OData__x004d_N2: 'SUIGESUR', OData__x004d_N3: 'ACUARTELAMIENTO X' };
+const nor = { MANDO2N: '2', MANDO3N: '2', OData__x004d_N2: 'SUIGENOR', OData__x004d_N3: 'BASE NORTE' };
 const nuevoStore = () => {
   items = [
-    { Id: 1, ESTADO: 'REMITIDO A M1', TipoDeIncidente: 'Intrusión no autorizada', MANDO2N: 'SUIGESUR', OTRO: 'ACUARTELAMIENTO X', PROBABILIDADES: 'MUY ALTO', FechaNotificacion: d(-10), Created: d(-9), Author: P[61] },
-    { Id: 2, ESTADO: 'EN SEGUIMIENTO', TipoDeIncidente: 'Robo o sustracción', grupo: { Id: 102, Title: 'SEGURIDAD_SUIGENOR' }, ValoradoPorSUIGE: true, PROBABILIDADES: 'MEDIO', FechaNotificacion: d(-20), Created: d(-19), Author: P[62], Provincia: 'LEÓN', VALORACIONSUIGES: 'Valorado NOR' },
-    { Id: 3, ESTADO: 'EN SEGUIMIENTO', TipoDeIncidente: 'Incidentes con UAS', SUIGES: 'SUIGECAN', ValoradoPorSUIGE: true, DIACU: 'ELEVADO POR DIACU', ValoradoPorDIACU: true, PROBABILIDADES: 'ALTO', FechaNotificacion: d(-40), Created: d(-39), Author: P[62], Provincia: 'LAS PALMAS' },
-    { Id: 4, ESTADO: 'EN SEGUIMIENTO', TipoDeIncidente: 'Pintadas', MANDO3N: 'SUIGESUR', ValoradoPorSUIGE: true, DIACU: 'VISTO POR DIACU', ValoradoPorDIACU: true, PROBABILIDADES: 'BAJO', FechaNotificacion: d(-60), Created: d(-59), Author: P[61] },
-    { Id: 5, ESTADO: 'EXP CERRADO', TipoDeIncidente: 'Otro', MANDO2N: 'SUIGESUR', ValoradoPorSUIGE: true, DIACU: 'VISTO POR DIACU', PROBABILIDADES: 'MUY BAJO', FechaNotificacion: d(-90), Created: d(-89), Author: P[61], Denuncia: true, NDenuncia: '123/26' },
-    { Id: 6, ESTADO: 'BORRADOR', TipoDeIncidente: 'Sabotaje', MANDO2N: 'SUIGESUR', PROBABILIDADES: 'MEDIO', FechaNotificacion: d(-1), Created: d(-1), Author: YO },
-    { Id: 7, ESTADO: 'REMITIDO A M1', TipoDeIncidente: 'Intrusión no autorizada', grupo: { Id: 102, Title: 'SEGURIDAD_SUIGENOR' }, PROBABILIDADES: 'ALTO', FechaNotificacion: d(-3), Created: d(-3), Author: P[62], Provincia: 'BURGOS' },
-    { Id: 8, ESTADO: 'REMITIDO A M1', TipoDeIncidente: 'Intrusión no autorizada', MANDO2N: 'SUIGESUR', OTRO: 'ACUARTELAMIENTO X', Reiterada: 'SI', PROBABILIDADES: 'ALTO', FechaNotificacion: d(-2), Created: d(-2), Author: P[61] },
-  ].map(x => ({ ...base, Title: '01/01/2026', Modified: d(-1), Editor: { Id: 61, Title: 'JEFE UNIDAD A' }, Attachments: x.Id === 1, ...x }));
+    { Id: 1, ESTADO: 'REMITIDO A SUIGE', TipoDeIncidente: 'Intrusión no autorizada', ...sur, PROBABILIDADES: 'MUY ALTO', FechaNotificacion: d(-10), Created: d(-9), Author: P[61] },
+    { Id: 2, ESTADO: 'REMITIDO A DIACU', TipoDeIncidente: 'Robo o sustracción', ...nor, ValoradoPorSUIGE: true, PROBABILIDADES: 'MEDIO', FechaNotificacion: d(-20), Created: d(-19), Author: P[62], Provincia: 'LEÓN', VALORACIONSUIGES: 'Valorado NOR' },
+    { Id: 3, ESTADO: 'REMITIDO A M1', TipoDeIncidente: 'Incidentes con UAS', MANDO1N: '2', MANDO2N: '3', OData__x004d_N1: 'MCANA', OData__x004d_N2: 'SUIGECAN', SUIGES: 'SUIGECAN', ValoradoPorSUIGE: true, DIACU: 'ELEVADO POR DIACU', ValoradoPorDIACU: true, PROBABILIDADES: 'ALTO', FechaNotificacion: d(-40), Created: d(-39), Author: P[62], Provincia: 'LAS PALMAS' },
+    // Parte antiguo: la cadena de mando está escrita en MANDOxN y no hay MNx
+    { Id: 4, ESTADO: 'VALORADO INCIDENTE POR JIGE', TipoDeIncidente: 'Pintadas', MANDO1N: 'FUTER', MANDO2N: 'SUIGESUR', OData__x004d_N1: '', ValoradoPorSUIGE: true, ValoradoPorIGE: true, PROBABILIDADES: 'BAJO', FechaNotificacion: d(-60), Created: d(-59), Author: P[61] },
+    { Id: 5, ESTADO: 'EXP CERRADO', TipoDeIncidente: 'Otro', ...sur, ValoradoPorSUIGE: true, PROBABILIDADES: 'MUY BAJO', FechaNotificacion: d(-90), Created: d(-89), Author: P[61], Denuncia: true, NDenuncia: '123/26' },
+    { Id: 6, ESTADO: 'BORRADOR', TipoDeIncidente: 'Sabotaje', ...sur, PROBABILIDADES: 'MEDIO', FechaNotificacion: d(-1), Created: d(-1), Author: YO },
+    { Id: 7, ESTADO: 'REMITIDO A SUIGE', TipoDeIncidente: 'Intrusión no autorizada', ...nor, grupo: [P[62]], PROBABILIDADES: 'ALTO', FechaNotificacion: d(-3), Created: d(-3), Author: P[62], Provincia: 'BURGOS' },
+    { Id: 8, ESTADO: 'REMITIDO A SUIGE', TipoDeIncidente: 'Intrusión no autorizada', ...sur, Reiterada: 'SI', PROBABILIDADES: 'ALTO', FechaNotificacion: d(-2), Created: d(-2), Author: P[61] },
+    // De otra SUIGE, pero el usuario figura entre el «personal que puede visualizar la información»
+    { Id: 9, ESTADO: 'REMITIDO A SUIGE', TipoDeIncidente: 'Pintadas', ...nor, grupo: [P[62], YO], PROBABILIDADES: 'BAJO', FechaNotificacion: d(-4), Created: d(-4), Author: P[62] },
+    // MADOC: el InfoPath lo envía a la SUIGESUR
+    { Id: 10, ESTADO: 'REMITIDO A SUIGE', TipoDeIncidente: 'Otro', MANDO2N: '9', OData__x004d_N2: 'MADOC', OData__x004d_N3: 'ACADEMIA', PROBABILIDADES: 'MEDIO', FechaNotificacion: d(-5), Created: d(-5), Author: P[62] },
+  ].map(x => ({ ...base, Title: '2026-01-01', Modified: d(-1), Editor: { Id: 61, Title: 'JEFE UNIDAD A' }, Attachments: x.Id === 1, ...x }));
 };
 // Evalúa el $filter de alcance (or de igualdades de persona, SUIGES y substringof)
+// Al escribir, las personas llegan por su número (XId); se guardan como objetos para leerlas después
+const quien = id => id === YO.Id ? YO : P[id] || { Id: id, Title: 'Usuario ' + id };
+const personasDe = c => {
+  if ('ResponsableDeLaInformacionId' in c) c.ResponsableDeLaInformacion = c.ResponsableDeLaInformacionId ? quien(c.ResponsableDeLaInformacionId) : null;
+  if ('grupoId' in c) c.grupo = (c.grupoId && c.grupoId.results ? c.grupoId.results : c.grupoId ? [c.grupoId] : []).map(quien);
+  return c;
+};
 const cumple = (it, filtro) => filtro.split(' or ').some(c => {
   let m;
+  if ((m = c.match(/\(grupo\/Id eq (\d+)\)/))) return (it.grupo || []).some(g => g.Id === +m[1]);
   if ((m = c.match(/\((\w+)Id eq (\d+)\)/))) return it[m[1]] && it[m[1]].Id === +m[2];
   if ((m = c.match(/\(SUIGES eq '([^']+)'\)/))) return it.SUIGES === m[1];
   if ((m = c.match(/substringof\('([^']+)',(\w+)\)/))) return String(it[m[2]] || '').includes(m[1]);
@@ -55,17 +79,18 @@ async function prueba(verbose, escenario) {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) return r.fulfill({ json: { d: {} } });
+      const ad = resto.match(/items\((\d+)\)\/AttachmentFiles\/add\(FileName='([^']+)'\)/);
+      if (ad) { items.find(x => x.Id === +ad[1]).Attachments = true; return r.fulfill({ json: { d: { FileName: ad[2] } } }); }
       const mi = resto.match(/items\((\d+)\)/);
       if (mi) {
         const it = items.find(x => x.Id === +mi[1]);
         if (req.headers()['if-match'] !== '"' + it.Modified + '"') return r.fulfill({ status: 412, json: { error: { message: { value: 'conflict' } } } });
-        const c = JSON.parse(req.postData()); delete c.__metadata; Object.assign(it, c, { Modified: new Date().toISOString(), Editor: { Id: YO.Id, Title: YO.Title } });
+        const c = personasDe(JSON.parse(req.postData())); delete c.__metadata; Object.assign(it, c, { Modified: new Date().toISOString(), Editor: { Id: YO.Id, Title: YO.Title } });
         return r.fulfill({ status: 204, body: '' });
       }
       if (resto.endsWith('/items')) {
-        const c = JSON.parse(req.postData()); delete c.__metadata;
+        const c = personasDe(JSON.parse(req.postData())); delete c.__metadata;
         const it = { ...base, Id: Math.max(...items.map(x => x.Id)) + 1, Created: new Date().toISOString(), Modified: new Date().toISOString(), Author: { Id: YO.Id, Title: YO.Title, EMail: YO.EMail }, Editor: { Id: YO.Id, Title: YO.Title }, Attachments: false, ...c };
-        if (c.ResponsableDeLaInformacionId) it.ResponsableDeLaInformacion = c.ResponsableDeLaInformacionId === YO.Id ? YO : P[c.ResponsableDeLaInformacionId];
         items.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } });
       }
       return r.fulfill({ status: 400, body: '' });
@@ -77,8 +102,11 @@ async function prueba(verbose, escenario) {
     if (g) return MIEMBROS[g[1]] ? J({ value: MIEMBROS[g[1]].map(e => ({ Email: e })) }) : r.fulfill({ status: 404, body: '' });
     const mi = resto.match(/items\((\d+)\)/);
     if (mi) { const it = items.find(x => x.Id === +mi[1]); return r.fulfill({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, ...it } } }); }
-    const aux = resto.match(/getbytitle\('(PROVINCIAS|M1N|M2N|M3N)'\)\/items/);
-    if (aux) return J({ value: { PROVINCIAS: ['SEVILLA', 'LEÓN', 'BURGOS'], M1N: ['FUTER', 'MCANA'], M2N: ['SUIGESUR', 'SUIGENOR'], M3N: ['ACUARTELAMIENTO X'] }[aux[1]].map((t, i) => ({ Id: i + 1, Title: t })) });
+    const aux = resto.match(/getbytitle\('(PROVINCIAS|M1N|M2N|M3N|empleos)'\)\/items/);
+    if (aux) {
+      if (aux[1] === 'empleos' && (sinEmpleos || !u.includes('/et/SUIGESUR/colaborativo/CALIDAD-VIDA/_api/'))) return r.fulfill({ status: 404, body: '' });
+      return J({ value: AUXL[aux[1]].slice().reverse() });
+    }
     if (resto.startsWith('web/siteusers')) return J({ value: [YO, ...Object.values(P)].map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail })) });
     if (resto.includes("getbytitle('INCIDENTES DE SEGURIDAD')/fields")) { const ch = a => verbose ? { results: a } : a; return J({ value: [
       { InternalName: 'TipoDeIncidente', Choices: ch(['Intrusión no autorizada', 'Robo o sustracción', 'Pintadas', 'Otro']) }, { InternalName: 'Reiterada', Choices: ch(['SI', 'NO', 'ES LA PRIMERA VEZ']) },
@@ -96,8 +124,11 @@ async function prueba(verbose, escenario) {
       const lista = filtro ? items.filter(it => cumple(it, filtro)) : items;
       // Lectura mínima de la vía alternativa: solo las columnas pedidas en $select
       const campos = ((u.match(/\$select=([^&]*)/) || [])[1] || '').split(',');
-      if (!campos.includes('Title')) { lecturaMinima = campos.join(','); return J({ value: lista.map(it => Object.fromEntries(Object.entries(it).filter(([k]) => campos.includes(k) || (k === 'grupo' && campos.includes('grupo/Title'))))) }); }
-      return J({ value: lista });
+      if (!campos.includes('Title')) {
+        lecturaMinima = campos.join(',');
+        return J({ value: lista.map(it => { const o = {}; campos.forEach(k => { if (k === 'grupo/Id') o.grupo = verbose ? { results: it.grupo.map(g => ({ Id: g.Id })) } : it.grupo.map(g => ({ Id: g.Id })); else if (/Id$/.test(k) && k !== 'Id') o[k] = it[k.slice(0, -2)] ? it[k.slice(0, -2)].Id : null; else o[k] = it[k]; }); return o; }) });
+      }
+      return J({ value: verbose ? lista.map(it => ({ ...it, grupo: { results: it.grupo } })) : lista });
     }
     if (resto.includes("getbytitle('INCIDENTES DE SEGURIDAD')")) return J({ Id: 'g', Title: 'INCIDENTES DE SEGURIDAD', ListItemEntityTypeFullName: 'SP.Data.INTRUSIONESListItem',
       EffectiveBasePermissions: { High: '0', Low: String(admin ? 0x2000BFF : 0x7) }, DefaultNewFormUrl: WEB + '/Lists/INTRUSIONES/NewForm.aspx', DefaultEditFormUrl: WEB + '/Lists/INTRUSIONES/EditForm.aspx', DefaultDisplayFormUrl: WEB + '/Lists/INTRUSIONES/DispForm.aspx' });
@@ -128,43 +159,46 @@ async function prueba(verbose, escenario) {
   }
   if (escenario === 'solo SUIGESUR' || escenario === 'SUIGESUR sin substringof') {
     await p.click('#tabs a[data-v=consulta]'); await p.waitForTimeout(200);
-    console.log(tag, '| ve:', await p.$$eval('#vista .inc', n => n.map(x => x.dataset.id).sort().join(',')), lecturaMinima ? '| lectura mínima: ' + lecturaMinima : '');
-    await p.click('.inc[data-id="7"]').catch(() => {}); await p.waitForTimeout(100);
-    await p.click('.inc[data-id="1"]'); await p.waitForTimeout(500);
-    console.log(tag, '| ficha 1, panel:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')), '| editar en Colabora:', !!(await p.$('#dlg a[href*="EditForm"]')));
+    console.log(tag, '| ve:', await p.$$eval('#vista .inc', n => n.map(x => x.dataset.id).sort((a, b) => a - b).join(',')), lecturaMinima ? '| lectura mínima: ' + lecturaMinima : '');
+    await p.click('.inc[data-id="9"]'); await p.waitForTimeout(500);
+    console.log(tag, '| ficha 9 (figuro en «grupo», SUIGENOR): paneles:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
     await p.click('#dlg [data-cerrar]');
-    await p.click('#tabs a[data-v=panel]'); await p.click('.inc[data-id="6"]'); await p.waitForTimeout(400);
-    console.log(tag, '| borrador propio 6: editar en Colabora:', !!(await p.$('#dlg a[href*="EditForm"]')), '| errores:', errs);
+    await p.click('.inc[data-id="10"]'); await p.waitForTimeout(500);
+    console.log(tag, '| ficha 10 (MADOC): paneles:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
+    await p.click('#dlg [data-cerrar]');
+    await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200); await p.click('.inc[data-id="6"]'); await p.waitForTimeout(400);
+    console.log(tag, '| borrador propio 6:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')), '| InfoPath:', !!(await p.$('#dlg a[href*="EditForm"]')), '| errores:', errs);
     await b.close(); return;
   }
-  // 1) SUIGE valora el 1 (sin texto, error; con texto, pasa a DIACU)
+  // 1) SUIGE valora el 1 (sin texto, error; con texto, informa a DIACU)
   await p.click('.inc[data-id="1"]'); await p.waitForTimeout(600);
   console.log(tag, '| pasos 1:', (await p.textContent('#dlg .pasos')).replace(/\s+/g, ' '), '| aviso reiterado:', (await p.textContent('#dlg .aviso').catch(() => '')).slice(0, 40));
-  console.log(tag, '| textos leídos:', (await p.textContent('#detTextos')).includes('TEXTO RESERVADO DEL PARTE'));
-  await p.fill('#vTexto', ''); await p.click('[data-acc=valSuige]'); await p.waitForTimeout(150);
-  console.log(tag, '| valorar sin texto:', await p.textContent('#accMsg'));
-  await p.fill('#vTexto', 'Riesgo alto: reforzar el vallado.\nRevisar cámaras.'); posts.length = 0;
-  await p.click('[data-acc=valSuige]'); await p.waitForTimeout(1400);
+  console.log(tag, '| textos leídos:', (await p.textContent('#detTextos')).includes('TEXTO RESERVADO DEL PARTE'), '| botones:', await p.$$eval('#detAcc [data-acc]', n => n.map(x => x.textContent).join(' | ')));
+  await p.fill('#vSuige', ''); await p.click('[data-acc=suigeDiacu]'); await p.waitForTimeout(150);
+  console.log(tag, '| informar sin valoración:', await p.textContent('#accMsg'));
+  await p.fill('#vSuige', 'Riesgo alto: reforzar el vallado.\nRevisar cámaras.'); posts.length = 0;
+  await p.click('[data-acc=suigeDiacu]'); await p.waitForTimeout(1400);
   let c = merge(1), m = correos().pop();
-  console.log(tag, '| valSuige:', JSON.stringify({ ESTADO: c.ESTADO, ValoradoPorSUIGE: c.ValoradoPorSUIGE, VALORACIONSUIGES: c.VALORACIONSUIGES, Obs: (c.ObservacionesDelExpediente || '').slice(-60), Mod: c.ModificadoPorTEXTO }));
-  console.log(tag, '| correo:', m.To.results, m.CC.results, '|', m.Subject, '| sin texto del parte:', !m.Body.includes('TEXTO RESERVADO'), '| enlace:', (m.Body.match(/href="([^"]+)"/) || [])[1]);
+  console.log(tag, '| SUIGE › DIACU:', JSON.stringify({ ESTADO: c.ESTADO, ValoradoPorSUIGE: c.ValoradoPorSUIGE, VALORACIONSUIGES: c.VALORACIONSUIGES, Obs: (c.ObservacionesDelExpediente || '').slice(-50), Mod: c.ModificadoPorTEXTO }));
+  console.log(tag, '| correo:', m.To.results, 'cc', m.CC.results, 'cco', m.BCC.results, '|', m.Subject, '| sin texto del parte:', !m.Body.includes('TEXTO RESERVADO'), '| enlace:', (m.Body.match(/href="([^"]+)"/) || [])[1]);
   if (!verbose) fs.writeFileSync(new URL('correo.html', import.meta.url), m.Body);
-  console.log(tag, '| mensaje:', (await p.textContent('#dlg .okmsg, #dlg .aviso')).slice(0, 90));
+  console.log(tag, '| mensaje:', (await p.textContent('#dlg .okmsg, #dlg .aviso')).slice(0, 90), '| pasos:', (await p.textContent('#dlg .pasos')).replace(/\s+/g, ' '));
   await p.click('#dlg [data-cerrar]');
-  // 2) DIACU eleva el 2 (sin texto, error)
+  // 2) DIACU informa a IGE el 2 (sin texto, error)
   await p.click('#tabs a[data-v=pendientes]'); await p.click('.inc[data-id="2"]'); await p.waitForTimeout(600);
-  await p.click('[data-acc=diacuElevar]'); await p.waitForTimeout(150);
-  console.log(tag, '| elevar sin texto:', await p.textContent('#accMsg'));
-  await p.fill('#vTexto', 'Se eleva por reincidencia.'); posts.length = 0; await p.click('[data-acc=diacuElevar]'); await p.waitForTimeout(1400);
+  console.log(tag, '| ficha 2, paneles:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
+  await p.click('[data-acc=diacuIge]'); await p.waitForTimeout(150);
+  console.log(tag, '| informar a IGE sin texto:', await p.textContent('#accMsg'));
+  await p.fill('#vDiacu', 'Se informa a IGE por reincidencia.'); posts.length = 0; await p.click('[data-acc=diacuIge]'); await p.waitForTimeout(1400);
   c = merge(2); m = correos().pop();
-  console.log(tag, '| elevar:', JSON.stringify({ DIACU: c.DIACU, ValoradoPorDIACU: c.ValoradoPorDIACU, VALORACIONDIACU: c.VALORACIONDIACU }), '| correo a:', m.To.results, 'cc:', m.CC.results);
+  console.log(tag, '| DIACU › IGE:', JSON.stringify({ ESTADO: c.ESTADO, DIACU: c.DIACU, ValoradoPorDIACU: c.ValoradoPorDIACU, VALORACIONDIACU: c.VALORACIONDIACU }), '| correo a:', m.To.results, 'cc:', m.CC.results, '|', m.Subject);
   await p.click('#dlg [data-cerrar]');
   // 3) IGE valora el 3
   await p.click('#tabs a[data-v=pendientes]'); await p.click('.inc[data-id="3"]'); await p.waitForTimeout(600);
-  await p.fill('#vTexto', 'Conforme con las medidas.'); posts.length = 0; await p.click('[data-acc=valIge]'); await p.waitForTimeout(1400);
+  await p.fill('#vIge', 'Conforme con las medidas.'); posts.length = 0; await p.click('[data-acc=valIge]'); await p.waitForTimeout(1400);
   c = merge(3); m = correos().pop();
-  console.log(tag, '| IGE:', JSON.stringify({ ValoradoPorIGE: c.ValoradoPorIGE, valoracionIGE: c.valoracionIGE }), '| correo a:', m.To.results, '| ahora:', await p.textContent('#detAcc h3'));
-  // 4) Cierre del 3 (ya valorado por IGE)
+  console.log(tag, '| IGE:', JSON.stringify({ ESTADO: c.ESTADO, ValoradoPorIGE: c.ValoradoPorIGE, valoracionIGE: c.valoracionIGE }), '| correo a:', m.To.results, 'cc:', m.CC.results, '|', m.Subject, '| ahora:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
+  // 4) Cierre del 3
   await p.fill('#vCierre', 'Medidas implantadas.'); posts.length = 0; await p.click('[data-acc=cerrar]'); await p.waitForTimeout(1400);
   c = merge(3); m = correos().pop();
   console.log(tag, '| cerrar:', JSON.stringify({ ESTADO: c.ESTADO, Obs: (c.ObservacionesDelExpediente || '').split('\n').length + ' líneas' }), '| correo a:', m.To.results, 'cc:', m.CC.results);
@@ -182,7 +216,7 @@ async function prueba(verbose, escenario) {
   // 6) Conflicto: otro cambia el 8 mientras está abierto
   await p.click('#dlg [data-cerrar]'); await p.click('.inc[data-id="8"]'); await p.waitForTimeout(500);
   items.find(x => x.Id === 8).Modified = new Date(Date.now() + 99999).toISOString();
-  await p.fill('#vTexto', 'x'); await p.click('[data-acc=valSuige]'); await p.waitForTimeout(800);
+  await p.fill('#vSuige', 'x'); await p.click('[data-acc=suigeIge]'); await p.waitForTimeout(800);
   console.log(tag, '| conflicto:', await p.textContent('#accMsg'));
   await p.click('#dlg [data-cerrar]');
   // 7) Consulta, filtros, impresión, CSV y estadísticas
@@ -201,33 +235,52 @@ async function prueba(verbose, escenario) {
   await fic.close(); await p.click('#dlg [data-cerrar]');
   await p.click('[data-limpiar]'); await p.click('#tabs a[data-v=estadisticas]'); await p.waitForTimeout(300);
   console.log(tag, '| estadísticas:', await p.$$eval('.estadis h3', h => h.map(x => x.textContent).join(' | ')));
-  console.log(tag, '| por tipo:', await p.$$eval('.estadis .card:first-child .barras .n', n => n.map(x => x.textContent).join(' / ')));
+  console.log(tag, '| por fase:', await p.$$eval('.estadis .card:nth-child(5) .barras .n', n => n.map(x => x.textContent).join(' / ')));
   if (!verbose) await p.screenshot({ path: new URL('estadisticas.png', import.meta.url).pathname, fullPage: true });
-  // 8) Mientras FORM_PROPIO = false, «Nuevo parte» abre el formulario de Colabora
-  { const [pg] = await Promise.all([ctx.waitForEvent('page'), p.click('#nuevo')]); console.log(tag, '| nuevo parte abre:', decodeURIComponent(pg.url()).replace(/\?.*/, '')); await pg.close(); }
-  if (!html.includes('var FORM_PROPIO = true')) { await p.click('#tabs a[data-v=panel]'); if (!verbose) await p.screenshot({ path: new URL('panel.png', import.meta.url).pathname, fullPage: true }); console.log(tag, '| errores:', errs); await b.close(); return; }
-  // 8) Nuevo parte en la página: remitir sin datos (error), borrador, completar y remitir
-  await p.click('#nuevo'); await p.waitForTimeout(700);
+  // 8) Nuevo parte con el formulario de la página (el del InfoPath)
+  await p.click('#nuevo'); await p.waitForTimeout(900);
+  console.log(tag, '| formulario:', await p.$$eval('#fParte .fsec', n => n.map(x => x.textContent).join(' | ')), '| empleos:', await p.$$eval('#fParte [name=empleo] option', o => o.length - 1));
+  console.log(tag, '| gestor:', await p.textContent('#fGestor'), '| azul activo:', !(await p.$eval('#fRemitir', b => b.disabled)));
   await p.click('#fRemitir'); await p.waitForTimeout(100);
-  console.log(tag, '| remitir vacío:', (await p.textContent('#fError')).slice(0, 120));
-  await p.selectOption('#fParte [name=tipo]', 'Pintadas'); await p.fill('#fParte [name=fecha]', new Date(Date.now() - 864e5).toISOString().slice(0, 10));
-  await p.fill('#fParte [name=provincia]', 'SEVILLA'); await p.selectOption('#fParte [name=suige]', 'SUIGESUR'); await p.fill('#fParte [name=empleo]', 'Sargento');
-  await p.fill('#fParte [name=m2]', 'SUIGESUR'); await p.check('#fParte [name=denuncia]'); await p.fill('#fParte [name=ndenuncia]', '45/26');
-  console.log(tag, '| responsable por defecto:', await p.textContent('#fResp .elegido'));
-  if (!verbose) await p.screenshot({ path: new URL('nuevo-parte.png', import.meta.url).pathname });
-  posts.length = 0; await p.click('#fBorrador'); await p.waitForTimeout(1300);
+  console.log(tag, '| informar vacío:', (await p.textContent('#fError')).slice(0, 90));
+  await p.fill('#fParte [name=fecha]', new Date(Date.now() - 864e5).toISOString().slice(0, 10)); await p.fill('#fParte [name=hora]', '10:30');
+  await p.selectOption('#fParte [name=empleo]', 'SARGENTO');
+  console.log(tag, '| m2 antes de m1:', await p.$eval('#fParte [name=m2]', s => s.disabled));
+  await p.selectOption('#fParte [name=m1]', '1');
+  console.log(tag, '| m2 de FUTER:', await p.$$eval('#fParte [name=m2] option', o => o.slice(1).map(x => x.textContent).join(', ')), '| m3:', await p.$eval('#fParte [name=m3]', s => s.disabled ? 'vacío' : 'activo'));
+  await p.selectOption('#fParte [name=m2]', '4'); await p.selectOption('#fParte [name=m3]', '4');
+  console.log(tag, '| cadena sin SUIGE:', await p.textContent('#fCadena'));
+  await p.selectOption('#fParte [name=m2]', '1');
+  console.log(tag, '| m3 al cambiar m2:', await p.$eval('#fParte [name=m3]', s => s.value || 'vacío'), await p.$$eval('#fParte [name=m3] option', o => o.slice(1).map(x => x.textContent).join(', ')));
+  await p.selectOption('#fParte [name=m3]', '1');
+  console.log(tag, '| cadena:', await p.textContent('#fCadena'));
+  await p.selectOption('#fParte [name=tipo]', 'Pintadas'); await p.selectOption('#fParte [name=provincia]', 'SEVILLA');
+  await p.selectOption('#fParte [name=zona]', 'true'); await p.selectOption('#fParte [name=reiterada]', 'NO'); await p.selectOption('#fParte [name=prob]', 'MEDIO');
+  await p.selectOption('#fParte [name=denuncia]', 'true'); await p.fill('#fParte [name=ndenuncia]', '45/26');
+  await p.fill('#fGrupo input', 'JEFE UNIDAD A'); await p.waitForTimeout(600); await p.click('#fGrupo .sugs button'); await p.waitForTimeout(200);
+  console.log(tag, '| personas que pueden verlo:', await p.textContent('#fGrupo .personas'));
+  await p.setInputFiles('#fParte [name=adjuntos]', { name: 'foto vallado.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('JPEGFALSO') });
+  if (!verbose) await p.screenshot({ path: new URL('nuevo-parte.png', import.meta.url).pathname, fullPage: true });
+  posts.length = 0; await p.click('#fBorrador'); await p.waitForTimeout(1500);
   const alta = posts.find(x => x.ruta.endsWith('/items')); const ca = alta && JSON.parse(alta.cuerpo);
-  console.log(tag, '| borrador:', ca && JSON.stringify({ ESTADO: ca.ESTADO, Tipo: ca.TipoDeIncidente, SUIGES: ca.SUIGES, Resp: ca.ResponsableDeLaInformacionId, Title: ca.Title, Año: ca.A_x00f1_o, NDen: ca.NDenuncia, Obs: (ca.ObservacionesDelExpediente || '').slice(-35) }), '| sin correo:', !correos().length);
+  console.log(tag, '| borrador:', ca && JSON.stringify({ ESTADO: ca.ESTADO, Title: ca.Title, Año: ca.A_x00f1_o, Empleo: ca.Empleo, M: [ca.MANDO1N, ca.MANDO2N, ca.MANDO3N], MN: [ca.OData__x004d_N1, ca.OData__x004d_N2, ca.OData__x004d_N3], grupo: ca.grupoId, correos: ca.correosPersonasInfo, Resp: ca.ResponsableDeLaInformacionId, RespParte: ca.ResponsableDelParte, Zona: ca.ZONASE_x00d1_ALIZADA, Den: [ca.Denuncia, ca.NDenuncia], hora: new Date(ca.FechaNotificacion).getHours() + ':' + new Date(ca.FechaNotificacion).getMinutes() }));
+  console.log(tag, '| adjunto subido:', posts.filter(x => x.ruta.includes('AttachmentFiles/add')).map(x => x.ruta.replace(/.*FileName=/, '')).join(', '), '| sin correo:', !correos().length);
   console.log(tag, '| ficha del borrador:', await p.textContent('#dlg h2'), '|', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
   await p.click('[data-editar]'); await p.waitForTimeout(900);
-  console.log(tag, '| formulario relleno:', await p.$eval('#fParte [name=provincia]', i => i.value), await p.$eval('#fParte [name=ndenuncia]', i => i.value));
+  console.log(tag, '| formulario relleno:', await p.$eval('#fParte [name=m2]', i => i.value), await p.$eval('#fParte [name=m3]', i => i.value), await p.$eval('#fParte [name=ndenuncia]', i => i.value), await p.$eval('#fParte [name=hora]', i => i.value), '|', await p.textContent('#fGrupo .personas'));
   await p.click('#fRemitir'); await p.waitForTimeout(150);
-  console.log(tag, '| remitir sin descripción:', (await p.textContent('#fError')).slice(0, 110));
+  console.log(tag, '| informar sin descripción:', (await p.textContent('#fError')).slice(0, 140));
   for (const k of ['OBSERVACION', 'ANALISIS', 'MEDIDAS', 'CONTROLMEDIDASADOPTADAS', 'CONCLUSION']) await p.fill('#fParte [name=' + k + ']', 'Texto de ' + k + '\nsegunda línea');
-  posts.length = 0; await p.click('#fRemitir'); await p.waitForTimeout(1500);
+  await p.check('#fParte [name=aceptacion]');
+  posts.length = 0; await p.click('#fRemitir'); await p.waitForTimeout(1600);
   const nid = items[items.length - 1].Id; const cr = merge(nid); m = correos().pop();
-  console.log(tag, '| remitir:', JSON.stringify({ ESTADO: cr.ESTADO, OBS: cr.OBSERVACION, Hist: (cr.ObservacionesDelExpediente || '').split('\n').length + ' líneas' }), '| correo a:', m && m.To.results, '|', m && m.Subject);
-  console.log(tag, '| ahora:', await p.textContent('#dlg .pasos'));
+  console.log(tag, '| informar a SUIGE:', JSON.stringify({ ESTADO: cr.ESTADO, SUIGES: cr.SUIGES, ACEPTACION: cr.ACEPTACION, OBS: cr.OBSERVACION, Hist: (cr.ObservacionesDelExpediente || '').split('\n').length + ' líneas' }), '| correo a:', m && m.To.results, 'cc:', m && m.CC.results, '|', m && m.Subject);
+  console.log(tag, '| ahora:', (await p.textContent('#dlg .pasos')).replace(/\s+/g, ' '));
+  await p.click('#dlg [data-cerrar]');
+  // 9) Responsable distinto: el botón azul no se activa (solo puede enviarlo el responsable)
+  await p.click('#nuevo'); await p.waitForTimeout(700);
+  await p.click('#fResp [data-quitar]'); await p.fill('#fResp input', 'JEFE UNIDAD B'); await p.waitForTimeout(600); await p.click('#fResp .sugs button'); await p.waitForTimeout(200);
+  console.log(tag, '| otro responsable: azul activo:', !(await p.$eval('#fRemitir', b => b.disabled)), '|', await p.textContent('#fSoloResp'));
   await p.click('#dlg [data-cerrar]');
   await p.click('#tabs a[data-v=panel]'); await p.waitForTimeout(200);
   if (!verbose) await p.screenshot({ path: new URL('panel.png', import.meta.url).pathname, fullPage: true });
@@ -235,7 +288,7 @@ async function prueba(verbose, escenario) {
   await b.close();
 }
 const TODOS = ['SEGURIDAD_SUIGESUR', 'SEGURIDAD_SUIGENOR', 'SEGURIDAD_SUIGECAN', 'SEGURIDAD_DIAPER', 'SEGURIDAD_IGE', 'Integrantes de la Colaborativo'];
-misGrupos = TODOS; admin = true; await prueba(false, 'control total'); await prueba(true, 'control total');
+misGrupos = TODOS; admin = true; await prueba(false, 'control total'); sinEmpleos = true; await prueba(true, 'control total'); sinEmpleos = false;
 misGrupos = ['SEGURIDAD_SUIGESUR', 'Integrantes de la Colaborativo']; admin = false; await prueba(false, 'solo SUIGESUR');
 sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstringof = false;
 misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'solo SEGURIDAD_IGE');

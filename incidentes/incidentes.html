@@ -7,8 +7,9 @@
 <!--
   [INCIDENTES] Seguimiento de la lista «INCIDENTES DE SEGURIDAD» (Colabora, sitio /et/jige/colaborativo).
   Una sola página, sin recursos de internet: trabaja con la sesión y los permisos del usuario en Colabora.
-  Circuito: parte (BORRADOR) › REMITIDO A M1 › valoración SUIGE › DIACU (visto, elevado o rechazado) › IGE › EXP CERRADO.
-  El alta y la edición del parte siguen en el formulario de Colabora (rellena la cadena de mando y el grupo).
+  Circuito (el mismo del formulario InfoPath «incidentes_de_seguridad.xsn»):
+  BORRADOR › Informar a SUIGE (REMITIDO A SUIGE) › Informar a DIACU (REMITIDO A DIACU) › Informar a IGE (REMITIDO A M1)
+  › Valoración de IGE (VALORADO INCIDENTE POR JIGE) › EXP CERRADO. La SUIGE también puede informar directamente a IGE.
 -->
 <style>
   :root {
@@ -118,6 +119,23 @@
   .sugs button:hover { background: var(--surface-2); }
   .elegido { font-weight: 600; margin-top: 4px; }
   .req::after { content: ' *'; color: var(--bad); }
+  /* Formulario de notificación (mismo orden y textos que el InfoPath) */
+  .fsec { background: var(--brand); color: #fff; border-bottom: 3px solid var(--oro); border-radius: 8px 8px 0 0; padding: 6px 12px; font-weight: 800; letter-spacing: .04em; margin: 18px 0 0; text-transform: uppercase; font-size: .9rem; }
+  .fcaja { border: 1px solid var(--line); border-top: 0; border-radius: 0 0 10px 10px; padding: 4px 14px 12px; background: #fff; }
+  .ayuda { font-size: .82rem; color: var(--muted); margin: 0 0 4px; font-style: italic; }
+  .gestorok { display: inline-block; background: #6aa84f; color: #fff; border-radius: 999px; padding: 4px 14px; font-weight: 700; margin-top: 6px; }
+  .personas .chip { display: inline-flex; gap: 6px; align-items: center; background: var(--surface-2); border-radius: 999px; padding: 3px 10px; margin: 4px 6px 0 0; font-size: .9rem; }
+  .personas .chip a { color: var(--bad); text-decoration: none; font-weight: 800; }
+  .cadena { background: var(--surface-2); border-radius: 8px; padding: 6px 10px; margin-top: 8px; font-weight: 600; }
+  .acepto { background: #fff8e6; border: 1px solid #f0d08a; border-radius: 10px; padding: 8px 12px; margin-top: 12px; }
+  .acepto label { display: flex; gap: 8px; align-items: flex-start; font-size: .9rem; }
+  .acepto input { width: auto; margin-top: 4px; }
+  .nota { background: #eef3fa; border-left: 4px solid var(--brand); padding: 8px 12px; border-radius: 6px; margin-top: 12px; font-size: .9rem; }
+  button.ambar { background: #c09000; color: #fff; border-color: #c09000; }
+  button.suige { background: #0b5394; color: #fff; border-color: #0b5394; }
+  button.rojo { background: #e00000; color: #fff; border-color: #e00000; }
+  button.diacu { background: #6aa84f; color: #fff; border-color: #6aa84f; }
+  button.ige { background: #38761d; color: #fff; border-color: #38761d; }
   @media (max-width: 600px) { .barras { grid-template-columns: 40% 1fr auto; } }
 </style>
 </head>
@@ -127,7 +145,7 @@
   <div class="tit"><h1>INCIDENTES DE SEGURIDAD · IGE</h1><span class="sub">Partes, valoración SUIGE · DIACU · IGE y seguimiento</span></div>
   <span class="quien" id="quien" hidden></span>
   <span class="estado" id="estadoCarga">Cargando…</span>
-  <button id="nuevo" hidden title="Abre el formulario de Colabora (InfoPath) en otra pestaña">＋ Nuevo parte ↗</button>
+  <button id="nuevo" hidden title="Formulario de notificación de incidente de seguridad">＋ Nuevo parte</button>
   <button id="recargar" title="Volver a leer la lista">↻ Actualizar</button>
 </div></header>
 <main>
@@ -163,7 +181,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-15 · 6';
+  var VERSION = '2026-10-15 · 7';
   var CLAVE = 'incidentes-seguridad-ige';
   var pref = { sitio: '/et/jige/colaborativo', lista: 'INCIDENTES DE SEGURIDAD', vista: 'panel', correo: true,
     f: { q: '', fase: '', tipo: '', suige: '', prob: '', desde: '', hasta: '' }, agrupar: 'provincia' };
@@ -173,8 +191,17 @@
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
 
   // ---------- Valores de la lista ----------
-  var ES = { BO: 'BORRADOR', RM: 'REMITIDO A M1', SE: 'EN SEGUIMIENTO', CE: 'EXP CERRADO' };
-  var DIA = { VI: 'VISTO POR DIACU', EL: 'ELEVADO POR DIACU', RE: 'RECHAZADO POR DIACU' };
+  // Valores de ESTADO que escribe el formulario InfoPath (las reglas escriben algunos que no están entre las opciones de la columna)
+  var ES = { BO: 'BORRADOR', RS: 'REMITIDO A SUIGE', RD: 'REMITIDO A DIACU', RM: 'REMITIDO A M1', VJ: 'VALORADO INCIDENTE POR JIGE', SE: 'EN SEGUIMIENTO', CE: 'EXP CERRADO' };
+  var DIA = { EL: 'ELEVADO POR DIACU' };
+  // Opciones del formulario (si la lista no deja leer las de la columna)
+  var TIPOS = ['Intrusión no autorizada', 'Acceso indebido de personal', 'Robo o sustracción', 'Sabotaje', 'Compromiso de información', 'Agresiones o altercado', 'Incidentes con UAS',
+    'Pérdida o extravío de materia sensible', 'Emergencias con impacto en la seguridad', 'Pintadas', 'Otro'];
+  var REITERADA = ['SI', 'NO', 'ES LA PRIMERA VEZ'];
+  var EMPLEOS = ['CORONEL', 'TENIENTE CORONEL', 'COMANDANTE', 'CAPITAN', 'TENIENTE', 'SUBOFICIAL MAYOR', 'SUBTENIENTE', 'BRIGADA', 'SARGENTO PRIMERO', 'SARGENTO',
+    'CABO MAYOR', 'CABO PRIMERO', 'CABO', 'SOLDADO', 'CIVIL FUNCIONARIO', 'CIVIL LABORAL'];
+  // Listas auxiliares del formulario (las mismas conexiones de datos del InfoPath)
+  var AUX = { m1: 'M1N', m2: 'M2N', m3: 'M3N', provincias: 'PROVINCIAS', empleos: { sitio: '/et/SUIGESUR/colaborativo/CALIDAD-VIDA', lista: 'empleos' } };
   var SUIGES = ['SUIGESUR', 'SUIGENOR', 'SUIGECAN', 'SUIGEPIR', 'SECOORCEN', 'DIIN', 'DIAPER', 'JEFATURA DE IGE'];
   var PROBS = ['MUY BAJO', 'BAJO', 'MEDIO', 'ALTO', 'MUY ALTO'];
   // Grupos de Colabora que dan cada papel. Si cambian los nombres de los grupos, se ajusta aquí.
@@ -194,6 +221,8 @@
     var s = String(v || '').toUpperCase();
     if (/SECO?ORCEN/.test(s)) return 'SECOORCEN';
     if (/JEFATURA DE IGE/.test(s)) return 'JEFATURA DE IGE';
+    // En el InfoPath, los partes de MADOC se envían a la SUIGESUR
+    if (/\bMADOC\b/.test(s)) return 'SUIGESUR';
     var m = s.match(/SUIGE(SUR|NOR|CAN|PIR)|\bDIIN\b|\bDIAPER\b/);
     return m ? m[0] : '';
   };
@@ -268,19 +297,28 @@
   var EXPAND = ['Unidad'].concat(PERSONAS).join(',');
   var TEXTOS = [['OBSERVACION', 'Observación'], ['ANALISIS', 'Análisis'], ['MEDIDAS', 'Medidas adoptadas / medidas a adoptar'], ['CONTROLMEDIDASADOPTADAS', 'Control de las medidas adoptadas'], ['CONCLUSION', 'Conclusión']];
   var persona = function (u) { return u && u.Id ? { Id: u.Id, Title: u.Title || '', Email: u.EMail || '' } : null; };
+  // «grupo» admite varias personas: llega como lista (o {results: […]} en el formato verbose)
+  var personas = function (v) { return (Array.isArray(v) ? v : v && Array.isArray(v.results) ? v.results : v && v.Id ? [v] : []).map(persona).filter(Boolean); };
+  var esNum = function (v) { return /^\d+$/.test(String(v || '').trim()); };
   function aInc(it) {
     var t = {
       id: it.Id, titulo: it.Title || '', estado: String(it.ESTADO || '').trim().toUpperCase(), estadoRaw: it.ESTADO || '', regAct: it.REGISTRODEACTIVIDAD || '', anio: it.A_x00f1_o || '',
       suigesCampo: it.SUIGES || '', unidad: it.Unidad && it.Unidad.Title || '', otro: it.OTRO || '', provincia: it.Provincia || '', empleo: it.Empleo || '',
-      fecha: fechaSP(it.FechaNotificacion), ndenuncia: it.NDenuncia || '', zona: it.ZONASE_x00d1_ALIZADA, reiterada: it.Reiterada || '', prob: String(it.PROBABILIDADES || '').toUpperCase(),
+      fecha: fechaSP(it.FechaNotificacion), fechaHora: it.FechaNotificacion || '', ndenuncia: it.NDenuncia || '', zona: it.ZONASE_x00d1_ALIZADA, reiterada: it.Reiterada || '', prob: String(it.PROBABILIDADES || '').toUpperCase(),
       aceptacion: it.ACEPTACION, denuncia: it.Denuncia === true, tipo: it.TipoDeIncidente || '', respParte: it.ResponsableDelParte || '',
       valSuige: it.ValoradoPorSUIGE === true, diacu: String(it.DIACU || '').toUpperCase(), valDiacu: it.ValoradoPorDIACU === true, valIge: it.ValoradoPorIGE === true,
       correos: it.correosPersonasInfo || '', creado: it.Created, modificado: it.Modified, adjuntos: !!it.Attachments,
-      resp: persona(it.ResponsableDeLaInformacion), usuario: persona(it.Usuario), grupo: persona(it.grupo), autor: persona(it.Author), editor: it.Editor && it.Editor.Title,
+      resp: persona(it.ResponsableDeLaInformacion), usuario: persona(it.Usuario), grupo: personas(it.grupo), autor: persona(it.Author), editor: it.Editor && it.Editor.Title,
       mandos: MANDOS.map(function (k) { return it[k] || ''; })
     };
-    t.suige = normSuige(t.suigesCampo) || normSuige(t.grupo && t.grupo.Title) || t.mandos.map(normSuige).filter(Boolean)[0] || '';
-    t.lugar = [t.unidad, t.otro].filter(Boolean).join(' · ') || t.mandos.filter(Boolean).slice(-1)[0] || '';
+    // MANDO1N–3N guardan el número del elemento en M1N–M3N; MN1–MN3, su nombre (partes antiguos: el nombre puede estar en MANDOxN)
+    t.mandoIds = t.mandos.slice(0, 3).map(function (v) { return esNum(v) ? Number(v) : null; });
+    t.cadena = [0, 1, 2].map(function (i) { return t.mandos[3 + i] || (esNum(t.mandos[i]) ? '' : t.mandos[i]); });
+    if (t.mandos[6]) t.cadena.push(t.mandos[6]);
+    t.cadena = t.cadena.filter(Boolean);
+    // La SUIGE del parte: el InfoPath la decide por el mando de 2.º nivel (MN2); si no, la columna SUIGES
+    t.suige = normSuige(t.cadena[1]) || normSuige(t.suigesCampo) || t.mandos.map(normSuige).filter(Boolean)[0] || '';
+    t.lugar = [t.unidad, t.otro].filter(Boolean).join(' · ') || t.cadena.slice(-1)[0] || '';
     return t;
   }
   function cargar() {
@@ -338,7 +376,8 @@
       omitidas.push('nombres de personas y de unidad (lectura sencilla)');
       return ls.map(function (x) {
         x.Author = x.AuthorId ? { Id: x.AuthorId, Title: '' } : null; x.ResponsableDeLaInformacion = x.ResponsableDeLaInformacionId ? { Id: x.ResponsableDeLaInformacionId, Title: '' } : null;
-        x.grupo = x.grupoId ? { Id: x.grupoId, Title: '' } : null; return x;
+        var gi = Array.isArray(x.grupoId) ? x.grupoId : x.grupoId && Array.isArray(x.grupoId.results) ? x.grupoId.results : x.grupoId ? [x.grupoId] : [];
+        x.grupo = gi.map(function (id) { return { Id: id, Title: '' }; }); return x;
       });
     }).catch(function () { throw errorOriginal; });
   }
@@ -359,33 +398,39 @@
   // Alcance por papel: DIACU, IGE y quien administra la lista ven todo; cada SUIGE, los suyos; el resto, los que creó o en los que figura
   // Ven todos los partes solo DIACU e IGE (grupo SEGURIDAD_IGE). Administrar la lista NO da acceso a los partes de otras SUIGE.
   var verTodo = function () { return esDiacu || esIge; };
+  // Cada SUIGE ve los partes cuyo mando de 2.º nivel (o columna SUIGES) es la suya; todos ven los que crearon, de los que son
+  // responsables o en los que figuran como «personal que puede visualizar la información» (columna grupo).
+  var tokensSuige = function (s) { return s === 'SECOORCEN' ? ['SECOORCEN', 'SECORCEN'] : s === 'SUIGESUR' ? ['SUIGESUR', 'MADOC'] : [s]; };
   function leerIncidentes(grupoIds, conMandos) {
     if (verTodo()) return leerCon(SEL, '');
-    var c = ['AuthorId', 'ResponsableDeLaInformacionId', 'UsuarioId', 'grupoId'].map(function (k) { return '(' + k + ' eq ' + yo.Id + ')'; });
-    grupoIds.forEach(function (id) { c.push('(grupoId eq ' + id + ')'); });
+    var c = ['AuthorId', 'ResponsableDeLaInformacionId', 'UsuarioId'].map(function (k) { return '(' + k + ' eq ' + yo.Id + ')'; });
+    c.push('(grupo/Id eq ' + yo.Id + ')');
     misSuiges.forEach(function (s) {
       c.push("(SUIGES eq '" + s.replace(/'/g, "''") + "')");
-      if (conMandos) (s === 'SECOORCEN' ? ['SECOORCEN', 'SECORCEN'] : [s]).forEach(function (tok) { MANDOS.forEach(function (f) { c.push("substringof('" + tok + "'," + f + ')'); }); });
+      tokensSuige(s).forEach(function (tok) { MANDOS.forEach(function (f) { c.push("substringof('" + tok + "'," + f + ')'); }); });
     });
-    if (!conMandos && misSuiges.length) {
-      // Si Colabora no admite buscar texto en el filtro: se leen solo Id, SUIGES, grupo y cadena de mando (nunca el contenido del parte)
-      // para saber qué incidentes son de mi SUIGE, y después se piden esos incidentes por su número.
-      return todas(urlLista() + '/items?$top=500&$select=Id,SUIGES,grupo/Title,' + MANDOS.filter(function (k) { return omitidas.indexOf(k) < 0; }).join(',') + '&$expand=grupo').then(function (ls) {
-        var ids = ls.filter(function (x) {
-          var s = normSuige(x.SUIGES) || normSuige(x.grupo && x.grupo.Title) || MANDOS.map(function (k) { return normSuige(x[k]); }).filter(Boolean)[0];
-          return misSuiges.indexOf(s) >= 0;
-        }).map(function (x) { return x.Id; });
-        var trozos = [c];
-        for (var i = 0; i < ids.length; i += 40) trozos.push(ids.slice(i, i + 40).map(function (id) { return '(Id eq ' + id + ')'; }));
-        return Promise.all(trozos.map(function (cl) { return leerCon(SEL, '&$filter=' + encodeURIComponent(cl.join(' or '))); })).then(function (rs) {
-          var vistos = {};
-          return [].concat.apply([], rs).filter(function (x) { if (vistos[x.Id]) return false; vistos[x.Id] = 1; return true; });
-        });
-      });
-    }
+    if (!conMandos) return leerPorNumero();
     return leerCon(SEL, '&$filter=' + encodeURIComponent(c.join(' or '))).catch(function (e) {
-      if (conMandos && e.status === 400) return leerIncidentes(grupoIds, false);
+      if (e.status === 400) return leerPorNumero();
       throw e;
+    });
+  }
+  // Respaldo si Colabora no admite el filtro: se leen solo Id, autor, responsable, personas que pueden verlo, SUIGES y cadena de mando
+  // (nunca el contenido del parte) para saber cuáles me corresponden, y después se piden esos partes por su número.
+  function leerPorNumero() {
+    var cols = ['Id', 'AuthorId', 'ResponsableDeLaInformacionId', 'UsuarioId', 'SUIGES'].concat(MANDOS.filter(function (k) { return omitidas.indexOf(k) < 0; }));
+    var conGrupo = function () { return todas(urlLista() + '/items?$top=500&$select=' + cols.concat(['grupo/Id']).join(',') + '&$expand=grupo'); };
+    return conGrupo().catch(function () { return todas(urlLista() + '/items?$top=500&$select=' + cols.join(',')); }).then(function (ls) {
+      var ids = ls.filter(function (x) {
+        if ([x.AuthorId, x.ResponsableDeLaInformacionId, x.UsuarioId].indexOf(yo.Id) >= 0) return true;
+        if (personas(x.grupo).some(function (p) { return p.Id === yo.Id; })) return true;
+        var mn = MANDOS.map(function (k) { return x[k] || ''; });
+        var s = normSuige(mn[4]) || normSuige(x.SUIGES) || mn.map(normSuige).filter(Boolean)[0];
+        return !!s && misSuiges.indexOf(s) >= 0;
+      }).map(function (x) { return x.Id; });
+      var trozos = [];
+      for (var i = 0; i < ids.length; i += 40) trozos.push(ids.slice(i, i + 40).map(function (id) { return '(Id eq ' + id + ')'; }));
+      return Promise.all(trozos.map(function (cl) { return leerCon(SEL, '&$filter=' + encodeURIComponent(cl.join(' or '))); })).then(function (rs) { return [].concat.apply([], rs); });
     });
   }
   function alcanceTxt() {
@@ -394,43 +439,52 @@
   }
 
   // ---------- Fases del circuito y quién actúa ----------
-  var abierto = function (t) { return t.estado !== ES.CE && t.estado !== ES.BO; };
-  var esMiSuige = function (t) { return !!t.suige && misSuiges.indexOf(t.suige) >= 0; };
-  var pSuige = function (t) { return abierto(t) && !t.valSuige && esMiSuige(t); };
-  var pDiacu = function (t) { return esDiacu && abierto(t) && t.valSuige && !t.diacu; };
-  var pIge = function (t) { return esIge && abierto(t) && t.diacu === DIA.EL && !t.valIge; };
-  var listoCierre = function (t) { return abierto(t) && (t.valIge || t.diacu === DIA.VI); };
-  var pCierre = function (t) { return (esIge || (esDiacu && t.diacu === DIA.VI)) && listoCierre(t); };
-  var pendientes = function () { return { suige: items.filter(pSuige), diacu: items.filter(pDiacu), ige: items.filter(pIge), cierre: items.filter(pCierre) }; };
-  var nPend = function () { var p = pendientes(); var s = {}; [].concat(p.suige, p.diacu, p.ige, p.cierre).forEach(function (t) { s[t.id] = 1; }); return Object.keys(s).length; };
-  // Fase: 0 borrador · 1 pendiente SUIGE · 2 pendiente DIACU · 3 pendiente IGE · 4 pendiente de cierre · 5 cerrado · 6 rechazado por DIACU (vuelve a SUIGE)
+  // Fase según ESTADO (los mismos valores que escribe el InfoPath):
+  // 0 BORRADOR · 1 REMITIDO A SUIGE · 2 REMITIDO A DIACU · 3 REMITIDO A M1 (en IGE) · 4 VALORADO INCIDENTE POR JIGE / EN SEGUIMIENTO · 5 EXP CERRADO
   function fase(t) {
-    if (t.estado === ES.CE) return 5;
-    if (t.estado === ES.BO || !t.estado) return 0;
-    if (!t.valSuige) return t.diacu === DIA.RE ? 6 : 1;
-    if (!t.diacu) return 2;
-    if (t.diacu === DIA.EL && !t.valIge) return 3;
-    return 4;
+    var e = t.estado;
+    if (e === ES.CE || e === 'CERRADO') return 5;
+    if (e === ES.VJ || e === ES.SE) return 4;
+    if (e === ES.RM || e === 'REMITIDO A IGE') return 3;
+    if (e === ES.RD) return 2;
+    if (e === ES.RS || e === 'ENVIADO') return 1;
+    return 0;
   }
-  var FASES = ['Borrador (sin remitir)', 'Pendiente de valoración SUIGE', 'Pendiente de DIACU', 'Elevado: pendiente de IGE', 'Pendiente de cierre', 'Expediente cerrado', 'Rechazado por DIACU: vuelve a SUIGE'];
+  var abierto = function (t) { var f = fase(t); return f > 0 && f < 5; };
+  var esMiSuige = function (t) { return !!t.suige && misSuiges.indexOf(t.suige) >= 0; };
+  var esMio = function (t) { return soy(t.resp) || soy(t.autor); };
+  // Quién actúa en cada fase (como los botones visibles del InfoPath)
+  var pBorrador = function (t) { return fase(t) === 0 && (esMio(t) || esGestor); };
+  var pSuige = function (t) { return fase(t) === 1 && esMiSuige(t); };
+  var pDiacu = function (t) { return esDiacu && fase(t) === 2; };
+  var pIge = function (t) { return esIge && (fase(t) === 2 || fase(t) === 3 || fase(t) === 4); };
+  var pCierre = function (t) { return esIge && (fase(t) === 3 || fase(t) === 4); };
+  var pendientes = function () {
+    return { borrador: items.filter(function (t) { return fase(t) === 0 && esMio(t); }), suige: items.filter(pSuige), diacu: items.filter(pDiacu),
+      ige: items.filter(function (t) { return esIge && fase(t) === 3; }), cierre: items.filter(function (t) { return esIge && fase(t) === 4; }) };
+  };
+  var nPend = function () { var p = pendientes(); var s = {}; [].concat(p.borrador, p.suige, p.diacu, p.ige, p.cierre).forEach(function (t) { s[t.id] = 1; }); return Object.keys(s).length; };
+  var FASES = ['Borrador (sin enviar a SUIGE)', 'Remitido a SUIGE: pendiente de valoración', 'Remitido a DIACU: pendiente de valoración', 'Remitido a IGE: pendiente de valoración', 'Valorado por IGE: en seguimiento', 'Expediente cerrado'];
   var faseTxt = function (t) { return FASES[fase(t)] + (fase(t) === 1 && t.suige ? ' (' + t.suige + ')' : ''); };
   var badgeFase = function (t) { return '<span class="badge f' + fase(t) + '" title="Estado en la lista: ' + esc(t.estadoRaw || '—') + '">' + esc(faseTxt(t)) + '</span>'; };
   var probN = function (t) { return PROBS.indexOf(t.prob) + 1; };
   var badgeProb = function (t) { return t.prob ? '<span class="badge p' + probN(t) + '">Prob. ' + esc(t.prob.toLowerCase()) + '</span>' : ''; };
-  // Días desde que entró en la fase actual (aprox.: desde la última modificación; si nunca se valoró, desde la creación)
+  // Días desde que entró en la fase actual (aprox.: desde la última modificación)
   function marcaEspera(t) {
-    var n = diasDesde(fase(t) === 1 ? t.creado : t.modificado);
+    var n = diasDesde(t.modificado || t.creado);
     return '<span class="badge espera' + (n > 7 ? ' tarde' : '') + '" title="Días en la fase actual">⏳ ' + (n ? n + ' día' + (n === 1 ? '' : 's') : 'hoy') + '</span>';
   }
   function pasos(t) {
-    var f = fase(t), visto = t.diacu === DIA.VI;
-    var P = [['Parte', 'remitido a M1', f === 0 ? 'ahora' : 'hecho'],
-      ['Valoración SUIGE', t.suige || 'SUIGE', f === 1 || f === 6 ? (f === 6 ? 'mal' : 'ahora') : f === 0 ? '' : 'hecho'],
-      ['DIACU', t.diacu ? t.diacu.replace(' POR DIACU', '').toLowerCase() : 'visto / eleva', f === 2 ? 'ahora' : f >= 3 && f !== 6 ? 'hecho' : ''],
-      ['IGE', visto ? 'no se eleva' : 'valoración', visto ? 'salto' : f === 3 ? 'ahora' : (f === 4 || f === 5) && t.valIge ? 'hecho' : ''],
-      ['Cierre', 'EXP CERRADO', f === 5 ? 'hecho' : f === 4 ? 'ahora' : '']];
+    var f = fase(t);
+    // Un paso ya superado sin valoración guardada se marca como «no pasó» (la SUIGE puede informar directamente a IGE)
+    var paso = function (n, valorado) { return f === n ? 'ahora' : f > n ? (valorado ? 'hecho' : 'salto') : ''; };
+    var P = [['Parte', f === 0 ? 'BORRADOR' : 'enviado a SUIGE', f === 0 ? 'ahora' : 'hecho'],
+      ['SUIGE', t.suige || 'valoración', paso(1, t.valSuige)],
+      ['DIACU', paso(2, t.valDiacu) === 'salto' ? 'no pasó por DIACU' : 'valoración', paso(2, t.valDiacu)],
+      ['IGE', 'valoración', f === 3 ? 'ahora' : f > 3 ? 'hecho' : ''],
+      ['Cierre', f === 4 ? 'en seguimiento' : 'EXP CERRADO', f === 5 ? 'hecho' : f === 4 ? 'ahora' : '']];
     return '<div class="pasos">' + P.map(function (p) {
-      return '<span class="paso ' + p[2] + '"><b>' + (p[2] === 'hecho' ? '✔ ' : p[2] === 'ahora' ? '⏳ ' : p[2] === 'mal' ? '↩ ' : p[2] === 'salto' ? '— ' : '') + esc(p[0]) + '</b><small>' + esc(p[1]) + '</small></span>';
+      return '<span class="paso ' + p[2] + '"><b>' + (p[2] === 'hecho' ? '✔ ' : p[2] === 'ahora' ? '⏳ ' : p[2] === 'salto' ? '— ' : '') + esc(p[0]) + '</b><small>' + esc(p[1]) + '</small></span>';
     }).join('<i>›</i>') + '</div>';
   }
   // Reiterados: mismo tipo en el mismo lugar (provincia y unidad o cadena de mando) más de una vez
@@ -458,9 +512,10 @@
       (omitidas.length ? '<div class="aviso">Colabora no dejó leer estas columnas y se muestran vacías: ' + esc(omitidas.join(', ')) + '. Dímelo para revisarlo.</div>' : '') +
       '<div class="kpis">' +
       '<div class="kpi rojo" data-ir="pendientes">Esperan mi acción<b>' + nPend() + '</b></div>' +
-      '<div class="kpi ambar" data-ir="fase:1">Pendientes de SUIGE<b>' + n(function (t) { return fase(t) === 1 || fase(t) === 6; }) + '</b></div>' +
-      '<div class="kpi morado" data-ir="fase:2">En DIACU<b>' + n(function (t) { return fase(t) === 2; }) + '</b></div>' +
-      '<div class="kpi azul" data-ir="fase:3">Elevados a IGE<b>' + n(function (t) { return fase(t) === 3; }) + '</b></div>' +
+      '<div class="kpi ambar" data-ir="fase:1">Remitidos a SUIGE<b>' + n(function (t) { return fase(t) === 1; }) + '</b></div>' +
+      '<div class="kpi morado" data-ir="fase:2">Remitidos a DIACU<b>' + n(function (t) { return fase(t) === 2; }) + '</b></div>' +
+      '<div class="kpi azul" data-ir="fase:3">Remitidos a IGE<b>' + n(function (t) { return fase(t) === 3; }) + '</b></div>' +
+      '<div class="kpi azul" data-ir="fase:4">Valorados por IGE<b>' + n(function (t) { return fase(t) === 4; }) + '</b></div>' +
       '<div class="kpi verde" data-ir="fase:5">Cerrados<b>' + n(function (t) { return fase(t) === 5; }) + '</b></div>' +
       '<div class="kpi gris" data-ir="fase:0">Borradores<b>' + n(function (t) { return fase(t) === 0; }) + '</b></div></div>' +
       '<div class="kpis">' +
@@ -486,11 +541,12 @@
     };
     var algun = misSuiges.length || esDiacu || esIge;
     return cab + '<p class="muted small">Incidentes que esperan una acción tuya según tu papel, los más antiguos primero. En rojo, los que llevan más de 7 días en la misma fase.</p>' +
-      (!algun ? '<div class="card vacio">No tienes papel de valoración (SUIGE, DIACU o IGE) en Colabora.</div>' : '') +
-      bloque('Valorar como SUIGE (' + misSuiges.join(', ') + ')', p.suige, 'Nada pendiente de valorar por tu SUIGE.', misSuiges.length) +
-      bloque('DIACU: visto, elevar o rechazar', p.diacu, 'Nada pendiente en DIACU.', esDiacu) +
-      bloque('IGE: valorar lo elevado', p.ige, 'Nada elevado pendiente de IGE.', esIge) +
-      bloque('Cerrar expediente', p.cierre, 'Nada pendiente de cierre.', esIge || esDiacu);
+      (!algun && !p.borrador.length ? '<div class="card vacio">No tienes papel de valoración (SUIGE, DIACU o IGE) en Colabora ni borradores pendientes de enviar.</div>' : '') +
+      bloque('Mis borradores: completar e informar a SUIGE', p.borrador, '', p.borrador.length) +
+      bloque('Valorar como SUIGE (' + misSuiges.join(', ') + ') e informar a DIACU o a IGE', p.suige, 'Nada pendiente de valorar por tu SUIGE.', misSuiges.length) +
+      bloque('DIACU: valorar e informar a IGE', p.diacu, 'Nada pendiente en DIACU.', esDiacu) +
+      bloque('IGE: valoración de IGE', p.ige, 'Nada remitido a IGE pendiente de valorar.', esIge) +
+      bloque('IGE: seguimiento y cierre del expediente', p.cierre, 'Nada valorado pendiente de cierre.', esIge);
   }
   var tramitadosPorMi = function () {
     return items.filter(function (t) { return yo && (sinTildes(t.editor) === sinTildes(yo.Title) || sinTildes(t.regAct).indexOf(sinTildes(yo.Title)) >= 0); })
@@ -499,13 +555,13 @@
   function filtrar() {
     var f = pref.f, q = sinTildes(f.q);
     return items.filter(function (t) {
-      if (f.fase !== '' && String(fase(t)) !== f.fase && !(f.fase === '1' && fase(t) === 6)) return false;
+      if (f.fase !== '' && String(fase(t)) !== f.fase) return false;
       if (f.tipo && t.tipo !== f.tipo) return false;
       if (f.suige && t.suige !== f.suige) return false;
       if (f.prob === 'alta' ? probN(t) < 4 : f.prob && t.prob !== f.prob) return false;
       if (f.desde && (!t.fecha || t.fecha < f.desde)) return false;
       if (f.hasta && (!t.fecha || t.fecha > f.hasta)) return false;
-      if (q && sinTildes(['Nº ' + t.id, t.tipo, t.provincia, t.lugar, t.suige, t.empleo, t.ndenuncia, t.resp && t.resp.Title, t.mandos.join(' ')].join(' ')).indexOf(q) < 0) return false;
+      if (q && sinTildes(['Nº ' + t.id, t.tipo, t.provincia, t.lugar, t.suige, t.empleo, t.ndenuncia, t.resp && t.resp.Title, t.cadena.join(' ')].join(' ')).indexOf(q) < 0) return false;
       return true;
     }).sort(function (a, b) { return String(b.fecha).localeCompare(String(a.fecha)) || b.id - a.id; });
   }
@@ -526,7 +582,7 @@
   // Agrupación de la consulta para que la lista no se haga interminable
   var AGRUPAR = [['provincia', 'Provincia'], ['lugar', 'Unidad / lugar'], ['prob', 'Probabilidad'], ['suige', 'SUIGE'], ['tipo', 'Tipo de incidente'], ['fase', 'Fase'], ['mes', 'Mes del incidente'], ['', 'Sin agrupar']];
   function claveGrupo(t, k) {
-    if (k === 'fase') return FASES[fase(t) === 6 ? 1 : fase(t)];
+    if (k === 'fase') return FASES[fase(t)];
     if (k === 'mes') return t.fecha ? aFecha(t.fecha).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }) : '(sin fecha)';
     if (k === 'prob') return t.prob ? t.prob.charAt(0) + t.prob.slice(1).toLowerCase() : '(sin probabilidad)';
     return t[k] || '(sin dato)';
@@ -579,7 +635,7 @@
       barras('Partes por mes (fecha del incidente, últimos 12 meses)', porMes, N, true) +
       barras('Por SUIGE', contar(ts, function (t) { return t.suige || '(sin determinar)'; }), N) +
       barras('Por probabilidad', PROBS.map(function (p) { return [p.charAt(0) + p.slice(1).toLowerCase(), ts.filter(function (t) { return t.prob === p; }).length]; }), N, true) +
-      barras('Por fase', ['Borrador', 'Pendiente SUIGE', 'Pendiente DIACU', 'Pendiente IGE', 'Pendiente de cierre', 'Cerrado'].map(function (fz, k) { return [fz, ts.filter(function (t) { return fase(t) === k || (k === 1 && fase(t) === 6); }).length]; }), N, true) +
+      barras('Por fase', ['Borrador', 'Remitido a SUIGE', 'Remitido a DIACU', 'Remitido a IGE', 'Valorado por IGE', 'Cerrado'].map(function (fz, k) { return [fz, ts.filter(function (t) { return fase(t) === k; }).length]; }), N, true) +
       barras('Provincias con más partes', prov, N, true) +
       barras('¿Reiterado?', contar(ts, function (t) { return t.reiterada; }), N) +
       barras('Zona señalizada', contar(ts, function (t) { return sn(t.zona); }), N) +
@@ -594,7 +650,7 @@
       '<label class="check"><input type="checkbox" id="aCorreo"' + (pref.correo ? ' checked' : '') + '> Enviar avisos por correo al tramitar</label></div>' +
       '<div class="card"><h3 style="margin-top:0">Papeles</h3><p class="small">Tus papeles: ' + esc(misPapeles().join(', ') || 'ninguno') + '.</p>' +
       '<p class="small muted">Se deducen de los grupos de Colabora: SUIGE = SEGURIDAD_SUIGESUR, _SUIGENOR, _SUIGECAN, _SUIGEPIR, _SECORCEN, _DIIN, _DIAPER; DIACU e IGE = SEGURIDAD_IGE. ' +
-      'La SUIGE de cada parte sale de la columna SUIGES, del grupo del parte o de la cadena de mando (MANDO1N–3N, MN1–MN4).</p>' +
+      'La SUIGE de cada parte sale, como en el formulario InfoPath, del mando de 2.º nivel (MN2); si no, de la columna SUIGES. Los partes de MADOC van a la SUIGESUR.</p>' +
       '<p class="small">Incidentes sin SUIGE determinada: <b>' + items.filter(function (t) { return !t.suige; }).length + '</b> de ' + items.length + '.</p></div>' +
       '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">La página trabaja dentro de Colabora con tu sesión y tus permisos. No envía nada fuera del servidor. Los textos del parte (observación, análisis, medidas…) solo se leen al abrir un incidente. La protección real es la de los permisos de la lista.</p></div>';
   }
@@ -642,28 +698,29 @@
   }
   var correosTexto = function (t) { return String(t.correos || '').split(/[;,\s]+/).filter(function (x) { return /@/.test(x); }); };
   var limpia = function (l) { var v = {}; return l.filter(function (x) { x = String(x || '').trim().toLowerCase(); if (!/@/.test(x) || v[x]) return false; v[x] = 1; return true; }); };
-  // Avisos de cada paso: a quién le toca y copia a quien conviene saberlo
+  // Avisos de cada paso, con los asuntos del formulario InfoPath. Los destinatarios salen de los grupos de Colabora
+  // (no de buzones escritos en la página) y de las personas del parte (columna «correos personas info»).
   function avisoDe(tipo, t, txt) {
     var dest = { suige: GRUPO_CORREO.suige(t.suige), diacu: GRUPO_CORREO.diacu, ige: GRUPO_CORREO.ige };
+    var arg = t.suige || 'SUIGE';
     var P = {
-      valSuige: { a: dest.diacu, cc: [], asunto: 'Incidente de seguridad Nº ' + t.id + ' VALORADO por ' + (t.suige || 'SUIGE') + ': pendiente de DIACU', intro: 'LA ' + (t.suige || 'SUIGE') + ' HA VALORADO EL INCIDENTE. Queda pendiente de DIACU (visto, elevar a IGE o rechazar).' },
-      diacuVisto: { a: dest.suige, cc: [], asunto: 'Incidente de seguridad Nº ' + t.id + ': VISTO POR DIACU', intro: 'DIACU HA DADO EL VISTO AL INCIDENTE. No se eleva a IGE; queda pendiente de cierre.' },
-      diacuElevar: { a: dest.ige, cc: dest.suige, asunto: 'Incidente de seguridad Nº ' + t.id + ' ELEVADO POR DIACU: pendiente de IGE', intro: 'DIACU HA ELEVADO EL INCIDENTE A IGE para su valoración.' },
-      diacuRechazar: { a: dest.suige, cc: [], asunto: 'Incidente de seguridad Nº ' + t.id + ' RECHAZADO POR DIACU: debe valorarse de nuevo', intro: 'DIACU HA RECHAZADO LA VALORACIÓN. La SUIGE debe revisarla y valorar de nuevo el incidente.' },
-      valIge: { a: dest.diacu, cc: dest.suige, asunto: 'Incidente de seguridad Nº ' + t.id + ' VALORADO POR IGE', intro: 'IGE HA VALORADO EL INCIDENTE. Queda pendiente de cierre del expediente.' },
-      remitido: { a: dest.suige, cc: [], asunto: 'Nuevo parte de incidente de seguridad Nº ' + t.id + ' remitido: pendiente de valoración ' + (t.suige || 'SUIGE'), intro: 'SE HA REMITIDO UN NUEVO PARTE DE INCIDENTE DE SEGURIDAD. Queda pendiente de la valoración de la ' + (t.suige || 'SUIGE') + '.' },
-      cerrar: { a: dest.suige, cc: [], asunto: 'Incidente de seguridad Nº ' + t.id + ': EXPEDIENTE CERRADO', intro: 'EL EXPEDIENTE DEL INCIDENTE HA QUEDADO CERRADO.', personas: true },
-      reabrir: { a: dest.suige, cc: dest.diacu, asunto: 'Incidente de seguridad Nº ' + t.id + ': EXPEDIENTE REABIERTO', intro: 'EL EXPEDIENTE DEL INCIDENTE SE HA REABIERTO Y VUELVE A SEGUIMIENTO.' },
+      suige: { a: dest.suige, cc: [], asunto: 'NUEVO INCIDENTE DE SEGURIDAD EN ARG ' + arg + ' · Nº ' + t.id, intro: 'DEBE ANALIZAR EL INCIDENTE Y ELEVAR VALORACIÓN.', personas: 'cc' },
+      diacu: { a: dest.diacu, cc: [], asunto: 'NUEVO INCIDENTE DE SEGURIDAD VALORADO POR SUIGE · Nº ' + t.id, intro: 'DIACU DEBE ACCEDER Y VALORAR LA INCIDENCIA PARA REMITIRLA A IGE.', personas: 'bcc' },
+      ige: { a: dest.ige, cc: dest.suige, asunto: 'INCIDENTE DE SEGURIDAD VALORADO POR ' + (t.estadoPrevio === ES.RD ? 'DIACU' : arg) + ' · Nº ' + t.id, intro: 'INCIDENTE REMITIDO A IGE PARA SU VALORACIÓN.' },
+      valIge: { a: dest.suige, cc: [], asunto: 'INCIDENTE DE SEGURIDAD ACTUALIZADO · Nº ' + t.id, intro: 'SE HA REALIZADO UNA ACTUALIZACIÓN DEL INCIDENTE DE SEGURIDAD: VALORACIÓN DE IGE.', personas: 'cc' },
+      cerrar: { a: dest.suige, cc: [], asunto: 'INCIDENTE DE SEGURIDAD Nº ' + t.id + ': EXPEDIENTE CERRADO', intro: 'EL EXPEDIENTE DEL INCIDENTE HA QUEDADO CERRADO.', personas: 'cc', resp: true },
+      reabrir: { a: dest.suige, cc: dest.diacu, asunto: 'INCIDENTE DE SEGURIDAD Nº ' + t.id + ': EXPEDIENTE REABIERTO', intro: 'EL EXPEDIENTE DEL INCIDENTE SE HA REABIERTO Y VUELVE A SEGUIMIENTO.' },
       recordar: { a: [], cc: [], asunto: 'RECORDATORIO: incidente de seguridad Nº ' + t.id + ' pendiente: ' + faseTxt(t), intro: 'RECORDATORIO: ESTE INCIDENTE SIGUE PENDIENTE (' + faseTxt(t).toUpperCase() + ').' }
     }[tipo];
-    if (tipo === 'recordar') { var f = fase(t); P.a = f === 1 || f === 6 ? dest.suige : f === 2 ? dest.diacu : f === 3 ? dest.ige : dest.ige.concat(dest.diacu); }
+    if (tipo === 'recordar') { var f = fase(t); P.a = f === 1 ? dest.suige : f === 2 ? dest.diacu : dest.ige; }
     return Promise.all([correosDeGrupos(P.a), correosDeGrupos(P.cc)]).then(function (r) {
-      var personas = P.personas ? [t.resp && t.resp.Email, t.autor && t.autor.Email].concat(correosTexto(t)) : correosTexto(t);
-      var to = limpia(r[0]), cc = limpia(r[1].concat(personas)).filter(function (x) { return to.indexOf(x) < 0; });
+      var gente = P.personas ? correosTexto(t).concat(P.resp ? [t.resp && t.resp.Email, t.autor && t.autor.Email] : []) : [];
+      var to = limpia(r[0]), cc = limpia(r[1].concat(P.personas === 'cc' ? gente : [])).filter(function (x) { return to.indexOf(x) < 0; });
+      var bcc = limpia(P.personas === 'bcc' ? gente : []).filter(function (x) { return to.indexOf(x) < 0 && cc.indexOf(x) < 0; });
       if (!to.length) { to = cc; cc = []; }
-      var filas = [['Nº de incidente', String(t.id)], ['Tipo de incidente', t.tipo], ['Fecha del incidente', fCorta(t.fecha)], ['Provincia', t.provincia], ['Lugar / unidad', t.lugar],
+      var filas = [['Nº de incidente', String(t.id)], ['Tipo de incidente', t.tipo], ['Fecha del incidente', fCorta(t.fecha)], ['Provincia', t.provincia], ['Unidad', (t.cadena || []).join(' - ') || t.lugar],
         ['SUIGE', t.suige], ['Probabilidad', t.prob], ['Situación', faseTxt(t)], ['Tramitado por', yo.Title], ['Comentario', txt ? (txt.length > 800 ? txt.slice(0, 800) + '…' : txt) : '']].filter(function (x) { return x[1]; });
-      return { to: to, cc: cc, asunto: P.asunto, html: htmlCorreo(P.intro, filas, enlaceInc(t)), texto: 'USO OFICIAL\n\n' + P.intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\nAbrir el incidente: ' + enlaceInc(t) };
+      return { to: to, cc: cc, bcc: bcc, asunto: P.asunto, html: htmlCorreo(P.intro, filas, enlaceInc(t)), texto: 'USO OFICIAL\n\n' + P.intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\nAbrir el incidente: ' + enlaceInc(t) };
     });
   }
   function mailto(c) {
@@ -675,8 +732,8 @@
   function enviarCorreo(c) {
     if (!c.to.length) return Promise.resolve({ ok: false, motivo: 'no se encontraron destinatarios (los grupos ocultan sus integrantes o están vacíos)', mailto: mailto(c) });
     return enviarSP(web + '/_api/SP.Utilities.Utility.SendEmail', { properties: { __metadata: { type: 'SP.Utilities.EmailProperties' },
-      To: { results: c.to }, CC: { results: c.cc }, Subject: c.asunto, Body: c.html } }, 'Colabora no te deja enviar correos desde la página')
-      .then(function () { return { ok: true, n: c.to.length + c.cc.length }; }, function (e) { return { ok: false, motivo: e.message || String(e), mailto: mailto(c) }; });
+      To: { results: c.to }, CC: { results: c.cc }, BCC: { results: c.bcc || [] }, Subject: c.asunto, Body: c.html } }, 'Colabora no te deja enviar correos desde la página')
+      .then(function () { return { ok: true, n: c.to.length + c.cc.length + (c.bcc || []).length }; }, function (e) { return { ok: false, motivo: e.message || String(e), mailto: mailto(c) }; });
   }
   var msgCorreo = function (r) {
     return !r ? '' : r.ok ? ' Aviso enviado por correo (' + r.n + ' destinatario' + (r.n === 1 ? '' : 's') + ').' :
@@ -728,11 +785,11 @@
     });
   }
   // Campo de persona: escribe 3 letras, elige de la lista. Devuelve un objeto con .valor()
-  function campoPersona(cont, inicial, alCambiar) {
+  function campoPersona(cont, inicial, alCambiar, multiple) {
     var elegido = inicial || null, espera = null, turno = 0;
     cont.innerHTML = '<input placeholder="Escribe nombre o apellido (3 letras) y elige" autocomplete="off"><div class="sugs" hidden></div><div class="elegido"></div>';
     var input = $('input', cont), caja = $('.sugs', cont), ver = $('.elegido', cont);
-    var pintarElegido = function () { ver.innerHTML = elegido ? '✓ ' + esc(elegido.Title) + ' <a href="#" data-quitar="1">quitar</a>' : '<span class="muted small">Nadie elegido</span>'; };
+    var pintarElegido = function () { ver.innerHTML = multiple ? '' : elegido ? '✓ ' + esc(elegido.Title) + ' <a href="#" data-quitar="1">quitar</a>' : '<span class="muted small">Nadie elegido</span>'; };
     var pintar = function (lst, buscando) {
       caja.lista = lst;
       caja.innerHTML = lst.map(function (u, i) { return '<button type="button" data-sug="' + i + '">' + esc(u.Title) + (u.Email ? ' <span class="small muted">' + esc(u.Email) + '</span>' : '') + '</button>'; }).join('') + (buscando ? '<div class="small muted" style="padding:8px">Buscando en el directorio…</div>' : '');
@@ -759,112 +816,214 @@
       var b = e.target.closest('[data-sug]');
       if (b) {
         var u = caja.lista[Number(b.dataset.sug)]; turno++; pintar([]); input.value = '';
-        asegurarUsuario(u).then(function (x) { elegido = x; pintarElegido(); if (alCambiar) alCambiar(x); })
+        asegurarUsuario(u).then(function (x) { if (!multiple) elegido = x; pintarElegido(); if (alCambiar) alCambiar(x); })
           .catch(function (er) { ver.innerHTML = '<span class="error">' + esc(er.message || er) + '</span>'; });
       }
       if (e.target.closest('[data-quitar]')) { e.preventDefault(); elegido = null; pintarElegido(); if (alCambiar) alCambiar(null); }
     });
     return { valor: function () { return elegido; } };
   }
+  // Varias personas (columna «grupo»): se añaden de una en una y se pueden quitar
+  function campoPersonas(cont, iniciales) {
+    var gente = (iniciales || []).slice();
+    cont.innerHTML = '<div class="personas"></div><div class="buscador"></div>';
+    var pintar = function () {
+      $('.personas', cont).innerHTML = gente.map(function (u, i) { return '<span class="chip">' + esc(u.Title || ('Usuario ' + u.Id)) + ' <a href="#" data-qp="' + i + '" title="Quitar">✕</a></span>'; }).join('') || '<span class="muted small">Nadie añadido</span>';
+    };
+    campoPersona($('.buscador', cont), null, function (u) { if (u && !gente.some(function (x) { return x.Id === u.Id; })) gente.push(u); pintar(); }, true);
+    cont.addEventListener('click', function (e) { var q = e.target.closest('[data-qp]'); if (q) { e.preventDefault(); gente.splice(Number(q.dataset.qp), 1); pintar(); } });
+    pintar();
+    return { valor: function () { return gente.slice(); } };
+  }
 
-  // ---------- Nuevo parte / completar borrador ----------
-  // DESACTIVADO de momento: el parte se da de alta con el formulario InfoPath de Colabora (reglas, cadena de mando,
-  // grupo y correos). Cuando se reproduzcan sus reglas (plantilla .xsn), se pone FORM_PROPIO = true.
-  var FORM_PROPIO = false;
+  // ---------- Formulario de notificación (reproduce el InfoPath «incidentes_de_seguridad.xsn») ----------
+  // Mismos campos, textos y reglas: cadena de mando en cascada (M1N › M2N › M3N; se guarda el número en MANDOxN y el nombre en MNx),
+  // «Guardar borrador» y «Informar a SUIGE» (solo el responsable de la información), que decide la SUIGE por el mando de 2.º nivel.
+  var FORM_PROPIO = true;
   var urlFormulario = function (tipo, id) {
     var u = tipo === 'nuevo' ? listaInfo.DefaultNewFormUrl : listaInfo.DefaultEditFormUrl;
     return u ? location.origin + u + (id ? '?ID=' + id + '&' : '?') + 'Source=' + encodeURIComponent(enlacePagina() + (id ? '?id=' + id : '')) : '';
   };
   var opciones = {}, aux = null;
+  var AYUDA = {
+    OBSERVACION: 'Descripción clara, concreta, precisa y objetiva de los hechos ocurridos. Debe responder a estas preguntas: ¿Qué sucedió?, ¿Qué debería haber sucedido?, ¿Qué diferencia hubo entre lo que debería haber pasado y lo que finalmente sucedió?',
+    ANALISIS: 'El análisis explica cómo y por qué el plan de seguridad no ha reducido o eliminado la amenaza. Se discuten las razones del fracaso, las circunstancias que rodean al incidente y los factores que han podido influir. El análisis amplía la información sobre la observación y responde a las preguntas sobre «quién, qué, dónde, cuándo, por qué y cómo».',
+    MEDIDAS: 'La recomendación debe contestar a la pregunta ¿Qué hacer? Es una propuesta de solución que nos diga qué medidas complementarias se deben adoptar de forma inmediata y cuáles a futuro para que no se vuelva a repetir. Identificar exactamente lo que hay que cambiar y cómo hacerlo. La recomendación debe desprenderse lógicamente de la conclusión.',
+    CONTROLMEDIDASADOPTADAS: 'Se establecerá, en caso necesario, un calendario de seguimiento e información de la situación de las mismas a la cadena de mando hasta que sean solventadas.',
+    CONCLUSION: 'La conclusión es una declaración resumida de la lección que se ha aprendido a partir del análisis de la(s) causa(s) raíz del problema(s) descrito(s) en la observación y el análisis. Se deriva de una manera lógica de la información contenida en la observación y el análisis.'
+  };
+  var TXT_ACEPTO = 'Acepto los protocolos de seguridad del Ministerio de Defensa y el tratamiento de mis datos personales conforme al RGPD (UE) 2016/679 y la LOPDGDD 3/2018. Declaro la veracidad de la información aportada y me comprometo al estricto cumplimiento de las normas de acceso y confidencialidad de la Institución.';
   function cargarAux() {
     if (aux) return Promise.resolve(aux);
-    aux = {};
-    var titulos = function (lst) { return todas(web + "/_api/web/lists/getbytitle('" + encodeURIComponent(lst) + "')/items?$select=Title&$top=1000")
-      .then(function (l) { return Array.from(new Set(l.map(function (x) { return String(x.Title || '').trim(); }).filter(Boolean))).sort(function (a, b) { return a.localeCompare(b, 'es'); }); }).catch(function () { return []; }); };
-    return Promise.all([titulos('PROVINCIAS'), titulos('M1N'), titulos('M2N'), titulos('M3N'),
-      api(urlLista() + "/fields?$select=InternalName,Choices&$filter=" + encodeURIComponent("(InternalName eq 'TipoDeIncidente') or (InternalName eq 'Reiterada') or (InternalName eq 'PROBABILIDADES') or (InternalName eq 'SUIGES') or (InternalName eq 'A_x00f1_o')"))
-        .then(function (d) { lista(d.value).forEach(function (f) { opciones[f.InternalName] = lista(f.Choices); }); }).catch(function () { /* se deducen de los partes */ })])
-      .then(function (r) { aux = { provincias: r[0], m1: r[1], m2: r[2], m3: r[3] }; return aux; });
+    // Lee una lista auxiliar; si no admite las columnas pedidas, al menos Id y Title; si no se puede leer, null
+    var leer = function (sitio, lst, sel) {
+      var u = location.origin + sitio.replace(/\/+$/, '') + "/_api/web/lists/getbytitle('" + encodeURIComponent(lst.replace(/'/g, "''")) + "')/items?$top=5000&$select=";
+      return todas(u + sel).catch(function () { return sel === 'Id,Title' ? null : todas(u + 'Id,Title'); }).catch(function () { return null; })
+        .then(function (l) { return l && l.sort(function (x, y) { return x.Id - y.Id; }); });
+    };
+    var campos = ['TipoDeIncidente', 'Reiterada', 'PROBABILIDADES', 'SUIGES', 'A_x00f1_o'];
+    return Promise.all([leer(pref.sitio, AUX.m1, 'Id,Title'), leer(pref.sitio, AUX.m2, 'Id,Title,ID_M1NId'), leer(pref.sitio, AUX.m3, 'Id,Title,M1NId,M2NId'),
+      leer(pref.sitio, AUX.provincias, 'Id,Title'), leer(AUX.empleos.sitio, AUX.empleos.lista, 'Id,Title'),
+      api(urlLista() + '/fields?$select=InternalName,Choices&$filter=' + encodeURIComponent(campos.map(function (c) { return "(InternalName eq '" + c + "')"; }).join(' or ')))
+        .then(function (d) { lista(d.value).forEach(function (f) { opciones[f.InternalName] = lista(f.Choices); }); }).catch(function () { /* se usan las del formulario */ })])
+      .then(function (r) {
+        var titulos = function (l) { var v = {}; return (l || []).map(function (x) { return String(x.Title || '').trim(); }).filter(function (x) { if (!x || v[x]) return false; v[x] = 1; return true; }); };
+        aux = { m1: r[0] || [], m2: r[1] || [], m3: r[2] || [], provincias: titulos(r[3]), empleos: r[4] && r[4].length ? titulos(r[4]) : EMPLEOS,
+          faltan: [[r[0], AUX.m1], [r[1], AUX.m2], [r[2], AUX.m3], [r[3], AUX.provincias]].filter(function (x) { return !x[0] || !x[0].length; }).map(function (x) { return x[1]; }) };
+        return aux;
+      });
   }
-  var opcionesDe = function (campo, k) { var s = new Set(opciones[campo] || []); items.forEach(function (t) { if (t[k]) s.add(t[k]); }); return Array.from(s); };
+  var opcionesDe = function (campo, def) { return opciones[campo] && opciones[campo].length ? opciones[campo] : def; };
   function formulario(t) {
     var dlg = $('#dlg');
-    dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Completar el parte Nº ' + t.id : 'Nuevo parte de incidente de seguridad') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.4rem">✕</button></div><div class="db"><p class="muted">Cargando…</p></div>';
+    dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Parte Nº ' + t.id + ' · borrador' : 'Formulario de notificación · Incidentes de seguridad') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.4rem">✕</button></div><div class="db"><p class="muted">Cargando…</p></div>';
     dlg.showModal(); dlg.scrollTop = 0; dlgId = null;
-    Promise.all([cargarAux(), cargarUsuarios(), t ? leerElemento(t.id, TEXTOS.map(function (x) { return x[0]; }).concat(['correosPersonasInfo'])).then(function (x) { return x.datos; }) : Promise.resolve({})])
+    Promise.all([cargarAux(), cargarUsuarios(), t ? leerElemento(t.id, TEXTOS.map(function (x) { return x[0]; })).then(function (x) { return x.datos; }) : Promise.resolve({})])
       .then(function (r) { pintarFormulario(t, r[0], r[2]); })
       .catch(function (e) { $('#dlg .db').innerHTML = '<div class="error">No se pudo preparar el formulario: ' + esc(e.message || e) + '</div>'; });
   }
   function pintarFormulario(t, A, d) {
-    var anio = String(new Date().getFullYear());
-    var ops = function (l, v, vacio) { return '<option value="">' + esc(vacio || '—') + '</option>' + l.map(function (o) { return '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join(''); };
-    var lista_ = function (id, l) { return '<datalist id="' + id + '">' + l.map(function (o) { return '<option value="' + esc(o) + '">'; }).join('') + '</datalist>'; };
-    var suiges = opciones.SUIGES && opciones.SUIGES.length ? opciones.SUIGES : SUIGES.filter(function (x) { return x !== 'DIAPER'; });
-    var miSuige = t ? t.suigesCampo : (misSuiges.length === 1 ? (misSuiges[0] === 'SECOORCEN' ? 'SECOORCEN' : misSuiges[0]) : '');
-    var v = function (k, def) { return t ? (t[k] == null ? '' : t[k]) : (def || ''); };
-    var tx = function (k) { return texto(d[k]); };
+    var ops = function (l, v, vacio) { return '<option value="">' + esc(vacio || 'Seleccionar…') + '</option>' + l.map(function (o) { var k = Array.isArray(o) ? o[0] : o, e = Array.isArray(o) ? o[1] : o; return '<option value="' + esc(k) + '"' + (String(k) === String(v) ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join(''); };
+    var sino = function (v) { return ops([['true', 'SI'], ['false', 'NO']], v === true ? 'true' : v === false ? 'false' : ''); };
+    var fh = t && t.fechaHora ? new Date(t.fechaHora) : null;
+    var hora = fh && (fh.getHours() || fh.getMinutes()) ? pad(fh.getHours()) + ':' + pad(fh.getMinutes()) : '';
+    var deUsuarios = function (p) { var u = (usuariosSitio || []).find(function (x) { return x.Id === p.Id; }); return { Id: p.Id, Title: p.Title || (u && u.Title) || '', Email: p.Email || (u && u.Email) || '' }; };
+    var caja = function (tit, cuerpo) { return '<div class="fsec">' + esc(tit) + '</div><div class="fcaja">' + cuerpo + '</div>'; };
     $('#dlg .db').innerHTML = '<div id="fParte">' +
-      '<div class="panel" style="margin-bottom:6px">Da de alta el parte y <b>guárdalo como borrador</b> o <b>remítelo</b> (pasa a «REMITIDO A M1» y se avisa a la SUIGE). Los campos con <span style="color:var(--bad)">*</span> son obligatorios para remitir. ' +
-      (listaInfo.DefaultNewFormUrl && !t ? 'Para adjuntar documentos, guárdalo y añádelos desde Colabora, o usa el <a target="_blank" rel="noopener" href="' + esc(location.origin + listaInfo.DefaultNewFormUrl) + '">formulario de Colabora</a>.' : 'Los adjuntos se añaden desde Colabora.') + '</div>' +
-      '<div class="sec"><span>Datos del parte</span></div><div class="grid">' +
-      '<div><label class="lbl req">Tipo de incidente</label><select name="tipo">' + ops(opcionesDe('TipoDeIncidente', 'tipo'), v('tipo')) + '</select></div>' +
-      '<div><label class="lbl req">Fecha del incidente</label><input type="date" name="fecha" max="' + hoy() + '" value="' + esc(v('fecha')) + '"></div>' +
-      '<div><label class="lbl req">Provincia</label><input name="provincia" list="lProv" value="' + esc(v('provincia')) + '" autocomplete="off">' + lista_('lProv', A.provincias) + '</div>' +
-      '<div><label class="lbl req">SUIGE que lo valora</label><select name="suige">' + ops(suiges, miSuige) + '</select></div>' +
-      '<div><label class="lbl">Probabilidad</label><select name="prob">' + ops(opcionesDe('PROBABILIDADES', 'prob').length ? opcionesDe('PROBABILIDADES', 'prob') : PROBS, v('prob')) + '</select></div>' +
-      '<div><label class="lbl">¿Reiterada?</label><select name="reiterada">' + ops(opcionesDe('Reiterada', 'reiterada'), v('reiterada')) + '</select></div>' +
-      '<div><label class="lbl">Lugar / unidad (texto)</label><input name="otro" value="' + esc(v('otro')) + '"></div>' +
-      '<div><label class="lbl req">Empleo del responsable</label><input name="empleo" value="' + esc(v('empleo')) + '"></div>' +
-      '</div>' +
-      '<div class="grid">' +
-      '<div><label class="lbl">Mando de 1.er nivel</label><input name="m1" list="lM1" value="' + esc(t ? t.mandos[0] : '') + '" autocomplete="off">' + lista_('lM1', A.m1) + '</div>' +
-      '<div><label class="lbl">Mando de 2.º nivel</label><input name="m2" list="lM2" value="' + esc(t ? t.mandos[1] : '') + '" autocomplete="off">' + lista_('lM2', A.m2) + '</div>' +
-      '<div><label class="lbl">Mando de 3.er nivel</label><input name="m3" list="lM3" value="' + esc(t ? t.mandos[2] : '') + '" autocomplete="off">' + lista_('lM3', A.m3) + '</div>' +
-      '</div>' +
-      '<label class="check"><input type="checkbox" name="zona"' + (t && t.zona === true ? ' checked' : '') + '> Zona señalizada</label>' +
-      '<label class="check"><input type="checkbox" name="aceptacion"' + (t && t.aceptacion === true ? ' checked' : '') + '> Aceptación</label>' +
-      '<label class="check"><input type="checkbox" name="denuncia"' + (t && t.denuncia ? ' checked' : '') + '> Con denuncia</label>' +
-      '<div id="cajaDen"' + (t && t.denuncia ? '' : ' hidden') + ' style="max-width:320px"><label class="lbl">Nº de denuncia</label><input name="ndenuncia" value="' + esc(v('ndenuncia')) + '"></div>' +
-      '<label class="lbl req">Responsable de la información</label><div id="fResp"></div>' +
-      '<label class="lbl">Correos de las personas a informar (separados por «;»)</label><input name="correos" value="' + esc(t ? t.correos : '') + '" placeholder="nombre@et.mde.es; …">' +
-      '<div class="sec"><span>Descripción</span></div>' +
-      TEXTOS.map(function (x) { return '<label class="lbl req">' + esc(x[1]) + '</label><textarea name="' + x[0] + '">' + esc(tx(x[0])) + '</textarea>'; }).join('') +
-      '<div id="fError"></div><div class="acciones"><button type="button" data-cerrar>Cancelar</button><button type="button" id="fBorrador">💾 Guardar borrador</button><button type="button" class="prim" id="fRemitir">📨 Remitir a M1</button></div></div>';
-    var pResp = campoPersona($('#fResp'), t ? t.resp : yo);
-    var f = $('#fParte'), val = function (n) { var el = f.querySelector('[name="' + n + '"]'); return el ? (el.type === 'checkbox' ? el.checked : el.value.trim()) : ''; };
-    f.querySelector('[name=denuncia]').onchange = function () { $('#cajaDen').hidden = !this.checked; };
-    var err = function (m) { $('#fError').innerHTML = '<div class="error">' + esc(m) + '</div>'; };
+      '<div class="panel"><b>FORMULARIO NOTIFICACIÓN · INCIDENTES DE SEGURIDAD</b><br><span class="small">Ejército de Tierra · IGE · Jefatura IGE · Área de Seguridad</span>' +
+      '<div class="meta">Estado del formulario: <span class="badge f0">' + esc(t ? t.estadoRaw || ES.BO : 'NUEVO') + '</span></div></div>' +
+      (A.faltan.length ? '<div class="aviso">No se pudieron leer estas listas del formulario: ' + esc(A.faltan.join(', ')) + '. Avisa al administrador.</div>' : '') +
+      caja('Datos del responsable de la información',
+        '<label class="lbl req">Empleo</label><select name="empleo">' + ops(A.empleos.indexOf(t && t.empleo) < 0 && t && t.empleo ? A.empleos.concat([t.empleo]) : A.empleos, t ? t.empleo : '') + '</select>' +
+        '<label class="lbl req">Apellidos y nombre del responsable que va a tramitar la información (MUY IMPORTANTE)</label><div id="fResp"></div><div id="fGestor"></div>' +
+        '<label class="lbl">Personal que puede visualizar la información</label><p class="ayuda">Mando superior, personal de S2 u otro personal, sin añadir al responsable.</p><div id="fGrupo"></div>') +
+      caja('Datos de la unidad a la que pertenece',
+        '<div class="grid"><div><label class="lbl req">Mando de primer nivel (IGE)</label><select name="m1"></select></div>' +
+        '<div><label class="lbl req">Mando de segundo nivel</label><select name="m2"></select></div>' +
+        '<div><label class="lbl req">Unidad</label><select name="m3"></select></div></div><div class="cadena" id="fCadena"></div>') +
+      caja('Datos del incidente',
+        '<div class="grid"><div><label class="lbl req">Tipo de incidente</label><select name="tipo">' + ops(opcionesDe('TipoDeIncidente', TIPOS), t ? t.tipo : '') + '</select></div>' +
+        '<div><label class="lbl req">Lugar del incidente (provincia)</label><select name="provincia">' + ops(A.provincias.indexOf(t && t.provincia) < 0 && t && t.provincia ? A.provincias.concat([t.provincia]) : A.provincias, t ? t.provincia : '') + '</select></div>' +
+        '<div><label class="lbl req">Fecha del incidente</label><input type="date" name="fecha" max="' + hoy() + '" value="' + esc(t ? t.fecha : '') + '"></div>' +
+        '<div><label class="lbl">Hora</label><input type="time" name="hora" value="' + esc(hora) + '"></div></div>' +
+        '<div class="grid"><div><label class="lbl req">¿Está la zona señalizada?</label><select name="zona">' + sino(t ? t.zona : null) + '</select></div>' +
+        '<div><label class="lbl req">¿Esta acción es reiterada?</label><select name="reiterada">' + ops(opcionesDe('Reiterada', REITERADA), t ? t.reiterada : '') + '</select></div>' +
+        '<div><label class="lbl req">¿Qué probabilidades hay de que suceda un incidente igual en los próximos meses?</label><select name="prob">' + ops(opcionesDe('PROBABILIDADES', PROBS), t ? t.prob : '') + '</select></div></div>' +
+        '<div class="grid"><div><label class="lbl req">¿Dispone de denuncia?</label><select name="denuncia">' + sino(t ? (t.denuncia ? true : (t.estado ? false : null)) : null) + '</select></div>' +
+        '<div id="cajaDen"><label class="lbl">Nº de denuncia (si dispone)</label><input name="ndenuncia" value="' + esc(t ? t.ndenuncia : '') + '"></div></div>') +
+      caja('Responda a todas las preguntas', TEXTOS.map(function (x) {
+        return '<label class="lbl req">' + esc(x[1].toUpperCase()) + '</label><p class="ayuda">' + esc(AYUDA[x[0]]) + '</p><textarea name="' + x[0] + '">' + esc(texto(d[x[0]])) + '</textarea>';
+      }).join('') +
+        '<div class="acepto"><label><input type="checkbox" name="aceptacion"' + (t && t.aceptacion === true ? ' checked' : '') + '><span>' + esc(TXT_ACEPTO) + '</span></label></div>' +
+        '<label class="lbl">Documentos que se adjuntan de interés: fotos, etc. (evitar datos de carácter personal, LOPD)</label><input type="file" name="adjuntos" multiple>' +
+        (t && t.adjuntos ? '<p class="small muted">Este parte ya tiene adjuntos en Colabora; los que elijas se añaden a ellos.</p>' : '')) +
+      '<div class="nota">Podrá <b>guardar y modificar el BORRADOR</b> del formulario cuantas veces lo necesite, <b>pero no se enviará hasta que pulse el botón azul</b>. Por favor, compruebe los datos antes de enviarlo a SUIGE. <b>Una vez enviado NO PODRÁ MODIFICARSE.</b></div>' +
+      '<div id="fError"></div><div class="acciones"><button type="button" class="ambar" id="fBorrador">Guardar borrador</button><span style="align-self:center;font-weight:700">ó</span>' +
+      '<button type="button" class="suige" id="fRemitir">Informar a SUIGE</button><button type="button" class="rojo" data-cerrar>Salir</button></div><p class="small muted" id="fSoloResp"></p></div>';
+    var f = $('#fParte'), campo = function (n) { return f.querySelector('[name="' + n + '"]'); };
+    var val = function (n) { var el = campo(n); return el ? (el.type === 'checkbox' ? el.checked : el.value.trim()) : ''; };
+    // Responsable: el botón azul solo se activa si el responsable eres tú (regla del InfoPath)
+    var pintarGestor = function (u) {
+      var yoMismo = !!(u && yo && u.Id === yo.Id);
+      $('#fGestor').innerHTML = yoMismo ? '<span class="gestorok">Gestor identificado correctamente</span>' : '';
+      $('#fRemitir').disabled = !yoMismo;
+      $('#fSoloResp').textContent = yoMismo ? '' : 'Solo puede informar a SUIGE el responsable de la información. Si el responsable es otra persona, guarda el borrador: lo enviará él desde esta página.';
+    };
+    var pResp = campoPersona($('#fResp'), t ? t.resp : yo, pintarGestor);
+    var pGrupo = campoPersonas($('#fGrupo'), t ? t.grupo.map(deUsuarios) : []);
+    pintarGestor(pResp.valor());
+    // Cadena de mando en cascada: al cambiar un nivel se vacían los inferiores (reglas del InfoPath)
+    var sM1 = campo('m1'), sM2 = campo('m2'), sM3 = campo('m3');
+    var ini = t ? t.mandoIds : [null, null, null];
+    var hijos2 = function (id) { return A.m2.filter(function (x) { return x.ID_M1NId === undefined || Number(x.ID_M1NId) === Number(id); }); };
+    var hijos3 = function (id) { return A.m3.filter(function (x) { return x.M2NId === undefined || Number(x.M2NId) === Number(id); }); };
+    var llenar = function (sel, l, v) { sel.innerHTML = ops(l.map(function (x) { return [String(x.Id), x.Title]; }), v == null ? '' : String(v)); sel.disabled = !l.length; };
+    var nombre = function (l, id) { var x = l.find(function (y) { return String(y.Id) === String(id); }); return x ? x.Title : ''; };
+    var pintarCadena = function () {
+      var c = [nombre(A.m1, sM1.value), nombre(A.m2, sM2.value), nombre(A.m3, sM3.value)];
+      var s = normSuige(c[1]);
+      $('#fCadena').innerHTML = esc(c.filter(Boolean).join(' - ') || 'Elige la cadena de mando') + (c[1] ? ' · <span class="badge ' + (s ? 'rol' : 'f6') + '">' + (s ? 'Se informará a ' + esc(s) : 'Este mando de 2.º nivel no tiene SUIGE asignada') + '</span>' : '');
+    };
+    llenar(sM1, A.m1, ini[0]); llenar(sM2, sM1.value ? hijos2(sM1.value) : [], ini[1]); llenar(sM3, sM2.value ? hijos3(sM2.value) : [], ini[2]);
+    sM1.onchange = function () { llenar(sM2, sM1.value ? hijos2(sM1.value) : [], ''); llenar(sM3, [], ''); pintarCadena(); };
+    sM2.onchange = function () { llenar(sM3, sM2.value ? hijos3(sM2.value) : [], ''); pintarCadena(); };
+    sM3.onchange = pintarCadena;
+    pintarCadena();
+    var verDen = function () { $('#cajaDen').hidden = val('denuncia') !== 'true'; };
+    campo('denuncia').onchange = verDen; verDen();
+    var err = function (m) { $('#fError').innerHTML = '<div class="error">' + esc(m) + '</div>'; $('#fError').scrollIntoView({ block: 'center' }); };
     var guardar = function (remitir, boton) {
-      var resp = pResp.valor();
-      var faltan = [];
-      if (!val('tipo')) faltan.push('tipo de incidente'); if (!val('fecha')) faltan.push('fecha'); if (!val('provincia')) faltan.push('provincia'); if (!val('suige')) faltan.push('SUIGE');
-      if (!val('empleo')) faltan.push('empleo'); if (!resp) faltan.push('responsable de la información');
-      TEXTOS.forEach(function (x) { if (!val(x[0])) faltan.push(x[1].toLowerCase()); });
-      // Para guardar el borrador basta con lo que pide la lista; para remitir, todo lo obligatorio
-      var minimo = !val('tipo') || !val('fecha') || !val('provincia') || !val('empleo') || !resp;
-      if (remitir && faltan.length) return err('Para remitir falta: ' + faltan.join(', ') + '.');
-      if (!remitir && minimo) return err('Para guardar el borrador hacen falta al menos: tipo, fecha, provincia, empleo y responsable de la información.');
+      var resp = pResp.valor(), grupo = pGrupo.valor().filter(function (u) { return !resp || u.Id !== resp.Id; });
+      var mn = [nombre(A.m1, sM1.value), nombre(A.m2, sM2.value), nombre(A.m3, sM3.value)], suige = normSuige(mn[1]);
+      if (!remitir && !val('fecha')) return err('La fecha del incidente es obligatoria (también para guardar el borrador).');
       if (val('fecha') > hoy()) return err('La fecha del incidente no puede ser futura.');
-      var c = { TipoDeIncidente: val('tipo'), FechaNotificacion: aFecha(val('fecha')).toISOString(), Provincia: val('provincia'), SUIGES: val('suige') || null, PROBABILIDADES: val('prob') || null,
-        Reiterada: val('reiterada') || null, OTRO: val('otro'), Empleo: val('empleo'), MANDO1N: val('m1'), MANDO2N: val('m2'), MANDO3N: val('m3'),
-        ZONASE_x00d1_ALIZADA: val('zona'), ACEPTACION: val('aceptacion'), Denuncia: val('denuncia'), NDenuncia: val('denuncia') ? val('ndenuncia') : '',
-        ResponsableDeLaInformacionId: resp.Id, correosPersonasInfo: val('correos'), ModificadoPorTEXTO: yo.Title,
-        ESTADO: remitir ? ES.RM : ES.BO };
+      if (remitir) {
+        var faltan = [];
+        if (!val('fecha')) faltan.push('fecha del incidente');
+        if (!val('empleo')) faltan.push('empleo'); if (!resp) faltan.push('responsable de la información');
+        if (!sM1.value || !sM2.value || !sM3.value) faltan.push('cadena de mando completa (primer nivel, segundo nivel y unidad)');
+        if (!val('tipo')) faltan.push('tipo de incidente'); if (!val('provincia')) faltan.push('lugar del incidente');
+        if (!val('zona')) faltan.push('¿zona señalizada?'); if (!val('reiterada')) faltan.push('¿acción reiterada?'); if (!val('prob')) faltan.push('probabilidad');
+        if (!val('denuncia')) faltan.push('¿dispone de denuncia?');
+        TEXTOS.forEach(function (x) { if (!val(x[0])) faltan.push(x[1].toLowerCase()); });
+        if (!val('aceptacion')) faltan.push('aceptación de los protocolos de seguridad');
+        if (faltan.length) return err('Para informar a SUIGE falta: ' + faltan.join(', ') + '.');
+        if (!soy(resp)) return err('Solo puede informar a SUIGE el responsable de la información.');
+        if (!suige) return err('El mando de segundo nivel elegido («' + mn[1] + '») no tiene SUIGE asignada, y el formulario no sabe a quién enviarlo. Revisa la cadena de mando o avisa al administrador.');
+      }
+      var fecha = new Date(val('fecha') + 'T' + (val('hora') || '00:00') + ':00');
+      var correos = grupo.map(function (u) { return u.Email; }).filter(function (x) { return /@/.test(x || ''); }).join(';');
+      var c = { Empleo: val('empleo') || null, ResponsableDeLaInformacionId: resp ? resp.Id : null, ResponsableDelParte: resp ? resp.Title : '',
+        grupoId: { results: grupo.map(function (u) { return u.Id; }) }, correosPersonasInfo: correos,
+        MANDO1N: sM1.value, MANDO2N: sM2.value, MANDO3N: sM3.value, OData__x004d_N1: mn[0], OData__x004d_N2: mn[1], OData__x004d_N3: mn[2],
+        TipoDeIncidente: val('tipo') || null, Provincia: val('provincia'), FechaNotificacion: fecha.toISOString(),
+        ZONASE_x00d1_ALIZADA: val('zona') === '' ? null : val('zona') === 'true', Reiterada: val('reiterada') || null, PROBABILIDADES: val('prob') || null,
+        Denuncia: val('denuncia') === '' ? null : val('denuncia') === 'true', NDenuncia: val('denuncia') === 'true' ? val('ndenuncia') : '',
+        ACEPTACION: val('aceptacion'), ESTADO: remitir ? ES.RS : ES.BO };
       TEXTOS.forEach(function (x) { c[x[0]] = val(x[0]) ? aHtml(val(x[0])) : ''; });
-      if (!t) { c.Title = fCorta(hoy()); c.A_x00f1_o = (opciones.A_x00f1_o || []).indexOf(String(new Date(c.FechaNotificacion).getFullYear())) >= 0 ? String(new Date(c.FechaNotificacion).getFullYear()) : null; c.ResponsableDelParte = yo.Title; }
+      if (remitir && (opciones.SUIGES || []).indexOf(suige) >= 0) c.SUIGES = suige;
+      if (!t) { c.Title = hoy(); var an = String(fecha.getFullYear()); if ((opciones.A_x00f1_o || []).indexOf(an) >= 0) c.A_x00f1_o = an; }
+      var archivos = Array.prototype.slice.call(campo('adjuntos').files || []);
       boton.disabled = true;
-      var nota = remitir ? 'PARTE REMITIDO A M1' : (t ? 'Borrador actualizado' : 'Parte dado de alta (borrador)');
-      var hecho = t ? guardarCambios(t, c, nota).then(function () { return t.id; }) :
-        enviarSP(urlLista() + '/items', Object.assign({ __metadata: { type: listaInfo.ListItemEntityTypeFullName }, ObservacionesDelExpediente: anotacion(nota) }, c), 'No tienes permiso para dar de alta partes en esta lista').then(function (n) { return n && n.Id; });
+      var nota = remitir ? 'INFORMADO A SUIGE (' + suige + ')' : (t ? 'Borrador guardado' : 'Parte dado de alta (borrador)');
+      var escribir = function (cuerpo) {
+        return t ? guardarCambios(t, cuerpo, nota).then(function () { return t.id; }) :
+          enviarSP(urlLista() + '/items', Object.assign({ __metadata: { type: listaInfo.ListItemEntityTypeFullName }, ObservacionesDelExpediente: anotacion(nota), ModificadoPorTEXTO: yo.Title }, cuerpo), 'No tienes permiso para dar de alta partes en esta lista').then(function (n) { return n && (n.Id || n.ID); });
+      };
+      // Si «grupo» resultara ser de una sola persona en esta lista, se guarda la primera
+      var hecho = escribir(Object.assign({}, c)).catch(function (e) {
+        if (!/grupo/i.test(e.message || '') || grupo.length > 1) throw e;
+        var c2 = Object.assign({}, c, { grupoId: grupo.length ? grupo[0].Id : null });
+        return escribir(c2);
+      });
       hecho.then(function (id) {
-        var nuevo = { id: id, tipo: c.TipoDeIncidente, fecha: val('fecha'), provincia: c.Provincia, lugar: c.OTRO, suige: normSuige(c.SUIGES) || normSuige(c.MANDO2N) || '', prob: c.PROBABILIDADES || '', estado: c.ESTADO, valSuige: false, diacu: '', valIge: false, correos: c.correosPersonasInfo, resp: resp, autor: yo };
-        return (remitir && pref.correo ? avisoDe('remitido', nuevo, '').then(enviarCorreo) : Promise.resolve(null)).then(function (r) {
-          return cargar().then(function () { if (id) abrir(id, '<div class="' + (r && !r.ok ? 'aviso' : 'okmsg') + '">✓ ' + (remitir ? 'Parte remitido a M1: queda pendiente de valoración de la SUIGE.' : 'Borrador guardado.') + msgCorreo(r) + '</div>'); else $('#dlg').close(); });
+        return subirAdjuntos(id, archivos).then(function (fallos) {
+          var nuevo = { id: id, tipo: c.TipoDeIncidente, fecha: val('fecha'), provincia: c.Provincia, cadena: mn.filter(Boolean), lugar: mn[2], suige: suige, prob: c.PROBABILIDADES || '',
+            estado: c.ESTADO, correos: correos, resp: resp, autor: yo };
+          return (remitir && pref.correo ? avisoDe('suige', nuevo, '').then(enviarCorreo) : Promise.resolve(null)).then(function (r) {
+            return cargar().then(function () {
+              var m = '<div class="' + (r && !r.ok || fallos.length ? 'aviso' : 'okmsg') + '">✓ ' + (remitir ? 'Parte enviado: REMITIDO A ' + esc(suige) + ', pendiente de su valoración.' : 'Borrador guardado.') + msgCorreo(r) +
+                (fallos.length ? ' No se pudieron subir estos adjuntos: ' + esc(fallos.join(', ')) + '.' : archivos.length ? ' Adjuntos subidos: ' + archivos.length + '.' : '') + '</div>';
+              if (id) abrir(id, m); else $('#dlg').close();
+            });
+          });
         });
-      }).catch(function (e) { boton.disabled = false; err('No se pudo guardar: ' + (e.message || e)); });
+      }).catch(function (e) { boton.disabled = false; if (remitir) pintarGestor(pResp.valor()); err('No se pudo guardar: ' + (e.message || e)); });
     };
     $('#fBorrador').onclick = function () { guardar(false, this); };
     $('#fRemitir').onclick = function () { guardar(true, this); };
+  }
+  // Adjuntos del parte (AttachmentFiles). Devuelve los nombres que no se pudieron subir.
+  function subirAdjuntos(id, archivos) {
+    var fallos = [];
+    return archivos.reduce(function (p, f) {
+      return p.then(function () {
+        return Promise.all([obtenerDigest(), f.arrayBuffer()]).then(function (r) {
+          return fetch(urlLista() + '/items(' + id + ")/AttachmentFiles/add(FileName='" + encodeURIComponent(f.name.replace(/'/g, "''")) + "')",
+            { method: 'POST', credentials: 'same-origin', body: r[1], headers: { Accept: 'application/json;odata=verbose', 'X-RequestDigest': r[0] } });
+        }).then(function (res) { if (!res.ok) fallos.push(f.name); }, function () { fallos.push(f.name); });
+      });
+    }, Promise.resolve()).then(function () { return fallos; });
   }
 
   // ---------- Ficha ----------
@@ -877,9 +1036,9 @@
     var sn = function (v) { return v === true ? 'Sí' : v === false ? 'No' : ''; };
     var datos = [['Fase', faseTxt(t)], ['Estado en la lista', t.estadoRaw], ['Tipo de incidente', t.tipo], ['Fecha del incidente', fCorta(t.fecha)], ['Provincia', t.provincia],
       ['Unidad', t.unidad], ['Otro (lugar)', t.otro], ['SUIGE', t.suige || '(sin determinar)'], ['Empleo', t.empleo], ['Responsable de la información', t.resp && t.resp.Title],
-      ['Responsable del parte', t.respParte], ['Probabilidad', t.prob], ['¿Reiterada?', t.reiterada], ['Zona señalizada', sn(t.zona)], ['Aceptación', sn(t.aceptacion)],
+      ['Responsable del parte', t.respParte], ['Probabilidad', t.prob], ['¿Reiterada?', t.reiterada], ['Zona señalizada', sn(t.zona)], ['Aceptación de los protocolos', sn(t.aceptacion)],
       ['Denuncia', t.denuncia ? 'Sí' + (t.ndenuncia ? ' · Nº ' + t.ndenuncia : '') : 'No'], ['Año', t.anio],
-      ['Cadena de mando', t.mandos.filter(Boolean).join(' › ')], ['Grupo', t.grupo && t.grupo.Title], ['Personas a informar (correos)', t.correos],
+      ['Cadena de mando', t.cadena.join(' - ')], ['Personal que puede visualizar la información', t.grupo.map(function (p) { return p.Title; }).filter(Boolean).join(', ')], ['Correos de esas personas', t.correos],
       ['Registro de actividad', t.regAct], ['Alta', fHora(t.creado) + (t.autor ? ' · ' + t.autor.Title : '')], ['Última modificación', fHora(t.modificado) + (t.editor ? ' · ' + t.editor : '')]];
     var rep = repeticiones(t);
     var dlg = $('#dlg');
@@ -892,81 +1051,84 @@
       '<div class="sec"><span>Descripción</span></div><div id="detTextos"><p class="muted small">Cargando…</p></div>' +
       '<div class="acciones"><button data-fichaimp="' + t.id + '">🖨 Imprimir ficha / PDF</button>' +
       (listaInfo.DefaultDisplayFormUrl ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(location.origin + listaInfo.DefaultDisplayFormUrl + '?ID=' + t.id) + '">Abrir en Colabora' + (t.adjuntos ? ' (adjuntos)' : '') + '</a>' : '') +
-      (listaInfo.DefaultEditFormUrl && (esGestor || (t.estado === ES.BO && (soy(t.autor) || soy(t.resp)))) ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(location.origin + listaInfo.DefaultEditFormUrl + '?ID=' + t.id) + '">✎ Editar el parte en Colabora</a>' : '') + '</div>' +
+      (listaInfo.DefaultEditFormUrl && esGestor ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(location.origin + listaInfo.DefaultEditFormUrl + '?ID=' + t.id) + '">✎ Formulario InfoPath</a>' : '') + '</div>' +
       '</div><div><div class="sec" style="margin-top:0"><span>Valoraciones y seguimiento</span></div><div id="detVal"><p class="muted small">Cargando…</p></div><div id="detAcc">' + panelAcciones(t) + '</div></div></div></div>';
     dlg.showModal(); dlg.scrollTop = 0;
     leerElemento(t.id, CAMPOS_TEXTO).then(function (x) {
       var d = x.datos; detalle[t.id] = d;
       var el = $('#detTextos'); if (!el || dlgId !== t.id) return;
       el.innerHTML = TEXTOS.map(function (k) { var v = texto(d[k[0]]); return '<b class="small muted">' + esc(k[1]) + '</b><div class="texto">' + (v ? esc(v) : '<span class="muted">—</span>') + '</div>'; }).join('');
-      var vals = [['Valoración SUIGE' + (t.suige ? ' (' + t.suige + ')' : ''), texto(d.VALORACIONSUIGES), t.valSuige ? '✔ valorado' : 'pendiente'],
-        ['DIACU', texto(d.VALORACIONDIACU), t.diacu ? '✔ ' + t.diacu.replace(' POR DIACU', '').toLowerCase() : 'pendiente'],
-        ['Valoración IGE', texto(d.valoracionIGE), t.valIge ? '✔ valorado' : t.diacu === DIA.VI ? 'no se eleva' : 'pendiente']];
-      $('#detVal').innerHTML = vals.map(function (v) { return '<b class="small muted">' + esc(v[0]) + ' · ' + esc(v[2]) + '</b><div class="texto">' + (v[1] ? esc(v[1]) : '<span class="muted">—</span>') + '</div>'; }).join('') +
+      // Como en el InfoPath: la valoración SUIGE se ve fuera de BORRADOR; las de DIACU e IGE, a partir de REMITIDO A DIACU
+      var f = fase(t), est = function (hecho, n) { return hecho ? '✔ valorado' : f === n ? 'pendiente' : f > n ? 'sin valoración' : ''; };
+      var vals = [['Valoración del jefe de negociado de seguridad de la SUIGE' + (t.suige ? ' (' + t.suige + ')' : ''), texto(d.VALORACIONSUIGES), est(t.valSuige, 1), f >= 1],
+        ['Valoración de los analistas de DIACU', texto(d.VALORACIONDIACU), est(t.valDiacu, 2), f >= 2],
+        ['Valoración de seguridad de IGE', texto(d.valoracionIGE), est(t.valIge, 3), f >= 2]].filter(function (v) { return v[3]; });
+      $('#detVal').innerHTML = (vals.length ? '' : '<p class="small muted">Las valoraciones aparecen cuando el parte se envía a SUIGE.</p>') +
+        vals.map(function (v) { return '<b class="small muted">' + esc(v[0]) + (v[2] ? ' · ' + esc(v[2]) : '') + '</b><div class="texto">' + (v[1] ? esc(v[1]) : '<span class="muted">—</span>') + '</div>'; }).join('') +
         '<b class="small muted">Observaciones e historial del expediente</b><div class="texto">' + (d.ObservacionesDelExpediente ? esc(texto(d.ObservacionesDelExpediente)) : '<span class="muted">—</span>') + '</div>';
-      var ta = $('#vTexto'); if (ta && !ta.value) ta.value = ta.dataset.campo ? texto(d[ta.dataset.campo]) : '';
+      Array.prototype.forEach.call(document.querySelectorAll('#detAcc textarea[data-campo]'), function (ta) { if (!ta.value) ta.value = texto(d[ta.dataset.campo]); });
     }).catch(function () { var el = $('#detTextos'); if (el) el.innerHTML = '<p class="muted small">No se pudieron leer los textos.</p>'; });
   }
   var soy = function (p) { return !!(p && yo && p.Id === yo.Id); };
   var puedeAnotar = function (t) { return esGestor || esDiacu || esIge || esMiSuige(t); };
+  // Paneles de cada papel con los botones del InfoPath
   function panelAcciones(t) {
-    var h = '', txt = function (campo, etq) { return '<label class="lbl">' + etq + '</label><textarea id="vTexto" data-campo="' + campo + '"></textarea>'; };
+    var h = '', txt = function (id, campo, etq) { return '<label class="lbl">' + etq + '</label><textarea id="' + id + '" data-campo="' + campo + '"></textarea>'; };
+    if (pBorrador(t)) h += '<div class="panel turno"><h3>Parte en borrador</h3><p class="small">Complétalo y pulsa «Informar a SUIGE». Solo puede enviarlo el responsable de la información' + (t.resp ? ' (' + esc(t.resp.Title) + ')' : '') + '.</p><div class="acciones"><button class="suige" data-editar="' + t.id + '">✎ Completar e informar a SUIGE</button></div></div>';
     if (pSuige(t)) {
-      h += '<div class="panel turno"><h3>Valoración de la SUIGE (' + esc(t.suige) + ')</h3>' + (fase(t) === 6 ? '<div class="aviso">DIACU rechazó la valoración anterior: revísala.</div>' : '') +
-        txt('VALORACIONSUIGES', 'Valoración (obligatoria)') + '<div class="acciones"><button class="prim" data-acc="valSuige">✓ Guardar valoración y pasar a DIACU</button></div></div>';
-    } else if (pDiacu(t)) {
-      h += '<div class="panel turno"><h3>DIACU</h3>' + txt('VALORACIONDIACU', 'Valoración de DIACU (obligatoria para elevar o rechazar)') +
-        '<div class="acciones"><button class="verde" data-acc="diacuVisto">✓ Visto (no se eleva)</button><button class="prim" data-acc="diacuElevar">⇧ Elevar a IGE</button><button class="peligro" data-acc="diacuRechazar">↩ Rechazar (vuelve a SUIGE)</button></div></div>';
-    } else if (pIge(t)) {
-      h += '<div class="panel turno"><h3>Valoración de IGE</h3>' + txt('valoracionIGE', 'Valoración (obligatoria)') + '<div class="acciones"><button class="prim" data-acc="valIge">✓ Guardar valoración</button></div></div>';
+      h += '<div class="panel turno"><h3>Valoración del jefe de negociado de seguridad de las SUIGE (' + esc(t.suige) + ')</h3>' + txt('vSuige', 'VALORACIONSUIGES', 'Valoración (obligatoria)') +
+        '<div class="acciones"><button class="diacu" data-acc="suigeDiacu">Informar a DIACU</button><button class="rojo" data-acc="suigeIge">INFORMAR A IGE</button></div></div>';
     }
-    if (pCierre(t)) h += '<div class="panel turno"><h3>Cierre del expediente</h3><label class="lbl">Observación de cierre (opcional)</label><textarea id="vCierre"></textarea><div class="acciones"><button class="verde" data-acc="cerrar">✔ Cerrar expediente</button></div></div>';
-    if (t.estado === ES.CE && (esIge || esGestor)) h += '<div class="panel"><h3>Expediente cerrado</h3><label class="lbl">Motivo para reabrir</label><textarea id="vReabrir"></textarea><div class="acciones"><button data-acc="reabrir">↺ Reabrir expediente</button></div></div>';
-    if (fase(t) === 0 && (soy(t.autor) || soy(t.resp) || esGestor)) h += '<div class="panel turno"><h3>Parte en borrador</h3><p class="small">Complétalo y remítelo a M1 en el formulario de Colabora para que lo valore la SUIGE.</p><div class="acciones"><button class="prim" data-editar="' + t.id + '">✎ Completar o remitir ↗</button></div></div>';
-    if (!h) h = '<div class="panel"><h3>Situación</h3><p class="small">' + esc(faseTxt(t)) + '.</p>' + (fase(t) === 0 ? '<p class="small muted">Está en borrador: debe remitirlo quien lo dio de alta.</p>' : '') + '</div>';
-    if (puedeAnotar(t)) h += '<div class="panel"><h3>Añadir observación al expediente</h3><textarea id="vNota" style="min-height:4em"></textarea><div class="acciones"><button data-acc="anotar">＋ Añadir con mi nombre y la hora</button>' +
-      (abierto(t) && fase(t) >= 1 ? '<button data-acc="recordar" title="Correo a quien le toca actuar">✉ Enviar recordatorio</button>' : '') + '</div></div>';
+    if (pDiacu(t)) {
+      h += '<div class="panel turno"><h3>Valoración de los analistas de DIACU</h3>' + txt('vDiacu', 'VALORACIONDIACU', 'Valoración (obligatoria)') +
+        '<div class="acciones"><button class="ambar" data-acc="diacuGuardar">Actualizar información</button><button class="rojo" data-acc="diacuIge">INFORMAR A IGE</button></div></div>';
+    }
+    if (pIge(t)) {
+      h += '<div class="panel' + (fase(t) === 3 ? ' turno' : '') + '"><h3>Valoración de seguridad de IGE</h3>' + txt('vIge', 'valoracionIGE', 'Valoración (obligatoria)') +
+        '<div class="acciones"><button class="ige" data-acc="valIge">Valoración de IGE</button></div></div>';
+    }
+    if (pCierre(t)) h += '<div class="panel' + (fase(t) === 4 ? ' turno' : '') + '"><h3>Cierre del expediente</h3><label class="lbl">Observación de cierre (opcional)</label><textarea id="vCierre"></textarea><div class="acciones"><button class="verde" data-acc="cerrar">✔ Cerrar expediente (EXP CERRADO)</button></div></div>';
+    if (fase(t) === 5 && (esIge || esGestor)) h += '<div class="panel"><h3>Expediente cerrado</h3><label class="lbl">Motivo para reabrir</label><textarea id="vReabrir"></textarea><div class="acciones"><button data-acc="reabrir">↺ Reabrir expediente (EN SEGUIMIENTO)</button></div></div>';
+    if (!h) h = '<div class="panel"><h3>Situación</h3><p class="small">' + esc(faseTxt(t)) + '.</p>' + (fase(t) === 0 ? '<p class="small muted">Está en borrador: debe enviarlo a SUIGE el responsable de la información.</p>' : '') + '</div>';
+    if (puedeAnotar(t)) h += '<div class="panel"><h3>Observaciones del expediente</h3><textarea id="vNota" style="min-height:4em"></textarea><div class="acciones"><button data-acc="anotar">Actualizar expediente (añadir con mi nombre y la hora)</button>' +
+      (abierto(t) ? '<button data-acc="recordar" title="Correo a quien le toca actuar">✉ Enviar recordatorio</button>' : '') + '</div></div>';
     return h + '<div id="accMsg"></div>';
   }
   var msgAcc = function (cls, txt) { var el = $('#accMsg'); if (el) el.innerHTML = '<div class="' + cls + '">' + txt + '</div>'; };
   function accion(t, a, boton) {
     var v = function (id) { var el = $('#' + id); return el ? el.value.trim() : ''; };
-    var c = {}, nota = null, correo = a, txt = '', ok = '';
+    var c = {}, nota = null, correo = null, txt = '', ok = '';
     var exige = function (x, m) { if (!x) { msgAcc('error', m); throw 0; } };
-    var PERMITIDO = { valSuige: pSuige, diacuVisto: pDiacu, diacuElevar: pDiacu, diacuRechazar: pDiacu, valIge: pIge, cerrar: pCierre,
-      reabrir: function (x) { return x.estado === ES.CE && (esIge || esGestor); }, anotar: puedeAnotar, recordar: puedeAnotar };
+    var PERMITIDO = { suigeDiacu: pSuige, suigeIge: pSuige, diacuGuardar: pDiacu, diacuIge: pDiacu, valIge: pIge, cerrar: pCierre,
+      reabrir: function (x) { return fase(x) === 5 && (esIge || esGestor); }, anotar: puedeAnotar, recordar: puedeAnotar };
     if (!PERMITIDO[a] || !PERMITIDO[a](t)) { msgAcc('error', 'No te corresponde esta acción en la fase actual del incidente.'); return; }
     try {
-      if (a === 'valSuige') {
-        txt = v('vTexto'); exige(txt, 'Escribe la valoración antes de guardarla.');
-        Object.assign(c, { VALORACIONSUIGES: aHtml(txt), ValoradoPorSUIGE: true });
-        if (t.estado === ES.RM) c.ESTADO = ES.SE;
-        if (t.diacu === DIA.RE) { c.DIACU = null; c.ValoradoPorDIACU = false; }
-        nota = 'Valoración ' + t.suige + (t.diacu === DIA.RE ? ' (revisada tras el rechazo de DIACU)' : ''); ok = 'Valoración guardada: pasa a DIACU.';
-      } else if (a === 'diacuVisto' || a === 'diacuElevar' || a === 'diacuRechazar') {
-        txt = v('vTexto');
-        if (a !== 'diacuVisto') exige(txt, 'Escribe la valoración de DIACU antes de ' + (a === 'diacuElevar' ? 'elevar' : 'rechazar') + '.');
-        var dv = { diacuVisto: DIA.VI, diacuElevar: DIA.EL, diacuRechazar: DIA.RE }[a];
-        Object.assign(c, { DIACU: dv, ValoradoPorDIACU: true });
-        if (txt) c.VALORACIONDIACU = aHtml(txt);
-        if (a === 'diacuRechazar') c.ValoradoPorSUIGE = false;
-        if (t.estado === ES.RM) c.ESTADO = ES.SE;
-        nota = dv; ok = { diacuVisto: 'Visto por DIACU: queda pendiente de cierre.', diacuElevar: 'Elevado a IGE.', diacuRechazar: 'Rechazado: vuelve a la SUIGE.' }[a];
+      if (a === 'suigeDiacu' || a === 'suigeIge') {
+        txt = v('vSuige'); exige(txt, 'Escribe la valoración de la SUIGE antes de informar.');
+        Object.assign(c, { VALORACIONSUIGES: aHtml(txt), ValoradoPorSUIGE: true, ESTADO: a === 'suigeDiacu' ? ES.RD : ES.RM });
+        correo = a === 'suigeDiacu' ? 'diacu' : 'ige';
+        nota = 'Valoración ' + t.suige + ' · ' + (a === 'suigeDiacu' ? 'INFORMADO A DIACU' : 'INFORMADO A IGE');
+        ok = a === 'suigeDiacu' ? 'Valoración guardada: REMITIDO A DIACU.' : 'Valoración guardada: REMITIDO A IGE.';
+      } else if (a === 'diacuGuardar' || a === 'diacuIge') {
+        txt = v('vDiacu'); exige(txt, 'Escribe la valoración de DIACU.');
+        Object.assign(c, { VALORACIONDIACU: aHtml(txt), ValoradoPorDIACU: true });
+        if (a === 'diacuIge') { c.ESTADO = ES.RM; c.DIACU = DIA.EL; correo = 'ige'; nota = 'Valoración DIACU · INFORMADO A IGE'; ok = 'Valoración guardada: REMITIDO A IGE.'; }
+        else { nota = 'Valoración DIACU actualizada'; ok = 'Valoración de DIACU guardada (sigue en DIACU).'; }
       } else if (a === 'valIge') {
-        txt = v('vTexto'); exige(txt, 'Escribe la valoración de IGE antes de guardarla.');
-        Object.assign(c, { valoracionIGE: aHtml(txt), ValoradoPorIGE: true });
-        nota = 'Valoración IGE'; ok = 'Valoración de IGE guardada: queda pendiente de cierre.';
+        txt = v('vIge'); exige(txt, 'Escribe la valoración de IGE.');
+        Object.assign(c, { valoracionIGE: aHtml(txt), ValoradoPorIGE: true, ESTADO: ES.VJ });
+        correo = 'valIge'; nota = 'Valoración IGE · VALORADO INCIDENTE POR JIGE'; ok = 'Valoración de IGE guardada: queda en seguimiento hasta el cierre.';
       } else if (a === 'cerrar') {
         txt = v('vCierre');
-        Object.assign(c, { ESTADO: ES.CE });
+        c.ESTADO = ES.CE; correo = 'cerrar';
         nota = 'EXPEDIENTE CERRADO' + (txt ? ': ' + txt : ''); ok = 'Expediente cerrado.';
       } else if (a === 'reabrir') {
         txt = v('vReabrir'); exige(txt, 'Indica el motivo para reabrir el expediente.');
-        Object.assign(c, { ESTADO: ES.SE });
+        c.ESTADO = ES.SE; correo = 'reabrir';
         nota = 'EXPEDIENTE REABIERTO: ' + txt; ok = 'Expediente reabierto.';
       } else if (a === 'anotar') {
         txt = v('vNota'); exige(txt, 'Escribe la observación.');
-        nota = txt; correo = null; ok = 'Observación añadida al expediente.';
+        nota = txt; ok = 'Observación añadida al expediente.';
       }
     } catch (e) { if (e === 0) return; throw e; }
     boton.disabled = true;
@@ -976,7 +1138,7 @@
       });
     }
     guardarCambios(t, c, nota).then(function () {
-      var nuevo = Object.assign({}, t, { estado: c.ESTADO || t.estado, valSuige: c.ValoradoPorSUIGE !== undefined ? c.ValoradoPorSUIGE : t.valSuige, diacu: c.DIACU !== undefined ? (c.DIACU || '') : t.diacu, valIge: c.ValoradoPorIGE || t.valIge });
+      var nuevo = Object.assign({}, t, { estadoPrevio: t.estado, estado: c.ESTADO || t.estado });
       return (pref.correo && correo ? avisoDe(correo, nuevo, txt).then(enviarCorreo) : Promise.resolve(null)).then(function (r) {
         return cargar().then(function () { abrir(t.id, '<div class="' + (r && !r.ok ? 'aviso' : 'okmsg') + '">✓ ' + esc(ok) + msgCorreo(r) + '</div>'); });
       });
@@ -1017,10 +1179,10 @@
     var tabla = function (filas) { return '<table class="f">' + filas.filter(function (x) { return x[1]; }).map(function (x) { return '<tr><td class="k">' + esc(x[0]) + '</td><td>' + esc(x[1]) + '</td></tr>'; }).join('') + '</table>'; };
     var sn = function (v) { return v === true ? 'Sí' : v === false ? 'No' : ''; };
     var cuerpo = '<h3>DATOS DEL PARTE</h3>' + tabla([['Nº de incidente', String(t.id)], ['Tipo de incidente', t.tipo], ['Fecha del incidente', fCorta(t.fecha)], ['Provincia', t.provincia],
-        ['Unidad / lugar', t.lugar], ['SUIGE', t.suige], ['Cadena de mando', t.mandos.filter(Boolean).join(' › ')], ['Empleo', t.empleo], ['Responsable de la información', t.resp && t.resp.Title],
+        ['Unidad / lugar', t.lugar], ['SUIGE', t.suige], ['Cadena de mando', t.cadena.join(' - ')], ['Empleo', t.empleo], ['Responsable de la información', t.resp && t.resp.Title],
         ['Responsable del parte', t.respParte], ['Probabilidad', t.prob], ['¿Reiterada?', t.reiterada], ['Zona señalizada', sn(t.zona)], ['Denuncia', t.denuncia ? 'Sí' + (t.ndenuncia ? ' · Nº ' + t.ndenuncia : '') : 'No']]) +
       '<h3>DESCRIPCIÓN</h3>' + tabla(TEXTOS.map(function (k) { return [k[1], texto(d[k[0]])]; })) +
-      '<h3>VALORACIONES Y SEGUIMIENTO</h3>' + tabla([['Situación', faseTxt(t)], ['Valoración SUIGE', texto(d.VALORACIONSUIGES)], ['DIACU', [t.diacu, texto(d.VALORACIONDIACU)].filter(Boolean).join('\n')],
+      '<h3>VALORACIONES Y SEGUIMIENTO</h3>' + tabla([['Situación', faseTxt(t)], ['Valoración SUIGE', texto(d.VALORACIONSUIGES)], ['Valoración DIACU', texto(d.VALORACIONDIACU)],
         ['Valoración IGE', texto(d.valoracionIGE)], ['Observaciones e historial', texto(d.ObservacionesDelExpediente)], ['Alta', fHora(t.creado) + (t.autor ? ' · ' + t.autor.Title : '')]]) +
       '<div class="firmas"><div>Responsable de la información</div><div>SUIGE</div><div>DIACU / IGE</div></div>';
     ventanaImprimir({ titulo: 'PARTE DE INCIDENTE DE SEGURIDAD', subtitulo: 'Nº ' + t.id + ' · ' + esc(faseTxt(t)), cuerpo: cuerpo, nombre: 'incidente-' + t.id });
@@ -1040,8 +1202,8 @@
   }
   function csv() {
     var c = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
-    var f = [['Nº', 'Fecha incidente', 'Tipo', 'Provincia', 'Unidad / lugar', 'SUIGE', 'Probabilidad', 'Reiterada', 'Zona señalizada', 'Denuncia', 'Nº denuncia', 'Estado en la lista', 'Situación', 'DIACU', 'Alta']];
-    filtrar().forEach(function (t) { f.push([t.id, fCorta(t.fecha), t.tipo, t.provincia, t.lugar, t.suige, t.prob, t.reiterada, t.zona === true ? 'Sí' : t.zona === false ? 'No' : '', t.denuncia ? 'Sí' : 'No', t.ndenuncia, t.estadoRaw, faseTxt(t), t.diacu, fechaSP(t.creado)]); });
+    var f = [['Nº', 'Fecha incidente', 'Tipo', 'Provincia', 'Cadena de mando', 'SUIGE', 'Probabilidad', 'Reiterada', 'Zona señalizada', 'Denuncia', 'Nº denuncia', 'Estado en la lista', 'Situación', 'Alta']];
+    filtrar().forEach(function (t) { f.push([t.id, fCorta(t.fecha), t.tipo, t.provincia, t.cadena.join(' - ') || t.lugar, t.suige, t.prob, t.reiterada, t.zona === true ? 'Sí' : t.zona === false ? 'No' : '', t.denuncia ? 'Sí' : 'No', t.ndenuncia, t.estadoRaw, faseTxt(t), fechaSP(t.creado)]); });
     descargar('incidentes-' + hoy() + '.csv', '﻿' + f.map(function (r) { return r.map(c).join(';'); }).join('\r\n'), 'text/csv;charset=utf-8');
   }
 
