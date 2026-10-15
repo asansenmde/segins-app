@@ -83,6 +83,10 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
   - Se tienen en cuenta todas las cuentas del usuario en el sitio, porque el formulario InfoPath pudo guardar a la persona
     con otra cuenta (formato antiguo `dominio\usuario`). Cuentan las de la misma cuenta de dominio, o las de mismo
     correo y mismo nombre; un buzón compartido no basta.
+  - También se busca por el **correo y el nombre** que el formulario InfoPath guarda en cada solicitud
+    (`CorreoDelSolicitante`, `CorreoDeAPROBADOR`, `CorreoDeAUTORIZADOR`, `SolicitanteTexto`, `AprobadorTexto`,
+    `AutorizadorTexto`). Así aparecen aunque la persona guardada sea otra cuenta. Si Colabora no admite ese filtro, se
+    repite la lectura solo por cuentas.
   - Los estados se reconocen aunque cambien mayúsculas, tildes o espacios.
   - Las columnas de persona admiten varias personas.
   - En «Pendientes de mí», «¿Echas en falta alguna solicitud?» → «Comprobar en Colabora» cuenta en el servidor en

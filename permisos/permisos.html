@@ -318,7 +318,7 @@
     return Promise.all([
       api(web + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) { yo = { Id: u.Id, Title: u.Title, Email: u.Email || '', LoginName: u.LoginName }; misIds = [u.Id]; $('#quien').textContent = '👤 ' + u.Title; $('#quien').hidden = false; }),
       api(web + '/_api/web/currentuser/groups?$select=Title').then(function (d) { misGrupos = lista(d.value).map(function (x) { return x.Title; }); }).catch(function () { misGrupos = []; }),
-      api(urlLista() + '?$select=Id,Title,ListItemEntityTypeFullName,EffectiveBasePermissions,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) {
+      api(urlLista() + '?$select=Id,Title,ItemCount,ListItemEntityTypeFullName,EffectiveBasePermissions,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) {
         listaInfo = l;
         // Gestor = quien puede administrar la lista en Colabora (permiso «Administrar listas»)
         esGestor = ((Number(l.EffectiveBasePermissions && l.EffectiveBasePermissions.Low) || 0) & 0x800) !== 0;
@@ -333,7 +333,8 @@
     ]).then(function () {
       return buscarMisCuentas();
     }).then(function () {
-      return todas(urlLista() + '/items?$top=1000&$select=' + SEL.join(',') + '&$expand=' + EXPAND + filtroAlcance());
+      var leer = function (conTexto) { return todas(urlLista() + '/items?$top=1000&$select=' + SEL.join(',') + '&$expand=' + EXPAND + filtroAlcance(conTexto)); };
+      return leer(true).catch(function (e) { if (e.status === 400) return leer(false); throw e; });
     }).then(function (its) {
       items = its.map(aSol);
       return cargarNifs();
@@ -376,9 +377,16 @@
       });
     });
   }
-  function filtroAlcance() {
+  var q_ = function (v) { return "'" + String(v).replace(/'/g, "''") + "'"; };
+  function filtroAlcance(conTexto) {
     if (esGestor) return '';
     var c = [];
+    // El formulario InfoPath guarda también el correo y el nombre de cada persona: así se encuentra a quien
+    // figura con otra cuenta de Colabora (la persona guardada no coincide con la cuenta actual)
+    if (conTexto) {
+      if (yo.Email) ['CorreoDelSolicitante', 'CorreoDeAPROBADOR', 'CorreoDeAUTORIZADOR'].forEach(function (k) { c.push('(' + k + ' eq ' + q_(yo.Email) + ')'); });
+      if (yo.Title) ['SolicitanteTexto', 'AprobadorTexto', 'AutorizadorTexto'].forEach(function (k) { c.push('(' + k + ' eq ' + q_(yo.Title) + ')'); });
+    }
     ['SolicitanteId', 'RepresentanteDelSolicitanteId', 'AprobadorDePermisoId', 'AutorizadorDelPermisoId', 'Registro_x0020_SIPERDEFId', 'AuthorId'].forEach(function (k) {
       misIds.forEach(function (id) { c.push('(' + k + ' eq ' + id + ')'); });
     });
@@ -393,16 +401,20 @@
   // ---------- Roles ----------
   var esYo = function (id) { return misIds.indexOf(id) >= 0; };
   var soy = function (p) { return !!(p && yo && (esYo(p.Id) || (p.todos || []).some(esYo))); };
-  var esMia = function (t) { return soy(t.sol) || soy(t.rep) || (!t.sol && esYo(t.autorId)); };
+  var mismoCorreo = function (c) { return !!(yo && yo.Email && c && String(c).trim().toLowerCase() === yo.Email.toLowerCase()); };
+  var mismoNombre = function (n) { return !!(yo && yo.Title && n && sinTildes(String(n).trim()) === sinTildes(yo.Title.trim())); };
+  var soyApr = function (t) { return soy(t.apr) || mismoCorreo(t.correoApr) || (!t.apr && mismoNombre(t.aprTexto)); };
+  var soyAut = function (t) { return soy(t.aut) || mismoCorreo(t.correoAut) || (!t.aut && mismoNombre(t.autTexto)); };
+  var esMia = function (t) { return soy(t.sol) || soy(t.rep) || mismoCorreo(t.correoSol) || (!t.sol && esYo(t.autorId)); };
   // Registro SIPERDEF: solo quien pertenece al grupo de Colabora «Personal de Registro»
   var GRUPO_REGISTRO = /^personal de registro$/i;
   var enRegistro = function () { return misGrupos.some(function (g) { return GRUPO_REGISTRO.test(String(g).trim()); }); };
   var puedeEditar = function (t) { return esBorrador(t) && esMia(t); };
-  var puedeAprobar = function (t) { return t.estado === E.PA && soy(t.apr); };
-  var puedeAutorizar = function (t) { return t.estado === E.AP && soy(t.aut); };
+  var puedeAprobar = function (t) { return t.estado === E.PA && soyApr(t); };
+  var puedeAutorizar = function (t) { return t.estado === E.AP && soyAut(t); };
   var puedeRegistrar = function (t) { return t.estado === E.AU && enRegistro(); };
   // Datos personales (NIF): solo quien interviene en la solicitud; el registro, solo en las que le llegan (autorizadas o ya tramitadas por él)
-  var veNif = function (t) { return esMia(t) || soy(t.apr) || soy(t.aut) || soy(t.reg) || (enRegistro() && [E.AU, E.RG, E.AN].indexOf(t.estado) >= 0); };
+  var veNif = function (t) { return esMia(t) || soyApr(t) || soyAut(t) || soy(t.reg) || (enRegistro() && [E.AU, E.RG, E.AN].indexOf(t.estado) >= 0); };
   var pendientes = function () { return { aprobar: items.filter(puedeAprobar), autorizar: items.filter(puedeAutorizar) }; };
 
   // ---------- Tiempo de espera y solapes ----------
@@ -474,9 +486,9 @@
   // Lo que ya he tramitado como aprobador o autorizador (para seguirlo después)
   var pendVista = 'pendientes', tramTipo = '', tramCupo = String(new Date().getFullYear()), tramBusca = '';
   function papelTramitado(t) {
-    var aprobe = soy(t.apr) && !t.directo && (t.eAprob === 'APROBADO' || [E.AP, E.AU, E.RG, E.AN].indexOf(t.estado) >= 0);
-    var autorice = soy(t.aut) && (t.eAutor === 'AUTORIZADO' || [E.AU, E.RG, E.AN].indexOf(t.estado) >= 0);
-    var rechace = t.estado === E.RE && (soy(t.aut) || (soy(t.apr) && !aprobe));
+    var aprobe = soyApr(t) && !t.directo && (t.eAprob === 'APROBADO' || [E.AP, E.AU, E.RG, E.AN].indexOf(t.estado) >= 0);
+    var autorice = soyAut(t) && (t.eAutor === 'AUTORIZADO' || [E.AU, E.RG, E.AN].indexOf(t.estado) >= 0);
+    var rechace = t.estado === E.RE && (soyAut(t) || (soyApr(t) && !aprobe));
     return [aprobe ? 'aprobada por mí' : '', autorice ? 'autorizada por mí' : '', rechace ? 'rechazada por mí' : ''].filter(Boolean);
   }
   var tramitadasPorMi = function () {
@@ -527,7 +539,7 @@
       (enRegistro() ? ' Lo pendiente de registro está en la pestaña «Registro SIPERDEF».' : '') + '</p>' +
       bloque('Pendientes de aprobar', p.aprobar, 'Ninguna solicitud espera tu aprobación.') +
       bloque('Pendientes de autorizar', p.autorizar, 'Ninguna solicitud espera tu autorización.') +
-      '<details class="card" style="margin-top:16px"><summary style="cursor:pointer;font-weight:700">¿Echas en falta alguna solicitud?</summary>' +
+      '<details class="card" style="margin-top:16px"' + (items.length ? '' : ' open') + '><summary style="cursor:pointer;font-weight:700">¿Echas en falta alguna solicitud?</summary>' +
       '<p class="small muted">Pregunta a Colabora en cuántas solicitudes figuras como aprobador o autorizador y en qué estado están (solo cuenta, no cambia nada). Antes, recarga la página con Ctrl+F5.</p>' +
       '<div class="acciones"><button data-comprobar="1">Comprobar en Colabora</button></div><div id="compRes"></div></details>';
   }
@@ -535,8 +547,10 @@
     var el = $('#compRes'); if (!el) return;
     el.innerHTML = '<p class="muted small">Comprobando…</p>';
     var contar = function (campo) {
-      var f = misIds.map(function (id) { return '(' + campo + ' eq ' + id + ')'; }).join(' or ');
-      return todas(urlLista() + '/items?$top=1000&$select=Id,Estado&$filter=' + encodeURIComponent(f));
+      var f = misIds.map(function (id) { return '(' + campo + ' eq ' + id + ')'; }).concat(yo.Email ? ['(' + (campo === 'AprobadorDePermisoId' ? 'CorreoDeAPROBADOR' : 'CorreoDeAUTORIZADOR') + ' eq ' + q_(yo.Email) + ')'] : []).join(' or ');
+      return todas(urlLista() + '/items?$top=1000&$select=Id,Estado&$filter=' + encodeURIComponent(f)).catch(function () {
+        return todas(urlLista() + '/items?$top=1000&$select=Id,Estado&$filter=' + encodeURIComponent(misIds.map(function (id) { return '(' + campo + ' eq ' + id + ')'; }).join(' or ')));
+      });
     };
     Promise.all([contar('AprobadorDePermisoId'), contar('AutorizadorDelPermisoId'),
       todas(urlLista() + '/items?$top=1000&$select=Id,Estado&$filter=' + encodeURIComponent("AprobadorTexto eq '" + yo.Title.replace(/'/g, "''") + "'")).catch(function () { return null; }),
@@ -548,7 +562,8 @@
         var sinPersona = function (ls, ids) { return ls ? ls.filter(function (x) { return ids.indexOf(x.Id) < 0; }).length : 0; };
         var idsA = r[0].map(function (x) { return x.Id; }), idsU = r[1].map(function (x) { return x.Id; });
         var faltanA = sinPersona(r[2], idsA), faltanU = sinPersona(r[3], idsU);
-        el.innerHTML = '<p class="small">Cuentas tuyas encontradas en Colabora: <b>' + misIds.length + '</b>' + (misIds.length > 1 ? ' (se tienen en cuenta todas)' : '') + '.</p>' +
+        el.innerHTML = '<p class="small">Cuentas tuyas encontradas en Colabora: <b>' + misIds.length + '</b>' + (misIds.length > 1 ? ' (se tienen en cuenta todas)' : '') + '. Tu correo en Colabora: <b>' + esc(yo.Email || '(vacío)') + '</b>.' +
+          (listaInfo && listaInfo.ItemCount != null ? ' La lista tiene <b>' + listaInfo.ItemCount + '</b> solicitudes en total.' : '') + '</p>' +
           '<p class="small"><b>Como aprobador</b> figuras en ' + r[0].length + ' solicitud(es): ' + tabla(r[0]) + '.<br>Pendientes de aprobar que ve la página: <b>' + pendientes().aprobar.length + '</b>.</p>' +
           '<p class="small"><b>Como autorizador</b> figuras en ' + r[1].length + ' solicitud(es): ' + tabla(r[1]) + '.<br>Pendientes de autorizar que ve la página: <b>' + pendientes().autorizar.length + '</b>.</p>' +
           (r[0].length + r[1].length > visibles(r[0]) + visibles(r[1]) ? '<div class="aviso">Hay solicitudes en Colabora que la página no ha cargado. Pulsa «Actualizar»; si siguen faltando, dime estos números.</div>' : '') +
@@ -677,7 +692,7 @@
   }
   var mes = (function () { var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })();
   // Para llevar el control: mis permisos y los que he tramitado yo (aprobados, autorizados o registrados por mí)
-  var tramitadoPorMi = function (t) { return soy(t.apr) || soy(t.aut) || soy(t.reg); };
+  var tramitadoPorMi = function (t) { return soyApr(t) || soyAut(t) || soy(t.reg); };
   var VER_CAL = [['control', 'Mis permisos y los que he tramitado'], ['mios', 'Solo mis permisos'], ['tramitados', 'Solo los que he aprobado, autorizado o registrado'], ['todos', 'Todos los que puedo ver']];
   var claseCal = function (t) { return t.estado === E.PA || t.estado === E.AP ? 'p' : esMia(t) ? 'm' : tramitadoPorMi(t) ? 't' : ''; };
   function delCalendario() {
@@ -711,7 +726,7 @@
     // Permisos que tocan el mes, para la lista de control bajo el calendario
     var p1 = iso(new Date(y, m, 1)), p2 = iso(new Date(y, m + 1, 0));
     var delMes = ts.filter(function (t) { return t.ini <= p2 && (t.fin || t.ini) >= p1; }).sort(function (a, b) { return String(a.ini).localeCompare(String(b.ini)) || a.nombre.localeCompare(b.nombre, 'es'); });
-    var papel = function (t) { return [esMia(t) ? 'mío' : '', soy(t.apr) ? 'aprobado por mí' : '', soy(t.aut) ? 'autorizado por mí' : '', soy(t.reg) ? 'registrado por mí' : ''].filter(Boolean).join(', '); };
+    var papel = function (t) { return [esMia(t) ? 'mío' : '', soyApr(t) ? 'aprobado por mí' : '', soyAut(t) ? 'autorizado por mí' : '', soy(t.reg) ? 'registrado por mí' : ''].filter(Boolean).join(', '); };
     return '<div class="card"><div class="grid">' +
       '<div><label class="lbl">Ver</label><select id="cVer">' + VER_CAL.map(function (v) { return '<option value="' + v[0] + '"' + (ver === v[0] ? ' selected' : '') + '>' + esc(v[1]) + '</option>'; }).join('') + '</select></div>' +
       '<div><label class="lbl">Dependencia</label><select id="cDep"><option value="">Todas</option>' + deps.map(function (x) { return '<option' + (pref.cal.dependencia === x ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select></div>' +

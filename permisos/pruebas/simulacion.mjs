@@ -9,7 +9,7 @@ const WEB = '/et/SUIGESUR/colaborativo/CALIDAD-VIDA', O = 'https://colabora.mdef
 const U = { 279: { Id: 279, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.es' }, 11: { Id: 11, Title: 'APROBADOR UNO', EMail: 'aprob1@et.mde.es' },
   12: { Id: 12, Title: 'AUTORIZADOR UNO', EMail: 'autor1@et.mde.es' }, 13: { Id: 13, Title: 'SOLICITANTE DOS', EMail: 'sol2@et.mde.es' } };
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(0, 0, 0, 0); return x.toISOString(); };
-let ultimoFiltro = '', items, gestor = false, registro = true, admin = false, otraCuenta = false;
+let ultimoFiltro = '', items, gestor = false, registro = true, admin = false, otraCuenta = false, jefeOtraCuenta = false;
 const nuevoStore = () => {
   items = [
     { Id: 1, Title: 'Vacaciones', Estado: '1-Pendiente de Aprobar', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(5), FechaDeFin: d(9), Solicitante: U[13], AprobadorDePermiso: U[279], CorreoDelSolicitante: 'sol2@et.mde.es', CorreoDeAPROBADOR: 'usuario@et.mde.es', AprobadorTexto: 'USUARIO DE PRUEBA', EstadoDeAprobacion: 'SIN APROBAR', Unidad0: { Id: 2, Title: 'UNIDAD B' }, Dependencia: 'SEGURIDAD' },
@@ -19,6 +19,7 @@ const nuevoStore = () => {
     { Id: 5, Title: 'Ajena', Estado: '1-Pendiente de Aprobar', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(3), FechaDeFin: d(4), Solicitante: U[13], AprobadorDePermiso: U[11], Unidad0: { Id: 2, Title: 'UNIDAD B' } },
     { Id: 4, Title: 'Viejo', Estado: '4-Registrado SIPERDEF', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2025', FechaInicio: d(-40), FechaDeFin: d(-30), Solicitante: U[279], Unidad0: { Id: 1, Title: 'UNIDAD A' } },
   ].concat(otraCuenta ? [{ Id: 9, Title: 'Antigua', Estado: '1-Pendiente de aprobar ', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(30), FechaDeFin: d(31), Solicitante: U[13], AprobadorDePermiso: { Id: 280, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.es' }, AprobadorTexto: 'USUARIO DE PRUEBA', Unidad0: { Id: 1, Title: 'UNIDAD A' } }] : [])
+   .concat(jefeOtraCuenta ? [{ Id: 10, Title: 'Del jefe', Estado: '2-Aprobado', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(40), FechaDeFin: d(41), Solicitante: U[13], AprobadorDePermiso: U[11], AutorizadorDelPermiso: { Id: 777, Title: 'Usuario De Prueba', EMail: '' }, CorreoDeAUTORIZADOR: 'USUARIO@et.mde.es', AutorizadorTexto: 'USUARIO DE PRUEBA', Unidad0: { Id: 1, Title: 'UNIDAD A' } }] : [])
    .map(x => ({ Created: d(-3), Modified: d(-2) + '', Author: { Id: x.Solicitante.Id, Title: x.Solicitante.Title }, Editor: { Title: 'X' }, NIF: '00000000T', RegistroDeBorrador: '', ...x }));
 };
 async function prueba(verbose, soloAlcance) {
@@ -62,8 +63,8 @@ async function prueba(verbose, soloAlcance) {
     if (resto.includes('/items')) {
       const filtro = (u.match(/\$filter=([^&]*)/) || [])[1] || ''; if (u.includes('Title')) ultimoFiltro = filtro;
       if (!filtro) return J({ value: items });
-      const ids = [...filtro.matchAll(/(\w+)Id eq (\d+)/g)], est = [...filtro.matchAll(/Estado eq '([^']+)'/g)].map(x => x[1]), txt = [...filtro.matchAll(/(\w+Texto) eq '([^']+)'/g)];
-      return J({ value: items.filter(it => ids.some(([, k, v]) => it[k] && it[k].Id === +v) || est.includes(it.Estado) || txt.some(([, k, v]) => it[k] === v)) });
+      const ids = [...filtro.matchAll(/(\w+)Id eq (\d+)/g)], est = [...filtro.matchAll(/Estado eq '([^']+)'/g)].map(x => x[1]), txt = [...filtro.matchAll(/(\w+) eq '([^']+)'/g)].filter(([, k]) => k !== 'Estado');
+      return J({ value: items.filter(it => ids.some(([, k, v]) => it[k] && it[k].Id === +v) || est.includes(it.Estado) || txt.some(([, k, v]) => String(it[k] || '').toLowerCase() === v.toLowerCase())) });
     }
     if (resto.includes('sitegroups/getbyname')) return J({ value: [{ Title: 'REGISTRADOR UNO' }, { Title: U[279].Title }] });
     if (resto.includes('/roleassignments')) return J({ value: [{ Member: { Title: 'Integrantes CALIDAD-VIDA', PrincipalType: 8 }, RoleDefinitionBindings: [{ Name: 'Leer' }] },
@@ -75,6 +76,13 @@ async function prueba(verbose, soloAlcance) {
   await p.goto(O + WEB + '/Documentos%20compartidos/permisos.html' + (soloAlcance === 'enlace' ? '?id=1' : '')); await p.waitForTimeout(800);
   if (soloAlcance === 'enlace') {
     console.log(tag, 'enlace del correo abre:', await p.textContent('#dlg h2').catch(() => 'nada'), '| URL limpia:', p.url().endsWith('permisos.html'));
+    await b.close(); return;
+  }
+  if (soloAlcance === 'jefe por correo') {
+    await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200);
+    console.log(tag, 'jefe por correo: pendientes de autorizar:', await p.$$eval('#vista .sol', n => n.map(x => x.dataset.id)), '| filtro con correo:', /CorreoDeAUTORIZADOR/.test(ultimoFiltro));
+    await p.click('.sol[data-id="10"]'); await p.waitForTimeout(500);
+    console.log(tag, 'puede autorizar:', !!(await p.$('[data-acc=autorizar]')), '| errores:', errs);
     await b.close(); return;
   }
   if (soloAlcance === 'cuentas') {
@@ -274,3 +282,4 @@ gestor = true; await prueba(true, 'gestor');
 gestor = false; await prueba(false, 'enlace');
 registro = true; await prueba(false, 'seguridad'); await prueba(true, 'seguridad');
 otraCuenta = true; await prueba(false, 'cuentas'); await prueba(true, 'cuentas'); otraCuenta = false;
+jefeOtraCuenta = true; registro = false; await prueba(false, 'jefe por correo'); await prueba(true, 'jefe por correo'); jefeOtraCuenta = false; registro = true;
