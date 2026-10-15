@@ -378,22 +378,15 @@
   // Días por tipo de permiso en un cupo de año (días naturales, festivos incluidos y días descontando festivos)
   var mCupo = String(new Date().getFullYear());
   // Tabla de días por tipo de permiso de un conjunto de solicitudes en un cupo de año
-  // Días concedidos hábiles (días naturales menos los festivos indicados) por tipo de permiso en un cupo de año,
-  // con las fechas de cada permiso para reconocerlo
+  // Días concedidos hábiles (días del permiso menos los festivos indicados) de cada permiso concedido en un cupo de
+  // año, con la fecha en que se solicitó para reconocerlo
   function tablaDias(ms, cupo) {
-    var ts = ms.filter(function (t) { return t.cupo === cupo && t.ini && concedido(t); }).sort(function (a, b) { return String(a.ini).localeCompare(String(b.ini)); });
+    var ts = ms.filter(function (t) { return t.cupo === cupo && t.ini && concedido(t); }).sort(function (a, b) { return String(a.creado).localeCompare(String(b.creado)); });
     var habiles = function (t) { return Math.max(0, dias(t.ini, t.fin) - (parseInt(t.festivos, 10) || 0)); };
-    var dm = function (s) { return s.slice(8, 10) + '/' + s.slice(5, 7); };
-    var g = new Map();
-    ts.forEach(function (t) {
-      var k = t.tipo || '(sin tipo)'; if (!g.has(k)) g.set(k, { hab: 0, fechas: [] });
-      var x = g.get(k); x.hab += habiles(t); x.fechas.push(dm(t.ini) + (t.fin && t.fin !== t.ini ? '–' + dm(t.fin) : ''));
-    });
-    var filas = Array.from(g.entries()).sort(function (a, b) { return a[0].localeCompare(b[0], 'es'); });
-    var tot = { hab: filas.reduce(function (a, f) { return a + f[1].hab; }, 0) };
-    return { n: filas.length, tot: tot, html: filas.length ? '<div style="overflow-x:auto"><table class="t resumen"><tr><th>Tipo de permiso</th><th>Fechas</th><th>Días concedidos hábiles</th></tr>' +
-      filas.map(function (f) { return '<tr><td>' + esc(f[0]) + '</td><td class="small muted">' + esc(f[1].fechas.join(', ')) + '</td><td><b>' + f[1].hab + '</b></td></tr>'; }).join('') +
-      (filas.length > 1 ? '<tr><td><b>Total</b></td><td></td><td><b>' + tot.hab + '</b></td></tr>' : '') + '</table></div>' : '' };
+    var tot = { hab: ts.reduce(function (a, t) { return a + habiles(t); }, 0) };
+    return { n: ts.length, tot: tot, html: ts.length ? '<div style="overflow-x:auto"><table class="t resumen"><tr><th>Tipo de permiso</th><th>Solicitado el</th><th>Días concedidos hábiles</th></tr>' +
+      ts.map(function (t) { return '<tr><td>' + esc(t.tipo || '(sin tipo)') + '</td><td>' + esc(t.creado ? new Date(t.creado).toLocaleDateString('es-ES') : '') + '</td><td><b>' + habiles(t) + '</b></td></tr>'; }).join('') +
+      (ts.length > 1 ? '<tr><td><b>Total</b></td><td></td><td><b>' + tot.hab + '</b></td></tr>' : '') + '</table></div>' : '' };
   }
   function resumenDias(ms) {
     var cupos = Array.from(new Set(ms.map(function (t) { return t.cupo; }).filter(Boolean).concat([mCupo]))).sort().reverse();
