@@ -61,6 +61,12 @@ async function prueba(verbose, escenario) {
         const c = JSON.parse(req.postData()); delete c.__metadata; Object.assign(it, c, { Modified: new Date().toISOString(), Editor: { Id: YO.Id, Title: YO.Title } });
         return r.fulfill({ status: 204, body: '' });
       }
+      if (resto.endsWith('/items')) {
+        const c = JSON.parse(req.postData()); delete c.__metadata;
+        const it = { ...base, Id: Math.max(...items.map(x => x.Id)) + 1, Created: new Date().toISOString(), Modified: new Date().toISOString(), Author: { Id: YO.Id, Title: YO.Title, EMail: YO.EMail }, Editor: { Id: YO.Id, Title: YO.Title }, Attachments: false, ...c };
+        if (c.ResponsableDeLaInformacionId) it.ResponsableDeLaInformacion = c.ResponsableDeLaInformacionId === YO.Id ? YO : P[c.ResponsableDeLaInformacionId];
+        items.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } });
+      }
       return r.fulfill({ status: 400, body: '' });
     }
     gets.push(resto);
@@ -70,6 +76,13 @@ async function prueba(verbose, escenario) {
     if (g) return MIEMBROS[g[1]] ? J({ value: MIEMBROS[g[1]].map(e => ({ Email: e })) }) : r.fulfill({ status: 404, body: '' });
     const mi = resto.match(/items\((\d+)\)/);
     if (mi) { const it = items.find(x => x.Id === +mi[1]); return r.fulfill({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, ...it } } }); }
+    const aux = resto.match(/getbytitle\('(PROVINCIAS|M1N|M2N|M3N)'\)\/items/);
+    if (aux) return J({ value: { PROVINCIAS: ['SEVILLA', 'LEÓN', 'BURGOS'], M1N: ['FUTER', 'MCANA'], M2N: ['SUIGESUR', 'SUIGENOR'], M3N: ['ACUARTELAMIENTO X'] }[aux[1]].map((t, i) => ({ Id: i + 1, Title: t })) });
+    if (resto.startsWith('web/siteusers')) return J({ value: [YO, ...Object.values(P)].map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail })) });
+    if (resto.includes("getbytitle('INCIDENTES DE SEGURIDAD')/fields")) { const ch = a => verbose ? { results: a } : a; return J({ value: [
+      { InternalName: 'TipoDeIncidente', Choices: ch(['Intrusión no autorizada', 'Robo o sustracción', 'Pintadas', 'Otro']) }, { InternalName: 'Reiterada', Choices: ch(['SI', 'NO', 'ES LA PRIMERA VEZ']) },
+      { InternalName: 'PROBABILIDADES', Choices: ch(['MUY BAJO', 'BAJO', 'MEDIO', 'ALTO', 'MUY ALTO']) }, { InternalName: 'SUIGES', Choices: ch(['JEFATURA DE IGE', 'SECOORCEN', 'SUIGESUR', 'SUIGEPIR', 'SUIGENOR', 'SUIGECAN', 'DIIN']) },
+      { InternalName: 'A_x00f1_o', Choices: ch(['2025', '2026', '2027']) }] }); }
     if (resto.includes('/items') && expandRoto && u.includes('$expand')) return r.fulfill({ status: 400, body: '' });
     if (resto.includes('/items')) {
       const selRaw = ((u.match(/\$select=([^&]*)/) || [])[1] || '').split(',').filter(Boolean);
@@ -179,6 +192,29 @@ async function prueba(verbose, escenario) {
   console.log(tag, '| estadísticas:', await p.$$eval('.estadis h3', h => h.map(x => x.textContent).join(' | ')));
   console.log(tag, '| por tipo:', await p.$$eval('.estadis .card:first-child .barras .n', n => n.map(x => x.textContent).join(' / ')));
   if (!verbose) await p.screenshot({ path: new URL('estadisticas.png', import.meta.url).pathname, fullPage: true });
+  // 8) Nuevo parte en la página: remitir sin datos (error), borrador, completar y remitir
+  await p.click('#nuevo'); await p.waitForTimeout(700);
+  await p.click('#fRemitir'); await p.waitForTimeout(100);
+  console.log(tag, '| remitir vacío:', (await p.textContent('#fError')).slice(0, 120));
+  await p.selectOption('#fParte [name=tipo]', 'Pintadas'); await p.fill('#fParte [name=fecha]', new Date(Date.now() - 864e5).toISOString().slice(0, 10));
+  await p.fill('#fParte [name=provincia]', 'SEVILLA'); await p.selectOption('#fParte [name=suige]', 'SUIGESUR'); await p.fill('#fParte [name=empleo]', 'Sargento');
+  await p.fill('#fParte [name=m2]', 'SUIGESUR'); await p.check('#fParte [name=denuncia]'); await p.fill('#fParte [name=ndenuncia]', '45/26');
+  console.log(tag, '| responsable por defecto:', await p.textContent('#fResp .elegido'));
+  if (!verbose) await p.screenshot({ path: new URL('nuevo-parte.png', import.meta.url).pathname });
+  posts.length = 0; await p.click('#fBorrador'); await p.waitForTimeout(1300);
+  const alta = posts.find(x => x.ruta.endsWith('/items')); const ca = alta && JSON.parse(alta.cuerpo);
+  console.log(tag, '| borrador:', ca && JSON.stringify({ ESTADO: ca.ESTADO, Tipo: ca.TipoDeIncidente, SUIGES: ca.SUIGES, Resp: ca.ResponsableDeLaInformacionId, Title: ca.Title, Año: ca.A_x00f1_o, NDen: ca.NDenuncia, Obs: (ca.ObservacionesDelExpediente || '').slice(-35) }), '| sin correo:', !correos().length);
+  console.log(tag, '| ficha del borrador:', await p.textContent('#dlg h2'), '|', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
+  await p.click('[data-editar]'); await p.waitForTimeout(900);
+  console.log(tag, '| formulario relleno:', await p.$eval('#fParte [name=provincia]', i => i.value), await p.$eval('#fParte [name=ndenuncia]', i => i.value));
+  await p.click('#fRemitir'); await p.waitForTimeout(150);
+  console.log(tag, '| remitir sin descripción:', (await p.textContent('#fError')).slice(0, 110));
+  for (const k of ['OBSERVACION', 'ANALISIS', 'MEDIDAS', 'CONTROLMEDIDASADOPTADAS', 'CONCLUSION']) await p.fill('#fParte [name=' + k + ']', 'Texto de ' + k + '\nsegunda línea');
+  posts.length = 0; await p.click('#fRemitir'); await p.waitForTimeout(1500);
+  const nid = items[items.length - 1].Id; const cr = merge(nid); m = correos().pop();
+  console.log(tag, '| remitir:', JSON.stringify({ ESTADO: cr.ESTADO, OBS: cr.OBSERVACION, Hist: (cr.ObservacionesDelExpediente || '').split('\n').length + ' líneas' }), '| correo a:', m && m.To.results, '|', m && m.Subject);
+  console.log(tag, '| ahora:', await p.textContent('#dlg .pasos'));
+  await p.click('#dlg [data-cerrar]');
   await p.click('#tabs a[data-v=panel]'); await p.waitForTimeout(200);
   if (!verbose) await p.screenshot({ path: new URL('panel.png', import.meta.url).pathname, fullPage: true });
   console.log(tag, '| errores:', errs);

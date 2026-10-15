@@ -10,6 +10,11 @@ Página para la lista de incidentes de seguridad que usa la página del sitio
 
 ## La página `incidentes.html`
 
+> **Alta del parte en la página**: escribe `SUIGES` (por eso la página sabe qué SUIGE lo valora) y `MANDO1N–3N`. No
+> rellena `MN1–MN4` ni `grupo`, porque aún no sabemos cómo los rellena el formulario de Colabora (paso 2 del
+> diagnóstico). Si las vistas de Colabora de cada SUIGE dependen de esas columnas, los partes dados de alta aquí no
+> saldrán en ellas, aunque sí en esta página.
+
 Se sube a una biblioteca de Colabora (la misma que `permisos.html` vale) junto con `img/incidentes-minisdef.png` e
 `img/incidentes-uso-oficial.png` (sin la carpeta `img`, al lado de la página: los usan los correos). Consulta el sitio
 `/et/jige/colaborativo` con la sesión del usuario.
@@ -18,7 +23,7 @@ Se sube a una biblioteca de Colabora (la misma que `permisos.html` vale) junto c
 
 | Fase | Quién | Qué guarda la página |
 |---|---|---|
-| Parte (BORRADOR → REMITIDO A M1) | quien lo da de alta | se hace en el **formulario de Colabora** («＋ Nuevo parte», «Editar el parte»), que rellena la cadena de mando y el grupo |
+| Parte (BORRADOR → REMITIDO A M1) | quien lo da de alta | **«＋ Nuevo parte» en la página**: datos, SUIGE que lo valora (`SUIGES`), mandos de 1.º–3.º nivel (`MANDO1N–3N`, con sugerencias de M1N–M3N), responsable, correos a informar y los cinco textos; «Guardar borrador» o «Remitir a M1» (aviso a la SUIGE). Los adjuntos, desde Colabora |
 | Valoración SUIGE | grupo `SEGURIDAD_<SUIGE>` (SUIGESUR, SUIGENOR, SUIGECAN, SUIGEPIR, SECORCEN, DIIN y DIAPER) | `VALORACIONSUIGES`, `ValoradoPorSUIGE` = sí, `ESTADO` = EN SEGUIMIENTO |
 | DIACU | `SEGURIDAD_IGE` (DIACU está en el grupo de IGE) | `DIACU` = visto / elevado / rechazado, `VALORACIONDIACU`, `ValoradoPorDIACU`; rechazar devuelve a la SUIGE (`ValoradoPorSUIGE` = no) |
 | IGE (solo si DIACU eleva) | `SEGURIDAD_IGE` | `valoracionIGE`, `ValoradoPorIGE` = sí |

@@ -113,6 +113,11 @@
   .paso.salto { background: #f4f5f7; color: #9aa1aa; text-decoration: line-through; } .paso.mal { background: var(--bad-bg); color: var(--bad); }
   button.pv { background: #fff; border-width: 2px; } button.pv.rojo { color: var(--bad); border-color: var(--bad); } button.pv.verde { color: var(--ok); border-color: var(--ok); }
   button.pv.rojo.on { background: var(--bad); color: #fff; } button.pv.verde.on { background: var(--ok); color: #fff; }
+  .sugs { border: 1px solid var(--line); border-radius: 10px; margin-top: 4px; max-height: 240px; overflow: auto; background: #fff; }
+  .sugs button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; padding: 8px 10px; font-weight: 400; }
+  .sugs button:hover { background: var(--surface-2); }
+  .elegido { font-weight: 600; margin-top: 4px; }
+  .req::after { content: ' *'; color: var(--bad); }
   @media (max-width: 600px) { .barras { grid-template-columns: 40% 1fr auto; } }
 </style>
 </head>
@@ -122,7 +127,7 @@
   <div class="tit"><h1>INCIDENTES DE SEGURIDAD · IGE</h1><span class="sub">Partes, valoración SUIGE · DIACU · IGE y seguimiento</span></div>
   <span class="quien" id="quien" hidden></span>
   <span class="estado" id="estadoCarga">Cargando…</span>
-  <a class="btn" id="nuevo" target="_blank" rel="noopener" hidden title="De momento el alta se hace en el formulario de Colabora (se abre en otra pestaña)">＋ Nuevo parte (formulario de Colabora) ↗</a>
+  <button id="nuevo" hidden title="Dar de alta un parte de incidente">＋ Nuevo parte</button>
   <button id="recargar" title="Volver a leer la lista">↻ Actualizar</button>
 </div></header>
 <main>
@@ -158,7 +163,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-15 · 3';
+  var VERSION = '2026-10-15 · 4';
   var CLAVE = 'incidentes-seguridad-ige';
   var pref = { sitio: '/et/jige/colaborativo', lista: 'INCIDENTES DE SEGURIDAD', vista: 'panel', correo: true,
     f: { q: '', fase: '', tipo: '', suige: '', prob: '', desde: '', hasta: '' } };
@@ -303,7 +308,7 @@
         if (ROLES.diacu.test(x)) esDiacu = true;
         if (ROLES.ige.test(x)) esIge = true;
       });
-      if (listaInfo.DefaultNewFormUrl) { var n = $('#nuevo'); n.href = location.origin + listaInfo.DefaultNewFormUrl + '?Source=' + encodeURIComponent(location.href.split('?')[0]); n.hidden = false; }
+      $('#nuevo').hidden = false;
       return leerIncidentes(grupoIds, true);
     }).then(function (its) {
       items = its.map(aInc);
@@ -619,6 +624,7 @@
       diacuElevar: { a: dest.ige, cc: dest.suige, asunto: 'Incidente de seguridad Nº ' + t.id + ' ELEVADO POR DIACU: pendiente de IGE', intro: 'DIACU HA ELEVADO EL INCIDENTE A IGE para su valoración.' },
       diacuRechazar: { a: dest.suige, cc: [], asunto: 'Incidente de seguridad Nº ' + t.id + ' RECHAZADO POR DIACU: debe valorarse de nuevo', intro: 'DIACU HA RECHAZADO LA VALORACIÓN. La SUIGE debe revisarla y valorar de nuevo el incidente.' },
       valIge: { a: dest.diacu, cc: dest.suige, asunto: 'Incidente de seguridad Nº ' + t.id + ' VALORADO POR IGE', intro: 'IGE HA VALORADO EL INCIDENTE. Queda pendiente de cierre del expediente.' },
+      remitido: { a: dest.suige, cc: [], asunto: 'Nuevo parte de incidente de seguridad Nº ' + t.id + ' remitido: pendiente de valoración ' + (t.suige || 'SUIGE'), intro: 'SE HA REMITIDO UN NUEVO PARTE DE INCIDENTE DE SEGURIDAD. Queda pendiente de la valoración de la ' + (t.suige || 'SUIGE') + '.' },
       cerrar: { a: dest.suige, cc: [], asunto: 'Incidente de seguridad Nº ' + t.id + ': EXPEDIENTE CERRADO', intro: 'EL EXPEDIENTE DEL INCIDENTE HA QUEDADO CERRADO.', personas: true },
       reabrir: { a: dest.suige, cc: dest.diacu, asunto: 'Incidente de seguridad Nº ' + t.id + ': EXPEDIENTE REABIERTO', intro: 'EL EXPEDIENTE DEL INCIDENTE SE HA REABIERTO Y VUELVE A SEGUIMIENTO.' },
       recordar: { a: [], cc: [], asunto: 'RECORDATORIO: incidente de seguridad Nº ' + t.id + ' pendiente: ' + faseTxt(t), intro: 'RECORDATORIO: ESTE INCIDENTE SIGUE PENDIENTE (' + faseTxt(t).toUpperCase() + ').' }
@@ -661,6 +667,170 @@
       cuerpo.__metadata = { type: listaInfo.ListItemEntityTypeFullName };
       return enviarSP(urlLista() + '/items(' + t.id + ')', cuerpo, 'No tienes permiso para modificar este incidente', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': x.etag });
     });
+  }
+
+  // ---------- Buscar personas (usuarios del sitio y directorio; copiado de Permisos) ----------
+  var usuariosSitio = null;
+  function cargarUsuarios() {
+    if (usuariosSitio) return Promise.resolve(usuariosSitio);
+    var m = new Map();
+    var poner = function (u) { if (u && u.Id && u.Title && !m.has(u.Id)) m.set(u.Id, { Id: u.Id, Title: u.Title, Email: u.Email || u.EMail || '' }); };
+    if (yo) poner(yo);
+    items.forEach(function (t) { [t.resp, t.autor].forEach(poner); });
+    return api(web + '/_api/web/siteusers?$select=Id,Title,Email,PrincipalType&$filter=PrincipalType eq 1&$top=5000')
+      .then(function (d) { lista(d.value).forEach(poner); }).catch(function () { /* solo los conocidos */ })
+      .then(function () { usuariosSitio = Array.from(m.values()); return usuariosSitio; });
+  }
+  function buscarDirectorio(q) {
+    return enviarSP(web + '/_api/SP.UI.ApplicationPages.ClientPeoplePickerWebServiceInterface.clientPeoplePickerSearchUser', { queryParams: {
+      __metadata: { type: 'SP.UI.ApplicationPages.ClientPeoplePickerQueryParameters' }, QueryString: q, MaximumEntitySuggestions: 15,
+      AllowEmailAddresses: false, AllowMultipleEntities: false, AllUrlZones: false, ForceClaims: false, PrincipalSource: 15, PrincipalType: 1 } }, 'Sin permiso para buscar en el directorio')
+      .then(function (d) {
+        var v = d && (d.ClientPeoplePickerSearchUser !== undefined ? d.ClientPeoplePickerSearchUser : d.value);
+        var arr = typeof v === 'string' ? JSON.parse(v) : (v || []);
+        return arr.filter(function (e) { return e && e.Key && (!e.EntityType || e.EntityType === 'User'); })
+          .map(function (e) { return { clave: e.Key, Title: e.DisplayText || e.Key, Email: (e.EntityData && e.EntityData.Email) || '' }; });
+      });
+  }
+  function asegurarUsuario(u) {
+    if (u.Id) return Promise.resolve(u);
+    return enviarSP(web + '/_api/web/ensureuser', { logonName: u.clave }, 'No tienes permiso para añadir a esa persona al sitio').then(function (r) {
+      var x = { Id: r.Id, Title: r.Title || u.Title, Email: r.Email || u.Email || '' };
+      if (usuariosSitio && !usuariosSitio.some(function (y) { return y.Id === x.Id; })) usuariosSitio.push(x);
+      return x;
+    });
+  }
+  // Campo de persona: escribe 3 letras, elige de la lista. Devuelve un objeto con .valor()
+  function campoPersona(cont, inicial, alCambiar) {
+    var elegido = inicial || null, espera = null, turno = 0;
+    cont.innerHTML = '<input placeholder="Escribe nombre o apellido (3 letras) y elige" autocomplete="off"><div class="sugs" hidden></div><div class="elegido"></div>';
+    var input = $('input', cont), caja = $('.sugs', cont), ver = $('.elegido', cont);
+    var pintarElegido = function () { ver.innerHTML = elegido ? '✓ ' + esc(elegido.Title) + ' <a href="#" data-quitar="1">quitar</a>' : '<span class="muted small">Nadie elegido</span>'; };
+    var pintar = function (lst, buscando) {
+      caja.lista = lst;
+      caja.innerHTML = lst.map(function (u, i) { return '<button type="button" data-sug="' + i + '">' + esc(u.Title) + (u.Email ? ' <span class="small muted">' + esc(u.Email) + '</span>' : '') + '</button>'; }).join('') + (buscando ? '<div class="small muted" style="padding:8px">Buscando en el directorio…</div>' : '');
+      caja.hidden = !lst.length && !buscando;
+    };
+    pintarElegido();
+    input.addEventListener('input', function () {
+      var q = input.value.trim(), id = ++turno;
+      clearTimeout(espera);
+      if (q.length < 2) return pintar([]);
+      var qn = sinTildes(q);
+      var locales = (usuariosSitio || []).filter(function (u) { return sinTildes(u.Title).indexOf(qn) >= 0 || sinTildes(u.Email).indexOf(qn) >= 0; }).slice(0, 8);
+      if (q.length < 3) return pintar(locales);
+      pintar(locales, true);
+      espera = setTimeout(function () {
+        buscarDirectorio(q).catch(function () { return []; }).then(function (dir) {
+          if (id !== turno) return;
+          var ya = locales.map(function (u) { return sinTildes(u.Email || u.Title); });
+          pintar(locales.concat(dir.filter(function (d) { return ya.indexOf(sinTildes(d.Email || d.Title)) < 0; })).slice(0, 15));
+        });
+      }, 350);
+    });
+    cont.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-sug]');
+      if (b) {
+        var u = caja.lista[Number(b.dataset.sug)]; turno++; pintar([]); input.value = '';
+        asegurarUsuario(u).then(function (x) { elegido = x; pintarElegido(); if (alCambiar) alCambiar(x); })
+          .catch(function (er) { ver.innerHTML = '<span class="error">' + esc(er.message || er) + '</span>'; });
+      }
+      if (e.target.closest('[data-quitar]')) { e.preventDefault(); elegido = null; pintarElegido(); if (alCambiar) alCambiar(null); }
+    });
+    return { valor: function () { return elegido; } };
+  }
+
+  // ---------- Nuevo parte / completar borrador ----------
+  var opciones = {}, aux = null;
+  function cargarAux() {
+    if (aux) return Promise.resolve(aux);
+    aux = {};
+    var titulos = function (lst) { return todas(web + "/_api/web/lists/getbytitle('" + encodeURIComponent(lst) + "')/items?$select=Title&$top=1000")
+      .then(function (l) { return Array.from(new Set(l.map(function (x) { return String(x.Title || '').trim(); }).filter(Boolean))).sort(function (a, b) { return a.localeCompare(b, 'es'); }); }).catch(function () { return []; }); };
+    return Promise.all([titulos('PROVINCIAS'), titulos('M1N'), titulos('M2N'), titulos('M3N'),
+      api(urlLista() + "/fields?$select=InternalName,Choices&$filter=" + encodeURIComponent("(InternalName eq 'TipoDeIncidente') or (InternalName eq 'Reiterada') or (InternalName eq 'PROBABILIDADES') or (InternalName eq 'SUIGES') or (InternalName eq 'A_x00f1_o')"))
+        .then(function (d) { lista(d.value).forEach(function (f) { opciones[f.InternalName] = lista(f.Choices); }); }).catch(function () { /* se deducen de los partes */ })])
+      .then(function (r) { aux = { provincias: r[0], m1: r[1], m2: r[2], m3: r[3] }; return aux; });
+  }
+  var opcionesDe = function (campo, k) { var s = new Set(opciones[campo] || []); items.forEach(function (t) { if (t[k]) s.add(t[k]); }); return Array.from(s); };
+  function formulario(t) {
+    var dlg = $('#dlg');
+    dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Completar el parte Nº ' + t.id : 'Nuevo parte de incidente de seguridad') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.4rem">✕</button></div><div class="db"><p class="muted">Cargando…</p></div>';
+    dlg.showModal(); dlg.scrollTop = 0; dlgId = null;
+    Promise.all([cargarAux(), cargarUsuarios(), t ? leerElemento(t.id, TEXTOS.map(function (x) { return x[0]; }).concat(['correosPersonasInfo'])).then(function (x) { return x.datos; }) : Promise.resolve({})])
+      .then(function (r) { pintarFormulario(t, r[0], r[2]); })
+      .catch(function (e) { $('#dlg .db').innerHTML = '<div class="error">No se pudo preparar el formulario: ' + esc(e.message || e) + '</div>'; });
+  }
+  function pintarFormulario(t, A, d) {
+    var anio = String(new Date().getFullYear());
+    var ops = function (l, v, vacio) { return '<option value="">' + esc(vacio || '—') + '</option>' + l.map(function (o) { return '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join(''); };
+    var lista_ = function (id, l) { return '<datalist id="' + id + '">' + l.map(function (o) { return '<option value="' + esc(o) + '">'; }).join('') + '</datalist>'; };
+    var suiges = opciones.SUIGES && opciones.SUIGES.length ? opciones.SUIGES : SUIGES.filter(function (x) { return x !== 'DIAPER'; });
+    var miSuige = t ? t.suigesCampo : (misSuiges.length === 1 ? (misSuiges[0] === 'SECOORCEN' ? 'SECOORCEN' : misSuiges[0]) : '');
+    var v = function (k, def) { return t ? (t[k] == null ? '' : t[k]) : (def || ''); };
+    var tx = function (k) { return texto(d[k]); };
+    $('#dlg .db').innerHTML = '<div id="fParte">' +
+      '<div class="panel" style="margin-bottom:6px">Da de alta el parte y <b>guárdalo como borrador</b> o <b>remítelo</b> (pasa a «REMITIDO A M1» y se avisa a la SUIGE). Los campos con <span style="color:var(--bad)">*</span> son obligatorios para remitir. ' +
+      (listaInfo.DefaultNewFormUrl && !t ? 'Para adjuntar documentos, guárdalo y añádelos desde Colabora, o usa el <a target="_blank" rel="noopener" href="' + esc(location.origin + listaInfo.DefaultNewFormUrl) + '">formulario de Colabora</a>.' : 'Los adjuntos se añaden desde Colabora.') + '</div>' +
+      '<div class="sec"><span>Datos del parte</span></div><div class="grid">' +
+      '<div><label class="lbl req">Tipo de incidente</label><select name="tipo">' + ops(opcionesDe('TipoDeIncidente', 'tipo'), v('tipo')) + '</select></div>' +
+      '<div><label class="lbl req">Fecha del incidente</label><input type="date" name="fecha" max="' + hoy() + '" value="' + esc(v('fecha')) + '"></div>' +
+      '<div><label class="lbl req">Provincia</label><input name="provincia" list="lProv" value="' + esc(v('provincia')) + '" autocomplete="off">' + lista_('lProv', A.provincias) + '</div>' +
+      '<div><label class="lbl req">SUIGE que lo valora</label><select name="suige">' + ops(suiges, miSuige) + '</select></div>' +
+      '<div><label class="lbl">Probabilidad</label><select name="prob">' + ops(opcionesDe('PROBABILIDADES', 'prob').length ? opcionesDe('PROBABILIDADES', 'prob') : PROBS, v('prob')) + '</select></div>' +
+      '<div><label class="lbl">¿Reiterada?</label><select name="reiterada">' + ops(opcionesDe('Reiterada', 'reiterada'), v('reiterada')) + '</select></div>' +
+      '<div><label class="lbl">Lugar / unidad (texto)</label><input name="otro" value="' + esc(v('otro')) + '"></div>' +
+      '<div><label class="lbl req">Empleo del responsable</label><input name="empleo" value="' + esc(v('empleo')) + '"></div>' +
+      '</div>' +
+      '<div class="grid">' +
+      '<div><label class="lbl">Mando de 1.er nivel</label><input name="m1" list="lM1" value="' + esc(t ? t.mandos[0] : '') + '" autocomplete="off">' + lista_('lM1', A.m1) + '</div>' +
+      '<div><label class="lbl">Mando de 2.º nivel</label><input name="m2" list="lM2" value="' + esc(t ? t.mandos[1] : '') + '" autocomplete="off">' + lista_('lM2', A.m2) + '</div>' +
+      '<div><label class="lbl">Mando de 3.er nivel</label><input name="m3" list="lM3" value="' + esc(t ? t.mandos[2] : '') + '" autocomplete="off">' + lista_('lM3', A.m3) + '</div>' +
+      '</div>' +
+      '<label class="check"><input type="checkbox" name="zona"' + (t && t.zona === true ? ' checked' : '') + '> Zona señalizada</label>' +
+      '<label class="check"><input type="checkbox" name="aceptacion"' + (t && t.aceptacion === true ? ' checked' : '') + '> Aceptación</label>' +
+      '<label class="check"><input type="checkbox" name="denuncia"' + (t && t.denuncia ? ' checked' : '') + '> Con denuncia</label>' +
+      '<div id="cajaDen"' + (t && t.denuncia ? '' : ' hidden') + ' style="max-width:320px"><label class="lbl">Nº de denuncia</label><input name="ndenuncia" value="' + esc(v('ndenuncia')) + '"></div>' +
+      '<label class="lbl req">Responsable de la información</label><div id="fResp"></div>' +
+      '<label class="lbl">Correos de las personas a informar (separados por «;»)</label><input name="correos" value="' + esc(t ? t.correos : '') + '" placeholder="nombre@et.mde.es; …">' +
+      '<div class="sec"><span>Descripción</span></div>' +
+      TEXTOS.map(function (x) { return '<label class="lbl req">' + esc(x[1]) + '</label><textarea name="' + x[0] + '">' + esc(tx(x[0])) + '</textarea>'; }).join('') +
+      '<div id="fError"></div><div class="acciones"><button type="button" data-cerrar>Cancelar</button><button type="button" id="fBorrador">💾 Guardar borrador</button><button type="button" class="prim" id="fRemitir">📨 Remitir a M1</button></div></div>';
+    var pResp = campoPersona($('#fResp'), t ? t.resp : yo);
+    var f = $('#fParte'), val = function (n) { var el = f.querySelector('[name="' + n + '"]'); return el ? (el.type === 'checkbox' ? el.checked : el.value.trim()) : ''; };
+    f.querySelector('[name=denuncia]').onchange = function () { $('#cajaDen').hidden = !this.checked; };
+    var err = function (m) { $('#fError').innerHTML = '<div class="error">' + esc(m) + '</div>'; };
+    var guardar = function (remitir, boton) {
+      var resp = pResp.valor();
+      var faltan = [];
+      if (!val('tipo')) faltan.push('tipo de incidente'); if (!val('fecha')) faltan.push('fecha'); if (!val('provincia')) faltan.push('provincia'); if (!val('suige')) faltan.push('SUIGE');
+      if (!val('empleo')) faltan.push('empleo'); if (!resp) faltan.push('responsable de la información');
+      TEXTOS.forEach(function (x) { if (!val(x[0])) faltan.push(x[1].toLowerCase()); });
+      // Para guardar el borrador basta con lo que pide la lista; para remitir, todo lo obligatorio
+      var minimo = !val('tipo') || !val('fecha') || !val('provincia') || !val('empleo') || !resp;
+      if (remitir && faltan.length) return err('Para remitir falta: ' + faltan.join(', ') + '.');
+      if (!remitir && minimo) return err('Para guardar el borrador hacen falta al menos: tipo, fecha, provincia, empleo y responsable de la información.');
+      if (val('fecha') > hoy()) return err('La fecha del incidente no puede ser futura.');
+      var c = { TipoDeIncidente: val('tipo'), FechaNotificacion: aFecha(val('fecha')).toISOString(), Provincia: val('provincia'), SUIGES: val('suige') || null, PROBABILIDADES: val('prob') || null,
+        Reiterada: val('reiterada') || null, OTRO: val('otro'), Empleo: val('empleo'), MANDO1N: val('m1'), MANDO2N: val('m2'), MANDO3N: val('m3'),
+        ZONASE_x00d1_ALIZADA: val('zona'), ACEPTACION: val('aceptacion'), Denuncia: val('denuncia'), NDenuncia: val('denuncia') ? val('ndenuncia') : '',
+        ResponsableDeLaInformacionId: resp.Id, correosPersonasInfo: val('correos'), ModificadoPorTEXTO: yo.Title,
+        ESTADO: remitir ? ES.RM : ES.BO };
+      TEXTOS.forEach(function (x) { c[x[0]] = val(x[0]) ? aHtml(val(x[0])) : ''; });
+      if (!t) { c.Title = fCorta(hoy()); c.A_x00f1_o = (opciones.A_x00f1_o || []).indexOf(String(new Date(c.FechaNotificacion).getFullYear())) >= 0 ? String(new Date(c.FechaNotificacion).getFullYear()) : null; c.ResponsableDelParte = yo.Title; }
+      boton.disabled = true;
+      var nota = remitir ? 'PARTE REMITIDO A M1' : (t ? 'Borrador actualizado' : 'Parte dado de alta (borrador)');
+      var hecho = t ? guardarCambios(t, c, nota).then(function () { return t.id; }) :
+        enviarSP(urlLista() + '/items', Object.assign({ __metadata: { type: listaInfo.ListItemEntityTypeFullName }, ObservacionesDelExpediente: anotacion(nota) }, c), 'No tienes permiso para dar de alta partes en esta lista').then(function (n) { return n && n.Id; });
+      hecho.then(function (id) {
+        var nuevo = { id: id, tipo: c.TipoDeIncidente, fecha: val('fecha'), provincia: c.Provincia, lugar: c.OTRO, suige: normSuige(c.SUIGES) || normSuige(c.MANDO2N) || '', prob: c.PROBABILIDADES || '', estado: c.ESTADO, valSuige: false, diacu: '', valIge: false, correos: c.correosPersonasInfo, resp: resp, autor: yo };
+        return (remitir && pref.correo ? avisoDe('remitido', nuevo, '').then(enviarCorreo) : Promise.resolve(null)).then(function (r) {
+          return cargar().then(function () { if (id) abrir(id, '<div class="' + (r && !r.ok ? 'aviso' : 'okmsg') + '">✓ ' + (remitir ? 'Parte remitido a M1: queda pendiente de valoración de la SUIGE.' : 'Borrador guardado.') + msgCorreo(r) + '</div>'); else $('#dlg').close(); });
+        });
+      }).catch(function (e) { boton.disabled = false; err('No se pudo guardar: ' + (e.message || e)); });
+    };
+    $('#fBorrador').onclick = function () { guardar(false, this); };
+    $('#fRemitir').onclick = function () { guardar(true, this); };
   }
 
   // ---------- Ficha ----------
@@ -718,7 +888,8 @@
     }
     if (pCierre(t)) h += '<div class="panel turno"><h3>Cierre del expediente</h3><label class="lbl">Observación de cierre (opcional)</label><textarea id="vCierre"></textarea><div class="acciones"><button class="verde" data-acc="cerrar">✔ Cerrar expediente</button></div></div>';
     if (t.estado === ES.CE && (esIge || esGestor)) h += '<div class="panel"><h3>Expediente cerrado</h3><label class="lbl">Motivo para reabrir</label><textarea id="vReabrir"></textarea><div class="acciones"><button data-acc="reabrir">↺ Reabrir expediente</button></div></div>';
-    if (!h) h = '<div class="panel"><h3>Situación</h3><p class="small">' + esc(faseTxt(t)) + '.</p>' + (fase(t) === 0 ? '<p class="small muted">Está en borrador: quien lo dio de alta debe remitirlo desde el formulario de Colabora.</p>' : '') + '</div>';
+    if (fase(t) === 0 && (soy(t.autor) || soy(t.resp) || esGestor)) h += '<div class="panel turno"><h3>Parte en borrador</h3><p class="small">Complétalo y remítelo a M1 para que lo valore la SUIGE.</p><div class="acciones"><button class="prim" data-editar="' + t.id + '">✎ Completar o remitir</button></div></div>';
+    if (!h) h = '<div class="panel"><h3>Situación</h3><p class="small">' + esc(faseTxt(t)) + '.</p>' + (fase(t) === 0 ? '<p class="small muted">Está en borrador: debe remitirlo quien lo dio de alta.</p>' : '') + '</div>';
     if (puedeAnotar(t)) h += '<div class="panel"><h3>Añadir observación al expediente</h3><textarea id="vNota" style="min-height:4em"></textarea><div class="acciones"><button data-acc="anotar">＋ Añadir con mi nombre y la hora</button>' +
       (abierto(t) && fase(t) >= 1 ? '<button data-acc="recordar" title="Correo a quien le toca actuar">✉ Enviar recordatorio</button>' : '') + '</div></div>';
     return h + '<div id="accMsg"></div>';
@@ -846,6 +1017,9 @@
     var tab = el.closest('#tabs a');
     if (tab) { pref.vista = tab.dataset.v; guardarPref(); render(); return; }
     if (el.closest('#recargar')) { cargar(); return; }
+    if (el.closest('#nuevo')) { if (cargadoEn) formulario(null); return; }
+    var edp = el.closest('[data-editar]');
+    if (edp) { var tp = items.find(function (x) { return x.id === Number(edp.dataset.editar); }); if (tp) formulario(tp); return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); dlgId = null; return; }
     if (el.closest('[data-restablecer]')) { pref.sitio = POR_DEFECTO.sitio; pref.lista = POR_DEFECTO.lista; guardarPref(); cargar(); return; }
     var ir = el.closest('[data-ir]');
