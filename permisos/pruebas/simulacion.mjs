@@ -86,8 +86,7 @@ async function prueba(verbose, soloAlcance) {
   if (soloAlcance === 'jefe por nombre') {
     await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200);
     console.log(tag, 'jefe por nombre: pendientes de autorizar:', await p.$$eval('#vista .sol', n => n.map(x => x.dataset.id)), '| filtro con apellido:', /substringof/.test(ultimoFiltro));
-    await p.click('#vista details summary').catch(() => {}); await p.click('[data-comprobar]'); await p.waitForTimeout(900);
-    console.log(tag, 'cómo figuro:', (await p.textContent('#compDet')).replace(/\s+/g, ' ').slice(0, 260), '| errores:', errs);
+    console.log(tag, 'errores:', errs);
     await b.close(); return;
   }
   if (soloAlcance === 'jefe por correo') {
@@ -101,8 +100,7 @@ async function prueba(verbose, soloAlcance) {
     await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200);
     console.log(tag, 'otra cuenta: pendientes de aprobar:', await p.$$eval('#vista .sol', n => n.map(x => x.dataset.id)), '| filtro con 280:', ultimoFiltro.includes('280'), '| buzón compartido (281) fuera:', !ultimoFiltro.includes('281'));
     console.log(tag, 'estado reconocido:', await p.textContent('.sol[data-id="9"] .badge'));
-    await p.click('#vista details summary'); await p.click('[data-comprobar]'); await p.waitForTimeout(600);
-    console.log(tag, 'comprobar:', (await p.textContent('#compRes')).replace(/\s+/g, ' ').slice(0, 330), '| errores:', errs);
+    console.log(tag, 'sin recuadro «¿Echas en falta…?»:', !(await p.$('[data-comprobar]')), '| errores:', errs);
     await b.close(); return;
   }
   if (soloAlcance === 'seguridad') {

@@ -90,13 +90,8 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
   - El **nombre** se reconoce aunque esté escrito de otra forma («Apellidos, Nombre», tildes, mayúsculas): en el servidor
     se busca el apellido más largo y luego se confirma que coinciden todas las palabras. También cuenta el campo «JEFE»
     si la solicitud no tiene persona en ese papel.
-  - «Comprobar en Colabora» enseña, solo con números, cómo figuras en lo pendiente: por tu cuenta, tu correo, tu nombre,
-    en «JEFE» o sin persona.
   - Los estados se reconocen aunque cambien mayúsculas, tildes o espacios.
   - Las columnas de persona admiten varias personas.
-  - En «Pendientes de mí», «¿Echas en falta alguna solicitud?» → «Comprobar en Colabora» cuenta en el servidor en
-    cuántas figuras como aprobador o autorizador y en qué estado, y avisa si hay alguna que la página no ha cargado o
-    con tu nombre en el texto pero otra cuenta guardada.
 - **Seguridad del registro**:
   - La pestaña, los NIF de la tabla, la relación impresa y el CSV solo funcionan para el grupo «Personal de Registro»
     (si no se puede leer el grupo, se trata como «no pertenece»).
