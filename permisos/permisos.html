@@ -69,6 +69,14 @@
   .badge { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: .75rem; font-weight: 700; white-space: nowrap; }
   .e0 { background: var(--na-bg); color: var(--na); } .e1 { background: var(--warn-bg); color: var(--warn); } .e2 { background: var(--info-bg); color: var(--info); }
   .e3 { background: var(--ok-bg); color: var(--ok); } .e4 { background: #2e7d32; color: #fff; } .e5 { background: var(--bad-bg); color: var(--bad); }
+  .e6 { background: #ffe0b2; color: #8a3b00; border: 1px solid #f0a35c; }
+  /* Pasos del permiso */
+  .pasos { display: flex; flex-wrap: wrap; align-items: stretch; gap: 4px; margin: 0 0 14px; }
+  .pasos i { align-self: center; color: var(--muted); font-style: normal; font-weight: 700; }
+  .paso { display: flex; flex-direction: column; padding: 6px 10px; border-radius: 10px; background: #eceff3; color: #6b7480; border: 2px solid transparent; min-width: 120px; }
+  .paso small { font-size: .75rem; } .paso.hecho { background: #dcefdc; color: #1f5e22; } .paso.ahora { background: #fff1d6; color: #8a4b00; border-color: #d99a00; }
+  .paso.salto { background: #f4f5f7; color: #9aa1aa; text-decoration: line-through; } .paso.mal { background: var(--bad-bg); color: var(--bad); font-weight: 700; }
+  .paso.clave { border-color: #2e7d32; } .paso.clave.ahora { border-color: #d99a00; }
   .vacio { padding: 18px; text-align: center; color: var(--muted); }
   .aviso { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
   .error { background: var(--bad-bg); color: var(--bad); border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-weight: 600; }
@@ -173,9 +181,33 @@
   // ---------- Estados (los del formulario InfoPath) ----------
   var E = { BS: '0-Borrador de Solicitante', BR: '0-Borrador de Representante', PA: '1-Pendiente de Aprobar', AP: '2-Aprobado',
     AU: '3-Autorizado', RG: '4-Registrado SIPERDEF', RE: '5-Rechazado', AN: '5-Anulado en SIPERDEF', SI: 'Sin Identificar Solicitante' };
-  var claseEstado = function (e) { var n = String(e || '').charAt(0); return /[0-5]/.test(n) ? 'e' + n : 'e0'; };
+  var claseEstado = function (e) { var n = String(e || '').charAt(0); return n === '2' ? 'e6' : /[0-5]/.test(n) ? 'e' + n : 'e0'; };
   var esBorrador = function (t) { return t.estado === E.BS || t.estado === E.BR || t.estado === E.SI || !t.estado; };
-  var concedido = function (t) { return t.estado === E.AP || t.estado === E.AU || t.estado === E.RG; };
+  // Concedido = AUTORIZADO (o ya registrado). «2-Aprobado» es solo el visto bueno del jefe: aún no está concedido
+  var concedido = function (t) { return t.estado === E.AU || t.estado === E.RG; };
+  // Texto claro del estado para el usuario (en la lista se guarda el estado del formulario tal cual)
+  function estadoTxt(t) {
+    var e = t.estado;
+    if (e === E.PA) return '1 · Pendiente de aprobar (jefe)';
+    if (e === E.AP) return t.directo ? '2 · Pendiente de autorizar · NO CONCEDIDO aún' : '2 · Aprobado por el jefe · falta AUTORIZAR';
+    if (e === E.AU) return '3 · ✔ CONCEDIDO (autorizado)';
+    if (e === E.RG) return '4 · ✔ CONCEDIDO · registrado SIPERDEF';
+    if (e === E.RE) return '✕ Rechazado';
+    if (e === E.AN) return '✕ Anulado en SIPERDEF';
+    if (esBorrador(t)) return '0 · Borrador';
+    return e || 'Sin estado';
+  }
+  var badgeEstado = function (t) { return '<span class="badge ' + claseEstado(t.estado) + '" title="' + esc(t.estado) + '">' + esc(estadoTxt(t)) + '</span>'; };
+  // Pasos del permiso: solicitud → visto bueno del jefe → autorización (CONCEDIDO) → registro SIPERDEF
+  function pasos(t) {
+    var n = esBorrador(t) ? 0 : t.estado === E.PA ? 1 : t.estado === E.AP ? 2 : t.estado === E.AU ? 3 : t.estado === E.RG ? 4 : -1;
+    var P = [['Solicitud', 'enviada'], [t.directo ? 'Jefe intermedio' : 'Aprobación del jefe', t.directo ? 'no tiene' : 'visto bueno'], ['AUTORIZACIÓN', 'permiso CONCEDIDO'], ['Registro', 'SIPERDEF']];
+    if (n < 0) return '<div class="pasos"><span class="paso mal">' + esc(estadoTxt(t)) + '</span></div>';
+    return '<div class="pasos">' + P.map(function (p, i) {
+      var cl = i === 1 && t.directo ? 'salto' : i < n || n === 4 ? 'hecho' : i === n ? 'ahora' : '';
+      return '<span class="paso ' + cl + (i === 2 ? ' clave' : '') + '"><b>' + (cl === 'hecho' ? '✔ ' : cl === 'ahora' ? '⏳ ' : cl === 'salto' ? '— ' : '') + esc(p[0]) + '</b><small>' + esc(p[1]) + '</small></span>';
+    }).join('<i>›</i>') + '</div>';
+  }
 
   // Solicitud que hay que abrir al entrar (enlace de los correos: permisos.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
@@ -342,7 +374,7 @@
   var activa = function (t) { return t.estado !== E.RE && t.estado !== E.AN; };
   var seSolapan = function (a, b) { return !!(a.ini && b.ini && a.ini <= (b.fin || b.ini) && b.ini <= (a.fin || a.ini)); };
   var mismaPersona = function (a, b) { return !!(a.sol && b.sol && a.sol.Id === b.sol.Id); };
-  var lineaSol = function (x) { return esc(x.nombre) + ' · ' + esc(x.tipo || x.asunto) + ' · ' + esc(fCorta(x.ini)) + (x.fin && x.fin !== x.ini ? ' → ' + esc(fCorta(x.fin)) : '') + ' · <i>' + esc(x.estado) + '</i>'; };
+  var lineaSol = function (x) { return esc(x.nombre) + ' · ' + esc(x.tipo || x.asunto) + ' · ' + esc(fCorta(x.ini)) + (x.fin && x.fin !== x.ini ? ' → ' + esc(fCorta(x.fin)) : '') + ' · <i>' + esc(estadoTxt(x)) + '</i>'; };
   // Para el aprobador y el autorizador: otras solicitudes del MISMO solicitante en esas fechas (que coincidan varias
   // personas de una unidad es normal y lo decide quien autoriza)
   function avisoSolape(t) {
@@ -357,10 +389,10 @@
   function tarjeta(t, extra) {
     var d = dias(t.ini, t.fin);
     return '<div class="card sol" data-id="' + t.id + '"><div class="tit">' + esc(t.nombre) + ' · ' + esc(t.tipo || t.asunto) + '</div><div class="meta">' +
-      '<span class="badge ' + claseEstado(t.estado) + '">' + esc(t.estado || 'Sin estado') + '</span>' +
+      badgeEstado(t) +
       (t.ini ? '<span>📅 ' + esc(fCorta(t.ini)) + (t.fin && t.fin !== t.ini ? ' → ' + esc(fCorta(t.fin)) : '') + ' (' + d + ' día' + (d === 1 ? '' : 's') + ')</span>' : '') +
       (t.dependencia ? '<span class="muted">' + esc(t.dependencia) + '</span>' : '') + (t.unidad ? '<span class="muted">' + esc(t.unidad.Title) + '</span>' : '') +
-      (t.directo ? '<span class="badge e2">Autorización directa</span>' : '') + (t.estado === E.AU ? '<span class="badge e5">Pendiente de registro SIPERDEF</span>' : '') + (extra || '') + '</div></div>';
+      (t.directo ? '<span class="badge e2">Sin mando intermedio</span>' : '') + (t.estado === E.AU ? '<span class="badge e5">Pendiente de registro SIPERDEF</span>' : '') + (extra || '') + '</div></div>';
   }
   function vistaMias() {
     var ms = items.filter(esMia).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); });
@@ -534,7 +566,7 @@
           cab.map(function (c) { return '<th>' + c + '</th>'; }).join('') + '</tr>' + g[1].map(function (t) {
             return '<tr><td><a href="#" data-ver="' + t.id + '">' + esc(t.nombre) + '</a>' + (t.rep ? '<div class="small muted">rep.: ' + esc(t.rep.Title) + '</div>' : '') + '</td><td>' + esc(t.empleo) + '</td><td>' + esc(pend ? (nifs[t.id] || '—') : '') +
               '</td><td>' + esc(t.tipo) + '</td><td>' + esc(t.cupo) + '</td><td>' + esc(fCorta(t.ini)) + '</td><td>' + esc(fCorta(t.fin)) + '</td><td>' + dias(t.ini, t.fin) + '</td><td>' + esc(t.festivos) + '</td><td>' +
-              (pend ? esc(t.fAutor ? new Date(t.fAutor).toLocaleDateString('es-ES') : '') : '<span class="badge ' + claseEstado(t.estado) + '">' + esc(t.estado) + '</span>') + '</td><td>' +
+              (pend ? esc(t.fAutor ? new Date(t.fAutor).toLocaleDateString('es-ES') : '') : badgeEstado(t)) + '</td><td>' +
               (t.estado === E.RG ? '<span class="regok">✔ REGISTRADO EN SIPERDEF</span>' : t.estado === E.AN ? '<span class="badge e5">ANULADO</span>' :
                 confirmando === t.id ? '<button class="regconf" data-regok="' + t.id + '">¿Ya está registrado en SIPERDEF? Pulsa para confirmar</button> <a href="#" data-regcancel="1" class="small">cancelar</a>' :
                 '<button class="regpend" data-regok="' + t.id + '" title="Púlsalo cuando lo hayas registrado en SIPERDEF">⏳ PENDIENTE DE REGISTRO</button>') + '</td></tr>';
@@ -577,12 +609,12 @@
   // Para llevar el control: mis permisos y los que he tramitado yo (aprobados, autorizados o registrados por mí)
   var tramitadoPorMi = function (t) { return soy(t.apr) || soy(t.aut) || soy(t.reg); };
   var VER_CAL = [['control', 'Mis permisos y los que he tramitado'], ['mios', 'Solo mis permisos'], ['tramitados', 'Solo los que he aprobado, autorizado o registrado'], ['todos', 'Todos los que puedo ver']];
-  var claseCal = function (t) { return t.estado === E.PA ? 'p' : esMia(t) ? 'm' : tramitadoPorMi(t) ? 't' : ''; };
+  var claseCal = function (t) { return t.estado === E.PA || t.estado === E.AP ? 'p' : esMia(t) ? 'm' : tramitadoPorMi(t) ? 't' : ''; };
   function delCalendario() {
     var c = pref.cal;
     return items.filter(function (t) {
       if (!t.ini) return false;
-      if (!(concedido(t) || (c.pendientes && t.estado === E.PA))) return false;
+      if (!(concedido(t) || (c.pendientes && (t.estado === E.PA || t.estado === E.AP)))) return false;
       if (c.ver === 'mios' && !esMia(t)) return false;
       if (c.ver === 'tramitados' && !tramitadoPorMi(t)) return false;
       if (c.ver === 'control' && !esMia(t) && !tramitadoPorMi(t)) return false;
@@ -614,17 +646,17 @@
       '<div><label class="lbl">Ver</label><select id="cVer">' + VER_CAL.map(function (v) { return '<option value="' + v[0] + '"' + (ver === v[0] ? ' selected' : '') + '>' + esc(v[1]) + '</option>'; }).join('') + '</select></div>' +
       '<div><label class="lbl">Dependencia</label><select id="cDep"><option value="">Todas</option>' + deps.map(function (x) { return '<option' + (pref.cal.dependencia === x ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select></div>' +
       '<div><label class="lbl">Unidad</label><select id="cUni"><option value="">Todas</option>' + unidades.map(function (u) { return '<option value="' + u.Id + '"' + (String(pref.cal.unidad) === String(u.Id) ? ' selected' : '') + '>' + esc(u.Title) + '</option>'; }).join('') + '</select></div>' +
-      '</div><label class="check"><input type="checkbox" id="cPend"' + (pref.cal.pendientes ? ' checked' : '') + '> Incluir pendientes de aprobar (en naranja)</label></div>' +
+      '</div><label class="check"><input type="checkbox" id="cPend"' + (pref.cal.pendientes ? ' checked' : '') + '> Incluir pendientes de aprobar o de autorizar (en naranja: aún no concedidos)</label></div>' +
       '<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><button data-mes="-1">◀</button><b>' + esc(titulo[0].toUpperCase() + titulo.slice(1)) +
       '</b><span><button data-impcal="1">🖨 Imprimir / PDF</button> <button data-ics="cal" title="Exportar a Outlook los permisos que se ven con estos filtros">📅 Outlook (.ics)</button> <button data-mes="1">▶</button></span></div>' +
       '<div class="cal">' + ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(function (x) { return '<div class="dow">' + x + '</div>'; }).join('') + celdas + '</div>' +
       '<div class="leyenda"><span><i style="background:#d6e6fa"></i>Mis permisos</span><span><i style="background:#ece2f8"></i>Aprobados, autorizados o registrados por mí</span>' +
-      (ver === 'todos' ? '<span><i style="background:#e6e9ee"></i>Otros</span>' : '') + (pref.cal.pendientes ? '<span><i style="background:var(--warn-bg)"></i>Pendientes de aprobar</span>' : '') + '</div>' +
-      '<p class="muted small">Se muestran los permisos aprobados, autorizados o registrados; pulsa un nombre para ver la solicitud. ' + esc(alcanceTxt()) + '</p>' +
+      (ver === 'todos' ? '<span><i style="background:#e6e9ee"></i>Otros</span>' : '') + (pref.cal.pendientes ? '<span><i style="background:var(--warn-bg)"></i>Pendientes (aún no concedidos)</span>' : '') + '</div>' +
+      '<p class="muted small">Se muestran los permisos concedidos (autorizados o registrados); pulsa un nombre para ver la solicitud. ' + esc(alcanceTxt()) + '</p>' +
       '<div class="sec"><span>Control del mes</span><span>' + delMes.length + '</span></div>' +
       (delMes.length ? '<div class="card" style="overflow-x:auto"><table class="t"><tr><th>Solicitante</th><th>Tipo de permiso</th><th>Desde</th><th>Hasta</th><th>Días</th><th>Estado</th><th>Mi papel</th></tr>' +
         delMes.map(function (t) { return '<tr><td><a href="#" data-ver="' + t.id + '">' + esc(t.nombre) + '</a></td><td>' + esc(t.tipo) + '</td><td>' + esc(fCorta(t.ini)) + '</td><td>' + esc(fCorta(t.fin)) + '</td><td>' + dias(t.ini, t.fin) +
-          '</td><td><span class="badge ' + claseEstado(t.estado) + '">' + esc(t.estado) + '</span></td><td class="small">' + esc(papel(t) || '—') + '</td></tr>'; }).join('') + '</table></div>' :
+          '</td><td>' + badgeEstado(t) + '</td><td class="small">' + esc(papel(t) || '—') + '</td></tr>'; }).join('') + '</table></div>' :
         '<div class="card vacio">Ningún permiso este mes con estos filtros.</div>');
   }
   function filtrarTodas() {
@@ -819,14 +851,16 @@
     var C = {
       solicitud: { to: [t.correoSol], cc: [t.correoApr], asunto: 'Pendiente de APROBAR un Permiso solicitado por: ' + t.nombre + ' Representado por: ' + rep + ' de tipo: ' + t.tipo,
         intro: 'PENDIENTE DE APROBAR POR SU AUTORIDAD UNA SOLICITUD DE PERMISO. Para tramitarla, pulse «Abrir la solicitud» al final de este aviso.' },
-      aprobado: { to: [t.correoSol], cc: [t.correoAut], bcc: [t.correoApr], asunto: 'El usuario: ' + t.aprTexto + ' Ha APROBADO su Solicitud de permiso: ' + t.asunto + ', siendo trasladada para AUTORIZACIÓN al usuario: ' + t.autTexto,
-        intro: 'LA SOLICITUD DE PERMISO ha sido APROBADA y remitida al AUTORIZADOR para su curso reglamentario. Para tramitarla, pulse «Abrir la solicitud» al final de este aviso.' },
+      aprobado: t.directo ? { to: [t.correoSol], cc: [t.correoAut], bcc: [], asunto: 'Pendiente de AUTORIZAR un Permiso solicitado por: ' + t.nombre + ' (sin mando intermedio) de tipo: ' + t.tipo,
+        intro: 'SOLICITUD DE PERMISO PENDIENTE DE AUTORIZAR (sin mando intermedio). EL PERMISO AÚN NO ESTÁ CONCEDIDO: lo estará cuando lo AUTORICE el autorizador. Para tramitarla, pulse «Abrir la solicitud» al final de este aviso.' } :
+        { to: [t.correoSol], cc: [t.correoAut], bcc: [t.correoApr], asunto: 'El usuario: ' + t.aprTexto + ' Ha APROBADO su Solicitud de permiso: ' + t.asunto + ', siendo trasladada para AUTORIZACIÓN al usuario: ' + t.autTexto + ' (AÚN NO CONCEDIDO)',
+        intro: 'LA SOLICITUD DE PERMISO ha sido APROBADA por el jefe inmediato y remitida al AUTORIZADOR. ATENCIÓN: EL PERMISO AÚN NO ESTÁ CONCEDIDO; lo estará cuando lo AUTORICE el autorizador. Para tramitarla, pulse «Abrir la solicitud» al final de este aviso.' },
       devueltaAprob: { to: [t.correoSol], cc: [t.correoApr], asunto: 'El Aprobador: ' + t.aprTexto + ' Ha DEVUELTO su Solicitud de permiso: ' + t.asunto + '. Consulte las Observaciones y tramítela nuevamente.',
         intro: 'LA SOLICITUD de Permiso ha sido DEVUELTA por el APROBADOR con las observaciones que se indican. Por favor, resuélvalas y vuelva a tramitarla.' },
       rechazoAprob: { to: [t.correoSol], cc: [], asunto: 'El Aprobador: ' + t.aprTexto + ' Ha rechazado su Solicitud de permiso: ' + t.asunto,
         intro: 'LA SOLICITUD DE PERMISO HA SIDO RECHAZADA POR EL APROBADOR.' },
       autorizado: { to: [t.correoSol], cc: [t.correoApr], asunto: 'El usuario: ' + t.autTexto + ' Ha AUTORIZADO su Solicitud de permiso: ' + t.asunto + ', siendo trasladada para REGISTRO',
-        intro: 'Permiso Autorizado y con pase a REGISTRO DE SIPERDEF.' },
+        intro: 'PERMISO AUTORIZADO: EL PERMISO ESTÁ CONCEDIDO. Pasa a REGISTRO DE SIPERDEF.' },
       devueltaAutor: { to: [t.correoApr], cc: [t.correoSol], asunto: 'El AUTORIZADOR FINAL DEL PERMISO: ' + t.autTexto + ' Ha DEVUELTO la solicitud de permiso: ' + t.asunto + '. Consulte las Observaciones y tramítela nuevamente.',
         intro: 'LA SOLICITUD de Permiso ha sido DEVUELTA por el AUTORIZADOR con las observaciones que se indican. Por favor, resuélvalas y vuelva a tramitarla.' },
       devueltaAutorSol: { to: [t.correoSol], cc: [t.correoApr], asunto: 'El AUTORIZADOR: ' + t.autTexto + ' Ha DEVUELTO su Solicitud de permiso: ' + t.asunto + '. Consulte las Observaciones y tramítela nuevamente.',
@@ -842,7 +876,7 @@
     if (!C.to.length) { C.to = C.cc; C.cc = []; }
     var filas = [['Asunto', t.asunto], ['Solicitante', t.nombre], ['Representante', rep], ['Tipo de permiso', t.tipo], ['Cupo de año', t.cupo],
       ['Desde', fLarga(t.ini)], ['Hasta', fLarga(t.fin)], ['Días festivos', t.festivos], ['Unidad', t.unidad && t.unidad.Title], ['Dependencia', t.dependencia],
-      ['Estado', t.estado], ['Observaciones', obs]].filter(function (x) { return x[1]; });
+      ['Estado', estadoTxt(t)], ['Observaciones', obs]].filter(function (x) { return x[1]; });
     var f = t.id ? enlaceSolicitud(t) : enlacePagina();
     C.html = htmlCorreo(C.intro, filas, f);
     C.texto = 'USO OFICIAL\n\n' + C.intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + (f ? '\n\nAbrir la solicitud: ' + f : '');
@@ -886,16 +920,16 @@
     if (!t) return;
     dlgId = id;
     var interviene = veNif(t);
-    var c = [['Estado', t.estado], ['Tipo de permiso', t.tipo], ['Cupo de año', t.cupo], ['Desde', fLarga(t.ini)], ['Hasta', fLarga(t.fin)],
+    var c = [['Estado', estadoTxt(t)], ['Tipo de permiso', t.tipo], ['Cupo de año', t.cupo], ['Desde', fLarga(t.ini)], ['Hasta', fLarga(t.fin)],
       ['Días naturales', t.ini ? String(dias(t.ini, t.fin)) : ''], ['Días festivos', t.festivos], ['Solicitante', t.nombre], ['Representante', t.rep && t.rep.Title],
       ['Empleo', t.empleo], ['Dependencia', t.dependencia], ['Unidad', t.unidad && t.unidad.Title],
-      ['Aprobador', t.directo ? '— (autorización directa)' : (t.apr ? t.apr.Title : t.aprTexto)], ['Aprobación', t.eAprob + (t.fAprob ? ' · ' + new Date(t.fAprob).toLocaleString('es-ES') : '')],
+      ['Aprobador', t.directo ? '— (sin mando intermedio)' : (t.apr ? t.apr.Title : t.aprTexto)], ['Aprobación', t.eAprob + (t.fAprob ? ' · ' + new Date(t.fAprob).toLocaleString('es-ES') : '')],
       ['Autorizador', t.aut ? t.aut.Title : t.autTexto], ['Autorización', t.eAutor + (t.fAutor ? ' · ' + new Date(t.fAutor).toLocaleString('es-ES') : '')],
       ['Registro SIPERDEF', t.eReg + (t.reg ? ' · ' + t.reg.Title : '')],
       ['Creada', new Date(t.creado).toLocaleString('es-ES')], ['Modificada', new Date(t.modificado).toLocaleString('es-ES') + (t.editor ? ' por ' + t.editor : '')]];
     var dlg = $('#dlg');
     dlg.innerHTML = '<div class="dh"><h2>' + esc(t.nombre) + ' · ' + esc(t.tipo || t.asunto) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.4rem">✕</button></div>' +
-      '<div class="db">' + (msg || '') + '<div class="ficha"><div>' +
+      '<div class="db">' + (msg || '') + pasos(t) + '<div class="ficha"><div>' +
       '<div class="campo"><b>Asunto</b><div>' + esc(t.asunto) + '</div></div>' +
       c.filter(function (x) { return x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       '<div id="detMas"><p class="muted small">Cargando observaciones…</p></div>' +
@@ -920,18 +954,18 @@
     var h = '';
     var obs = function (id, txt) { return '<label class="lbl">' + txt + '</label><textarea id="' + id + '"></textarea>'; };
     if (puedeEditar(t)) {
-      h += '<div class="panel"><h3>Tu solicitud (borrador)</h3><p class="small muted">Puedes completarla o enviarla a ' + (t.directo ? 'autorización directa' : 'aprobación') + '.</p>' +
+      h += '<div class="panel"><h3>Tu solicitud (borrador)</h3><p class="small muted">Puedes completarla o enviarla a ' + (t.directo ? 'autorización (sin mando intermedio)' : 'aprobación de tu jefe') + '.</p>' +
         '<div class="acciones"><button class="prim" data-editar="' + t.id + '">✎ Completar o enviar</button></div></div>';
     }
     if (puedeAprobar(t)) {
-      h += '<div class="panel"><h3>Aprobación (eres el aprobador)</h3>' + avisoSolape(t) +
+      h += '<div class="panel"><h3>Aprobación (eres el aprobador)</h3><p class="small muted">Tu aprobación es el visto bueno del jefe: el permiso no queda concedido hasta que lo autorice el autorizador.</p>' + avisoSolape(t) +
         '<label class="lbl">Autorizador al que se eleva *</label><div id="pAut"></div>' +
         obs('oAprob', 'Observaciones (obligatorias para devolver o rechazar)') +
         '<div class="acciones"><button class="prim" data-acc="aprobar">✓ Aprobar y elevar al autorizador</button><button data-acc="devolverAprob">↩ Devolver al solicitante</button><button class="peligro" data-acc="rechazarAprob">✕ Rechazar</button></div></div>';
     }
     if (puedeAutorizar(t)) {
       h += '<div class="panel"><h3>Autorización (eres el autorizador)</h3>' + avisoSolape(t) + obs('oAutor', 'Observaciones (obligatorias para devolver o rechazar)') +
-        '<div class="acciones"><button class="prim" data-acc="autorizar">✓ Autorizar</button>' + (t.apr && !t.directo ? '<button data-acc="devolverAutor">↩ Devolver al aprobador</button>' : '') +
+        '<div class="acciones"><button class="prim" data-acc="autorizar">✓ Autorizar · CONCEDE el permiso</button>' + (t.apr && !t.directo ? '<button data-acc="devolverAutor">↩ Devolver al aprobador</button>' : '') +
         '<button data-acc="devolverAutorSol">↩ Devolver al solicitante</button><button class="peligro" data-acc="rechazarAutor">✕ Rechazar</button></div></div>';
     }
     if (puedeRegistrar(t)) {
@@ -966,8 +1000,8 @@
   function siguientePaso(t) {
     if (esBorrador(t)) return 'En borrador: debe enviarla el solicitante o su representante.';
     if (t.estado === E.PA) return 'Esperando la aprobación de ' + (t.apr ? t.apr.Title : t.aprTexto || 'su aprobador') + '.';
-    if (t.estado === E.AP) return 'Esperando la autorización de ' + (t.aut ? t.aut.Title : t.autTexto || 'su autorizador') + '.';
-    if (t.estado === E.AU) return 'Autorizada: PENDIENTE DE REGISTRO en SIPERDEF.';
+    if (t.estado === E.AP) return (t.directo ? 'Sin mando intermedio: ' : 'Aprobado por el jefe, pero ') + 'el permiso AÚN NO ESTÁ CONCEDIDO. Falta la autorización de ' + (t.aut ? t.aut.Title : t.autTexto || 'su autorizador') + '.';
+    if (t.estado === E.AU) return 'CONCEDIDO (autorizado). Pendiente de registro en SIPERDEF.';
     if (t.estado === E.RG) return 'Estado final: REGISTRADO EN SIPERDEF.';
     return 'Tramitación terminada.';
   }
@@ -1073,9 +1107,11 @@
       '</div>' +
       '<label class="lbl">Asunto *</label><input name="asunto" value="' + esc(t ? t.asunto : '') + '" placeholder="Se rellena solo con el tipo y las fechas si lo dejas vacío">' +
       '<label class="lbl">Observaciones (motivos, aclaraciones)</label><textarea name="obs"></textarea>' +
-      '<label class="check"><input type="checkbox" id="nDirecto"' + (t && t.directo ? ' checked' : '') + '> Autorización directa (sin aprobador intermedio)</label>' +
-      '<div id="nAprCaja"' + (t && t.directo ? ' hidden' : '') + '><label class="lbl">Aprobador *</label><div id="nApr"></div></div>' +
-      '<div id="nAutCaja"' + (t && t.directo ? '' : ' hidden') + '><label class="lbl">Autorizador *</label><div id="nAut"></div></div>' +
+      '<div class="panel" style="margin-top:12px"><b>¿Cómo se tramita tu permiso?</b> <span class="small muted">Recuerda: el permiso solo está CONCEDIDO cuando lo AUTORIZA el autorizador.</span>' +
+      '<label class="check" style="display:flex"><input type="radio" name="nCamino" value="jefe"' + (t && t.directo ? '' : ' checked') + '> <span><b>Tengo mando intermedio:</b> primero lo aprueba mi jefe (visto bueno) y él lo eleva al autorizador.</span></label>' +
+      '<label class="check" style="display:flex"><input type="radio" name="nCamino" id="nDirecto" value="directo"' + (t && t.directo ? ' checked' : '') + '> <span><b>No tengo mando intermedio:</b> va directamente al autorizador.</span></label></div>' +
+      '<div id="nAprCaja"' + (t && t.directo ? ' hidden' : '') + '><label class="lbl">Tu jefe inmediato (aprobador) *</label><div id="nApr"></div></div>' +
+      '<div id="nAutCaja"' + (t && t.directo ? '' : ' hidden') + '><label class="lbl">Autorizador (concede el permiso) *</label><div id="nAut"></div></div>' +
       '<p class="small muted">Para adjuntar documentos, guarda la solicitud y añádelos desde el formulario de Colabora.</p>' +
       '<div id="nError"></div>' +
       '<div class="acciones"><button type="button" data-cerrar>Cancelar</button><button type="button" id="nBorrador">💾 Guardar borrador</button><button type="button" class="prim" id="nEnviar">📨 Enviar</button></div></div>';
@@ -1088,7 +1124,9 @@
       pAut2 = campoPersona($('#nAut'), t ? t.aut : null);
     });
     $('#nOtro').onchange = function () { $('#nOtroCaja').hidden = !this.checked; $('#nYo').hidden = this.checked; };
-    $('#nDirecto').onchange = function () { $('#nAprCaja').hidden = this.checked; $('#nAutCaja').hidden = !this.checked; };
+    Array.prototype.forEach.call(document.querySelectorAll('#fSol [name=nCamino]'), function (rb) {
+      rb.onchange = function () { var d = $('#nDirecto').checked; $('#nAprCaja').hidden = d; $('#nAutCaja').hidden = !d; };
+    });
     var err = function (m) { $('#nError').innerHTML = '<div class="error">' + esc(m) + '</div>'; };
     var solapeVisto = '';
     var guardar = function (enviar, boton) {
@@ -1131,7 +1169,7 @@
       hecho.then(function (id) {
         var nuevo = { id: id, asunto: asunto, nombre: sol.Title, rep: rep, tipo: v('tipo'), cupo: v('cupo'), ini: v('ini'), fin: v('fin'), festivos: v('festivos'),
           unidad: unidades.find(function (u) { return String(u.Id) === v('unidad'); }) || null, dependencia: v('dependencia'), estado: estado,
-          correoSol: sol.Email || '', correoApr: c.CorreoDeAPROBADOR, correoAut: c.CorreoDeAUTORIZADOR, aprTexto: c.AprobadorTexto, autTexto: c.AutorizadorTexto };
+          directo: directo, correoSol: sol.Email || '', correoApr: c.CorreoDeAPROBADOR, correoAut: c.CorreoDeAUTORIZADOR, aprTexto: c.AprobadorTexto, autTexto: c.AutorizadorTexto };
         var cr = enviar && pref.correo ? correoDe(directo ? 'aprobado' : 'solicitud', nuevo, v('obs')) : null;
         return (cr ? enviarCorreo(cr) : Promise.resolve(null)).then(function (r) {
           return cargar().then(function () {
@@ -1171,7 +1209,7 @@
     var nom = mes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }); nom = nom[0].toUpperCase() + nom.slice(1);
     var f = [pref.cal.dependencia, (unidades.find(function (u) { return String(u.Id) === String(pref.cal.unidad); }) || {}).Title].filter(Boolean).join(' · ');
     ventanaImprimir({ titulo: 'CALENDARIO DE PERMISOS · ' + nom.toUpperCase(), subtitulo: esc([(VER_CAL.find(function (v) { return v[0] === pref.cal.ver; }) || VER_CAL[0])[1], f || 'Todas las dependencias y unidades'].join(' · ')) +
-        '<br><small><span class="cm">■ mis permisos</span> · <span class="ct">■ aprobados, autorizados o registrados por mí</span>' + (pref.cal.pendientes ? ' · <span class="cp">■ pendientes de aprobar</span>' : '') + '</small>',
+        '<br><small><span class="cm">■ mis permisos</span> · <span class="ct">■ aprobados, autorizados o registrados por mí</span>' + (pref.cal.pendientes ? ' · <span class="cp">■ pendientes, aún no concedidos</span>' : '') + '</small>',
       cuerpo: '<table class="cal"><tr>' + ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(function (x) { return '<th>' + x + '</th>'; }).join('') + '</tr>' + filas + '</table>',
       nombre: 'permisos-' + iso(mes).slice(0, 7), apaisado: true });
   }
@@ -1200,7 +1238,7 @@
     if (f.estado) fil.push('Estado: ' + f.estado); if (f.tipo) fil.push('Tipo: ' + f.tipo); if (f.dependencia) fil.push('Dependencia: ' + f.dependencia);
     if (f.unidad) fil.push('Unidad: ' + ((unidades.find(function (u) { return String(u.Id) === String(f.unidad); }) || {}).Title || '')); if (f.cupo) fil.push('Cupo: ' + f.cupo); if (f.q) fil.push('Búsqueda: «' + f.q + '»');
     var cuerpo = '<table class="r"><tr><th>Solicitante</th><th>Unidad</th><th>Tipo de permiso</th><th>Cupo</th><th>Desde</th><th>Hasta</th><th>Días</th><th>Estado</th><th>Aprobador</th><th>Autorizador</th></tr>' +
-      ts.map(function (t) { return '<tr><td>' + esc(t.nombre) + '</td><td>' + esc(t.unidad ? t.unidad.Title : '') + '</td><td>' + esc(t.tipo) + '</td><td>' + esc(t.cupo) + '</td><td>' + esc(fCorta(t.ini)) + '</td><td>' + esc(fCorta(t.fin)) + '</td><td>' + dias(t.ini, t.fin) + '</td><td>' + esc(t.estado) + '</td><td>' + esc(t.directo ? '(directa)' : (t.apr ? t.apr.Title : t.aprTexto)) + '</td><td>' + esc(t.aut ? t.aut.Title : t.autTexto) + '</td></tr>'; }).join('') + '</table>';
+      ts.map(function (t) { return '<tr><td>' + esc(t.nombre) + '</td><td>' + esc(t.unidad ? t.unidad.Title : '') + '</td><td>' + esc(t.tipo) + '</td><td>' + esc(t.cupo) + '</td><td>' + esc(fCorta(t.ini)) + '</td><td>' + esc(fCorta(t.fin)) + '</td><td>' + dias(t.ini, t.fin) + '</td><td>' + esc(estadoTxt(t)) + '</td><td>' + esc(t.directo ? '(sin mando intermedio)' : (t.apr ? t.apr.Title : t.aprTexto)) + '</td><td>' + esc(t.aut ? t.aut.Title : t.autTexto) + '</td></tr>'; }).join('') + '</table>';
     ventanaImprimir({ titulo: 'RELACIÓN DE SOLICITUDES DE PERMISO', subtitulo: ts.length + ' solicitud' + (ts.length === 1 ? '' : 'es') + ' · ' + esc(fil.join(' · ') || 'Sin filtros') + '<br><small>' + esc(alcanceTxt()) + '</small>',
       cuerpo: ts.length ? cuerpo : '<p>Ninguna solicitud con estos filtros.</p>', nombre: 'relacion-permisos-' + hoy(), apaisado: true });
   }
@@ -1214,13 +1252,13 @@
         ['Unidad', t.unidad && t.unidad.Title], ['Dependencia orgánica', t.dependencia], ['Representante', t.rep && t.rep.Title]]) +
       '<h3>DATOS DE LA SOLICITUD</h3>' + tabla([['Asunto', t.asunto], ['Tipo de permiso', t.tipo], ['Cupo de año', t.cupo], ['Fecha de inicio', fLarga(t.ini)], ['Fecha de fin', fLarga(t.fin)],
         ['Días naturales', t.ini ? String(dias(t.ini, t.fin)) : ''], ['Días festivos incluidos', t.festivos], ['Observaciones', texto(d.Observaciones)]]) +
-      '<h3>TRAMITACIÓN</h3>' + tabla([['Estado', t.estado], ['Aprobador', t.directo ? 'Autorización directa (sin aprobador)' : (t.apr ? t.apr.Title : t.aprTexto)],
+      '<h3>TRAMITACIÓN</h3>' + tabla([['Estado', estadoTxt(t)], ['Aprobador', t.directo ? 'Sin mando intermedio (directo al autorizador)' : (t.apr ? t.apr.Title : t.aprTexto)],
         ['Aprobación', [t.eAprob, fh(t.fAprob)].filter(Boolean).join(' · ')], ['Observaciones del aprobador', d.Observaci_x00f3_nesAprobador],
         ['Autorizador', t.aut ? t.aut.Title : t.autTexto], ['Autorización', [t.eAutor, fh(t.fAutor)].filter(Boolean).join(' · ')], ['Observaciones del autorizador', d.ObservacionesAutorizador],
         ['Registro SIPERDEF', [t.eReg, t.reg && t.reg.Title].filter(Boolean).join(' · ')], ['Observaciones del registro', d.ObservacionesDelRegistro],
         ['Solicitud creada', fh(t.creado)]]) +
       '<div class="firmas"><div>El solicitante</div><div>El aprobador</div><div>El autorizador</div></div>';
-    ventanaImprimir({ titulo: 'FORMULARIO DE SOLICITUD DE PERMISO', subtitulo: 'Nº ' + t.id + ' · ' + esc(t.estado), cuerpo: cuerpo, nombre: 'solicitud-permiso-' + t.id, apaisado: false });
+    ventanaImprimir({ titulo: 'FORMULARIO DE SOLICITUD DE PERMISO', subtitulo: 'Nº ' + t.id + ' · ' + esc(estadoTxt(t)), cuerpo: cuerpo, nombre: 'solicitud-permiso-' + t.id, apaisado: false });
   }
   function csv() {
     var c = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };

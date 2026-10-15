@@ -148,11 +148,14 @@ async function prueba(verbose, soloAlcance) {
   const ap = posts.find(x => /items\(1\)/.test(x.ruta)); const cAp = JSON.parse(ap.cuerpo);
   console.log(tag, 'aprobar:', ap.cab['x-http-method'], JSON.stringify({ Hist: (cAp.RegistroDeBorrador || '').slice(0, 70), Estado: cAp.Estado, EA: cAp.EstadoDeAprobacion, Aut: cAp.AutorizadorDelPermisoId, AutT: cAp.AutorizadorTexto, Cor: cAp.CorreoDeAUTORIZADOR }));
   const m2 = JSON.parse(posts.find(x => x.ruta.startsWith('SP.Utilities')).cuerpo).properties;
+  console.log(tag, 'aviso «aún no concedido» en el correo de aprobación:', m2.Body.includes('AÚN NO ESTÁ CONCEDIDO'));
   if (!verbose) fs.writeFileSync(new URL('correo.html', import.meta.url), m2.Body);
   console.log(tag, 'correo aprobado:', m2.To.results, m2.CC.results, m2.BCC.results, '|', m2.Subject);
   await p.click('#dlg [data-cerrar]');
   // Autorizar la 2
   await p.click('.sol[data-id="2"]'); await p.waitForTimeout(500);
+  console.log(tag, 'pasos de la 2 (aprobada):', (await p.textContent('#dlg .pasos')).replace(/\s+/g, ' '), '| estado:', await p.textContent('#dlg .campo div'));
+  if (!verbose) await p.screenshot({ path: new URL('pasos.png', import.meta.url).pathname });
   posts.length = 0; await p.click('[data-acc=autorizar]'); await p.waitForTimeout(1500);
   const cAu = JSON.parse(posts.find(x => /items\(2\)/.test(x.ruta)).cuerpo);
   console.log(tag, 'autorizar:', JSON.stringify({ Estado: cAu.Estado, EAu: cAu.EstadoDeAutorizacion, ER: cAu.EstadoDeRegistro }));

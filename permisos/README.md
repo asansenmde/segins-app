@@ -93,6 +93,14 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
     registro, si la lista hereda permisos del sitio y quién tiene acceso, y avisa si hay grupos amplios con lectura.
   - **Límite**: la protección real es la de la lista en Colabora. Quien tenga lectura sobre la lista ve todas las
     solicitudes desde sus vistas. Hay que revisarlo con el propietario del sitio y el oficial de seguridad.
+- **Aprobado ≠ concedido**: «2-Aprobado» es solo el visto bueno del jefe; el permiso está **concedido** cuando se
+  AUTORIZA (3) o ya está registrado (4). La página lo deja claro en todas partes:
+  - estados con texto claro («2 · Aprobado por el jefe · falta AUTORIZAR» en naranja; «3 · ✔ CONCEDIDO» en verde);
+  - pasos en la ficha (Solicitud › Aprobación del jefe › AUTORIZACIÓN = concedido › Registro);
+  - al pedirlo se elige «Tengo mando intermedio» o «No tengo mando intermedio (directo al autorizador)»;
+  - el correo de aprobación avisa «EL PERMISO AÚN NO ESTÁ CONCEDIDO» y el de autorización «ESTÁ CONCEDIDO»;
+  - recuadros, calendario, tabla de días y Outlook solo cuentan como concedidos los autorizados o registrados.
+  En la lista se siguen guardando los mismos estados del formulario InfoPath.
 - Colores: azul marino y oro (página, impresiones y correos), para distinguirla del resto de aplicaciones.
 - `CIRCUITO.md`: reglas del formulario InfoPath (sacadas de la plantilla `.xsn`).
 - `pruebas/simulacion.mjs`: prueba completa contra una lista simulada (ligero y *verbose*): alta con validaciones,
