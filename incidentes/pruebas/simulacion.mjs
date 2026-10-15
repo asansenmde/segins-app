@@ -11,7 +11,7 @@ const P = { 61: { Id: 61, Title: 'JEFE UNIDAD A', EMail: 'jefea@et.mde.es' }, 62
 const GRUPOS = { SEGURIDAD_SUIGESUR: 101, SEGURIDAD_SUIGENOR: 102, SEGURIDAD_SUIGECAN: 103, SEGURIDAD_DIAPER: 104, SEGURIDAD_IGE: 105, 'Integrantes de la Colaborativo': 106 };
 const MIEMBROS = { SEGURIDAD_SUIGESUR: ['sur1@et.mde.es', 'sur2@et.mde.es'], SEGURIDAD_SUIGENOR: ['nor1@et.mde.es'], SEGURIDAD_SUIGECAN: ['can1@et.mde.es'], SEGURIDAD_DIAPER: ['diacu1@et.mde.es'], SEGURIDAD_IGE: ['ige1@et.mde.es'] };
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(9, 0, 0, 0); return x.toISOString(); };
-let faltaCampo = null, items, misGrupos = [], admin = false, sinSubstringof = false, ultimoFiltro = '', lecturaMinima = '';
+let expandRoto = false, faltaCampo = null, items, misGrupos = [], admin = false, sinSubstringof = false, ultimoFiltro = '', lecturaMinima = '';
 const base = { A_x00f1_o: '2026', Provincia: 'SEVILLA', Empleo: 'Sargento', ZONASE_x00d1_ALIZADA: true, Reiterada: 'NO', Denuncia: false, ValoradoPorSUIGE: false, ValoradoPorDIACU: false, ValoradoPorIGE: false,
   OBSERVACION: '<p>TEXTO RESERVADO DEL PARTE</p>', ANALISIS: '<div>Análisis</div>', MEDIDAS: 'Medidas', CONTROLMEDIDASADOPTADAS: 'Control', CONCLUSION: 'Conclusión', ObservacionesDelExpediente: '',
   ResponsableDeLaInformacion: P[61], correosPersonasInfo: 'info1@et.mde.es; info2@et.mde.es', MANDO1N: 'FUTER', MANDO2N: '', MANDO3N: '', OData__x004d_N1: '', OData__x004d_N2: '', OData__x004d_N3: '', OData__x004d_N4: '',
@@ -70,10 +70,11 @@ async function prueba(verbose, escenario) {
     if (g) return MIEMBROS[g[1]] ? J({ value: MIEMBROS[g[1]].map(e => ({ Email: e })) }) : r.fulfill({ status: 404, body: '' });
     const mi = resto.match(/items\((\d+)\)/);
     if (mi) { const it = items.find(x => x.Id === +mi[1]); return r.fulfill({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, ...it } } }); }
+    if (resto.includes('/items') && expandRoto && u.includes('$expand')) return r.fulfill({ status: 400, body: '' });
     if (resto.includes('/items')) {
       const selRaw = ((u.match(/\$select=([^&]*)/) || [])[1] || '').split(',').filter(Boolean);
       const exp = ((u.match(/\$expand=([^&]*)/) || [])[1] || '').split(',');
-      const malo = selRaw.find(f => { const [a, b] = f.split('/'); if (a === faltaCampo) return true; if (b) return !exp.includes(a); return !(a in base) && !['Id', 'Created', 'Modified', 'Attachments', 'Author', 'Editor', 'ValoradoPorSUIGE', 'ValoradoPorDIACU', 'ValoradoPorIGE', 'FechaNotificacion', 'Reiterada', 'ZONASE_x00d1_ALIZADA', 'Denuncia', 'A_x00f1_o', 'Provincia', 'Empleo', 'correosPersonasInfo', 'ResponsableDeLaInformacion'].includes(a); });
+      const malo = selRaw.find(f => { const [a, b] = f.split('/'); if (a === faltaCampo) return true; if (b) return !exp.includes(a); if (/Id$/.test(a) && (a.slice(0, -2) in base || ['Author', 'Editor'].includes(a.slice(0, -2)))) return false; return !(a in base) && !['Id', 'Created', 'Modified', 'Attachments', 'Author', 'Editor', 'ValoradoPorSUIGE', 'ValoradoPorDIACU', 'ValoradoPorIGE', 'FechaNotificacion', 'Reiterada', 'ZONASE_x00d1_ALIZADA', 'Denuncia', 'A_x00f1_o', 'Provincia', 'Empleo', 'correosPersonasInfo', 'ResponsableDeLaInformacion'].includes(a); });
       if (malo) return r.fulfill({ status: 400, json: { 'odata.error': { message: { value: "The field or property '" + malo.split('/')[0] + "' does not exist." } } } });
       const filtro = (u.match(/\$filter=([^&]*)/) || [])[1] || '';
       ultimoFiltro = filtro;
@@ -190,3 +191,4 @@ sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstr
 misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'solo SEGURIDAD_IGE');
 misGrupos = TODOS; admin = true; await prueba(false, 'enlace');
 faltaCampo = 'ResponsableDelParte'; await prueba(true, 'columna inexistente'); faltaCampo = null;
+expandRoto = true; await prueba(false, 'columna inexistente'); expandRoto = false;
