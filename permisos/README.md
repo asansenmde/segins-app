@@ -87,6 +87,11 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
     (`CorreoDelSolicitante`, `CorreoDeAPROBADOR`, `CorreoDeAUTORIZADOR`, `SolicitanteTexto`, `AprobadorTexto`,
     `AutorizadorTexto`). Así aparecen aunque la persona guardada sea otra cuenta. Si Colabora no admite ese filtro, se
     repite la lectura solo por cuentas.
+  - El **nombre** se reconoce aunque esté escrito de otra forma («Apellidos, Nombre», tildes, mayúsculas): en el servidor
+    se busca el apellido más largo y luego se confirma que coinciden todas las palabras. También cuenta el campo «JEFE»
+    si la solicitud no tiene persona en ese papel.
+  - «Comprobar en Colabora» enseña, solo con números, cómo figuras en lo pendiente: por tu cuenta, tu correo, tu nombre,
+    en «JEFE» o sin persona.
   - Los estados se reconocen aunque cambien mayúsculas, tildes o espacios.
   - Las columnas de persona admiten varias personas.
   - En «Pendientes de mí», «¿Echas en falta alguna solicitud?» → «Comprobar en Colabora» cuenta en el servidor en

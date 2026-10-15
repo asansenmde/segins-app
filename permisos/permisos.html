@@ -333,8 +333,8 @@
     ]).then(function () {
       return buscarMisCuentas();
     }).then(function () {
-      var leer = function (conTexto) { return todas(urlLista() + '/items?$top=1000&$select=' + SEL.join(',') + '&$expand=' + EXPAND + filtroAlcance(conTexto)); };
-      return leer(true).catch(function (e) { if (e.status === 400) return leer(false); throw e; });
+      var leer = function (nivel) { return todas(urlLista() + '/items?$top=1000&$select=' + SEL.join(',') + '&$expand=' + EXPAND + filtroAlcance(nivel)); };
+      return leer(2).catch(function (e) { if (e.status !== 400) throw e; return leer(1); }).catch(function (e) { if (e.status !== 400) throw e; return leer(0); });
     }).then(function (its) {
       items = its.map(aSol);
       return cargarNifs();
@@ -372,7 +372,7 @@
       [].concat.apply([], rs).forEach(function (u) {
         // Misma cuenta de dominio, o mismo correo y mismo nombre (un buzón compartido no basta)
         var mismo = (cuenta && cuentaDe(u.LoginName) === cuenta) ||
-          (yo.Email && u.Email && u.Email.toLowerCase() === yo.Email.toLowerCase() && sinTildes(u.Title) === sinTildes(yo.Title));
+          (yo.Email && u.Email && u.Email.toLowerCase() === yo.Email.toLowerCase() && mismoNombre(u.Title));
         if (mismo && misIds.indexOf(u.Id) < 0) misIds.push(u.Id);
       });
     });
@@ -381,6 +381,14 @@
   function filtroAlcance(conTexto) {
     if (esGestor) return '';
     var c = [];
+    if (conTexto === 2) {
+      // Apellido más largo, para encontrar el nombre escrito de otra forma (luego se confirma con todas las palabras)
+      var ap = palabras(yo.Title).sort(function (x, y) { return y.length - x.length; })[0];
+      if (ap && ap.length >= 4) {
+        var AP = ap.toUpperCase();
+        ['AprobadorTexto', 'AutorizadorTexto', 'JEFE', 'AprobadorDePermiso/Title', 'AutorizadorDelPermiso/Title'].forEach(function (k) { c.push('substringof(' + q_(AP) + ',' + k + ')'); });
+      }
+    }
     // El formulario InfoPath guarda también el correo y el nombre de cada persona: así se encuentra a quien
     // figura con otra cuenta de Colabora (la persona guardada no coincide con la cuenta actual)
     if (conTexto) {
@@ -402,9 +410,17 @@
   var esYo = function (id) { return misIds.indexOf(id) >= 0; };
   var soy = function (p) { return !!(p && yo && (esYo(p.Id) || (p.todos || []).some(esYo))); };
   var mismoCorreo = function (c) { return !!(yo && yo.Email && c && String(c).trim().toLowerCase() === yo.Email.toLowerCase()); };
-  var mismoNombre = function (n) { return !!(yo && yo.Title && n && sinTildes(String(n).trim()) === sinTildes(yo.Title.trim())); };
-  var soyApr = function (t) { return soy(t.apr) || mismoCorreo(t.correoApr) || (!t.apr && mismoNombre(t.aprTexto)); };
-  var soyAut = function (t) { return soy(t.aut) || mismoCorreo(t.correoAut) || (!t.aut && mismoNombre(t.autTexto)); };
+  var palabras = function (n) { return sinTildes(n).replace(/[^a-zñ ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 3 && ['del', 'las', 'los'].indexOf(w) < 0; }); };
+  // Mismo nombre aunque cambie el orden («Apellidos, Nombre»), las comas, mayúsculas o tildes; al menos dos palabras en común
+  var mismoNombre = function (n) {
+    if (!yo || !yo.Title || !n) return false;
+    var a = palabras(yo.Title), b = palabras(n);
+    if (a.length < 2 || b.length < 2) return false;
+    var en = function (x, y) { return x.every(function (w) { return y.indexOf(w) >= 0; }); };
+    return en(a, b) || en(b, a);
+  };
+  var soyApr = function (t) { return soy(t.apr) || mismoCorreo(t.correoApr) || mismoNombre(t.apr && t.apr.Title) || mismoNombre(t.aprTexto) || (!t.apr && t.estado === E.PA && mismoNombre(t.jefe)); };
+  var soyAut = function (t) { return soy(t.aut) || mismoCorreo(t.correoAut) || mismoNombre(t.aut && t.aut.Title) || mismoNombre(t.autTexto) || (!t.aut && t.estado === E.AP && mismoNombre(t.jefe)); };
   var esMia = function (t) { return soy(t.sol) || soy(t.rep) || mismoCorreo(t.correoSol) || (!t.sol && esYo(t.autorId)); };
   // Registro SIPERDEF: solo quien pertenece al grupo de Colabora «Personal de Registro»
   var GRUPO_REGISTRO = /^personal de registro$/i;
@@ -543,9 +559,27 @@
       '<p class="small muted">Pregunta a Colabora en cuántas solicitudes figuras como aprobador o autorizador y en qué estado están (solo cuenta, no cambia nada). Antes, recarga la página con Ctrl+F5.</p>' +
       '<div class="acciones"><button data-comprobar="1">Comprobar en Colabora</button></div><div id="compRes"></div></details>';
   }
+  function comprobarComoFiguro() {
+    var P = ['AprobadorDePermiso', 'AutorizadorDelPermiso'];
+    return todas(urlLista() + "/items?$top=1000&$select=Id,Estado,AprobadorTexto,AutorizadorTexto,CorreoDeAPROBADOR,CorreoDeAUTORIZADOR,JEFE," +
+      P.map(function (k) { return k + '/Id,' + k + '/Title,' + k + '/EMail'; }).join(',') + '&$expand=' + P.join(',') + '&$filter=' + encodeURIComponent("(Estado eq '" + E.PA + "') or (Estado eq '" + E.AP + "')"))
+      .then(function (ls) {
+        var fila = function (est, per, texto, correo) {
+          var xs = ls.filter(function (x) { return estadoCanon(x.Estado) === est; });
+          var n = function (fn) { return xs.filter(fn).length; };
+          return '<tr><td>' + (est === E.PA ? 'Pendientes de aprobar' : 'Pendientes de autorizar') + '</td><td>' + xs.length + '</td><td>' + n(function (x) { return x[per] && esYo(x[per].Id); }) + '</td><td>' +
+            n(function (x) { return mismoCorreo(x[correo]) || (x[per] && mismoCorreo(x[per].EMail)); }) + '</td><td>' + n(function (x) { return mismoNombre(x[per] && x[per].Title) || mismoNombre(x[texto]); }) + '</td><td>' +
+            n(function (x) { return mismoNombre(x.JEFE); }) + '</td><td>' + n(function (x) { return !x[per] || !x[per].Id; }) + '</td></tr>';
+        };
+        return '<div style="overflow-x:auto"><table class="t"><tr><th>En Colabora (que puedes leer)</th><th>Total</th><th>Con tu cuenta</th><th>Con tu correo</th><th>Con tu nombre</th><th>Tú en «JEFE»</th><th>Sin persona</th></tr>' +
+          fila(E.PA, 'AprobadorDePermiso', 'AprobadorTexto', 'CorreoDeAPROBADOR') + fila(E.AP, 'AutorizadorDelPermiso', 'AutorizadorTexto', 'CorreoDeAUTORIZADOR') + '</table></div>';
+      }).catch(function (e) { return '<p class="small muted">No se pudo hacer el recuento detallado (' + esc(e.message || e) + ').</p>'; });
+  }
   function comprobarPendientes() {
     var el = $('#compRes'); if (!el) return;
     el.innerHTML = '<p class="muted small">Comprobando…</p>';
+    var detalleP = comprobarComoFiguro();
+    var pintarDetalle = function () { detalleP.then(function (h) { var d = $('#compDet'); if (d) d.innerHTML = '<p class="small"><b>Cómo figuras en lo pendiente</b> (solo números):</p>' + h + '<p class="small muted">Si aparece un número en «Con tu nombre» o «Tú en JEFE» pero «Esperan mi acción» está a 0, dime estos números.</p>'; }); };
     var contar = function (campo) {
       var f = misIds.map(function (id) { return '(' + campo + ' eq ' + id + ')'; }).concat(yo.Email ? ['(' + (campo === 'AprobadorDePermisoId' ? 'CorreoDeAPROBADOR' : 'CorreoDeAUTORIZADOR') + ' eq ' + q_(yo.Email) + ')'] : []).join(' or ');
       return todas(urlLista() + '/items?$top=1000&$select=Id,Estado&$filter=' + encodeURIComponent(f)).catch(function () {
@@ -568,7 +602,8 @@
           '<p class="small"><b>Como autorizador</b> figuras en ' + r[1].length + ' solicitud(es): ' + tabla(r[1]) + '.<br>Pendientes de autorizar que ve la página: <b>' + pendientes().autorizar.length + '</b>.</p>' +
           (r[0].length + r[1].length > visibles(r[0]) + visibles(r[1]) ? '<div class="aviso">Hay solicitudes en Colabora que la página no ha cargado. Pulsa «Actualizar»; si siguen faltando, dime estos números.</div>' : '') +
           (faltanA || faltanU ? '<div class="aviso">Hay ' + (faltanA + faltanU) + ' solicitud(es) donde tu nombre aparece como aprobador o autorizador en el texto, pero la persona guardada en la solicitud es otra cuenta. Dime este número para revisarlo.</div>' : '') +
-          '<p class="small muted">Solo «1-Pendiente de Aprobar» (si eres el aprobador) y «2-Aprobado» (si eres el autorizador) esperan tu acción; el resto ya está tramitado.</p>';
+          '<p class="small muted">Solo «1-Pendiente de Aprobar» (si eres el aprobador) y «2-Aprobado» (si eres el autorizador) esperan tu acción; el resto ya está tramitado.</p><div id="compDet"><p class="muted small">Calculando cómo figuras…</p></div>';
+        pintarDetalle();
       }).catch(function (e) { el.innerHTML = '<div class="error">No se pudo comprobar: ' + esc(e.message || e) + '</div>'; });
   }
 
