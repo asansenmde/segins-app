@@ -169,16 +169,17 @@
   // ---------- Valores de la lista ----------
   var ES = { BO: 'BORRADOR', RM: 'REMITIDO A M1', SE: 'EN SEGUIMIENTO', CE: 'EXP CERRADO' };
   var DIA = { VI: 'VISTO POR DIACU', EL: 'ELEVADO POR DIACU', RE: 'RECHAZADO POR DIACU' };
-  var SUIGES = ['SUIGESUR', 'SUIGENOR', 'SUIGECAN', 'SUIGEPIR', 'SECOORCEN', 'DIIN', 'JEFATURA DE IGE'];
+  var SUIGES = ['SUIGESUR', 'SUIGENOR', 'SUIGECAN', 'SUIGEPIR', 'SECOORCEN', 'DIIN', 'DIAPER', 'JEFATURA DE IGE'];
   var PROBS = ['MUY BAJO', 'BAJO', 'MEDIO', 'ALTO', 'MUY ALTO'];
   // Grupos de Colabora que dan cada papel. Si cambian los nombres de los grupos, se ajusta aquí.
+  // DIACU e IGE están en el mismo grupo, SEGURIDAD_IGE. DIAPER valora como una SUIGE (tiene su propia vista).
   var ROLES = {
-    suige: /^SEGURIDAD_(SUIGESUR|SUIGENOR|SUIGECAN|SUIGEPIR|SECORCEN|SECOORCEN|DIIN)$/i,
-    diacu: /^(SEGURIDAD_DIAPER|JDIACU)$/i,
+    suige: /^SEGURIDAD_(SUIGESUR|SUIGENOR|SUIGECAN|SUIGEPIR|SECORCEN|SECOORCEN|DIIN|DIAPER)$/i,
+    diacu: /^SEGURIDAD_IGE$/i,
     ige: /^SEGURIDAD_IGE$/i
   };
   // Grupo al que se avisa por correo en cada paso
-  var GRUPO_CORREO = { diacu: ['SEGURIDAD_DIAPER'], ige: ['SEGURIDAD_IGE'],
+  var GRUPO_CORREO = { diacu: ['SEGURIDAD_IGE'], ige: ['SEGURIDAD_IGE'],
     suige: function (s) { return s === 'SECOORCEN' ? ['SEGURIDAD_SECORCEN'] : s === 'JEFATURA DE IGE' ? ['SEGURIDAD_IGE'] : s ? ['SEGURIDAD_' + s] : []; } };
   // MN1–MN4 tienen nombre interno «_x004d_N1»…: en el REST de SharePoint, los que empiezan por «_» se llaman «OData_…»
   var MANDOS = ['MANDO1N', 'MANDO2N', 'MANDO3N', 'OData__x004d_N1', 'OData__x004d_N2', 'OData__x004d_N3', 'OData__x004d_N4'];
@@ -187,7 +188,7 @@
     var s = String(v || '').toUpperCase();
     if (/SECO?ORCEN/.test(s)) return 'SECOORCEN';
     if (/JEFATURA DE IGE/.test(s)) return 'JEFATURA DE IGE';
-    var m = s.match(/SUIGE(SUR|NOR|CAN|PIR)|\bDIIN\b/);
+    var m = s.match(/SUIGE(SUR|NOR|CAN|PIR)|\bDIIN\b|\bDIAPER\b/);
     return m ? m[0] : '';
   };
 
@@ -542,7 +543,7 @@
       '<label class="lbl">Lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
       '<label class="check"><input type="checkbox" id="aCorreo"' + (pref.correo ? ' checked' : '') + '> Enviar avisos por correo al tramitar</label></div>' +
       '<div class="card"><h3 style="margin-top:0">Papeles</h3><p class="small">Tus papeles: ' + esc(misPapeles().join(', ') || 'ninguno') + '.</p>' +
-      '<p class="small muted">Se deducen de los grupos de Colabora: SUIGE = SEGURIDAD_SUIGESUR, _SUIGENOR, _SUIGECAN, _SUIGEPIR, _SECORCEN, _DIIN; DIACU = SEGURIDAD_DIAPER o JDIACU; IGE = SEGURIDAD_IGE. ' +
+      '<p class="small muted">Se deducen de los grupos de Colabora: SUIGE = SEGURIDAD_SUIGESUR, _SUIGENOR, _SUIGECAN, _SUIGEPIR, _SECORCEN, _DIIN, _DIAPER; DIACU e IGE = SEGURIDAD_IGE. ' +
       'La SUIGE de cada parte sale de la columna SUIGES, del grupo del parte o de la cadena de mando (MANDO1N–3N, MN1–MN4).</p>' +
       '<p class="small">Incidentes sin SUIGE determinada: <b>' + items.filter(function (t) { return !t.suige; }).length + '</b> de ' + items.length + '.</p></div>' +
       '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">La página trabaja dentro de Colabora con tu sesión y tus permisos. No envía nada fuera del servidor. Los textos del parte (observación, análisis, medidas…) solo se leen al abrir un incidente. La protección real es la de los permisos de la lista.</p></div>';

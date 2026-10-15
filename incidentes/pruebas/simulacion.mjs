@@ -97,8 +97,10 @@ async function prueba(verbose, escenario) {
   if (escenario === 'enlace') { console.log(tag, '| ficha abierta:', await p.textContent('#dlg h2').catch(() => 'nada'), '| URL limpia:', p.url().endsWith('incidentes.html')); await b.close(); return; }
   console.log(tag, '| pestañas:', pestañas, '| filtro:', ultimoFiltro ? (ultimoFiltro.includes('substringof') ? 'con cadena de mando' : 'sin cadena de mando') : 'ninguno (ve todo)');
   console.log(tag, '| panel:', (await p.$$eval('.kpi', k => k.map(x => x.textContent.replace(/(\d+)$/, ':$1')))).join(' · '));
+  if (escenario === 'solo SEGURIDAD_IGE') { await p.click('#tabs a[data-v=panel]'); await p.waitForTimeout(200); }
   await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200);
   console.log(tag, '| pendientes:', (await p.$$eval('#vista .sec', s => s.map(x => x.textContent.replace(/(\d+)$/, ' = $1')))).join(' · '), '| ids:', await p.$$eval('#vista .inc', n => n.map(x => x.dataset.id).join(',')));
+  if (escenario === 'solo SEGURIDAD_IGE') { console.log(tag, '| papeles:', await p.$$eval('#vista .badge.rol', n => n.map(x => x.textContent).join(', ')).catch(() => ''), '| errores:', errs); await b.close(); return; }
   if (escenario === 'solo SUIGESUR' || escenario === 'SUIGESUR sin substringof') {
     await p.click('#tabs a[data-v=consulta]'); await p.waitForTimeout(200);
     console.log(tag, '| ve:', await p.$$eval('#vista .inc', n => n.map(x => x.dataset.id).sort().join(',')), lecturaMinima ? '| lectura mínima: ' + lecturaMinima : '');
@@ -185,5 +187,6 @@ const TODOS = ['SEGURIDAD_SUIGESUR', 'SEGURIDAD_SUIGENOR', 'SEGURIDAD_SUIGECAN',
 misGrupos = TODOS; admin = true; await prueba(false, 'control total'); await prueba(true, 'control total');
 misGrupos = ['SEGURIDAD_SUIGESUR', 'Integrantes de la Colaborativo']; admin = false; await prueba(false, 'solo SUIGESUR');
 sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstringof = false;
+misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'solo SEGURIDAD_IGE');
 misGrupos = TODOS; admin = true; await prueba(false, 'enlace');
 faltaCampo = 'ResponsableDelParte'; await prueba(true, 'columna inexistente'); faltaCampo = null;

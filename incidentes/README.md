@@ -19,8 +19,8 @@ Se sube a una biblioteca de Colabora (la misma que `permisos.html` vale) junto c
 | Fase | Quién | Qué guarda la página |
 |---|---|---|
 | Parte (BORRADOR → REMITIDO A M1) | quien lo da de alta | se hace en el **formulario de Colabora** («＋ Nuevo parte», «Editar el parte»), que rellena la cadena de mando y el grupo |
-| Valoración SUIGE | grupo `SEGURIDAD_<SUIGE>` | `VALORACIONSUIGES`, `ValoradoPorSUIGE` = sí, `ESTADO` = EN SEGUIMIENTO |
-| DIACU | `SEGURIDAD_DIAPER` o `JDIACU` | `DIACU` = visto / elevado / rechazado, `VALORACIONDIACU`, `ValoradoPorDIACU`; rechazar devuelve a la SUIGE (`ValoradoPorSUIGE` = no) |
+| Valoración SUIGE | grupo `SEGURIDAD_<SUIGE>` (SUIGESUR, SUIGENOR, SUIGECAN, SUIGEPIR, SECORCEN, DIIN y DIAPER) | `VALORACIONSUIGES`, `ValoradoPorSUIGE` = sí, `ESTADO` = EN SEGUIMIENTO |
+| DIACU | `SEGURIDAD_IGE` (DIACU está en el grupo de IGE) | `DIACU` = visto / elevado / rechazado, `VALORACIONDIACU`, `ValoradoPorDIACU`; rechazar devuelve a la SUIGE (`ValoradoPorSUIGE` = no) |
 | IGE (solo si DIACU eleva) | `SEGURIDAD_IGE` | `valoracionIGE`, `ValoradoPorIGE` = sí |
 | Cierre | IGE (o DIACU si fue «visto») | `ESTADO` = EXP CERRADO; IGE o quien administra la lista puede reabrir (con motivo) |
 
@@ -46,13 +46,13 @@ textos, valoraciones, historial, acciones del papel que toque, «Añadir observa
 oficial en PDF y enlaces al formulario de Colabora (adjuntos, editar el borrador).
 
 **Correos** (formato oficial, con enlace `incidentes.html?id=N`; nunca llevan los textos del parte):
-valorado por SUIGE → DIACU; visto → SUIGE; elevado → IGE (copia SUIGE); rechazado → SUIGE; valorado por IGE → DIACU
-(copia SUIGE); cerrado → SUIGE con copia al responsable, al autor y a `correosPersonasInfo`. Siempre copia a
+valorado por SUIGE → SEGURIDAD_IGE (DIACU); visto → SUIGE; elevado → SEGURIDAD_IGE (copia SUIGE); rechazado → SUIGE;
+valorado por IGE → SEGURIDAD_IGE (copia SUIGE); cerrado → SUIGE con copia al responsable, al autor y a `correosPersonasInfo`. Siempre copia a
 `correosPersonasInfo`. Los destinatarios son los integrantes de los grupos; si un grupo oculta sus integrantes, se
 ofrece preparar el correo en Outlook. Los avisos del formulario InfoPath siguen funcionando aparte.
 
-**Pendiente de confirmar en Colabora**: nombres de los grupos de DIACU e IGE (constantes `ROLES` y `GRUPO_CORREO`
-al principio del código).
+**Grupos** (constantes `ROLES` y `GRUPO_CORREO` al principio del código): confirmados con los permisos de la lista.
+DIACU e IGE comparten `SEGURIDAD_IGE`. DIAPER valora como una SUIGE (tiene su propia vista en la lista).
 
 ## Archivos
 
