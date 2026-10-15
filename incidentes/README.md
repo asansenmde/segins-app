@@ -36,13 +36,15 @@ guardar se comprueba que nadie ha cambiado el incidente (fecha y estado) y que t
 **SUIGE de cada parte**: columna `SUIGES` si está rellena; si no, el nombre del `grupo`; si no, la cadena de mando
 (`MANDO1N–3N`, `MN1–MN4`) que contenga SUIGESUR, SUIGENOR, SUIGECAN, SUIGEPIR, SECOORCEN/SECORCEN o DIIN.
 
-**Quién ve qué**: DIACU, IGE y quien administra la lista, todo; cada SUIGE, los suyos (filtro en el servidor por
+**Quién ve qué**: DIACU e IGE (grupo `SEGURIDAD_IGE`), todo. **Administrar la lista o tener Control total NO da acceso a
+los partes de otras SUIGE**; cada SUIGE, los suyos (filtro en el servidor por
 `SUIGES`, grupo o cadena de mando; si Colabora no admite buscar texto, se leen solo número, SUIGES, grupo y cadena de
 mando para localizarlos); el resto, los que dio de alta o en los que figura. La protección real es la de la lista.
 
-**Pestañas**: Panel (recuadros por fase, probabilidad alta, reiterados, denuncias, últimos partes), Pendientes de mí
+**Pestañas**: Incidentes registrados (antes «Panel»: recuadros por fase, probabilidad alta, reiterados, denuncias, últimos partes), Pendiente de valoración y tramitación
 («Esperan mi acción» en rojo por papel, los más antiguos primero, ⏳ días en rojo a partir de 7; «Ya tramitados por
-mí» en verde), Incidentes (filtros, PDF de la relación, CSV), Estadísticas (barras por tipo, mes, SUIGE,
+mí» en verde), Búsqueda y consulta (filtros, **agrupada** por provincia, unidad/lugar, probabilidad, SUIGE, tipo, fase o mes, con el
+nº de abiertos y de probabilidad alta de cada grupo; PDF de la relación, CSV), Estadísticas (barras por tipo, mes, SUIGE,
 probabilidad, fase, provincia, reiterado, zona señalizada y denuncia, con los mismos filtros) y Ajustes (solo Control
 total).
 

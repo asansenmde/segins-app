@@ -21,7 +21,7 @@ async function prueba(verbose) {
   await p.route(O + '/**', async r => {
     const req = r.request(), u = decodeURIComponent(req.url());
     if (!u.includes('/_api/')) {
-      if (u.includes('SitePages/INCIDENTES')) return r.fulfill({ contentType: 'text/html', body: `<html><body><div>TEXTO DE LA PAGINA</div><script>var ctx={listName:"{${GUID.toUpperCase()}}",ListUrl:"\\u002fet\\u002fjige\\u002fcolaborativo\\u002fLists\\u002fIncidentes"}</script><a href="${WEB}/Lists/Unidades/AllItems.aspx">u</a></body></html>` });
+      if (u.includes('SitePages/INCIDENTES')) return r.fulfill({ contentType: 'text/html', body: `<html><body><div>TEXTO DE LA PAGINA</div><script>var ctx={listName:"{${GUID.toUpperCase()}}",ListUrl:"\\u002fet\\u002fjige\\u002fcolaborativo\\u002fLists\\u002fIncidentes"}</script><a href="${WEB}/Lists/Unidades/AllItems.aspx">u</a><div data-view="{AAAABBBB-1111-2222-3333-444455556666}"></div></body></html>` });
       return r.fulfill({ body: html, contentType: 'text/html' });
     }
     metodos.add(req.method());
@@ -39,7 +39,10 @@ async function prueba(verbose) {
       { Id: 'bbbb2222-0000-0000-0000-000000000000', Title: 'Documentos compartidos', ItemCount: 40, BaseTemplate: 101, Hidden: false, LastItemModifiedDate: '2026-01-01T00:00:00Z', RootFolder: { ServerRelativeUrl: WEB + '/Shared Documents' } }] });
     if (u.includes('/WorkflowAssociations')) return J({ value: [{ Name: 'Aprobación', Enabled: true, AutoStartCreate: true, AutoStartChange: false, AllowManual: true }] });
     if (u.includes('/contenttypes')) return J({ value: [{ Name: 'Elemento' }, { Name: 'Carpeta' }] });
-    if (u.includes('/views')) return J({ value: [{ Title: 'Todos los elementos', DefaultView: true }, { Title: 'Abiertos' }] });
+    if (u.includes('/views')) return J({ value: [
+      { Id: 'aaaabbbb-1111-2222-3333-444455556666', Title: 'MIS INCIDENCIAS', DefaultView: true, ViewQuery: '<OrderBy><FieldRef Name="ID" Ascending="FALSE"/></OrderBy><Where><Or><Membership Type="CurrentUserGroups"><FieldRef Name="grupo"/></Membership><Eq><FieldRef Name="Author"/><Value Type="Integer"><UserID Type="Integer"/></Value></Eq></Or></Where>' },
+      { Id: 'ccccdddd-1111-2222-3333-444455556666', Title: 'SUIGESUR', ViewQuery: '<Where><And><Contains><FieldRef Name="MANDO2N"/><Value Type="Text">SUIGESUR</Value></Contains><Eq><FieldRef Name="ResponsableDelParte"/><Value Type="Text">NOMBRE SECRETO</Value></Eq></And></Where>' },
+      { Id: 'eeeeffff-1111-2222-3333-444455556666', Title: 'todos incidentes', ViewQuery: '' }] });
     if (u.includes('/fields')) {
       const ch = a => verbose ? { results: a } : a;
       return J({ value: [
@@ -80,6 +83,7 @@ async function prueba(verbose) {
   console.log(tag, 'opciones JefeInstructor:', A.columnas.find(c => c.interno === 'JefeInstructor').opciones, '| Unidad busca en:', A.columnas.find(c => c.interno === 'Unidad0').busca_en_lista);
   console.log(tag, 'total:', A.elementos.total, '| por año:', JSON.stringify(A.elementos.creados_por_año), '| Gravedad:', JSON.stringify(A.elementos.columnas.Gravedad), '| Categoria:', JSON.stringify(A.elementos.columnas.Categoria));
   console.log(tag, 'Jefe:', JSON.stringify(A.elementos.columnas.JefeInstructor), '| FechaLimite:', JSON.stringify(A.elementos.columnas.FechaLimite), '| Responsable:', JSON.stringify(A.elementos.columnas.Responsable), '| Unidad:', JSON.stringify(A.elementos.columnas.Unidad0));
+  console.log(tag, 'vistas:', JSON.stringify(A.vistas), '| oculta valores:', !JSON.stringify(A.vistas).includes('SECRETO'));
   console.log(tag, 'flujos:', JSON.stringify(A.flujos_2010), JSON.stringify(A.flujos_2013), '| vistas:', A.vistas, '| permisos propios:', A.lista_info.permisos_propios_no_heredados);
   console.log(tag, 'privacidad: textos', !/SECRET|TEXTO DE LA PAGINA|NOMBRE \d|Caso único/.test(res) ? 'no aparecen ✓' : 'APARECEN ✗', '| Title/Descripcion pedidos:', /Title|Descripcion/.test(selItems) ? 'sí ✗' : 'no ✓', '| métodos:', [...metodos].join(','), '| errores:', R.errores, errs);
   if (!verbose) await p.screenshot({ path: new URL('diagnostico.png', import.meta.url).pathname, fullPage: true });

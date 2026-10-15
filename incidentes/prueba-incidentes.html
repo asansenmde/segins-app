@@ -69,7 +69,7 @@
   document.getElementById('app').hidden = false;
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
-  var R = null, web = '', sitioLista = [], yoId = null;
+  var R = null, web = '', sitioLista = [], yoId = null, guidsPagina = {};
   var pintar = function () { $('resumen').textContent = JSON.stringify(R, null, 1); };
   var error = function (donde) { return function (e) { R.errores.push(donde + ': ' + (e && e.message || e)); pintar(); return null; }; };
 
@@ -114,6 +114,32 @@
       .then(function (d) { d = d.d || d; return lista(d.results || d.value || d); });
   }
 
+  // Resumen legible del CAML de una vista (sin valores personales)
+  var VALOR_VISIBLE = /^(borrador|remitido a m1|en seguimiento|exp cerrado|suige(sur|nor|can|pir)|seco?orcen|diin|diaper|jefatura de ige|visto por diacu|elevado por diacu|rechazado por diacu|si|no|es la primera vez|true|false|0|1|20\d\d|muy bajo|bajo|medio|alto|muy alto)$/i;
+  function resumenFiltro(caml) {
+    if (!caml) return 'sin filtro (todos los elementos)';
+    var doc; try { doc = new DOMParser().parseFromString('<r>' + caml + '</r>', 'text/xml'); } catch (e) { return 'no se pudo leer'; }
+    var where = doc.getElementsByTagName('Where')[0];
+    if (!where) return 'sin filtro (todos los elementos)';
+    var OPS = { Eq: '=', Neq: '≠', Gt: '>', Geq: '≥', Lt: '<', Leq: '≤', Contains: 'contiene', BeginsWith: 'empieza por', IsNull: 'está vacío', IsNotNull: 'no está vacío', In: 'en' };
+    var valor = function (n) {
+      var v = n.getElementsByTagName('Value')[0];
+      if (!v) return '';
+      if (v.getElementsByTagName('UserID').length) return '[Yo]';
+      if (v.getElementsByTagName('Today').length) return '[Hoy]';
+      var t = (v.textContent || '').trim();
+      return VALOR_VISIBLE.test(t) ? '«' + t + '»' : '(valor)';
+    };
+    var nodo = function (n) {
+      var tag = n.nodeName;
+      if (tag === 'And' || tag === 'Or') return '(' + Array.prototype.filter.call(n.childNodes, function (c) { return c.nodeType === 1; }).map(nodo).join(tag === 'And' ? ' Y ' : ' O ') + ')';
+      if (tag === 'Membership') { var f0 = n.getElementsByTagName('FieldRef')[0]; return (f0 ? f0.getAttribute('Name') : '?') + ' ∈ ' + ({ CurrentUserGroups: 'mis grupos', SPWeb_Groups: 'grupos del sitio', 'SPGroup': 'un grupo' }[n.getAttribute('Type')] || n.getAttribute('Type')); }
+      var f = n.getElementsByTagName('FieldRef')[0];
+      return (f ? f.getAttribute('Name') : '?') + ' ' + (OPS[tag] || tag) + (valor(n) ? ' ' + valor(n) : '');
+    };
+    var hijos = Array.prototype.filter.call(where.childNodes, function (c) { return c.nodeType === 1; });
+    return hijos.map(nodo).join(' Y ');
+  }
   var corto = function (v) { var s = String(v == null ? '' : v).replace(/\s+/g, ' ').trim(); return s.length > 45 ? s.slice(0, 45) + '…' : s; };
   var cuenta = function (arr) { var m = {}; arr.forEach(function (v) { var k = v === '' || v == null ? '(vacío)' : corto(v); m[k] = (m[k] || 0) + 1; }); return m; };
   // Solo valores que se repiten (3 o más veces): nunca un valor suelto que pudiera identificar un caso
@@ -152,7 +178,7 @@
           (h.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g) || []).forEach(function (g) { guids[g.toLowerCase()] = 1; });
           (h.replace(/\\u002f/gi, '/').replace(/%20/g, ' ').match(/\/Lists\/[^/"'?<>#\\]+/g) || []).forEach(function (x) { rutas[x.toLowerCase()] = 1; });
           R.pagina_info = { leida: true, tamaño_kb: Math.round(h.length / 1024), identificadores_encontrados: Object.keys(guids).length, rutas_de_listas: Object.keys(rutas).length };
-          R._guids = guids; R._rutas = rutas;
+          R._guids = guids; R._rutas = rutas; guidsPagina = guids;
         }).catch(function (e) { R.pagina_info = { leida: false }; error('página')(e); }),
       api(web + "/_api/web/getfilebyserverrelativeurl('" + encodeURIComponent(rutaPag.replace(/'/g, "''")) + "')/getlimitedwebpartmanager(1)/webparts?$expand=WebPart&$select=WebPart/Title")
         .then(function (d) { R.elementos_web_de_la_pagina = lista(d.value).map(function (w) { return w.WebPart ? w.WebPart.Title : '?'; }); })
@@ -201,8 +227,14 @@
           return l.Id;
         }).catch(error(titulo + ' · lista')),
       api(L + '/contenttypes?$select=Name').then(function (d) { A.tipos_de_contenido = lista(d.value).map(function (c) { return c.Name; }); }).catch(error(titulo + ' · tipos de contenido')),
-      api(L + '/views?$select=Title,DefaultView,RowLimit,Hidden&$filter=Hidden eq false').then(function (d) {
-        A.vistas = lista(d.value).map(function (v) { return v.Title + (v.DefaultView ? ' (predeterminada)' : ''); });
+      api(L + '/views?$select=Id,Title,DefaultView,Hidden,ViewQuery,ServerRelativeUrl&$filter=Hidden eq false').then(function (d) {
+        // Filtro de cada vista, resumido: columnas, condiciones, «[Yo]», «mis grupos» y valores de estado o SUIGE; otros valores, ocultos
+        A.vistas = lista(d.value).map(function (v) {
+          var o = { vista: v.Title, filtro: resumenFiltro(v.ViewQuery) };
+          if (v.DefaultView) o.predeterminada = true;
+          if (guidsPagina[String(v.Id).replace(/[{}]/g, '').toLowerCase()]) o.en_la_pagina = true;
+          return o;
+        });
       }).catch(error(titulo + ' · vistas')),
       api(L + "/fields?$select=Title,InternalName,TypeAsString,Required,ReadOnlyField,Choices,DefaultValue,FillInChoice,LookupList,RichText,AllowMultipleValues&$filter=Hidden eq false").then(function (d) {
         cols = lista(d.value).filter(function (f) { return !f.ReadOnlyField || /^(Author|Editor|Created|Modified)$/.test(f.InternalName); });
@@ -283,6 +315,8 @@
       (A.lista_info ? tabla('Mis permisos en la lista', A.lista_info.mis_permisos_en_la_lista) : '') +
       (A.columnas.length ? '<h2 style="margin-top:12px">Columnas</h2><div style="overflow-x:auto"><table><tr><th>Columna</th><th>Nombre interno</th><th>Tipo</th><th>Opciones</th></tr>' +
         A.columnas.map(function (c) { return '<tr><td>' + esc(c.titulo) + (c.obligatoria ? ' *' : '') + '</td><td>' + esc(c.interno) + '</td><td>' + esc(c.tipo) + '</td><td>' + esc(Array.isArray(c.opciones) ? c.opciones.join(' · ') : c.opciones || c.busca_en_lista || '') + '</td></tr>'; }).join('') + '</table></div>' : '') +
+      (A.vistas && A.vistas.length ? '<h2 style="margin-top:12px">Vistas y sus filtros (quién ve qué)</h2><div style="overflow-x:auto"><table><tr><th>Vista</th><th>Filtro</th></tr>' +
+        A.vistas.map(function (v) { return '<tr' + (v.en_la_pagina ? ' class="pag"' : '') + '><td>' + esc(v.vista) + (v.predeterminada ? ' (predeterminada)' : '') + (v.en_la_pagina ? ' ⭐' : '') + '</td><td>' + esc(v.filtro) + '</td></tr>'; }).join('') + '</table></div>' : '') +
       (A.elementos ? tabla('Recuentos (solo valores que se repiten)', A.elementos.columnas) : '') + '</div>';
     if (R.errores.length) h += '<div class="card bad">' + R.errores.map(esc).join('<br>') + '</div>';
     $('salida').innerHTML = h;

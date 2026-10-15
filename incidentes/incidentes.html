@@ -163,10 +163,10 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-15 · 4';
+  var VERSION = '2026-10-15 · 5';
   var CLAVE = 'incidentes-seguridad-ige';
   var pref = { sitio: '/et/jige/colaborativo', lista: 'INCIDENTES DE SEGURIDAD', vista: 'panel', correo: true,
-    f: { q: '', fase: '', tipo: '', suige: '', prob: '', desde: '', hasta: '' } };
+    f: { q: '', fase: '', tipo: '', suige: '', prob: '', desde: '', hasta: '' }, agrupar: 'provincia' };
   var POR_DEFECTO = { sitio: pref.sitio, lista: pref.lista };
   try { var g = JSON.parse(localStorage.getItem(CLAVE) || 'null'); if (g) pref = Object.assign(pref, g, { f: Object.assign(pref.f, g.f || {}) }); } catch (e) { /* sin memoria local */ }
   var guardarPref = function () { try { localStorage.setItem(CLAVE, JSON.stringify(pref)); } catch (e) { /* sin memoria local */ } };
@@ -357,7 +357,8 @@
     });
   }
   // Alcance por papel: DIACU, IGE y quien administra la lista ven todo; cada SUIGE, los suyos; el resto, los que creó o en los que figura
-  var verTodo = function () { return esGestor || esDiacu || esIge; };
+  // Ven todos los partes solo DIACU e IGE (grupo SEGURIDAD_IGE). Administrar la lista NO da acceso a los partes de otras SUIGE.
+  var verTodo = function () { return esDiacu || esIge; };
   function leerIncidentes(grupoIds, conMandos) {
     if (verTodo()) return leerCon(SEL, '');
     var c = ['AuthorId', 'ResponsableDeLaInformacionId', 'UsuarioId', 'grupoId'].map(function (k) { return '(' + k + ' eq ' + yo.Id + ')'; });
@@ -388,8 +389,8 @@
     });
   }
   function alcanceTxt() {
-    if (verTodo()) return 'Ves todos los incidentes' + (esIge ? ' (IGE)' : esDiacu ? ' (DIACU)' : ' (administras la lista)') + '.';
-    return 'Ves los incidentes de ' + (misSuiges.length ? 'tu SUIGE (' + misSuiges.join(', ') + ') y ' : '') + 'los que has dado de alta o en los que figuras.';
+    if (verTodo()) return 'Ves todos los incidentes porque perteneces a SEGURIDAD_IGE (DIACU e IGE).';
+    return 'Ves los incidentes de ' + (misSuiges.length ? (misSuiges.length > 1 ? 'tus SUIGE (' : 'tu SUIGE (') + misSuiges.join(', ') + ', por tus grupos ' + misGrupos.filter(function (g) { return ROLES.suige.test(String(g).trim()); }).join(', ') + ') y ' : '') + 'los que has dado de alta o en los que figuras. Nada más.';
   }
 
   // ---------- Fases del circuito y quién actúa ----------
@@ -467,7 +468,7 @@
       '<div class="kpi ambar" data-ir="todas">Reiterados («SI»)<b>' + n(function (t) { return t.reiterada === 'SI'; }) + '</b></div>' +
       '<div class="kpi azul" data-ir="todas">Con denuncia<b>' + n(function (t) { return t.denuncia; }) + '</b></div>' +
       '<div class="kpi gris" data-ir="todas">Partes ' + anio + '<b>' + n(function (t) { return String(t.fecha).slice(0, 4) === anio; }) + '</b></div></div>' +
-      '<div class="sec"><span>Últimos partes</span><span>' + Math.min(10, items.length) + ' de ' + items.length + '</span></div>' +
+      '<div class="sec"><span>Últimos incidentes registrados</span><span>' + Math.min(10, items.length) + ' de ' + items.length + '</span></div>' +
       (items.slice().sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); }).slice(0, 10).map(function (t) { return tarjeta(t); }).join('') || '<div class="card vacio">No hay incidentes.</div>');
   }
   var pendVista = 'pendientes';
@@ -522,10 +523,36 @@
       '<div><label class="lbl">Hasta</label><input id="fHasta" type="date" value="' + esc(f.hasta) + '"></div>' +
       '</div><div class="acciones"><button data-relimp="1">🖨 Imprimir relación / PDF</button><button data-csv="1">📊 Excel (CSV)</button><button data-limpiar="1">Quitar filtros</button></div></div>';
   }
+  // Agrupación de la consulta para que la lista no se haga interminable
+  var AGRUPAR = [['provincia', 'Provincia'], ['lugar', 'Unidad / lugar'], ['prob', 'Probabilidad'], ['suige', 'SUIGE'], ['tipo', 'Tipo de incidente'], ['fase', 'Fase'], ['mes', 'Mes del incidente'], ['', 'Sin agrupar']];
+  function claveGrupo(t, k) {
+    if (k === 'fase') return FASES[fase(t) === 6 ? 1 : fase(t)];
+    if (k === 'mes') return t.fecha ? aFecha(t.fecha).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }) : '(sin fecha)';
+    if (k === 'prob') return t.prob ? t.prob.charAt(0) + t.prob.slice(1).toLowerCase() : '(sin probabilidad)';
+    return t[k] || '(sin dato)';
+  }
   function vistaConsulta() {
-    var ts = filtrar();
-    return filtrosHtml() + '<p class="muted small">' + esc(alcanceTxt()) + ' ' + ts.length + ' incidente' + (ts.length === 1 ? '' : 's') + ' con estos filtros.</p>' +
-      (ts.map(function (t) { return tarjeta(t); }).join('') || '<div class="card vacio">Ningún incidente con estos filtros.</div>');
+    var ts = filtrar(), k = pref.agrupar || '';
+    var cab = '<div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><label class="lbl" style="margin:0">Agrupar por</label><select id="fAgrupar" style="max-width:260px">' +
+      AGRUPAR.map(function (a) { return '<option value="' + a[0] + '"' + (k === a[0] ? ' selected' : '') + '>' + esc(a[1]) + '</option>'; }).join('') + '</select>' +
+      '<span class="muted small">' + ts.length + ' incidente' + (ts.length === 1 ? '' : 's') + ' con estos filtros. Pulsa un grupo para desplegarlo.</span></div>';
+    var pie = '<p class="muted small">' + esc(alcanceTxt()) + '</p>';
+    if (!ts.length) return filtrosHtml() + cab + '<div class="card vacio">Ningún incidente con estos filtros.</div>' + pie;
+    if (!k) return filtrosHtml() + cab + ts.map(function (t) { return tarjeta(t); }).join('') + pie;
+    var g = new Map();
+    ts.forEach(function (t) { var c = claveGrupo(t, k); if (!g.has(c)) g.set(c, []); g.get(c).push(t); });
+    var orden = Array.from(g.entries());
+    if (k === 'prob') orden.sort(function (a, b) { return probN(b[1][0]) - probN(a[1][0]); });
+    else if (k === 'mes') orden.sort(function (a, b) { return String(b[1][0].fecha).localeCompare(String(a[1][0].fecha)); });
+    else if (k === 'fase') orden.sort(function (a, b) { return fase(a[1][0]) - fase(b[1][0]); });
+    else orden.sort(function (a, b) { return b[1].length - a[1].length || a[0].localeCompare(b[0], 'es'); });
+    var abrirTodo = orden.length <= 2 || !!pref.f.q;
+    return filtrosHtml() + cab + orden.map(function (e) {
+      var ls = e[1], abiertos = ls.filter(abierto).length, altos = ls.filter(function (t) { return abierto(t) && probN(t) >= 4; }).length;
+      return '<details class="card"' + (abrirTodo ? ' open' : '') + '><summary style="cursor:pointer"><b>' + esc(e[0]) + '</b> <span class="badge f4">' + ls.length + '</span>' +
+        (abiertos ? ' <span class="badge f1">' + abiertos + ' abierto' + (abiertos === 1 ? '' : 's') + '</span>' : '') + (altos ? ' <span class="badge f6">' + altos + ' prob. alta</span>' : '') + '</summary>' +
+        '<div style="margin-top:8px">' + ls.map(function (t) { return tarjeta(t); }).join('') + '</div></details>';
+    }).join('') + pie;
   }
   // Barras de una sola serie: etiqueta, barra (longitud = cantidad) y el número con su porcentaje
   function barras(tit, pares, total, orden) {
@@ -572,7 +599,7 @@
       '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">La página trabaja dentro de Colabora con tu sesión y tus permisos. No envía nada fuera del servidor. Los textos del parte (observación, análisis, medidas…) solo se leen al abrir un incidente. La protección real es la de los permisos de la lista.</p></div>';
   }
   function render() {
-    var vistas = [['panel', 'Panel'], ['pendientes', 'Pendientes de mí'], ['consulta', 'Incidentes'], ['estadisticas', 'Estadísticas']].concat(cargadoEn && esAdmin ? [['ajustes', 'Ajustes']] : []);
+    var vistas = [['panel', 'Incidentes registrados'], ['pendientes', 'Pendiente de valoración y tramitación'], ['consulta', 'Búsqueda y consulta'], ['estadisticas', 'Estadísticas']].concat(cargadoEn && esAdmin ? [['ajustes', 'Ajustes']] : []);
     if (pref.vista === 'ajustes' && (!cargadoEn || !esAdmin)) pref.vista = 'panel';
     var cuenta = { pendientes: cargadoEn ? nPend() : 0 };
     $('#tabs').innerHTML = vistas.map(function (v) { return '<a data-v="' + v[0] + '" class="' + (pref.vista === v[0] ? 'on' : '') + '">' + v[1] + (cuenta[v[0]] ? '<i>' + cuenta[v[0]] + '</i>' : '') + '</a>'; }).join('');
@@ -1043,6 +1070,7 @@
   });
   document.addEventListener('change', function (e) {
     var el = e.target;
+    if (el.id === 'fAgrupar') { pref.agrupar = el.value; guardarPref(); render(); return; }
     var f = { fFase: 'fase', fTipo: 'tipo', fSuige: 'suige', fProb: 'prob', fDesde: 'desde', fHasta: 'hasta' }[el.id];
     if (f) { pref.f[f] = el.value; guardarPref(); render(); return; }
     if (el.id === 'aCorreo' && esAdmin) { pref.correo = el.checked; guardarPref(); return; }

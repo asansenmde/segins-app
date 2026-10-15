@@ -39,7 +39,8 @@ const cumple = (it, filtro) => filtro.split(' or ').some(c => {
 });
 async function prueba(verbose, escenario) {
   nuevoStore();
-  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1366, height: 860 }, acceptDownloads: true }); const p = await ctx.newPage();
+  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1366, height: 860 }, acceptDownloads: true }); if (escenario !== 'Control total y solo SUIGESUR') await ctx.addInitScript(() => { try { localStorage.setItem('incidentes-seguridad-ige', JSON.stringify({ agrupar: '' })); } catch (e) {} });
+  const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message)); const posts = [], gets = [];
   await p.route(O + '/**', async r => {
     const req = r.request(), u = decodeURIComponent(req.url());
@@ -115,6 +116,16 @@ async function prueba(verbose, escenario) {
   await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200);
   console.log(tag, '| pendientes:', (await p.$$eval('#vista .sec', s => s.map(x => x.textContent.replace(/(\d+)$/, ' = $1')))).join(' · '), '| ids:', await p.$$eval('#vista .inc', n => n.map(x => x.dataset.id).join(',')));
   if (escenario === 'solo SEGURIDAD_IGE') { console.log(tag, '| papeles:', await p.$$eval('#vista .badge.rol', n => n.map(x => x.textContent).join(', ')).catch(() => ''), '| errores:', errs); await b.close(); return; }
+  if (escenario === 'Control total y solo SUIGESUR') {
+    await p.click('#tabs a[data-v=consulta]'); await p.waitForTimeout(200);
+    await p.selectOption('#fAgrupar', 'suige'); await p.waitForTimeout(200);
+    console.log(tag, '| grupos:', await p.$$eval('#vista details summary', n => n.map(x => x.textContent.replace(/\s+/g, ' ')).join(' / ')));
+    console.log(tag, '| ve:', await p.$$eval('#vista .inc', n => n.map(x => x.dataset.id).sort().join(',')), '|', await p.textContent('#vista > p.muted.small:last-child'));
+    await p.selectOption('#fAgrupar', 'prob'); await p.waitForTimeout(200);
+    console.log(tag, '| por probabilidad:', await p.$$eval('#vista details summary b', n => n.map(x => x.textContent).join(' / ')), '| errores:', errs);
+    if (!verbose) await p.screenshot({ path: new URL('consulta.png', import.meta.url).pathname, fullPage: true });
+    await b.close(); return;
+  }
   if (escenario === 'solo SUIGESUR' || escenario === 'SUIGESUR sin substringof') {
     await p.click('#tabs a[data-v=consulta]'); await p.waitForTimeout(200);
     console.log(tag, '| ve:', await p.$$eval('#vista .inc', n => n.map(x => x.dataset.id).sort().join(',')), lecturaMinima ? '| lectura mínima: ' + lecturaMinima : '');
@@ -225,6 +236,7 @@ misGrupos = TODOS; admin = true; await prueba(false, 'control total'); await pru
 misGrupos = ['SEGURIDAD_SUIGESUR', 'Integrantes de la Colaborativo']; admin = false; await prueba(false, 'solo SUIGESUR');
 sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstringof = false;
 misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'solo SEGURIDAD_IGE');
+misGrupos = ['SEGURIDAD_SUIGESUR']; admin = true; await prueba(false, 'Control total y solo SUIGESUR'); admin = false;
 misGrupos = TODOS; admin = true; await prueba(false, 'enlace');
 faltaCampo = 'ResponsableDelParte'; await prueba(true, 'columna inexistente'); faltaCampo = null;
 expandRoto = true; await prueba(false, 'columna inexistente'); expandRoto = false;
