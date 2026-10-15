@@ -171,7 +171,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-10-15 · 4';
+  var VERSION = '2026-10-15 · 5';
   var CLAVE = 'permisos-calidad-vida';
   var pref = { sitio: '/et/SUIGESUR/colaborativo/CALIDAD-VIDA', lista: 'Solicitud de Permisos', vista: 'mias', correo: true,
     f: { q: '', estado: '', tipo: '', dependencia: '', unidad: '', cupo: '' }, cal: { dependencia: '', unidad: '', pendientes: true, ver: 'control' }, recordados: {} };
@@ -213,11 +213,16 @@
   // Pasos del permiso: solicitud → visto bueno del jefe → autorización (CONCEDIDO) → registro SIPERDEF
   function pasos(t) {
     var n = esBorrador(t) ? 0 : t.estado === E.PA ? 1 : t.estado === E.AP ? 2 : t.estado === E.AU ? 3 : t.estado === E.RG ? 4 : -1;
-    var P = [['Solicitud', 'enviada'], [t.directo ? 'Jefe intermedio' : 'Aprobación del jefe', t.directo ? 'no tiene' : 'visto bueno'], ['AUTORIZACIÓN', 'permiso CONCEDIDO'], ['Registro', 'SIPERDEF']];
+    // Subtítulo de cada paso según esté hecho, en curso o por llegar
+    var P = [['Solicitud', 'enviada', 'en borrador', 'en borrador'],
+      [t.directo ? 'Jefe intermedio' : 'Aprobación del jefe', t.directo ? 'no tiene' : 'visto bueno dado', 'PENDIENTE de aprobar', 'visto bueno'],
+      ['AUTORIZACIÓN', 'permiso CONCEDIDO', 'PENDIENTE: aún no concedido', 'concede el permiso'],
+      ['Registro', 'registrado en SIPERDEF', 'PENDIENTE de registro', 'SIPERDEF']];
     if (n < 0) return '<div class="pasos"><span class="paso mal">' + esc(estadoTxt(t)) + '</span></div>';
     return '<div class="pasos">' + P.map(function (p, i) {
       var cl = i === 1 && t.directo ? 'salto' : i < n || n === 4 ? 'hecho' : i === n ? 'ahora' : '';
-      return '<span class="paso ' + cl + (i === 2 ? ' clave' : '') + '"><b>' + (cl === 'hecho' ? '✔ ' : cl === 'ahora' ? '⏳ ' : cl === 'salto' ? '— ' : '') + esc(p[0]) + '</b><small>' + esc(p[1]) + '</small></span>';
+      var sub = cl === 'hecho' || cl === 'salto' ? p[1] : cl === 'ahora' ? p[2] : p[3];
+      return '<span class="paso ' + cl + (i === 2 ? ' clave' : '') + '"><b>' + (cl === 'hecho' ? '✔ ' : cl === 'ahora' ? '⏳ ' : cl === 'salto' ? '— ' : '') + esc(p[0]) + '</b><small>' + esc(sub) + '</small></span>';
     }).join('<i>›</i>') + '</div>';
   }
 
