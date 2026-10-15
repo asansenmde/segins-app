@@ -122,7 +122,7 @@
   <div class="tit"><h1>INCIDENTES DE SEGURIDAD · IGE</h1><span class="sub">Partes, valoración SUIGE · DIACU · IGE y seguimiento</span></div>
   <span class="quien" id="quien" hidden></span>
   <span class="estado" id="estadoCarga">Cargando…</span>
-  <a class="btn" id="nuevo" target="_blank" rel="noopener" hidden title="Abre el formulario de Colabora para dar de alta un parte">＋ Nuevo parte</a>
+  <a class="btn" id="nuevo" target="_blank" rel="noopener" hidden title="De momento el alta se hace en el formulario de Colabora (se abre en otra pestaña)">＋ Nuevo parte (formulario de Colabora) ↗</a>
   <button id="recargar" title="Volver a leer la lista">↻ Actualizar</button>
 </div></header>
 <main>
@@ -180,7 +180,8 @@
   // Grupo al que se avisa por correo en cada paso
   var GRUPO_CORREO = { diacu: ['SEGURIDAD_DIAPER'], ige: ['SEGURIDAD_IGE'],
     suige: function (s) { return s === 'SECOORCEN' ? ['SEGURIDAD_SECORCEN'] : s === 'JEFATURA DE IGE' ? ['SEGURIDAD_IGE'] : s ? ['SEGURIDAD_' + s] : []; } };
-  var MANDOS = ['MANDO1N', 'MANDO2N', 'MANDO3N', '_x004d_N1', '_x004d_N2', '_x004d_N3', '_x004d_N4'];
+  // MN1–MN4 tienen nombre interno «_x004d_N1»…: en el REST de SharePoint, los que empiezan por «_» se llaman «OData_…»
+  var MANDOS = ['MANDO1N', 'MANDO2N', 'MANDO3N', 'OData__x004d_N1', 'OData__x004d_N2', 'OData__x004d_N3', 'OData__x004d_N4'];
   // SUIGE de un texto (columna SUIGES, nombre del grupo o cadena de mando)
   var normSuige = function (v) {
     var s = String(v || '').toUpperCase();
@@ -196,8 +197,13 @@
   function api(url) {
     var pedir = function (accept) {
       return fetch(url, { credentials: 'same-origin', headers: { Accept: accept } }).then(function (r) {
-        if (!r.ok) { var e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
-        return r.json();
+        if (r.ok) return r.json();
+        return r.text().then(function (txt) {
+          var e = new Error('HTTP ' + r.status); e.status = r.status;
+          try { var j = JSON.parse(txt); e.spMsg = (j.error && j.error.message && (j.error.message.value || j.error.message)) || (j['odata.error'] && j['odata.error'].message && j['odata.error'].message.value) || ''; } catch (x) { e.spMsg = ''; }
+          if (e.spMsg) e.message += ' (' + e.spMsg + ')';
+          throw e;
+        });
       });
     };
     return pedir('application/json;odata=nometadata').catch(function (e) {
@@ -273,7 +279,7 @@
   function cargar() {
     $('#estadoCarga').textContent = 'Cargando…';
     web = location.origin + pref.sitio.replace(/\/+$/, '');
-    var grupoIds = [];
+    var grupoIds = []; omitidas = [];
     return Promise.all([
       api(web + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) { yo = { Id: u.Id, Title: u.Title, Email: u.Email || '' }; $('#quien').textContent = '👤 ' + u.Title; $('#quien').hidden = false; }),
       api(web + '/_api/web/currentuser/groups?$select=Id,Title').then(function (d) {
@@ -313,11 +319,23 @@
         (pref.sitio !== POR_DEFECTO.sitio || pref.lista !== POR_DEFECTO.lista ? '<div class="acciones"><button class="prim" data-restablecer="1">Volver al sitio y la lista de siempre</button></div>' : '');
     });
   }
+  // Si Colabora rechaza una columna (400 «el campo X no existe»), se quita esa columna y se repite; se avisa en el panel
+  var omitidas = [];
+  function leerCon(sel, resto, intentos) {
+    var url = urlLista() + '/items?$top=500&$select=' + sel.join(',') + '&$expand=' + EXPAND + (resto || '');
+    return todas(url).catch(function (e) {
+      var m = e.status === 400 && /'([^']+)'/.exec(e.spMsg || '');
+      var campo = m && m[1].split('/')[0];
+      var quitar = campo ? sel.filter(function (x) { return x.split('/')[0] === campo || x === campo; }) : [];
+      if (!quitar.length || (intentos || 0) > 8 || (resto && resto.indexOf(campo) >= 0)) throw e;
+      omitidas.push(campo);
+      return leerCon(sel.filter(function (x) { return quitar.indexOf(x) < 0; }), resto, (intentos || 0) + 1);
+    });
+  }
   // Alcance por papel: DIACU, IGE y quien administra la lista ven todo; cada SUIGE, los suyos; el resto, los que creó o en los que figura
   var verTodo = function () { return esGestor || esDiacu || esIge; };
   function leerIncidentes(grupoIds, conMandos) {
-    var url = urlLista() + '/items?$top=500&$select=' + SEL.join(',') + '&$expand=' + EXPAND;
-    if (verTodo()) return todas(url);
+    if (verTodo()) return leerCon(SEL, '');
     var c = ['AuthorId', 'ResponsableDeLaInformacionId', 'UsuarioId', 'grupoId'].map(function (k) { return '(' + k + ' eq ' + yo.Id + ')'; });
     grupoIds.forEach(function (id) { c.push('(grupoId eq ' + id + ')'); });
     misSuiges.forEach(function (s) {
@@ -327,20 +345,20 @@
     if (!conMandos && misSuiges.length) {
       // Si Colabora no admite buscar texto en el filtro: se leen solo Id, SUIGES, grupo y cadena de mando (nunca el contenido del parte)
       // para saber qué incidentes son de mi SUIGE, y después se piden esos incidentes por su número.
-      return todas(urlLista() + '/items?$top=500&$select=Id,SUIGES,grupo/Title,' + MANDOS.join(',') + '&$expand=grupo').then(function (ls) {
+      return todas(urlLista() + '/items?$top=500&$select=Id,SUIGES,grupo/Title,' + MANDOS.filter(function (k) { return omitidas.indexOf(k) < 0; }).join(',') + '&$expand=grupo').then(function (ls) {
         var ids = ls.filter(function (x) {
           var s = normSuige(x.SUIGES) || normSuige(x.grupo && x.grupo.Title) || MANDOS.map(function (k) { return normSuige(x[k]); }).filter(Boolean)[0];
           return misSuiges.indexOf(s) >= 0;
         }).map(function (x) { return x.Id; });
         var trozos = [c];
         for (var i = 0; i < ids.length; i += 40) trozos.push(ids.slice(i, i + 40).map(function (id) { return '(Id eq ' + id + ')'; }));
-        return Promise.all(trozos.map(function (cl) { return todas(url + '&$filter=' + encodeURIComponent(cl.join(' or '))); })).then(function (rs) {
+        return Promise.all(trozos.map(function (cl) { return leerCon(SEL, '&$filter=' + encodeURIComponent(cl.join(' or '))); })).then(function (rs) {
           var vistos = {};
           return [].concat.apply([], rs).filter(function (x) { if (vistos[x.Id]) return false; vistos[x.Id] = 1; return true; });
         });
       });
     }
-    return todas(url + '&$filter=' + encodeURIComponent(c.join(' or '))).catch(function (e) {
+    return leerCon(SEL, '&$filter=' + encodeURIComponent(c.join(' or '))).catch(function (e) {
       if (conMandos && e.status === 400) return leerIncidentes(grupoIds, false);
       throw e;
     });
@@ -412,6 +430,7 @@
     return '<div class="card" style="border-left:5px solid var(--brand)"><span class="muted small">Usuario</span><div style="font-size:1.15rem;font-weight:800">👤 ' + esc(yo.Title) + '</div>' +
       '<div class="meta">' + (papeles.length ? papeles.map(function (p) { return '<span class="badge rol">' + esc(p) + '</span>'; }).join('') : '<span class="muted small">Sin papel de valoración: ves los partes que has dado de alta o en los que figuras.</span>') + '</div>' +
       '<p class="muted small" style="margin:6px 0 0">' + esc(alcanceTxt()) + '</p></div>' +
+      (omitidas.length ? '<div class="aviso">Colabora no dejó leer estas columnas y se muestran vacías: ' + esc(omitidas.join(', ')) + '. Dímelo para revisarlo.</div>' : '') +
       '<div class="kpis">' +
       '<div class="kpi rojo" data-ir="pendientes">Esperan mi acción<b>' + nPend() + '</b></div>' +
       '<div class="kpi ambar" data-ir="fase:1">Pendientes de SUIGE<b>' + n(function (t) { return fase(t) === 1 || fase(t) === 6; }) + '</b></div>' +

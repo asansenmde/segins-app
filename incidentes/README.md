@@ -68,6 +68,13 @@ al principio del código).
     responsable, instructor…) dan solo el número de opciones.
   - Se puede subir a **cualquier biblioteca de Colabora** donde se puedan subir archivos (por ejemplo la de
     `permisos.html`): consulta el sitio `/et/jige/colaborativo` con la sesión del usuario.
+- `prueba-incidentes.html` · **paso 2 «Analizar el formulario»**: compara la cadena de mando (MANDO1N–3N, MN1–MN4), la
+  provincia y el grupo de los partes con las listas auxiliares (M1N–M4N, UNIDADES IGE, PROVINCIAS, UGE) y mira qué listas
+  y columnas usa el código del formulario de alta. Solo porcentajes, recuentos y nombres de listas y columnas. Sirve para
+  hacer el alta dentro de la página sin romper las vistas de cada SUIGE. Prueba: `pruebas/diagnostico-formulario.mjs`.
+- **Nombre REST de MN1–MN4**: su nombre interno empieza por «_» (`_x004d_N1`), y en el REST de SharePoint se llaman
+  `OData__x004d_N1`. Pedirlos con el nombre corto daba «HTTP 400» al leer la lista. Además, si Colabora rechaza otra
+  columna, la página la quita, repite la lectura y lo avisa en el panel.
 - `pruebas/simulacion.mjs`: prueba de la página con un sitio simulado (ligero y *verbose*): papeles, alcance, las
   cinco acciones, correos, conflicto, impresión, CSV, estadísticas y enlace. Uso: `node incidentes/pruebas/simulacion.mjs`.
 - `pruebas/diagnostico.mjs`: prueba con un sitio simulado (formato ligero y *verbose*, paginación, privacidad).

@@ -11,10 +11,11 @@ const P = { 61: { Id: 61, Title: 'JEFE UNIDAD A', EMail: 'jefea@et.mde.es' }, 62
 const GRUPOS = { SEGURIDAD_SUIGESUR: 101, SEGURIDAD_SUIGENOR: 102, SEGURIDAD_SUIGECAN: 103, SEGURIDAD_DIAPER: 104, SEGURIDAD_IGE: 105, 'Integrantes de la Colaborativo': 106 };
 const MIEMBROS = { SEGURIDAD_SUIGESUR: ['sur1@et.mde.es', 'sur2@et.mde.es'], SEGURIDAD_SUIGENOR: ['nor1@et.mde.es'], SEGURIDAD_SUIGECAN: ['can1@et.mde.es'], SEGURIDAD_DIAPER: ['diacu1@et.mde.es'], SEGURIDAD_IGE: ['ige1@et.mde.es'] };
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(9, 0, 0, 0); return x.toISOString(); };
-let items, misGrupos = [], admin = false, sinSubstringof = false, ultimoFiltro = '', lecturaMinima = '';
+let faltaCampo = null, items, misGrupos = [], admin = false, sinSubstringof = false, ultimoFiltro = '', lecturaMinima = '';
 const base = { A_x00f1_o: '2026', Provincia: 'SEVILLA', Empleo: 'Sargento', ZONASE_x00d1_ALIZADA: true, Reiterada: 'NO', Denuncia: false, ValoradoPorSUIGE: false, ValoradoPorDIACU: false, ValoradoPorIGE: false,
   OBSERVACION: '<p>TEXTO RESERVADO DEL PARTE</p>', ANALISIS: '<div>Análisis</div>', MEDIDAS: 'Medidas', CONTROLMEDIDASADOPTADAS: 'Control', CONCLUSION: 'Conclusión', ObservacionesDelExpediente: '',
-  ResponsableDeLaInformacion: P[61], correosPersonasInfo: 'info1@et.mde.es; info2@et.mde.es', MANDO1N: 'FUTER', MANDO2N: '', MANDO3N: '', _x004d_N1: '', _x004d_N2: '', _x004d_N3: '', _x004d_N4: '' };
+  ResponsableDeLaInformacion: P[61], correosPersonasInfo: 'info1@et.mde.es; info2@et.mde.es', MANDO1N: 'FUTER', MANDO2N: '', MANDO3N: '', OData__x004d_N1: '', OData__x004d_N2: '', OData__x004d_N3: '', OData__x004d_N4: '',
+  Title: '', ESTADO: '', REGISTRODEACTIVIDAD: '', ModificadoPorTEXTO: '', SUIGES: null, Unidad: null, OTRO: '', NDenuncia: '', PROBABILIDADES: '', ACEPTACION: null, TipoDeIncidente: '', ResponsableDelParte: '', DIACU: null, VALORACIONSUIGES: '', VALORACIONDIACU: '', valoracionIGE: '', Usuario: null, grupo: null };
 const nuevoStore = () => {
   items = [
     { Id: 1, ESTADO: 'REMITIDO A M1', TipoDeIncidente: 'Intrusión no autorizada', MANDO2N: 'SUIGESUR', OTRO: 'ACUARTELAMIENTO X', PROBABILIDADES: 'MUY ALTO', FechaNotificacion: d(-10), Created: d(-9), Author: P[61] },
@@ -70,6 +71,10 @@ async function prueba(verbose, escenario) {
     const mi = resto.match(/items\((\d+)\)/);
     if (mi) { const it = items.find(x => x.Id === +mi[1]); return r.fulfill({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, ...it } } }); }
     if (resto.includes('/items')) {
+      const selRaw = ((u.match(/\$select=([^&]*)/) || [])[1] || '').split(',').filter(Boolean);
+      const exp = ((u.match(/\$expand=([^&]*)/) || [])[1] || '').split(',');
+      const malo = selRaw.find(f => { const [a, b] = f.split('/'); if (a === faltaCampo) return true; if (b) return !exp.includes(a); return !(a in base) && !['Id', 'Created', 'Modified', 'Attachments', 'Author', 'Editor', 'ValoradoPorSUIGE', 'ValoradoPorDIACU', 'ValoradoPorIGE', 'FechaNotificacion', 'Reiterada', 'ZONASE_x00d1_ALIZADA', 'Denuncia', 'A_x00f1_o', 'Provincia', 'Empleo', 'correosPersonasInfo', 'ResponsableDeLaInformacion'].includes(a); });
+      if (malo) return r.fulfill({ status: 400, json: { 'odata.error': { message: { value: "The field or property '" + malo.split('/')[0] + "' does not exist." } } } });
       const filtro = (u.match(/\$filter=([^&]*)/) || [])[1] || '';
       ultimoFiltro = filtro;
       if (filtro.includes('substringof') && sinSubstringof) return r.fulfill({ status: 400, body: '' });
@@ -88,6 +93,7 @@ async function prueba(verbose, escenario) {
   const merge = id => { const m = posts.filter(x => new RegExp('items\\(' + id + '\\)').test(x.ruta) && x.cab['x-http-method'] === 'MERGE').pop(); return m && JSON.parse(m.cuerpo); };
   await p.goto(O + '/et/SUIGESUR/JSUIGE/Documentos%20compartidos/incidentes.html' + (escenario === 'enlace' ? '?id=3' : '')); await p.waitForTimeout(900);
   const pestañas = await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | '));
+  if (escenario === 'columna inexistente') { console.log(tag, '| carga:', await p.textContent('#estadoCarga'), '| aviso:', await p.textContent('#vista .aviso').catch(() => 'ninguno'), '| errores:', errs); await b.close(); return; }
   if (escenario === 'enlace') { console.log(tag, '| ficha abierta:', await p.textContent('#dlg h2').catch(() => 'nada'), '| URL limpia:', p.url().endsWith('incidentes.html')); await b.close(); return; }
   console.log(tag, '| pestañas:', pestañas, '| filtro:', ultimoFiltro ? (ultimoFiltro.includes('substringof') ? 'con cadena de mando' : 'sin cadena de mando') : 'ninguno (ve todo)');
   console.log(tag, '| panel:', (await p.$$eval('.kpi', k => k.map(x => x.textContent.replace(/(\d+)$/, ':$1')))).join(' · '));
@@ -180,3 +186,4 @@ misGrupos = TODOS; admin = true; await prueba(false, 'control total'); await pru
 misGrupos = ['SEGURIDAD_SUIGESUR', 'Integrantes de la Colaborativo']; admin = false; await prueba(false, 'solo SUIGESUR');
 sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstringof = false;
 misGrupos = TODOS; admin = true; await prueba(false, 'enlace');
+faltaCampo = 'ResponsableDelParte'; await prueba(true, 'columna inexistente'); faltaCampo = null;

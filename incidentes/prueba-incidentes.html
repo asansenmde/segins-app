@@ -48,6 +48,11 @@
       </div>
       <p style="margin:10px 0 0"><button class="prim" id="buscar">Buscar las listas</button> <span class="muted" id="estado"></span></p>
     </div>
+    <div class="card">
+      <h2>2. Cómo se rellena el parte (para el formulario de alta)</h2>
+      <p class="muted">Compara la cadena de mando, la provincia y el grupo de los partes con las listas auxiliares del sitio (M1N–M4N, UNIDADES IGE, PROVINCIAS, UGE) y mira qué listas y columnas usa el código del formulario. Solo da recuentos y nombres de listas y columnas: ningún valor.</p>
+      <p style="margin:10px 0 0"><button class="prim" id="relaciones">Analizar el formulario</button> <span class="muted" id="estado3"></span></p>
+    </div>
     <div id="listas"></div>
     <div id="salida"></div>
     <div class="card">
@@ -282,6 +287,96 @@
     if (R.errores.length) h += '<div class="card bad">' + R.errores.map(esc).join('<br>') + '</div>';
     $('salida').innerHTML = h;
   }
+
+  // ---------- Paso 2: cómo rellena el formulario la cadena de mando, la provincia y el grupo ----------
+  var AUX = ['M1N', 'M2N', 'M3N', 'M4N', 'UNIDADES IGE', 'PROVINCIAS', 'UGE'];
+  var CAMPOS_PARTE = [['MANDO1N', 'MANDO1N'], ['MANDO2N', 'MANDO2N'], ['MANDO3N', 'MANDO3N'], ['OData__x004d_N1', 'MN1'], ['OData__x004d_N2', 'MN2'], ['OData__x004d_N3', 'MN3'], ['OData__x004d_N4', 'MN4'],
+    ['Provincia', 'Provincia'], ['Empleo', 'Empleo'], ['OTRO', 'OTRO'], ['ResponsableDelParte', 'ResponsableDelParte'], ['correosPersonasInfo', 'correosPersonasInfo'], ['Title', 'Title (Fecha de creación)']];
+  var norm = function (v) { return String(v == null ? '' : v).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim().toLowerCase(); };
+  $('relaciones').onclick = function () {
+    web = location.origin + $('sitio').value.trim().replace(/\/+$/, '');
+    var rutaSitio = $('sitio').value.trim().replace(/\/+$/, '');
+    var R3 = { sitio: rutaSitio, listas_auxiliares: {}, columnas_del_parte: {}, grupo: null, responsable_es_quien_crea: null, formularios: {}, errores: [] };
+    R = R3; $('estado3').textContent = 'Analizando…'; pintar();
+    var LI = web + "/_api/web/lists/getbytitle('INCIDENTES DE SEGURIDAD')";
+    var aux = {};
+    var leerAux = function (t) {
+      var L = web + "/_api/web/lists/getbytitle('" + encodeURIComponent(t.replace(/'/g, "''")) + "')";
+      return api(L + "/fields?$select=InternalName,Title,TypeAsString,LookupList,ReadOnlyField&$filter=Hidden eq false").then(function (d) {
+        var fs = lista(d.value).filter(function (f) { return !f.ReadOnlyField && !/^(ContentType|Attachments)$/.test(f.InternalName); });
+        var texto = fs.filter(function (f) { return /^(Text|Choice|Note)$/.test(f.TypeAsString); }).map(function (f) { return f.InternalName.charAt(0) === '_' ? 'OData_' + f.InternalName : f.InternalName; });
+        R3.listas_auxiliares[t] = { columnas: fs.map(function (f) { var o = f.InternalName + ' (' + f.TypeAsString + ')'; if (f.LookupList) { var ll = sitioLista.filter(function (x) { return x.id === String(f.LookupList).replace(/[{}]/g, '').toLowerCase(); })[0]; o += ' → ' + (ll ? ll.titulo : 'otra lista'); } return o; }) };
+        return todas(L + '/items?$top=1000&$select=Id,' + texto.join(',')).then(function (its) {
+          R3.listas_auxiliares[t].elementos = its.length;
+          aux[t] = {}; texto.forEach(function (c) { var m = {}; its.forEach(function (i) { var v = norm(i[c]); if (v) m[v] = 1; }); aux[t][c] = m; });
+        });
+      }).catch(function (e) { R3.errores.push(t + ': ' + (e.message || e)); });
+    };
+    var paginaYFormularios = function () {
+      return api(LI + '?$select=DefaultNewFormUrl,DefaultEditFormUrl').then(function (l) {
+        var urls = [['pagina', rutaSitio + '/' + $('pagina').value.trim().replace(/^\/+/, '')], ['nuevo', l.DefaultNewFormUrl], ['editar', l.DefaultEditFormUrl]];
+        return Promise.all(urls.map(function (u) { return analizarCodigo(u[0], u[1]); }));
+      }).catch(function (e) { R3.errores.push('formularios: ' + (e.message || e)); });
+    };
+    Promise.all(AUX.map(leerAux).concat([paginaYFormularios(),
+      api(web + '/_api/web/sitegroups?$select=Id,Title').then(function (d) { R3._grupos = lista(d.value); }).catch(function () { R3._grupos = []; })]))
+      .then(function () {
+        return todas(LI + '/items?$top=1000&$select=Id,AuthorId,ResponsableDeLaInformacionId,grupoId,SUIGES,' + CAMPOS_PARTE.map(function (c) { return c[0]; }).join(','));
+      }).then(function (its) {
+        CAMPOS_PARTE.forEach(function (c) {
+          var vals = its.map(function (i) { return norm(i[c[0]]); }).filter(Boolean), dist = {};
+          vals.forEach(function (v) { dist[v] = 1; });
+          var o = { rellenos: vals.length, distintos: Object.keys(dist).length };
+          var pc = function (fn) { return vals.length ? Math.round(vals.filter(fn).length * 100 / vals.length) + ' %' : '—'; };
+          o.parecen_correos = pc(function (v) { return /@/.test(v); });
+          o.con_punto_y_coma = pc(function (v) { return /;/.test(v); });
+          o.contienen_suige = pc(function (v) { return /suige(sur|nor|can|pir)|seco?orcen|\bdiin\b/.test(v); });
+          o.coinciden_con = {};
+          Object.keys(aux).forEach(function (t) { Object.keys(aux[t]).forEach(function (col) {
+            var n = vals.filter(function (v) { return aux[t][col][v]; }).length;
+            if (n && n * 2 >= vals.length) o.coinciden_con[t + '.' + col] = Math.round(n * 100 / vals.length) + ' %';
+          }); });
+          R3.columnas_del_parte[c[1]] = o;
+        });
+        var gids = {}; (R3._grupos || []).forEach(function (g) { gids[g.Id] = g.Title; });
+        var gr = its.map(function (i) { return i.grupoId; }).filter(Boolean);
+        R3.grupo = { rellenos: gr.length, son_grupos_de_sharepoint: gr.filter(function (id) { return gids[id]; }).length, son_personas: gr.filter(function (id) { return !gids[id]; }).length,
+          grupos_SEGURIDAD: gr.filter(function (id) { return /^SEGURIDAD_/i.test(gids[id] || ''); }).length,
+          nombres_de_grupos_usados: Object.keys(gr.reduce(function (m, id) { if (gids[id]) m[gids[id]] = 1; return m; }, {})) };
+        R3.responsable_es_quien_crea = its.filter(function (i) { return i.ResponsableDeLaInformacionId && i.ResponsableDeLaInformacionId === i.AuthorId; }).length + ' de ' + its.length;
+        delete R3._grupos;
+      }).catch(function (e) { R3.errores.push('partes: ' + (e.message || e)); })
+      .then(function () { $('estado3').textContent = R3.errores.length ? 'Terminado con avisos.' : 'Terminado. Copia el resumen.'; pintar(); });
+    // Código de la página y de los formularios: solo nombres de listas y de columnas del parte que aparecen en él
+    function analizarCodigo(nombre, ruta) {
+      if (!ruta) return Promise.resolve();
+      var o = R3.formularios[nombre] = { leido: false };
+      return fetch(location.origin + encodeURI(ruta), { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); }).then(function (h) {
+        o.leido = true;
+        o.infopath = /InfoPath|FormServer|ifs\.aspx|XmlFormView/i.test(h);
+        var enlaces = {};
+        (h.match(/(?:src|href|ContentLink)\s*[=:]\s*["']?([^"'<> ]+\.(?:js|txt|html|htm))/gi) || []).forEach(function (m) {
+          var u = m.replace(/^.*?["':=]\s*["']?/, '').replace(/\\u002f/gi, '/');
+          if (/^\/(?!\/)/.test(u) && !/_layouts|ScriptResource|WebResource|\/_catalogs\//i.test(u)) enlaces[u] = 1;
+        });
+        o.scripts_propios = Object.keys(enlaces).length;
+        return Promise.all(Object.keys(enlaces).map(function (u) { return fetch(location.origin + u, { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.text() : ''; }).catch(function () { return ''; }); }))
+          .then(function (txts) {
+            var codigo = h + '\n' + txts.join('\n');
+            var listas = {};
+            (codigo.match(/get[Bb]y[Tt]itle\(\s*\\?["']([^"'\\]+)\\?["']/g) || []).forEach(function (m) { listas[m.replace(/^.*\(\s*\\?["']/, '').replace(/\\?["']$/, '')] = 1; });
+            (codigo.match(/\/Lists\/([A-Za-z0-9_%\- ]+)/g) || []).forEach(function (m) { listas['/Lists/' + decodeURIComponent(m.split('/Lists/')[1])] = 1; });
+            o.listas_que_usa = Object.keys(listas).slice(0, 40);
+            var internos = ['Title', 'ESTADO', 'ResponsableDeLaInformacion', 'REGISTRODEACTIVIDAD', 'ModificadoPorTEXTO', 'A_x00f1_o', 'SUIGES', 'Unidad', 'OTRO', 'MANDO1N', 'MANDO2N', 'MANDO3N',
+              '_x004d_N1', '_x004d_N2', '_x004d_N3', '_x004d_N4', 'Provincia', 'Empleo', 'FechaNotificacion', 'NDenuncia', 'Usuario', 'OBSERVACION', 'ANALISIS', 'MEDIDAS', 'CONTROLMEDIDASADOPTADAS',
+              'CONCLUSION', 'ZONASE_x00d1_ALIZADA', 'Reiterada', 'PROBABILIDADES', 'ACEPTACION', 'Denuncia', 'TipoDeIncidente', 'ResponsableDelParte', 'grupo', 'MostrarBotonImprimir', 'VALORACIONSUIGES',
+              'DIACU', 'VALORACIONDIACU', 'correosPersonasInfo', 'valoracionIGE', 'ValoradoPorSUIGE', 'ValoradoPorDIACU', 'ValoradoPorIGE', 'ObservacionesDelExpediente'];
+            o.columnas_que_toca = internos.filter(function (n, i) { return internos.indexOf(n) === i && new RegExp('["\'/]' + n.replace(/[$]/g, '\\$') + '["\'/,)]').test(codigo); });
+            o.usa = { correo_SendEmail: /SendEmail/.test(codigo), selector_de_personas: /clientPeoplePicker|PeoplePicker/i.test(codigo), csom: /SP\.ClientContext/.test(codigo), rest: /_api\//.test(codigo), sputility: /SPUtility|SPClientForms/.test(codigo) };
+          });
+      }).catch(function (e) { R3.errores.push(nombre + ': ' + (e.message || e)); });
+    }
+  };
 
   $('copiar').onclick = function () {
     var txt = $('resumen').textContent;
