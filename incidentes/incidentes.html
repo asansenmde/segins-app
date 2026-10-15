@@ -127,7 +127,7 @@
   <div class="tit"><h1>INCIDENTES DE SEGURIDAD · IGE</h1><span class="sub">Partes, valoración SUIGE · DIACU · IGE y seguimiento</span></div>
   <span class="quien" id="quien" hidden></span>
   <span class="estado" id="estadoCarga">Cargando…</span>
-  <button id="nuevo" hidden title="Dar de alta un parte de incidente">＋ Nuevo parte</button>
+  <button id="nuevo" hidden title="Abre el formulario de Colabora (InfoPath) en otra pestaña">＋ Nuevo parte ↗</button>
   <button id="recargar" title="Volver a leer la lista">↻ Actualizar</button>
 </div></header>
 <main>
@@ -163,7 +163,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-15 · 5';
+  var VERSION = '2026-10-15 · 6';
   var CLAVE = 'incidentes-seguridad-ige';
   var pref = { sitio: '/et/jige/colaborativo', lista: 'INCIDENTES DE SEGURIDAD', vista: 'panel', correo: true,
     f: { q: '', fase: '', tipo: '', suige: '', prob: '', desde: '', hasta: '' }, agrupar: 'provincia' };
@@ -768,6 +768,13 @@
   }
 
   // ---------- Nuevo parte / completar borrador ----------
+  // DESACTIVADO de momento: el parte se da de alta con el formulario InfoPath de Colabora (reglas, cadena de mando,
+  // grupo y correos). Cuando se reproduzcan sus reglas (plantilla .xsn), se pone FORM_PROPIO = true.
+  var FORM_PROPIO = false;
+  var urlFormulario = function (tipo, id) {
+    var u = tipo === 'nuevo' ? listaInfo.DefaultNewFormUrl : listaInfo.DefaultEditFormUrl;
+    return u ? location.origin + u + (id ? '?ID=' + id + '&' : '?') + 'Source=' + encodeURIComponent(enlacePagina() + (id ? '?id=' + id : '')) : '';
+  };
   var opciones = {}, aux = null;
   function cargarAux() {
     if (aux) return Promise.resolve(aux);
@@ -915,7 +922,7 @@
     }
     if (pCierre(t)) h += '<div class="panel turno"><h3>Cierre del expediente</h3><label class="lbl">Observación de cierre (opcional)</label><textarea id="vCierre"></textarea><div class="acciones"><button class="verde" data-acc="cerrar">✔ Cerrar expediente</button></div></div>';
     if (t.estado === ES.CE && (esIge || esGestor)) h += '<div class="panel"><h3>Expediente cerrado</h3><label class="lbl">Motivo para reabrir</label><textarea id="vReabrir"></textarea><div class="acciones"><button data-acc="reabrir">↺ Reabrir expediente</button></div></div>';
-    if (fase(t) === 0 && (soy(t.autor) || soy(t.resp) || esGestor)) h += '<div class="panel turno"><h3>Parte en borrador</h3><p class="small">Complétalo y remítelo a M1 para que lo valore la SUIGE.</p><div class="acciones"><button class="prim" data-editar="' + t.id + '">✎ Completar o remitir</button></div></div>';
+    if (fase(t) === 0 && (soy(t.autor) || soy(t.resp) || esGestor)) h += '<div class="panel turno"><h3>Parte en borrador</h3><p class="small">Complétalo y remítelo a M1 en el formulario de Colabora para que lo valore la SUIGE.</p><div class="acciones"><button class="prim" data-editar="' + t.id + '">✎ Completar o remitir ↗</button></div></div>';
     if (!h) h = '<div class="panel"><h3>Situación</h3><p class="small">' + esc(faseTxt(t)) + '.</p>' + (fase(t) === 0 ? '<p class="small muted">Está en borrador: debe remitirlo quien lo dio de alta.</p>' : '') + '</div>';
     if (puedeAnotar(t)) h += '<div class="panel"><h3>Añadir observación al expediente</h3><textarea id="vNota" style="min-height:4em"></textarea><div class="acciones"><button data-acc="anotar">＋ Añadir con mi nombre y la hora</button>' +
       (abierto(t) && fase(t) >= 1 ? '<button data-acc="recordar" title="Correo a quien le toca actuar">✉ Enviar recordatorio</button>' : '') + '</div></div>';
@@ -1044,9 +1051,9 @@
     var tab = el.closest('#tabs a');
     if (tab) { pref.vista = tab.dataset.v; guardarPref(); render(); return; }
     if (el.closest('#recargar')) { cargar(); return; }
-    if (el.closest('#nuevo')) { if (cargadoEn) formulario(null); return; }
+    if (el.closest('#nuevo')) { if (!cargadoEn) return; if (FORM_PROPIO) formulario(null); else window.open(urlFormulario('nuevo'), '_blank'); return; }
     var edp = el.closest('[data-editar]');
-    if (edp) { var tp = items.find(function (x) { return x.id === Number(edp.dataset.editar); }); if (tp) formulario(tp); return; }
+    if (edp) { var tp = items.find(function (x) { return x.id === Number(edp.dataset.editar); }); if (tp) { if (FORM_PROPIO) formulario(tp); else window.open(urlFormulario('editar', tp.id), '_blank'); } return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); dlgId = null; return; }
     if (el.closest('[data-restablecer]')) { pref.sitio = POR_DEFECTO.sitio; pref.lista = POR_DEFECTO.lista; guardarPref(); cargar(); return; }
     var ir = el.closest('[data-ir]');

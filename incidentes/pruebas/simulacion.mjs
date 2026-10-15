@@ -203,6 +203,9 @@ async function prueba(verbose, escenario) {
   console.log(tag, '| estadísticas:', await p.$$eval('.estadis h3', h => h.map(x => x.textContent).join(' | ')));
   console.log(tag, '| por tipo:', await p.$$eval('.estadis .card:first-child .barras .n', n => n.map(x => x.textContent).join(' / ')));
   if (!verbose) await p.screenshot({ path: new URL('estadisticas.png', import.meta.url).pathname, fullPage: true });
+  // 8) Mientras FORM_PROPIO = false, «Nuevo parte» abre el formulario de Colabora
+  { const [pg] = await Promise.all([ctx.waitForEvent('page'), p.click('#nuevo')]); console.log(tag, '| nuevo parte abre:', decodeURIComponent(pg.url()).replace(/\?.*/, '')); await pg.close(); }
+  if (!html.includes('var FORM_PROPIO = true')) { await p.click('#tabs a[data-v=panel]'); if (!verbose) await p.screenshot({ path: new URL('panel.png', import.meta.url).pathname, fullPage: true }); console.log(tag, '| errores:', errs); await b.close(); return; }
   // 8) Nuevo parte en la página: remitir sin datos (error), borrador, completar y remitir
   await p.click('#nuevo'); await p.waitForTimeout(700);
   await p.click('#fRemitir'); await p.waitForTimeout(100);
