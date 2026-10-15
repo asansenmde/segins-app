@@ -9,7 +9,7 @@ const WEB = '/et/SUIGESUR/colaborativo/CALIDAD-VIDA', O = 'https://colabora.mdef
 const U = { 279: { Id: 279, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.es' }, 11: { Id: 11, Title: 'APROBADOR UNO', EMail: 'aprob1@et.mde.es' },
   12: { Id: 12, Title: 'AUTORIZADOR UNO', EMail: 'autor1@et.mde.es' }, 13: { Id: 13, Title: 'SOLICITANTE DOS', EMail: 'sol2@et.mde.es' } };
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(0, 0, 0, 0); return x.toISOString(); };
-let ultimoFiltro = '', items, gestor = false, registro = true, admin = false;
+let ultimoFiltro = '', items, gestor = false, registro = true, admin = false, otraCuenta = false;
 const nuevoStore = () => {
   items = [
     { Id: 1, Title: 'Vacaciones', Estado: '1-Pendiente de Aprobar', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(5), FechaDeFin: d(9), Solicitante: U[13], AprobadorDePermiso: U[279], CorreoDelSolicitante: 'sol2@et.mde.es', CorreoDeAPROBADOR: 'usuario@et.mde.es', AprobadorTexto: 'USUARIO DE PRUEBA', EstadoDeAprobacion: 'SIN APROBAR', Unidad0: { Id: 2, Title: 'UNIDAD B' }, Dependencia: 'SEGURIDAD' },
@@ -18,7 +18,8 @@ const nuevoStore = () => {
     { Id: 6, Title: 'Otra unidad', Estado: '3-Autorizado', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(6), FechaDeFin: d(8), Solicitante: U[13], AprobadorDePermiso: U[11], AutorizadorDelPermiso: U[12], Empleo: 'Sargento', EstadoDeRegistro: 'Pendiente de Registro', Unidad0: { Id: 2, Title: 'UNIDAD B' } },
     { Id: 5, Title: 'Ajena', Estado: '1-Pendiente de Aprobar', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(3), FechaDeFin: d(4), Solicitante: U[13], AprobadorDePermiso: U[11], Unidad0: { Id: 2, Title: 'UNIDAD B' } },
     { Id: 4, Title: 'Viejo', Estado: '4-Registrado SIPERDEF', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2025', FechaInicio: d(-40), FechaDeFin: d(-30), Solicitante: U[279], Unidad0: { Id: 1, Title: 'UNIDAD A' } },
-  ].map(x => ({ Created: d(-3), Modified: d(-2) + '', Author: { Id: x.Solicitante.Id, Title: x.Solicitante.Title }, Editor: { Title: 'X' }, NIF: '00000000T', RegistroDeBorrador: '', ...x }));
+  ].concat(otraCuenta ? [{ Id: 9, Title: 'Antigua', Estado: '1-Pendiente de aprobar ', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(30), FechaDeFin: d(31), Solicitante: U[13], AprobadorDePermiso: { Id: 280, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.es' }, AprobadorTexto: 'USUARIO DE PRUEBA', Unidad0: { Id: 1, Title: 'UNIDAD A' } }] : [])
+   .map(x => ({ Created: d(-3), Modified: d(-2) + '', Author: { Id: x.Solicitante.Id, Title: x.Solicitante.Title }, Editor: { Title: 'X' }, NIF: '00000000T', RegistroDeBorrador: '', ...x }));
 };
 async function prueba(verbose, soloAlcance) {
   nuevoStore();
@@ -50,7 +51,7 @@ async function prueba(verbose, soloAlcance) {
     }
     if (resto.startsWith('web/currentuser/groups')) return J({ value: registro ? [{ Title: 'Personal de Registro' }] : [{ Title: 'Integrantes cdv' }] });
     if (resto.startsWith('web/currentuser')) return J({ Id: 279, Title: U[279].Title, Email: U[279].EMail, LoginName: 'i:0#.w|et\\usuario' });
-    if (resto.startsWith('web/siteusers')) return J({ value: Object.values(U).map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail })) });
+    if (resto.startsWith('web/siteusers')) return J({ value: Object.values(U).map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail })).concat(otraCuenta ? [{ Id: 280, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es', LoginName: 'et\\usuario' }, { Id: 281, Title: 'BUZON COMPARTIDO', Email: 'usuario@et.mde.es' }] : []) });
     if (resto.includes("getbytitle('empleos')")) return J({ value: [{ Title: 'Comandante' }, { Title: 'Sargento' }] });
     if (resto.includes("getbytitle('UNIDADES')")) return J({ value: [{ Id: 1, Title: 'UNIDAD A' }, { Id: 2, Title: 'UNIDAD B' }] });
     if (resto.includes('/fields')) return J({ value: [{ InternalName: 'Estado', Choices: ['0-Borrador de Solicitante', '1-Pendiente de Aprobar', '2-Aprobado', '3-Autorizado', '4-Registrado SIPERDEF', '5-Rechazado'] },
@@ -61,8 +62,8 @@ async function prueba(verbose, soloAlcance) {
     if (resto.includes('/items')) {
       const filtro = (u.match(/\$filter=([^&]*)/) || [])[1] || ''; if (u.includes('Title')) ultimoFiltro = filtro;
       if (!filtro) return J({ value: items });
-      const ids = [...filtro.matchAll(/(\w+)Id eq (\d+)/g)], est = [...filtro.matchAll(/Estado eq '([^']+)'/g)].map(x => x[1]);
-      return J({ value: items.filter(it => ids.some(([, k, v]) => it[k] && it[k].Id === +v) || est.includes(it.Estado)) });
+      const ids = [...filtro.matchAll(/(\w+)Id eq (\d+)/g)], est = [...filtro.matchAll(/Estado eq '([^']+)'/g)].map(x => x[1]), txt = [...filtro.matchAll(/(\w+Texto) eq '([^']+)'/g)];
+      return J({ value: items.filter(it => ids.some(([, k, v]) => it[k] && it[k].Id === +v) || est.includes(it.Estado) || txt.some(([, k, v]) => it[k] === v)) });
     }
     if (resto.includes('sitegroups/getbyname')) return J({ value: [{ Title: 'REGISTRADOR UNO' }, { Title: U[279].Title }] });
     if (resto.includes('/roleassignments')) return J({ value: [{ Member: { Title: 'Integrantes CALIDAD-VIDA', PrincipalType: 8 }, RoleDefinitionBindings: [{ Name: 'Leer' }] },
@@ -74,6 +75,14 @@ async function prueba(verbose, soloAlcance) {
   await p.goto(O + WEB + '/Documentos%20compartidos/permisos.html' + (soloAlcance === 'enlace' ? '?id=1' : '')); await p.waitForTimeout(800);
   if (soloAlcance === 'enlace') {
     console.log(tag, 'enlace del correo abre:', await p.textContent('#dlg h2').catch(() => 'nada'), '| URL limpia:', p.url().endsWith('permisos.html'));
+    await b.close(); return;
+  }
+  if (soloAlcance === 'cuentas') {
+    await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200);
+    console.log(tag, 'otra cuenta: pendientes de aprobar:', await p.$$eval('#vista .sol', n => n.map(x => x.dataset.id)), '| filtro con 280:', ultimoFiltro.includes('280'), '| buzón compartido (281) fuera:', !ultimoFiltro.includes('281'));
+    console.log(tag, 'estado reconocido:', await p.textContent('.sol[data-id="9"] .badge'));
+    await p.click('#vista details summary'); await p.click('[data-comprobar]'); await p.waitForTimeout(600);
+    console.log(tag, 'comprobar:', (await p.textContent('#compRes')).replace(/\s+/g, ' ').slice(0, 330), '| errores:', errs);
     await b.close(); return;
   }
   if (soloAlcance === 'seguridad') {
@@ -264,3 +273,4 @@ registro = true; await prueba(false, 'registro');
 gestor = true; await prueba(true, 'gestor');
 gestor = false; await prueba(false, 'enlace');
 registro = true; await prueba(false, 'seguridad'); await prueba(true, 'seguridad');
+otraCuenta = true; await prueba(false, 'cuentas'); await prueba(true, 'cuentas'); otraCuenta = false;

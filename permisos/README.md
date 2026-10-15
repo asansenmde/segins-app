@@ -79,6 +79,15 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
   por fecha de inicio; botón «✉ Enviar recordatorio» al aprobador o autorizador de mi solicitud (correo oficial, uno
   al día); aviso de **solapes** solo cuando la misma persona tiene dos solicitudes en las mismas fechas: al pedirla
   y al aprobador y al autorizador. Que coincidan varias personas de una unidad no se avisa (lo decide quien autoriza).
+- **Que no se escape ninguna pendiente**:
+  - Se tienen en cuenta todas las cuentas del usuario en el sitio, porque el formulario InfoPath pudo guardar a la persona
+    con otra cuenta (formato antiguo `dominio\usuario`). Cuentan las de la misma cuenta de dominio, o las de mismo
+    correo y mismo nombre; un buzón compartido no basta.
+  - Los estados se reconocen aunque cambien mayúsculas, tildes o espacios.
+  - Las columnas de persona admiten varias personas.
+  - En «Pendientes de mí», «¿Echas en falta alguna solicitud?» → «Comprobar en Colabora» cuenta en el servidor en
+    cuántas figuras como aprobador o autorizador y en qué estado, y avisa si hay alguna que la página no ha cargado o
+    con tu nombre en el texto pero otra cuenta guardada.
 - **Seguridad del registro**:
   - La pestaña, los NIF de la tabla, la relación impresa y el CSV solo funcionan para el grupo «Personal de Registro»
     (si no se puede leer el grupo, se trata como «no pertenece»).

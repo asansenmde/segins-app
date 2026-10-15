@@ -181,6 +181,17 @@
   // ---------- Estados (los del formulario InfoPath) ----------
   var E = { BS: '0-Borrador de Solicitante', BR: '0-Borrador de Representante', PA: '1-Pendiente de Aprobar', AP: '2-Aprobado',
     AU: '3-Autorizado', RG: '4-Registrado SIPERDEF', RE: '5-Rechazado', AN: '5-Anulado en SIPERDEF', SI: 'Sin Identificar Solicitante' };
+  // Estado de la lista llevado al valor del formulario aunque varíen mayúsculas, tildes o espacios
+  function estadoCanon(v) {
+    var s = sinTildes(String(v || '').replace(/\s+/g, ' ').trim());
+    if (!s) return '';
+    var k = Object.keys(E).filter(function (x) { return sinTildes(E[x]) === s; })[0];
+    if (k) return E[k];
+    if (/^0/.test(s)) return /represent/.test(s) ? E.BR : E.BS;
+    if (/^1/.test(s)) return E.PA; if (/^2/.test(s)) return E.AP; if (/^3/.test(s)) return E.AU; if (/^4/.test(s)) return E.RG;
+    if (/^5/.test(s)) return /anul/.test(s) ? E.AN : E.RE;
+    return String(v);
+  }
   var claseEstado = function (e) { var n = String(e || '').charAt(0); return n === '2' ? 'e6' : /[0-5]/.test(n) ? 'e' + n : 'e0'; };
   var esBorrador = function (t) { return t.estado === E.BS || t.estado === E.BR || t.estado === E.SI || !t.estado; };
   // Concedido = AUTORIZADO (o ya registrado). «2-Aprobado» es solo el visto bueno del jefe: aún no está concedido
@@ -213,7 +224,7 @@
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
 
   // ---------- SharePoint ----------
-  var web = null, yo = null, misGrupos = [], esGestor = false, esAdmin = false, listaInfo = null, opciones = {}, empleos = [], unidades = [], items = [], cargadoEn = null;
+  var web = null, yo = null, misIds = [], misGrupos = [], esGestor = false, esAdmin = false, listaInfo = null, opciones = {}, empleos = [], unidades = [], items = [], cargadoEn = null;
   function api(url) {
     var pedir = function (accept) {
       return fetch(url, { credentials: 'same-origin', headers: { Accept: accept } }).then(function (r) {
@@ -275,10 +286,19 @@
     'Unidad0/Id', 'Unidad0/Title', 'Author/Id', 'Author/Title', 'Editor/Title']
     .concat([].concat.apply([], PERSONAS.map(function (p) { return [p + '/Id', p + '/Title', p + '/EMail']; })));
   var EXPAND = ['Unidad0', 'Author', 'Editor'].concat(PERSONAS).join(',');
-  var persona = function (u) { return u && u.Id ? { Id: u.Id, Title: u.Title || '', Email: u.EMail || '' } : null; };
+  var persona = function (u) {
+    if (u && Array.isArray(u.results)) u = u.results;
+    if (Array.isArray(u)) {
+      var v = u.filter(function (x) { return x && x.Id; });
+      if (!v.length) return null;
+      var p = persona(v[0]); p.todos = v.map(function (x) { return x.Id; }); p.Title = v.map(function (x) { return x.Title; }).join(', ');
+      return p;
+    }
+    return u && u.Id ? { Id: u.Id, Title: u.Title || '', Email: u.EMail || '' } : null;
+  };
   function aSol(it) {
     var t = {
-      id: it.Id, asunto: it.Title || '(sin asunto)', estado: it.Estado || '', tipo: it.TipoDePermiso || '', cupo: it.CupoDeA_x00f1_o || '',
+      id: it.Id, asunto: it.Title || '(sin asunto)', estado: estadoCanon(it.Estado), estadoRaw: it.Estado || '', tipo: it.TipoDePermiso || '', cupo: it.CupoDeA_x00f1_o || '',
       ini: fechaSP(it.FechaInicio), fin: fechaSP(it.FechaDeFin), festivos: it.DiasFestivos || '', dependencia: it.Dependencia || '', empleo: it.Empleo || '',
       unidad: it.Unidad0 && it.Unidad0.Id ? { Id: it.Unidad0.Id, Title: it.Unidad0.Title || '' } : null, directo: it.AutorizarDirecto === true || it.AutorizarDirecto === 'true',
       eAprob: it.EstadoDeAprobacion || '', eAutor: it.EstadoDeAutorizacion || '', eReg: it.EstadoDeRegistro || '',
@@ -296,7 +316,7 @@
     $('#estadoCarga').textContent = 'Cargando…';
     web = location.origin + pref.sitio.replace(/\/+$/, '');
     return Promise.all([
-      api(web + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) { yo = { Id: u.Id, Title: u.Title, Email: u.Email || '', LoginName: u.LoginName }; $('#quien').textContent = '👤 ' + u.Title; $('#quien').hidden = false; }),
+      api(web + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) { yo = { Id: u.Id, Title: u.Title, Email: u.Email || '', LoginName: u.LoginName }; misIds = [u.Id]; $('#quien').textContent = '👤 ' + u.Title; $('#quien').hidden = false; }),
       api(web + '/_api/web/currentuser/groups?$select=Title').then(function (d) { misGrupos = lista(d.value).map(function (x) { return x.Title; }); }).catch(function () { misGrupos = []; }),
       api(urlLista() + '?$select=Id,Title,ListItemEntityTypeFullName,EffectiveBasePermissions,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) {
         listaInfo = l;
@@ -311,6 +331,8 @@
       todas(web + "/_api/web/lists/getbytitle('empleos')/items?$select=Title&$top=500").then(function (l) { empleos = l.map(function (x) { return x.Title; }).filter(Boolean); }).catch(function () { empleos = []; }),
       todas(web + "/_api/web/lists/getbytitle('UNIDADES')/items?$select=Id,Title&$top=500").then(function (l) { unidades = l.map(function (x) { return { Id: x.Id, Title: x.Title || '' }; }).sort(function (a, b) { return a.Title.localeCompare(b.Title, 'es'); }); }).catch(function () { unidades = []; })
     ]).then(function () {
+      return buscarMisCuentas();
+    }).then(function () {
       return todas(urlLista() + '/items?$top=1000&$select=' + SEL.join(',') + '&$expand=' + EXPAND + filtroAlcance());
     }).then(function (its) {
       items = its.map(aSol);
@@ -336,11 +358,30 @@
   // Se filtra en el servidor: las solicitudes en las que figuras (solicitante, representante, aprobador, autorizador,
   // registrador o autor) y, si perteneces a un grupo de registro, las autorizadas, registradas y anuladas.
   // El gestor de la lista (permiso «Administrar listas» en Colabora) ve todas.
+  // Una misma persona puede tener varias cuentas en el sitio (p. ej. las que guardó el formulario InfoPath con el
+  // formato antiguo «dominio\usuario»). Se buscan las que comparten correo o cuenta de dominio con la actual.
+  var cuentaDe = function (login) { return String(login || '').split('|').pop().toLowerCase(); };
+  function buscarMisCuentas() {
+    misIds = [yo.Id];
+    var cuenta = cuentaDe(yo.LoginName), usuario = cuenta.split('\\').pop(), qs = [];
+    var q = function (f) { return web + '/_api/web/siteusers?$select=Id,Title,Email,LoginName&$filter=' + encodeURIComponent(f); };
+    if (yo.Email) qs.push(q("Email eq '" + yo.Email.replace(/'/g, "''") + "'"));
+    if (usuario) qs.push(q("substringof('" + usuario.replace(/'/g, "''") + "',LoginName)"));
+    return Promise.all(qs.map(function (u) { return todas(u).catch(function () { return []; }); })).then(function (rs) {
+      [].concat.apply([], rs).forEach(function (u) {
+        // Misma cuenta de dominio, o mismo correo y mismo nombre (un buzón compartido no basta)
+        var mismo = (cuenta && cuentaDe(u.LoginName) === cuenta) ||
+          (yo.Email && u.Email && u.Email.toLowerCase() === yo.Email.toLowerCase() && sinTildes(u.Title) === sinTildes(yo.Title));
+        if (mismo && misIds.indexOf(u.Id) < 0) misIds.push(u.Id);
+      });
+    });
+  }
   function filtroAlcance() {
     if (esGestor) return '';
-    var id = yo.Id;
-    var c = ['SolicitanteId', 'RepresentanteDelSolicitanteId', 'AprobadorDePermisoId', 'AutorizadorDelPermisoId', 'Registro_x0020_SIPERDEFId', 'AuthorId']
-      .map(function (k) { return '(' + k + ' eq ' + id + ')'; });
+    var c = [];
+    ['SolicitanteId', 'RepresentanteDelSolicitanteId', 'AprobadorDePermisoId', 'AutorizadorDelPermisoId', 'Registro_x0020_SIPERDEFId', 'AuthorId'].forEach(function (k) {
+      misIds.forEach(function (id) { c.push('(' + k + ' eq ' + id + ')'); });
+    });
     if (enRegistro()) c = c.concat([E.AU, E.RG, E.AN].map(function (e) { return "(Estado eq '" + e + "')"; }));
     return '&$filter=' + encodeURIComponent(c.join(' or '));
   }
@@ -350,8 +391,9 @@
   }
 
   // ---------- Roles ----------
-  var soy = function (p) { return !!(p && yo && p.Id === yo.Id); };
-  var esMia = function (t) { return soy(t.sol) || soy(t.rep) || (!t.sol && t.autorId === (yo && yo.Id)); };
+  var esYo = function (id) { return misIds.indexOf(id) >= 0; };
+  var soy = function (p) { return !!(p && yo && (esYo(p.Id) || (p.todos || []).some(esYo))); };
+  var esMia = function (t) { return soy(t.sol) || soy(t.rep) || (!t.sol && esYo(t.autorId)); };
   // Registro SIPERDEF: solo quien pertenece al grupo de Colabora «Personal de Registro»
   var GRUPO_REGISTRO = /^personal de registro$/i;
   var enRegistro = function () { return misGrupos.some(function (g) { return GRUPO_REGISTRO.test(String(g).trim()); }); };
@@ -484,7 +526,35 @@
     return conmutador + '<p class="muted small">Solicitudes que esperan una acción tuya como aprobador o autorizador indicado en la solicitud, ordenadas por fecha de inicio. En rojo, las que llevan más de 3 días esperando o empiezan pronto.' +
       (enRegistro() ? ' Lo pendiente de registro está en la pestaña «Registro SIPERDEF».' : '') + '</p>' +
       bloque('Pendientes de aprobar', p.aprobar, 'Ninguna solicitud espera tu aprobación.') +
-      bloque('Pendientes de autorizar', p.autorizar, 'Ninguna solicitud espera tu autorización.');
+      bloque('Pendientes de autorizar', p.autorizar, 'Ninguna solicitud espera tu autorización.') +
+      '<details class="card" style="margin-top:16px"><summary style="cursor:pointer;font-weight:700">¿Echas en falta alguna solicitud?</summary>' +
+      '<p class="small muted">Pregunta a Colabora en cuántas solicitudes figuras como aprobador o autorizador y en qué estado están (solo cuenta, no cambia nada). Antes, recarga la página con Ctrl+F5.</p>' +
+      '<div class="acciones"><button data-comprobar="1">Comprobar en Colabora</button></div><div id="compRes"></div></details>';
+  }
+  function comprobarPendientes() {
+    var el = $('#compRes'); if (!el) return;
+    el.innerHTML = '<p class="muted small">Comprobando…</p>';
+    var contar = function (campo) {
+      var f = misIds.map(function (id) { return '(' + campo + ' eq ' + id + ')'; }).join(' or ');
+      return todas(urlLista() + '/items?$top=1000&$select=Id,Estado&$filter=' + encodeURIComponent(f));
+    };
+    Promise.all([contar('AprobadorDePermisoId'), contar('AutorizadorDelPermisoId'),
+      todas(urlLista() + '/items?$top=1000&$select=Id,Estado&$filter=' + encodeURIComponent("AprobadorTexto eq '" + yo.Title.replace(/'/g, "''") + "'")).catch(function () { return null; }),
+      todas(urlLista() + '/items?$top=1000&$select=Id,Estado&$filter=' + encodeURIComponent("AutorizadorTexto eq '" + yo.Title.replace(/'/g, "''") + "'")).catch(function () { return null; })])
+      .then(function (r) {
+        var tabla = function (ls) { var m = {}; ls.forEach(function (x) { var k = x.Estado || '(sin estado)'; m[k] = (m[k] || 0) + 1; });
+          return Object.keys(m).sort().map(function (k) { return esc(k) + ': <b>' + m[k] + '</b>'; }).join(' · ') || 'ninguna'; };
+        var visibles = function (ls) { return ls.filter(function (x) { return items.some(function (t) { return t.id === x.Id; }); }).length; };
+        var sinPersona = function (ls, ids) { return ls ? ls.filter(function (x) { return ids.indexOf(x.Id) < 0; }).length : 0; };
+        var idsA = r[0].map(function (x) { return x.Id; }), idsU = r[1].map(function (x) { return x.Id; });
+        var faltanA = sinPersona(r[2], idsA), faltanU = sinPersona(r[3], idsU);
+        el.innerHTML = '<p class="small">Cuentas tuyas encontradas en Colabora: <b>' + misIds.length + '</b>' + (misIds.length > 1 ? ' (se tienen en cuenta todas)' : '') + '.</p>' +
+          '<p class="small"><b>Como aprobador</b> figuras en ' + r[0].length + ' solicitud(es): ' + tabla(r[0]) + '.<br>Pendientes de aprobar que ve la página: <b>' + pendientes().aprobar.length + '</b>.</p>' +
+          '<p class="small"><b>Como autorizador</b> figuras en ' + r[1].length + ' solicitud(es): ' + tabla(r[1]) + '.<br>Pendientes de autorizar que ve la página: <b>' + pendientes().autorizar.length + '</b>.</p>' +
+          (r[0].length + r[1].length > visibles(r[0]) + visibles(r[1]) ? '<div class="aviso">Hay solicitudes en Colabora que la página no ha cargado. Pulsa «Actualizar»; si siguen faltando, dime estos números.</div>' : '') +
+          (faltanA || faltanU ? '<div class="aviso">Hay ' + (faltanA + faltanU) + ' solicitud(es) donde tu nombre aparece como aprobador o autorizador en el texto, pero la persona guardada en la solicitud es otra cuenta. Dime este número para revisarlo.</div>' : '') +
+          '<p class="small muted">Solo «1-Pendiente de Aprobar» (si eres el aprobador) y «2-Aprobado» (si eres el autorizador) esperan tu acción; el resto ya está tramitado.</p>';
+      }).catch(function (e) { el.innerHTML = '<div class="error">No se pudo comprobar: ' + esc(e.message || e) + '</div>'; });
   }
 
   // ---------- Impresión con formato oficial ----------
@@ -906,7 +976,7 @@
   function guardarCambios(t, cuerpo, anotar) {
     return leerElemento(t.id, ['RegistroDeBorrador', 'Estado']).then(function (x) {
       if (t.modificado && x.datos.Modified && !mismaFecha(t.modificado, x.datos.Modified)) throw new Error(CONFLICTO);
-      if (x.datos.Estado !== undefined && (x.datos.Estado || '') !== (t.estado || '')) throw new Error(CONFLICTO);
+      if (x.datos.Estado !== undefined && (x.datos.Estado || '') !== (t.estadoRaw !== undefined ? t.estadoRaw : t.estado || '')) throw new Error(CONFLICTO);
       if (anotar) cuerpo.RegistroDeBorrador = (x.datos.RegistroDeBorrador || '') + esc(anotar);
       cuerpo.__metadata = tipoEntidad();
       return enviarSP(urlLista() + '/items(' + t.id + ')', cuerpo, 'No tienes permiso para modificar esta solicitud', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': x.etag });
@@ -1279,6 +1349,7 @@
     var m = el.closest('[data-mes]');
     if (m) { mes = new Date(mes.getFullYear(), mes.getMonth() + Number(m.dataset.mes), 1); render(); return; }
     if (el.closest('[data-impcal]')) { imprimirCalendario(); return; }
+    if (el.closest('[data-comprobar]')) { comprobarPendientes(); return; }
     if (el.closest('[data-seguridad]')) { if (esAdmin) comprobarSeguridad(); return; }
     if (el.closest('[data-restablecer]')) { pref.sitio = POR_DEFECTO.sitio; pref.lista = POR_DEFECTO.lista; guardarPref(); cargar(); return; }
     var ic = el.closest('[data-ics]');
