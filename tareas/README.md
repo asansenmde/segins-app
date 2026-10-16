@@ -63,6 +63,12 @@ App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber 
   días habituales (despacho martes y viernes, punto de situación viernes, por defecto) se eligen en *Ajustes → Reuniones*, con
   el jefe tomado del directorio: si cambia, se elige otro y el historial conserva quién era. Las marcas van en la tarea (en las
   de equipo las ve el equipo); el historial va con los ajustes de cada usuario.
+- **Redacción con Claude** (pestaña *Despacho*, versión de claude.ai, capacidad `sample`): «✍ Redactar todo con Claude» o por
+  asunto. Claude redacta en estilo militar administrativo, sin inventar datos (lo que falta lo marca «[COMPLETAR: …]»), el
+  asunto formal, antecedentes, situación actual, planteamiento, **valoración** y propuesta, a partir de la ficha (descripción,
+  pasos, bitácora, plazos, prórrogas y «qué planteo»). Queda en la tarea (`redaccion`) para corregirlo y marcar «Revisada»; el
+  orden del día usa esa redacción y avisa si hay asuntos sin revisar. Al tratarlo, la redacción pasa al historial (acta) y la
+  tarea queda limpia para la siguiente reunión. Usa la cuenta de claude.ai de quien la pulsa (pide permiso la primera vez).
 - **Tablero** por estados: arrastrar y soltar en escritorio, botones ◀ ▶ en el móvil.
 - **Calendario** mensual con las NLT de cada día; se pueden crear tareas en un día concreto, y «📄 PDF» descarga el mes.
 - **Lo que hago** (actividad): por periodo (hoy, semana, mes…) muestra tareas hechas, % entregadas

@@ -257,3 +257,6 @@ output { font-weight: 700; color: var(--text); }
 .reu-marcas .check { min-height: 28px; }
 .reu-extra { margin-top: 8px; border-top: 1px dashed var(--line, #ccc); padding-top: 6px; }
 .reu-extra textarea { min-height: 2.6em; }
+.reu-red { margin-top: 8px; background: var(--surface-2); border-radius: 10px; padding: 8px 10px; }
+.reu-red summary { cursor: pointer; font-weight: 650; }
+.reu-red textarea { font-size: .92rem; }

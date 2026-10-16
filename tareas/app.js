@@ -24,6 +24,7 @@ const TAREA_BASE = {
   espacio: 'personal', responsableId: '', creadorId: '', asignadaEn: 0, acuses: {},
   // Reuniones: llevar a despacho con el jefe y/o al punto de situación, con lo que se plantea y su orden en la lista
   despacho: false, ps: false, planteo: '', ordenDespacho: 0, ordenPs: 0,
+  redaccion: null, // redacción para el informe (Claude + revisión): {asunto, antecedentes, situacion, planteamiento, valoracion, propuesta, revisada}
 };
 const LISTAS = Object.keys(TAREA_BASE).filter(k => Array.isArray(TAREA_BASE[k]));
 
@@ -1295,23 +1296,27 @@ function marcarReunion(t, tipo, si) {
 }
 // Últimas anotaciones propias de la bitácora (si no hay, la última automática)
 const seguimiento = t => {
-  const propia = x => !/^(Para |Retirada de |Tratado en )/.test(x.texto);
+  const propia = x => !/^(Para |Retirada de |Tratado en |Redacción para el informe)/.test(x.texto);
   const r = t.registro.filter(x => !x.auto && propia(x)).slice(-2);
   return (r.length ? r : t.registro.filter(propia).slice(-1)).map(x => `${new Date(x.fecha).toLocaleDateString('es-ES')}: ${x.texto}`).join('\n');
 };
 
 function filaReunion(t) {
-  const f = filaInforme(t);
+  const f = { ...filaInforme(t) };
+  if (tieneRed(t) && t.redaccion.asunto) f.asunto = t.redaccion.asunto;
   const pend = t.subtareas.filter(x => !x.ok).map(x => x.t);
   return { ref: f.ref, asunto: f.asunto, resp: f.resp, nlt: f.nlt, estado: `${f.estado} · ${f.avance}`, situacion: f.situacion, cls: f.cls,
-    planteo: t.planteo || '', seguimiento: seguimiento(t), pasos: pend.length ? pend.map(x => '☐ ' + x).join('\n') : '', resultado: '' };
+    planteo: t.planteo || '', seguimiento: seguimiento(t), pasos: pend.length ? pend.map(x => '☐ ' + x).join('\n') : '', resultado: '',
+    red: tieneRed(t) ? { ...t.redaccion } : null };
 }
 // Modelo común para orden del día (tareas marcadas) y acta (reunión del historial)
 const modeloReunion = tipo => ({ tipo, fecha: fechaReunion(tipo), jefe: tipo === 'despacho' ? jefeTexto() : '', acta: false, filas: enReunion(tipo).map(filaReunion) });
 const modeloActa = r => ({ tipo: r.tipo, fecha: r.fecha, jefe: r.jefe || '', acta: true,
-  filas: r.items.map(x => ({ ref: x.ref || '', asunto: x.asunto, resp: x.resp || '', nlt: '', estado: x.estado || '', situacion: '', planteo: x.planteo || '', seguimiento: '', pasos: '', resultado: x.resultado || '' })) });
+  filas: r.items.map(x => ({ ref: x.ref || '', asunto: x.red?.asunto || x.asunto, resp: x.resp || '', nlt: '', estado: x.estado || '', situacion: '', planteo: x.planteo || '', seguimiento: '', pasos: '', resultado: x.resultado || '', red: x.red || null })) });
 const subtituloReunion = m => [m.acta ? 'Asuntos tratados' : 'Orden del día', fechaLarga(m.fecha)].join(' · ');
-const detalleReunion = (f, m) => [['Qué se plantea', f.planteo], ['Último seguimiento', f.seguimiento], ['Pasos pendientes', f.pasos],
+// Con redacción (revisada o no) se usan sus apartados; sin ella, los datos de la ficha
+const detalleReunion = (f, m) => [...(f.red ? CAMPOS_RED.slice(1).map(([k, l]) => [l, f.red[k]])
+  : [['Qué se plantea', f.planteo], ['Último seguimiento', f.seguimiento], ['Pasos pendientes', f.pasos]]),
   ...(m.acta ? [['Decisión / indicaciones', f.resultado || '—']] : [])].filter(x => x[1]);
 const nombreArchivoReunion = (m, ext) => `${m.tipo === 'ps' ? 'punto-situacion' : 'despacho'}-${m.fecha}${m.acta ? '-acta' : ''}.${ext}`;
 
@@ -1335,7 +1340,10 @@ function vistaDespacho() {
       <button class="btn primary" data-accion="reu-word" ${dis}>📄 Orden del día (Word)</button>
       <button class="btn" data-accion="reu-pdf" ${dis}>PDF</button>
       <button class="btn" data-accion="reu-texto" ${dis}>Copiar texto</button>
-      ${ts.length > 1 ? '<button class="btn" data-accion="reu-todas">✔ Tratadas todas</button>' : ''}</div></div>
+      ${ts.length > 1 ? '<button class="btn" data-accion="reu-todas">✔ Tratadas todas</button>' : ''}</div>
+    ${iaDisponible === false || !ts.length ? '' : redactando.size ? `<div class="row gap wrap" style="margin-top:8px"><span class="badge info">✍ Claude está redactando ${redactando.size} asunto${redactando.size === 1 ? '' : 's'}… (puede tardar un minuto)</span><button class="btn sm" data-redstop>Detener</button></div>`
+      : `<div class="row gap wrap" style="margin-top:8px"><button class="btn" data-accion="reu-redactar">✍ Redactar todo con Claude</button>
+        <span class="small muted">${ts.filter(t => tieneRed(t) && t.redaccion.revisada).length} de ${ts.length} revisados</span></div>`}</div>
     <select class="input" id="reuAdd" style="margin-bottom:12px"><option value="">＋ Añadir una tarea a esta lista…</option>
       ${libres.map(t => `<option value="${t.id}">${esc((t.referencia ? t.referencia + ' · ' : '') + t.titulo)}</option>`).join('')}</select>`;
   const lista = ts.map((t, i) => {
@@ -1344,6 +1352,7 @@ function vistaDespacho() {
       <label class="lbl">Qué planteo<textarea class="input" rows="2" data-planteo="${t.id}" ${ro ? 'disabled' : ''}
         placeholder="Decisión que necesito, problema, información que doy…">${esc(t.planteo)}</textarea></label>
       ${seg ? `<p class="small muted" style="margin:4px 0 0">Último seguimiento: ${esc(seg).replace(/\n/g, ' · ')}</p>` : ''}
+      ${bloqueRedaccion(t)}
       <div class="row gap wrap" style="margin-top:8px">
         <span class="badge none">${i + 1}</span>
         <button class="btn sm" data-reuord="${t.id}" data-d="-1" ${i && !ro ? '' : 'disabled'} aria-label="Subir">▲</button>
@@ -1379,9 +1388,10 @@ async function tratar(ids, tipo) {
   if (!r) { r = { id: nuevoId(), tipo, fecha, jefe: tipo === 'despacho' ? jefeTexto() : '', items: [] }; datos.reuniones.push(r); }
   for (const t of ts) {
     r.items = r.items.filter(x => x.id !== t.id);
-    r.items.push({ id: t.id, ref: t.referencia, asunto: t.titulo, resp: quienEs(t), estado: `${NOMBRE_ESTADO[t.estado]} · ${progreso(t)} %`, planteo: t.planteo, resultado: nota });
+    r.items.push({ id: t.id, ref: t.referencia, asunto: t.titulo, resp: quienEs(t), estado: `${NOMBRE_ESTADO[t.estado]} · ${progreso(t)} %`, planteo: t.planteo, resultado: nota,
+      red: tieneRed(t) ? { ...t.redaccion } : null });
     anotar(t, `Tratado en ${nombreReunion(tipo)} (${fechaCorta(fecha)})${nota ? ': ' + nota : ''}`, false);
-    t.planteo = '';
+    t.planteo = ''; t.redaccion = null; // la próxima vez se redacta con la situación nueva
     // Del despacho sale; del punto de situación, solo cuando ya está hecha
     if (tipo === 'despacho' || t.estado === 'hecha') t[REU[tipo].campo] = false;
   }
@@ -1391,6 +1401,7 @@ async function tratar(ids, tipo) {
 }
 
 function clicReunion(e) {
+  if (clicRedaccion(e)) return true;
   const el = e.target;
   const tab = el.closest('[data-reutab]');
   if (tab) { e.preventDefault(); reuVista = tab.dataset.reutab; render(); return true; }
@@ -1420,6 +1431,7 @@ function clicReunion(e) {
 }
 
 function cambioReunion(el) {
+  if (cambioRedaccion(el)) return true;
   const a = datos.ajustes;
   if (el.dataset.planteo !== undefined) { const t = buscar(el.dataset.planteo); if (t && !soloLectura(t)) { t.planteo = el.value.trim(); guardar(); } return true; }
   if (el.id === 'reuAdd') { if (el.value) { marcarReunion(buscar(el.value), reuVista, true); guardar(); render(); } return true; }
@@ -1556,6 +1568,8 @@ async function pdfReunion(m) {
 
 async function exportarReunion(m, fmt) {
   if (!m.filas.length) { toast('No hay asuntos'); return; }
+  const sinRev = m.acta ? 0 : m.filas.filter(f => !f.red || !f.red.revisada).length;
+  if (sinRev && iaDisponible !== false && !(await preguntar(`${sinRev} de ${m.filas.length} asunto${m.filas.length === 1 ? '' : 's'} no tiene${sinRev === 1 ? '' : 'n'} la redacción revisada${m.filas.some(f => !f.red) ? ' (o ni siquiera redactada)' : ''}. ¿Generar el informe igualmente?`, { ok: 'Generar igualmente' }))) return;
   try {
     if (fmt === 'texto') {
       try { await navigator.clipboard.writeText(textoReunion(m)); toast('Copiado: pégalo en un correo o documento'); }
@@ -1573,7 +1587,141 @@ async function exportarReunion(m, fmt) {
 function accionReunion(a) {
   if (!REU[reuVista]) return;
   if (a === 'reu-todas') return tratar(enReunion(reuVista).map(t => t.id), reuVista);
+  if (a === 'reu-redactar') return redactar(enReunion(reuVista).map(t => t.id), true);
   return exportarReunion(modeloReunion(reuVista), { 'reu-word': 'word', 'reu-pdf': 'pdf', 'reu-texto': 'texto' }[a]);
+}
+
+// ---------- Redacción con Claude (capacidad «sample» de claude.ai) ----------
+// Para cada asunto del despacho o del punto de situación, Claude redacta en estilo militar antecedentes, situación,
+// planteamiento, valoración y propuesta. Se guarda en la tarea (redaccion) para revisarlo y corregirlo antes del informe.
+const CAMPOS_RED = [['asunto', 'Asunto'], ['antecedentes', 'Antecedentes'], ['situacion', 'Situación actual'], ['planteamiento', 'Planteamiento'],
+  ['valoracion', 'Valoración'], ['propuesta', 'Propuesta']];
+let capSampleP = null, iaDisponible = null, redactando = new Set(), ctlRed = null;
+const capSample = () => (capSampleP ||= window.claude?.use ? Promise.resolve(window.claude.use('sample')).catch(() => null) : Promise.resolve(null));
+capSample().then(s => { iaDisponible = !!s; if (location.hash === '#despacho') render(true); });
+const corta = (s, n) => { s = String(s || '').trim(); return s.length > n ? s.slice(0, n) + '…' : s; };
+const tieneRed = t => !!(t.redaccion && CAMPOS_RED.some(([k]) => t.redaccion[k]));
+
+function datosParaRedactar(t) {
+  const propia = x => !/^(Para |Retirada de |Tratado en |Redacción para el informe)/.test(x.texto);
+  return {
+    id: t.id, referencia: t.referencia, asunto: t.titulo, prioridad: PRIOS[t.prioridad], estado: NOMBRE_ESTADO[t.estado], avance: `${progreso(t)} %`,
+    nlt: t.nlt ? fechaCorta(t.nlt) + (t.hora ? ' ' + t.hora : '') : 'sin NLT', plazo: urgencia(t).txt, nltOriginal: prorrogas(t) ? fechaCorta(t.nltOriginal) : '',
+    prorrogas: t.prorrogas.map(p => `${fechaCorta(p.de) || 'sin NLT'} -> ${fechaCorta(p.a) || 'sin NLT'}${p.motivo ? ': ' + p.motivo : ''}`),
+    ordenadaPor: t.ordenadaPor, fechaOrden: t.fechaOrden ? fechaCorta(t.fechaOrden) : '', responsable: quienEs(t), colaboradores: t.colaboradores,
+    lugar: t.lugar, categoria: t.categoria, descripcion: corta(t.descripcion, 1500), queSePlantea: corta(t.planteo, 800),
+    pasos: t.subtareas.map(s => `${s.ok ? '[hecho]' : '[pendiente]'} ${s.t}`),
+    bitacora: t.registro.filter(propia).slice(-8).map(r => `${new Date(r.fecha).toLocaleDateString('es-ES')}: ${corta(r.texto, 300)}`),
+    observaciones: corta(t.notas, 800), resultado: corta(t.resultado, 800), redaccionAnterior: tieneRed(t) ? t.redaccion : undefined,
+  };
+}
+
+function promptRedaccion(tipo, ts) {
+  const reunion = tipo === 'ps' ? 'el punto de situación periódico de la unidad' : `el despacho con ${jefeTexto() || 'el jefe directo'}`;
+  return `Actúas como oficial de Estado Mayor del Ejército de Tierra y preparas la documentación de cada asunto para ${reunion}.
+Quien presenta es ${emisor() || 'el oficial responsable'}. Fecha de la reunión: ${fechaLarga(fechaReunion(tipo))}.
+
+ESTILO (obligatorio):
+- Español correcto y cuidado, con estilo militar administrativo: impersonal o en tercera persona, preciso, conciso y ordenado; frases cortas; sin primera persona, sin coloquialismos, sin adjetivos superfluos ni frases hechas.
+- Fórmulas habituales cuando procedan: «Se informa que…», «Con fecha … se recibe…», «A fecha de hoy…», «Se valora que…», «Se propone…», «Para conocimiento».
+- Fechas en formato dd/mm/aaaa. NLT significa fecha límite para finalizar. Respeta referencias, empleos, unidades y siglas tal como vienen.
+- Desarrolla con detalle todo lo que los datos permiten: contexto, situación real, dificultades, impacto en el plazo y en la misión, lo que falta.
+
+RIGOR:
+- No inventes hechos, cifras, fechas, nombres, unidades ni normativa que no estén en los datos.
+- Si falta información necesaria para el mando, señálalo entre corchetes: [COMPLETAR: qué falta].
+- Si hay "redaccionAnterior", mejórala y actualízala con los datos actuales; respeta lo que el oficial ya corrigió salvo errores.
+
+CAMPOS de cada asunto:
+- "asunto": título formal y breve (sin la referencia).
+- "antecedentes": origen de la tarea (quién la ordena y cuándo), instrucciones y hechos previos relevantes.
+- "situacion": situación actual: estado, avance, pasos hechos y pendientes, plazo y prórrogas, incidencias.
+- "planteamiento": lo que se expone o se solicita al mando en esta reunión (a partir de "queSePlantea"; si está vacío, dedúcelo con prudencia de la situación).
+- "valoracion": análisis profesional como asesor: riesgos, impacto, grado de cumplimiento, dependencias y qué convendría hacer. Empieza por «Se valora que…». Es una propuesta que el oficial revisará.
+- "propuesta": decisión o acción concreta que se propone al mando, con plazo si procede («Se propone…»); si no requiere decisión, «Para conocimiento».
+
+Responde SOLO con un array JSON, un objeto por asunto, en el mismo orden y con el mismo "id":
+[{"id":"…","asunto":"…","antecedentes":"…","situacion":"…","planteamiento":"…","valoracion":"…","propuesta":"…"}]
+Texto plano en cada campo (se admiten saltos de línea y guiones para enumerar; sin Markdown).
+
+DATOS (${ts.length} asunto${ts.length === 1 ? '' : 's'}):
+${JSON.stringify(ts.map(datosParaRedactar))}`;
+}
+
+async function redactar(ids, nueva = false) {
+  const s = await capSample();
+  if (!s) { iaDisponible = false; render(); toast('La redacción con Claude solo funciona con la app abierta en claude.ai'); return; }
+  const ts = ids.map(buscar).filter(t => t && !soloLectura(t));
+  if (!ts.length || redactando.size) return;
+  if (ts.length > 1 && ts.some(tieneRed) && !(await preguntar('Algunos asuntos ya tienen redacción. ¿Rehacerla con los datos actuales? Se tendrán en cuenta tus correcciones.', { ok: 'Rehacer' }))) return;
+  redactando = new Set(ts.map(t => t.id)); ctlRed = new AbortController(); render();
+  try {
+    const opts = { modelTier: 'default', signal: ctlRed.signal };
+    if (nueva) opts.cache = false;
+    const r = await s.json(promptRedaccion(reuVista, ts), opts);
+    const arr = Array.isArray(r) ? r : Array.isArray(r?.asuntos) ? r.asuntos : [];
+    let n = 0;
+    ts.forEach((t, i) => {
+      const x = arr.find(a => String(a?.id) === t.id) || (arr.length === ts.length ? arr[i] : null);
+      if (!x || typeof x !== 'object') return;
+      t.redaccion = { ...Object.fromEntries(CAMPOS_RED.map(([k]) => [k, String(x[k] ?? '').trim()])), fecha: new Date().toISOString(), revisada: false };
+      anotar(t, 'Redacción para el informe preparada con Claude (pendiente de revisar)');
+      n++;
+    });
+    guardar();
+    toast(n ? `Redactado${n === 1 ? '' : 's'} ${n} asunto${n === 1 ? '' : 's'}: revísalo antes del informe` : 'Claude no devolvió la redacción; inténtalo de nuevo');
+  } catch (e) {
+    const m = { cancelled: 'Redacción detenida', not_granted: 'No se dio permiso para usar Claude en esta página', sampling_disabled: 'Claude no está disponible para esta cuenta',
+      rate_limited: 'Demasiadas peticiones o límite de uso: inténtalo más tarde', prompt_too_large: 'Demasiados datos de una vez: redacta los asuntos de uno en uno',
+      invalid_json: 'La respuesta no tuvo el formato esperado: inténtalo de nuevo', refused: 'Claude no ha redactado este contenido' }[e?.code];
+    if (['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'].includes(e?.code)) iaDisponible = false;
+    registrarError(`Redacción: ${e?.code || ''} ${e?.message || e}`);
+    toast(m || 'No se pudo redactar; inténtalo de nuevo');
+  } finally { redactando = new Set(); ctlRed = null; render(); }
+}
+
+// Bloque de redacción dentro de la tarjeta de la pestaña Despacho
+function bloqueRedaccion(t) {
+  const red = t.redaccion || {}, ro = soloLectura(t), ocupado = redactando.has(t.id);
+  const estado = ocupado ? '<span class="badge info">Redactando…</span>' : !tieneRed(t) ? '<span class="badge none">Sin redactar</span>'
+    : red.revisada ? '<span class="badge ok">✔ Revisada</span>' : '<span class="badge warn">Pendiente de revisar</span>';
+  return `<details class="reu-red" ${ocupado || (tieneRed(t) && !red.revisada) ? 'open' : ''}><summary>✍ Redacción para el informe ${estado}</summary>
+    ${tieneRed(t) ? CAMPOS_RED.map(([k, l]) => `<label class="lbl">${l}<textarea class="input" rows="${k === 'asunto' ? 1 : 3}" data-red="${t.id}" data-campo="${k}" ${ro ? 'disabled' : ''}>${esc(red[k] || '')}</textarea></label>`).join('')
+      + `<label class="check" style="margin-top:6px"><input type="checkbox" data-redok="${t.id}" ${red.revisada ? 'checked' : ''} ${ro ? 'disabled' : ''}> Revisada por mí (lista para el informe)</label>`
+      : '<p class="small muted">Claude redacta antecedentes, situación, planteamiento, valoración y propuesta a partir de la ficha (descripción, pasos, bitácora, plazos y «qué planteo»). Cuanto más completa la ficha, mejor la redacción.</p>'}
+    <div class="row gap wrap" style="margin-top:6px">
+      ${iaDisponible === false ? '<span class="small muted">Disponible al abrir la app en claude.ai.</span>'
+        : `<button class="btn sm" data-redactar="${t.id}" ${ro || redactando.size ? 'disabled' : ''}>${tieneRed(t) ? '↻ Rehacer con Claude' : '✍ Redactar con Claude'}</button>`}
+      ${tieneRed(t) && !ro ? `<button class="btn sm" data-redborrar="${t.id}">Quitar redacción</button>` : ''}</div></details>`;
+}
+
+function clicRedaccion(e) {
+  const el = e.target;
+  const r = el.closest('[data-redactar]');
+  if (r) { redactar([r.dataset.redactar], tieneRed(buscar(r.dataset.redactar))); return true; }
+  const b = el.closest('[data-redborrar]');
+  if (b) {
+    preguntar('¿Quitar la redacción de este asunto? El informe volverá a usar los datos de la ficha.', { ok: 'Quitar', peligro: true }).then(si => {
+      if (!si) return; const t = buscar(b.dataset.redborrar); if (t) { t.redaccion = null; guardar(); render(); }
+    });
+    return true;
+  }
+  if (el.closest('[data-redstop]')) { ctlRed?.abort(); return true; }
+  return false;
+}
+
+function cambioRedaccion(el) {
+  if (el.dataset.red !== undefined) {
+    const t = buscar(el.dataset.red);
+    if (t && !soloLectura(t) && t.redaccion) { t.redaccion[el.dataset.campo] = el.value.trim(); guardar(); }
+    return true;
+  }
+  if (el.dataset.redok !== undefined) {
+    const t = buscar(el.dataset.redok);
+    if (t && !soloLectura(t) && t.redaccion) { t.redaccion.revisada = el.checked; if (el.checked) anotar(t, 'Redacción para el informe revisada'); guardar(); render(); }
+    return true;
+  }
+  return false;
 }
 
 let personaEdit = -1;
