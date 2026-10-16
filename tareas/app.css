@@ -251,3 +251,9 @@ output { font-weight: 700; color: var(--text); }
   body.imprimiendo .informe { border: 0; padding: 0; }
   body.imprimiendo .inf-tabla { min-width: 0; }
 }
+/* Reuniones: despacho con el jefe y punto de situación */
+.badge.reu { background: #efe7d6; color: #6b4e16; }
+.reu-marcas { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-top: 10px; padding: 8px 10px; background: var(--surface-2); border-radius: 10px; }
+.reu-marcas .check { min-height: 28px; }
+.reu-extra { margin-top: 8px; border-top: 1px dashed var(--line, #ccc); padding-top: 6px; }
+.reu-extra textarea { min-height: 2.6em; }

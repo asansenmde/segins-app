@@ -5,14 +5,14 @@
 import { interpretar } from './fechas.js?v=12';
 
 const CLAVE = 'tareas-nlt-v1';
-const VERSION_APP = '14 · 6 oct 2026'; // súbela en cada publicación (y el ?v= de index.html)
+const VERSION_APP = '15 · 16 oct 2026'; // súbela en cada publicación (y el ?v= de index.html)
 const ESTADOS = [['pendiente', 'Pendiente'], ['curso', 'En curso'], ['espera', 'En espera'], ['hecha', 'Hecha']];
 const NOMBRE_ESTADO = Object.fromEntries(ESTADOS);
 const PRIOS = { critica: 'Crítica', alta: 'Alta', media: 'Media', baja: 'Baja' };
 const ORDEN_PRIO = { critica: 0, alta: 1, media: 2, baja: 3 };
 const REPETIR = { '': 'No se repite', diaria: 'Cada día', semanal: 'Cada semana', mensual: 'Cada mes', anual: 'Cada año' };
 const CATS_BASE = ['Evaluaciones SEGINS', 'Visitas', 'Informes', 'Reuniones', 'Administración', 'Formación', 'Personal'];
-const VISTAS = { nlt: 'TAREAS DEL NEGOCIADO DE SEGURIDAD DE SUIGESUR', tablero: 'Tablero', calendario: 'Calendario', actividad: 'Lo que hago', informes: 'Informes', ajustes: 'Ajustes' };
+const VISTAS = { nlt: 'TAREAS DEL NEGOCIADO DE SEGURIDAD DE SUIGESUR', tablero: 'Tablero', calendario: 'Calendario', despacho: 'Despacho y punto de situación', actividad: 'Lo que hago', informes: 'Informes', ajustes: 'Ajustes' };
 
 // Todos los campos de una tarea, con su valor por defecto
 const TAREA_BASE = {
@@ -22,6 +22,8 @@ const TAREA_BASE = {
   estado: 'pendiente', repetir: '', progreso: 0, estimacionH: 0, dependeDe: [], enlaces: [], resultado: '',
   creada: '', hecha: null, subtareas: [], tiempo: [], registro: [], gcal: null,
   espacio: 'personal', responsableId: '', creadorId: '', asignadaEn: 0, acuses: {},
+  // Reuniones: llevar a despacho con el jefe y/o al punto de situación, con lo que se plantea y su orden en la lista
+  despacho: false, ps: false, planteo: '', ordenDespacho: 0, ordenPs: 0,
 };
 const LISTAS = Object.keys(TAREA_BASE).filter(k => Array.isArray(TAREA_BASE[k]));
 
@@ -65,7 +67,9 @@ function normalizar(d) {
     gcalMapa: d.gcalMapa && typeof d.gcalMapa === 'object' ? d.gcalMapa : {},
     vistos: d.vistos && typeof d.vistos === 'object' ? d.vistos : {},
     avisosPropios: d.avisosPropios && typeof d.avisosPropios === 'object' ? d.avisosPropios : {},
-    ajustes: { avisoDias: 3, tema: 'auto', ultimoAviso: '', miNombre: '', avisoAntes: 1, avisoHora: '09:00', gcal: false, gcalCal: '', ...(d.ajustes || {}) },
+    reuniones: Array.isArray(d.reuniones) ? d.reuniones : [],
+    ajustes: { avisoDias: 3, tema: 'auto', ultimoAviso: '', miNombre: '', avisoAntes: 1, avisoHora: '09:00', gcal: false, gcalCal: '',
+      jefe: '', diasDespacho: [2, 5], diasPs: [5], ...(d.ajustes || {}) },
     activo: d.activo || null,
   };
 }
@@ -445,6 +449,8 @@ function tarjeta(t, extra = '') {
         ${avisoActivo(t) ? '<span class="badge bad">🔔 Aviso</span>' : ''}
         ${bloq ? `<span class="badge bad" title="Depende de tareas sin terminar">⛔ Bloqueada</span>` : ''}
         ${enEquipo(t) ? '<span class="badge equipo" title="Tarea del equipo">👥 Equipo</span>' : ''}
+        ${t.despacho ? `<span class="badge reu" title="Para ${esc(nombreReunion('despacho').toLowerCase())}">🎖 Despacho</span>` : ''}
+        ${t.ps ? '<span class="badge reu" title="Para el punto de situación">📊 P. situación</span>' : ''}
         ${nombreResp(t) && !esMia(t) ? `<span class="persona" title="Responsable: ${esc(nombreResp(t))}"><i>${esc(iniciales(nombreResp(t)))}</i>${esc(nombreResp(t))}</span>` : ''}
         ${enEquipo(t) && !nombreResp(t) && !hecha ? '<span class="badge none">Sin asignar</span>' : ''}
         ${enEquipo(t) && t.responsableId && t.responsableId !== nube.uid && !hecha
@@ -1258,6 +1264,318 @@ async function pdfCalendario(ts, desde, hasta, cab = {}) {
 }
 
 // ---------- Vista: Ajustes ----------
+// ---------- Despacho con el jefe y punto de situación ----------
+// Cada tarea se puede llevar a despacho y/o al punto de situación. En la pestaña Despacho se ordenan, se anota
+// qué se plantea, se saca el orden del día (Word, PDF, texto) y, tras la reunión, «Tratado» lo deja en la bitácora
+// y en el historial de reuniones (sincronizado con los ajustes de cada usuario).
+const REU = { despacho: { campo: 'despacho', orden: 'ordenDespacho', dias: 'diasDespacho' }, ps: { campo: 'ps', orden: 'ordenPs', dias: 'diasPs' } };
+const DIAS_SEM = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+let reuVista = 'despacho';
+const reuFecha = {};
+// Jefe: una persona del directorio (Ajustes); si cambia de destino se elige otra y el historial conserva quién era
+const jefe = () => datos.ajustes.jefe ? (persona(datos.ajustes.jefe) || { nombre: datos.ajustes.jefe }) : null;
+const jefeTexto = () => { const j = jefe(); return j ? [j.cargo, j.nombre].filter(Boolean).join(' · ') : ''; };
+const nombreReunion = (tipo, j = jefe()) => tipo === 'ps' ? 'Punto de situación' : `Despacho con ${j ? (j.cargo || j.nombre) : 'el jefe'}`;
+const tituloReunion = (tipo, jt) => tipo === 'ps' ? 'PUNTO DE SITUACIÓN' : `DESPACHO${jt ? ' CON ' + jt.split(' · ')[0].toUpperCase() : ''}`;
+function proximaReunion(tipo) {
+  const dias = datos.ajustes[REU[tipo].dias] || [];
+  for (let i = 0; i < 7 && dias.length; i++) { const f = sumarDias(hoy(), i); if (dias.includes(aFecha(f).getDay())) return f; }
+  return hoy();
+}
+const fechaReunion = tipo => reuFecha[tipo] || proximaReunion(tipo);
+const enReunion = tipo => datos.tareas.filter(t => t[REU[tipo].campo])
+  .sort((a, b) => (a[REU[tipo].orden] || 0) - (b[REU[tipo].orden] || 0) || ordenar(a, b));
+const siguienteOrden = (tipo, sinId) => 1 + Math.max(0, ...datos.tareas.filter(x => x[REU[tipo].campo] && x.id !== sinId).map(x => x[REU[tipo].orden] || 0));
+function marcarReunion(t, tipo, si) {
+  const R = REU[tipo];
+  if (!t || soloLectura(t) || !!t[R.campo] === si) return;
+  t[R.campo] = si;
+  if (si) t[R.orden] = siguienteOrden(tipo, t.id);
+  anotar(t, si ? `Para ${nombreReunion(tipo)}` : `Retirada de ${nombreReunion(tipo)}`);
+}
+// Últimas anotaciones propias de la bitácora (si no hay, la última automática)
+const seguimiento = t => {
+  const propia = x => !/^(Para |Retirada de |Tratado en )/.test(x.texto);
+  const r = t.registro.filter(x => !x.auto && propia(x)).slice(-2);
+  return (r.length ? r : t.registro.filter(propia).slice(-1)).map(x => `${new Date(x.fecha).toLocaleDateString('es-ES')}: ${x.texto}`).join('\n');
+};
+
+function filaReunion(t) {
+  const f = filaInforme(t);
+  const pend = t.subtareas.filter(x => !x.ok).map(x => x.t);
+  return { ref: f.ref, asunto: f.asunto, resp: f.resp, nlt: f.nlt, estado: `${f.estado} · ${f.avance}`, situacion: f.situacion, cls: f.cls,
+    planteo: t.planteo || '', seguimiento: seguimiento(t), pasos: pend.length ? pend.map(x => '☐ ' + x).join('\n') : '', resultado: '' };
+}
+// Modelo común para orden del día (tareas marcadas) y acta (reunión del historial)
+const modeloReunion = tipo => ({ tipo, fecha: fechaReunion(tipo), jefe: tipo === 'despacho' ? jefeTexto() : '', acta: false, filas: enReunion(tipo).map(filaReunion) });
+const modeloActa = r => ({ tipo: r.tipo, fecha: r.fecha, jefe: r.jefe || '', acta: true,
+  filas: r.items.map(x => ({ ref: x.ref || '', asunto: x.asunto, resp: x.resp || '', nlt: '', estado: x.estado || '', situacion: '', planteo: x.planteo || '', seguimiento: '', pasos: '', resultado: x.resultado || '' })) });
+const subtituloReunion = m => [m.acta ? 'Asuntos tratados' : 'Orden del día', fechaLarga(m.fecha)].join(' · ');
+const detalleReunion = (f, m) => [['Qué se plantea', f.planteo], ['Último seguimiento', f.seguimiento], ['Pasos pendientes', f.pasos],
+  ...(m.acta ? [['Decisión / indicaciones', f.resultado || '—']] : [])].filter(x => x[1]);
+const nombreArchivoReunion = (m, ext) => `${m.tipo === 'ps' ? 'punto-situacion' : 'despacho'}-${m.fecha}${m.acta ? '-acta' : ''}.${ext}`;
+
+function vistaDespacho() {
+  const tabs = `<div class="tabs">${[['despacho', '🎖 Despacho'], ['ps', '📊 Punto de situación'], ['historial', '🗂 Historial']].map(([k, l]) => {
+    const n = REU[k] ? enReunion(k).length : datos.reuniones.length;
+    return `<a href="#" data-reutab="${k}" class="${reuVista === k ? 'on' : ''}">${l}${n ? ` <span class="muted">(${n})</span>` : ''}</a>`;
+  }).join('')}</div>`;
+  if (reuVista === 'historial') return tabs + vistaHistorial();
+  const tipo = reuVista, ts = enReunion(tipo), j = jefe();
+  const dias = (datos.ajustes[REU[tipo].dias] || []).map(d => DIAS_SEM[d]).join(' y ');
+  const libres = datos.tareas.filter(t => t.estado !== 'hecha' && !t[REU[tipo].campo] && !soloLectura(t)).sort(ordenar);
+  const dis = ts.length ? '' : 'disabled';
+  const cab = `<div class="card">
+    <h3>${tipo === 'ps' ? '📊' : '🎖'} ${esc(nombreReunion(tipo))}</h3>
+    ${tipo === 'despacho' ? (j ? `<p class="small muted">${esc(jefeTexto())}</p>`
+      : '<p class="aviso-msg">Indica quién es tu jefe en <a href="#ajustes">Ajustes → Reuniones</a>: sale en el informe.</p>') : ''}
+    <div class="row gap wrap"><label class="small">Fecha de la reunión <input class="input" type="date" id="reuFecha" value="${fechaReunion(tipo)}" style="width:auto"></label>
+      <span class="small muted">${dias ? `Habitual: ${dias}.` : ''}${tipo === 'despacho' ? ' Si te llama otro día, cambia la fecha.' : ''}</span></div>
+    <div class="row gap wrap" style="margin-top:10px">
+      <button class="btn primary" data-accion="reu-word" ${dis}>📄 Orden del día (Word)</button>
+      <button class="btn" data-accion="reu-pdf" ${dis}>PDF</button>
+      <button class="btn" data-accion="reu-texto" ${dis}>Copiar texto</button>
+      ${ts.length > 1 ? '<button class="btn" data-accion="reu-todas">✔ Tratadas todas</button>' : ''}</div></div>
+    <select class="input" id="reuAdd" style="margin-bottom:12px"><option value="">＋ Añadir una tarea a esta lista…</option>
+      ${libres.map(t => `<option value="${t.id}">${esc((t.referencia ? t.referencia + ' · ' : '') + t.titulo)}</option>`).join('')}</select>`;
+  const lista = ts.map((t, i) => {
+    const ro = soloLectura(t), seg = seguimiento(t);
+    return tarjeta(t, `<div class="reu-extra">
+      <label class="lbl">Qué planteo<textarea class="input" rows="2" data-planteo="${t.id}" ${ro ? 'disabled' : ''}
+        placeholder="Decisión que necesito, problema, información que doy…">${esc(t.planteo)}</textarea></label>
+      ${seg ? `<p class="small muted" style="margin:4px 0 0">Último seguimiento: ${esc(seg).replace(/\n/g, ' · ')}</p>` : ''}
+      <div class="row gap wrap" style="margin-top:8px">
+        <span class="badge none">${i + 1}</span>
+        <button class="btn sm" data-reuord="${t.id}" data-d="-1" ${i && !ro ? '' : 'disabled'} aria-label="Subir">▲</button>
+        <button class="btn sm" data-reuord="${t.id}" data-d="1" ${i < ts.length - 1 && !ro ? '' : 'disabled'} aria-label="Bajar">▼</button>
+        <button class="btn sm primary" data-tratado="${t.id}" ${ro ? 'disabled' : ''}>✔ Tratado</button>
+        <button class="btn sm" data-desmarcar="${t.id}" ${ro ? 'disabled' : ''}>Quitar</button></div></div>`);
+  }).join('');
+  return tabs + cab + (lista || `<div class="empty"><p>No hay tareas para ${tipo === 'ps' ? 'el punto de situación' : 'despacho'}.</p>
+    <p class="small">Márcalas en la ficha de la tarea («Llevar a…»), añádelas con el selector de arriba o crea una con <b>+</b>.</p></div>`)
+    + `<p class="small muted">${tipo === 'despacho' ? 'Al marcar «Tratado», la tarea sale de esta lista y la decisión queda en su bitácora y en el historial.'
+      : 'Al marcar «Tratado», la tarea sigue en el punto de situación hasta que se termine; la indicación queda en su bitácora y en el historial.'}</p>`;
+}
+
+function vistaHistorial() {
+  if (!datos.reuniones.length) return '<div class="empty"><p>Aún no hay reuniones registradas.</p><p class="small">Se guardan al marcar asuntos como «Tratado».</p></div>';
+  return datos.reuniones.map(r => `<details class="card"><summary><b>${esc(fechaCorta(r.fecha))}</b> · ${esc(r.tipo === 'ps' ? 'Punto de situación' : 'Despacho')}${r.jefe ? ' · ' + esc(r.jefe) : ''}
+      <span class="muted">(${r.items.length} asunto${r.items.length === 1 ? '' : 's'})</span></summary>
+    <ul class="log" style="margin-top:8px">${r.items.map(x => `<li><b>${esc([x.ref, x.asunto].filter(Boolean).join(' · '))}</b>
+      ${x.planteo ? `<div class="small">Planteado: ${esc(x.planteo)}</div>` : ''}
+      <div class="small">${x.resultado ? 'Decisión / indicaciones: ' + esc(x.resultado) : '<span class="muted">Sin anotación</span>'}</div></li>`).join('')}</ul>
+    <div class="row gap wrap"><button class="btn sm" data-acta="${r.id}" data-fmt="word">📄 Acta (Word)</button><button class="btn sm" data-acta="${r.id}" data-fmt="pdf">PDF</button>
+      <button class="btn sm danger" data-delreu="${r.id}">Eliminar del historial</button></div></details>`).join('');
+}
+
+async function tratar(ids, tipo) {
+  const ts = ids.map(buscar).filter(t => t && !soloLectura(t));
+  if (!ts.length) return;
+  const txt = await preguntar(ts.length === 1 ? `¿Qué se decidió o qué te indicaron sobre «${ts[0].titulo}»? (opcional)`
+    : `Se marcarán ${ts.length} asuntos como tratados. Indicación común para todos (opcional):`, { ok: '✔ Tratado', valor: '' });
+  if (txt === null) return;
+  const fecha = fechaReunion(tipo), nota = txt.trim();
+  let r = datos.reuniones.find(x => x.tipo === tipo && x.fecha === fecha);
+  if (!r) { r = { id: nuevoId(), tipo, fecha, jefe: tipo === 'despacho' ? jefeTexto() : '', items: [] }; datos.reuniones.push(r); }
+  for (const t of ts) {
+    r.items = r.items.filter(x => x.id !== t.id);
+    r.items.push({ id: t.id, ref: t.referencia, asunto: t.titulo, resp: quienEs(t), estado: `${NOMBRE_ESTADO[t.estado]} · ${progreso(t)} %`, planteo: t.planteo, resultado: nota });
+    anotar(t, `Tratado en ${nombreReunion(tipo)} (${fechaCorta(fecha)})${nota ? ': ' + nota : ''}`, false);
+    t.planteo = '';
+    // Del despacho sale; del punto de situación, solo cuando ya está hecha
+    if (tipo === 'despacho' || t.estado === 'hecha') t[REU[tipo].campo] = false;
+  }
+  datos.reuniones.sort((a, b) => b.fecha.localeCompare(a.fecha));
+  datos.reuniones = datos.reuniones.slice(0, 300);
+  guardar(); render(); toast(ts.length === 1 ? 'Tratado: anotado en la bitácora y en el historial' : `${ts.length} asuntos tratados`);
+}
+
+function clicReunion(e) {
+  const el = e.target;
+  const tab = el.closest('[data-reutab]');
+  if (tab) { e.preventDefault(); reuVista = tab.dataset.reutab; render(); return true; }
+  const tr = el.closest('[data-tratado]');
+  if (tr) { tratar([tr.dataset.tratado], reuVista); return true; }
+  const dm = el.closest('[data-desmarcar]');
+  if (dm) { marcarReunion(buscar(dm.dataset.desmarcar), reuVista, false); guardar(); render(); return true; }
+  const ord = el.closest('[data-reuord]');
+  if (ord) {
+    const ts = enReunion(reuVista), i = ts.findIndex(t => t.id === ord.dataset.reuord), j = i + +ord.dataset.d;
+    if (i < 0 || !ts[j]) return true;
+    [ts[i], ts[j]] = [ts[j], ts[i]];
+    ts.forEach((t, k) => { if (!soloLectura(t)) t[REU[reuVista].orden] = k + 1; });
+    guardar(); render(); return true;
+  }
+  const acta = el.closest('[data-acta]');
+  if (acta) { const r = datos.reuniones.find(x => x.id === acta.dataset.acta); if (r) exportarReunion(modeloActa(r), acta.dataset.fmt); return true; }
+  const del = el.closest('[data-delreu]');
+  if (del) {
+    preguntar('¿Eliminar esta reunión del historial? Las anotaciones en la bitácora de las tareas se mantienen.', { ok: 'Eliminar', peligro: true }).then(si => {
+      if (!si) return;
+      datos.reuniones = datos.reuniones.filter(x => x.id !== del.dataset.delreu); guardar(); render();
+    });
+    return true;
+  }
+  return false;
+}
+
+function cambioReunion(el) {
+  const a = datos.ajustes;
+  if (el.dataset.planteo !== undefined) { const t = buscar(el.dataset.planteo); if (t && !soloLectura(t)) { t.planteo = el.value.trim(); guardar(); } return true; }
+  if (el.id === 'reuAdd') { if (el.value) { marcarReunion(buscar(el.value), reuVista, true); guardar(); render(); } return true; }
+  if (el.id === 'reuFecha') { if (el.value) reuFecha[reuVista] = el.value; else delete reuFecha[reuVista]; render(); return true; }
+  if (el.id === 'jefe') { a.jefe = el.value; guardar(); render(); return true; }
+  if (el.dataset.reudia) {
+    const k = el.dataset.reudia;
+    a[k] = [...document.querySelectorAll(`[data-reudia="${k}"]:checked`)].map(x => +x.value);
+    guardar(); return true;
+  }
+  return false;
+}
+
+function tarjetaReuniones() {
+  const a = datos.ajustes;
+  const nombres = [...new Set([...datos.personas.map(p => p.nombre), a.jefe].filter(Boolean))];
+  const dias = k => [1, 2, 3, 4, 5].map(d => `<label class="check" style="display:inline-flex;margin-right:12px"><input type="checkbox" data-reudia="${k}" value="${d}"
+    ${(a[k] || []).includes(d) ? 'checked' : ''}> ${DIAS_SEM[d].slice(0, 3)}</label>`).join('');
+  return `<div class="card">
+    <h3>Reuniones: despacho y punto de situación</h3>
+    <label class="lbl">Jefe directo (para «Despacho con…» y el informe)
+      <select class="input" id="jefe"><option value="">— Elegir del directorio —</option>
+      ${nombres.map(n => `<option value="${esc(n)}" ${n === a.jefe ? 'selected' : ''}>${esc(n)}${persona(n)?.cargo ? ' · ' + esc(persona(n).cargo) : ''}</option>`).join('')}</select></label>
+    <p class="small muted">Añádelo en el directorio de abajo con su empleo y cargo (p. ej. «Coronel Jefe de la SUIGESUR»). Si cambia, elige el nuevo: el historial conserva quién era en cada reunión.</p>
+    <div class="lbl">Días habituales de despacho</div><div>${dias('diasDespacho')}</div>
+    <div class="lbl">Días habituales del punto de situación</div><div>${dias('diasPs')}</div>
+    <p class="small muted">Sirven para proponer la fecha de la próxima reunión; siempre se puede cambiar en la pestaña Despacho.</p></div>`;
+}
+
+function textoReunion(m) {
+  const o = opcionesInforme(), l = [];
+  if (o.marca) l.push(o.marca);
+  if (o.organismo) l.push(o.organismo);
+  l.push(tituloReunion(m.tipo, m.jefe), subtituloReunion(m));
+  if (m.jefe) l.push(`Con: ${m.jefe}`);
+  if (emisor()) l.push(`Presenta: ${emisor()}`);
+  l.push('');
+  m.filas.forEach((f, i) => {
+    l.push(`${i + 1}. ${f.ref ? f.ref + ' · ' : ''}${f.asunto}`);
+    l.push(`   ${[f.resp, f.nlt && f.nlt !== '—' ? 'NLT ' + f.nlt : '', f.estado, f.situacion].filter(Boolean).join(' · ')}`);
+    detalleReunion(f, m).forEach(([k, v]) => l.push(`   ${k}: ${v.replace(/\n/g, '; ')}`));
+    l.push('');
+  });
+  return l.join('\n');
+}
+
+async function wordReunion(m) {
+  const d = await cargarDocx();
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, Header, Footer, AlignmentType, ShadingType, PageNumber, TableLayoutType } = d;
+  const o = opcionesInforme(), F = 'Arial', VERDE = '3B4A2F';
+  const t = (text, x = {}) => new TextRun({ text: String(text ?? ''), font: F, size: x.size || 20, bold: x.bold, italics: x.italics, color: x.color });
+  const p = (text, x = {}) => new Paragraph({ alignment: x.align, spacing: { before: x.before || 0, after: x.after ?? 80 }, keepNext: x.keepNext,
+    children: String(text ?? '').split('\n').flatMap((linea, i) => i ? [new TextRun({ break: 1 }), t(linea, x)] : [t(linea, x)]) });
+  const h = text => p(text, { bold: true, size: 24, color: VERDE, before: 240, after: 100, keepNext: true });
+  const celda = (text, x = {}) => new TableCell({ children: [p(text, { size: x.size || 17, bold: x.bold, color: x.color, after: 0 })],
+    shading: x.fill ? { type: ShadingType.CLEAR, color: 'auto', fill: x.fill } : undefined,
+    width: x.w ? { size: x.w, type: WidthType.PERCENTAGE } : undefined, margins: { top: 40, bottom: 40, left: 60, right: 60 } });
+  const tabla = rows => new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE }, layout: TableLayoutType.FIXED });
+  const hijos = [];
+  if (o.organismo) hijos.push(p(o.organismo, { bold: true, align: AlignmentType.CENTER, size: 22 }));
+  hijos.push(p(tituloReunion(m.tipo, m.jefe), { bold: true, align: AlignmentType.CENTER, size: 28, before: 120, after: 80 }));
+  hijos.push(p(subtituloReunion(m), { align: AlignmentType.CENTER }));
+  if (m.jefe) hijos.push(p(`Con: ${m.jefe}`, { align: AlignmentType.CENTER }));
+  if (emisor()) hijos.push(p(`Presenta: ${emisor()}`, { align: AlignmentType.CENTER, size: 18, after: 200 }));
+  hijos.push(h('1. RELACIÓN DE ASUNTOS'));
+  const cols = m.acta ? ['Nº', 'Ref.', 'Asunto', 'Responsable', 'Estado'] : ['Nº', 'Ref.', 'Asunto', 'Responsable', 'NLT', 'Estado', 'Situación'];
+  const anchos = m.acta ? [6, 13, 47, 18, 16] : [5, 11, 34, 15, 11, 12, 12];
+  hijos.push(tabla([new TableRow({ tableHeader: true, children: cols.map((c, i) => celda(c, { w: anchos[i], bold: true, color: 'FFFFFF', fill: VERDE })) }),
+    ...m.filas.map((f, i) => new TableRow({ cantSplit: true, children: (m.acta ? [i + 1, f.ref, f.asunto, f.resp, f.estado] : [i + 1, f.ref, f.asunto, f.resp, f.nlt, f.estado, f.situacion])
+      .map((v, k) => celda(String(v), { w: anchos[k], color: cols[k] === 'Situación' && f.cls === 'bad' ? 'B71C1C' : undefined })) }))]));
+  hijos.push(h('2. DETALLE'));
+  m.filas.forEach((f, i) => {
+    hijos.push(p(`${i + 1}. ${[f.ref, f.asunto].filter(Boolean).join(' · ')}`, { bold: true, color: VERDE, before: 200, keepNext: true }));
+    const det = detalleReunion(f, m);
+    if (!m.acta) det.push(['Decisión / indicaciones', '\n\n']);
+    if (det.length) hijos.push(tabla(det.map(([k, v]) => new TableRow({ cantSplit: true, children: [celda(k, { w: 25, bold: true, fill: 'EEF1EA' }), celda(v, { w: 75 })] }))));
+  });
+  hijos.push(p(`En ____________________, a ${fechaLarga(m.fecha)}`, { before: 400, after: 300 }));
+  if (emisor()) hijos.push(p(`Fdo.: ${emisor()}`, { bold: true }));
+  const marca = o.marca ? [p(o.marca, { bold: true, align: AlignmentType.CENTER, size: 18, color: 'B71C1C', after: 0 })] : [];
+  const doc = new Document({ creator: emisor() || 'Tareas NLT', title: tituloReunion(m.tipo, m.jefe),
+    sections: [{ properties: { page: { margin: { top: 1000, bottom: 1000, left: 1000, right: 1000 } } },
+      headers: { default: new Header({ children: marca }) },
+      footers: { default: new Footer({ children: [...marca, new Paragraph({ alignment: AlignmentType.CENTER, children: [
+        t('Página ', { size: 16 }), new TextRun({ children: [PageNumber.CURRENT], font: F, size: 16 }), t(' de ', { size: 16 }),
+        new TextRun({ children: [PageNumber.TOTAL_PAGES], font: F, size: 16 })] })] }) },
+      children: hijos }] });
+  return Packer.toBlob(doc);
+}
+
+async function pdfReunion(m) {
+  const JsPDF = await cargarPdf();
+  const doc = new JsPDF({ unit: 'mm', format: 'a4' });
+  const o = opcionesInforme(), W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 14;
+  let y = 16;
+  const linea = (txt, x = {}) => {
+    doc.setFont('helvetica', x.bold ? 'bold' : x.italic ? 'italic' : 'normal'); doc.setFontSize(x.size || 10); doc.setTextColor(...(x.color || [0, 0, 0]));
+    const ls = doc.splitTextToSize(pdfTxt(txt), W - 2 * M);
+    if (y + ls.length * (x.size || 10) * 0.45 > H - 16) { doc.addPage(); y = 16; }
+    doc.text(ls, x.center ? W / 2 : M, y, { align: x.center ? 'center' : 'left' });
+    y += ls.length * (x.size || 10) * 0.45 + (x.after ?? 2);
+  };
+  const tabla = (head, body, extra = {}) => {
+    doc.autoTable({ startY: y, head: head ? [head.map(pdfTxt)] : undefined, body: body.map(f => f.map(c => typeof c === 'object' && c ? { ...c, content: pdfTxt(c.content) } : pdfTxt(c))),
+      margin: { left: M, right: M, top: 14, bottom: 16 }, styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 1.5, overflow: 'linebreak', lineColor: [205, 210, 200], lineWidth: 0.2 },
+      headStyles: { fillColor: VERDE_PDF, textColor: 255, fontStyle: 'bold' }, theme: 'grid', ...extra });
+    y = doc.lastAutoTable.finalY + 4;
+  };
+  if (o.organismo) linea(o.organismo, { bold: true, center: true, size: 11 });
+  linea(tituloReunion(m.tipo, m.jefe), { bold: true, center: true, size: 14, after: 3 });
+  linea(subtituloReunion(m), { center: true });
+  if (m.jefe) linea(`Con: ${m.jefe}`, { center: true });
+  if (emisor()) linea(`Presenta: ${emisor()}`, { center: true, size: 9, after: 5 });
+  linea('1. RELACIÓN DE ASUNTOS', { bold: true, size: 12, color: VERDE_PDF });
+  tabla(m.acta ? ['Nº', 'Ref.', 'Asunto', 'Responsable', 'Estado'] : ['Nº', 'Ref.', 'Asunto', 'Responsable', 'NLT', 'Estado', 'Situación'],
+    m.filas.map((f, i) => m.acta ? [i + 1, f.ref, f.asunto, f.resp, f.estado]
+      : [i + 1, f.ref, f.asunto, f.resp, f.nlt, f.estado, f.cls === 'bad' ? { content: f.situacion, styles: { textColor: ROJO_PDF, fontStyle: 'bold' } } : f.situacion]),
+    { columnStyles: { 0: { cellWidth: 8 }, 2: { cellWidth: m.acta ? 80 : 55 } } });
+  y += 2;
+  linea('2. DETALLE', { bold: true, size: 12, color: VERDE_PDF });
+  m.filas.forEach((f, i) => {
+    if (y > H - 50) { doc.addPage(); y = 16; }
+    linea(`${i + 1}. ${[f.ref, f.asunto].filter(Boolean).join(' · ')}`, { bold: true, color: VERDE_PDF, after: 1 });
+    const det = detalleReunion(f, m);
+    if (!m.acta) det.push(['Decisión / indicaciones', '\n\n\n']);
+    tabla(null, det, { columnStyles: { 0: { cellWidth: 42, fontStyle: 'bold', fillColor: [238, 241, 234] } } });
+  });
+  y += 6;
+  linea(`En ____________________, a ${fechaLarga(m.fecha)}`, { after: 8 });
+  if (emisor()) linea(`Fdo.: ${emisor()}`, { bold: true });
+  pieYMarca(doc, o.marca);
+  return doc.output('blob');
+}
+
+async function exportarReunion(m, fmt) {
+  if (!m.filas.length) { toast('No hay asuntos'); return; }
+  try {
+    if (fmt === 'texto') {
+      try { await navigator.clipboard.writeText(textoReunion(m)); toast('Copiado: pégalo en un correo o documento'); }
+      catch { await descargar(nombreArchivoReunion(m, 'txt'), textoReunion(m), 'text/plain;charset=utf-8'); }
+    } else if (fmt === 'pdf') {
+      toast('Preparando el PDF…');
+      await descargar(nombreArchivoReunion(m, 'pdf'), await pdfReunion(m), 'application/pdf');
+    } else {
+      toast('Preparando el Word…');
+      await descargar(nombreArchivoReunion(m, 'docx'), await wordReunion(m), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    }
+  } catch (e) { registrarError(`Reunión ${fmt}: ${e?.message || e}`); toast(`No se pudo crear el ${fmt === 'pdf' ? 'PDF' : 'Word'}; prueba con «Copiar texto»`); }
+}
+
+function accionReunion(a) {
+  if (!REU[reuVista]) return;
+  if (a === 'reu-todas') return tratar(enReunion(reuVista).map(t => t.id), reuVista);
+  return exportarReunion(modeloReunion(reuVista), { 'reu-word': 'word', 'reu-pdf': 'pdf', 'reu-texto': 'texto' }[a]);
+}
+
 let personaEdit = -1;
 
 function vistaAjustes() {
@@ -1295,6 +1613,7 @@ function vistaAjustes() {
         ${personaEdit >= 0 ? '<button type="button" class="btn" data-accion="cancelar-persona">Cancelar</button>' : ''}
       </form>
     </div>
+    ${tarjetaReuniones()}
     ${tarjetaGcal()}
     <div class="card">
       <h3>Avisos</h3>
@@ -1367,6 +1686,10 @@ function abrirEditor(id, base = {}) {
       <h3 class="dsec">1 · La tarea</h3>
       ${bloqueada ? '<p class="aviso-msg">Tarea del equipo en modo consulta: no tienes permiso para modificarla.</p>' : ''}
       <label class="lbl">Asunto: qué hay que hacer *<input class="input" name="titulo" required value="${esc(b.titulo)}"></label>
+      <div class="reu-marcas"><span class="small muted">Llevar a:</span>
+        <label class="check"><input type="checkbox" name="despacho" ${b.despacho ? 'checked' : ''}> 🎖 ${esc(nombreReunion('despacho'))}</label>
+        <label class="check"><input type="checkbox" name="ps" ${b.ps ? 'checked' : ''}> 📊 Punto de situación</label></div>
+      <label class="lbl" id="planteoLbl" ${b.despacho || b.ps ? '' : 'hidden'}>Qué planteo en la reunión<textarea class="input" name="planteo" rows="2" placeholder="Decisión que necesito, problema, información que doy…">${esc(b.planteo)}</textarea></label>
       ${nube.equipo ? `<label class="lbl">Espacio<select class="input" name="espacio" ${puedeEquipo() ? '' : 'disabled'}>
         <option value="personal" ${!enEquipo(b) ? 'selected' : ''}>🔒 Personal: solo la veo yo</option>
         <option value="equipo" ${enEquipo(b) ? 'selected' : ''}>👥 Equipo: la ve y actualiza todo el equipo</option></select></label>` : ''}
@@ -1552,6 +1875,7 @@ function leerFormulario() {
     responsable: v('responsable').trim(), espacio: f.elements.espacio?.value || borrador.espacio,
     responsableId: (f.elements.espacio?.value || borrador.espacio) === 'equipo' ? f.elements.responsableId.value : '', nlt: v('nlt'), hora: v('hora'), repetir: v('repetir'), estimacionH: +v('estimacionH') || 0,
     estado: v('estado'), progreso: +v('progreso') || 0, notas: v('notas'), resultado: v('resultado'),
+    despacho: f.elements.despacho.checked, ps: f.elements.ps.checked, planteo: v('planteo').trim(),
   });
 }
 
@@ -1562,6 +1886,12 @@ function guardarBorrador() {
   if (b.categoria && !datos.categorias.includes(b.categoria)) datos.categorias.push(b.categoria);
   datos.ajustes.ultimaCat = b.categoria;
   const actual = b.id && buscar(b.id);
+  // Al marcarla para una reunión pasa al final de esa lista; el cambio queda en la bitácora
+  for (const tipo of ['despacho', 'ps']) {
+    const R = REU[tipo], antes = !!(actual && actual[R.campo]);
+    if (b[R.campo] && !antes) b[R.orden] = siguienteOrden(tipo, b.id);
+    if (actual && b[R.campo] !== antes) anotar(b, b[R.campo] ? `Para ${nombreReunion(tipo)}` : `Retirada de ${nombreReunion(tipo)}`);
+  }
   if (actual) {
     if (nombreResp(actual) !== nombreResp(b)) anotar(b, `Responsable: ${nombreResp(actual) || 'sin asignar'} → ${nombreResp(b) || 'sin asignar'}`);
     if (b.responsableId !== actual.responsableId) b.asignadaEn = b.responsableId ? Date.now() : 0;
@@ -1695,6 +2025,7 @@ dlg.addEventListener('input', e => {
     $('#respTxt', dlg).textContent = eq ? 'O persona externa' : 'Responsable';
   }
   else if (el.name === 'progreso') pintarProgreso();
+  else if (el.name === 'despacho' || el.name === 'ps') $('#planteoLbl', dlg).hidden = !($('[name=despacho]', dlg).checked || $('[name=ps]', dlg).checked);
   else if (el.name === 'estimacionH') pintarTiempo();
   else if (el.id === 'avTipo') { $('#avDias', dlg).hidden = el.value === 'fecha'; $('#avFecha', dlg).hidden = el.value !== 'fecha'; }
 });
@@ -1857,6 +2188,7 @@ main.addEventListener('click', e => {
     if (tick.checked && bloqueantes(t).length) toast(`Aviso: depende de «${bloqueantes(t)[0].titulo}», que aún no está hecha`);
     marcarHecha(tick.dataset.tick, tick.checked); render(); return;
   }
+  if (clicReunion(e)) return;
   const kpi = el.closest('[data-kpi]');
   if (kpi) { filtro.kpi = filtro.kpi === kpi.dataset.kpi ? '' : kpi.dataset.kpi; render(); return; }
   const visto = el.closest('[data-visto]');
@@ -1905,7 +2237,7 @@ main.addEventListener('click', e => {
   const acc = el.closest('[data-accion]');
   if (acc) { accion(acc.dataset.accion); return; }
   const t = el.closest('.tarea');
-  if (t && !el.closest('button, a, input, summary')) abrirEditor(t.dataset.id);
+  if (t && !el.closest('button, a, input, textarea, select, label, summary')) abrirEditor(t.dataset.id);
 });
 
 // Renombrar pasa sus tareas al nombre nuevo; si ese nombre ya existe, las dos categorías se unen
@@ -1936,6 +2268,7 @@ async function borrarCat(i) {
 
 async function accion(a) {
   if (a.startsWith('inf-')) return accionInforme(a);
+  if (a.startsWith('reu-')) return accionReunion(a);
   switch (a) {
     case 'ejemplos': ejemplos(); render(); break;
     case 'nueva-dia': abrirEditor(null, { nlt: diaSel }); break;
@@ -1992,6 +2325,7 @@ async function accion(a) {
 main.addEventListener('change', async e => {
   const el = e.target;
   if (el.closest('#infOpts')) { actualizarInforme(); return; }
+  if (cambioReunion(el)) return;
   const a = datos.ajustes;
   if (el.id === 'fcat') { filtro.cat = el.value; render(); }
   else if (el.id === 'fresp') { filtro.resp = el.value; render(); }
@@ -2147,7 +2481,8 @@ main.addEventListener('drop', e => {
   render();
 });
 
-$('#fab').addEventListener('click', () => abrirEditor(null, location.hash === '#calendario' ? { nlt: diaSel } : {}));
+$('#fab').addEventListener('click', () => abrirEditor(null, location.hash === '#calendario' ? { nlt: diaSel }
+  : location.hash === '#despacho' && REU[reuVista] ? { [reuVista]: true } : {}));
 
 // ---------- Avisos ----------
 async function notificar(titulo, cuerpo, tag) {
@@ -2203,7 +2538,7 @@ revisarAvisos();
 const estable = v => JSON.stringify(v, (k, x) => x && typeof x === 'object' && !Array.isArray(x)
   ? Object.fromEntries(Object.keys(x).sort().map(c => [c, x[c]])) : x);
 const configDe = d => ({ categorias: d.categorias, personas: d.personas, gcalBorrar: d.gcalBorrar, gcalMapa: d.gcalMapa,
-  vistos: d.vistos, avisosPropios: d.avisosPropios, ajustes: d.ajustes, activo: d.activo });
+  vistos: d.vistos, avisosPropios: d.avisosPropios, reuniones: d.reuniones, ajustes: d.ajustes, activo: d.activo });
 const CFG = '__config';
 const claveDe = t => (enEquipo(t) ? 'e:' : '') + t.id;
 // La nube entrega los documentos congelados (solo lectura): se trabaja siempre sobre una copia modificable
@@ -2653,7 +2988,7 @@ function render(remoto = false) {
   $('#titulo').textContent = VISTAS[v];
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.v === (v === 'informes' ? 'actividad' : v)));
   $('#fab').hidden = v === 'ajustes' || v === 'actividad' || v === 'informes';
-  main.innerHTML = { nlt: vistaNlt, tablero: vistaTablero, calendario: vistaCalendario, actividad: vistaActividad, informes: vistaInformes, ajustes: vistaAjustes }[v]();
+  main.innerHTML = { nlt: vistaNlt, tablero: vistaTablero, calendario: vistaCalendario, despacho: vistaDespacho, actividad: vistaActividad, informes: vistaInformes, ajustes: vistaAjustes }[v]();
   const venc = datos.tareas.filter(t => t.estado !== 'hecha' && ['vencidas', 'hoy'].includes(urgencia(t).grupo)).length;
   document.title = venc ? `(${venc}) ${TITULO_PAGINA}` : TITULO_PAGINA;
 }

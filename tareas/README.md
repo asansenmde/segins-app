@@ -54,6 +54,15 @@ App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber 
   «📅 Calendario (PDF)» sale un calendario mensual (A4 apaisado, un mes por página) con cada tarea en el
   día de su NLT, con los mismos filtros. El PDF se genera en el propio navegador con jsPDF y
   jspdf-autotable (MIT, en `lib/`), porque dentro de claude.ai la página no puede abrir el diálogo de imprimir.
+- **Despacho y punto de situación** (pestaña *Despacho*): en la ficha, «Llevar a: 🎖 Despacho con el jefe / 📊 Punto de
+  situación» y «Qué planteo». En la pestaña, cada lista con su orden (▲ ▼), lo que se plantea y el último seguimiento; fecha de
+  la reunión (propone la próxima según los días habituales, editable si el jefe llama otro día) y **orden del día en Word, PDF o
+  texto**, con relación de asuntos y detalle (qué se plantea, último seguimiento, pasos pendientes y espacio para la decisión).
+  «✔ Tratado» pide la decisión o indicaciones, la anota en la bitácora de la tarea y en el **historial de reuniones** (con
+  acta en Word o PDF). Del despacho la tarea sale al tratarla; del punto de situación, cuando está hecha. El jefe directo y los
+  días habituales (despacho martes y viernes, punto de situación viernes, por defecto) se eligen en *Ajustes → Reuniones*, con
+  el jefe tomado del directorio: si cambia, se elige otro y el historial conserva quién era. Las marcas van en la tarea (en las
+  de equipo las ve el equipo); el historial va con los ajustes de cada usuario.
 - **Tablero** por estados: arrastrar y soltar en escritorio, botones ◀ ▶ en el móvil.
 - **Calendario** mensual con las NLT de cada día; se pueden crear tareas en un día concreto, y «📄 PDF» descarga el mes.
 - **Lo que hago** (actividad): por periodo (hoy, semana, mes…) muestra tareas hechas, % entregadas
