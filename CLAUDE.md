@@ -11,6 +11,7 @@ entre ellos (salvo la librería de Word de SEGINS, que Tareas NLT carga desde `.
 | `[MENSADEF]` | `mensadef/` | Visor de mensajes de MENSADEF | Marcador del navegador en `mensadef.mdef.es` |
 | `[PERMISOS]` | `permisos/` | Solicitud, aprobación y autorización de permisos (lista «Solicitud de Permisos», CALIDAD-VIDA) | Se sube a Colabora y se abre allí |
 | `[INCIDENTES]` | `incidentes/` | Incidentes de seguridad (sitio `/et/jige/colaborativo`, página «INCIDENTES DE SEGURIDAD») | Se sube a Colabora y se abre allí |
+| `[VSA]` | `vsa/` | Cuestionario de calidad VSA (lista «CUESTIONARIO DE CALIDAD VSA», mismo sitio que Incidentes) | Se sube a Colabora y se abre allí |
 
 Las páginas nuevas de SharePoint van en **su propia carpeta** (por ejemplo `incidentes/`), con su README y su
 etiqueta añadida a esta tabla y a `PROYECTOS.md`.
@@ -21,7 +22,7 @@ etiqueta añadida a esta tabla y a `PROYECTOS.md`.
   queda claro a qué proyecto se refiere, pregunta antes de cambiar nada.
 - Un cambio en un proyecto no arrastra cambios en otro. Si algo se reutiliza (p. ej. `fechas.js`), se copia.
 - El usuario escribe en español; responde, comenta el código y escribe los commits en español.
-- Commits con prefijo de proyecto: `NLT: …`, `Colabora: …`, `MENSADEF: …`, `SEGINS: …`, `PERMISOS: …`, `INCIDENTES: …`.
+- Commits con prefijo de proyecto: `NLT: …`, `Colabora: …`, `MENSADEF: …`, `SEGINS: …`, `PERMISOS: …`, `INCIDENTES: …`, `VSA: …`.
 
 ## Páginas para SharePoint (COLABORA, MENSADEF y las nuevas)
 
