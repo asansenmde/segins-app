@@ -46,10 +46,32 @@ integrantes y «Enviarlo también desde Outlook».
 **Quién ve qué** (como Incidentes): `SEGURIDAD_IGE`, todo; cada SUIGE, las BAE de su mando de 2.º nivel; todos, los que
 crearon, de los que son responsables, los que valoraron o en los que figuran como personal que puede visualizar.
 
+## Control de acceso
+
+**Tiene acceso** quien esté en un grupo de papel (SEGURIDAD_SUIGE…, SEGURIDAD_IGE), en el grupo de responsables de BAE
+**`VSA_BAE`** o tenga Control total / administre la lista (constante `ACCESO` al principio del código). **Quien no**, o
+quien no pueda leer la lista (403/404), ve en vez de la aplicación «🔒 No tienes acceso» y el formulario
+**«Solicitar acceso»**: nombre y correo de su cuenta (no se escriben), empleo y unidad (propuestos con el cargo y el
+departamento del directorio, si el servidor los da), mando de 2.º nivel y BAE en cascada o unidad en texto, teléfono,
+para qué lo necesita y motivo. Se guarda en la lista **«SOLICITUDES DE ACCESO»** y se avisa por correo al grupo
+«Propietarios Colaborativo». Mientras está pendiente, la persona ve su estado.
+
+**Pestaña «Accesos»** (solo Control total):
+- **Preparación**: si faltan, botones «Crear la lista» (con sus 14 columnas y «leer y editar solo sus elementos») y
+  «Crear el grupo» `VSA_BAE`.
+- **Solicitudes pendientes**: quién es, empleo, unidad, correo, teléfono, papel y motivo; grupo propuesto según el papel
+  (BAE → VSA_BAE; SUIGE → SEGURIDAD_<SUIGE> de su mando; DIACU/IGE → SEGURIDAD_IGE). **«Aprobar y dar acceso»** añade
+  a la persona al grupo y le avisa; **«Denegar»** exige motivo y también avisa.
+- **Responsables de BAE con acceso** (miembros de VSA_BAE) con «Quitar acceso», y el histórico de solicitudes resueltas.
+
+La comprobación la hace la página. Para que la haga también Colabora, quitar «Usuarios del dominio» de la lista del
+cuestionario y dar permiso a los grupos SEGURIDAD_* y VSA_BAE; la lista de solicitudes debe seguir abierta a todos
+para que cualquiera pueda pedir acceso.
+
 ## Pestañas
 
 Cuestionarios (recuadros por fase, nota media, medias bajas, con novedad), Pendiente de valoración y tramitación,
-Búsqueda y consulta (agrupada por empresa, BAE, SUIGE, fase, año o mes; PDF y CSV con las 24 respuestas), Estadísticas
+Accesos (solo Control total), Búsqueda y consulta (agrupada por empresa, BAE, SUIGE, fase, año o mes; PDF y CSV con las 24 respuestas), Estadísticas
 (media general, de cumplimiento y de satisfacción; aspectos peor valorados; medias por empresa, SUIGE, BAE y pregunta;
 distribución de respuestas; novedades) y Ajustes (solo Control total). Las medias no cuentan «No observado».
 
@@ -60,4 +82,5 @@ Parte de la Empresa, Parte, Revision Semestral, MES, Lote, MATERIAL (`ControlDeR
 
 `pruebas/simulacion.mjs`: sitio simulado (ligero y *verbose*): alcance por papel, valoración SUIGE (elevar, devolver,
 rechazar), cierre DIACU, conflicto, estadísticas, CSV, formulario (borrador, envío, validaciones, cascada) e impresión.
+Control de acceso: usuario sin acceso que lo solicita, sin lista de solicitudes, aprobar/denegar/quitar y preparación (crear lista y grupo).
 Uso: `node vsa/pruebas/simulacion.mjs`.
