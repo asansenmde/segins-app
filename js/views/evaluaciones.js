@@ -668,19 +668,21 @@ function tarjetaAmenaza(ev, a, r, abierta) {
   const hechos = CRITERIOS.filter(c => r[c.k] != null).length;
   return `<details class="card amen" data-am="${esc(a.id)}" ${abierta ? 'open' : ''}>
     <summary class="row between"><span><strong>${esc(a.nombre)}</strong>${a.elementoRef ? `<br><span class="muted small">Valorada en: ${esc(a.elementoRef)}</span>` : ''}</span>${r.completo ? badgeClase(r) : `<span class="badge none">${hechos}/6</span>`}</summary>
-    ${CRITERIOS.map(c => {
+    ${CRITERIOS.map((c, i) => {
       const v = r[c.k];
       let extra = '';
+      const titulo = i === 0 ? '<p class="bloque-h">Si ocurre, ¿cuánto daño haría? <span>F · S · P · E</span></p>'
+        : c.k === 'A' ? '<p class="bloque-h">¿Qué probabilidad hay? <span>A · V</span></p>' : '';
       if (c.k === 'V') {
         extra = r.prop
           ? `<p class="small ${a.vManual ? 'muted' : ''}">Propuesta del cuestionario: <strong>${r.prop.v} (${c.escala[r.prop.v - 1]})</strong> · áreas ${r.prop.areas.join(', ')}: ${fmtNum(r.prop.puntos)} pts${r.prop.p1 ? ` · ${r.prop.p1} P1 no conforme` : ''}</p>`
           : `<p class="small muted">Sin datos del cuestionario en las áreas ${esc(a.areas.join(', ') || '—')}: puntúala a mano.</p>`;
         if (a.vManual) extra += `<p class="small">Ajustada a mano. ${r.prop ? '<button type="button" class="linkbtn" data-usarprop="1">Usar la propuesta</button>' : ''}</p>`;
       }
-      return `<div class="crit">
-        <div class="crit-h"><strong>${c.k} · ${c.nombre}</strong><span class="muted small">${c.ayuda}</span></div>
+      return `${titulo}<div class="crit">
+        <div class="crit-h"><span class="row between"><strong>${c.k} · ${c.nombre}</strong><button type="button" class="ayuda-btn" data-ayuda="${c.k}" aria-label="Cómo valorar ${c.nombre}">?</button></span><span class="muted small">${c.pregunta}</span></div>
         <div class="seg5">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-c="${c.k}" data-v="${n}" class="${v === n ? 'on' : ''}" aria-pressed="${v === n}" title="${c.escala[n - 1]}">${n}</button>`).join('')}</div>
-        <div class="small crit-v">${v ? esc(c.escala[v - 1]) : '<span class="muted">Sin valorar</span>'}</div>
+        <div class="small crit-v">${v ? `${v} · ${esc(c.escala[v - 1])} <span class="muted">— ${esc(c.guia[v - 1])}</span>` : '<span class="muted">Sin valorar. Pulsa ? si tienes dudas.</span>'}</div>
         ${extra}
       </div>`;
     }).join('')}
@@ -688,6 +690,22 @@ function tarjetaAmenaza(ev, a, r, abierta) {
     <textarea class="input" data-notas="1" rows="2" placeholder="Justificación / medidas propuestas">${esc(a.notas)}</textarea>
     <div class="row gap"><button type="button" class="btn grow" data-editar="1">Editar</button><button type="button" class="btn danger" data-quitaram="1">Quitar</button></div>
   </details>`;
+}
+
+function dialogoAyuda(c, actual) {
+  return modal({
+    title: `${c.k} · ${c.nombre}`,
+    body: `<p><strong>${esc(c.pregunta)}</strong></p>
+      <div class="ayuda-lista">${c.guia.map((g, i) => `<button type="button" class="ayuda-op ${actual === i + 1 ? 'on' : ''}" data-n="${i + 1}">
+        <span class="ayuda-n">${i + 1}</span><span><strong>${esc(c.escala[i])}</strong><br><span class="small">${esc(g)}</span></span></button>`).join('')}</div>
+      <p class="small muted">${esc(c.ejemplo)}</p>
+      <p class="small muted">Pulsa un valor para elegirlo.</p>`,
+    onOpen: w => w.querySelectorAll('[data-n]').forEach(x => x.addEventListener('click', () => {
+      w.dataset.n = x.dataset.n;
+      w.querySelector('.modal-actions .primary').click();
+    })),
+    buttons: [{ label: 'Cerrar', value: null }, { label: 'Elegir', cls: 'primary', value: w => (w.dataset.n ? +w.dataset.n : null) }],
+  });
 }
 
 function tabRiesgos(cont, ev) {
@@ -709,6 +727,16 @@ function tabRiesgos(cont, ev) {
   const pintar = () => {
     cont.innerHTML = `
       <p class="muted small">Método Mosler: ER = (F×S + P×E) × (A×V), de 2 a 1250. Clasificación: ${esc(textoEscala())}. Puntúa cada criterio del 1 al 5; la V se propone con el cuestionario y puedes ajustarla.</p>
+      <details class="card guia"><summary><strong>Cómo valorar F, S, P, E, A y V</strong></summary>
+        <p><strong>F, S, P y E: ¿cuánto daño haría si ocurriera?</strong> Valóralas suponiendo que ya ha pasado, sin pensar en si es probable.</p>
+        <p><strong>A y V: ¿qué probabilidad hay?</strong> A, de que ocurra (depende del entorno); V, de que, si ocurre, haga daño (depende de tus medidas).</p>
+        <ul class="viñetas small">
+          <li>Si dudas entre dos valores, elige el del medio y anota el porqué en «Justificación». Importa más ser coherente entre amenazas que la cifra exacta.</li>
+          <li>No metas la probabilidad en F, S, P o E: «es improbable» se refleja en A.</li>
+          <li>Si mejoras las medidas (vallado, CCTV, guardia), baja V; A no cambia.</li>
+        </ul>
+        <p class="small muted">Pulsa <strong>?</strong> junto a cada letra para ver qué significa cada valor, con ejemplos, y elegirlo desde ahí.</p>
+      </details>
       <button type="button" class="btn block" id="importar">Importar desde Excel</button>
       <div id="ranking">${ranking()}</div>
       ${grupos().map(g => {
@@ -740,7 +768,14 @@ function tabRiesgos(cont, ev) {
     if (!b) return;
     const card = b.closest('[data-am]');
     const a = card && ev.mosler.find(x => x.id === card.dataset.am);
-    if (b.dataset.c && a) {
+    if (b.dataset.ayuda && a) {
+      const c = CRITERIOS.find(x => x.k === b.dataset.ayuda);
+      const n = await dialogoAyuda(c, calcAmenaza(ev, a)[c.k]);
+      if (!n) return;
+      if (c.k === 'V') { a.V = n; a.vManual = true; } else a[c.k] = n;
+      actualizar(a);
+      await guardar('eval', ev);
+    } else if (b.dataset.c && a) {
       const n = +b.dataset.v;
       if (b.dataset.c === 'V') {
         const actual = calcAmenaza(ev, a).V;

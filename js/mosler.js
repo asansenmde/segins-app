@@ -3,30 +3,86 @@
 import { calcArea } from './scoring.js';
 import { uid } from './ui.js';
 
+// Criterios con su guía de valoración (pregunta clave y significado de cada valor con ejemplos).
+// bloque: 'dano' = consecuencias si ocurre (F, S, P, E); 'prob' = probabilidad (A, V).
 export const CRITERIOS = [
   {
-    k: 'F', nombre: 'Función', ayuda: 'Consecuencias negativas del daño sobre la actividad',
+    k: 'F', nombre: 'Función', bloque: 'dano', ayuda: 'Consecuencias negativas del daño sobre la actividad',
+    pregunta: 'Si ocurre, ¿cuánto afecta a la actividad de la instalación?',
     escala: ['Muy levemente', 'Levemente', 'Medianamente', 'Gravemente', 'Muy gravemente'],
+    guia: [
+      'Ni se nota; la actividad sigue igual.',
+      'Molestia menor; se sigue trabajando con normalidad.',
+      'Se para un servicio durante unas horas.',
+      'Se paraliza una parte importante de la actividad.',
+      'Se paraliza la instalación o su misión principal.',
+    ],
+    ejemplo: 'Incendio en la cocina: 2–3. Caída del CECOM: 5.',
   },
   {
-    k: 'S', nombre: 'Sustitución', ayuda: 'Dificultad para reponer los bienes o capacidades',
+    k: 'S', nombre: 'Sustitución', bloque: 'dano', ayuda: 'Dificultad para reponer los bienes o capacidades',
+    pregunta: 'Si ocurre, ¿cuánto cuesta reponer lo dañado (tiempo, dinero, disponibilidad)?',
     escala: ['Muy fácilmente', 'Fácilmente', 'Sin muchas dificultades', 'Difícilmente', 'Muy difícilmente'],
+    guia: [
+      'Inmediato, con medios propios.',
+      'En días, con material corriente.',
+      'En semanas; hay que pedirlo.',
+      'En meses; requiere contratación u obra.',
+      'Muy difícil o imposible: armamento, información clasificada, personas.',
+    ],
+    ejemplo: 'Una cámara averiada: 2. Un tramo de vallado derribado: 3–4. Un arma sustraída: 5.',
   },
   {
-    k: 'P', nombre: 'Profundidad', ayuda: 'Perturbación y efectos sobre la imagen y la moral',
+    k: 'P', nombre: 'Profundidad', bloque: 'dano', ayuda: 'Perturbación y efectos sobre la imagen y la moral',
+    pregunta: 'Si ocurre, ¿cuánto daña la imagen, el prestigio y la moral?',
     escala: ['Muy leves', 'Leves', 'Limitados', 'Graves', 'Muy graves'],
+    guia: [
+      'Nadie se entera.',
+      'Se comenta dentro de la unidad.',
+      'Trasciende al mando superior.',
+      'Sale en la prensa local.',
+      'Escándalo en medios nacionales; daño grave al prestigio.',
+    ],
+    ejemplo: 'Robo de un arma: 5 aunque sea una sola. Rotura de una barrera: 1–2.',
   },
   {
-    k: 'E', nombre: 'Extensión', ayuda: 'Alcance de los daños',
+    k: 'E', nombre: 'Extensión', bloque: 'dano', ayuda: 'Alcance de los daños',
+    pregunta: 'Si ocurre, ¿hasta dónde llegan las consecuencias?',
     escala: ['Individual', 'Local', 'Regional', 'Nacional', 'Internacional'],
+    guia: [
+      'Individual: una persona o un local.',
+      'Local: la instalación.',
+      'Regional: la plaza o la provincia.',
+      'Nacional.',
+      'Internacional.',
+    ],
+    ejemplo: 'Avería en un edificio: 1–2. Hecho con componente fronterizo o de alianzas: 5.',
   },
   {
-    k: 'A', nombre: 'Agresión', ayuda: 'Probabilidad de que la amenaza se materialice',
+    k: 'A', nombre: 'Agresión', bloque: 'prob', ayuda: 'Probabilidad de que la amenaza se materialice',
+    pregunta: '¿Qué probabilidad hay de que ocurra? Depende del entorno, no de tus medidas.',
     escala: ['Muy baja', 'Baja', 'Normal', 'Alta', 'Muy alta'],
+    guia: [
+      'Muy baja: nunca ha pasado ni hay indicios.',
+      'Baja: posible, pero sin antecedentes cercanos.',
+      'Normal: hay antecedentes en la zona.',
+      'Alta: ha ocurrido aquí o hay una amenaza concreta.',
+      'Muy alta: es habitual o inminente.',
+    ],
+    ejemplo: 'Tenlo en cuenta: antecedentes, zona, nivel de alerta e interés que despierta la instalación.',
   },
   {
-    k: 'V', nombre: 'Vulnerabilidad', ayuda: 'Probabilidad de que, si ocurre, produzca daños',
+    k: 'V', nombre: 'Vulnerabilidad', bloque: 'prob', ayuda: 'Probabilidad de que, si ocurre, produzca daños',
+    pregunta: 'Si ocurre, ¿qué probabilidad hay de que cause daño? Depende de tus medidas.',
     escala: ['Muy baja', 'Baja', 'Normal', 'Alta', 'Muy alta'],
+    guia: [
+      'Medidas muy sólidas: casi seguro se frena.',
+      'Buenas medidas.',
+      'Medidas normales, con huecos.',
+      'Medidas insuficientes.',
+      'Sin medidas eficaces.',
+    ],
+    ejemplo: 'Vallado, CCTV, guardia y procedimientos. La app la propone con el cuestionario.',
   },
 ];
 export const CLAVES = CRITERIOS.map(c => c.k);

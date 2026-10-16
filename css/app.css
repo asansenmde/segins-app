@@ -301,3 +301,13 @@ a.badge { text-decoration: none; }
 /* Botones C / I / NA con su significado debajo */
 .seg button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; line-height: 1.1; }
 .seg button small { font-size: .62rem; font-weight: 600; letter-spacing: .02em; opacity: .85; }
+
+/* Ayuda de valoración Mosler */
+.bloque-h { margin: 14px 0 2px; padding: 6px 10px; border-radius: 8px; background: var(--surface-2); font-weight: 700; font-size: .85rem; }
+.bloque-h span { color: var(--muted); font-weight: 600; margin-left: 6px; }
+.ayuda-btn { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--info); background: var(--info-bg); color: var(--info); font: inherit; font-weight: 800; cursor: pointer; }
+.ayuda-lista { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+.ayuda-op { display: flex; gap: 12px; align-items: center; text-align: left; padding: 10px; border-radius: 10px; border: 2px solid var(--line); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.ayuda-op.on { border-color: var(--brand); background: var(--surface-2); }
+.ayuda-n { flex: none; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; background: var(--brand); color: var(--on-brand); font-weight: 800; }
+.guia p { margin-bottom: 8px; }
