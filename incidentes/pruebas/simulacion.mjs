@@ -14,17 +14,17 @@ const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(9,
 let expandRoto = false, faltaCampo = null, items, misGrupos = [], admin = false, sinSubstringof = false, ultimoFiltro = '', lecturaMinima = '';
 const base = { A_x00f1_o: '2026', Provincia: 'SEVILLA', Empleo: 'SARGENTO', ZONASE_x00d1_ALIZADA: true, Reiterada: 'NO', Denuncia: false, ValoradoPorSUIGE: false, ValoradoPorDIACU: false, ValoradoPorIGE: false,
   OBSERVACION: '<p>TEXTO RESERVADO DEL PARTE</p>', ANALISIS: '<div>Análisis</div>', MEDIDAS: 'Medidas', CONTROLMEDIDASADOPTADAS: 'Control', CONCLUSION: 'Conclusión', ObservacionesDelExpediente: '',
-  ResponsableDeLaInformacion: P[61], correosPersonasInfo: 'info1@et.mde.es; info2@et.mde.es', MANDO1N: '1', MANDO2N: '', MANDO3N: '', OData__x004d_N1: 'FUTER', OData__x004d_N2: '', OData__x004d_N3: '', OData__x004d_N4: '',
+  ResponsableDeLaInformacion: P[61], correosPersonasInfo: 'info1@et.mde.es; info2@et.mde.es', MANDO1N: '1', MANDO2N: '', MANDO3N: '', OData__x004d_N1: 'IGE', OData__x004d_N2: '', OData__x004d_N3: '', OData__x004d_N4: '',
   Title: '', ESTADO: '', REGISTRODEACTIVIDAD: '', ModificadoPorTEXTO: '', SUIGES: null, Unidad: null, OTRO: '', NDenuncia: '', PROBABILIDADES: '', ACEPTACION: true, TipoDeIncidente: '', ResponsableDelParte: '', DIACU: null, VALORACIONSUIGES: '', VALORACIONDIACU: '', valoracionIGE: '', Usuario: null, grupo: [] };
 // Listas auxiliares del formulario: M2N apunta a M1N (ID_M1N) y M3N a M2N; «OFICINA X» no tiene SUIGE
 const AUXL = {
-  M1N: [{ Id: 1, Title: 'FUTER' }, { Id: 2, Title: 'MCANA' }],
+  M1N: [{ Id: 1, Title: 'IGE' }, { Id: 2, Title: 'MCANA' }],
   M2N: [{ Id: 1, Title: 'SUIGESUR', ID_M1NId: 1 }, { Id: 2, Title: 'SUIGENOR', ID_M1NId: 1 }, { Id: 3, Title: 'SUIGECAN', ID_M1NId: 2 }, { Id: 4, Title: 'OFICINA X', ID_M1NId: 1 }],
   M3N: [{ Id: 1, Title: 'ACUARTELAMIENTO X', M1NId: 1, M2NId: 1 }, { Id: 2, Title: 'BASE NORTE', M1NId: 1, M2NId: 2 }, { Id: 3, Title: 'BASE CANARIAS', M1NId: 2, M2NId: 3 }, { Id: 4, Title: 'UNIDAD SIN SUIGE', M1NId: 1, M2NId: 4 }],
   PROVINCIAS: [{ Id: 1, Title: 'SEVILLA' }, { Id: 2, Title: 'LEÓN' }, { Id: 3, Title: 'BURGOS' }],
   empleos: [{ Id: 1, Title: 'CORONEL' }, { Id: 2, Title: 'COMANDANTE' }, { Id: 3, Title: 'SARGENTO' }]
 };
-let sinEmpleos = false;
+let sinEmpleos = false, rechazaFrom = false;
 const sur = { MANDO2N: '1', MANDO3N: '1', OData__x004d_N2: 'SUIGESUR', OData__x004d_N3: 'ACUARTELAMIENTO X' };
 const nor = { MANDO2N: '2', MANDO3N: '2', OData__x004d_N2: 'SUIGENOR', OData__x004d_N3: 'BASE NORTE' };
 const nuevoStore = () => {
@@ -78,7 +78,7 @@ async function prueba(verbose, escenario) {
     if (req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
-      if (resto.startsWith('SP.Utilities.Utility.SendEmail')) return r.fulfill({ json: { d: {} } });
+      if (resto.startsWith('SP.Utilities.Utility.SendEmail')) return rechazaFrom && JSON.parse(req.postData()).properties.From ? r.fulfill({ status: 400, json: { error: { message: { value: 'From no válido' } } } }) : r.fulfill({ json: { d: {} } });
       const ad = resto.match(/items\((\d+)\)\/AttachmentFiles\/add\(FileName='([^']+)'\)/);
       if (ad) { items.find(x => x.Id === +ad[1]).Attachments = true; return r.fulfill({ json: { d: { FileName: ad[2] } } }); }
       const mi = resto.match(/items\((\d+)\)/);
@@ -246,8 +246,8 @@ async function prueba(verbose, escenario) {
   await p.fill('#fParte [name=fecha]', new Date(Date.now() - 864e5).toISOString().slice(0, 10)); await p.fill('#fParte [name=hora]', '10:30');
   await p.selectOption('#fParte [name=empleo]', 'SARGENTO');
   console.log(tag, '| m2 antes de m1:', await p.$eval('#fParte [name=m2]', s => s.disabled));
-  await p.selectOption('#fParte [name=m1]', '1');
-  console.log(tag, '| m2 de FUTER:', await p.$$eval('#fParte [name=m2] option', o => o.slice(1).map(x => x.textContent).join(', ')), '| m3:', await p.$eval('#fParte [name=m3]', s => s.disabled ? 'vacío' : 'activo'));
+  console.log(tag, '| primer nivel:', await p.$eval('#fParte [name=m1]', s => s.options[s.selectedIndex].textContent + (s.disabled ? ' (bloqueado)' : ' (editable)')), '| sección:', await p.textContent('#fParte .fsec:nth-of-type(2)').catch(() => ''));
+  console.log(tag, '| m2 de IGE:', await p.$$eval('#fParte [name=m2] option', o => o.slice(1).map(x => x.textContent).join(', ')), '| m3:', await p.$eval('#fParte [name=m3]', s => s.disabled ? 'vacío' : 'activo'));
   await p.selectOption('#fParte [name=m2]', '4'); await p.selectOption('#fParte [name=m3]', '4');
   console.log(tag, '| cadena sin SUIGE:', await p.textContent('#fCadena'));
   await p.selectOption('#fParte [name=m2]', '1');
@@ -274,6 +274,7 @@ async function prueba(verbose, escenario) {
   await p.check('#fParte [name=aceptacion]');
   posts.length = 0; await p.click('#fRemitir'); await p.waitForTimeout(1600);
   const nid = items[items.length - 1].Id; const cr = merge(nid); m = correos().pop();
+  console.log(tag, '| remitente:', m && (m.From || '(sin remitente: el servidor no lo admitió)'));
   console.log(tag, '| informar a SUIGE:', JSON.stringify({ ESTADO: cr.ESTADO, SUIGES: cr.SUIGES, ACEPTACION: cr.ACEPTACION, OBS: cr.OBSERVACION, Hist: (cr.ObservacionesDelExpediente || '').split('\n').length + ' líneas' }), '| correo a:', m && m.To.results, 'cc:', m && m.CC.results, '|', m && m.Subject);
   console.log(tag, '| ahora:', (await p.textContent('#dlg .pasos')).replace(/\s+/g, ' '));
   await p.click('#dlg [data-cerrar]');
@@ -288,7 +289,7 @@ async function prueba(verbose, escenario) {
   await b.close();
 }
 const TODOS = ['SEGURIDAD_SUIGESUR', 'SEGURIDAD_SUIGENOR', 'SEGURIDAD_SUIGECAN', 'SEGURIDAD_DIAPER', 'SEGURIDAD_IGE', 'Integrantes de la Colaborativo'];
-misGrupos = TODOS; admin = true; await prueba(false, 'control total'); sinEmpleos = true; await prueba(true, 'control total'); sinEmpleos = false;
+misGrupos = TODOS; admin = true; await prueba(false, 'control total'); sinEmpleos = true; rechazaFrom = true; await prueba(true, 'control total'); sinEmpleos = false; rechazaFrom = false;
 misGrupos = ['SEGURIDAD_SUIGESUR', 'Integrantes de la Colaborativo']; admin = false; await prueba(false, 'solo SUIGESUR');
 sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstringof = false;
 misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'solo SEGURIDAD_IGE');

@@ -1,4 +1,4 @@
-# [INCIDENTES] Incidentes de seguridad (Colabora, sitio JIGE)
+# [INCIDENTES] Incidentes de seguridad en instalaciones (Colabora, sitio JIGE)
 
 Página para la lista de incidentes de seguridad que usa la página del sitio
 `/et/jige/colaborativo/SitePages/INCIDENTES DE SEGURIDAD.aspx` en Colabora.
@@ -22,7 +22,7 @@ mismos campos, textos de ayuda, botones, valores de `ESTADO` y reglas.
 | Sección | Campos (columna) |
 |---|---|
 | Datos del responsable de la información | Empleo (lista `empleos` del sitio CALIDAD-VIDA de SUIGESUR; si no se puede leer, los 16 empleos del formulario) · Responsable que va a tramitar la información (`ResponsableDeLaInformacion`; «Gestor identificado correctamente» si eres tú) · Personal que puede visualizar la información (`grupo`, varias personas) |
-| Datos de la unidad a la que pertenece | Mando de primer nivel › segundo nivel › unidad, **en cascada** como el InfoPath: listas `M1N` › `M2N` (por `ID_M1N`) › `M3N` (por `M2N`). Se guarda el **número** del elemento en `MANDO1N–3N` y el **nombre** en `MN1–MN3`; al cambiar un nivel se vacían los inferiores |
+| BAE afectada (orgánicas y no orgánicas que dependen de la cadena IGE en seguridad de las instalaciones) | Mando de primer nivel (**siempre IGE, bloqueado**) › segundo nivel › unidad, **en cascada** como el InfoPath: listas `M1N` › `M2N` (por `ID_M1N`) › `M3N` (por `M2N`). Se guarda el **número** del elemento en `MANDO1N–3N` y el **nombre** en `MN1–MN3`; al cambiar un nivel se vacían los inferiores |
 | Datos del incidente | Tipo · Lugar (provincia, lista `PROVINCIAS`) · Fecha y hora (`FechaNotificacion`) · ¿Zona señalizada? · ¿Reiterada? · Probabilidad · ¿Denuncia? y nº |
 | Responda a todas las preguntas | Observación, análisis, medidas, control de medidas, conclusión (con las ayudas del InfoPath) · Aceptación de los protocolos (`ACEPTACION`) · Adjuntos |
 
@@ -68,7 +68,7 @@ Estadísticas y Ajustes (solo Control total).
 | Valoración de IGE | INCIDENTE DE SEGURIDAD ACTUALIZADO | SUIGE | personal que puede visualizar |
 | Cierre | … EXPEDIENTE CERRADO | SUIGE | responsable, autor y personal que puede visualizar |
 
-La plantilla InfoPath envía a **buzones escritos a mano**; la página, en cambio, a los **integrantes de los grupos**
+Remitente: se pide a Colabora que el correo salga como «Incidentes de Seguridad en Instalaciones» (buzón NoReplySharepoint) en lugar de «Colaborativo»; si el servidor no lo admite, se envía con el remitente de siempre. La plantilla InfoPath envía a **buzones escritos a mano**; la página, en cambio, a los **integrantes de los grupos**
 de Colabora (no se copian buzones al código). Si un grupo oculta sus integrantes, se ofrece preparar el correo en Outlook.
 
 **Fallos de la plantilla InfoPath** (no se reproducen): las reglas de SUIGEPIR y SECORCEN envían el correo al buzón de
