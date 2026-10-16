@@ -21,7 +21,7 @@ mismos campos, textos de ayuda, botones, valores de `ESTADO` y reglas.
 
 | Sección | Campos (columna) |
 |---|---|
-| Datos del responsable de la información | Empleo (lista `empleos` del sitio CALIDAD-VIDA de SUIGESUR; si no se puede leer, los 16 empleos del formulario) · Responsable que va a tramitar la información (`ResponsableDeLaInformacion`; «Gestor identificado correctamente» si eres tú) · Personal que puede visualizar la información (`grupo`, varias personas) |
+| Datos del responsable de la información | Empleo (lista `empleos` del sitio CALIDAD-VIDA de SUIGESUR; si no se puede leer, los 16 empleos del formulario) · Responsable que va a tramitar la información (`ResponsableDeLaInformacion`; «Gestor identificado correctamente» si eres tú) · Personal que puede visualizar la información (`grupo`; la página mira si la columna admite varias personas o una sola y, si es una, guarda la primera; todas van en `correosPersonasInfo`, reciben los avisos y ven el parte por su correo) |
 | BAE afectada (orgánicas y no orgánicas que dependen de la cadena IGE en seguridad de las instalaciones) | Mando de primer nivel (**siempre IGE, bloqueado**) › segundo nivel › unidad, **en cascada** como el InfoPath: listas `M1N` › `M2N` (por `ID_M1N`) › `M3N` (por `M2N`). Se guarda el **número** del elemento en `MANDO1N–3N` y el **nombre** en `MN1–MN3`; al cambiar un nivel se vacían los inferiores |
 | Datos del incidente | Tipo · Lugar (provincia, lista `PROVINCIAS`) · Fecha y hora (`FechaNotificacion`) · ¿Zona señalizada? · ¿Reiterada? · Probabilidad · ¿Denuncia? y nº |
 | Responda a todas las preguntas | Observación, análisis, medidas, control de medidas, conclusión (con las ayudas del InfoPath) · Aceptación de los protocolos (`ACEPTACION`) · Adjuntos |

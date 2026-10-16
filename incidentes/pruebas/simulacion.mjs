@@ -24,7 +24,7 @@ const AUXL = {
   PROVINCIAS: [{ Id: 1, Title: 'SEVILLA' }, { Id: 2, Title: 'LEÓN' }, { Id: 3, Title: 'BURGOS' }],
   empleos: [{ Id: 1, Title: 'CORONEL' }, { Id: 2, Title: 'COMANDANTE' }, { Id: 3, Title: 'SARGENTO' }]
 };
-let sinEmpleos = false, rechazaFrom = false;
+let sinEmpleos = false, rechazaFrom = false, grupoUnico = false;
 const sur = { MANDO2N: '1', MANDO3N: '1', OData__x004d_N2: 'SUIGESUR', OData__x004d_N3: 'ACUARTELAMIENTO X' };
 const nor = { MANDO2N: '2', MANDO3N: '2', OData__x004d_N2: 'SUIGENOR', OData__x004d_N3: 'BASE NORTE' };
 const nuevoStore = () => {
@@ -88,6 +88,8 @@ async function prueba(verbose, escenario) {
         const c = personasDe(JSON.parse(req.postData())); delete c.__metadata; Object.assign(it, c, { Modified: new Date().toISOString(), Editor: { Id: YO.Id, Title: YO.Title } });
         return r.fulfill({ status: 204, body: '' });
       }
+      // Lista con «grupo» de una sola persona: rechaza la forma {results: […]} como Colabora
+      if (grupoUnico && /items/.test(resto) && (JSON.parse(req.postData() || '{}').grupoId || 0).results) return r.fulfill({ status: 400, json: { error: { message: { value: "Se encontró un nodo 'StartObject' inesperado al leer del lector JSON. Se esperaba un nodo 'PrimitiveValue'." } } } });
       if (resto.endsWith('/items')) {
         const c = personasDe(JSON.parse(req.postData())); delete c.__metadata;
         const it = { ...base, Id: Math.max(...items.map(x => x.Id)) + 1, Created: new Date().toISOString(), Modified: new Date().toISOString(), Author: { Id: YO.Id, Title: YO.Title, EMail: YO.EMail }, Editor: { Id: YO.Id, Title: YO.Title }, Attachments: false, ...c };
@@ -111,7 +113,7 @@ async function prueba(verbose, escenario) {
     if (resto.includes("getbytitle('INCIDENTES DE SEGURIDAD')/fields")) { const ch = a => verbose ? { results: a } : a; return J({ value: [
       { InternalName: 'TipoDeIncidente', Choices: ch(['Intrusión no autorizada', 'Robo o sustracción', 'Pintadas', 'Otro']) }, { InternalName: 'Reiterada', Choices: ch(['SI', 'NO', 'ES LA PRIMERA VEZ']) },
       { InternalName: 'PROBABILIDADES', Choices: ch(['MUY BAJO', 'BAJO', 'MEDIO', 'ALTO', 'MUY ALTO']) }, { InternalName: 'SUIGES', Choices: ch(['JEFATURA DE IGE', 'SECOORCEN', 'SUIGESUR', 'SUIGEPIR', 'SUIGENOR', 'SUIGECAN', 'DIIN']) },
-      { InternalName: 'A_x00f1_o', Choices: ch(['2025', '2026', '2027']) }] }); }
+      { InternalName: 'A_x00f1_o', Choices: ch(['2025', '2026', '2027']) }].concat(grupoUnico ? [] : [{ InternalName: 'grupo', TypeAsString: 'UserMulti' }]) }); }
     if (resto.includes('/items') && expandRoto && u.includes('$expand')) return r.fulfill({ status: 400, body: '' });
     if (resto.includes('/items')) {
       const selRaw = ((u.match(/\$select=([^&]*)/) || [])[1] || '').split(',').filter(Boolean);
@@ -262,7 +264,7 @@ async function prueba(verbose, escenario) {
   await p.setInputFiles('#fParte [name=adjuntos]', { name: 'foto vallado.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('JPEGFALSO') });
   if (!verbose) await p.screenshot({ path: new URL('nuevo-parte.png', import.meta.url).pathname, fullPage: true });
   posts.length = 0; await p.click('#fBorrador'); await p.waitForTimeout(1500);
-  const alta = posts.find(x => x.ruta.endsWith('/items')); const ca = alta && JSON.parse(alta.cuerpo);
+  const altas = posts.filter(x => x.ruta.endsWith('/items')), alta = altas[altas.length - 1]; if (altas.length > 1) console.log(tag, '| alta repetida:', altas.length, 'intentos'); const ca = alta && JSON.parse(alta.cuerpo);
   console.log(tag, '| borrador:', ca && JSON.stringify({ ESTADO: ca.ESTADO, Title: ca.Title, Año: ca.A_x00f1_o, Empleo: ca.Empleo, M: [ca.MANDO1N, ca.MANDO2N, ca.MANDO3N], MN: [ca.OData__x004d_N1, ca.OData__x004d_N2, ca.OData__x004d_N3], grupo: ca.grupoId, correos: ca.correosPersonasInfo, Resp: ca.ResponsableDeLaInformacionId, RespParte: ca.ResponsableDelParte, Zona: ca.ZONASE_x00d1_ALIZADA, Den: [ca.Denuncia, ca.NDenuncia], hora: new Date(ca.FechaNotificacion).getHours() + ':' + new Date(ca.FechaNotificacion).getMinutes() }));
   console.log(tag, '| adjunto subido:', posts.filter(x => x.ruta.includes('AttachmentFiles/add')).map(x => x.ruta.replace(/.*FileName=/, '')).join(', '), '| sin correo:', !correos().length);
   console.log(tag, '| ficha del borrador:', await p.textContent('#dlg h2'), '|', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
@@ -289,7 +291,7 @@ async function prueba(verbose, escenario) {
   await b.close();
 }
 const TODOS = ['SEGURIDAD_SUIGESUR', 'SEGURIDAD_SUIGENOR', 'SEGURIDAD_SUIGECAN', 'SEGURIDAD_DIAPER', 'SEGURIDAD_IGE', 'Integrantes de la Colaborativo'];
-misGrupos = TODOS; admin = true; await prueba(false, 'control total'); sinEmpleos = true; rechazaFrom = true; await prueba(true, 'control total'); sinEmpleos = false; rechazaFrom = false;
+misGrupos = TODOS; admin = true; await prueba(false, 'control total'); sinEmpleos = true; rechazaFrom = true; grupoUnico = true; await prueba(true, 'control total'); sinEmpleos = false; rechazaFrom = false; grupoUnico = false;
 misGrupos = ['SEGURIDAD_SUIGESUR', 'Integrantes de la Colaborativo']; admin = false; await prueba(false, 'solo SUIGESUR');
 sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstringof = false;
 misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'solo SEGURIDAD_IGE');

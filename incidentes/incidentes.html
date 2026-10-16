@@ -181,7 +181,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-16 · 8';
+  var VERSION = '2026-10-16 · 9';
   var CLAVE = 'incidentes-seguridad-ige';
   var pref = { sitio: '/et/jige/colaborativo', lista: 'INCIDENTES DE SEGURIDAD', vista: 'panel', correo: true,
     f: { q: '', fase: '', tipo: '', suige: '', prob: '', desde: '', hasta: '' }, agrupar: 'provincia' };
@@ -405,6 +405,8 @@
     if (verTodo()) return leerCon(SEL, '');
     var c = ['AuthorId', 'ResponsableDeLaInformacionId', 'UsuarioId'].map(function (k) { return '(' + k + ' eq ' + yo.Id + ')'; });
     c.push('(grupo/Id eq ' + yo.Id + ')');
+    // Personas a informar que no caben en «grupo» (si la columna es de una sola persona): por su correo
+    if (yo.Email) c.push("substringof('" + yo.Email.replace(/'/g, "''") + "',correosPersonasInfo)");
     misSuiges.forEach(function (s) {
       c.push("(SUIGES eq '" + s.replace(/'/g, "''") + "')");
       tokensSuige(s).forEach(function (tok) { MANDOS.forEach(function (f) { c.push("substringof('" + tok + "'," + f + ')'); }); });
@@ -418,12 +420,13 @@
   // Respaldo si Colabora no admite el filtro: se leen solo Id, autor, responsable, personas que pueden verlo, SUIGES y cadena de mando
   // (nunca el contenido del parte) para saber cuáles me corresponden, y después se piden esos partes por su número.
   function leerPorNumero() {
-    var cols = ['Id', 'AuthorId', 'ResponsableDeLaInformacionId', 'UsuarioId', 'SUIGES'].concat(MANDOS.filter(function (k) { return omitidas.indexOf(k) < 0; }));
+    var cols = ['Id', 'AuthorId', 'ResponsableDeLaInformacionId', 'UsuarioId', 'SUIGES', 'correosPersonasInfo'].concat(MANDOS.filter(function (k) { return omitidas.indexOf(k) < 0; }));
     var conGrupo = function () { return todas(urlLista() + '/items?$top=500&$select=' + cols.concat(['grupo/Id']).join(',') + '&$expand=grupo'); };
     return conGrupo().catch(function () { return todas(urlLista() + '/items?$top=500&$select=' + cols.join(',')); }).then(function (ls) {
       var ids = ls.filter(function (x) {
         if ([x.AuthorId, x.ResponsableDeLaInformacionId, x.UsuarioId].indexOf(yo.Id) >= 0) return true;
         if (personas(x.grupo).some(function (p) { return p.Id === yo.Id; })) return true;
+        if (yo.Email && String(x.correosPersonasInfo || '').toLowerCase().indexOf(yo.Email.toLowerCase()) >= 0) return true;
         var mn = MANDOS.map(function (k) { return x[k] || ''; });
         var s = normSuige(mn[4]) || normSuige(x.SUIGES) || mn.map(normSuige).filter(Boolean)[0];
         return !!s && misSuiges.indexOf(s) >= 0;
@@ -853,6 +856,9 @@
     return u ? location.origin + u + (id ? '?ID=' + id + '&' : '?') + 'Source=' + encodeURIComponent(enlacePagina() + (id ? '?id=' + id : '')) : '';
   };
   var opciones = {}, aux = null;
+  // «grupo» admite varias personas en el InfoPath; en la lista puede ser de una sola (TypeAsString 'User' en vez de 'UserMulti')
+  var grupoVarias = true;
+  var valorGrupo = function (ids) { return grupoVarias ? { results: ids } : (ids.length ? ids[0] : null); };
   var AYUDA = {
     OBSERVACION: 'Descripción clara, concreta, precisa y objetiva de los hechos ocurridos. Debe responder a estas preguntas: ¿Qué sucedió?, ¿Qué debería haber sucedido?, ¿Qué diferencia hubo entre lo que debería haber pasado y lo que finalmente sucedió?',
     ANALISIS: 'El análisis explica cómo y por qué el plan de seguridad no ha reducido o eliminado la amenaza. Se discuten las razones del fracaso, las circunstancias que rodean al incidente y los factores que han podido influir. El análisis amplía la información sobre la observación y responde a las preguntas sobre «quién, qué, dónde, cuándo, por qué y cómo».',
@@ -869,11 +875,13 @@
       return todas(u + sel).catch(function () { return sel === 'Id,Title' ? null : todas(u + 'Id,Title'); }).catch(function () { return null; })
         .then(function (l) { return l && l.sort(function (x, y) { return x.Id - y.Id; }); });
     };
-    var campos = ['TipoDeIncidente', 'Reiterada', 'PROBABILIDADES', 'SUIGES', 'A_x00f1_o'];
+    var campos = ['TipoDeIncidente', 'Reiterada', 'PROBABILIDADES', 'SUIGES', 'A_x00f1_o', 'grupo'];
     return Promise.all([leer(pref.sitio, AUX.m1, 'Id,Title'), leer(pref.sitio, AUX.m2, 'Id,Title,ID_M1NId'), leer(pref.sitio, AUX.m3, 'Id,Title,M1NId,M2NId'),
       leer(pref.sitio, AUX.provincias, 'Id,Title'), leer(AUX.empleos.sitio, AUX.empleos.lista, 'Id,Title'),
-      api(urlLista() + '/fields?$select=InternalName,Choices&$filter=' + encodeURIComponent(campos.map(function (c) { return "(InternalName eq '" + c + "')"; }).join(' or ')))
-        .then(function (d) { lista(d.value).forEach(function (f) { opciones[f.InternalName] = lista(f.Choices); }); }).catch(function () { /* se usan las del formulario */ })])
+      api(urlLista() + '/fields?$select=InternalName,Choices,TypeAsString&$filter=' + encodeURIComponent(campos.map(function (c) { return "(InternalName eq '" + c + "')"; }).join(' or ')))
+        .then(function (d) { lista(d.value).forEach(function (f) {
+          if (f.InternalName === 'grupo') grupoVarias = f.TypeAsString !== 'User'; else opciones[f.InternalName] = lista(f.Choices);
+        }); }).catch(function () { /* se usan las del formulario */ })])
       .then(function (r) {
         var titulos = function (l) { var v = {}; return (l || []).map(function (x) { return String(x.Title || '').trim(); }).filter(function (x) { if (!x || v[x]) return false; v[x] = 1; return true; }); };
         aux = { m1: r[0] || [], m2: r[1] || [], m3: r[2] || [], provincias: titulos(r[3]), empleos: r[4] && r[4].length ? titulos(r[4]) : EMPLEOS,
@@ -904,7 +912,8 @@
       caja('Datos del responsable de la información',
         '<label class="lbl req">Empleo</label><select name="empleo">' + ops(A.empleos.indexOf(t && t.empleo) < 0 && t && t.empleo ? A.empleos.concat([t.empleo]) : A.empleos, t ? t.empleo : '') + '</select>' +
         '<label class="lbl req">Apellidos y nombre del responsable que va a tramitar la información (MUY IMPORTANTE)</label><div id="fResp"></div><div id="fGestor"></div>' +
-        '<label class="lbl">Personal que puede visualizar la información</label><p class="ayuda">Mando superior, personal de S2 u otro personal, sin añadir al responsable.</p><div id="fGrupo"></div>') +
+        '<label class="lbl">Personal que puede visualizar la información</label><p class="ayuda">Mando superior, personal de S2 u otro personal, sin añadir al responsable.' +
+        (grupoVarias ? '' : ' La columna «grupo» de la lista solo admite una persona: se guarda la primera y todas reciben los avisos y pueden ver el parte por su correo.') + '</p><div id="fGrupo"></div>') +
       caja('BAE afectada',
         '<p class="ayuda">Bases, acuartelamientos y establecimientos (BAE) <b>orgánicos y no orgánicos</b> que dependen de la cadena IGE en seguridad de las instalaciones.</p>' +
         '<div class="grid"><div><label class="lbl req">Mando de primer nivel</label><select name="m1" title="Siempre IGE: no se puede cambiar"></select></div>' +
@@ -988,7 +997,7 @@
       var fecha = new Date(val('fecha') + 'T' + (val('hora') || '00:00') + ':00');
       var correos = grupo.map(function (u) { return u.Email; }).filter(function (x) { return /@/.test(x || ''); }).join(';');
       var c = { Empleo: val('empleo') || null, ResponsableDeLaInformacionId: resp ? resp.Id : null, ResponsableDelParte: resp ? resp.Title : '',
-        grupoId: { results: grupo.map(function (u) { return u.Id; }) }, correosPersonasInfo: correos,
+        grupoId: valorGrupo(grupo.map(function (u) { return u.Id; })), correosPersonasInfo: correos,
         MANDO1N: sM1.value, MANDO2N: sM2.value, MANDO3N: sM3.value, OData__x004d_N1: mn[0], OData__x004d_N2: mn[1], OData__x004d_N3: mn[2],
         TipoDeIncidente: val('tipo') || null, Provincia: val('provincia'), FechaNotificacion: fecha.toISOString(),
         ZONASE_x00d1_ALIZADA: val('zona') === '' ? null : val('zona') === 'true', Reiterada: val('reiterada') || null, PROBABILIDADES: val('prob') || null,
@@ -1004,11 +1013,12 @@
         return t ? guardarCambios(t, cuerpo, nota).then(function () { return t.id; }) :
           enviarSP(urlLista() + '/items', Object.assign({ __metadata: { type: listaInfo.ListItemEntityTypeFullName }, ObservacionesDelExpediente: anotacion(nota), ModificadoPorTEXTO: yo.Title }, cuerpo), 'No tienes permiso para dar de alta partes en esta lista').then(function (n) { return n && (n.Id || n.ID); });
       };
-      // Si «grupo» resultara ser de una sola persona en esta lista, se guarda la primera
+      // Si SharePoint rechaza la forma de «grupo» (una persona / varias), se cambia y se repite una vez.
+      // Error típico: «Se encontró un nodo 'StartObject' inesperado… Se esperaba un nodo 'PrimitiveValue'».
       var hecho = escribir(Object.assign({}, c)).catch(function (e) {
-        if (!/grupo/i.test(e.message || '') || grupo.length > 1) throw e;
-        var c2 = Object.assign({}, c, { grupoId: grupo.length ? grupo[0].Id : null });
-        return escribir(c2);
+        if (!/StartObject|PrimitiveValue|StartArray|grupo/i.test(e.message || '')) throw e;
+        grupoVarias = !grupoVarias;
+        return escribir(Object.assign({}, c, { grupoId: valorGrupo(grupo.map(function (u) { return u.Id; })) }));
       });
       hecho.then(function (id) {
         return subirAdjuntos(id, archivos).then(function (fallos) {
