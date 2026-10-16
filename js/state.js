@@ -1,6 +1,6 @@
 // Estado en memoria (descifrado tras el desbloqueo) y persistencia.
 import * as db from './db.js';
-import { CONFIG_INICIAL } from './plantilla.js';
+import { CONFIG_INICIAL, PLANTILLA_BASE, NOVEDADES_PLANTILLA } from './plantilla.js';
 import { fijarEscala } from './mosler.js';
 
 export const S = { config: null, inst: new Map(), eval: new Map(), agenda: new Map() };
@@ -16,10 +16,29 @@ export async function cargar() {
     S.config.escalaRiesgo = 'mosler5';
     await db.put('config', S.config);
   }
+  if (incorporarNovedades(S.config)) await db.put('config', S.config);
   fijarEscala(S.config.escalaRiesgo, S.config.limitesRiesgo);
   for (const k of ['inst', 'eval', 'agenda']) {
     S[k] = new Map((await db.all(k)).map(o => [o.id, o]));
   }
+}
+
+// Añade al cuestionario guardado los ítems nuevos de la plantilla (una sola vez por versión).
+function incorporarNovedades(config) {
+  const v = config.versionPlantilla || 1;
+  let cambio = false;
+  for (const n of NOVEDADES_PLANTILLA.filter(x => x.version > v)) {
+    const area = config.areas.find(a => a.id === n.area);
+    const base = PLANTILLA_BASE.find(a => a.id === n.area);
+    if (!area || !base) continue;
+    for (const cod of n.codigos) {
+      const it = base.items.find(i => i.codigo === cod);
+      if (it && !area.items.some(i => i.id === it.id || i.codigo === it.codigo)) { area.items.push(structuredClone(it)); cambio = true; }
+    }
+  }
+  const ultima = Math.max(v, ...NOVEDADES_PLANTILLA.map(x => x.version));
+  if (ultima !== v) { config.versionPlantilla = ultima; cambio = true; }
+  return cambio;
 }
 
 export function vaciar() {

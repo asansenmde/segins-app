@@ -1,4 +1,4 @@
-// Cuestionario base SEGINS (IT 07/23): 7 áreas, 44 ítems.
+// Cuestionario base SEGINS (IT 07/23): 7 áreas, 47 ítems.
 // Se copia a la configuración en el primer arranque; después se edita desde la app.
 
 const it = (codigo, prioridad, peso, texto) => ({ id: codigo, codigo, prioridad, peso, texto, base: true });
@@ -64,6 +64,9 @@ export const PLANTILLA_BASE = [
       it('F04', 'P1', 4, 'Personal conoce puntos vulnerables y normas del puesto.'),
       it('F05', 'P2', 3, 'Ensayos/ejercicios seguridad (no solo incendios) realizados o programados.'),
       it('F06', 'P2', 3, 'Puestos fijos y patrullas dimensionados según Plan.'),
+      it('F07', 'P1', 4, 'Plan de reacción ante intrusión masiva definido, conocido por el personal y ensayado.'),
+      it('F08', 'P2', 3, 'Procedimiento de coordinación y aviso a las FCSE establecido y probado.'),
+      it('F09', 'P1', 4, 'Zonas críticas (armería, polvorín, depósitos) compartimentadas frente a una intrusión del perímetro.'),
     ],
   },
   {
@@ -78,6 +81,12 @@ export const PLANTILLA_BASE = [
   },
 ];
 
+// Ítems que se incorporaron a la plantilla después de su primera versión, para añadirlos
+// también al cuestionario de quien ya tenía la app instalada.
+export const NOVEDADES_PLANTILLA = [
+  { version: 2, area: 'F', codigos: ['F07', 'F08', 'F09'] },
+];
+
 export const CONFIG_INICIAL = {
   id: 'config',
   umbralSat: 85,
@@ -89,5 +98,6 @@ export const CONFIG_INICIAL = {
   sellarFotos: true,
   bloqueoMin: 30,
   escalaRiesgo: 'mosler5',
+  versionPlantilla: 2,
   areas: PLANTILLA_BASE,
 };

@@ -15,7 +15,7 @@ con fotos marcadas, agenda e informe en Word.
 
 ## Qué hace
 
-- **Cuestionario**: 7 áreas y 44 ítems de base (C / I / NA, prioridad P1/P2, peso), abierto: en cada
+- **Cuestionario**: 7 áreas y 47 ítems de base (C / I / NA, prioridad P1/P2, peso), abierto: en cada
   evaluación se pueden añadir áreas (H, I, J…) e ítems propios de la instalación, que se repiten en sus
   próximas evaluaciones, o pasarlos al cuestionario general para todas.
 - **Evaluación**: datos de cabecera (empiezan vacíos), respuesta por ítem, observaciones
@@ -28,7 +28,7 @@ con fotos marcadas, agenda e informe en Word.
   alerta P1, gráfico y comparación con la evaluación anterior de la misma instalación.
 - **Informe Word (.docx)** generado en el móvil: datos, resultado global y por área, gráfico,
   alertas P1, no conformidades con fotos, detalle completo, conclusiones y firma.
-- **Análisis de riesgos (Mosler)**: una valoración por amenaza (22 amenazas de base en dos grupos,
+- **Análisis de riesgos (Mosler)**: una valoración por amenaza (23 amenazas de base en dos grupos,
   ampliables) y V propuesta por el cuestionario. Clasificación por defecto: escala Mosler clásica
   (250 / 500 / 750 / 1000 / 1250). Opcionalmente, Bajo / Normal / Alto con los límites que fije la norma
   aplicable (en Ajustes). Importación de la tabla Mosler copiada desde Excel (de cada amenaza se toma
@@ -85,7 +85,7 @@ css/app.css
 js/app.js            arranque, PIN, navegación
 js/db.js             almacenamiento cifrado y copias
 js/state.js          estado en memoria
-js/plantilla.js      cuestionario base (44 ítems) y configuración inicial
+js/plantilla.js      cuestionario base (47 ítems) y configuración inicial
 js/scoring.js        cálculo de resultados
 js/fotos.js          captura, sello, visor y anotación
 js/informe.js        informe Word (librería docx, incluida en js/lib)

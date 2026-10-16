@@ -35,7 +35,7 @@ export function cuestionario(main) {
           </div>
         </details>`).join('')}
       <button class="btn block" id="addarea">＋ Añadir área</button>
-      <div class="danger-zone"><button class="btn" id="restaurar">Restaurar cuestionario base (44 ítems)</button></div>`;
+      <div class="danger-zone"><button class="btn" id="restaurar">Restaurar cuestionario base (${PLANTILLA_BASE.reduce((s, a) => s + a.items.length, 0)} ítems)</button></div>`;
   };
   pintar();
 
@@ -80,7 +80,7 @@ export function cuestionario(main) {
       repintar([...abiertos(), String(cfg.areas.length - 1)]);
       return;
     } else if (b.id === 'restaurar') {
-      if (!(await confirmar('Se sustituirá el cuestionario por el base de 44 ítems. Perderás los ítems y áreas que hayas añadido.', 'Restaurar', 'danger'))) return;
+      if (!(await confirmar(`Se sustituirá el cuestionario por el base de ${PLANTILLA_BASE.reduce((s, a) => s + a.items.length, 0)} ítems. Perderás los ítems y áreas que hayas añadido.`, 'Restaurar', 'danger'))) return;
       cfg.areas = structuredClone(PLANTILLA_BASE);
       toast('Cuestionario restaurado');
     } else return;

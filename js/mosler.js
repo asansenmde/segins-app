@@ -113,6 +113,9 @@ export const AMENAZAS_BASE = [
   ['Tecnológicas', G2, ['D', 'E']],
   ['Derivadas de la actividad de las unidades', G2, ['A', 'F']],
 ].map(([nombre, grupo, areas], i) => ({ id: 'M' + String(i + 1).padStart(2, '0'), nombre, grupo, areas }));
+// Añadidas después: llevan id propio y se colocan junto a la amenaza relacionada.
+AMENAZAS_BASE.splice(AMENAZAS_BASE.findIndex(a => a.nombre === 'Intrusión') + 1, 0,
+  { id: 'M23', nombre: 'Intrusión masiva', grupo: G2, areas: ['B', 'C', 'D', 'E', 'F'] });
 
 export const GRUPOS = [G1, G2];
 
@@ -194,6 +197,8 @@ export function asegurarMosler(ev, evaluaciones, config) {
   if (previa) {
     migrar(previa);
     ev.mosler = previa.mosler.map(a => ({ ...structuredClone(a), V: a.vManual ? a.V : null }));
+    // Amenazas de base que no existían cuando se hizo la evaluación anterior
+    for (const b of AMENAZAS_BASE) if (!ev.mosler.some(a => a.id === b.id || norm(a.nombre) === norm(b.nombre))) ev.mosler.push(deBase(b));
   } else ev.mosler = listaBase(config).map(deBase);
   return true;
 }
