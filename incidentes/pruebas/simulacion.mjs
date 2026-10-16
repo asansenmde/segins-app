@@ -85,6 +85,7 @@ async function prueba(verbose, escenario) {
       if (mi) {
         const it = items.find(x => x.Id === +mi[1]);
         if (req.headers()['if-match'] !== '"' + it.Modified + '"') return r.fulfill({ status: 412, json: { error: { message: { value: 'conflict' } } } });
+        if (typeof JSON.parse(req.postData()).DIACU === 'string') return r.fulfill({ status: 400, json: { error: { message: { value: "Se encontró un nodo 'PrimitiveValue' inesperado. Se esperaba un nodo 'StartObject'." } } } });
         const c = personasDe(JSON.parse(req.postData())); delete c.__metadata; Object.assign(it, c, { Modified: new Date().toISOString(), Editor: { Id: YO.Id, Title: YO.Title } });
         return r.fulfill({ status: 204, body: '' });
       }
@@ -113,7 +114,7 @@ async function prueba(verbose, escenario) {
     if (resto.includes("getbytitle('INCIDENTES DE SEGURIDAD')/fields")) { const ch = a => verbose ? { results: a } : a; return J({ value: [
       { InternalName: 'TipoDeIncidente', Choices: ch(['Intrusión no autorizada', 'Robo o sustracción', 'Pintadas', 'Otro']) }, { InternalName: 'Reiterada', Choices: ch(['SI', 'NO', 'ES LA PRIMERA VEZ']) },
       { InternalName: 'PROBABILIDADES', Choices: ch(['MUY BAJO', 'BAJO', 'MEDIO', 'ALTO', 'MUY ALTO']) }, { InternalName: 'SUIGES', Choices: ch(['JEFATURA DE IGE', 'SECOORCEN', 'SUIGESUR', 'SUIGEPIR', 'SUIGENOR', 'SUIGECAN', 'DIIN']) },
-      { InternalName: 'A_x00f1_o', Choices: ch(['2025', '2026', '2027']) }].concat(grupoUnico ? [] : [{ InternalName: 'grupo', TypeAsString: 'UserMulti' }]) }); }
+      { InternalName: 'A_x00f1_o', Choices: ch(['2025', '2026', '2027']) }].concat(grupoUnico ? [] : [{ InternalName: 'grupo', TypeAsString: 'UserMulti' }], [{ InternalName: 'DIACU', TypeAsString: 'MultiChoice' }]) }); }
     if (resto.includes('/items') && expandRoto && u.includes('$expand')) return r.fulfill({ status: 400, body: '' });
     if (resto.includes('/items')) {
       const selRaw = ((u.match(/\$select=([^&]*)/) || [])[1] || '').split(',').filter(Boolean);
