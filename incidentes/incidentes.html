@@ -181,7 +181,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-16 · 10';
+  var VERSION = '2026-10-16 · 11';
   var CLAVE = 'incidentes-seguridad-ige';
   var pref = { sitio: '/et/jige/colaborativo', lista: 'INCIDENTES DE SEGURIDAD', vista: 'panel', correo: true,
     f: { q: '', fase: '', tipo: '', suige: '', prob: '', desde: '', hasta: '' }, agrupar: 'provincia' };
@@ -692,11 +692,13 @@
       '<tr><td style="border-top:4px solid ' + oro + ';padding-top:6px;font-size:11px;color:#555" align="center">Aviso generado por la aplicación Incidentes de Seguridad en Instalaciones (IGE). No reenvíe este correo fuera de la organización.<br><br>' + uso + '</td></tr></table>';
   }
   var cacheGrupos = {};
-  function correosDeGrupos(nombres) {
+  // Correos de los integrantes de los grupos. Anota en «sinVer» los grupos que no dejan ver sus integrantes o están vacíos.
+  function correosDeGrupos(nombres, sinVer) {
     return Promise.all(nombres.map(function (n) {
       if (cacheGrupos[n]) return Promise.resolve(cacheGrupos[n]);
       return todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(n.replace(/'/g, "''")) + "')/users?$select=Email")
-        .then(function (l) { return (cacheGrupos[n] = l.map(function (u) { return u.Email; }).filter(Boolean)); }).catch(function () { return []; });
+        .then(function (l) { var c = l.map(function (u) { return u.Email; }).filter(Boolean); if (c.length) cacheGrupos[n] = c; return c; }).catch(function () { return []; })
+        .then(function (c) { if (!c.length && sinVer && sinVer.indexOf(n) < 0) sinVer.push(n); return c; });
     })).then(function (rs) { return [].concat.apply([], rs); });
   }
   var correosTexto = function (t) { return String(t.correos || '').split(/[;,\s]+/).filter(function (x) { return /@/.test(x); }); };
@@ -716,14 +718,15 @@
       recordar: { a: [], cc: [], asunto: 'RECORDATORIO: incidente de seguridad en instalaciones Nº ' + t.id + ' pendiente: ' + faseTxt(t), intro: 'RECORDATORIO: ESTE INCIDENTE SIGUE PENDIENTE (' + faseTxt(t).toUpperCase() + ').' }
     }[tipo];
     if (tipo === 'recordar') { var f = fase(t); P.a = f === 1 ? dest.suige : f === 2 ? dest.diacu : dest.ige; }
-    return Promise.all([correosDeGrupos(P.a), correosDeGrupos(P.cc)]).then(function (r) {
+    var sinVer = [];
+    return Promise.all([correosDeGrupos(P.a, sinVer), correosDeGrupos(P.cc, sinVer)]).then(function (r) {
       var gente = P.personas ? correosTexto(t).concat(P.resp ? [t.resp && t.resp.Email, t.autor && t.autor.Email] : []) : [];
       var to = limpia(r[0]), cc = limpia(r[1].concat(P.personas === 'cc' ? gente : [])).filter(function (x) { return to.indexOf(x) < 0; });
       var bcc = limpia(P.personas === 'bcc' ? gente : []).filter(function (x) { return to.indexOf(x) < 0 && cc.indexOf(x) < 0; });
       if (!to.length) { to = cc; cc = []; }
       var filas = [['Nº de incidente', String(t.id)], ['Tipo de incidente', t.tipo], ['Fecha del incidente', fCorta(t.fecha)], ['Provincia', t.provincia], ['Unidad', (t.cadena || []).join(' - ') || t.lugar],
         ['SUIGE', t.suige], ['Probabilidad', t.prob], ['Situación', faseTxt(t)], ['Tramitado por', yo.Title], ['Comentario', txt ? (txt.length > 800 ? txt.slice(0, 800) + '…' : txt) : '']].filter(function (x) { return x[1]; });
-      return { to: to, cc: cc, bcc: bcc, asunto: P.asunto, html: htmlCorreo(P.intro, filas, enlaceInc(t)), texto: 'USO OFICIAL\n\n' + P.intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\nAbrir el incidente: ' + enlaceInc(t) };
+      return { to: to, cc: cc, bcc: bcc, sinVer: sinVer, asunto: P.asunto, html: htmlCorreo(P.intro, filas, enlaceInc(t)), texto: 'USO OFICIAL\n\n' + P.intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\nAbrir el incidente: ' + enlaceInc(t) };
     });
   }
   function mailto(c) {
@@ -732,23 +735,19 @@
     while ((u + encodeURIComponent(cuerpo)).length > 2000 && cuerpo.length > 200) cuerpo = cuerpo.slice(0, cuerpo.length - 100) + '…';
     return u + encodeURIComponent(cuerpo);
   }
-  // Remitente: el buzón de Colabora con el nombre de la aplicación en lugar de «Colaborativo» (el nombre del sitio).
-  // Si el servidor no admite cambiar el remitente, se envía sin él y se recuerda para no volver a intentarlo.
-  var REMITENTE = '"Incidentes de Seguridad en Instalaciones" <NoReplySharepoint@interno.mde.es>';
-  var sinRemitente = false;
   function enviarCorreo(c) {
-    if (!c.to.length) return Promise.resolve({ ok: false, motivo: 'no se encontraron destinatarios (los grupos ocultan sus integrantes o están vacíos)', mailto: mailto(c) });
-    var enviar = function (conRemitente) {
-      var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: c.to }, CC: { results: c.cc }, BCC: { results: c.bcc || [] }, Subject: c.asunto, Body: c.html };
-      if (conRemitente) pr.From = REMITENTE;
-      return enviarSP(web + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página');
-    };
-    var envio = sinRemitente ? enviar(false) : enviar(true).catch(function (e) { if (/permiso/i.test(e.message || '')) throw e; sinRemitente = true; return enviar(false); });
-    return envio.then(function () { return { ok: true, n: c.to.length + c.cc.length + (c.bcc || []).length }; }, function (e) { return { ok: false, motivo: e.message || String(e), mailto: mailto(c) }; });
+    if (!c.to.length) return Promise.resolve({ ok: false, motivo: 'no se encontraron destinatarios', sinVer: c.sinVer, mailto: mailto(c) });
+    var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: c.to }, CC: { results: c.cc }, Subject: c.asunto, Body: c.html };
+    if (c.bcc && c.bcc.length) pr.BCC = { results: c.bcc };
+    return enviarSP(web + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página').then(function () { return { ok: true, n: c.to.length + c.cc.length + (c.bcc || []).length, sinVer: c.sinVer, mailto: mailto(c) }; },
+      function (e) { return { ok: false, motivo: e.message || String(e), sinVer: c.sinVer, mailto: mailto(c) }; });
   }
+  // Siempre se ofrece preparar el mismo aviso en Outlook, por si el correo de Colabora no llega
   var msgCorreo = function (r) {
-    return !r ? '' : r.ok ? ' Aviso enviado por correo (' + r.n + ' destinatario' + (r.n === 1 ? '' : 's') + ').' :
-      ' No se pudo enviar el aviso (' + esc(r.motivo) + ').' + (r.mailto ? ' <a class="btn" href="' + esc(r.mailto) + '">✉ Preparar el correo en Outlook</a>' : '');
+    if (!r) return '';
+    var sv = r.sinVer && r.sinVer.length ? ' Estos grupos no dejan ver sus integrantes o están vacíos, y a ellos no les llega: ' + esc(r.sinVer.join(', ')) + '.' : '';
+    var btn = r.mailto ? ' <a class="btn" href="' + esc(r.mailto) + '">✉ ' + (r.ok ? 'Enviarlo también desde Outlook' : 'Preparar el correo en Outlook') + '</a>' : '';
+    return (r.ok ? ' Aviso enviado por Colabora a ' + r.n + ' destinatario' + (r.n === 1 ? '' : 's') + '.' : ' No se pudo enviar el aviso (' + esc(r.motivo) + ').') + sv + btn;
   };
 
   // ---------- Guardar (sin pisar cambios de otros) ----------
@@ -1199,7 +1198,7 @@
     boton.disabled = true;
     if (a === 'recordar') {
       return avisoDe('recordar', t, '').then(enviarCorreo).then(function (r) {
-        boton.disabled = !!r.ok; msgAcc(r.ok ? 'okmsg' : 'aviso', r.ok ? '✓ Recordatorio enviado.' + msgCorreo(r).replace(' Aviso enviado por correo', '') : 'No se envió el recordatorio.' + msgCorreo(r));
+        boton.disabled = !!r.ok; msgAcc(r.ok ? 'okmsg' : 'aviso', r.ok ? '✓ Recordatorio enviado.' + msgCorreo(r) : 'No se envió el recordatorio.' + msgCorreo(r));
       });
     }
     guardarCambios(t, c, nota).then(function () {

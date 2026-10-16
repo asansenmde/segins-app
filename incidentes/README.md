@@ -68,7 +68,7 @@ Estadísticas y Ajustes (solo Control total).
 | Valoración de IGE | INCIDENTE DE SEGURIDAD ACTUALIZADO | SUIGE | personal que puede visualizar |
 | Cierre | … EXPEDIENTE CERRADO | SUIGE | responsable, autor y personal que puede visualizar |
 
-Remitente: se pide a Colabora que el correo salga como «Incidentes de Seguridad en Instalaciones» (buzón NoReplySharepoint) en lugar de «Colaborativo»; si el servidor no lo admite, se envía con el remitente de siempre. La plantilla InfoPath envía a **buzones escritos a mano**; la página, en cambio, a los **integrantes de los grupos**
+Remitente: el de Colabora («Colaborativo»). Se probó a cambiarlo y el servidor aceptaba el envío pero el correo no llegaba, así que se dejó como estaba. Tras cada envío la página dice a cuántos llegó, qué grupos no dejan ver sus integrantes y ofrece «Enviarlo también desde Outlook». La plantilla InfoPath envía a **buzones escritos a mano**; la página, en cambio, a los **integrantes de los grupos**
 de Colabora (no se copian buzones al código). Si un grupo oculta sus integrantes, se ofrece preparar el correo en Outlook.
 
 **Fallos de la plantilla InfoPath** (no se reproducen): las reglas de SUIGEPIR y SECORCEN envían el correo al buzón de

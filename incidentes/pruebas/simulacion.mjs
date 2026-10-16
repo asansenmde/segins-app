@@ -183,7 +183,7 @@ async function prueba(verbose, escenario) {
   await p.click('[data-acc=suigeDiacu]'); await p.waitForTimeout(1400);
   let c = merge(1), m = correos().pop();
   console.log(tag, '| SUIGE › DIACU:', JSON.stringify({ ESTADO: c.ESTADO, ValoradoPorSUIGE: c.ValoradoPorSUIGE, VALORACIONSUIGES: c.VALORACIONSUIGES, Obs: (c.ObservacionesDelExpediente || '').slice(-50), Mod: c.ModificadoPorTEXTO }));
-  console.log(tag, '| correo:', m.To.results, 'cc', m.CC.results, 'cco', m.BCC.results, '|', m.Subject, '| sin texto del parte:', !m.Body.includes('TEXTO RESERVADO'), '| enlace:', (m.Body.match(/href="([^"]+)"/) || [])[1]);
+  console.log(tag, '| correo:', m.To.results, 'cc', m.CC.results, 'cco', (m.BCC ? m.BCC.results : []), '|', m.Subject, '| sin texto del parte:', !m.Body.includes('TEXTO RESERVADO'), '| enlace:', (m.Body.match(/href="([^"]+)"/) || [])[1]);
   if (!verbose) fs.writeFileSync(new URL('correo.html', import.meta.url), m.Body);
   console.log(tag, '| mensaje:', (await p.textContent('#dlg .okmsg, #dlg .aviso')).slice(0, 90), '| pasos:', (await p.textContent('#dlg .pasos')).replace(/\s+/g, ' '));
   await p.click('#dlg [data-cerrar]');
@@ -277,7 +277,7 @@ async function prueba(verbose, escenario) {
   await p.check('#fParte [name=aceptacion]');
   posts.length = 0; await p.click('#fRemitir'); await p.waitForTimeout(1600);
   const nid = items[items.length - 1].Id; const cr = merge(nid); m = correos().pop();
-  console.log(tag, '| remitente:', m && (m.From || '(sin remitente: el servidor no lo admitió)'));
+  console.log(tag, '| remitente:', m && (m.From || '(el de Colabora)'), '| mensaje:', (await p.textContent('#dlg .okmsg, #dlg .aviso')).slice(0, 160));
   console.log(tag, '| informar a SUIGE:', JSON.stringify({ ESTADO: cr.ESTADO, SUIGES: cr.SUIGES, ACEPTACION: cr.ACEPTACION, OBS: cr.OBSERVACION, Hist: (cr.ObservacionesDelExpediente || '').split('\n').length + ' líneas' }), '| correo a:', m && m.To.results, 'cc:', m && m.CC.results, '|', m && m.Subject);
   console.log(tag, '| ahora:', (await p.textContent('#dlg .pasos')).replace(/\s+/g, ' '));
   await p.click('#dlg [data-cerrar]');
