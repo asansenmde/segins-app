@@ -88,3 +88,18 @@ Parte de la Empresa, Parte, Revision Semestral, MES, Lote, MATERIAL (`ControlDeR
 rechazar), cierre DIACU, conflicto, estadísticas, CSV, formulario (borrador, envío, validaciones, cascada) e impresión.
 Control de acceso: usuario sin acceso que lo solicita, sin lista de solicitudes o sin permiso en ella, abrir la lista a todos, aprobar/denegar/quitar y preparación (crear lista y grupo).
 Uso: `node vsa/pruebas/simulacion.mjs`.
+
+## Prueba de firma con AutoFirma (`prueba-autofirma.html`)
+
+Página independiente para comprobar si desde Colabora se puede lanzar **AutoFirma** y firmar (no lee ni escribe en
+SharePoint). Lleva dentro, sin modificar, la librería oficial **Cliente @firma `autoscript.js` 1.10.1**
+(github.com/ctt-gob-es/clienteafirma, licencias GPL 2+ / EUPL 1.1), que habla con AutoFirma por WebSocket local
+(`afirma://websocket…` + `wss://127.0.0.1`); el diálogo de soporte de la librería está desactivado para no cargar
+imágenes de internet.
+
+Pasos: equipo y navegador → elegir certificado (`selectCertificate`) → firmar un PDF de prueba generado en la página
+(PAdES, SHA512withRSA, firma visible en el recuadro «Por la BAE») → segunda firma sobre el mismo PDF (recuadro «Por la
+empresa») → «Copiar informe» (solo datos técnicos). Los PDF firmados se descargan para comprobarlos en Adobe Reader.
+
+Prueba simulada: `node vsa/pruebas/autofirma.mjs <certificado-DER-en-base64>` (AutoFirma sustituido; comprueba el PDF,
+la lectura del certificado, cancelación, AutoFirma no disponible y que no sale ninguna petición fuera).
