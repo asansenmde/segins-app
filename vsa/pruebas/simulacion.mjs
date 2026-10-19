@@ -19,12 +19,13 @@ const AUXL = {
   M2N: [{ Id: 1, Title: 'SUIGESUR', ID_M1NId: 1 }, { Id: 2, Title: 'SUIGENOR', ID_M1NId: 1 }, { Id: 3, Title: 'OFICINA X', ID_M1NId: 1 }],
   M3N: [{ Id: 1, Title: 'BAE SEVILLA', M2NId: 1 }, { Id: 2, Title: 'BAE LEON', M2NId: 2 }, { Id: 3, Title: 'BAE SIN SUIGE', M2NId: 3 }],
 };
-let campos = null, seg = 2, sols, accLista = true, accAbierta = true, accCerrada = false, propios = true, grupoBae = true, baeMiembros, anadidos, items, misGrupos = [], admin = false, sinSubstringof = false, faltaCampo = null, ultimoFiltro = '', lecturaMinima = '';
+let extra = false, adj = {}, campos = null, seg = 2, sols, accLista = true, accAbierta = true, accCerrada = false, propios = true, grupoBae = true, baeMiembros, anadidos, items, misGrupos = [], admin = false, sinSubstringof = false, faltaCampo = null, ultimoFiltro = '', lecturaMinima = '';
 const base = { Title: '01/10/2026', ESTADO: 'BORRADOR', VALORACIONSUIGE: null, REGISTRODEACTIVIDAD: '', ModificadoPorTEXTO: '', A_x00f1_o: '2026', EMPRESA0: 'EULEN', NOVEDADES: 'SIN NOVEDAD',
   MANDO1N: '1', MANDO2N: '1', MANDO3N: '1', M1N: 'IGE', M2N: 'SUIGESUR', M3N: 'BAE SEVILLA', suige: 'SUIGESUR', Observaciones: '', ControlDeRegistro: '',
   ResponsableDeLaInformacion: P[61], NegSeg: null, PersonalVisibilidad: [], ...Object.fromEntries(RESP.map(k => [k, '3 Bien'])), ...Object.fromEntries(OBS.map(k => [k, ''])) };
 const nor = { MANDO2N: '2', MANDO3N: '2', M2N: 'SUIGENOR', M3N: 'BAE LEON', suige: 'SUIGENOR' };
 const nuevoStore = () => {
+  adj = {};
   sols = [{ Id: 1, Title: 'JEFE BAE B', Solicitante: P[62], Correo: P[62].EMail, Empleo: 'CAPITAN', MandoSegundo: 'SUIGENOR', Unidad: 'BAE LEON', Telefono: '600', Papel: 'Responsable de BAE (cumplimentar el cuestionario)', Motivo: 'Responsable del contrato', Aplicacion: 'VSA', EstadoSolicitud: 'PENDIENTE', Created: d(-1), Modified: d(-1) }];
   baeMiembros = [{ Id: 61, Title: P[61].Title, Email: P[61].EMail, LoginName: 'i:0#.w|et\\jefea' }]; anadidos = [];
   items = [
@@ -34,7 +35,8 @@ const nuevoStore = () => {
     { Id: 4, ESTADO: 'BORRADOR', Created: d(-1), Author: YO, ResponsableDeLaInformacion: YO },
     { Id: 5, ESTADO: 'ENVIADO', ...nor, Created: d(-3), Author: P[62], ResponsableDeLaInformacion: P[62] },
     { Id: 6, ESTADO: 'ENVIADO', ...nor, Created: d(-4), Author: P[62], ResponsableDeLaInformacion: P[62], PersonalVisibilidad: [YO] },
-  ].map(x => ({ ...base, Modified: d(-1), Editor: { Id: 61, Title: 'JEFE BAE A' }, Attachments: false, ...x }));
+  ].concat(extra ? [{ Id: 7, ESTADO: 'ENVIADO', Created: new Date().toISOString(), Author: YO, ResponsableDeLaInformacion: YO, OBS_3: 'Vehículo con más de 5 años (matrícula «ABC»)', RESP_3: '2 Mejorable' }] : [])
+    .map(x => ({ ...base, Modified: d(-1), Editor: { Id: 61, Title: 'JEFE BAE A' }, Attachments: false, ...x }));
 };
 const quien = id => id === YO.Id ? YO : P[id] || { Id: id, Title: 'Usuario ' + id };
 const personasDe = c => {
@@ -59,12 +61,22 @@ async function prueba(verbose, escenario) {
   const errs = []; p.on('pageerror', e => errs.push(e.message)); const posts = [];
   await p.route(O + '/**', async r => {
     const req = r.request(), u = decodeURIComponent(req.url());
-    if (!u.includes('/_api/')) { if (/\.png$/.test(u)) return r.fulfill({ status: 404, body: '' }); return r.fulfill({ body: html, contentType: 'text/html' }); }
+    if (!u.includes('/_api/')) {
+      const fa = u.match(/\/Attachments\/(\d+)\/(.+)$/);
+      if (fa) { const a = (adj[+fa[1]] || []).find(x => x.FileName === fa[2]); return a ? r.fulfill({ body: a.bytes, contentType: 'application/pdf' }) : r.fulfill({ status: 404, body: '' }); }
+      if (/\.png$/.test(u)) return r.fulfill({ status: 404, body: '' }); return r.fulfill({ body: html, contentType: 'text/html' }); }
     if (verbose && req.method() === 'GET' && (req.headers()['accept'] || '').includes('nometadata')) return r.fulfill({ status: 415, body: '' });
     const J = x => r.fulfill({ json: verbose ? { d: Array.isArray(x.value) ? { results: x.value, __next: x['odata.nextLink'] } : x } : x });
     const resto = u.split('/_api/')[1];
     if (req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
+      const at = resto.match(/items\((\d+)\)\/AttachmentFiles\/(add\(FileName='(.+)'\)|getByFileName\('(.+)'\))/);
+      if (at) {
+        const id = +at[1]; adj[id] = adj[id] || [];
+        if (at[3]) { adj[id].push({ FileName: at[3], ServerRelativeUrl: WEB + '/Lists/PARTES VSA/Attachments/' + id + '/' + at[3], bytes: req.postDataBuffer() }); const it = items.find(x => x.Id === id); if (it) it.Attachments = true; return r.fulfill({ status: 200, json: { d: {} } }); }
+        const i = adj[id].findIndex(x => x.FileName === at[4]); if (i < 0) return r.fulfill({ status: 404, json: { error: { message: { value: 'File Not Found.' } } } });
+        adj[id].splice(i, 1); return r.fulfill({ status: 200, body: '' });
+      }
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) return r.fulfill({ json: { d: {} } });
       if (resto.startsWith("web/lists/getbytitle('SOLICITUDES DE ACCESO')")) {
@@ -122,6 +134,8 @@ async function prueba(verbose, escenario) {
     }
     const g = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users/);
     if (g) return MIEMBROS[g[1]] ? J({ value: MIEMBROS[g[1]].map(e => ({ Email: e })) }) : r.fulfill({ status: 404, body: '' });
+    const ag = resto.match(/items\((\d+)\)\/AttachmentFiles/);
+    if (ag) return J({ value: (adj[+ag[1]] || []).map(a => ({ FileName: a.FileName, ServerRelativeUrl: a.ServerRelativeUrl })) });
     const mi = resto.match(/items\((\d+)\)/);
     if (mi) { const it = items.find(x => x.Id === +mi[1]); return r.fulfill({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, ...it } } }); }
     const aux = resto.match(/getbytitle\('(M1N|M2N|M3N)'\)\/items/);
@@ -141,6 +155,7 @@ async function prueba(verbose, escenario) {
       ultimoFiltro = filtro;
       if (filtro.includes('substringof') && sinSubstringof) return r.fulfill({ status: 400, body: '' });
       const lista = filtro ? items.filter(it => cumple(it, filtro)) : items;
+      if (sel.includes('AttachmentFiles/FileName')) return J({ value: lista.map(it => ({ Id: it.Id, AttachmentFiles: verbose ? { results: (adj[it.Id] || []).map(a => ({ FileName: a.FileName })) } : (adj[it.Id] || []).map(a => ({ FileName: a.FileName })) })) });
       if (!sel.includes('Title')) {
         lecturaMinima = sel.join(',');
         return J({ value: lista.map(it => { const o = {}; sel.forEach(k => { if (k === 'PersonalVisibilidad/Id') o.PersonalVisibilidad = it.PersonalVisibilidad.map(x => ({ Id: x.Id })); else if (/Id$/.test(k) && k !== 'Id') o[k] = it[k.slice(0, -2)] ? it[k.slice(0, -2)].Id : null; else o[k] = it[k]; }); return o; }) });
@@ -168,6 +183,35 @@ async function prueba(verbose, escenario) {
     console.log(tag, '| solicitud:', JSON.stringify({ Title: alta.Title, Sol: alta.SolicitanteId, Empleo: alta.Empleo, Mando: alta.MandoSegundo, Unidad: alta.Unidad, Papel: alta.Papel, App: alta.Aplicacion, Estado: alta.EstadoSolicitud }), '| correo:', m && m.Subject);
     console.log(tag, '| después:', (await p.textContent('#vista .okmsg')).slice(0, 90), '| errores:', errs);
     if (!verbose) await p.screenshot({ path: new URL('sin-acceso.png', import.meta.url).pathname, fullPage: true });
+    await b.close(); return;
+  }
+  if (escenario === 'firma') {
+    await p.evaluate(() => {
+      window.__firmas = [];
+      AutoScript.sign = (datos, alg, fmt, prm, ok) => { window.__firmas.push({ alg, fmt, prm, datos }); const s = atob(datos) + '\n%firma\n/ByteRange [0 10 20 30]\n'; setTimeout(() => ok(btoa(s)), 30); };
+    });
+    await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(300);
+    console.log(tag, '| pendientes:', (await p.$$eval('#vista .sec', s => s.map(x => x.textContent.replace(/(\d+)$/, ' = $1')))).join(' · '), '| marca:', await p.$$eval('#vista .inc .badge.f6', n => n.map(x => x.textContent).join(',')));
+    await p.click('.inc[data-id="7"]'); await p.waitForTimeout(500);
+    console.log(tag, '| panel firma:', (await p.textContent('#detFirma')).replace(/\s+/g, ' ').slice(0, 160));
+    posts.length = 0; await p.click('[data-firmarbae]'); await p.waitForTimeout(1500);
+    const f1 = await p.evaluate(() => window.__firmas[0] && { alg: window.__firmas[0].alg, fmt: window.__firmas[0].fmt, prm: window.__firmas[0].prm, datos: window.__firmas[0].datos });
+    fs.writeFileSync(new URL('cuestionario.pdf', import.meta.url), Buffer.from(f1.datos, 'base64'));
+    const ob = merge(7);
+    console.log(tag, '| firma BAE:', f1.alg, f1.fmt, f1.prm.split('\n').slice(0, 5).join(','), '| adjuntos:', (adj[7] || []).map(a => a.FileName).join(','), '| anotación:', ob && (ob.Observaciones || '').replace(/<[^>]+>/g, ' ').trim().slice(-90));
+    console.log(tag, '| tras firmar:', (await p.textContent('#dlg .okmsg')).slice(0, 80), '|', (await p.textContent('#detFirma')).replace(/\s+/g, ' ').slice(0, 200));
+    if (!verbose) { await p.$eval('#detFirma', e => e.scrollIntoView()); await p.screenshot({ path: new URL('firma-ficha.png', import.meta.url).pathname }); }
+    // la empresa devuelve un PDF con una sola firma (error) y después el bueno
+    const bae = adj[7][0].bytes;
+    await p.setInputFiles('#firmaEmpFile', { name: 'mal.pdf', mimeType: 'application/pdf', buffer: bae });
+    await p.click('[data-subiremp]'); await p.waitForTimeout(500);
+    console.log(tag, '| empresa con 1 firma:', await p.textContent('#firmaMsg'));
+    await p.setInputFiles('#firmaEmpFile', { name: 'bueno.pdf', mimeType: 'application/pdf', buffer: Buffer.concat([bae, Buffer.from('\n%empresa\n/ByteRange [0 1 2 3]\n')]) });
+    await p.click('[data-subiremp]'); await p.waitForTimeout(1500);
+    console.log(tag, '| empresa:', (adj[7] || []).map(a => a.FileName).join(','), '|', (await p.textContent('#detFirma')).replace(/\s+/g, ' ').slice(0, 200));
+    await p.click('#dlg [data-cerrar]'); await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200);
+    console.log(tag, '| pendientes después:', (await p.$$eval('#vista .sec', s => s.map(x => x.textContent.replace(/(\d+)$/, ' = $1')))).join(' · '), '| errores:', errs);
+    if (!verbose) await p.screenshot({ path: new URL('firma.png', import.meta.url).pathname, fullPage: true });
     await b.close(); return;
   }
   if (escenario === 'columnas') {
@@ -284,6 +328,7 @@ async function prueba(verbose, escenario) {
   posts.length = 0; await p.click('#fRemitir'); await p.waitForTimeout(1500);
   const nid = items[items.length - 1].Id; c = merge(nid); m = correos().pop();
   console.log(tag, '| enviar:', JSON.stringify({ ESTADO: c.ESTADO, VS: c.VALORACIONSUIGE, R13: c.RESP_13 }), '| correo a:', m && m.To.results, '|', m && m.Subject);
+  console.log(tag, '| anula firmas al reenviar:', posts.filter(x => x.ruta.includes('getByFileName')).length, 'intentos');
   console.log(tag, '| ahora:', (await p.textContent('#dlg .pasos')).replace(/\s+/g, ' '));
   if (!verbose) await p.screenshot({ path: new URL('ficha.png', import.meta.url).pathname });
   const [fic] = await Promise.all([ctx.waitForEvent('page'), p.click('[data-fichaimp]')]); await fic.waitForLoadState();
@@ -299,6 +344,7 @@ misGrupos = ['SEGURIDAD_SUIGESUR']; admin = false; await prueba(false, 'solo SUI
 sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstringof = false;
 misGrupos = ['SEGURIDAD_IGE']; await prueba(false, 'solo SEGURIDAD_IGE');
 misGrupos = ['VSA_BAE']; await prueba(false, 'responsable de BAE');
+extra = true; await prueba(false, 'firma'); await prueba(true, 'firma'); extra = false;
 misGrupos = []; await prueba(false, 'sin acceso'); await prueba(true, 'sin acceso');
 accLista = false; await prueba(false, 'sin acceso y sin lista de solicitudes'); accLista = true;
 accCerrada = true; await prueba(true, 'sin acceso, lista sin permiso'); accCerrada = false;

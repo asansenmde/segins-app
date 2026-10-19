@@ -89,6 +89,24 @@ rechazar), cierre DIACU, conflicto, estadísticas, CSV, formulario (borrador, en
 Control de acceso: usuario sin acceso que lo solicita, sin lista de solicitudes o sin permiso en ella, abrir la lista a todos, aprobar/denegar/quitar y preparación (crear lista y grupo).
 Uso: `node vsa/pruebas/simulacion.mjs`.
 
+## Firma electrónica con AutoFirma (desde la versión 2026-10-19 · 6)
+
+La BAE firma **al enviar**, antes de que valore la SUIGE (probado en Colabora con `prueba-autofirma.html`).
+- La página lleva dentro, sin modificar, la librería **Cliente @firma `autoscript.js` 1.10.1** (GPL 2+ / EUPL 1.1).
+- Al enviar, la ficha muestra **«Firma electrónica»** y el botón **«Firmar como BAE (AutoFirma)»** (solo el
+  responsable o quien dio de alta el cuestionario). La página genera el PDF del cuestionario (A4, USO OFICIAL, datos,
+  24 preguntas con puntuación y observaciones y, al final, dos recuadros «Por la BAE» / «Por la empresa»), AutoFirma lo
+  firma (PAdES, SHA512withRSA, firma visible en el recuadro de la BAE) y se adjunta como `VSA-<nº>-firmado-BAE.pdf`,
+  con anotación en «Observaciones».
+- **Empresa**: «⬇ PDF para la empresa» descarga ese PDF; la empresa lo firma con su AutoFirma sobre el mismo archivo
+  (recuadro de la derecha) y lo devuelve. «📤 Subir PDF firmado por la empresa» (BAE, su SUIGE o el gestor) comprueba
+  que es un PDF con al menos dos firmas (`/ByteRange`) y que empieza por el PDF firmado por la BAE (si no, pide
+  confirmación) y lo adjunta como `VSA-<nº>-firmado-BAE-y-empresa.pdf`.
+- El estado se deduce de esos adjuntos. En «Pendientes» aparece «Firmas pendientes (AutoFirma)» con los cuestionarios
+  abiertos enviados desde el 19/10/2026 a los que les falta la firma de la BAE o de la empresa.
+- Si se devuelve a la BAE y se vuelve a enviar, se quitan las firmas anteriores (ya no corresponden al contenido).
+- Pruebas: escenario «firma» de `pruebas/simulacion.mjs` (AutoFirma sustituido).
+
 ## Prueba de firma con AutoFirma (`prueba-autofirma.html`)
 
 Página independiente para comprobar si desde Colabora se puede lanzar **AutoFirma** y firmar (no lee ni escribe en
