@@ -192,7 +192,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-19 · 3';
+  var VERSION = '2026-10-19 · 4';
   var CLAVE = 'vsa-calidad-ige';
   var pref = { sitio: '/et/jige/colaborativo', lista: 'CUESTIONARIO DE CALIDAD VSA', vista: 'panel', correo: true,
     f: { q: '', fase: '', empresa: '', suige: '', anio: '', nov: '', desde: '', hasta: '' }, agrupar: 'empresa' };
@@ -1415,7 +1415,7 @@
     if (!accEstado) { cargarAccesos(); return '<div class="card"><p class="muted">Cargando solicitudes…</p></div>'; }
     if (accEstado === 'cargando') return '<div class="card"><p class="muted">Cargando solicitudes…</p></div>';
     var prep = '<div class="card"><h3 style="margin-top:0">Preparación</h3>' +
-      '<p class="small">' + (accInfo ? '✔ Lista «' + esc(ACCESO.lista) + '» preparada' + (accInfo.ReadSecurity === 2 && accInfo.WriteSecurity === 2 ? ' (cada uno ve y edita solo sus solicitudes).' : '. <span class="txt-bad">Falta que cada usuario vea solo sus solicitudes</span>: Configuración de la lista › Configuración avanzada › «Leer: solo sus elementos» y «Crear y editar: solo sus elementos».') :
+      '<p class="small">' + (accInfo ? '✔ Lista «' + esc(ACCESO.lista) + '» preparada' + (Number(accInfo.ReadSecurity) === 2 && Number(accInfo.WriteSecurity) === 2 ? ' (cada uno ve y edita solo sus solicitudes).' : '. <span class="txt-bad">Falta que cada usuario vea solo sus solicitudes</span>: Configuración de la lista › Configuración avanzada › «Leer: solo sus elementos» y «Crear y editar: solo sus elementos». <button class="prim" data-accseguridad="1">Ajustarlo ahora</button>') :
         '✕ Falta la lista «' + esc(ACCESO.lista) + '». <button class="prim" data-acccrearlista="1">Crear la lista</button>') + '</p>' +
       (accInfo ? '<p class="small">' + (accAbierta && accAbierta.abierta ? '✔ Cualquiera puede solicitar acceso (' + esc(accAbierta.quien) + ' puede añadir solicitudes).' :
         '✕ ' + (accAbierta && accAbierta.error ? 'No se pudo comprobar quién puede escribir en la lista (' + esc(accAbierta.error) + ').' : 'Los usuarios sin acceso al sitio no pueden escribir en la lista y verán «No puedes usar la lista».') +
@@ -1486,8 +1486,7 @@
         }, Promise.resolve());
       })
       .then(function () {
-        return enviarSP(urlAcc(), { __metadata: { type: 'SP.List' }, ReadSecurity: 2, WriteSecurity: 2 }, 'No se pudo ajustar quién ve las solicitudes', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
-          .catch(function () { toast('Lista creada. Ajusta a mano «Leer y editar: solo sus elementos» en la configuración avanzada.'); });
+        return soloSuyos().catch(function () { toast('Lista creada. Ajusta a mano «Leer y editar: solo sus elementos» en la configuración avanzada.'); });
       })
       .then(function () { return abrirLista().catch(function (e) { toast('Lista creada, pero no se pudo abrir a todos: ' + (e.message || e)); }); })
       .then(function () { return cargarAccesos(); }).then(function () { toast('Lista de solicitudes de acceso creada'); })
@@ -1531,6 +1530,16 @@
     abrirLista().then(function () { return cargarAccesos(); }).then(function () { toast(accAbierta && accAbierta.abierta ? 'Listo: cualquiera puede solicitar acceso' : 'Permiso dado; si sigue en ✕, revisa los permisos de la lista a mano'); })
       .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
   }
+  // «Leer: solo sus elementos» y «Crear y editar: solo sus elementos» (configuración avanzada de la lista)
+  function soloSuyos() {
+    return enviarSP(urlAcc(), { __metadata: { type: 'SP.List' }, ReadSecurity: 2, WriteSecurity: 2 }, 'No tienes permiso para cambiar la configuración de la lista', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' });
+  }
+  function ajustarSeguridad(boton) {
+    boton.disabled = true;
+    soloSuyos().then(function () { return cargarAccesos(); }).then(function () {
+      toast(Number(accInfo && accInfo.ReadSecurity) === 2 ? 'Listo: cada usuario ve y edita solo sus solicitudes' : 'Colabora no aceptó el cambio: hazlo a mano en Configuración de la lista › Configuración avanzada');
+    }).catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e) + '. Hazlo a mano en Configuración de la lista › Configuración avanzada.'); });
+  }
   function crearGrupoBae(boton) {
     boton.disabled = true;
     enviarSP(web + '/_api/web/sitegroups', { __metadata: { type: 'SP.Group' }, Title: ACCESO.grupoBae, Description: 'Responsables de BAE con acceso al Cuestionario de calidad VSA' }, 'No tienes permiso para crear grupos en el sitio')
@@ -1551,6 +1560,7 @@
     if (ap || dn) { resolverSolicitud(Number((ap || dn).dataset[ap ? 'accaprobar' : 'accdenegar']), !!ap, ap || dn); return; }
     if (el.closest('[data-accquitar]')) { quitarAcceso(el.closest('[data-accquitar]')); return; }
     if (el.closest('[data-acccrearlista]')) { crearListaAcceso(el.closest('[data-acccrearlista]')); return; }
+    if (el.closest('[data-accseguridad]')) { ajustarSeguridad(el.closest('[data-accseguridad]')); return; }
     if (el.closest('[data-accabrir]')) { abrirListaAcceso(el.closest('[data-accabrir]')); return; }
     if (el.closest('[data-acccreargrupo]')) { crearGrupoBae(el.closest('[data-acccreargrupo]')); return; }
     if (el.closest('#nuevo')) { if (cargadoEn) formulario(null); return; }

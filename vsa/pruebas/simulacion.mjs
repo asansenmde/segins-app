@@ -19,7 +19,7 @@ const AUXL = {
   M2N: [{ Id: 1, Title: 'SUIGESUR', ID_M1NId: 1 }, { Id: 2, Title: 'SUIGENOR', ID_M1NId: 1 }, { Id: 3, Title: 'OFICINA X', ID_M1NId: 1 }],
   M3N: [{ Id: 1, Title: 'BAE SEVILLA', M2NId: 1 }, { Id: 2, Title: 'BAE LEON', M2NId: 2 }, { Id: 3, Title: 'BAE SIN SUIGE', M2NId: 3 }],
 };
-let sols, accLista = true, accAbierta = true, accCerrada = false, propios = true, grupoBae = true, baeMiembros, anadidos, items, misGrupos = [], admin = false, sinSubstringof = false, faltaCampo = null, ultimoFiltro = '', lecturaMinima = '';
+let seg = 2, sols, accLista = true, accAbierta = true, accCerrada = false, propios = true, grupoBae = true, baeMiembros, anadidos, items, misGrupos = [], admin = false, sinSubstringof = false, faltaCampo = null, ultimoFiltro = '', lecturaMinima = '';
 const base = { Title: '01/10/2026', ESTADO: 'BORRADOR', VALORACIONSUIGE: null, REGISTRODEACTIVIDAD: '', ModificadoPorTEXTO: '', A_x00f1_o: '2026', EMPRESA0: 'EULEN', NOVEDADES: 'SIN NOVEDAD',
   MANDO1N: '1', MANDO2N: '1', MANDO3N: '1', M1N: 'IGE', M2N: 'SUIGESUR', M3N: 'BAE SEVILLA', suige: 'SUIGESUR', Observaciones: '', ControlDeRegistro: '',
   ResponsableDeLaInformacion: P[61], NegSeg: null, PersonalVisibilidad: [], ...Object.fromEntries(RESP.map(k => [k, '3 Bien'])), ...Object.fromEntries(OBS.map(k => [k, ''])) };
@@ -76,6 +76,7 @@ async function prueba(verbose, escenario) {
         const c = JSON.parse(req.postData()); delete c.__metadata;
         if (ms) { Object.assign(sols.find(x => x.Id === +ms[1]), c, c.ResueltoPorId ? { ResueltoPor: quien(c.ResueltoPorId) } : {}); return r.fulfill({ status: 204, body: '' }); }
         if (resto.endsWith('/items')) { const it = { Id: sols.length + 1, ...c, Solicitante: quien(c.SolicitanteId), Created: new Date().toISOString() }; sols.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } }); }
+        if (c.ReadSecurity === 2) seg = 2;
         return r.fulfill({ status: 204, body: '' });
       }
       if (resto === 'web/ensureuser') return r.fulfill({ json: { d: { Id: 8 } } });
@@ -113,7 +114,7 @@ async function prueba(verbose, escenario) {
       if (accCerrada) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
       if (resto.includes('HasUniqueRoleAssignments')) return J({ HasUniqueRoleAssignments: propios });
       if (!accLista) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
-      if (!resto.includes('/items')) return J({ Id: 'a', Title: 'SOLICITUDES DE ACCESO', ListItemEntityTypeFullName: 'SP.Data.SOLICITUDESItem', ReadSecurity: 2, WriteSecurity: 2 });
+      if (!resto.includes('/items')) return J({ Id: 'a', Title: 'SOLICITUDES DE ACCESO', ListItemEntityTypeFullName: 'SP.Data.SOLICITUDESItem', ReadSecurity: seg, WriteSecurity: seg });
       const fs_ = (u.match(/\$filter=([^&]*)/) || [])[1] || '';
       const me = fs_.match(/SolicitanteId eq (\d+)/);
       return J({ value: sols.filter(x => !me || x.Solicitante.Id === +me[1]) });
@@ -166,6 +167,13 @@ async function prueba(verbose, escenario) {
     console.log(tag, '| solicitud:', JSON.stringify({ Title: alta.Title, Sol: alta.SolicitanteId, Empleo: alta.Empleo, Mando: alta.MandoSegundo, Unidad: alta.Unidad, Papel: alta.Papel, App: alta.Aplicacion, Estado: alta.EstadoSolicitud }), '| correo:', m && m.Subject);
     console.log(tag, '| después:', (await p.textContent('#vista .okmsg')).slice(0, 90), '| errores:', errs);
     if (!verbose) await p.screenshot({ path: new URL('sin-acceso.png', import.meta.url).pathname, fullPage: true });
+    await b.close(); return;
+  }
+  if (escenario === 'seguridad') {
+    await p.click('#tabs a[data-v=accesos]'); await p.waitForTimeout(700);
+    const t = async () => (await p.textContent('#vista .card p')).replace(/\s+/g, ' ').slice(0, 90);
+    const antes = await t(); await p.click('[data-accseguridad]'); await p.waitForTimeout(900);
+    console.log(tag, '| antes:', antes, '| después:', await t(), '| errores:', errs);
     await b.close(); return;
   }
   if (escenario === 'abrir') {
@@ -287,6 +295,7 @@ misGrupos = []; await prueba(false, 'sin acceso'); await prueba(true, 'sin acces
 accLista = false; await prueba(false, 'sin acceso y sin lista de solicitudes'); accLista = true;
 accCerrada = true; await prueba(true, 'sin acceso, lista sin permiso'); accCerrada = false;
 misGrupos = ['SEGURIDAD_IGE']; admin = true; await prueba(false, 'accesos'); await prueba(true, 'accesos');
+seg = 0; await prueba(false, 'seguridad'); seg = 0; await prueba(true, 'seguridad'); seg = 2;
 accAbierta = false; propios = false; await prueba(false, 'abrir'); accAbierta = false; propios = true; await prueba(true, 'abrir'); accAbierta = true;
 accLista = false; grupoBae = false; await prueba(false, 'preparación'); accLista = true; grupoBae = true; admin = false;
 faltaCampo = 'NegSeg'; await prueba(true, 'columna inexistente'); faltaCampo = null;
