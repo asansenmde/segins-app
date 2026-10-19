@@ -33,6 +33,8 @@ de cada proyecto (`*/pruebas/`).
 
 - **Control de acceso con solicitud en toda página nueva** (Permisos, registros, SIPERDEF…): copiar el de VSA
   (receta en `SHAREPOINT.md`, «Control de acceso con solicitud»).
+- **Firma electrónica con AutoFirma** cuando una página tenga que firmar documentos: copiar la de VSA (receta en
+  `SHAREPOINT.md`, «Firma electrónica con AutoFirma»; la librería oficial va pegada en el HTML).
 - HTML en un solo archivo, sin librerías ni recursos de internet: los datos no salen del servidor.
 - REST de SharePoint con `credentials: 'same-origin'`; primero `odata=nometadata` y, si responde 400/406/415,
   `odata=verbose` (SharePoint 2013). Seguir la paginación (`odata.nextLink` / `__next`).

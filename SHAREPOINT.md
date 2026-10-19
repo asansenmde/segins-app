@@ -89,6 +89,35 @@ del bloque `ACCESO` / `pantallaAcceso` / `vistaAccesos` de VSA y se adapta la co
   que falta) y mostrar el detalle con la versión.
 - La seguridad real exige además quitar «Usuarios del dominio» de la lista principal y dar permiso a los grupos.
 
+## Firma electrónica con AutoFirma (modelo: `vsa/vsa.html`, probado en Colabora con TEMD)
+
+**Usarla en toda aplicación que necesite firmar documentos.** Antes de nada, en un equipo nuevo o con dudas, la página
+de prueba `vsa/prueba-autofirma.html` (elegir certificado, firmar un PDF y una segunda firma, «Copiar informe»).
+
+- **Librería**: Cliente @firma `autoscript.js` 1.10.1 (github.com/ctt-gob-es/clienteafirma, `afirma-ui-miniapplet-deploy/
+  src/main/webapp/js/autoscript.js`; GPL 2+ / EUPL 1.1), **pegada sin modificar** en un `<script>` propio antes del de la
+  página. Habla con AutoFirma por `afirma://websocket…` + `wss://127.0.0.1` (nada sale del equipo). Iniciar una vez:
+  `SupportDialog.enableSupportDialog(false)` (su diálogo carga imágenes de internet) y `AutoScript.cargarAppAfirma()`.
+- **Firmar**: `AutoScript.sign(pdfBase64, 'SHA512withRSA', 'PAdES', params, ok(firmaB64, certB64), ko(tipo, msg, código))`
+  siempre desde un clic. `params` (líneas `clave=valor`): `signaturePage`, `signaturePositionOnPageLowerLeftX/Y`,
+  `…UpperRightX/Y` (firma visible), `layer2Text=Firmado por $$SUBJECTCN$$ el $$SIGNDATE=dd/MM/yyyy HH:mm$$`,
+  `layer2FontSize`, `signReason`. Una segunda firma (otra persona/empresa) es otro `sign` PAdES sobre el PDF ya firmado:
+  se añade sin invalidar la primera. `selectCertificate` sirve para probar (devuelve el certificado).
+- **Errores**: `AOCancelledOperationException` (AS500001) = el usuario cerró AutoFirma; `ApplicationNotFoundException`
+  (AS620017) = no se pudo hablar con AutoFirma (no instalada, bloqueada o no se pulsó «Abrir»; tarda ~30 s en fallar).
+- **PDF generado en la página** (sin librerías, ver `pdfCuestionario` en VSA): A4, Helvetica/Helvetica-Bold WinAnsi
+  (anchos AFM para partir líneas), texto en latin-1 (mapear –, “”, …, €), recuadros de firma dibujados donde irán las
+  firmas visibles. **`/Info` tiene que ser un objeto indirecto**: si va dentro del trailer AutoFirma falla con
+  «java.lang.Exception» (ClassCastException en PdfStamperImp).
+- **Probar la firma real sin AutoFirma**: proyecto Maven con `es.gob.afirma:afirma-crypto-pdf:1.9.1` y
+  `new AOPDFSigner().sign(pdf, "SHA512withRSA", clavePrivada, cadena, propiedades)` con un PKCS#12 de prueba (openssl);
+  comprobar con pypdf/pymupdf que hay dos campos `/Sig` y que se ven los recuadros.
+- **Guardar**: adjuntar con `AttachmentFiles/add(FileName='…')`. Para reemplazar, **leer antes la lista de adjuntos** y
+  borrar solo si existe (`getByFileName('…')` + `X-HTTP-Method: DELETE`): en SharePoint 2013 borrar uno que no existe
+  da 500 «fileName fuera del intervalo», no 404. Las anotaciones posteriores, releyendo el elemento (adjuntar cambia
+  `Modified`). El estado de firmas se deduce de los nombres de los adjuntos; al subir el PDF de la otra parte,
+  comprobar que tiene ≥ 2 `/ByteRange` y que empieza por los bytes del PDF ya firmado.
+
 ## Pruebas
 
 Playwright contra un SharePoint simulado (rutas `page.route`), con formato ligero y *verbose*, alta,
