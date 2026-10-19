@@ -192,7 +192,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-19 · 4';
+  var VERSION = '2026-10-19 · 5';
   var CLAVE = 'vsa-calidad-ige';
   var pref = { sitio: '/et/jige/colaborativo', lista: 'CUESTIONARIO DE CALIDAD VSA', vista: 'panel', correo: true,
     f: { q: '', fase: '', empresa: '', suige: '', anio: '', nov: '', desde: '', hasta: '' }, agrupar: 'empresa' };
@@ -1267,7 +1267,7 @@
   // Quien tiene Control total aprueba en la pestaña «Accesos»: la página añade a la persona al grupo y le avisa.
   var tieneAcceso = function () { return esAdmin || esGestor || misSuiges.length > 0 || esDiacu || esIge || misGrupos.some(function (g) { return ACCESO.grupos.indexOf(String(g).trim()) >= 0; }); };
   var urlAcc = function () { return web + "/_api/web/lists/getbytitle('" + encodeURIComponent(ACCESO.lista.replace(/'/g, "''")) + "')"; };
-  var accInfo = null, accAbierta = null, accSols = null, accEstado = '', accMiembros = null, accGrupos = null, perfil = null;
+  var accInfo = null, accFaltan = [], accAbierta = null, accSols = null, accEstado = '', accMiembros = null, accGrupos = null, perfil = null;
   var CAMPOS_ACC = [
     '<Field Type="User" Name="Solicitante" StaticName="Solicitante" DisplayName="Solicitante" UserSelectionMode="PeopleOnly" />',
     '<Field Type="Text" Name="Correo" StaticName="Correo" DisplayName="Correo" />',
@@ -1395,8 +1395,8 @@
       api(urlAcc() + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity').then(function (l) { accInfo = l; }, function () { accInfo = null; }),
       todas(web + '/_api/web/sitegroups?$select=Id,Title&$top=5000').then(function (l) { accGrupos = l.map(function (g) { return g.Title; }); }, function () { accGrupos = []; })
     ]).then(function () {
-      if (!accInfo) { accSols = []; accAbierta = null; return; }
-      return leerApertura().then(function () { return todas(urlAcc() + '/items?$top=500&$select=' + SEL_ACC.join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent("Aplicacion eq '" + ACCESO.app + "'"))
+      if (!accInfo) { accSols = []; accAbierta = null; accFaltan = []; return; }
+      return leerColumnas().then(leerApertura).then(function () { if (accFaltan.length) { accSols = []; return; } return todas(urlAcc() + '/items?$top=500&$select=' + SEL_ACC.join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent("Aplicacion eq '" + ACCESO.app + "'"))
         .then(function (l) { accSols = l.map(aSol).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); }); }); });
     }).then(function () {
       if (accGrupos.indexOf(ACCESO.grupoBae) < 0) { accMiembros = null; return; }
@@ -1414,7 +1414,9 @@
     if (!esAdmin) return '<div class="card vacio">Solo para quien tiene «Control total» en la lista.</div>';
     if (!accEstado) { cargarAccesos(); return '<div class="card"><p class="muted">Cargando solicitudes…</p></div>'; }
     if (accEstado === 'cargando') return '<div class="card"><p class="muted">Cargando solicitudes…</p></div>';
-    var prep = '<div class="card"><h3 style="margin-top:0">Preparación</h3>' +
+    var prep = '<div class="card"><h3 style="margin-top:0">Preparación <span class="small muted">· versión ' + esc(VERSION) + '</span></h3>' +
+      (accInfo && accFaltan.length ? '<p class="small">✕ <span class="txt-bad">A la lista «' + esc(ACCESO.lista) + '» le faltan columnas</span>: ' + esc(accFaltan.join(', ')) +
+        '. Sin ellas no se pueden guardar ni leer las solicitudes. <button class="prim" data-acccolumnas="1">Crear las columnas que faltan</button></p>' : '') +
       '<p class="small">' + (accInfo ? '✔ Lista «' + esc(ACCESO.lista) + '» preparada' + (Number(accInfo.ReadSecurity) === 2 && Number(accInfo.WriteSecurity) === 2 ? ' (cada uno ve y edita solo sus solicitudes).' : '. <span class="txt-bad">Falta que cada usuario vea solo sus solicitudes</span>: Configuración de la lista › Configuración avanzada › «Leer: solo sus elementos» y «Crear y editar: solo sus elementos». <button class="prim" data-accseguridad="1">Ajustarlo ahora</button>') :
         '✕ Falta la lista «' + esc(ACCESO.lista) + '». <button class="prim" data-acccrearlista="1">Crear la lista</button>') + '</p>' +
       (accInfo ? '<p class="small">' + (accAbierta && accAbierta.abierta ? '✔ Cualquiera puede solicitar acceso (' + esc(accAbierta.quien) + ' puede añadir solicitudes).' :
@@ -1530,6 +1532,22 @@
     abrirLista().then(function () { return cargarAccesos(); }).then(function () { toast(accAbierta && accAbierta.abierta ? 'Listo: cualquiera puede solicitar acceso' : 'Permiso dado; si sigue en ✕, revisa los permisos de la lista a mano'); })
       .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
   }
+  // Columnas de la lista de solicitudes que faltan (p. ej. si la lista se creó a mano)
+  var nombreCampo = function (xml) { return /Name="([^"]+)"/.exec(xml)[1]; };
+  function leerColumnas() {
+    return todas(urlAcc() + '/fields?$select=InternalName&$top=500').then(function (l) {
+      var hay = l.map(function (x) { return x.InternalName; });
+      accFaltan = CAMPOS_ACC.map(nombreCampo).filter(function (n) { return hay.indexOf(n) < 0; });
+    }, function () { accFaltan = []; });
+  }
+  function crearColumnas(boton) {
+    boton.disabled = true; toast('Creando columnas…');
+    CAMPOS_ACC.filter(function (xml) { return accFaltan.indexOf(nombreCampo(xml)) >= 0; }).reduce(function (p, xml) {
+      return p.then(function () { return enviarSP(urlAcc() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas'); });
+    }, Promise.resolve()).then(function () { return cargarAccesos(); })
+      .then(function () { toast(accFaltan.length ? 'Siguen faltando: ' + accFaltan.join(', ') : 'Columnas creadas'); })
+      .catch(function (e) { boton.disabled = false; toast('No se pudieron crear las columnas: ' + (e.message || e)); cargarAccesos(); });
+  }
   // «Leer: solo sus elementos» y «Crear y editar: solo sus elementos» (configuración avanzada de la lista)
   function soloSuyos() {
     return enviarSP(urlAcc(), { __metadata: { type: 'SP.List' }, ReadSecurity: 2, WriteSecurity: 2 }, 'No tienes permiso para cambiar la configuración de la lista', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' });
@@ -1560,6 +1578,7 @@
     if (ap || dn) { resolverSolicitud(Number((ap || dn).dataset[ap ? 'accaprobar' : 'accdenegar']), !!ap, ap || dn); return; }
     if (el.closest('[data-accquitar]')) { quitarAcceso(el.closest('[data-accquitar]')); return; }
     if (el.closest('[data-acccrearlista]')) { crearListaAcceso(el.closest('[data-acccrearlista]')); return; }
+    if (el.closest('[data-acccolumnas]')) { crearColumnas(el.closest('[data-acccolumnas]')); return; }
     if (el.closest('[data-accseguridad]')) { ajustarSeguridad(el.closest('[data-accseguridad]')); return; }
     if (el.closest('[data-accabrir]')) { abrirListaAcceso(el.closest('[data-accabrir]')); return; }
     if (el.closest('[data-acccreargrupo]')) { crearGrupoBae(el.closest('[data-acccreargrupo]')); return; }

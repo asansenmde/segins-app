@@ -19,7 +19,7 @@ const AUXL = {
   M2N: [{ Id: 1, Title: 'SUIGESUR', ID_M1NId: 1 }, { Id: 2, Title: 'SUIGENOR', ID_M1NId: 1 }, { Id: 3, Title: 'OFICINA X', ID_M1NId: 1 }],
   M3N: [{ Id: 1, Title: 'BAE SEVILLA', M2NId: 1 }, { Id: 2, Title: 'BAE LEON', M2NId: 2 }, { Id: 3, Title: 'BAE SIN SUIGE', M2NId: 3 }],
 };
-let seg = 2, sols, accLista = true, accAbierta = true, accCerrada = false, propios = true, grupoBae = true, baeMiembros, anadidos, items, misGrupos = [], admin = false, sinSubstringof = false, faltaCampo = null, ultimoFiltro = '', lecturaMinima = '';
+let campos = null, seg = 2, sols, accLista = true, accAbierta = true, accCerrada = false, propios = true, grupoBae = true, baeMiembros, anadidos, items, misGrupos = [], admin = false, sinSubstringof = false, faltaCampo = null, ultimoFiltro = '', lecturaMinima = '';
 const base = { Title: '01/10/2026', ESTADO: 'BORRADOR', VALORACIONSUIGE: null, REGISTRODEACTIVIDAD: '', ModificadoPorTEXTO: '', A_x00f1_o: '2026', EMPRESA0: 'EULEN', NOVEDADES: 'SIN NOVEDAD',
   MANDO1N: '1', MANDO2N: '1', MANDO3N: '1', M1N: 'IGE', M2N: 'SUIGESUR', M3N: 'BAE SEVILLA', suige: 'SUIGESUR', Observaciones: '', ControlDeRegistro: '',
   ResponsableDeLaInformacion: P[61], NegSeg: null, PersonalVisibilidad: [], ...Object.fromEntries(RESP.map(k => [k, '3 Bien'])), ...Object.fromEntries(OBS.map(k => [k, ''])) };
@@ -68,7 +68,7 @@ async function prueba(verbose, escenario) {
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) return r.fulfill({ json: { d: {} } });
       if (resto.startsWith("web/lists/getbytitle('SOLICITUDES DE ACCESO')")) {
-        if (resto.includes('createfieldasxml')) return r.fulfill({ json: { d: {} } });
+        if (resto.includes('createfieldasxml')) { if (campos) campos.push(/Name="([^"]+)"/.exec(JSON.parse(req.postData()).parameters.SchemaXml)[1]); return r.fulfill({ json: { d: {} } }); }
         if (resto.includes('breakroleinheritance')) { propios = true; return r.fulfill({ status: 200, json: { d: {} } }); }
         const ra = resto.match(/addroleassignment\(principalid=(\d+),roledefid=(\d+)\)/);
         if (ra) { if (+ra[1] === 7 && +ra[2] === 1073741827) accAbierta = true; return r.fulfill({ status: 200, json: { d: {} } }); }
@@ -112,6 +112,7 @@ async function prueba(verbose, escenario) {
     if (resto.startsWith("web/lists/getbytitle('SOLICITUDES DE ACCESO')/roleassignments")) return asig(accAbierta ? 3 : 0);
     if (resto.startsWith("web/lists/getbytitle('SOLICITUDES DE ACCESO')")) {
       if (accCerrada) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
+      if (resto.includes('/fields')) return J({ value: (campos || ['Title', 'Solicitante', 'Correo', 'Empleo', 'MandoSegundo', 'Unidad', 'Telefono', 'Papel', 'Motivo', 'Aplicacion', 'EstadoSolicitud', 'GrupoAsignado', 'Resolucion', 'ResueltoPor', 'FechaResolucion']).map(n => ({ InternalName: n })) });
       if (resto.includes('HasUniqueRoleAssignments')) return J({ HasUniqueRoleAssignments: propios });
       if (!accLista) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
       if (!resto.includes('/items')) return J({ Id: 'a', Title: 'SOLICITUDES DE ACCESO', ListItemEntityTypeFullName: 'SP.Data.SOLICITUDESItem', ReadSecurity: seg, WriteSecurity: seg });
@@ -167,6 +168,13 @@ async function prueba(verbose, escenario) {
     console.log(tag, '| solicitud:', JSON.stringify({ Title: alta.Title, Sol: alta.SolicitanteId, Empleo: alta.Empleo, Mando: alta.MandoSegundo, Unidad: alta.Unidad, Papel: alta.Papel, App: alta.Aplicacion, Estado: alta.EstadoSolicitud }), '| correo:', m && m.Subject);
     console.log(tag, '| después:', (await p.textContent('#vista .okmsg')).slice(0, 90), '| errores:', errs);
     if (!verbose) await p.screenshot({ path: new URL('sin-acceso.png', import.meta.url).pathname, fullPage: true });
+    await b.close(); return;
+  }
+  if (escenario === 'columnas') {
+    await p.click('#tabs a[data-v=accesos]'); await p.waitForTimeout(700);
+    const t = async () => (await p.textContent('#vista .card')).replace(/\s+/g, ' ').slice(0, 200);
+    const antes = await t(); posts.length = 0; await p.click('[data-acccolumnas]'); await p.waitForTimeout(1500);
+    console.log(tag, '| antes:', antes, '| creadas:', posts.filter(x => x.ruta.includes('createfieldasxml')).length, '| después:', await t(), '| errores:', errs);
     await b.close(); return;
   }
   if (escenario === 'seguridad') {
@@ -295,6 +303,7 @@ misGrupos = []; await prueba(false, 'sin acceso'); await prueba(true, 'sin acces
 accLista = false; await prueba(false, 'sin acceso y sin lista de solicitudes'); accLista = true;
 accCerrada = true; await prueba(true, 'sin acceso, lista sin permiso'); accCerrada = false;
 misGrupos = ['SEGURIDAD_IGE']; admin = true; await prueba(false, 'accesos'); await prueba(true, 'accesos');
+campos = ['Title', 'Solicitante', 'Unidad']; await prueba(false, 'columnas'); campos = ['Title']; await prueba(true, 'columnas'); campos = null;
 seg = 0; await prueba(false, 'seguridad'); seg = 0; await prueba(true, 'seguridad'); seg = 2;
 accAbierta = false; propios = false; await prueba(false, 'abrir'); accAbierta = false; propios = true; await prueba(true, 'abrir'); accAbierta = true;
 accLista = false; grupoBae = false; await prueba(false, 'preparación'); accLista = true; grupoBae = true; admin = false;

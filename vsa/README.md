@@ -62,6 +62,7 @@ para qué lo necesita y motivo. Se guarda en la lista **«SOLICITUDES DE ACCESO�
   lista de solicitudes y da «Colaborar» al grupo de todos que ya use el sitio («Usuarios del dominio», «Todos»…; si no
   lo encuentra, «Todos» con `ensureuser`). Sin esto, quien no tiene permiso en el sitio no puede ni leer ni escribir en
   la lista y ve «No puedes usar la lista» (con el código del error). Al crear la lista se hace solo.
+  Si a la lista le faltan columnas (p. ej. creada a mano), lo dice y ofrece «Crear las columnas que faltan».
 - **Solicitudes pendientes**: quién es, empleo, unidad, correo, teléfono, papel y motivo; grupo propuesto según el papel
   (BAE → VSA_BAE; SUIGE → SEGURIDAD_<SUIGE> de su mando; DIACU/IGE → SEGURIDAD_IGE). **«Aprobar y dar acceso»** añade
   a la persona al grupo y le avisa; **«Denegar»** exige motivo y también avisa.
