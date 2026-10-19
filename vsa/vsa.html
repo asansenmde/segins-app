@@ -6378,7 +6378,7 @@ var Cipher = {
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-19 · 7';
+  var VERSION = '2026-10-19 · 8';
   var CLAVE = 'vsa-calidad-ige';
   var pref = { sitio: '/et/jige/colaborativo', lista: 'CUESTIONARIO DE CALIDAD VSA', vista: 'panel', correo: true,
     f: { q: '', fase: '', empresa: '', suige: '', anio: '', nov: '', desde: '', hasta: '' }, agrupar: 'empresa' };
@@ -6391,7 +6391,7 @@ var Cipher = {
   // ESTADO: BORRADOR → ENVIADO (lo envía el responsable de la BAE) → CERRADO (al enviar la valoración). «Editar formulario»
   // lo devuelve a BORRADOR y «Rechazar» lo deja RECHAZADO. VALORACIONSUIGE: EN CURSO, CERRADO, ELEVADO A DIACU, RECHAZADO.
   var ES = { BO: 'BORRADOR', EN: 'ENVIADO', CE: 'CERRADO', RE: 'RECHAZADO', EL: 'ELIMINADO' };
-  var VS = { CU: 'EN CURSO', CE: 'CERRADO', DI: 'ELEVADO A DIACU', RE: 'RECHAZADO' };
+  var VS = { CU: 'EN CURSO', CE: 'CERRADO', DI: 'ELEVADO A DIACU', IG: 'ELEVADO A IGE', RE: 'RECHAZADO' };
   var EMPRESAS = ['EULEN', 'SECURITAS', 'PROSEGUR', 'TYCO', 'INGLOBA', 'SURESTE SEGURIDAD', 'Johnson Controls', 'OTRA (Especificado en observaciones)'];
   var NOTAS = ['4 Muy Bien', '3 Bien', '2 Mejorable', '1 Muy Mejorable', '0 No Observado'];
   var nota = function (v) { var m = /^\s*([0-4])/.exec(v || ''); return m ? Number(m[1]) : null; };
@@ -6661,32 +6661,36 @@ var Cipher = {
   }
 
   // ---------- Fases del circuito y quién actúa ----------
-  // 0 borrador (BAE) · 1 enviado, pendiente de la SUIGE · 2 en curso en la SUIGE · 3 elevado a DIACU · 4 cerrado · 5 rechazado · 6 eliminado
+  // 0 borrador (BAE) · 1 enviado, pendiente de la SUIGE · 2 de nuevo en la SUIGE (reabierto o devuelto por DIACU) · 3 informado a DIACU
+  // · 7 informado a IGE · 4 cerrado (lo cierra IGE) · 5 rechazado · 6 eliminado. Circuito como Incidentes: la SUIGE valora e informa a DIACU
+  // o directamente a IGE (con conocimiento de DIACU); DIACU puede valorar y eleva a IGE; IGE valora y cierra.
   function fase(t) {
     if (t.estado === ES.EL) return 6;
     if (t.estado === ES.RE || t.vs === VS.RE) return 5;
     if (t.estado === ES.CE) return 4;
     if (t.estado === ES.BO || !t.estado) return 0;
+    if (t.vs === VS.IG) return 7;
     if (t.vs === VS.DI) return 3;
     if (t.vs === VS.CE) return 4;
     if (t.vs === VS.CU) return 2;
     return 1;
   }
-  var FASES = ['Borrador (sin enviar)', 'Enviado: pendiente de valoración SUIGE', 'En curso en la SUIGE', 'Elevado a DIACU', 'Cerrado', 'Rechazado', 'Eliminado'];
-  var abierto = function (t) { var f = fase(t); return f >= 1 && f <= 3; };
+  var FASES = ['Borrador (sin enviar)', 'Enviado: pendiente de valoración SUIGE', 'De nuevo en la SUIGE', 'Informado a DIACU', 'Cerrado', 'Rechazado', 'Eliminado', 'Informado a IGE'];
+  var abierto = function (t) { var f = fase(t); return (f >= 1 && f <= 3) || f === 7; };
   var esMiSuige = function (t) { return !!t.suige && misSuiges.indexOf(t.suige) >= 0; };
   var soy = function (p) { return !!(p && yo && p.Id === yo.Id); };
   var esMio = function (t) { return soy(t.resp) || soy(t.autor); };
   var pBae = function (t) { return fase(t) === 0 && (esMio(t) || esGestor); };
   var pSuige = function (t) { return (fase(t) === 1 || fase(t) === 2) && esMiSuige(t); };
   var pDiacu = function (t) { return esDiacu && fase(t) === 3; };
+  var pIge = function (t) { return esIge && fase(t) === 7; };
   var pReabrir = function (t) { return (fase(t) === 4 || fase(t) === 5) && (esIge || esGestor); };
   var pendientes = function () {
-    return { bae: items.filter(function (t) { return fase(t) === 0 && esMio(t); }), suige: items.filter(pSuige), diacu: items.filter(pDiacu), firma: items.filter(faltaFirma) };
+    return { bae: items.filter(function (t) { return fase(t) === 0 && esMio(t); }), suige: items.filter(pSuige), diacu: items.filter(pDiacu), ige: items.filter(pIge), firma: items.filter(faltaFirma) };
   };
-  var nPend = function () { var p = pendientes(); var s = {}; [].concat(p.bae, p.suige, p.diacu, p.firma).forEach(function (t) { s[t.id] = 1; }); return Object.keys(s).length; };
+  var nPend = function () { var p = pendientes(); var s = {}; [].concat(p.bae, p.suige, p.diacu, p.ige, p.firma).forEach(function (t) { s[t.id] = 1; }); return Object.keys(s).length; };
   var faseTxt = function (t) { return FASES[fase(t)] + ((fase(t) === 1 || fase(t) === 2) && t.suige ? ' (' + t.suige + ')' : ''); };
-  var badgeFase = function (t) { return '<span class="badge f' + Math.min(fase(t), 6) + '" title="ESTADO: ' + esc(t.estadoRaw || '—') + ' · VALORACIÓN SUIGE: ' + esc(t.vs || '—') + '">' + esc(faseTxt(t)) + '</span>'; };
+  var badgeFase = function (t) { return '<span class="badge f' + (fase(t) === 7 ? 3 : Math.min(fase(t), 6)) + '" title="ESTADO: ' + esc(t.estadoRaw || '—') + ' · VALORACIÓN SUIGE: ' + esc(t.vs || '—') + '">' + esc(faseTxt(t)) + '</span>'; };
   var fmtMedia = function (m) { return m == null ? '—' : m.toFixed(1).replace('.', ','); };
   var clsNota = function (m) { return m == null ? 'p1' : m < 2 ? 'p5' : m < 2.5 ? 'p4' : m < 3 ? 'p3' : 'p2'; };
   var badgeMedia = function (t) { return t.media != null ? '<span class="badge ' + clsNota(t.media) + '" title="Media de las preguntas valoradas (sin «No observado»)">Media ' + fmtMedia(t.media) + '</span>' : ''; };
@@ -6697,8 +6701,9 @@ var Cipher = {
   function pasos(t) {
     var f = fase(t);
     var P = [['BAE', f === 0 ? 'BORRADOR' : 'enviado', f === 0 ? 'ahora' : 'hecho'],
-      ['SUIGE', t.suige || 'valoración', f === 1 || f === 2 ? 'ahora' : f >= 3 && f !== 6 ? 'hecho' : ''],
-      ['DIACU', f === 3 ? 'valoración' : t.vs === VS.DI ? 'valorado' : 'si se eleva', f === 3 ? 'ahora' : f === 4 && t.vs === VS.DI ? 'hecho' : f === 4 ? 'salto' : ''],
+      ['SUIGE', t.suige || 'valoración', f === 1 || f === 2 ? 'ahora' : f >= 3 && f !== 6 && f !== 5 ? 'hecho' : f === 5 ? 'mal' : ''],
+      ['DIACU', f === 3 ? 'valoración' : 'valora o toma conocimiento', f === 3 ? 'ahora' : f === 7 || f === 4 ? 'hecho' : ''],
+      ['IGE', 'valoración', f === 7 ? 'ahora' : f === 4 ? 'hecho' : ''],
       ['Cierre', f === 5 ? 'RECHAZADO' : 'CERRADO', f === 4 ? 'hecho' : f === 5 ? 'mal' : '']];
     return '<div class="pasos">' + P.map(function (p) {
       return '<span class="paso ' + p[2] + '"><b>' + (p[2] === 'hecho' ? '✔ ' : p[2] === 'ahora' ? '⏳ ' : p[2] === 'salto' ? '— ' : p[2] === 'mal' ? '✕ ' : '') + esc(p[0]) + '</b><small>' + esc(p[1]) + '</small></span>';
@@ -6720,8 +6725,6 @@ var Cipher = {
     var n = function (f) { return items.filter(f).length; };
     var anio = String(new Date().getFullYear());
     var papeles = misPapeles();
-    var conMedia = items.filter(function (t) { return t.media != null && fase(t) !== 0; });
-    var mediaG = conMedia.length ? conMedia.reduce(function (a, t) { return a + t.media; }, 0) / conMedia.length : null;
     return '<div class="card" style="border-left:5px solid var(--brand)"><span class="muted small">Usuario</span><div style="font-size:1.15rem;font-weight:800">👤 ' + esc(yo.Title) + '</div>' +
       '<div class="meta">' + (papeles.length ? papeles.map(function (p) { return '<span class="badge rol">' + esc(p) + '</span>'; }).join('') : '<span class="muted small">Responsable de BAE: ves los cuestionarios que has dado de alta o en los que figuras.</span>') + '</div>' +
       '<p class="muted small" style="margin:6px 0 0">' + esc(alcanceTxt()) + '</p></div>' +
@@ -6729,13 +6732,12 @@ var Cipher = {
       '<div class="kpis">' +
       '<div class="kpi rojo" data-ir="pendientes">Esperan mi acción<b>' + nPend() + '</b></div>' +
       '<div class="kpi ambar" data-ir="fase:1">Pendientes de SUIGE<b>' + n(function (t) { return fase(t) === 1 || fase(t) === 2; }) + '</b></div>' +
-      '<div class="kpi morado" data-ir="fase:3">Elevados a DIACU<b>' + n(function (t) { return fase(t) === 3; }) + '</b></div>' +
+      '<div class="kpi morado" data-ir="fase:3">Informados a DIACU<b>' + n(function (t) { return fase(t) === 3; }) + '</b></div>' +
+      '<div class="kpi morado" data-ir="fase:7">Informados a IGE<b>' + n(function (t) { return fase(t) === 7; }) + '</b></div>' +
       '<div class="kpi verde" data-ir="fase:4">Cerrados<b>' + n(function (t) { return fase(t) === 4; }) + '</b></div>' +
       '<div class="kpi gris" data-ir="fase:0">Borradores<b>' + n(function (t) { return fase(t) === 0; }) + '</b></div>' +
       '<div class="kpi gris" data-ir="fase:5">Rechazados<b>' + n(function (t) { return fase(t) === 5; }) + '</b></div></div>' +
       '<div class="kpis">' +
-      '<div class="kpi azul" data-ir="estadisticas">Nota media<b>' + fmtMedia(mediaG) + '</b></div>' +
-      '<div class="kpi rojo" data-ir="media:baja">Media inferior a 2,5<b>' + n(function (t) { return t.media != null && t.media < 2.5; }) + '</b></div>' +
       '<div class="kpi ambar" data-ir="nov:CON NOVEDAD">Con novedad<b>' + n(function (t) { return /CON/.test(t.novedades); }) + '</b></div>' +
       '<div class="kpi gris" data-ir="anio:' + anio + '">Cuestionarios ' + anio + '<b>' + n(function (t) { return String(t.anio || String(t.fecha).slice(0, 4)) === anio; }) + '</b></div></div>' +
       '<div class="sec"><span>Últimos cuestionarios</span><span>' + Math.min(10, items.length) + ' de ' + items.length + '</span></div>' +
@@ -6761,7 +6763,8 @@ var Cipher = {
         return tarjeta(t, '<span class="badge f6">✍ ' + (t.firmas.bae ? 'falta la firma de la empresa' : 'falta tu firma') + '</span>');
       }).join('') : '') +
       bloque('Valoración del Negociado de Seguridad (' + misSuiges.join(', ') + ')', p.suige, 'Nada pendiente de valorar por tu SUIGE.', misSuiges.length) +
-      bloque('DIACU: elevados por la SUIGE', p.diacu, 'Nada elevado pendiente.', esDiacu);
+      bloque('DIACU: informados por la SUIGE', p.diacu, 'Nada pendiente en DIACU.', esDiacu) +
+      bloque('IGE: valoración y cierre', p.ige, 'Nada pendiente en IGE.', esIge);
   }
   var tramitadosPorMi = function () {
     return items.filter(function (t) { return yo && sinTildes(t.editor) === sinTildes(yo.Title); })
@@ -6789,7 +6792,7 @@ var Cipher = {
     var anios = Array.from(new Set(items.map(function (t) { return String(t.anio || String(t.fecha).slice(0, 4)); }).filter(Boolean))).sort().reverse();
     return '<div class="card"><div class="grid">' +
       '<div><label class="lbl">Buscar</label><input id="fq" type="search" value="' + esc(f.q) + '" placeholder="Nº, BAE, empresa, observaciones…"></div>' +
-      '<div><label class="lbl">Fase</label>' + sel('fFase', [['0', FASES[0]], ['1', 'Pendiente de SUIGE'], ['3', FASES[3]], ['4', FASES[4]], ['5', FASES[5]], ['baja', 'Media inferior a 2,5']], f.fase, 'Todas') + '</div>' +
+      '<div><label class="lbl">Fase</label>' + sel('fFase', [['0', FASES[0]], ['1', 'Pendiente de SUIGE'], ['3', FASES[3]], ['7', FASES[7]], ['4', FASES[4]], ['5', FASES[5]], ['baja', 'Media inferior a 2,5']], f.fase, 'Todas') + '</div>' +
       '<div><label class="lbl">Empresa</label>' + sel('fEmpresa', valores('empresa'), f.empresa, 'Todas') + '</div>' +
       '<div><label class="lbl">SUIGE</label>' + sel('fSuige', SUIGES.filter(function (s) { return items.some(function (t) { return t.suige === s; }); }), f.suige, 'Todas') + '</div>' +
       '<div><label class="lbl">Año</label>' + sel('fAnio', anios, f.anio, 'Todos') + '</div>' +
@@ -6868,7 +6871,7 @@ var Cipher = {
       barrasMedia('Media por SUIGE', mediasPor(ts, function (t) { return t.suige; })) +
       barrasMedia('BAE con peor media', mediasPor(ts, function (t) { return t.bae; }).slice(0, 12)) +
       barras('Distribución de las respuestas', dist, totalResp, true) +
-      barras('Por fase', [1, 3, 4, 5].map(function (k) { return [FASES[k], ts.filter(function (t) { return fase(t) === k || (k === 1 && fase(t) === 2); }).length]; }), N, true) +
+      barras('Por fase', [1, 3, 7, 4, 5].map(function (k) { return [FASES[k], ts.filter(function (t) { return fase(t) === k || (k === 1 && fase(t) === 2); }).length]; }), N, true) +
       barras('Novedades', contar(ts, function (t) { return t.novedades; }), N) +
       '</div>' + barrasMedia('Media por pregunta', porPreg, 'Pasa el ratón por una barra para ver el texto completo de la pregunta.');
   }
@@ -6938,7 +6941,9 @@ var Cipher = {
     var nom = (t.bae || 'BAE') + (t.empresa ? ' · ' + t.empresa : '');
     var P = {
       enviado: { a: dest.suige, cc: [], extraCc: vis, asunto: 'CUESTIONARIO DE CALIDAD VSA · ' + nom + ' · Nº ' + t.id + ': PENDIENTE DE VALORACIÓN', intro: 'LA BAE HA ENVIADO EL CUESTIONARIO DE CALIDAD DEL SERVICIO DE SEGURIDAD. EL NEGOCIADO DE SEGURIDAD DE LA ' + (t.suige || 'SUIGE') + ' DEBE VALORARLO.' },
-      elevado: { a: dest.ige, cc: dest.suige, asunto: 'CUESTIONARIO DE CALIDAD VSA · ' + nom + ' · Nº ' + t.id + ': ELEVADO A DIACU', intro: 'LA ' + (t.suige || 'SUIGE') + ' HA VALORADO EL CUESTIONARIO Y LO ELEVA A DIACU.' },
+      elevado: { a: dest.ige, cc: dest.suige, asunto: 'CUESTIONARIO DE CALIDAD VSA · ' + nom + ' · Nº ' + t.id + ': INFORMADO A DIACU', intro: 'LA ' + (t.suige || 'SUIGE') + ' HA VALORADO EL CUESTIONARIO E INFORMA A DIACU.' },
+      igeSuige: { a: dest.ige, cc: dest.suige, asunto: 'CUESTIONARIO DE CALIDAD VSA · ' + nom + ' · Nº ' + t.id + ': INFORMADO A IGE', intro: 'LA ' + (t.suige || 'SUIGE') + ' HA VALORADO EL CUESTIONARIO E INFORMA DIRECTAMENTE A IGE, CON CONOCIMIENTO DE DIACU.' },
+      igeDiacu: { a: dest.ige, cc: dest.suige, asunto: 'CUESTIONARIO DE CALIDAD VSA · ' + nom + ' · Nº ' + t.id + ': INFORMADO A IGE', intro: 'DIACU INFORMA A IGE DEL CUESTIONARIO VALORADO POR LA ' + (t.suige || 'SUIGE') + '.' },
       encurso: { a: [], cc: [], extraTo: bae, asunto: 'CUESTIONARIO DE CALIDAD VSA · ' + nom + ' · Nº ' + t.id + ': VALORACIÓN EN CURSO', intro: 'LA ' + (t.suige || 'SUIGE') + ' HA INICIADO LA VALORACIÓN DEL CUESTIONARIO (EN CURSO).' },
       cerrado: { a: [], cc: dest.suige, extraTo: bae, extraCc: vis, asunto: 'CUESTIONARIO DE CALIDAD VSA · ' + nom + ' · Nº ' + t.id + ': CERRADO', intro: 'EL CUESTIONARIO HA SIDO VALORADO Y QUEDA CERRADO.' },
       devuelto: { a: [], cc: [], extraTo: bae, asunto: 'CUESTIONARIO DE CALIDAD VSA · ' + nom + ' · Nº ' + t.id + ': DEVUELTO PARA CORREGIR', intro: 'EL NEGOCIADO DE SEGURIDAD DEVUELVE EL CUESTIONARIO A LA BAE PARA SU CORRECCIÓN. VUELVE A ESTAR EN BORRADOR.' },
@@ -6946,7 +6951,7 @@ var Cipher = {
       reabierto: { a: dest.suige, cc: [], extraCc: bae, asunto: 'CUESTIONARIO DE CALIDAD VSA · ' + nom + ' · Nº ' + t.id + ': REABIERTO', intro: 'EL CUESTIONARIO SE HA REABIERTO Y VUELVE A VALORACIÓN DE LA SUIGE.' },
       recordar: { a: [], cc: [], asunto: 'RECORDATORIO · CUESTIONARIO DE CALIDAD VSA Nº ' + t.id + ' pendiente: ' + faseTxt(t), intro: 'RECORDATORIO: ESTE CUESTIONARIO SIGUE PENDIENTE (' + faseTxt(t).toUpperCase() + ').' }
     }[tipo];
-    if (tipo === 'recordar') { var f = fase(t); if (f === 0) P.extraTo = bae; else P.a = f === 3 ? dest.ige : dest.suige; }
+    if (tipo === 'recordar') { var f = fase(t); if (f === 0) P.extraTo = bae; else P.a = f === 3 || f === 7 ? dest.ige : dest.suige; }
     var sinVer = [];
     return Promise.all([correosDeGrupos(P.a, sinVer), correosDeGrupos(P.cc, sinVer)]).then(function (r) {
       var to = limpia(r[0].concat(P.extraTo || [])), cc = limpia(r[1].concat(P.extraCc || [])).filter(function (x) { return to.indexOf(x) < 0; });
@@ -7329,12 +7334,14 @@ var Cipher = {
     if (pSuige(t)) {
       h += '<div class="panel turno"><h3>Valoración del Negociado de Seguridad (' + esc(t.suige) + ')</h3>' +
         '<p class="small muted">Quedará como persona del Negociado: <b>' + esc(yo.Title) + '</b>.</p>' +
-        '<label class="lbl">Valoración del expediente</label><select id="vSel">' + [VS.CU, VS.CE, VS.DI].map(function (v) { return '<option' + (t.vs === v ? ' selected' : '') + '>' + v + '</option>'; }).join('') + '</select>' +
-        '<label class="lbl">Observaciones del Negociado (obligatorias)</label><textarea id="vTxt"></textarea>' +
-        '<div class="acciones"><button class="ige" data-acc="valorar">Enviar valoración</button><button class="suige" data-acc="devolver">Editar formulario (devolver a la BAE)</button><button class="rojo" data-acc="rechazar">Rechazar</button></div></div>';
+        '<label class="lbl">Valoración / observaciones (obligatorias)</label><textarea id="vTxt"></textarea>' +
+        '<div class="acciones"><button class="ige" data-acc="suigeDiacu">Enviar valoración a DIACU</button><button class="rojo" data-acc="suigeIge" title="Con conocimiento de DIACU">INFORMAR A IGE</button></div>' +
+        '<div class="acciones"><button class="suige" data-acc="devolver">↩ Devolver a la BAE con observaciones</button><button class="rojo" data-acc="rechazar">✕ Rechazar con observaciones</button></div></div>';
     }
-    if (pDiacu(t)) h += '<div class="panel turno"><h3>DIACU · elevado por la ' + esc(t.suige || 'SUIGE') + '</h3><label class="lbl">Valoración de DIACU (obligatoria)</label><textarea id="vTxt"></textarea>' +
-      '<div class="acciones"><button class="verde" data-acc="cerrarDiacu">✔ Valorar y cerrar</button><button data-acc="devolverSuige">↩ Devolver a la SUIGE</button></div></div>';
+    if (pDiacu(t)) h += '<div class="panel turno"><h3>DIACU · informado por la ' + esc(t.suige || 'SUIGE') + '</h3><label class="lbl">Valoración de DIACU (opcional)</label><textarea id="vTxt"></textarea>' +
+      '<div class="acciones"><button class="rojo" data-acc="diacuIge">INFORMAR A IGE</button><button data-acc="devolverSuige">↩ Devolver a la SUIGE</button></div></div>';
+    if (pIge(t)) h += '<div class="panel turno"><h3>Valoración de IGE</h3><label class="lbl">Valoración de IGE (obligatoria)</label><textarea id="vTxt"></textarea>' +
+      '<div class="acciones"><button class="verde" data-acc="igeCerrar">✔ Valorar y cerrar</button></div></div>';
     if (pReabrir(t)) h += '<div class="panel"><h3>' + (fase(t) === 4 ? 'Cuestionario cerrado' : 'Cuestionario rechazado') + '</h3><label class="lbl">Motivo para reabrir</label><textarea id="vReabrir"></textarea><div class="acciones"><button data-acc="reabrir">↺ Reabrir (vuelve a la SUIGE)</button></div></div>';
     if (!h) h = '<div class="panel"><h3>Situación</h3><p class="small">' + esc(faseTxt(t)) + '.</p>' + (fase(t) === 0 ? '<p class="small muted">Está en borrador: debe enviarlo el responsable de la BAE.</p>' : '') + '</div>';
     if (puedeAnotar(t)) h += '<div class="panel"><h3>Añadir anotación</h3><textarea id="vNota" style="min-height:4em"></textarea><div class="acciones"><button data-acc="anotar">＋ Añadir con mi nombre y la hora</button>' +
@@ -7346,25 +7353,29 @@ var Cipher = {
     var v = function (id) { var el = $('#' + id); return el ? el.value.trim() : ''; };
     var c = {}, nota_ = null, correo = null, txt = '', ok = '';
     var exige = function (x, m) { if (!x) { msgAcc('error', m); throw 0; } };
-    var PERMITIDO = { valorar: pSuige, devolver: pSuige, rechazar: pSuige, cerrarDiacu: pDiacu, devolverSuige: pDiacu, reabrir: pReabrir, anotar: puedeAnotar, recordar: puedeAnotar };
+    var PERMITIDO = { suigeDiacu: pSuige, suigeIge: pSuige, devolver: pSuige, rechazar: pSuige, diacuIge: pDiacu, devolverSuige: pDiacu, igeCerrar: pIge, reabrir: pReabrir, anotar: puedeAnotar, recordar: puedeAnotar };
     if (!PERMITIDO[a] || !PERMITIDO[a](t)) { msgAcc('error', 'No te corresponde esta acción en la fase actual del cuestionario.'); return; }
     try {
-      if (a === 'valorar') {
-        var vs = v('vSel'); txt = v('vTxt'); exige(txt, 'Escribe las observaciones del Negociado antes de enviar la valoración.');
-        Object.assign(c, { VALORACIONSUIGE: vs, NegSegId: yo.Id, ESTADO: vs === VS.CE ? ES.CE : ES.EN });
-        nota_ = ['VALORACIÓN ' + t.suige + ': ' + vs, txt]; correo = vs === VS.CE ? 'cerrado' : vs === VS.DI ? 'elevado' : 'encurso';
-        ok = vs === VS.CE ? 'Valoración enviada: cuestionario CERRADO.' : vs === VS.DI ? 'Valoración enviada: ELEVADO A DIACU.' : 'Valoración guardada: EN CURSO.';
+      if (a === 'suigeDiacu' || a === 'suigeIge') {
+        txt = v('vTxt'); exige(txt, 'Escribe la valoración del Negociado antes de enviarla.');
+        var aIge = a === 'suigeIge';
+        Object.assign(c, { VALORACIONSUIGE: aIge ? VS.IG : VS.DI, NegSegId: yo.Id, ESTADO: ES.EN });
+        nota_ = ['VALORACIÓN ' + t.suige + ' · ' + (aIge ? 'INFORMADO A IGE (CON CONOCIMIENTO DE DIACU)' : 'INFORMADO A DIACU'), txt]; correo = aIge ? 'igeSuige' : 'elevado';
+        ok = aIge ? 'Valoración enviada: INFORMADO A IGE (con conocimiento de DIACU).' : 'Valoración enviada a DIACU.';
+      } else if (a === 'diacuIge') {
+        txt = v('vTxt'); c.VALORACIONSUIGE = VS.IG;
+        nota_ = ['DIACU · INFORMADO A IGE', txt || 'Sin valoración de DIACU.']; correo = 'igeDiacu'; ok = 'Informado a IGE.';
+      } else if (a === 'igeCerrar') {
+        txt = v('vTxt'); exige(txt, 'Escribe la valoración de IGE.');
+        c.ESTADO = ES.CE; nota_ = ['VALORACIÓN IGE · CERRADO', txt]; correo = 'cerrado'; ok = 'Valoración de IGE guardada: cuestionario CERRADO.';
       } else if (a === 'devolver') {
-        txt = v('vTxt'); exige(txt, 'Indica en observaciones qué debe corregir la BAE.');
+        txt = v('vTxt'); exige(txt, 'Escribe las observaciones: qué debe corregir la BAE.');
         Object.assign(c, { ESTADO: ES.BO, VALORACIONSUIGE: null, NegSegId: yo.Id });
         nota_ = ['DEVUELTO A LA BAE PARA CORREGIR', txt]; correo = 'devuelto'; ok = 'Devuelto a la BAE: vuelve a estar en borrador.';
       } else if (a === 'rechazar') {
-        txt = v('vTxt'); exige(txt, 'Indica en observaciones el motivo del rechazo.');
+        txt = v('vTxt'); exige(txt, 'Escribe las observaciones: motivo del rechazo.');
         Object.assign(c, { ESTADO: ES.RE, VALORACIONSUIGE: VS.RE, NegSegId: yo.Id });
         nota_ = ['RECHAZADO', txt]; correo = 'rechazado'; ok = 'Cuestionario rechazado.';
-      } else if (a === 'cerrarDiacu') {
-        txt = v('vTxt'); exige(txt, 'Escribe la valoración de DIACU.');
-        c.ESTADO = ES.CE; nota_ = ['VALORACIÓN DIACU · CERRADO', txt]; correo = 'cerrado'; ok = 'Valoración de DIACU guardada: cuestionario CERRADO.';
       } else if (a === 'devolverSuige') {
         txt = v('vTxt'); exige(txt, 'Indica por qué se devuelve a la SUIGE.');
         c.VALORACIONSUIGE = VS.CU; nota_ = ['DIACU DEVUELVE A LA SUIGE', txt]; correo = 'reabierto'; ok = 'Devuelto a la SUIGE.';
@@ -7379,12 +7390,27 @@ var Cipher = {
     if (a === 'recordar') {
       return avisoDe('recordar', t, '').then(enviarCorreo).then(function (r) { boton.disabled = !!r.ok; msgAcc(r.ok ? 'okmsg' : 'aviso', (r.ok ? '✓ Recordatorio enviado.' : 'No se envió el recordatorio.') + msgCorreo(r)); });
     }
-    guardarCambios(t, c, nota_).then(function () {
+    (c.VALORACIONSUIGE === VS.IG ? asegurarOpcion('VALORACIONSUIGE', VS.IG) : Promise.resolve()).then(function () { return guardarCambios(t, c, nota_); }).then(function () {
       var nuevo = Object.assign({}, t, { estado: c.ESTADO || t.estado, vs: c.VALORACIONSUIGE !== undefined ? (c.VALORACIONSUIGE || '') : t.vs });
       return (pref.correo && correo ? avisoDe(correo, nuevo, txt).then(enviarCorreo) : Promise.resolve(null)).then(function (r) {
         return cargar().then(function () { if (items.some(function (x) { return x.id === t.id; })) abrir(t.id, '<div class="' + (r && !r.ok ? 'aviso' : 'okmsg') + '">✓ ' + esc(ok) + msgCorreo(r) + '</div>'); else $('#dlg').close(); });
       });
-    }).catch(function (e) { boton.disabled = false; msgAcc('error', 'No se pudo guardar: ' + esc(e.message || e)); });
+    }).catch(function (e) {
+      boton.disabled = false;
+      msgAcc('error', 'No se pudo guardar: ' + esc(e.message || e) + (c.VALORACIONSUIGE === VS.IG && /400|valor|value|choice/i.test(e.message || '') ? '. Puede que a la columna VALORACIONSUIGE le falte la opción «' + VS.IG + '»: que la añada el administrador (o que abra esta página una vez con Control total).' : ''));
+    });
+  }
+  // La opción «ELEVADO A IGE» no estaba en la plantilla: se añade a la columna de elección si falta (necesita permiso para cambiar la lista)
+  var opcionesOk = {};
+  function asegurarOpcion(campo, valor) {
+    if (opcionesOk[campo + '|' + valor]) return Promise.resolve();
+    var url = urlLista() + "/fields/getbyinternalnameortitle('" + campo + "')";
+    return api(url + '?$select=Choices,FillInChoice,TypeAsString').then(function (f) {
+      var ch = lista(f.Choices);
+      if (f.FillInChoice || !/Choice/.test(f.TypeAsString || 'Choice') || ch.indexOf(valor) >= 0) { opcionesOk[campo + '|' + valor] = true; return; }
+      return enviarSP(url, { __metadata: { type: 'SP.FieldChoice' }, Choices: { __metadata: { type: 'Collection(Edm.String)' }, results: ch.concat([valor]) } }, 'sin permiso', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
+        .then(function () { opcionesOk[campo + '|' + valor] = true; });
+    }).catch(function () { /* se intenta guardar igualmente */ });
   }
 
   // ---------- Impresión con formato oficial y exportación ----------
@@ -7426,7 +7452,7 @@ var Cipher = {
       PREGUNTAS.map(function (p, i) { return '<tr><td>' + (i + 1) + '</td><td>' + esc(p) + '</td><td>' + esc(t.notas[i]) + '</td><td>' + esc(t.obs[i]) + '</td></tr>'; }).join('') + '</table>' +
       '<h3>VALORACIÓN DEL NEGOCIADO DE SEGURIDAD Y SEGUIMIENTO</h3>' + tabla([['Valoración SUIGE', t.vs], ['Observaciones', texto(d.Observaciones)]]) +
       '<div class="firmas"><div>Responsable de la BAE</div><div>Negociado de Seguridad (' + esc(t.suige || 'SUIGE') + ')</div></div>';
-    ventanaImprimir({ titulo: 'CUESTIONARIO DE CALIDAD VSA', subtitulo: 'Seguimiento del Acuerdo Marco VS-VSA · Nº ' + t.id + ' · ' + esc(t.bae) + ' · ' + esc(faseTxt(t)), cuerpo: cuerpo, nombre: 'cuestionario-vsa-' + t.id });
+    ventanaImprimir({ titulo: 'CUESTIONARIO DE CALIDAD VSA', cuerpo: cuerpo, nombre: 'cuestionario-vsa-' + t.id });
   }
   // ---------- Firma electrónica con AutoFirma (Cliente @firma incluido arriba) ----------
   // La BAE firma al enviar: la página genera el PDF del cuestionario, AutoFirma lo firma (PAdES, firma visible en el
@@ -7463,9 +7489,13 @@ var Cipher = {
       return fetch(urlAdjuntos(id) + "/add(FileName='" + encodeURIComponent(nombre) + "')", { method: 'POST', credentials: 'same-origin', body: bytes, headers: { Accept: 'application/json;odata=verbose', 'X-RequestDigest': dg } });
     }).then(function (r) { if (!r.ok) throw new Error(r.status === 403 ? 'No tienes permiso para adjuntar documentos a este cuestionario' : 'No se pudo adjuntar el PDF (HTTP ' + r.status + ')'); });
   }
+  // SharePoint 2013 no da 404 al borrar un adjunto que no existe («fileName fuera del intervalo»): se mira antes la lista
   function borrarAdjunto(id, nombre) {
-    return enviarSP(urlAdjuntos(id) + "/getByFileName('" + encodeURIComponent(nombre) + "')", {}, 'No tienes permiso para quitar adjuntos de este cuestionario', { 'X-HTTP-Method': 'DELETE', 'IF-MATCH': '*' })
-      .catch(function (e) { if (!/404|no existe|not exist|not found/i.test(e.message || '')) throw e; });
+    return leerAdjuntos(id).catch(function () { return []; }).then(function (adj) {
+      if (!adj.some(function (a) { return a.FileName === nombre; })) return null;
+      return enviarSP(urlAdjuntos(id) + "/getByFileName('" + encodeURIComponent(nombre) + "')", {}, 'No tienes permiso para quitar adjuntos de este cuestionario', { 'X-HTTP-Method': 'DELETE', 'IF-MATCH': '*' })
+        .catch(function (e) { if (!/404|no existe|not exist|not found|fileName/i.test(e.message || '')) throw e; });
+    });
   }
   // Al volver a enviar (tras una devolución) las firmas anteriores ya no corresponden al contenido
   function anularFirmas(id) { return borrarAdjunto(id, FIRMA.bae(id)).then(function () { return borrarAdjunto(id, FIRMA.emp(id)); }).catch(function () { /* se avisa en la ficha */ }); }

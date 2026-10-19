@@ -28,15 +28,19 @@ Se sube a una biblioteca de Colabora junto con `img/vsa-minisdef.png` e `img/vsa
 | Fase | Quién | Qué guarda |
 |---|---|---|
 | BORRADOR | responsable de la BAE | formulario |
-| ENVIADO (pendiente / EN CURSO) | Negociado de Seguridad de la SUIGE (`SEGURIDAD_<SUIGE>`) | «Enviar valoración»: `VALORACIONSUIGE` = EN CURSO (sigue en la SUIGE), CERRADO (`ESTADO` = CERRADO) o ELEVADO A DIACU; `NegSeg` = quien valora; observaciones obligatorias. «Editar formulario» lo devuelve a la BAE (BORRADOR) y «Rechazar» lo deja RECHAZADO |
-| ELEVADO A DIACU | `SEGURIDAD_IGE` | valoración de DIACU y cierre (`ESTADO` = CERRADO), o devolver a la SUIGE |
+| ENVIADO (pendiente de la SUIGE) | Negociado de Seguridad de la SUIGE (`SEGURIDAD_<SUIGE>`) | valoración obligatoria y: «Enviar valoración a DIACU» (`VALORACIONSUIGE` = ELEVADO A DIACU) o «INFORMAR A IGE» con conocimiento de DIACU (`VALORACIONSUIGE` = ELEVADO A IGE); `NegSeg` = quien valora. «Devolver a la BAE con observaciones» (BORRADOR) o «Rechazar con observaciones» (RECHAZADO) |
+| ELEVADO A DIACU | DIACU (`SEGURIDAD_IGE`) | valoración opcional e «INFORMAR A IGE» (`VALORACIONSUIGE` = ELEVADO A IGE), o devolver a la SUIGE |
+| ELEVADO A IGE | IGE (`SEGURIDAD_IGE`) | valoración obligatoria y cierre (`ESTADO` = CERRADO) |
 | CERRADO / RECHAZADO | IGE o quien administra la lista | reabrir con motivo (vuelve a la SUIGE) |
+
+Mismo procedimiento que Incidentes. La opción «ELEVADO A IGE» no existe en la plantilla: la página la añade a la columna
+de elección `VALORACIONSUIGE` la primera vez que se usa (si quien la usa puede cambiar la lista; si no, que la añada el
+administrador). «EN CURSO» queda solo para cuestionarios antiguos, reabiertos o devueltos por DIACU (vuelven a la SUIGE).
 
 Las valoraciones y anotaciones se añaden con fecha y nombre a `Observaciones` (en la plantilla, «Observaciones por parte
 del Negociado»). Antes de guardar se comprueba que nadie ha cambiado el cuestionario.
 
-**Diferencia con la plantilla**: en el InfoPath, «Enviar valoración» deja siempre `ESTADO` = CERRADO; aquí solo si la
-valoración es CERRADO, para que «EN CURSO» y «ELEVADO A DIACU» sigan abiertos y DIACU pueda actuar.
+**Diferencia con la plantilla**: en el InfoPath, «Enviar valoración» deja siempre `ESTADO` = CERRADO; aquí lo cierra IGE.
 
 **Correos** (la plantilla no envía ninguno; formato oficial, enlace `vsa.html?id=N`): enviado → SUIGE (copia al personal
 que puede visualizar); elevado → SEGURIDAD_IGE (copia SUIGE); en curso, devuelto → responsable y autor; cerrado,
@@ -85,7 +89,7 @@ Parte de la Empresa, Parte, Revision Semestral, MES, Lote, MATERIAL (`ControlDeR
 ## Pruebas
 
 `pruebas/simulacion.mjs`: sitio simulado (ligero y *verbose*): alcance por papel, valoración SUIGE (elevar, devolver,
-rechazar), cierre DIACU, conflicto, estadísticas, CSV, formulario (borrador, envío, validaciones, cascada) e impresión.
+rechazar), DIACU informa a IGE, IGE valora y cierra, conflicto, estadísticas, CSV, formulario (borrador, envío, validaciones, cascada) e impresión.
 Control de acceso: usuario sin acceso que lo solicita, sin lista de solicitudes o sin permiso en ella, abrir la lista a todos, aprobar/denegar/quitar y preparación (crear lista y grupo).
 Uso: `node vsa/pruebas/simulacion.mjs`.
 

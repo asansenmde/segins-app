@@ -19,13 +19,13 @@ const AUXL = {
   M2N: [{ Id: 1, Title: 'SUIGESUR', ID_M1NId: 1 }, { Id: 2, Title: 'SUIGENOR', ID_M1NId: 1 }, { Id: 3, Title: 'OFICINA X', ID_M1NId: 1 }],
   M3N: [{ Id: 1, Title: 'BAE SEVILLA', M2NId: 1 }, { Id: 2, Title: 'BAE LEON', M2NId: 2 }, { Id: 3, Title: 'BAE SIN SUIGE', M2NId: 3 }],
 };
-let extra = false, adj = {}, campos = null, seg = 2, sols, accLista = true, accAbierta = true, accCerrada = false, propios = true, grupoBae = true, baeMiembros, anadidos, items, misGrupos = [], admin = false, sinSubstringof = false, faltaCampo = null, ultimoFiltro = '', lecturaMinima = '';
+let opcionesVS = ['EN CURSO', 'CERRADO', 'ELEVADO A DIACU', 'RECHAZADO'], extra = false, adj = {}, campos = null, seg = 2, sols, accLista = true, accAbierta = true, accCerrada = false, propios = true, grupoBae = true, baeMiembros, anadidos, items, misGrupos = [], admin = false, sinSubstringof = false, faltaCampo = null, ultimoFiltro = '', lecturaMinima = '';
 const base = { Title: '01/10/2026', ESTADO: 'BORRADOR', VALORACIONSUIGE: null, REGISTRODEACTIVIDAD: '', ModificadoPorTEXTO: '', A_x00f1_o: '2026', EMPRESA0: 'EULEN', NOVEDADES: 'SIN NOVEDAD',
   MANDO1N: '1', MANDO2N: '1', MANDO3N: '1', M1N: 'IGE', M2N: 'SUIGESUR', M3N: 'BAE SEVILLA', suige: 'SUIGESUR', Observaciones: '', ControlDeRegistro: '',
   ResponsableDeLaInformacion: P[61], NegSeg: null, PersonalVisibilidad: [], ...Object.fromEntries(RESP.map(k => [k, '3 Bien'])), ...Object.fromEntries(OBS.map(k => [k, ''])) };
 const nor = { MANDO2N: '2', MANDO3N: '2', M2N: 'SUIGENOR', M3N: 'BAE LEON', suige: 'SUIGENOR' };
 const nuevoStore = () => {
-  adj = {};
+  adj = {}; opcionesVS = ['EN CURSO', 'CERRADO', 'ELEVADO A DIACU', 'RECHAZADO'];
   sols = [{ Id: 1, Title: 'JEFE BAE B', Solicitante: P[62], Correo: P[62].EMail, Empleo: 'CAPITAN', MandoSegundo: 'SUIGENOR', Unidad: 'BAE LEON', Telefono: '600', Papel: 'Responsable de BAE (cumplimentar el cuestionario)', Motivo: 'Responsable del contrato', Aplicacion: 'VSA', EstadoSolicitud: 'PENDIENTE', Created: d(-1), Modified: d(-1) }];
   baeMiembros = [{ Id: 61, Title: P[61].Title, Email: P[61].EMail, LoginName: 'i:0#.w|et\\jefea' }]; anadidos = [];
   items = [
@@ -74,7 +74,7 @@ async function prueba(verbose, escenario) {
       if (at) {
         const id = +at[1]; adj[id] = adj[id] || [];
         if (at[3]) { adj[id].push({ FileName: at[3], ServerRelativeUrl: WEB + '/Lists/PARTES VSA/Attachments/' + id + '/' + at[3], bytes: req.postDataBuffer() }); const it = items.find(x => x.Id === id); if (it) it.Attachments = true; return r.fulfill({ status: 200, json: { d: {} } }); }
-        const i = adj[id].findIndex(x => x.FileName === at[4]); if (i < 0) return r.fulfill({ status: 404, json: { error: { message: { value: 'File Not Found.' } } } });
+        const i = adj[id].findIndex(x => x.FileName === at[4]); if (i < 0) return r.fulfill({ status: 500, json: { error: { message: { value: 'El argumento especificado está fuera del intervalo de valores válidos.\r\nNombre del parámetro: fileName' } } } });
         adj[id].splice(i, 1); return r.fulfill({ status: 200, body: '' });
       }
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
@@ -91,6 +91,7 @@ async function prueba(verbose, escenario) {
         if (c.ReadSecurity === 2) seg = 2;
         return r.fulfill({ status: 204, body: '' });
       }
+      if (resto.includes("fields/getbyinternalnameortitle('VALORACIONSUIGE')")) { opcionesVS = JSON.parse(req.postData()).Choices.results; return r.fulfill({ status: 204, body: '' }); }
       if (resto === 'web/ensureuser') return r.fulfill({ json: { d: { Id: 8 } } });
       if (resto === 'web/lists') { accAbierta = false; propios = false; accLista = true; sols = []; return r.fulfill({ status: 201, json: { d: { Id: 'x' } } }); }
       if (resto === 'web/sitegroups') { grupoBae = true; baeMiembros = []; return r.fulfill({ status: 201, json: { d: { Id: 999 } } }); }
@@ -141,6 +142,7 @@ async function prueba(verbose, escenario) {
     const aux = resto.match(/getbytitle\('(M1N|M2N|M3N)'\)\/items/);
     if (aux) return J({ value: AUXL[aux[1]] });
     if (resto.startsWith('web/siteusers')) return J({ value: [YO, ...Object.values(P)].map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail })) });
+    if (resto.includes("fields/getbyinternalnameortitle('VALORACIONSUIGE')")) return J({ Choices: verbose ? { results: opcionesVS } : opcionesVS, FillInChoice: false, TypeAsString: 'Choice' });
     if (resto.includes("getbytitle('CUESTIONARIO DE CALIDAD VSA')/fields")) {
       const ch = a => verbose ? { results: a } : a;
       if (resto.includes('TypeAsString')) return J({ value: [{ InternalName: 'PersonalVisibilidad', EntityPropertyName: 'PersonalVisibilidad', TypeAsString: 'UserMulti' }] });
@@ -272,19 +274,26 @@ async function prueba(verbose, escenario) {
   // 1) SUIGE valora el 1: sin observaciones (error), en curso, después cerrado
   await p.click('#tabs a[data-v=consulta]'); await p.click('.inc[data-id="1"]'); await p.waitForTimeout(500);
   console.log(tag, '| ficha 1:', (await p.textContent('#dlg .pasos')).replace(/\s+/g, ' '), '| paneles:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')), '| preguntas:', await p.$$eval('table.cuest tbody tr', r => r.length));
-  await p.click('[data-acc=valorar]'); await p.waitForTimeout(150);
+  console.log(tag, '| botones SUIGE:', await p.$$eval('#detAcc button[data-acc]', b => b.map(x => x.textContent).join(' | ')), '| select valoración:', await p.$('#vSel') ? 'SÍ (mal)' : 'no');
+  await p.click('[data-acc=suigeDiacu]'); await p.waitForTimeout(150);
   console.log(tag, '| valorar sin observaciones:', await p.textContent('#accMsg'));
-  await p.selectOption('#vSel', 'ELEVADO A DIACU'); await p.fill('#vTxt', 'Deficiencias en vehículos: se eleva.'); posts.length = 0;
-  await p.click('[data-acc=valorar]'); await p.waitForTimeout(1300);
+  await p.fill('#vTxt', 'Deficiencias en vehículos: se eleva.'); posts.length = 0;
+  await p.click('[data-acc=suigeDiacu]'); await p.waitForTimeout(1300);
   let c = merge(1), m = correos().pop();
   console.log(tag, '| elevar:', JSON.stringify({ ESTADO: c.ESTADO, VS: c.VALORACIONSUIGE, NegSeg: c.NegSegId, Obs: (c.Observaciones || '').replace(/<[^>]+>/g, ' ').slice(-60) }), '| correo a:', m.To.results, 'cc', m.CC.results, '|', m.Subject);
   if (!verbose) fs.writeFileSync(new URL('correo.html', import.meta.url), m.Body);
   await p.click('#dlg [data-cerrar]');
-  // 2) DIACU cierra el 2
+  // 2) DIACU informa a IGE (sin valoración) el 2 y después IGE lo valora y cierra
   await p.click('#tabs a[data-v=pendientes]'); await p.click('.inc[data-id="2"]'); await p.waitForTimeout(500);
-  await p.fill('#vTxt', 'Conforme. Se archiva.'); posts.length = 0; await p.click('[data-acc=cerrarDiacu]'); await p.waitForTimeout(1300);
+  posts.length = 0; await p.click('[data-acc=diacuIge]'); await p.waitForTimeout(1300);
   c = merge(2); m = correos().pop();
-  console.log(tag, '| DIACU cierra:', JSON.stringify({ ESTADO: c.ESTADO }), '| correo a:', m.To.results, 'cc', m.CC.results, '|', m.Subject);
+  console.log(tag, '| DIACU a IGE:', JSON.stringify({ VS: c.VALORACIONSUIGE, Obs: (c.Observaciones || '').replace(/<[^>]+>/g, ' ').slice(-50) }), '| opción añadida:', opcionesVS.includes('ELEVADO A IGE'), '| correo:', m.Subject);
+  console.log(tag, '| ahora 2:', (await p.textContent('#dlg .pasos')).replace(/\s+/g, ' '), '| paneles:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
+  await p.click('[data-acc=igeCerrar]'); await p.waitForTimeout(150);
+  console.log(tag, '| IGE sin valoración:', await p.textContent('#accMsg'));
+  await p.fill('#vTxt', 'Conforme. Se archiva.'); posts.length = 0; await p.click('[data-acc=igeCerrar]'); await p.waitForTimeout(1300);
+  c = merge(2); m = correos().pop();
+  console.log(tag, '| IGE cierra:', JSON.stringify({ ESTADO: c.ESTADO }), '| correo a:', m.To.results, 'cc', m.CC.results, '|', m.Subject);
   await p.click('#dlg [data-cerrar]');
   // 3) SUIGE devuelve el 5 a la BAE (SUIGENOR) y rechaza el 6
   await p.click('#tabs a[data-v=consulta]'); await p.click('.inc[data-id="5"]'); await p.waitForTimeout(500);
