@@ -192,7 +192,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-17 · 2';
+  var VERSION = '2026-10-19 · 3';
   var CLAVE = 'vsa-calidad-ige';
   var pref = { sitio: '/et/jige/colaborativo', lista: 'CUESTIONARIO DE CALIDAD VSA', vista: 'panel', correo: true,
     f: { q: '', fase: '', empresa: '', suige: '', anio: '', nov: '', desde: '', hasta: '' }, agrupar: 'empresa' };
@@ -1267,7 +1267,7 @@
   // Quien tiene Control total aprueba en la pestaña «Accesos»: la página añade a la persona al grupo y le avisa.
   var tieneAcceso = function () { return esAdmin || esGestor || misSuiges.length > 0 || esDiacu || esIge || misGrupos.some(function (g) { return ACCESO.grupos.indexOf(String(g).trim()) >= 0; }); };
   var urlAcc = function () { return web + "/_api/web/lists/getbytitle('" + encodeURIComponent(ACCESO.lista.replace(/'/g, "''")) + "')"; };
-  var accInfo = null, accSols = null, accEstado = '', accMiembros = null, accGrupos = null, perfil = null;
+  var accInfo = null, accAbierta = null, accSols = null, accEstado = '', accMiembros = null, accGrupos = null, perfil = null;
   var CAMPOS_ACC = [
     '<Field Type="User" Name="Solicitante" StaticName="Solicitante" DisplayName="Solicitante" UserSelectionMode="PeopleOnly" />',
     '<Field Type="Text" Name="Correo" StaticName="Correo" DisplayName="Correo" />',
@@ -1316,8 +1316,12 @@
         'Si la necesitas, solicita el acceso: se revisará y recibirás un correo con la respuesta.</p>' +
         '<p class="small muted">Sesión: <b>' + esc(yo.Title) + '</b>' + (yo.Email ? ' · ' + esc(yo.Email) : '') + '</p></div>';
       if (sols && sols.error) {
-        $('#vista').innerHTML = cab + '<div class="aviso">El sistema de solicitudes de acceso aún no está preparado (falta la lista «' + esc(ACCESO.lista) + '» o no tienes permiso para escribir en ella). ' +
-          'Pide el acceso directamente al administrador de la página.</div>';
+        var st = sols.error.status;
+        $('#vista').innerHTML = cab + '<div class="aviso">' + (st === 401 || st === 403 || st === 404 ?
+          'No puedes usar la lista «' + esc(ACCESO.lista) + '»: ' + (st === 404 ? 'todavía no existe o Colabora no te deja verla' : 'Colabora no te deja abrirla') + '. ' +
+          'El administrador debe entrar en la pestaña <b>Accesos › Preparación</b> y ' + (st === 404 ? 'crear la lista (si falta) y ' : '') + 'pulsar «Permitir que cualquiera solicite acceso». ' :
+          'No se pudieron leer tus solicitudes de acceso. ') +
+          'Mientras tanto, pide el acceso directamente al administrador de la página.<div class="small muted">Detalle: ' + esc(sols.error.message || sols.error) + ' · versión ' + esc(VERSION) + '</div></div>';
         return;
       }
       var pend = sols.filter(function (s) { return s.estado === 'PENDIENTE'; })[0], ult = sols[0];
@@ -1391,9 +1395,9 @@
       api(urlAcc() + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity').then(function (l) { accInfo = l; }, function () { accInfo = null; }),
       todas(web + '/_api/web/sitegroups?$select=Id,Title&$top=5000').then(function (l) { accGrupos = l.map(function (g) { return g.Title; }); }, function () { accGrupos = []; })
     ]).then(function () {
-      if (!accInfo) { accSols = []; return; }
-      return todas(urlAcc() + '/items?$top=500&$select=' + SEL_ACC.join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent("Aplicacion eq '" + ACCESO.app + "'"))
-        .then(function (l) { accSols = l.map(aSol).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); }); });
+      if (!accInfo) { accSols = []; accAbierta = null; return; }
+      return leerApertura().then(function () { return todas(urlAcc() + '/items?$top=500&$select=' + SEL_ACC.join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent("Aplicacion eq '" + ACCESO.app + "'"))
+        .then(function (l) { accSols = l.map(aSol).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); }); }); });
     }).then(function () {
       if (accGrupos.indexOf(ACCESO.grupoBae) < 0) { accMiembros = null; return; }
       return todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(ACCESO.grupoBae) + "')/users?$select=Id,Title,Email,LoginName").then(function (l) { accMiembros = l; }, function () { accMiembros = []; });
@@ -1413,6 +1417,9 @@
     var prep = '<div class="card"><h3 style="margin-top:0">Preparación</h3>' +
       '<p class="small">' + (accInfo ? '✔ Lista «' + esc(ACCESO.lista) + '» preparada' + (accInfo.ReadSecurity === 2 && accInfo.WriteSecurity === 2 ? ' (cada uno ve y edita solo sus solicitudes).' : '. <span class="txt-bad">Falta que cada usuario vea solo sus solicitudes</span>: Configuración de la lista › Configuración avanzada › «Leer: solo sus elementos» y «Crear y editar: solo sus elementos».') :
         '✕ Falta la lista «' + esc(ACCESO.lista) + '». <button class="prim" data-acccrearlista="1">Crear la lista</button>') + '</p>' +
+      (accInfo ? '<p class="small">' + (accAbierta && accAbierta.abierta ? '✔ Cualquiera puede solicitar acceso (' + esc(accAbierta.quien) + ' puede añadir solicitudes).' :
+        '✕ ' + (accAbierta && accAbierta.error ? 'No se pudo comprobar quién puede escribir en la lista (' + esc(accAbierta.error) + ').' : 'Los usuarios sin acceso al sitio no pueden escribir en la lista y verán «No puedes usar la lista».') +
+        ' <button class="prim" data-accabrir="1">Permitir que cualquiera solicite acceso</button>') + '</p>' : '') +
       '<p class="small">' + (accGrupos.indexOf(ACCESO.grupoBae) >= 0 ? '✔ Grupo «' + esc(ACCESO.grupoBae) + '» creado (' + (accMiembros ? accMiembros.length : 0) + ' personas).' :
         '✕ Falta el grupo «' + esc(ACCESO.grupoBae) + '» para los responsables de BAE. <button class="prim" data-acccreargrupo="1">Crear el grupo</button>') + '</p>' +
       '<p class="small muted">La comprobación de acceso la hace esta página. Para que sea también la de Colabora, quita «Usuarios del dominio» de la lista «' + esc(pref.lista) + '» y da permiso a los grupos SEGURIDAD_* y ' + esc(ACCESO.grupoBae) + '. ' +
@@ -1482,8 +1489,47 @@
         return enviarSP(urlAcc(), { __metadata: { type: 'SP.List' }, ReadSecurity: 2, WriteSecurity: 2 }, 'No se pudo ajustar quién ve las solicitudes', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
           .catch(function () { toast('Lista creada. Ajusta a mano «Leer y editar: solo sus elementos» en la configuración avanzada.'); });
       })
+      .then(function () { return abrirLista().catch(function (e) { toast('Lista creada, pero no se pudo abrir a todos: ' + (e.message || e)); }); })
       .then(function () { return cargarAccesos(); }).then(function () { toast('Lista de solicitudes de acceso creada'); })
       .catch(function (e) { boton.disabled = false; toast('No se pudo crear la lista: ' + (e.message || e)); });
+  }
+  // Quién cuenta como «todos»: el mismo grupo que ya tiene el sitio (Usuarios del dominio, Todos…) o, si no, la notificación de «Todos»
+  var TODOS = /usuarios del dominio|domain users|usuarios autenticados|authenticated users|^todos\b|everyone|todos los usuarios/i;
+  var TODOS_LOGIN = /^c:0\(\.s\|true$|^c:0!\.s\|windows$/i;
+  var esTodos = function (m) { return m && (TODOS.test(m.Title || '') || TODOS.test(m.LoginName || '') || TODOS_LOGIN.test(m.LoginName || '')); };
+  var PUEDE_ESCRIBIR = [3, 4, 5, 6];  // Colaborar, Diseño, Control total, Editar
+  function asignaciones(url) {
+    return todas(url + '/roleassignments?$expand=Member,RoleDefinitionBindings&$select=PrincipalId,Member/Title,Member/LoginName,Member/Id,RoleDefinitionBindings/RoleTypeKind,RoleDefinitionBindings/Name');
+  }
+  function leerApertura() {
+    return Promise.all([api(urlAcc() + '?$select=HasUniqueRoleAssignments').catch(function () { return {}; }), asignaciones(urlAcc())]).then(function (r) {
+      var a = r[1].find(function (x) { return esTodos(x.Member) && lista(x.RoleDefinitionBindings).some(function (b) { return PUEDE_ESCRIBIR.indexOf(Number(b.RoleTypeKind)) >= 0; }); });
+      accAbierta = { abierta: !!a, quien: a ? a.Member.Title || a.Member.LoginName : '', propios: !!r[0].HasUniqueRoleAssignments };
+    }, function (e) { accAbierta = { abierta: false, error: e.message || String(e) }; });
+  }
+  function buscarTodos() {
+    var urlCuest = urlLista();
+    return asignaciones(web + '/_api/web').catch(function () { return []; }).then(function (l) {
+      return l.length && l.some(function (x) { return esTodos(x.Member); }) ? l : asignaciones(urlCuest).catch(function () { return []; });
+    }).then(function (l) {
+      var m = l.map(function (x) { return x.Member; }).filter(esTodos)[0];
+      if (m) return m.Id || m.PrincipalId;
+      return enviarSP(web + '/_api/web/ensureuser', { logonName: 'c:0(.s|true' }, 'No tienes permiso para añadir usuarios al sitio').then(function (u) { return u.Id; });
+    });
+  }
+  function abrirLista() {
+    var propio = accAbierta && accAbierta.propios;
+    return (propio ? Promise.resolve() : enviarSP(urlAcc() + '/breakroleinheritance(copyRoleAssignments=true,clearSubscopes=true)', {}, 'No tienes permiso para cambiar los permisos de la lista'))
+      .then(function () { return Promise.all([buscarTodos(), api(web + '/_api/web/roledefinitions/getbytype(3)?$select=Id')]); })
+      .then(function (r) {
+        if (!r[0]) throw new Error('No se encontró el grupo «Usuarios del dominio» ni «Todos»');
+        return enviarSP(urlAcc() + '/roleassignments/addroleassignment(principalid=' + Number(r[0]) + ',roledefid=' + Number(r[1].Id) + ')', {}, 'No tienes permiso para cambiar los permisos de la lista');
+      });
+  }
+  function abrirListaAcceso(boton) {
+    boton.disabled = true; toast('Dando permiso para solicitar acceso…');
+    abrirLista().then(function () { return cargarAccesos(); }).then(function () { toast(accAbierta && accAbierta.abierta ? 'Listo: cualquiera puede solicitar acceso' : 'Permiso dado; si sigue en ✕, revisa los permisos de la lista a mano'); })
+      .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
   }
   function crearGrupoBae(boton) {
     boton.disabled = true;
@@ -1505,6 +1551,7 @@
     if (ap || dn) { resolverSolicitud(Number((ap || dn).dataset[ap ? 'accaprobar' : 'accdenegar']), !!ap, ap || dn); return; }
     if (el.closest('[data-accquitar]')) { quitarAcceso(el.closest('[data-accquitar]')); return; }
     if (el.closest('[data-acccrearlista]')) { crearListaAcceso(el.closest('[data-acccrearlista]')); return; }
+    if (el.closest('[data-accabrir]')) { abrirListaAcceso(el.closest('[data-accabrir]')); return; }
     if (el.closest('[data-acccreargrupo]')) { crearGrupoBae(el.closest('[data-acccreargrupo]')); return; }
     if (el.closest('#nuevo')) { if (cargadoEn) formulario(null); return; }
     var edp = el.closest('[data-editar]');

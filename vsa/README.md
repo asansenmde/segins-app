@@ -58,7 +58,10 @@ para qué lo necesita y motivo. Se guarda en la lista **«SOLICITUDES DE ACCESO�
 
 **Pestaña «Accesos»** (solo Control total):
 - **Preparación**: si faltan, botones «Crear la lista» (con sus 14 columnas y «leer y editar solo sus elementos») y
-  «Crear el grupo» `VSA_BAE`.
+  «Crear el grupo» `VSA_BAE`; y **«Permitir que cualquiera solicite acceso»**: rompe la herencia de permisos de la
+  lista de solicitudes y da «Colaborar» al grupo de todos que ya use el sitio («Usuarios del dominio», «Todos»…; si no
+  lo encuentra, «Todos» con `ensureuser`). Sin esto, quien no tiene permiso en el sitio no puede ni leer ni escribir en
+  la lista y ve «No puedes usar la lista» (con el código del error). Al crear la lista se hace solo.
 - **Solicitudes pendientes**: quién es, empleo, unidad, correo, teléfono, papel y motivo; grupo propuesto según el papel
   (BAE → VSA_BAE; SUIGE → SEGURIDAD_<SUIGE> de su mando; DIACU/IGE → SEGURIDAD_IGE). **«Aprobar y dar acceso»** añade
   a la persona al grupo y le avisa; **«Denegar»** exige motivo y también avisa.
@@ -82,5 +85,5 @@ Parte de la Empresa, Parte, Revision Semestral, MES, Lote, MATERIAL (`ControlDeR
 
 `pruebas/simulacion.mjs`: sitio simulado (ligero y *verbose*): alcance por papel, valoración SUIGE (elevar, devolver,
 rechazar), cierre DIACU, conflicto, estadísticas, CSV, formulario (borrador, envío, validaciones, cascada) e impresión.
-Control de acceso: usuario sin acceso que lo solicita, sin lista de solicitudes, aprobar/denegar/quitar y preparación (crear lista y grupo).
+Control de acceso: usuario sin acceso que lo solicita, sin lista de solicitudes o sin permiso en ella, abrir la lista a todos, aprobar/denegar/quitar y preparación (crear lista y grupo).
 Uso: `node vsa/pruebas/simulacion.mjs`.
