@@ -31,7 +31,7 @@ const nuevoStore = () => {
   items = [
     { Id: 1, ESTADO: 'ENVIADO', EMPRESA0: 'EULEN', RESP_3: '1 Muy Mejorable', OBS_3: 'Vehículo con más de 5 años', RESP_5: '2 Mejorable', Created: d(-9), Author: P[61] },
     { Id: 2, ESTADO: 'ENVIADO', VALORACIONSUIGE: 'ELEVADO A DIACU', ...nor, EMPRESA0: 'SECURITAS', NOVEDADES: 'CON NOVEDAD', Created: d(-20), Author: P[62], ResponsableDeLaInformacion: P[62] },
-    { Id: 3, ESTADO: 'CERRADO', VALORACIONSUIGE: 'CERRADO', EMPRESA0: 'PROSEGUR', Created: d(-40), Author: P[61], ...Object.fromEntries(RESP.map(k => [k, '4 Muy Bien'])) },
+    { Id: 3, ESTADO: 'CERRADO', VALORACIONSUIGE: 'CERRADO', EMPRESA0: 'PROSEGUR', Created: d(-40), Observaciones: '<p><b>01/09/2026 · SUR1 · VALORACIÓN SUIGESUR</b><br>Servicio correcto &lt;sin incidencias&gt;</p>', Author: P[61], ...Object.fromEntries(RESP.map(k => [k, '4 Muy Bien'])) },
     { Id: 4, ESTADO: 'BORRADOR', Created: d(-1), Author: YO, ResponsableDeLaInformacion: YO },
     { Id: 5, ESTADO: 'ENVIADO', ...nor, Created: d(-3), Author: P[62], ResponsableDeLaInformacion: P[62] },
     { Id: 6, ESTADO: 'ENVIADO', ...nor, Created: d(-4), Author: P[62], ResponsableDeLaInformacion: P[62], PersonalVisibilidad: [YO] },
@@ -185,6 +185,24 @@ async function prueba(verbose, escenario) {
     console.log(tag, '| solicitud:', JSON.stringify({ Title: alta.Title, Sol: alta.SolicitanteId, Empleo: alta.Empleo, Mando: alta.MandoSegundo, Unidad: alta.Unidad, Papel: alta.Papel, App: alta.Aplicacion, Estado: alta.EstadoSolicitud }), '| correo:', m && m.Subject);
     console.log(tag, '| después:', (await p.textContent('#vista .okmsg')).slice(0, 90), '| errores:', errs);
     if (!verbose) await p.screenshot({ path: new URL('sin-acceso.png', import.meta.url).pathname, fullPage: true });
+    await b.close(); return;
+  }
+  if (escenario === 'informe') {
+    await p.click('#tabs a[data-v=informe]'); await p.waitForTimeout(300);
+    const t = async s => (await p.$$eval(s, n => n.map(x => x.textContent.replace(/\s+/g, ' ').trim())));
+    console.log(tag, '| apartados:', (await t('#vista .inf h3')).join(' | '));
+    console.log(tag, '| resumen:', (await t('#vista .inf .kp div')).join(' · '));
+    await p.selectOption('#iAgr', 'suige'); await p.waitForTimeout(200);
+    console.log(tag, '| comparativa SUIGE:', (await t('#vista .inf h3 + table tr')).slice(0, 4).join(' / '));
+    await p.check('[data-isec=detalle]'); await p.check('[data-isec=valoraciones]'); await p.waitForTimeout(200);
+    const [pop] = await Promise.all([p.waitForEvent('popup'), p.click('[data-iimp]')]);
+    await pop.waitForLoadState(); const imp = await pop.evaluate(() => document.body.innerText);
+    console.log(tag, '| impreso:', (imp.match(/^\d\. .+$/gm) || []).join(' | '), '| valoración leída:', /Servicio correcto <sin incidencias>/.test(imp), '| autor en impreso:', /Sánchez Sender/.test(imp));
+    if (!verbose) await pop.screenshot({ path: new URL('informe.png', import.meta.url).pathname, fullPage: true });
+    await pop.close();
+    const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-icsv]')]);
+    const ruta = new URL('inf.csv', import.meta.url).pathname; await dl.saveAs(ruta); const csvT = fs.readFileSync(ruta, 'utf8'); fs.unlinkSync(ruta);
+    console.log(tag, '| CSV:', dl.suggestedFilename(), csvT.split('\r\n').length, 'filas ·', csvT.split('\r\n')[3], '| errores:', errs);
     await b.close(); return;
   }
   if (escenario === 'firma') {
@@ -353,6 +371,7 @@ misGrupos = ['SEGURIDAD_SUIGESUR']; admin = false; await prueba(false, 'solo SUI
 sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstringof = false;
 misGrupos = ['SEGURIDAD_IGE']; await prueba(false, 'solo SEGURIDAD_IGE');
 misGrupos = ['VSA_BAE']; await prueba(false, 'responsable de BAE');
+misGrupos = ['SEGURIDAD_IGE']; await prueba(false, 'informe'); await prueba(true, 'informe'); misGrupos = ['VSA_BAE'];
 extra = true; await prueba(false, 'firma'); await prueba(true, 'firma'); extra = false;
 misGrupos = []; await prueba(false, 'sin acceso'); await prueba(true, 'sin acceso');
 accLista = false; await prueba(false, 'sin acceso y sin lista de solicitudes'); accLista = true;

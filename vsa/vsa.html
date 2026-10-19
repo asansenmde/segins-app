@@ -6388,7 +6388,7 @@ var Cipher = {
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-19 · 9';
+  var VERSION = '2026-10-19 · 10';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuestionario de calidad VSA · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -6901,12 +6901,12 @@ var Cipher = {
       '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">La página trabaja dentro de Colabora con tu sesión y tus permisos. No envía nada fuera del servidor. La protección real es la de los permisos de la lista.</p></div>';
   }
   function render() {
-    var vistas = [['panel', 'Cuestionarios'], ['pendientes', 'Pendiente de valoración y tramitación'], ['consulta', 'Búsqueda y consulta'], ['estadisticas', 'Estadísticas']].concat(cargadoEn && esAdmin ? [['accesos', 'Accesos'], ['ajustes', 'Ajustes']] : []);
+    var vistas = [['panel', 'Cuestionarios'], ['pendientes', 'Pendiente de valoración y tramitación'], ['consulta', 'Búsqueda y consulta'], ['estadisticas', 'Estadísticas'], ['informe', 'Informes']].concat(cargadoEn && esAdmin ? [['accesos', 'Accesos'], ['ajustes', 'Ajustes']] : []);
     if ((pref.vista === 'ajustes' || pref.vista === 'accesos') && (!cargadoEn || !esAdmin)) pref.vista = 'panel';
     var cuenta = { pendientes: cargadoEn ? nPend() : 0, accesos: nPendAcc() };
     $('#tabs').innerHTML = vistas.map(function (v) { return '<a data-v="' + v[0] + '" class="' + (pref.vista === v[0] ? 'on' : '') + '">' + v[1] + (cuenta[v[0]] ? '<i>' + cuenta[v[0]] + '</i>' : '') + '</a>'; }).join('');
     if (!cargadoEn) return;
-    $('#vista').innerHTML = ({ panel: vistaPanel, pendientes: vistaPendientes, consulta: vistaConsulta, estadisticas: vistaEstadisticas, accesos: vistaAccesos, ajustes: vistaAjustes }[pref.vista] || vistaPanel)();
+    $('#vista').innerHTML = ({ panel: vistaPanel, pendientes: vistaPendientes, consulta: vistaConsulta, estadisticas: vistaEstadisticas, informe: vistaInforme, accesos: vistaAccesos, ajustes: vistaAjustes }[pref.vista] || vistaPanel)();
   }
   var aviso = function (txt) { $('#estadoCarga').textContent = txt; setTimeout(function () { if (cargadoEn) $('#estadoCarga').textContent = items.length + ' cuestionarios · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }, 3500); };
 
@@ -7697,6 +7697,169 @@ var Cipher = {
       .catch(function (e) { boton.disabled = false; if (e !== 0) msgFirma('error', esc(e.message || e)); });
   }
 
+  // ---------- Informe detallado (por empresa, SUIGE, BAE, año, mes, trimestre…) ----------
+  // Mismos criterios que Estadísticas: cuentan los cuestionarios enviados (no borradores ni eliminados), las medias no
+  // incluyen «0 No Observado»; cumplimiento PPT/PCAP = preguntas 1–15 y satisfacción = 16–24 (sobre 4).
+  var INF_DIM = [['empresa', 'Empresa'], ['suige', 'SUIGE'], ['bae', 'BAE'], ['anio', 'Año'], ['trimestre', 'Trimestre'], ['mes', 'Mes'], ['fase', 'Situación'], ['', 'Sin agrupar (solo totales)']];
+  var INF_SEC = [['resumen', 'Resumen general', true], ['comparativa', 'Comparativa por grupo', true], ['evolucion', 'Evolución mensual', true], ['preguntas', 'Media por pregunta', true],
+    ['distribucion', 'Distribución de respuestas', true], ['peores', 'Aspectos peor valorados', true], ['mejorables', 'Respuestas «Mejorable» o peor, con sus observaciones', true],
+    ['relacion', 'Relación de cuestionarios', true], ['detalle', 'Detalle de cada cuestionario (24 puntuaciones y observaciones)', false], ['valoraciones', 'Valoraciones de SUIGE, DIACU e IGE en el detalle', false]];
+  var dimMin = function (d) { return /^[A-ZÁÉÍÓÚ]+$/.test(d) ? d : d.toLowerCase(); };
+  var MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  var infCfg = function () {
+    var c = pref.inf || {};
+    if (c.agr === undefined) c.agr = 'empresa';
+    if (!c.sec) { c.sec = {}; INF_SEC.forEach(function (s) { c.sec[s[0]] = s[2]; }); }
+    pref.inf = c; return c;
+  };
+  // [clave de orden, etiqueta] del grupo de un cuestionario
+  function grupoInf(t, k) {
+    var f = String(t.fecha || ''), y = String(t.anio || f.slice(0, 4) || ''), m = Number(f.slice(5, 7));
+    if (k === 'anio') return [y || '9999', y || '(sin año)'];
+    if (k === 'mes') return f ? [f.slice(0, 7), MESES[m - 1] + ' ' + f.slice(0, 4)] : ['9999', '(sin fecha)'];
+    if (k === 'trimestre') return f ? [f.slice(0, 4) + '-' + Math.ceil(m / 3), Math.ceil(m / 3) + 'º trimestre ' + f.slice(0, 4)] : ['9999', '(sin fecha)'];
+    if (k === 'fase') { var fs = fase(t) === 2 ? 1 : fase(t); return [String([1, 3, 7, 4, 5].indexOf(fs)), FASES[fs]]; }
+    var v = t[k] || '(sin dato)'; return [v, v];
+  }
+  function agrupar(ts, k) {
+    if (!k) return [['TOTAL', 'Todos', ts]];
+    var m = new Map();
+    ts.forEach(function (t) { var g = grupoInf(t, k); if (!m.has(g[1])) m.set(g[1], [g[0], g[1], []]); m.get(g[1])[2].push(t); });
+    var l = Array.from(m.values());
+    return l.sort(k === 'mes' || k === 'anio' || k === 'trimestre' || k === 'fase' ? function (a, b) { return String(a[0]).localeCompare(String(b[0])); } : function (a, b) { return b[2].length - a[2].length || a[1].localeCompare(b[1], 'es'); });
+  }
+  var mediaLista = function (v) { return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : null; };
+  function statsInf(ls) {
+    var resp = function (a, b) { return ls.reduce(function (acc, t) { return acc.concat(t.notas.slice(a, b).map(nota).filter(function (x) { return x != null; })); }, []); };
+    var todas_ = resp(0, 24), val = todas_.filter(function (x) { return x > 0; });
+    var dist = [4, 3, 2, 1, 0].map(function (n) { return todas_.filter(function (x) { return x === n; }).length; });
+    return { n: ls.length, media: mediaLista(val), cumpl: mediaLista(resp(0, 15).filter(function (x) { return x > 0; })), sat: mediaLista(resp(15, 24).filter(function (x) { return x > 0; })),
+      nResp: todas_.length, nVal: val.length, mej: val.filter(function (x) { return x <= 2; }).length, dist: dist,
+      novedad: ls.filter(function (t) { return /CON/.test(t.novedades); }).length, cerrados: ls.filter(function (t) { return fase(t) === 4; }).length,
+      preg: PREGUNTAS.map(function (_, i) { var v = ls.map(function (t) { return nota(t.notas[i]); }).filter(function (x) { return x != null && x > 0; }); return [mediaLista(v), v.length]; }) };
+  }
+  var pct = function (a, b) { return b ? (a * 100 / b).toFixed(1).replace('.', ',') + ' %' : '—'; };
+  var celdaNota = function (m) { return '<td class="inf-n ' + (m == null ? '' : m < 2 ? 'inf-p5' : m < 2.5 ? 'inf-p4' : m < 3 ? 'inf-p3' : 'inf-p2') + '">' + fmtMedia(m) + '</td>'; };
+  var barraInf = function (v, max, cls) { return '<span class="inf-barra"><span class="' + (cls || '') + '" style="width:' + (max ? Math.round(v * 100 / max) : 0) + '%"></span></span>'; };
+  var ESTILO_INF = '<style>.inf h3{color:#1b3a5c;border-bottom:1px solid #b8962e;padding-bottom:2px;margin:16px 0 6px;font-size:1rem}.inf table{width:100%;border-collapse:collapse;font-size:.85em;margin-bottom:6px}' +
+    '.inf th{background:#1b3a5c;color:#fff;text-align:left;padding:4px 5px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.inf td{border:1px solid #c9d1dc;padding:3px 5px;vertical-align:top}' +
+    '.inf tr.tot td{font-weight:bold;background:#e8eef6;-webkit-print-color-adjust:exact;print-color-adjust:exact}.inf td.inf-n{text-align:center;white-space:nowrap;font-weight:600}' +
+    '.inf .inf-p2{background:#dff0e3}.inf .inf-p3{background:#fff4d6}.inf .inf-p4{background:#fde3cf}.inf .inf-p5{background:#f9d4d0}.inf td.inf-p2,.inf td.inf-p3,.inf td.inf-p4,.inf td.inf-p5{-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+    '.inf .kp{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:6px 0}.inf .kp div{border:1px solid #c9d1dc;border-radius:6px;padding:6px 8px;font-size:.8em;color:#444}.inf .kp b{display:block;font-size:1.5em;color:#1b3a5c}' +
+    '.inf-barra{display:inline-block;width:120px;height:9px;background:#eef1f5;border-radius:3px;vertical-align:middle;margin-right:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+    '.inf-barra span{display:block;height:100%;background:#1b3a5c;border-radius:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.inf-barra span.mal{background:#b3261e}' +
+    '.inf .ficha{page-break-inside:avoid;margin-bottom:10px}.inf .ficha h4{margin:10px 0 4px;color:#1b3a5c}.inf .txt{white-space:pre-wrap;border:1px solid #c9d1dc;padding:5px;font-size:.85em}.inf .nota{font-size:.8em;color:#555}</style>';
+  function informeHtml(ts, cfg, obs) {
+    var S = cfg.sec, G = agrupar(ts, cfg.agr), T = statsInf(ts), dimTxt = (INF_DIM.find(function (d) { return d[0] === cfg.agr; }) || ['', ''])[1];
+    var gs = G.map(function (g) { return { nom: g[1], ts: g[2], st: statsInf(g[2]) }; });
+    var h = ESTILO_INF + '<div class="inf">';
+    h += '<p class="nota">Criterios: ' + ts.length + ' cuestionario' + (ts.length === 1 ? '' : 's') + ' enviado' + (ts.length === 1 ? '' : 's') + ' (sin borradores ni eliminados) · ' + esc(descFiltros()) +
+      ' · medias sobre 4 sin «No observado» · cumplimiento PPT/PCAP = preguntas 1–15 · satisfacción = 16–24.</p>';
+    if (!ts.length) return h + '<p>Ningún cuestionario con estos filtros.</p></div>';
+    if (S.resumen) {
+      h += '<h3>1. Resumen general</h3><div class="kp"><div>Cuestionarios<b>' + T.n + '</b></div><div>Media general<b>' + fmtMedia(T.media) + '</b></div><div>Cumplimiento PPT/PCAP (1–15)<b>' + fmtMedia(T.cumpl) + '</b></div>' +
+        '<div>Satisfacción (16–24)<b>' + fmtMedia(T.sat) + '</b></div><div>Respuestas «Mejorable» o peor<b>' + T.mej + '</b>' + pct(T.mej, T.nVal) + ' de las valoradas</div><div>Con novedad<b>' + T.novedad + '</b>' + pct(T.novedad, T.n) + '</div>' +
+        '<div>Cerrados<b>' + T.cerrados + '</b>' + pct(T.cerrados, T.n) + '</div><div>Empresas / BAE<b>' + new Set(ts.map(function (t) { return t.empresa; })).size + ' / ' + new Set(ts.map(function (t) { return t.bae; })).size + '</b></div></div>';
+    }
+    var filaComp = function (nom, st, tot) {
+      return '<tr' + (tot ? ' class="tot"' : '') + '><td>' + esc(nom) + '</td><td class="inf-n">' + st.n + '</td>' + celdaNota(st.media) + celdaNota(st.cumpl) + celdaNota(st.sat) +
+        '<td class="inf-n">' + st.mej + ' (' + pct(st.mej, st.nVal) + ')</td><td class="inf-n">' + st.novedad + '</td><td class="inf-n">' + st.cerrados + '</td></tr>';
+    };
+    var cabComp = function (pri) { return '<table><tr><th>' + esc(pri) + '</th><th>Nº</th><th>Media</th><th>Cumplimiento</th><th>Satisfacción</th><th>Mejorable o peor</th><th>Con novedad</th><th>Cerrados</th></tr>'; };
+    if (S.comparativa && cfg.agr) h += '<h3>2. Comparativa por ' + esc(dimMin(dimTxt)) + '</h3>' + cabComp(dimTxt) + gs.map(function (g) { return filaComp(g.nom, g.st); }).join('') + filaComp('TOTAL', T, true) + '</table>';
+    if (S.evolucion && cfg.agr !== 'mes') {
+      var ms = agrupar(ts, 'mes');
+      if (ms.length > 1) h += '<h3>3. Evolución mensual</h3>' + cabComp('Mes') + ms.map(function (g) { return filaComp(g[1], statsInf(g[2])); }).join('') + '</table>';
+    }
+    if (S.preguntas) {
+      var cols = cfg.agr && gs.length <= 8 ? gs : [];
+      h += '<h3>4. Media por pregunta' + (cols.length ? ' y ' + esc(dimMin(dimTxt)) : '') + '</h3>' + (cfg.agr && !cols.length ? '<p class="nota">Hay más de 8 grupos: se muestra solo el total (el desglose está en el Excel del informe).</p>' : '') +
+        '<table><tr><th>Pregunta</th>' + cols.map(function (g) { return '<th>' + esc(g.nom) + '</th>'; }).join('') + '<th>Total</th><th>n</th></tr>' +
+        PREGUNTAS.map(function (p, i) {
+          return (i === 0 ? '<tr class="tot"><td colspan="' + (cols.length + 3) + '">Cumplimiento PPT/PCAP (1–15)</td></tr>' : i === 15 ? '<tr class="tot"><td colspan="' + (cols.length + 3) + '">Satisfacción (16–24)</td></tr>' : '') +
+            '<tr><td title="' + esc(p) + '">' + (i + 1) + '. ' + esc(CORTAS[i]) + '</td>' + cols.map(function (g) { return celdaNota(g.st.preg[i][0]); }).join('') + celdaNota(T.preg[i][0]) + '<td class="inf-n">' + T.preg[i][1] + '</td></tr>';
+        }).join('') +
+        '<tr class="tot"><td>Media cumplimiento (1–15)</td>' + cols.map(function (g) { return celdaNota(g.st.cumpl); }).join('') + celdaNota(T.cumpl) + '<td></td></tr>' +
+        '<tr class="tot"><td>Media satisfacción (16–24)</td>' + cols.map(function (g) { return celdaNota(g.st.sat); }).join('') + celdaNota(T.sat) + '<td></td></tr>' +
+        '<tr class="tot"><td>MEDIA GENERAL</td>' + cols.map(function (g) { return celdaNota(g.st.media); }).join('') + celdaNota(T.media) + '<td></td></tr></table>';
+    }
+    if (S.distribucion) {
+      var maxD = Math.max.apply(null, T.dist.concat([1]));
+      h += '<h3>5. Distribución de las respuestas</h3><table><tr><th>Puntuación</th><th>Respuestas</th><th>%</th><th></th></tr>' + T.dist.map(function (n, k) {
+        return '<tr><td>' + esc(NOTAS[k]) + '</td><td class="inf-n">' + n + '</td><td class="inf-n">' + pct(n, T.nResp) + '</td><td>' + barraInf(n, maxD, k === 2 || k === 3 ? 'mal' : '') + '</td></tr>';
+      }).join('') + '<tr class="tot"><td>Total</td><td class="inf-n">' + T.nResp + '</td><td></td><td></td></tr></table>';
+    }
+    if (S.peores) {
+      var orden = T.preg.map(function (x, i) { return [i, x[0], x[1]]; }).filter(function (x) { return x[1] != null; }).sort(function (a, b) { return a[1] - b[1]; });
+      h += '<h3>6. Aspectos peor y mejor valorados</h3><table><tr><th>Peor valorados</th><th>Media</th><th>Mejor valorados</th><th>Media</th></tr>' + [0, 1, 2, 3, 4].map(function (k) {
+        var a = orden[k], b = orden[orden.length - 1 - k];
+        return '<tr><td>' + (a ? (a[0] + 1) + '. ' + esc(PREGUNTAS[a[0]]) : '') + '</td>' + (a ? celdaNota(a[1]) : '<td></td>') + '<td>' + (b && orden.length > 5 + k ? (b[0] + 1) + '. ' + esc(PREGUNTAS[b[0]]) : '') + '</td>' + (b && orden.length > 5 + k ? celdaNota(b[1]) : '<td></td>') + '</tr>';
+      }).join('') + '</table>';
+    }
+    if (S.mejorables) {
+      var filas = [];
+      ts.forEach(function (t) { t.notas.forEach(function (x, i) { var n = nota(x); if (n === 1 || n === 2) filas.push([t, i, x]); }); });
+      h += '<h3>7. Respuestas «Mejorable» o «Muy mejorable» (' + filas.length + ')</h3>' + (filas.length ? '<table><tr><th>Nº</th><th>Fecha</th><th>BAE</th><th>Empresa</th><th>Pregunta</th><th>Puntuación</th><th>Observación</th></tr>' +
+        filas.map(function (r) { return '<tr><td>' + r[0].id + '</td><td>' + esc(fCorta(r[0].fecha)) + '</td><td>' + esc(r[0].bae) + '</td><td>' + esc(r[0].empresa) + '</td><td>' + (r[1] + 1) + '. ' + esc(CORTAS[r[1]]) + '</td><td>' + esc(r[2]) + '</td><td>' + (esc(r[0].obs[r[1]]) || '<i>sin observación</i>') + '</td></tr>'; }).join('') + '</table>' : '<p class="nota">Ninguna.</p>');
+    }
+    if (S.relacion) {
+      h += '<h3>8. Relación de cuestionarios</h3><table><tr><th>Nº</th><th>Fecha</th><th>BAE</th><th>SUIGE</th><th>Empresa</th><th>Novedades</th><th>Media</th><th>Cumpl.</th><th>Satisf.</th><th>Mejorables</th><th>Situación</th></tr>' +
+        ts.map(function (t) { var s = statsInf([t]); return '<tr><td>' + t.id + '</td><td>' + esc(fCorta(t.fecha)) + '</td><td>' + esc(t.bae) + '</td><td>' + esc(t.suige) + '</td><td>' + esc(t.empresa) + '</td><td>' + esc(t.novedades) + '</td>' + celdaNota(s.media) + celdaNota(s.cumpl) + celdaNota(s.sat) + '<td class="inf-n">' + t.mejorables + '</td><td>' + esc(faseTxt(t)) + '</td></tr>'; }).join('') + '</table>';
+    }
+    if (S.detalle) {
+      h += '<h3>9. Detalle de cada cuestionario</h3>' + ts.map(function (t) {
+        var s = statsInf([t]);
+        return '<div class="ficha"><h4>Nº ' + t.id + ' · ' + esc(t.cadena.join(' - ') || t.bae) + ' · ' + esc(t.empresa) + ' · ' + esc(fCorta(t.fecha)) + '</h4>' +
+          '<p class="nota">Responsable: ' + esc(t.resp && t.resp.Title || '—') + ' · Novedades: ' + esc(t.novedades || '—') + ' · Situación: ' + esc(faseTxt(t)) + ' · Media ' + fmtMedia(s.media) + ' · Cumplimiento ' + fmtMedia(s.cumpl) + ' · Satisfacción ' + fmtMedia(s.sat) + '</p>' +
+          '<table><tr><th>Pregunta</th><th>Puntuación</th><th>Observaciones</th></tr>' + PREGUNTAS.map(function (p, i) {
+            var n = nota(t.notas[i]); return '<tr><td>' + (i + 1) + '. ' + esc(CORTAS[i]) + '</td>' + (n ? celdaNota(n).replace(fmtMedia(n), esc(t.notas[i])) : '<td class="inf-n">' + esc(t.notas[i] || '—') + '</td>') + '<td>' + esc(t.obs[i]) + '</td></tr>';
+          }).join('') + '</table>' +
+          (S.valoraciones ? '<b class="nota">Valoraciones y seguimiento (SUIGE, DIACU, IGE)</b><div class="txt">' + (obs && obs[t.id] ? esc(texto(obs[t.id])) : '—') + '</div>' : '') + '</div>';
+      }).join('');
+    }
+    return h + '</div>';
+  }
+  var tsInforme = function () { return filtrar().filter(function (t) { return fase(t) !== 0 && fase(t) !== 6; }); };
+  function vistaInforme() {
+    var c = infCfg(), ts = tsInforme();
+    return filtrosHtml() + '<div class="card"><h3 style="margin-top:0">Informe detallado</h3>' +
+      '<p class="small muted">Elige arriba los filtros (empresa, SUIGE, año, desde/hasta…), cómo agrupar y qué apartados incluir. Lo que ves abajo es lo que se imprime.</p>' +
+      '<div class="grid"><div><label class="lbl">Agrupar por</label><select id="iAgr">' + INF_DIM.map(function (d) { return '<option value="' + d[0] + '"' + (c.agr === d[0] ? ' selected' : '') + '>' + esc(d[1]) + '</option>'; }).join('') + '</select></div></div>' +
+      '<div class="small" style="columns:2;margin:8px 0">' + INF_SEC.map(function (s) { return '<label class="check" style="display:block"><input type="checkbox" data-isec="' + s[0] + '"' + (c.sec[s[0]] ? ' checked' : '') + '> ' + esc(s[1]) + '</label>'; }).join('') + '</div>' +
+      '<div class="acciones"><button class="prim" data-iimp="1">🖨 Imprimir informe / PDF</button><button data-icsv="1">📊 Excel del informe (CSV)</button></div></div>' +
+      '<div class="card">' + informeHtml(ts, Object.assign({}, c, { sec: Object.assign({}, c.sec, { valoraciones: false }) })) +
+      (c.sec.detalle && c.sec.valoraciones ? '<p class="small muted">Las valoraciones de SUIGE, DIACU e IGE se leen al imprimir.</p>' : '') + '</div>';
+  }
+  // Observaciones (valoraciones e historial) de varios cuestionarios, en tandas
+  function leerObservaciones(ids) {
+    var r = {}, trozos = [];
+    for (var i = 0; i < ids.length; i += 40) trozos.push(ids.slice(i, i + 40));
+    return Promise.all(trozos.map(function (tr) {
+      return todas(urlLista() + '/items?$top=500&$select=Id,Observaciones&$filter=' + encodeURIComponent(tr.map(function (id) { return '(Id eq ' + id + ')'; }).join(' or ')))
+        .then(function (l) { l.forEach(function (x) { r[x.Id] = x.Observaciones || ''; }); });
+    })).then(function () { return r; });
+  }
+  function imprimirInforme() {
+    var c = infCfg(), ts = tsInforme(), dim = (INF_DIM.find(function (d) { return d[0] === c.agr; }) || ['', ''])[1];
+    var hacer = function (obs) {
+      ventanaImprimir({ titulo: 'INFORME DE CALIDAD DEL SERVICIO DE SEGURIDAD (VSA)', subtitulo: (c.agr ? 'Por ' + esc(dimMin(dim)) + ' · ' : '') + esc(descFiltros()) + ' · ' + ts.length + ' cuestionarios',
+        cuerpo: informeHtml(ts, c, obs), nombre: 'informe-vsa-' + hoy(), apaisado: c.sec.preguntas && c.agr && agrupar(ts, c.agr).length > 3 });
+    };
+    if (c.sec.detalle && c.sec.valoraciones && ts.length) { aviso('Leyendo valoraciones…'); leerObservaciones(ts.map(function (t) { return t.id; })).then(hacer, function () { aviso('No se pudieron leer las valoraciones'); hacer(null); }); }
+    else hacer(null);
+  }
+  function csvInforme() {
+    var c = infCfg(), ts = tsInforme(), G = c.agr ? agrupar(ts, c.agr) : [], T = statsInf(ts);
+    var q = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }, nf = function (m) { return m == null ? '' : m.toFixed(2).replace('.', ','); };
+    var dim = (INF_DIM.find(function (d) { return d[0] === c.agr; }) || ['', 'Total'])[1] || 'Total';
+    var filas = [['INFORME DE CALIDAD VSA', descFiltros()], [], [dim, 'Nº', 'Media', 'Cumplimiento (1-15)', 'Satisfacción (16-24)', 'Mejorable o peor', '% mejorable', 'Con novedad', 'Cerrados']];
+    var fila = function (nom, st) { return [nom, st.n, nf(st.media), nf(st.cumpl), nf(st.sat), st.mej, st.nVal ? (st.mej * 100 / st.nVal).toFixed(1).replace('.', ',') : '', st.novedad, st.cerrados]; };
+    G.forEach(function (g) { filas.push(fila(g[1], statsInf(g[2]))); }); filas.push(fila('TOTAL', T));
+    filas.push([], ['Pregunta'].concat(G.map(function (g) { return g[1]; }), ['Total']));
+    PREGUNTAS.forEach(function (p, i) { filas.push([(i + 1) + '. ' + p].concat(G.map(function (g) { return nf(statsInf(g[2]).preg[i][0]); }), [nf(T.preg[i][0])])); });
+    descargar('informe-vsa-' + hoy() + '.csv', '﻿' + filas.map(function (r) { return r.map(q).join(';'); }).join('\r\n'), 'text/csv;charset=utf-8');
+  }
+
   function descFiltros() {
     var f = pref.f, x = [];
     if (f.fase !== '') x.push('Fase: ' + (f.fase === 'baja' ? 'media inferior a 2,5' : FASES[Number(f.fase)])); if (f.empresa) x.push('Empresa: ' + f.empresa); if (f.suige) x.push('SUIGE: ' + f.suige);
@@ -8065,6 +8228,8 @@ var Cipher = {
     var pv = el.closest('[data-pv]');
     if (pv) { pendVista = pv.dataset.pv; render(); return; }
     if (el.closest('[data-csv]')) { csv(); return; }
+    if (el.closest('[data-iimp]')) { imprimirInforme(); return; }
+    if (el.closest('[data-icsv]')) { csvInforme(); return; }
     if (el.closest('[data-relimp]')) { imprimirRelacion(); return; }
     if (el.closest('[data-limpiar]')) { pref.f = FILTRO_VACIO(); guardarPref(); render(); return; }
     var fi = el.closest('[data-fichaimp]');
@@ -8077,6 +8242,8 @@ var Cipher = {
   document.addEventListener('change', function (e) {
     var el = e.target;
     if (el.id === 'fAgrupar') { pref.agrupar = el.value; guardarPref(); render(); return; }
+    if (el.id === 'iAgr') { infCfg().agr = el.value; guardarPref(); render(); return; }
+    if (el.dataset && el.dataset.isec) { infCfg().sec[el.dataset.isec] = el.checked; guardarPref(); render(); return; }
     var f = { fFase: 'fase', fEmpresa: 'empresa', fSuige: 'suige', fAnio: 'anio', fNov: 'nov', fDesde: 'desde', fHasta: 'hasta' }[el.id];
     if (f) { pref.f[f] = el.value; guardarPref(); render(); return; }
     if (el.id === 'aCorreo' && esAdmin) { pref.correo = el.checked; guardarPref(); return; }

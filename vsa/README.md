@@ -143,3 +143,14 @@ la lectura del certificado, cancelación, AutoFirma no disponible y que no sale 
 - Ninguna protección en un navegador es absoluta (quien abre la página puede descargarla), pero así no se puede leer,
   reutilizar ni modificar con facilidad.
 - Probar la copia protegida: `VSA_HTML=vsa/colabora/vsa.html node vsa/pruebas/simulacion.mjs`.
+
+## Pestaña «Informes»
+
+Informe detallado y estadístico con los filtros de siempre (empresa, SUIGE, año, desde/hasta, novedades, fase,
+búsqueda) y **agrupado por** empresa, SUIGE, BAE, año, trimestre, mes o situación. Apartados a elegir: resumen general
+(media, cumplimiento PPT/PCAP 1–15, satisfacción 16–24, mejorables, con novedad, cerrados), comparativa por grupo,
+evolución mensual, media por pregunta (por grupo si son 8 o menos), distribución de respuestas, peor y mejor valorados,
+respuestas «Mejorable» o peor con su observación, relación de cuestionarios y, opcionalmente, el detalle de cada
+cuestionario con sus 24 puntuaciones y las valoraciones de SUIGE/DIACU/IGE (se leen de «Observaciones» al imprimir).
+Se imprime con formato oficial (PDF) o se descarga en CSV (comparativa y medias por pregunta). Mismos criterios que
+Estadísticas: sin borradores ni eliminados, medias sin «No observado». Prueba: escenario «informe» de la simulación.
