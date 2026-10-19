@@ -35,6 +35,10 @@ de cada proyecto (`*/pruebas/`).
   (receta en `SHAREPOINT.md`, «Control de acceso con solicitud»).
 - **Firma electrónica con AutoFirma** cuando una página tenga que firmar documentos: copiar la de VSA (receta en
   `SHAREPOINT.md`, «Firma electrónica con AutoFirma»; la librería oficial va pegada en el HTML).
+- **Autoría y copia protegida** en todas las páginas de Colabora (© 2026 Cte. Alfredo Sánchez Sender; original legible
+  en el repositorio y copia ofuscada con bloqueo de dominio para subir; receta en `SHAREPOINT.md`). Entregar siempre los
+  dos archivos, indicando cuál se sube a Colabora.
+- **Pendientes del usuario en `PENDIENTES.md`**: revisarlo al empezar y actualizarlo al terminar cada punto.
 - HTML en un solo archivo, sin librerías ni recursos de internet: los datos no salen del servidor.
 - REST de SharePoint con `credentials: 'same-origin'`; primero `odata=nometadata` y, si responde 400/406/415,
   `odata=verbose` (SharePoint 2013). Seguir la paginación (`odata.nextLink` / `__next`).
