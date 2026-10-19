@@ -59,6 +59,36 @@ para saber listas, columnas (nombres internos) y tipos. **Nunca pedir contenido 
   cada `<Version>` trae el valor, `Modified` y `Editor` (`id;#Nombre,#…`). Funciona desde SharePoint 2010.
 - Si la columna no anexa: releer el texto justo antes y escribir el comentario al principio con fecha y autor.
 
+## Control de acceso con solicitud (modelo: `vsa/vsa.html`, probado en Colabora)
+
+**Ponerlo en toda aplicación nueva** (Permisos, registro, SIPERDEF…), salvo que el usuario diga lo contrario. Se copia
+del bloque `ACCESO` / `pantallaAcceso` / `vistaAccesos` de VSA y se adapta la constante `ACCESO`
+(`app`, `grupoBae`, `grupos`, `avisar`, `papeles`).
+
+- **Quién entra**: grupos de papel (`web/currentuser/groups`), un grupo propio de la aplicación (p. ej. `VSA_BAE`) o
+  Control total. Si no, o si la lista principal da 403/404: pantalla «🔒 No tienes acceso» + formulario
+  «Solicitar acceso».
+- **Solicitud**: nombre y correo de la cuenta (no se escriben); empleo y unidad propuestos con
+  `SP.UserProfiles.PeopleManager/GetMyProperties` (Title, Department); mando/unidad en cascada; papel y motivo. Se guarda
+  en la lista común **«SOLICITUDES DE ACCESO»** (columna `Aplicacion` distingue cada app) y avisa por correo a
+  «Propietarios Colaborativo». El solicitante ve el estado de sus solicitudes.
+- **Pestaña «Accesos»** (Control total): aprobar = `POST sitegroups/getbyname('G')/users {SP.User, LoginName}` (login de
+  `getuserbyid(n)`) + MERGE de la solicitud + correo; denegar con motivo; quitar = `users/removebyid(id)`.
+- **Preparación** (botones, todo por REST, cada línea con ✔/✕ y la versión de la página):
+  - crear la lista (`BaseTemplate:100`) y sus columnas (`fields/createfieldasxml`, `Options:8`); si la lista ya existe
+    (p. ej. creada a mano), comprobar `fields?$select=InternalName` y **crear solo las que faltan**;
+  - «solo sus elementos»: MERGE de la lista `{ReadSecurity:2, WriteSecurity:2}` (comparar con `Number()`); si falla,
+    explicar el camino manual (Configuración avanzada);
+  - **abrir la lista a todos**: `breakroleinheritance(copyRoleAssignments=true,clearSubscopes=true)` +
+    `roleassignments/addroleassignment(principalid, roledefid)` con «Colaborar» (`roledefinitions/getbytype(3)`) para el
+    grupo de todos que ya use el sitio (en Colabora es **«MDEF\usuarios del dominio»**; se busca en
+    `web/roleassignments?$expand=Member`; si no, `ensureuser('c:0(.s|true')`). Sin esto, quien no tiene permiso en el
+    sitio recibe **404** al leer la lista de solicitudes;
+  - crear el grupo propio (`POST sitegroups {SP.Group, Title}`).
+- **Errores**: en la pantalla de acceso, distinguir 404 (no existe o no se ve), 401/403 (sin permiso) y 400 (columna
+  que falta) y mostrar el detalle con la versión.
+- La seguridad real exige además quitar «Usuarios del dominio» de la lista principal y dar permiso a los grupos.
+
 ## Pruebas
 
 Playwright contra un SharePoint simulado (rutas `page.route`), con formato ligero y *verbose*, alta,
