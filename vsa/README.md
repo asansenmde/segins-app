@@ -105,7 +105,10 @@ La BAE firma **al enviar**, antes de que valore la SUIGE (probado en Colabora co
 - El estado se deduce de esos adjuntos. En «Pendientes» aparece «Firmas pendientes (AutoFirma)» con los cuestionarios
   abiertos enviados desde el 19/10/2026 a los que les falta la firma de la BAE o de la empresa.
 - Si se devuelve a la BAE y se vuelve a enviar, se quitan las firmas anteriores (ya no corresponden al contenido).
-- Pruebas: escenario «firma» de `pruebas/simulacion.mjs` (AutoFirma sustituido).
+- Pruebas: escenario «firma» de `pruebas/simulacion.mjs` (AutoFirma sustituido; guarda `pruebas/cuestionario.pdf` y
+  `.params`). El PDF se ha firmado dos veces con la librería real de AutoFirma (`es.gob.afirma:afirma-crypto-pdf:1.9.1`,
+  `AOPDFSigner`). Ojo: el `/Info` del PDF debe ser un objeto indirecto; si va dentro del trailer, AutoFirma da
+  «java.lang.Exception» (ClassCastException en PdfStamperImp).
 
 ## Prueba de firma con AutoFirma (`prueba-autofirma.html`)
 

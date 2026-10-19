@@ -6378,7 +6378,7 @@ var Cipher = {
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-19 · 6';
+  var VERSION = '2026-10-19 · 7';
   var CLAVE = 'vsa-calidad-ige';
   var pref = { sitio: '/et/jige/colaborativo', lista: 'CUESTIONARIO DE CALIDAD VSA', vista: 'panel', correo: true,
     f: { q: '', fase: '', empresa: '', suige: '', anio: '', nov: '', desde: '', hasta: '' }, agrupar: 'empresa' };
@@ -7563,11 +7563,14 @@ var Cipher = {
       kids.push(objs.length + ' 0 R');
     });
     objs[1] = '<< /Type /Pages /Kids [' + kids.join(' ') + '] /Count ' + n + ' >>';
+    // /Info como objeto indirecto (AutoFirma falla con «java.lang.Exception» si va dentro del trailer)
+    objs.push('<< /Title ' + cad('Cuestionario de calidad VSA Nº ' + t.id) + ' /Producer (Cuestionario de calidad VSA) >>');
+    var info = objs.length;
     var out = '%PDF-1.4\n%\xe2\xe3\xcf\xd3\n', offs = [];
     objs.forEach(function (o, i) { offs.push(out.length); out += (i + 1) + ' 0 obj\n' + o + '\nendobj\n'; });
     var xref = out.length;
     out += 'xref\n0 ' + (objs.length + 1) + '\n0000000000 65535 f \n' + offs.map(function (o) { return ('000000000' + o).slice(-10) + ' 00000 n \n'; }).join('') +
-      'trailer\n<< /Size ' + (objs.length + 1) + ' /Root 1 0 R /Info << /Title ' + cad('Cuestionario de calidad VSA Nº ' + t.id) + ' /Producer (Cuestionario de calidad VSA) >> >>\nstartxref\n' + xref + '\n%%EOF\n';
+      'trailer\n<< /Size ' + (objs.length + 1) + ' /Root 1 0 R /Info ' + info + ' 0 R >>\nstartxref\n' + xref + '\n%%EOF\n';
     var bytes = new Uint8Array(out.length);
     for (var i = 0; i < out.length; i++) bytes[i] = out.charCodeAt(i) & 0xff;
     return { bytes: bytes, paginas: n, cajas: cajas };

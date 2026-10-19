@@ -196,7 +196,7 @@ async function prueba(verbose, escenario) {
     console.log(tag, '| panel firma:', (await p.textContent('#detFirma')).replace(/\s+/g, ' ').slice(0, 160));
     posts.length = 0; await p.click('[data-firmarbae]'); await p.waitForTimeout(1500);
     const f1 = await p.evaluate(() => window.__firmas[0] && { alg: window.__firmas[0].alg, fmt: window.__firmas[0].fmt, prm: window.__firmas[0].prm, datos: window.__firmas[0].datos });
-    fs.writeFileSync(new URL('cuestionario.pdf', import.meta.url), Buffer.from(f1.datos, 'base64'));
+    fs.writeFileSync(new URL('cuestionario.pdf', import.meta.url), Buffer.from(f1.datos, 'base64')); fs.writeFileSync(new URL('cuestionario.params', import.meta.url), f1.prm);
     const ob = merge(7);
     console.log(tag, '| firma BAE:', f1.alg, f1.fmt, f1.prm.split('\n').slice(0, 5).join(','), '| adjuntos:', (adj[7] || []).map(a => a.FileName).join(','), '| anotación:', ob && (ob.Observaciones || '').replace(/<[^>]+>/g, ' ').trim().slice(-90));
     console.log(tag, '| tras firmar:', (await p.textContent('#dlg .okmsg')).slice(0, 80), '|', (await p.textContent('#detFirma')).replace(/\s+/g, ' ').slice(0, 200));
