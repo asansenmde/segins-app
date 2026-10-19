@@ -128,3 +128,18 @@ empresa») → «Copiar informe» (solo datos técnicos). Los PDF firmados se de
 
 Prueba simulada: `node vsa/pruebas/autofirma.mjs <certificado-DER-en-base64>` (AutoFirma sustituido; comprueba el PDF,
 la lectura del certificado, cancelación, AutoFirma no disponible y que no sale ninguna petición fuera).
+
+## Autoría y versión protegida para Colabora
+
+© 2026 Cte. Alfredo Sánchez Sender: aviso en la cabecera del HTML, `meta author/copyright` y pie visible con la versión
+(no sale al imprimir ni en los PDF/correos oficiales).
+
+- **`vsa.html`** (esta carpeta) es el **original legible**: el que se edita y se guarda en local/repositorio.
+- **`colabora/vsa.html`** es la **copia protegida** que se sube a Colabora. Se genera con
+  `cd vsa/proteger && npm install && node proteger.mjs` cada vez que cambia el original. El código de la aplicación va
+  ofuscado (javascript-obfuscator 5.9.0: nombres y textos cifrados, *self-defending*: deja de funcionar si se
+  reformatea) y con **bloqueo de dominio** (`.mdef.es`): fuera de Colabora/Defensa la página no arranca. La librería de
+  AutoFirma se deja sin tocar, con su licencia.
+- Ninguna protección en un navegador es absoluta (quien abre la página puede descargarla), pero así no se puede leer,
+  reutilizar ni modificar con facilidad.
+- Probar la copia protegida: `VSA_HTML=vsa/colabora/vsa.html node vsa/pruebas/simulacion.mjs`.

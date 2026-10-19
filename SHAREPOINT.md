@@ -118,6 +118,14 @@ de prueba `vsa/prueba-autofirma.html` (elegir certificado, firmar un PDF y una s
   `Modified`). El estado de firmas se deduce de los nombres de los adjuntos; al subir el PDF de la otra parte,
   comprobar que tiene ≥ 2 `/ByteRange` y que empieza por los bytes del PDF ya firmado.
 
+## Autoría y copia protegida (modelo: `vsa/proteger/`)
+
+Original legible en el repositorio; a Colabora se sube una copia generada con `javascript-obfuscator` (solo el último
+`<script>`, el de la aplicación; las librerías de terceros con licencia, como AutoFirma, se dejan tal cual), con
+`selfDefending` y `domainLock: ['.mdef.es']`. Aviso de autoría «© 2026 Cte. Alfredo Sánchez Sender» en cabecera HTML,
+`meta author` y pie visible (oculto al imprimir). Las pruebas simuladas se pasan también contra la copia protegida
+(el origen simulado `https://colabora.mdef.es` cumple el bloqueo de dominio).
+
 ## Pruebas
 
 Playwright contra un SharePoint simulado (rutas `page.route`), con formato ligero y *verbose*, alta,

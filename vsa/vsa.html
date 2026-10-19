@@ -1,7 +1,14 @@
 <!doctype html>
+<!--
+  Cuestionario de calidad VSA · Inspección General del Ejército
+  © 2026 Cte. Alfredo Sánchez Sender. Desarrollador y autor de esta aplicación. Todos los derechos reservados.
+  Prohibida su copia, modificación o redistribución sin autorización del autor.
+-->
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta name="author" content="Cte. Alfredo Sánchez Sender">
+<meta name="copyright" content="© 2026 Cte. Alfredo Sánchez Sender">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cuestionario de calidad VSA · IGE</title>
 <!--
@@ -36,6 +43,8 @@
   .quien { font-size: .85rem; font-weight: 700; background: rgba(255,255,255,.14); border: 1px solid rgba(232,215,160,.5); border-radius: 9px; padding: 5px 10px; }
   @media (max-width: 600px) { .oficial .org { display: none; } .oficial > div { grid-template-columns: auto 1fr; } .oficial .uso { justify-self: end; } .top h1 { font-size: 1rem; } }
   main { max-width: 1180px; margin: 0 auto; padding: 0 16px 60px; }
+  .autor { max-width: 1180px; margin: -40px auto 0; padding: 12px 16px 24px; text-align: center; font-size: .78rem; color: var(--muted); border-top: 1px solid var(--line); }
+  @media print { .autor { display: none; } }
   nav.tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; margin: 12px 0; flex-wrap: wrap; }
   nav.tabs a { flex: 1; text-align: center; padding: 8px 4px; border-radius: 9px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .9rem; cursor: pointer; white-space: nowrap; }
   nav.tabs a.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
@@ -164,6 +173,7 @@
   <nav class="tabs" id="tabs"></nav>
   <div id="vista"><p class="muted">Leyendo los cuestionarios de calidad VSA…</p></div>
 </main>
+<footer class="autor">© 2026 · Aplicación desarrollada por el <b>Cte. Alfredo Sánchez Sender</b> · Todos los derechos reservados · <span id="verPie"></span></footer>
 <dialog id="dlg"></dialog>
 <script>
 /* Cliente @firma «autoscript.js» 1.10.1 (Gobierno de España, CTT: github.com/ctt-gob-es/clienteafirma, commit 0d7f3cf).
@@ -6378,7 +6388,10 @@ var Cipher = {
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-19 · 8';
+  var VERSION = '2026-10-19 · 9';
+  var AUTOR = 'Cte. Alfredo Sánchez Sender';
+  $('#verPie').textContent = 'versión ' + VERSION;
+  try { console.info('Cuestionario de calidad VSA · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
   var CLAVE = 'vsa-calidad-ige';
   var pref = { sitio: '/et/jige/colaborativo', lista: 'CUESTIONARIO DE CALIDAD VSA', vista: 'panel', correo: true,
     f: { q: '', fase: '', empresa: '', suige: '', anio: '', nov: '', desde: '', hasta: '' }, agrupar: 'empresa' };
