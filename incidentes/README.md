@@ -141,3 +141,19 @@ sino una regla o flujo de trabajo de la lista heredado de InfoPath: desactivarla
   probabilidad y por tipo, lugares con incidentes repetidos, relación de partes y, opcional, el detalle de cada parte
   con sus textos, las valoraciones de SUIGE/DIACU/IGE y el historial (se leen solo al imprimir). Impresión oficial
   (PDF) y CSV. Sin borradores.
+
+## Control de acceso (acreditaciones) · 20/10/2026
+
+Como VSA (receta en `SHAREPOINT.md`). Tiene acceso quien esté en `SEGURIDAD_<SUIGE>`, `SEGURIDAD_IGE`, en el grupo propio
+**`INCIDENTES_UNIDADES`** (unidades que notifican partes) o tenga Control total. Quien no, ve «🔒 No tienes acceso» y el
+formulario «Solicitar acceso» (lista común «SOLICITUDES DE ACCESO», `Aplicacion` = INCIDENTES).
+
+- **Transición** (`ACCESO.transicion`): quien ya figura en algún parte (lo dio de alta o es responsable) sigue entrando
+  con un aviso de «acceso provisional» y un botón para pedir la acreditación. Cuando todos estén acreditados, poner
+  `transicion: false`.
+- **Aviso de cada solicitud** por correo al grupo «Propietarios Colaborativo» y a los propietarios del sitio
+  (`AssociatedOwnerGroup`). En Accesos › Preparación, «Probar el aviso» manda uno de prueba y dice si quien lo pulsa está
+  entre los destinatarios. Para que salga cuando lo pide alguien sin acceso, esos grupos deben dejar ver sus miembros a
+  «Todos»; como respaldo, «Alertarme» en la lista de solicitudes.
+- Pestaña **Accesos** (Control total): preparación, solicitudes pendientes (solo las de INCIDENTES), aprobar (alta en el
+  grupo y correo), denegar, miembros y retirar acceso.

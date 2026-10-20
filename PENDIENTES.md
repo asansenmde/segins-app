@@ -13,6 +13,8 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
    - **Hecho:** VSA (19/10/2026) e Incidentes (20/10/2026). **Falta:** Permisos y Tareas Colabora.
 2. **Control de acceso con solicitud** (receta «Control de acceso con solicitud»): pantalla «Solicitar acceso»,
    lista común «SOLICITUDES DE ACCESO» (columna `Aplicacion`), pestaña «Accesos», grupo propio de cada aplicación.
+   - **Hecho:** VSA (17/10/2026) e Incidentes (20/10/2026, con transición y aviso por correo de cada solicitud).
+     **Falta:** Permisos y Tareas Colabora.
 3. **Firma electrónica con AutoFirma / portafirmas** (receta «Firma electrónica con AutoFirma») donde haya que firmar
    documentos: PDF generado en la página, firma PAdES visible, adjunto al elemento y segunda firma si procede.
 

@@ -51,6 +51,8 @@
   nav.tabs a { flex: 1; text-align: center; padding: 8px 4px; border-radius: 9px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .9rem; cursor: pointer; white-space: nowrap; }
   nav.tabs a.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
   nav.tabs a i { font-style: normal; background: var(--bad); color: #fff; border-radius: 999px; padding: 0 7px; margin-left: 4px; font-size: .78rem; }
+  [hidden] { display: none !important; }
+  .card.turno { border-left: 5px solid #d99a00; } .txt-bad { color: var(--bad); font-weight: 700; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
   .muted { color: var(--muted); } .small { font-size: .85rem; }
   button, .btn { font: inherit; font-size: .9rem; font-weight: 600; padding: 7px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); color: var(--text); cursor: pointer; text-decoration: none; display: inline-block; text-align: center; }
@@ -216,7 +218,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-20 · 16';
+  var VERSION = '2026-10-20 · 17';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -252,6 +254,10 @@
   // Grupo al que se avisa por correo en cada paso
   var GRUPO_CORREO = { diacu: ['SEGURIDAD_IGE'], ige: ['SEGURIDAD_IGE'],
     suige: function (s) { return s === 'SECOORCEN' ? ['SEGURIDAD_SECORCEN'] : s === 'JEFATURA DE IGE' ? ['SEGURIDAD_IGE'] : s ? ['SEGURIDAD_' + s] : []; } };
+  // Control de acceso (como VSA): grupo propio de las unidades, lista común de solicitudes y a quién se avisa de cada una.
+  // transicion: quien ya figura en algún parte (lo dio de alta o es responsable) sigue entrando mientras se le acredita.
+  var ACCESO = { app: 'INCIDENTES', lista: 'SOLICITUDES DE ACCESO', grupoBae: 'INCIDENTES_UNIDADES', grupos: ['INCIDENTES_UNIDADES'], avisar: ['Propietarios Colaborativo'], transicion: true,
+    papeles: [['Unidad: notificar incidentes de seguridad', 'bae'], ['Negociado de Seguridad de una SUIGE (valorar)', 'suige'], ['DIACU / IGE', 'ige'], ['Solo consulta', 'bae']] };
   // MN1–MN4 tienen nombre interno «_x004d_N1»…: en el REST de SharePoint, los que empiezan por «_» se llaman «OData_…»
   var MANDOS = ['MANDO1N', 'MANDO2N', 'MANDO3N', 'OData__x004d_N1', 'OData__x004d_N2', 'OData__x004d_N3', 'OData__x004d_N4'];
   // SUIGE de un texto (columna SUIGES, nombre del grupo o cadena de mando)
@@ -362,7 +368,7 @@
   function cargar() {
     $('#estadoCarga').textContent = 'Cargando…';
     web = location.origin + pref.sitio.replace(/\/+$/, '');
-    var grupoIds = []; omitidas = []; sencilla = false;
+    var grupoIds = []; omitidas = []; sencilla = false; errLista = null;
     return Promise.all([
       api(web + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) { yo = { Id: u.Id, Title: u.Title, Email: u.Email || '', LoginName: u.LoginName || '' }; $('#quien').textContent = '👤 ' + u.Title; $('#quien').hidden = false; }),
       api(web + '/_api/web/currentuser/groups?$select=Id,Title').then(function (d) {
@@ -375,7 +381,7 @@
         esGestor = (low & 0x800) !== 0;      // Administrar listas
         esAdmin = (low & 0x2000000) !== 0;   // Administrar permisos (Control total)
         if (!esAdmin) pref.correo = true;
-      })
+      }, function (e) { listaInfo = null; errLista = e; })
     ]).then(function () {
       misSuiges = []; esDiacu = false; esIge = false;
       misGrupos.forEach(function (gr) {
@@ -384,10 +390,17 @@
         if (ROLES.diacu.test(x)) esDiacu = true;
         if (ROLES.ige.test(x)) esIge = true;
       });
-      $('#nuevo').hidden = false;
+      // Sin permiso en la lista o sin acreditación: formulario para solicitar acceso
+      if (errLista && [403, 404].indexOf(errLista.status) >= 0) { pantallaAcceso('Colabora no te deja leer la lista.'); return null; }
+      if (errLista) throw errLista;
       return leerIncidentes(grupoIds, true);
     }).then(function (its) {
-      items = its.map(aInc);
+      if (!its) return;
+      var ls = its.map(aInc);
+      if (!tieneAcceso() && !(ACCESO.transicion && ls.some(esMio))) { pantallaAcceso(''); return; }
+      provisional = !tieneAcceso();
+      $('#nuevo').hidden = false;
+      items = ls;
       cargadoEn = new Date();
       $('#estadoCarga').textContent = items.length + ' incidentes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
       $('#estadoCarga').title = 'Versión de la página: ' + VERSION;
@@ -406,7 +419,7 @@
   }
   // Si Colabora rechaza una columna (400 «el campo X no existe»), se quita esa columna y se repite; se avisa en el panel
   var omitidas = [];
-  var sencilla = false;
+  var sencilla = false, errLista = null, provisional = false;
   // Lectura de respaldo: solo columnas propias (sin «/», sin $expand) y las personas por su número
   function leerSencilla(resto, errorOriginal) {
     sencilla = true;
@@ -577,6 +590,7 @@
     return '<div class="hero"><div class="hola">Incidentes de seguridad en instalaciones</div><div class="nom">👤 ' + esc(yo.Title) + '</div>' +
       (papeles.length ? papeles.map(function (p) { return '<span class="rolh">' + esc(p) + '</span>'; }).join('') : '<span class="rolh">Sin papel de valoración</span>') +
       '<p>' + esc(alcanceTxt()) + '</p></div>' +
+      (provisional ? '<div class="aviso">Entras de forma <b>provisional</b> porque ya figuras en algún parte. Pide tu acreditación para seguir usando la aplicación. <button class="prim" data-accpedir="1">Solicitar acreditación</button></div>' : '') +
       (omitidas.length ? '<div class="aviso">Colabora no dejó leer estas columnas y se muestran vacías: ' + esc(omitidas.join(', ')) + '. Dímelo para revisarlo.</div>' : '') +
       '<div class="mini">' +
       '<div data-ir="pendientes"><span class="ic r">⏳</span><div><b>' + nPend() + '</b><span>Esperan mi acción</span></div></div>' +
@@ -734,12 +748,12 @@
       '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">La página trabaja dentro de Colabora con tu sesión y tus permisos. No envía nada fuera del servidor. Los textos del parte (observación, análisis, medidas…) solo se leen al abrir un incidente. La protección real es la de los permisos de la lista.</p></div>';
   }
   function render() {
-    var vistas = [['panel', 'Incidentes registrados'], ['pendientes', 'Pendiente de valoración y tramitación'], ['consulta', 'Búsqueda y consulta'], ['estadisticas', 'Estadísticas'], ['informe', 'Informes']].concat(cargadoEn && esAdmin ? [['ajustes', 'Ajustes']] : []);
-    if (pref.vista === 'ajustes' && (!cargadoEn || !esAdmin)) pref.vista = 'panel';
-    var cuenta = { pendientes: cargadoEn ? nPend() : 0 };
+    var vistas = [['panel', 'Incidentes registrados'], ['pendientes', 'Pendiente de valoración y tramitación'], ['consulta', 'Búsqueda y consulta'], ['estadisticas', 'Estadísticas'], ['informe', 'Informes']].concat(cargadoEn && esAdmin ? [['accesos', 'Accesos'], ['ajustes', 'Ajustes']] : []);
+    if ((pref.vista === 'ajustes' || pref.vista === 'accesos') && (!cargadoEn || !esAdmin)) pref.vista = 'panel';
+    var cuenta = { pendientes: cargadoEn ? nPend() : 0, accesos: nPendAcc() };
     $('#tabs').innerHTML = vistas.map(function (v) { return '<a data-v="' + v[0] + '" class="' + (pref.vista === v[0] ? 'on' : '') + '">' + v[1] + (cuenta[v[0]] ? '<i>' + cuenta[v[0]] + '</i>' : '') + '</a>'; }).join('');
     if (!cargadoEn) return;
-    $('#vista').innerHTML = ({ panel: vistaPanel, pendientes: vistaPendientes, consulta: vistaConsulta, estadisticas: vistaEstadisticas, informe: vistaInforme, ajustes: vistaAjustes }[pref.vista] || vistaPanel)();
+    $('#vista').innerHTML = ({ panel: vistaPanel, pendientes: vistaPendientes, consulta: vistaConsulta, estadisticas: vistaEstadisticas, informe: vistaInforme, accesos: vistaAccesos, ajustes: vistaAjustes }[pref.vista] || vistaPanel)();
   }
   var aviso = function (txt) { $('#estadoCarga').textContent = txt; setTimeout(function () { if (cargadoEn) $('#estadoCarga').textContent = items.length + ' incidentes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }, 3500); };
 
@@ -1506,6 +1520,335 @@
     descargar('informe-incidentes-' + hoy() + '.csv', '﻿' + filas.map(function (r) { return r.map(q).join(';'); }).join('\r\n'), 'text/csv;charset=utf-8');
   }
 
+  // ---------- Control de acceso: solicitudes y alta en el grupo ----------
+  // Tiene acceso quien esté en un grupo de papel (SEGURIDAD_SUIGE…, SEGURIDAD_IGE), en el grupo de unidades de la aplicación
+  // o administre la lista. Quien no, ve el formulario «Solicitar acceso», que se guarda en la lista de solicitudes.
+  // Quien tiene Control total aprueba en la pestaña «Accesos»: la página añade a la persona al grupo y le avisa.
+  var tieneAcceso = function () { return esAdmin || esGestor || misSuiges.length > 0 || esDiacu || esIge || misGrupos.some(function (g) { return ACCESO.grupos.indexOf(String(g).trim()) >= 0; }); };
+  var urlAcc = function () { return web + "/_api/web/lists/getbytitle('" + encodeURIComponent(ACCESO.lista.replace(/'/g, "''")) + "')"; };
+  var accInfo = null, accFaltan = [], accAbierta = null, accSols = null, accEstado = '', accMiembros = null, accGrupos = null, perfil = null;
+  var CAMPOS_ACC = [
+    '<Field Type="User" Name="Solicitante" StaticName="Solicitante" DisplayName="Solicitante" UserSelectionMode="PeopleOnly" />',
+    '<Field Type="Text" Name="Correo" StaticName="Correo" DisplayName="Correo" />',
+    '<Field Type="Text" Name="Empleo" StaticName="Empleo" DisplayName="Empleo" />',
+    '<Field Type="Text" Name="MandoSegundo" StaticName="MandoSegundo" DisplayName="Mando de 2.º nivel" />',
+    '<Field Type="Text" Name="Unidad" StaticName="Unidad" DisplayName="Unidad" />',
+    '<Field Type="Text" Name="Telefono" StaticName="Telefono" DisplayName="Teléfono" />',
+    '<Field Type="Text" Name="Papel" StaticName="Papel" DisplayName="Papel solicitado" />',
+    '<Field Type="Note" Name="Motivo" StaticName="Motivo" DisplayName="Motivo" NumLines="4" RichText="FALSE" />',
+    '<Field Type="Text" Name="Aplicacion" StaticName="Aplicacion" DisplayName="Aplicación" />',
+    '<Field Type="Choice" Name="EstadoSolicitud" StaticName="EstadoSolicitud" DisplayName="Estado"><Default>PENDIENTE</Default><CHOICES><CHOICE>PENDIENTE</CHOICE><CHOICE>APROBADA</CHOICE><CHOICE>DENEGADA</CHOICE><CHOICE>RETIRADA</CHOICE></CHOICES></Field>',
+    '<Field Type="Text" Name="GrupoAsignado" StaticName="GrupoAsignado" DisplayName="Grupo asignado" />',
+    '<Field Type="Note" Name="Resolucion" StaticName="Resolucion" DisplayName="Resolución" NumLines="3" RichText="FALSE" />',
+    '<Field Type="User" Name="ResueltoPor" StaticName="ResueltoPor" DisplayName="Resuelto por" UserSelectionMode="PeopleOnly" />',
+    '<Field Type="DateTime" Name="FechaResolucion" StaticName="FechaResolucion" DisplayName="Fecha de resolución" />'
+  ];
+  var SEL_ACC = ['Id', 'Title', 'Correo', 'Empleo', 'MandoSegundo', 'Unidad', 'Telefono', 'Papel', 'Motivo', 'Aplicacion', 'EstadoSolicitud', 'GrupoAsignado', 'Resolucion', 'FechaResolucion', 'Created', 'Modified',
+    'Solicitante/Id', 'Solicitante/Title', 'Solicitante/EMail', 'ResueltoPor/Title'];
+  var aSol = function (x) {
+    return { id: x.Id, nombre: x.Title || (x.Solicitante && x.Solicitante.Title) || '', sol: persona(x.Solicitante), correo: x.Correo || (x.Solicitante && x.Solicitante.EMail) || '', empleo: x.Empleo || '',
+      mando: x.MandoSegundo || '', unidad: x.Unidad || '', tel: x.Telefono || '', papel: x.Papel || '', motivo: x.Motivo || '', estado: String(x.EstadoSolicitud || 'PENDIENTE').toUpperCase(),
+      grupo: x.GrupoAsignado || '', resolucion: x.Resolucion || '', resuelto: x.ResueltoPor && x.ResueltoPor.Title || '', fechaRes: x.FechaResolucion, creado: x.Created, modificado: x.Modified };
+  };
+  // Mis solicitudes (con «leer solo sus elementos» en la lista, cada uno ve solo las suyas)
+  function misSolicitudes() {
+    return todas(urlAcc() + '/items?$top=50&$select=' + SEL_ACC.join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent('(SolicitanteId eq ' + yo.Id + ") and (Aplicacion eq '" + ACCESO.app + "')"))
+      .then(function (l) { return l.map(aSol).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); }); });
+  }
+  // Datos del directorio del usuario (departamento y cargo), si el servidor los da: sirven para proponer la unidad
+  function leerPerfil() {
+    if (perfil) return Promise.resolve(perfil);
+    return api(web + '/_api/SP.UserProfiles.PeopleManager/GetMyProperties?$select=DisplayName,Title,Email,UserProfileProperties').then(function (d) {
+      var props = {}; lista(d.UserProfileProperties).forEach(function (p) { props[p.Key] = p.Value; });
+      perfil = { cargo: d.Title || props.Title || '', departamento: props.Department || props['SPS-Department'] || '', telefono: props.WorkPhone || '' };
+      return perfil;
+    }).catch(function () { perfil = {}; return perfil; });
+  }
+  function pantallaAcceso(motivo) {
+    cargadoEn = null; $('#nuevo').hidden = true; $('#tabs').innerHTML = '';
+    $('#estadoCarga').textContent = 'Sin acceso';
+    $('#vista').innerHTML = '<div class="card"><p class="muted">Comprobando tus solicitudes…</p></div>';
+    Promise.all([misSolicitudes().catch(function (e) { return { error: e }; }), leerPerfil(), cargarAux().catch(function () { return { m1: [], m2: [], m3: [], faltan: [] }; })]).then(function (r) {
+      var sols = r[0], P = r[1], A = r[2];
+      var cab = '<div class="card" style="border-left:5px solid var(--bad)"><h3 style="margin-top:0">🔒 No tienes acceso a «Incidentes de seguridad en instalaciones»</h3>' +
+        '<p class="small">Esta aplicación es para las unidades que notifican incidentes, los Negociados de Seguridad de las SUIGE y DIACU/IGE. ' + (motivo ? esc(motivo) + ' ' : '') +
+        'Si la necesitas, solicita el acceso: se revisará y recibirás un correo con la respuesta.</p>' +
+        '<p class="small muted">Sesión: <b>' + esc(yo.Title) + '</b>' + (yo.Email ? ' · ' + esc(yo.Email) : '') + '</p></div>';
+      if (sols && sols.error) {
+        var st = sols.error.status;
+        $('#vista').innerHTML = cab + '<div class="aviso">' + (st === 401 || st === 403 || st === 404 ?
+          'No puedes usar la lista «' + esc(ACCESO.lista) + '»: ' + (st === 404 ? 'todavía no existe o Colabora no te deja verla' : 'Colabora no te deja abrirla') + '. ' +
+          'El administrador debe entrar en la pestaña <b>Accesos › Preparación</b> y ' + (st === 404 ? 'crear la lista (si falta) y ' : '') + 'pulsar «Permitir que cualquiera solicite acceso». ' :
+          'No se pudieron leer tus solicitudes de acceso. ') +
+          'Mientras tanto, pide el acceso directamente al administrador de la página.<div class="small muted">Detalle: ' + esc(sols.error.message || sols.error) + ' · versión ' + esc(VERSION) + '</div></div>';
+        return;
+      }
+      var pend = sols.filter(function (s) { return s.estado === 'PENDIENTE'; })[0], ult = sols[0];
+      var hist = sols.length ? '<div class="card"><h3 style="margin-top:0">Tus solicitudes</h3>' + sols.map(function (s) {
+        return '<div class="campo"><b>' + esc(fHora(s.creado)) + ' · ' + esc(s.papel) + '</b><div><span class="badge ' + (s.estado === 'APROBADA' ? 'f4' : s.estado === 'DENEGADA' ? 'f6' : 'f1') + '">' + esc(s.estado) + '</span> ' +
+          esc([s.unidad, s.mando].filter(Boolean).join(' · ')) + (s.resolucion ? '<br><span class="small">' + esc(s.resolucion) + '</span>' : '') + '</div></div>';
+      }).join('') + '</div>' : '';
+      if (pend) {
+        $('#vista').innerHTML = cab + '<div class="okmsg">Tu solicitud del ' + esc(fHora(pend.creado)) + ' está <b>PENDIENTE</b> de revisión. Recibirás un correo cuando se resuelva.</div>' + hist;
+        return;
+      }
+      if (ult && ult.estado === 'APROBADA') cab += '<div class="aviso">Tu solicitud fue aprobada (' + esc(ult.grupo) + '), pero Colabora aún no te reconoce en el grupo. Cierra el navegador, vuelve a entrar y pulsa «Actualizar». Si sigue igual, avisa al administrador.</div>';
+      var ige = A.m1.find(function (x) { return /\bIGE\b/.test(sinTildes(x.Title).toUpperCase()); });
+      var m2 = A.m2.filter(function (x) { return !ige || x.ID_M1NId === undefined || Number(x.ID_M1NId) === Number(ige.Id); });
+      $('#vista').innerHTML = cab + '<div class="card" id="fAcceso"><h3 style="margin-top:0">Solicitar acceso</h3>' +
+        '<div class="grid"><div><label class="lbl">Apellidos y nombre</label><input value="' + esc(yo.Title) + '" disabled></div>' +
+        '<div><label class="lbl">Correo</label><input value="' + esc(yo.Email) + '" disabled></div>' +
+        '<div><label class="lbl req">Empleo</label><select name="empleo"><option value="">Seleccionar…</option>' + EMPLEOS.map(function (e) { return '<option' + (sinTildes(P.cargo).toUpperCase() === sinTildes(e).toUpperCase() ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select></div>' +
+        '<div><label class="lbl">Teléfono</label><input name="tel" value="' + esc(P.telefono || '') + '" placeholder="RPV o fijo"></div></div>' +
+        '<div class="grid"><div><label class="lbl req">Mando de 2.º nivel</label><select name="m2"><option value="">Seleccionar…</option>' + m2.map(function (x) { return '<option value="' + x.Id + '">' + esc(x.Title) + '</option>'; }).join('') + '<option value="otro">Otro / no aparece</option></select></div>' +
+        '<div><label class="lbl req">Unidad</label><select name="m3" disabled><option value="">Elige primero el mando</option></select></div></div>' +
+        '<label class="lbl">Unidad, si no aparece en la lista</label><input name="unidadTxt" value="' + esc(P.departamento || '') + '" placeholder="Unidad, destino, negociado…">' +
+        '<label class="lbl req">Para qué necesitas el acceso</label><select name="papel"><option value="">Seleccionar…</option>' + ACCESO.papeles.map(function (p) { return '<option>' + esc(p[0]) + '</option>'; }).join('') + '</select>' +
+        '<label class="lbl">Motivo / observaciones</label><textarea name="motivo" placeholder="Por ejemplo: soy el jefe de seguridad de la unidad y tengo que notificar los incidentes…"></textarea>' +
+        '<div id="accErr"></div><div class="acciones"><button class="prim" data-accsolicitar="1">📨 Enviar solicitud de acceso</button></div></div>' + hist;
+      var f = $('#fAcceso'), q = function (n) { return f.querySelector('[name="' + n + '"]'); };
+      q('m2').onchange = function () {
+        var hijos = A.m3.filter(function (x) { return x.M2NId === undefined || Number(x.M2NId) === Number(q('m2').value); });
+        q('m3').innerHTML = q('m2').value && q('m2').value !== 'otro' ? '<option value="">Seleccionar…</option>' + hijos.map(function (x) { return '<option value="' + x.Id + '">' + esc(x.Title) + '</option>'; }).join('') + '<option value="otro">Otra / no aparece</option>' : '<option value="">—</option>';
+        q('m3').disabled = !q('m2').value || q('m2').value === 'otro';
+      };
+      f.dataset.listo = '1'; f._A = A;
+    });
+  }
+  function enviarSolicitud(boton) {
+    var f = $('#fAcceso'), q = function (n) { return f.querySelector('[name="' + n + '"]'); }, A = f._A;
+    var nom = function (l, id) { var x = l.find(function (y) { return String(y.Id) === String(id); }); return x ? x.Title : ''; };
+    var mando = q('m2').value === 'otro' ? '' : nom(A.m2, q('m2').value), unidad = q('m3').value && q('m3').value !== 'otro' ? nom(A.m3, q('m3').value) : q('unidadTxt').value.trim();
+    var err = function (m) { $('#accErr').innerHTML = '<div class="error">' + esc(m) + '</div>'; };
+    var faltan = [];
+    if (!q('empleo').value) faltan.push('empleo'); if (!q('m2').value) faltan.push('mando de 2.º nivel'); if (!unidad) faltan.push('unidad'); if (!q('papel').value) faltan.push('para qué necesitas el acceso');
+    if (faltan.length) return err('Falta: ' + faltan.join(', ') + '.');
+    boton.disabled = true;
+    var c = { Title: yo.Title, SolicitanteId: yo.Id, Correo: yo.Email, Empleo: q('empleo').value, MandoSegundo: mando || 'Otro', Unidad: unidad, Telefono: q('tel').value.trim(),
+      Papel: q('papel').value, Motivo: q('motivo').value.trim(), Aplicacion: ACCESO.app, EstadoSolicitud: 'PENDIENTE' };
+    api(urlAcc() + '?$select=ListItemEntityTypeFullName').then(function (l) {
+      return enviarSP(urlAcc() + '/items', Object.assign({ __metadata: { type: l.ListItemEntityTypeFullName } }, c), 'No tienes permiso para escribir en la lista de solicitudes de acceso');
+    }).then(function (n) {
+      var s = aSol(Object.assign({ Id: n && (n.Id || n.ID), Created: new Date().toISOString() }, c));
+      return (correoAcceso('nueva', s).then(enviarCorreo).catch(function () { return null; })).then(function () { pantallaAcceso(); });
+    }).catch(function (e) { boton.disabled = false; err('No se pudo enviar la solicitud: ' + (e.message || e)); });
+  }
+  // A quién avisa una solicitud nueva: los grupos de ACCESO.avisar y los propietarios del sitio. Quien solicita tiene
+  // que poder ver los integrantes de esos grupos («Quién puede ver los miembros: Todos») o el aviso no le sale.
+  function destAvisos(sinVer) {
+    var prop = api(web + '/_api/web/AssociatedOwnerGroup?$select=Title').then(function (g) { return g && g.Title ? [g.Title] : []; }).catch(function () { return []; });
+    return prop.then(function (pg) { return correosDeGrupos(ACCESO.avisar.concat(pg.filter(function (x) { return ACCESO.avisar.indexOf(x) < 0; })), sinVer); });
+  }
+  function probarAvisoSolicitud(boton) {
+    var el = $('#accPrueba');
+    boton.disabled = true; el.innerHTML = '<p class="small muted">Enviando…</p>';
+    var s = { nombre: yo.Title + ' (PRUEBA, no es una solicitud real)', correo: yo.Email, empleo: '', unidad: 'Prueba del aviso', mando: '', tel: '', papel: ACCESO.papeles[0][0], motivo: 'Comprobar que llegan los avisos de solicitudes de acceso.' };
+    correoAcceso('nueva', s).then(function (c) {
+      c.asunto = 'PRUEBA · ' + c.asunto;
+      var yoEsta = c.to.indexOf(String(yo.Email || '').toLowerCase()) >= 0;
+      return enviarCorreo(c).then(function (r) {
+        boton.disabled = false;
+        el.innerHTML = '<div class="' + (r.ok && yoEsta ? 'okmsg' : 'aviso') + '">' + (r.ok ? '✓ Aviso de prueba enviado a ' + c.to.length + ' persona' + (c.to.length === 1 ? '' : 's') + '. ' : '') +
+          (yoEsta ? 'Tú estás entre los destinatarios.' : '<b>Tú no estás entre los destinatarios</b>: entra en el grupo «' + esc(ACCESO.avisar[0]) + '» (o en los propietarios del sitio) para recibir los avisos.') + msgCorreo(r) + '</div>';
+      });
+    }).catch(function (e) { boton.disabled = false; el.innerHTML = '<div class="error">' + esc(e.message || e) + '</div>'; });
+  }
+  function correoAcceso(tipo, s, txt) {
+    var filas = [['Solicitante', s.nombre], ['Correo', s.correo], ['Empleo', s.empleo], ['Unidad', [s.unidad, s.mando].filter(Boolean).join(' · ')], ['Teléfono', s.tel], ['Papel solicitado', s.papel],
+      ['Motivo', s.motivo], ['Grupo asignado', s.grupo], ['Resolución', txt]].filter(function (x) { return x[1]; });
+    var P = { nueva: ['SOLICITUD DE ACCESO · INCIDENTES DE SEGURIDAD EN INSTALACIONES · ' + s.nombre, 'NUEVA SOLICITUD DE ACCESO A LA APLICACIÓN INCIDENTES DE SEGURIDAD EN INSTALACIONES. REVÍSELA EN LA PESTAÑA «ACCESOS».'],
+      aprobada: ['ACCESO CONCEDIDO · INCIDENTES DE SEGURIDAD EN INSTALACIONES', 'SU SOLICITUD DE ACCESO HA SIDO APROBADA. YA PUEDE UTILIZAR LA APLICACIÓN (SI NO LE RECONOCE, CIERRE EL NAVEGADOR Y VUELVA A ENTRAR).'],
+      denegada: ['ACCESO DENEGADO · INCIDENTES DE SEGURIDAD EN INSTALACIONES', 'SU SOLICITUD DE ACCESO NO HA SIDO APROBADA.'],
+      retirada: ['ACCESO RETIRADO · INCIDENTES DE SEGURIDAD EN INSTALACIONES', 'SE LE HA RETIRADO EL ACCESO A LA APLICACIÓN INCIDENTES DE SEGURIDAD EN INSTALACIONES.'] }[tipo];
+    var sinVer = [];
+    return (tipo === 'nueva' ? destAvisos(sinVer) : Promise.resolve([s.correo])).then(function (to) {
+      to = limpia(to);
+      return { to: to, cc: [], bcc: [], sinVer: sinVer, asunto: P[0], html: htmlCorreo(P[1], filas, enlacePagina()), texto: 'USO OFICIAL\n\n' + P[1] + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\n' + enlacePagina() };
+    });
+  }
+
+  // Pestaña «Accesos» (solo Control total)
+  function cargarAccesos() {
+    accEstado = 'cargando';
+    return Promise.all([
+      api(urlAcc() + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity').then(function (l) { accInfo = l; }, function () { accInfo = null; }),
+      todas(web + '/_api/web/sitegroups?$select=Id,Title&$top=5000').then(function (l) { accGrupos = l.map(function (g) { return g.Title; }); }, function () { accGrupos = []; })
+    ]).then(function () {
+      if (!accInfo) { accSols = []; accAbierta = null; accFaltan = []; return; }
+      return leerColumnas().then(leerApertura).then(function () { if (accFaltan.length) { accSols = []; return; } return todas(urlAcc() + '/items?$top=500&$select=' + SEL_ACC.join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent("Aplicacion eq '" + ACCESO.app + "'"))
+        .then(function (l) { accSols = l.map(aSol).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); }); }); });
+    }).then(function () {
+      if (accGrupos.indexOf(ACCESO.grupoBae) < 0) { accMiembros = null; return; }
+      return todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(ACCESO.grupoBae) + "')/users?$select=Id,Title,Email,LoginName").then(function (l) { accMiembros = l; }, function () { accMiembros = []; });
+    }).then(function () { accEstado = 'ok'; if (pref.vista === 'accesos') render(); }, function (e) { accEstado = 'error: ' + (e.message || e); if (pref.vista === 'accesos') render(); });
+  }
+  var grupoSugerido = function (s) {
+    var p = ACCESO.papeles.find(function (x) { return x[0] === s.papel; });
+    if (!p) return ACCESO.grupoBae;
+    if (p[1] === 'suige') { var su = normSuige(s.mando) || normSuige(s.unidad); return su ? GRUPO_CORREO.suige(su)[0] : ''; }
+    return p[1] === 'ige' ? 'SEGURIDAD_IGE' : ACCESO.grupoBae;
+  };
+  var nPendAcc = function () { return accSols ? accSols.filter(function (s) { return s.estado === 'PENDIENTE'; }).length : 0; };
+  function vistaAccesos() {
+    if (!esAdmin) return '<div class="card vacio">Solo para quien tiene «Control total» en la lista.</div>';
+    if (!accEstado) { cargarAccesos(); return '<div class="card"><p class="muted">Cargando solicitudes…</p></div>'; }
+    if (accEstado === 'cargando') return '<div class="card"><p class="muted">Cargando solicitudes…</p></div>';
+    var prep = '<div class="card"><h3 style="margin-top:0">Preparación <span class="small muted">· versión ' + esc(VERSION) + '</span></h3>' +
+      (accInfo && accFaltan.length ? '<p class="small">✕ <span class="txt-bad">A la lista «' + esc(ACCESO.lista) + '» le faltan columnas</span>: ' + esc(accFaltan.join(', ')) +
+        '. Sin ellas no se pueden guardar ni leer las solicitudes. <button class="prim" data-acccolumnas="1">Crear las columnas que faltan</button></p>' : '') +
+      '<p class="small">' + (accInfo ? '✔ Lista «' + esc(ACCESO.lista) + '» preparada' + (Number(accInfo.ReadSecurity) === 2 && Number(accInfo.WriteSecurity) === 2 ? ' (cada uno ve y edita solo sus solicitudes).' : '. <span class="txt-bad">Falta que cada usuario vea solo sus solicitudes</span>: Configuración de la lista › Configuración avanzada › «Leer: solo sus elementos» y «Crear y editar: solo sus elementos». <button class="prim" data-accseguridad="1">Ajustarlo ahora</button>') :
+        '✕ Falta la lista «' + esc(ACCESO.lista) + '». <button class="prim" data-acccrearlista="1">Crear la lista</button>') + '</p>' +
+      (accInfo ? '<p class="small">' + (accAbierta && accAbierta.abierta ? '✔ Cualquiera puede solicitar acceso (' + esc(accAbierta.quien) + ' puede añadir solicitudes).' :
+        '✕ ' + (accAbierta && accAbierta.error ? 'No se pudo comprobar quién puede escribir en la lista (' + esc(accAbierta.error) + ').' : 'Los usuarios sin acceso al sitio no pueden escribir en la lista y verán «No puedes usar la lista».') +
+        ' <button class="prim" data-accabrir="1">Permitir que cualquiera solicite acceso</button>') + '</p>' : '') +
+      '<p class="small">' + (accGrupos.indexOf(ACCESO.grupoBae) >= 0 ? '✔ Grupo «' + esc(ACCESO.grupoBae) + '» creado (' + (accMiembros ? accMiembros.length : 0) + ' personas).' :
+        '✕ Falta el grupo «' + esc(ACCESO.grupoBae) + '» para las unidades que notifican incidentes. <button class="prim" data-acccreargrupo="1">Crear el grupo</button>') + '</p>' +
+      '<p class="small">✉ Cada solicitud nueva se avisa por correo al grupo «' + esc(ACCESO.avisar.join('», «')) + '» y a los propietarios del sitio. ' +
+        '<button data-accprueba="1">Probar el aviso</button></p><div id="accPrueba"></div>' +
+      '<p class="small muted">Para que el aviso salga también cuando lo pide alguien sin acceso, en esos grupos «Configuración del grupo › Quién puede ver los miembros» debe ser «Todos». ' +
+        'Como respaldo, en la lista «' + esc(ACCESO.lista) + '» pulsa «Alertarme» (elementos nuevos) y SharePoint te avisará siempre.</p>' +
+      '<p class="small muted">La comprobación de acceso la hace esta página. Para que sea también la de Colabora, quita «Usuarios del dominio» de la lista «' + esc(pref.lista) + '» y da permiso a los grupos SEGURIDAD_* y ' + esc(ACCESO.grupoBae) + '. ' +
+      'La lista de solicitudes debe seguir permitiendo «Colaborar» a todos para que cualquiera pueda pedir acceso.</p></div>';
+    var pend = (accSols || []).filter(function (s) { return s.estado === 'PENDIENTE'; }), res = (accSols || []).filter(function (s) { return s.estado !== 'PENDIENTE'; });
+    var grupos = accGrupos.filter(function (g) { return /^SEGURIDAD_/i.test(g) || g === ACCESO.grupoBae; }).sort();
+    var ficha = function (s) {
+      return '<b>' + esc(s.nombre) + '</b>' + (s.empleo ? ' · ' + esc(s.empleo) : '') + '<div class="small">' + esc([s.unidad, s.mando].filter(Boolean).join(' · ')) + '</div>' +
+        '<div class="small muted">' + esc([s.correo, s.tel].filter(Boolean).join(' · ')) + ' · solicitado el ' + esc(fHora(s.creado)) + '</div>' +
+        '<div class="small">Papel: <b>' + esc(s.papel) + '</b>' + (s.motivo ? ' · ' + esc(s.motivo) : '') + '</div>';
+    };
+    var lPend = pend.map(function (s) {
+      var sug = grupoSugerido(s);
+      return '<div class="card turno" data-sol="' + s.id + '">' + ficha(s) +
+        '<div class="grid" style="margin-top:8px"><div><label class="lbl">Dar acceso en el grupo</label><select class="accGrupo">' + grupos.map(function (g) { return '<option' + (g === sug ? ' selected' : '') + '>' + esc(g) + '</option>'; }).join('') + '</select></div>' +
+        '<div><label class="lbl">Observación (opcional, se le envía)</label><input class="accTxt"></div></div>' +
+        '<div class="acciones"><button class="verde" data-accaprobar="' + s.id + '">✔ Aprobar y dar acceso</button><button class="peligro" data-accdenegar="' + s.id + '">✕ Denegar</button></div><div class="accMsg"></div></div>';
+    }).join('');
+    var lMiem = accMiembros ? accMiembros.map(function (u) {
+      return '<tr><td>' + esc(u.Title) + '</td><td>' + esc(u.Email || '') + '</td><td><button class="peligro" style="padding:3px 8px" data-accquitar="' + u.Id + '" data-nombre="' + esc(u.Title) + '" data-correo="' + esc(u.Email || '') + '">Quitar acceso</button></td></tr>';
+    }).join('') : '';
+    return prep +
+      '<div class="sec"><span>Solicitudes pendientes</span><span>' + pend.length + '</span></div>' + (lPend || '<div class="card vacio">No hay solicitudes pendientes.</div>') +
+      (accMiembros ? '<div class="sec"><span>Unidades con acceso (' + esc(ACCESO.grupoBae) + ')</span><span>' + accMiembros.length + '</span></div><div class="card"><table class="t"><tr><th>Nombre</th><th>Correo</th><th></th></tr>' + (lMiem || '<tr><td colspan="3" class="muted">Nadie aún.</td></tr>') + '</table></div>' : '') +
+      '<details class="card"><summary style="cursor:pointer"><b>Solicitudes resueltas</b> <span class="muted">(' + res.length + ')</span></summary>' + (res.map(function (s) {
+        return '<div class="campo"><span class="badge ' + (s.estado === 'APROBADA' ? 'f4' : 'f6') + '">' + esc(s.estado) + '</span> ' + ficha(s) + '<div class="small muted">' + esc([s.grupo, s.resuelto, fHora(s.fechaRes), s.resolucion].filter(Boolean).join(' · ')) + '</div></div>';
+      }).join('') || '<p class="muted small">Ninguna.</p>') + '</details>';
+  }
+  function resolverSolicitud(id, aprobar, boton) {
+    var caja = boton.closest('[data-sol]'), s = accSols.find(function (x) { return x.id === id; });
+    var grupo = caja.querySelector('.accGrupo').value, txt = caja.querySelector('.accTxt').value.trim();
+    var msg = function (cls, t) { caja.querySelector('.accMsg').innerHTML = '<div class="' + cls + '">' + t + '</div>'; };
+    if (!aprobar && !txt) return msg('error', 'Indica el motivo de la denegación (se le envía).');
+    boton.disabled = true;
+    var alta = aprobar ? api(web + '/_api/web/getuserbyid(' + s.sol.Id + ')?$select=LoginName').then(function (u) {
+      return enviarSP(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(grupo.replace(/'/g, "''")) + "')/users", { __metadata: { type: 'SP.User' }, LoginName: u.LoginName }, 'No tienes permiso para añadir personas al grupo ' + grupo);
+    }) : Promise.resolve();
+    alta.then(function () {
+      return enviarSP(urlAcc() + '/items(' + id + ')', { __metadata: { type: accInfo.ListItemEntityTypeFullName }, EstadoSolicitud: aprobar ? 'APROBADA' : 'DENEGADA', GrupoAsignado: aprobar ? grupo : '',
+        Resolucion: txt, ResueltoPorId: yo.Id, FechaResolucion: new Date().toISOString() }, 'No tienes permiso para modificar la solicitud', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' });
+    }).then(function () {
+      s.grupo = aprobar ? grupo : '';
+      return pref.correo ? correoAcceso(aprobar ? 'aprobada' : 'denegada', s, txt).then(enviarCorreo) : null;
+    }).then(function (r) {
+      return cargarAccesos().then(function () { toast((aprobar ? 'Acceso concedido a ' : 'Solicitud denegada: ') + s.nombre + (r && r.ok ? ' · avisado por correo' : '')); });
+    }).catch(function (e) { boton.disabled = false; msg('error', 'No se pudo completar: ' + esc(e.message || e)); });
+  }
+  function quitarAcceso(boton) {
+    var id = Number(boton.dataset.accquitar), nombre = boton.dataset.nombre;
+    if (!window.confirm('¿Quitar a ' + nombre + ' del grupo ' + ACCESO.grupoBae + '? Dejará de tener acceso a la aplicación.')) return;
+    boton.disabled = true;
+    enviarSP(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(ACCESO.grupoBae) + "')/users/removebyid(" + id + ')', {}, 'No tienes permiso para modificar el grupo')
+      .then(function () { return pref.correo ? correoAcceso('retirada', { nombre: nombre, correo: boton.dataset.correo }).then(enviarCorreo) : null; })
+      .then(function () { return cargarAccesos(); }).then(function () { toast('Acceso retirado a ' + nombre); })
+      .catch(function (e) { boton.disabled = false; toast('No se pudo quitar: ' + (e.message || e)); });
+  }
+  // Preparación por quien tiene Control total: crea la lista de solicitudes (con sus columnas) y el grupo de unidades
+  function crearListaAcceso(boton) {
+    boton.disabled = true; toast('Creando la lista…');
+    enviarSP(web + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: ACCESO.lista, Description: 'Solicitudes de acceso a las aplicaciones de seguridad (creada por la página ' + ACCESO.app + ')' }, 'No tienes permiso para crear listas en el sitio')
+      .then(function () {
+        return CAMPOS_ACC.reduce(function (p, xml) {
+          return p.then(function () { return enviarSP(urlAcc() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas'); });
+        }, Promise.resolve());
+      })
+      .then(function () {
+        return soloSuyos().catch(function () { toast('Lista creada. Ajusta a mano «Leer y editar: solo sus elementos» en la configuración avanzada.'); });
+      })
+      .then(function () { return abrirLista().catch(function (e) { toast('Lista creada, pero no se pudo abrir a todos: ' + (e.message || e)); }); })
+      .then(function () { return cargarAccesos(); }).then(function () { toast('Lista de solicitudes de acceso creada'); })
+      .catch(function (e) { boton.disabled = false; toast('No se pudo crear la lista: ' + (e.message || e)); });
+  }
+  // Quién cuenta como «todos»: el mismo grupo que ya tiene el sitio (Usuarios del dominio, Todos…) o, si no, la notificación de «Todos»
+  var TODOS = /usuarios del dominio|domain users|usuarios autenticados|authenticated users|^todos\b|everyone|todos los usuarios/i;
+  var TODOS_LOGIN = /^c:0\(\.s\|true$|^c:0!\.s\|windows$/i;
+  var esTodos = function (m) { return m && (TODOS.test(m.Title || '') || TODOS.test(m.LoginName || '') || TODOS_LOGIN.test(m.LoginName || '')); };
+  var PUEDE_ESCRIBIR = [3, 4, 5, 6];  // Colaborar, Diseño, Control total, Editar
+  function asignaciones(url) {
+    return todas(url + '/roleassignments?$expand=Member,RoleDefinitionBindings&$select=PrincipalId,Member/Title,Member/LoginName,Member/Id,RoleDefinitionBindings/RoleTypeKind,RoleDefinitionBindings/Name');
+  }
+  function leerApertura() {
+    return Promise.all([api(urlAcc() + '?$select=HasUniqueRoleAssignments').catch(function () { return {}; }), asignaciones(urlAcc())]).then(function (r) {
+      var a = r[1].find(function (x) { return esTodos(x.Member) && lista(x.RoleDefinitionBindings).some(function (b) { return PUEDE_ESCRIBIR.indexOf(Number(b.RoleTypeKind)) >= 0; }); });
+      accAbierta = { abierta: !!a, quien: a ? a.Member.Title || a.Member.LoginName : '', propios: !!r[0].HasUniqueRoleAssignments };
+    }, function (e) { accAbierta = { abierta: false, error: e.message || String(e) }; });
+  }
+  function buscarTodos() {
+    var urlCuest = urlLista();
+    return asignaciones(web + '/_api/web').catch(function () { return []; }).then(function (l) {
+      return l.length && l.some(function (x) { return esTodos(x.Member); }) ? l : asignaciones(urlCuest).catch(function () { return []; });
+    }).then(function (l) {
+      var m = l.map(function (x) { return x.Member; }).filter(esTodos)[0];
+      if (m) return m.Id || m.PrincipalId;
+      return enviarSP(web + '/_api/web/ensureuser', { logonName: 'c:0(.s|true' }, 'No tienes permiso para añadir usuarios al sitio').then(function (u) { return u.Id; });
+    });
+  }
+  function abrirLista() {
+    var propio = accAbierta && accAbierta.propios;
+    return (propio ? Promise.resolve() : enviarSP(urlAcc() + '/breakroleinheritance(copyRoleAssignments=true,clearSubscopes=true)', {}, 'No tienes permiso para cambiar los permisos de la lista'))
+      .then(function () { return Promise.all([buscarTodos(), api(web + '/_api/web/roledefinitions/getbytype(3)?$select=Id')]); })
+      .then(function (r) {
+        if (!r[0]) throw new Error('No se encontró el grupo «Usuarios del dominio» ni «Todos»');
+        return enviarSP(urlAcc() + '/roleassignments/addroleassignment(principalid=' + Number(r[0]) + ',roledefid=' + Number(r[1].Id) + ')', {}, 'No tienes permiso para cambiar los permisos de la lista');
+      });
+  }
+  function abrirListaAcceso(boton) {
+    boton.disabled = true; toast('Dando permiso para solicitar acceso…');
+    abrirLista().then(function () { return cargarAccesos(); }).then(function () { toast(accAbierta && accAbierta.abierta ? 'Listo: cualquiera puede solicitar acceso' : 'Permiso dado; si sigue en ✕, revisa los permisos de la lista a mano'); })
+      .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
+  }
+  // Columnas de la lista de solicitudes que faltan (p. ej. si la lista se creó a mano)
+  var nombreCampo = function (xml) { return /Name="([^"]+)"/.exec(xml)[1]; };
+  function leerColumnas() {
+    return todas(urlAcc() + '/fields?$select=InternalName&$top=500').then(function (l) {
+      var hay = l.map(function (x) { return x.InternalName; });
+      accFaltan = CAMPOS_ACC.map(nombreCampo).filter(function (n) { return hay.indexOf(n) < 0; });
+    }, function () { accFaltan = []; });
+  }
+  function crearColumnas(boton) {
+    boton.disabled = true; toast('Creando columnas…');
+    CAMPOS_ACC.filter(function (xml) { return accFaltan.indexOf(nombreCampo(xml)) >= 0; }).reduce(function (p, xml) {
+      return p.then(function () { return enviarSP(urlAcc() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas'); });
+    }, Promise.resolve()).then(function () { return cargarAccesos(); })
+      .then(function () { toast(accFaltan.length ? 'Siguen faltando: ' + accFaltan.join(', ') : 'Columnas creadas'); })
+      .catch(function (e) { boton.disabled = false; toast('No se pudieron crear las columnas: ' + (e.message || e)); cargarAccesos(); });
+  }
+  // «Leer: solo sus elementos» y «Crear y editar: solo sus elementos» (configuración avanzada de la lista)
+  function soloSuyos() {
+    return enviarSP(urlAcc(), { __metadata: { type: 'SP.List' }, ReadSecurity: 2, WriteSecurity: 2 }, 'No tienes permiso para cambiar la configuración de la lista', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' });
+  }
+  function ajustarSeguridad(boton) {
+    boton.disabled = true;
+    soloSuyos().then(function () { return cargarAccesos(); }).then(function () {
+      toast(Number(accInfo && accInfo.ReadSecurity) === 2 ? 'Listo: cada usuario ve y edita solo sus solicitudes' : 'Colabora no aceptó el cambio: hazlo a mano en Configuración de la lista › Configuración avanzada');
+    }).catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e) + '. Hazlo a mano en Configuración de la lista › Configuración avanzada.'); });
+  }
+  function crearGrupoBae(boton) {
+    boton.disabled = true;
+    enviarSP(web + '/_api/web/sitegroups', { __metadata: { type: 'SP.Group' }, Title: ACCESO.grupoBae, Description: 'Unidades con acceso a Incidentes de seguridad en instalaciones' }, 'No tienes permiso para crear grupos en el sitio')
+      .then(function () { return cargarAccesos(); }).then(function () { toast('Grupo ' + ACCESO.grupoBae + ' creado'); })
+      .catch(function (e) { boton.disabled = false; toast('No se pudo crear el grupo: ' + (e.message || e)); });
+  }
+  var toast = function (t) { aviso(t); };
+
   function descFiltros() {
     var f = pref.f, x = [];
     if (f.fase !== '') x.push('Fase: ' + (f.fase === 'abiertos' ? 'expedientes abiertos' : FASES[Number(f.fase)])); if (f.tipo) x.push('Tipo: ' + f.tipo); if (f.suige) x.push('SUIGE: ' + f.suige);
@@ -1531,7 +1874,18 @@
     var el = e.target;
     var tab = el.closest('#tabs a');
     if (tab) { pref.vista = tab.dataset.v; guardarPref(); render(); return; }
-    if (el.closest('#recargar')) { cargar(); return; }
+    if (el.closest('#recargar')) { accEstado = ''; cargar().then(function () { if (esAdmin && cargadoEn) cargarAccesos(); }); return; }
+    if (el.closest('[data-accpedir]')) { pantallaAcceso('Entras de forma provisional.'); return; }
+    if (el.closest('[data-accprueba]')) { probarAvisoSolicitud(el.closest('[data-accprueba]')); return; }
+    if (el.closest('[data-accsolicitar]')) { enviarSolicitud(el.closest('[data-accsolicitar]')); return; }
+    var ap = el.closest('[data-accaprobar]'), dn = el.closest('[data-accdenegar]');
+    if (ap || dn) { resolverSolicitud(Number((ap || dn).dataset[ap ? 'accaprobar' : 'accdenegar']), !!ap, ap || dn); return; }
+    if (el.closest('[data-accquitar]')) { quitarAcceso(el.closest('[data-accquitar]')); return; }
+    if (el.closest('[data-acccrearlista]')) { crearListaAcceso(el.closest('[data-acccrearlista]')); return; }
+    if (el.closest('[data-acccolumnas]')) { crearColumnas(el.closest('[data-acccolumnas]')); return; }
+    if (el.closest('[data-accseguridad]')) { ajustarSeguridad(el.closest('[data-accseguridad]')); return; }
+    if (el.closest('[data-accabrir]')) { abrirListaAcceso(el.closest('[data-accabrir]')); return; }
+    if (el.closest('[data-acccreargrupo]')) { crearGrupoBae(el.closest('[data-acccreargrupo]')); return; }
     if (el.closest('#nuevo')) { if (!cargadoEn) return; if (FORM_PROPIO) formulario(null); else window.open(urlFormulario('nuevo'), '_blank'); return; }
     var edp = el.closest('[data-editar]');
     if (edp) { var tp = items.find(function (x) { return x.id === Number(edp.dataset.editar); }); if (tp) { if (FORM_PROPIO) formulario(tp); else window.open(urlFormulario('editar', tp.id), '_blank'); } return; }
@@ -1578,7 +1932,7 @@
   $('#dlg').addEventListener('close', function () { dlgId = null; });
 
   render();
-  cargar();
+  cargar().then(function () { if (esAdmin && cargadoEn) cargarAccesos().then(render); });
 })();
 </script>
 </body>

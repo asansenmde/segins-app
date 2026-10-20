@@ -9,7 +9,7 @@ const O = 'https://colabora.mdef.es', WEB = '/et/jige/colaborativo';
 const YO = { Id: 50, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.es' };
 const P = { 61: { Id: 61, Title: 'JEFE UNIDAD A', EMail: 'jefea@et.mde.es' }, 62: { Id: 62, Title: 'JEFE UNIDAD B', EMail: 'jefeb@et.mde.es' } };
 const GRUPOS = { SEGURIDAD_SUIGESUR: 101, SEGURIDAD_SUIGENOR: 102, SEGURIDAD_SUIGECAN: 103, SEGURIDAD_DIAPER: 104, SEGURIDAD_IGE: 105, 'Integrantes de la Colaborativo': 106 };
-const MIEMBROS = { SEGURIDAD_SUIGESUR: ['sur1@et.mde.es', 'sur2@et.mde.es'], SEGURIDAD_SUIGENOR: ['nor1@et.mde.es'], SEGURIDAD_SUIGECAN: ['can1@et.mde.es'], SEGURIDAD_DIAPER: ['diacu1@et.mde.es'], SEGURIDAD_IGE: ['ige1@et.mde.es'] };
+const MIEMBROS = { 'Propietarios Colaborativo': ['admin1@et.mde.es'], SEGURIDAD_SUIGESUR: ['sur1@et.mde.es', 'sur2@et.mde.es'], SEGURIDAD_SUIGENOR: ['nor1@et.mde.es'], SEGURIDAD_SUIGECAN: ['can1@et.mde.es'], SEGURIDAD_DIAPER: ['diacu1@et.mde.es'], SEGURIDAD_IGE: ['ige1@et.mde.es'] };
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(9, 0, 0, 0); return x.toISOString(); };
 let expandRoto = false, faltaCampo = null, items, misGrupos = [], admin = false, sinSubstringof = false, ultimoFiltro = '', lecturaMinima = '';
 const base = { A_x00f1_o: '2026', Provincia: 'SEVILLA', Empleo: 'SARGENTO', ZONASE_x00d1_ALIZADA: true, Reiterada: 'NO', Denuncia: false, ValoradoPorSUIGE: false, ValoradoPorDIACU: false, ValoradoPorIGE: false,
@@ -24,7 +24,7 @@ const AUXL = {
   PROVINCIAS: [{ Id: 1, Title: 'SEVILLA' }, { Id: 2, Title: 'LEÓN' }, { Id: 3, Title: 'BURGOS' }],
   empleos: [{ Id: 1, Title: 'CORONEL' }, { Id: 2, Title: 'COMANDANTE' }, { Id: 3, Title: 'SARGENTO' }]
 };
-let sinEmpleos = false, rechazaFrom = false, grupoUnico = false;
+let sols = [], unidades = [], anadidos = [], sinEmpleos = false, rechazaFrom = false, grupoUnico = false;
 const sur = { MANDO2N: '1', MANDO3N: '1', OData__x004d_N2: 'SUIGESUR', OData__x004d_N3: 'ACUARTELAMIENTO X' };
 const nor = { MANDO2N: '2', MANDO3N: '2', OData__x004d_N2: 'SUIGENOR', OData__x004d_N3: 'BASE NORTE' };
 const nuevoStore = () => {
@@ -63,6 +63,10 @@ const cumple = (it, filtro) => filtro.split(' or ').some(c => {
 });
 async function prueba(verbose, escenario) {
   nuevoStore();
+  sols = [{ Id: 1, Title: 'JEFE UNIDAD B', Solicitante: P[62], Correo: P[62].EMail, Empleo: 'CAPITAN', MandoSegundo: 'SUIGENOR', Unidad: 'BASE NORTE', Telefono: '600', Papel: 'Unidad: notificar incidentes de seguridad', Motivo: 'Jefe de seguridad', Aplicacion: 'INCIDENTES', EstadoSolicitud: 'PENDIENTE', Created: d(-1), Modified: d(-1) },
+    { Id: 2, Title: 'OTRO', Solicitante: P[61], Correo: P[61].EMail, Papel: 'x', Aplicacion: 'VSA', EstadoSolicitud: 'PENDIENTE', Created: d(-1), Modified: d(-1) }];
+  unidades = [{ Id: 61, Title: P[61].Title, Email: P[61].EMail, LoginName: 'i:0#.w|et\\jefea' }]; anadidos = [];
+  if (escenario === 'sin acceso') items = items.filter(x => !(x.Author && x.Author.Id === YO.Id) && !(x.ResponsableDeLaInformacion && x.ResponsableDeLaInformacion.Id === YO.Id));
   if (escenario === 'plazo DIACU') {
     const h = n => { const x = new Date(); x.setDate(x.getDate() - n); x.setHours(10, 5, 0, 0); return x.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); };
     const plantilla = items.find(x => x.Id === 2);
@@ -89,6 +93,14 @@ async function prueba(verbose, escenario) {
         if (dest.some(x => /malo@/.test(x))) return r.fulfill({ status: 500, json: { error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } });
         return rechazaFrom && pr.From ? r.fulfill({ status: 400, json: { error: { message: { value: 'From no válido' } } } }) : r.fulfill({ json: { d: {} } });
       }
+      if (resto.startsWith("web/lists/getbytitle('SOLICITUDES DE ACCESO')")) {
+        const c = JSON.parse(req.postData() || '{}'); delete c.__metadata; const ms = resto.match(/items\((\d+)\)/);
+        if (ms) { Object.assign(sols.find(x => x.Id === +ms[1]), c, c.ResueltoPorId ? { ResueltoPor: quien(c.ResueltoPorId) } : {}); return r.fulfill({ status: 204, body: '' }); }
+        if (resto.endsWith('/items')) { const it = { Id: sols.length + 1, ...c, Solicitante: quien(c.SolicitanteId), Created: new Date().toISOString() }; sols.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } }); }
+        return r.fulfill({ status: 204, body: '' });
+      }
+      const gu = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users(\/removebyid\((\d+)\))?/);
+      if (gu) { if (gu[3]) unidades = unidades.filter(x => x.Id !== +gu[3]); else anadidos.push({ grupo: gu[1], login: JSON.parse(req.postData()).LoginName }); return r.fulfill({ status: 200, json: { d: {} } }); }
       const ad = resto.match(/items\((\d+)\)\/AttachmentFiles\/add\(FileName='([^']+)'\)/);
       if (ad) { items.find(x => x.Id === +ad[1]).Attachments = true; return r.fulfill({ json: { d: { FileName: ad[2] } } }); }
       const mi = resto.match(/items\((\d+)\)/);
@@ -111,6 +123,20 @@ async function prueba(verbose, escenario) {
     gets.push(resto);
     if (resto.startsWith('web/currentuser/groups')) return J({ value: misGrupos.map(n => ({ Id: GRUPOS[n], Title: n })) });
     if (resto.startsWith('web/currentuser')) return J({ Id: YO.Id, Title: YO.Title, Email: YO.EMail, LoginName: 'i:0#.w|et\\usuario' });
+    if (resto.startsWith('web/AssociatedOwnerGroup')) return J({ Title: 'Propietarios Colaborativo' });
+    if (resto.startsWith('SP.UserProfiles.PeopleManager/GetMyProperties')) return J({ DisplayName: YO.Title, Title: 'COMANDANTE', UserProfileProperties: verbose ? { results: [{ Key: 'Department', Value: 'NEGOCIADO X' }] } : [{ Key: 'Department', Value: 'NEGOCIADO X' }] });
+    const gid = resto.match(/web\/getuserbyid\((\d+)\)/);
+    if (gid) return J({ LoginName: 'i:0#.w|et\\usuario' + gid[1] });
+    if (resto.startsWith('web/sitegroups?')) return J({ value: Object.keys(GRUPOS).concat(['INCIDENTES_UNIDADES', 'Propietarios Colaborativo']).map((t, i) => ({ Id: i + 1, Title: t })) });
+    if (resto.startsWith("web/sitegroups/getbyname('INCIDENTES_UNIDADES')/users")) return J({ value: unidades });
+    if (resto.startsWith("web/lists/getbytitle('SOLICITUDES DE ACCESO')")) {
+      if (resto.includes('/roleassignments')) return J({ value: [{ PrincipalId: 7, Member: { Id: 7, Title: 'MDEF\\usuarios del dominio', LoginName: 'c:0+.w|s-1-5-21-513' }, RoleDefinitionBindings: verbose ? { results: [{ RoleTypeKind: 3 }] } : [{ RoleTypeKind: 3 }] }] });
+      if (resto.includes('/fields')) return J({ value: ['Title', 'Solicitante', 'Correo', 'Empleo', 'MandoSegundo', 'Unidad', 'Telefono', 'Papel', 'Motivo', 'Aplicacion', 'EstadoSolicitud', 'GrupoAsignado', 'Resolucion', 'ResueltoPor', 'FechaResolucion'].map(n => ({ InternalName: n })) });
+      if (resto.includes('HasUniqueRoleAssignments')) return J({ HasUniqueRoleAssignments: true });
+      if (!resto.includes('/items')) return J({ Id: 'a', Title: 'SOLICITUDES DE ACCESO', ListItemEntityTypeFullName: 'SP.Data.SOLICITUDESItem', ReadSecurity: 2, WriteSecurity: 2 });
+      const fl = decodeURIComponent((u.match(/\$filter=([^&]*)/) || [])[1] || ''), me = fl.match(/SolicitanteId eq (\d+)/), app = fl.match(/Aplicacion eq '([^']+)'/);
+      return J({ value: sols.filter(x => (!me || x.Solicitante.Id === +me[1]) && (!app || x.Aplicacion === app[1])) });
+    }
     const g = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users/);
     if (g) return MIEMBROS[g[1]] ? J({ value: MIEMBROS[g[1]].map(e => ({ Email: e })) }) : r.fulfill({ status: 404, body: '' });
     const mi = resto.match(/items\((\d+)\)/);
@@ -152,6 +178,29 @@ async function prueba(verbose, escenario) {
   const merge = id => { const m = posts.filter(x => new RegExp('items\\(' + id + '\\)').test(x.ruta) && x.cab['x-http-method'] === 'MERGE').pop(); return m && JSON.parse(m.cuerpo); };
   await p.goto(O + '/et/SUIGESUR/JSUIGE/Documentos%20compartidos/incidentes.html' + (escenario === 'enlace' ? '?id=3' : '')); await p.waitForTimeout(900);
   const pestañas = await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | '));
+  if (escenario === 'sin acceso' || escenario === 'provisional') {
+    if (escenario === 'provisional') {
+      console.log(tag, '| panel:', (await p.textContent('#vista .aviso').catch(() => 'SIN AVISO')).replace(/\s+/g, ' ').slice(0, 120), '| partes:', await p.$$eval('#vista .inc', n => n.length));
+      await p.click('[data-accpedir]'); await p.waitForTimeout(800);
+    }
+    console.log(tag, '| pestañas:', await p.$$eval('#tabs a', a => a.length), '| nuevo visible:', await p.$eval('#nuevo', b => !b.hidden), '| pantalla:', (await p.textContent('#vista h3')).trim());
+    await p.selectOption('#fAcceso [name=empleo]', { index: 3 }); await p.selectOption('#fAcceso [name=m2]', { index: 1 }); await p.waitForTimeout(100);
+    await p.selectOption('#fAcceso [name=m3]', { index: 1 }).catch(() => {}); await p.fill('#fAcceso [name=unidadTxt]', 'UNIDAD X'); await p.selectOption('#fAcceso [name=papel]', { index: 1 });
+    posts.length = 0; await p.click('[data-accsolicitar]'); await p.waitForTimeout(1500);
+    const alta = posts.find(x => x.ruta.includes("SOLICITUDES DE ACCESO')/items")), m = correos().pop();
+    console.log(tag, '| solicitud:', alta && JSON.stringify((({ Title, Papel, Aplicacion, EstadoSolicitud }) => ({ Title, Papel, Aplicacion, EstadoSolicitud }))(JSON.parse(alta.cuerpo))), '| aviso a:', m && m.To.results, '|', m && m.Subject);
+    console.log(tag, '| después:', (await p.textContent('#vista .okmsg').catch(() => '')).slice(0, 80), '| errores:', errs);
+    await b.close(); return;
+  }
+  if (escenario === 'accesos') {
+    await p.click('#tabs a[data-v=accesos]'); await p.waitForTimeout(800);
+    console.log(tag, '| pestaña:', await p.textContent('#tabs a[data-v=accesos]'), '| pendientes (solo INCIDENTES):', await p.$$eval('[data-sol]', n => n.length), '| grupo propuesto:', await p.$eval('.accGrupo', s => s.value));
+    posts.length = 0; await p.click('[data-accprueba]'); await p.waitForTimeout(800);
+    { const m = correos().pop(); console.log(tag, '| prueba del aviso:', m && m.To.results, '|', m && m.Subject, '|', (await p.textContent('#accPrueba')).replace(/\s+/g, ' ').slice(0, 110)); }
+    posts.length = 0; await p.click('[data-accaprobar]'); await p.waitForTimeout(1500);
+    const m = correos().pop(); console.log(tag, '| aprobar:', JSON.stringify(anadidos), '| correo:', m && m.To.results, m && m.Subject, '| errores:', errs);
+    await b.close(); return;
+  }
   if (escenario === 'informe') {
     await p.click('#tabs a[data-v=informe]'); await p.waitForTimeout(300);
     const t = async s => (await p.$$eval(s, n => n.map(x => x.textContent.replace(/\s+/g, ' ').trim())));
@@ -351,6 +400,8 @@ misGrupos = ['SEGURIDAD_SUIGESUR', 'Integrantes de la Colaborativo']; admin = fa
 sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstringof = false;
 misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'solo SEGURIDAD_IGE'); await prueba(false, 'informe'); await prueba(true, 'informe');
 misGrupos = ['SEGURIDAD_SUIGESUR']; admin = true; await prueba(false, 'Control total y solo SUIGESUR'); admin = false;
+misGrupos = []; await prueba(false, 'sin acceso'); await prueba(true, 'sin acceso'); await prueba(false, 'provisional');
+misGrupos = TODOS; admin = true; await prueba(false, 'accesos'); await prueba(true, 'accesos'); admin = false;
 misGrupos = TODOS; admin = true; await prueba(false, 'enlace');
 faltaCampo = 'ResponsableDelParte'; await prueba(true, 'columna inexistente'); faltaCampo = null;
 expandRoto = true; await prueba(false, 'columna inexistente'); expandRoto = false;
