@@ -37,6 +37,9 @@ const aviso = '<!--\n  Cuestionario de calidad VSA · Inspección General del Ej
 let salida = html.slice(0, ini + 8) + '\n' + ofuscado + '\n' + html.slice(fin);
 salida = salida.replace(/^<!doctype html>\n<!--[\s\S]*?-->\n/i, '<!doctype html>\n' + aviso)          // aviso con la versión
   .replace(/\n\s*\/\* Cliente @firma/, '\n/* Cliente @firma');                                       // nada más
+// Fuera los comentarios internos del HTML y del estilo (se queda solo el aviso de autoría del principio)
+const [cab, resto] = [salida.slice(0, salida.indexOf('-->') + 3), salida.slice(salida.indexOf('-->') + 3)];
+salida = cab + resto.replace(/<!--[\s\S]*?-->\n?/g, '').replace(/<style>[\s\S]*?<\/style>/g, st => st.replace(/\/\*[\s\S]*?\*\//g, ''));
 fs.mkdirSync(new URL('../colabora/', import.meta.url), { recursive: true });
 fs.writeFileSync(destino, salida);
 console.log('Versión ' + version + ' protegida: ' + destino.pathname + ' (' + Math.round(salida.length / 1024) + ' KB; código de la aplicación ' +
