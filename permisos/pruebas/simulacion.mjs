@@ -9,7 +9,7 @@ const WEB = '/et/SUIGESUR/colaborativo/CALIDAD-VIDA', O = 'https://colabora.mdef
 const U = { 279: { Id: 279, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.es' }, 11: { Id: 11, Title: 'APROBADOR UNO', EMail: 'aprob1@et.mde.es' },
   12: { Id: 12, Title: 'AUTORIZADOR UNO', EMail: 'autor1@et.mde.es' }, 13: { Id: 13, Title: 'SOLICITANTE DOS', EMail: 'sol2@et.mde.es' } };
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(0, 0, 0, 0); return x.toISOString(); };
-let pets = [], asigs = [], grupoReg = [], anadidosReg = [], solLista = true, asigLista = true;
+let sinExpand = false, pets = [], asigs = [], grupoReg = [], anadidosReg = [], solLista = true, asigLista = true;
 let ultimoFiltro = '', items, gestor = false, registro = true, admin = false, otraCuenta = false, jefeOtraCuenta = false, sinSubstr = false, jefeNombre = false;
 const nuevoStore = () => {
   items = [
@@ -87,6 +87,8 @@ async function prueba(verbose, soloAlcance) {
       { InternalName: 'Dependencia', Choices: ['JEFATURA', 'SEGURIDAD'] }] });
     const mi = resto.match(/items\((\d+)\)/);
     if (mi) { const it = items.find(x => x.Id === +mi[1]); return r.fulfill({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, ...it } } }); }
+    if (sinExpand && resto.includes('siteuserinfolist')) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
+    if (sinExpand && resto.includes("getbytitle('Solicitud de Permisos')/items") && u.includes('$expand')) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
     if (resto.includes('/items')) {
       const filtro = (u.match(/\$filter=([^&]*)/) || [])[1] || ''; if (u.includes('Title')) ultimoFiltro = filtro;
       if (!filtro) return J({ value: items });
@@ -94,8 +96,9 @@ async function prueba(verbose, soloAlcance) {
       const sub = [...filtro.matchAll(/substringof\('([^']+)',([\w/]+)\)/g)];
       const val = (it, k) => { const [a, b] = k.split('/'); return b ? (it[a] && it[a][b]) || '' : it[a] || ''; };
       if (sub.length && sinSubstr) return r.fulfill({ status: 400, body: '' });
-      return J({ value: items.filter(it => ids.some(([, k, v]) => it[k] && it[k].Id === +v) || est.includes(it.Estado) || txt.some(([, k, v]) => String(it[k] || '').toLowerCase() === v.toLowerCase()) ||
-        sub.some(([, v, k]) => String(val(it, k)).toUpperCase().includes(v.toUpperCase()))) });
+      const conIds = it => u.includes('$expand') ? it : ({ ...it, ...Object.fromEntries(['Solicitante', 'RepresentanteDelSolicitante', 'AprobadorDePermiso', 'AutorizadorDelPermiso', 'Registro_x0020_SIPERDEF', 'Author'].map(k => [k + 'Id', it[k] && it[k].Id])), Unidad0Id: it.Unidad0 && it.Unidad0.Id, Solicitante: undefined, Unidad0: undefined });
+      return J({ value: items.map(conIds).filter((it0, i) => { const it = items[i]; return ids.some(([, k, v]) => it[k] && it[k].Id === +v) || est.includes(it.Estado) || txt.some(([, k, v]) => String(it[k] || '').toLowerCase() === v.toLowerCase()) ||
+        sub.some(([, v, k]) => String(val(it, k)).toUpperCase().includes(v.toUpperCase())); }) });
     }
     if (resto.includes('sitegroups/getbyname')) return J({ value: [{ Title: 'REGISTRADOR UNO' }, { Title: U[279].Title }] });
     if (resto.includes('/roleassignments')) return J({ value: [{ Member: { Title: 'Integrantes CALIDAD-VIDA', PrincipalType: 8 }, RoleDefinitionBindings: [{ Name: 'Leer' }] },
@@ -109,6 +112,11 @@ async function prueba(verbose, soloAlcance) {
     await p.click('#tabs a[data-v=registro]'); await p.waitForTimeout(300);
     console.log(tag, soloAlcance, '| pestañas:', await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | ')));
     console.log(tag, soloAlcance, '| aviso:', (await p.textContent('#vista .okmsg, #vista .aviso').catch(() => '')).replace(/\s+/g, ' ').slice(0, 110), '| pendientes de registrar:', await p.$$eval('[data-regok]', n => n.map(x => x.dataset.regok).join(',')), '| unidades en el filtro:', await p.$$eval('#rUni option', o => o.map(x => x.textContent).join(' / ')), '| errores:', errs);
+    await b.close(); return;
+  }
+  if (soloAlcance === 'sin expand') {
+    console.log(tag, 'aviso:', (await p.textContent('#vista .aviso').catch(() => 'NINGUNO')).replace(/\s+/g, ' ').slice(0, 230));
+    console.log(tag, 'mis solicitudes:', await p.$$eval('#vista .sol', n => n.map(x => x.dataset.id + ':' + x.querySelector('.tit, b, strong')?.textContent.slice(0, 25)).join(' | ')), '| errores:', errs);
     await b.close(); return;
   }
   if (soloAlcance === 'pedir acceso registro') {
@@ -358,6 +366,7 @@ registro = false; await prueba(false, 'usuario normal');
 registro = true; await prueba(false, 'registro');
 gestor = true; await prueba(true, 'gestor');
 gestor = false; await prueba(false, 'enlace');
+registro = false; sinExpand = true; await prueba(false, 'sin expand'); await prueba(true, 'sin expand'); sinExpand = false; registro = true;
 registro = true; await prueba(false, 'seguridad'); await prueba(true, 'seguridad');
 otraCuenta = true; await prueba(false, 'cuentas'); await prueba(true, 'cuentas'); otraCuenta = false;
 jefeNombre = true; registro = false; await prueba(false, 'jefe por nombre'); sinSubstr = true; await prueba(true, 'jefe por nombre'); sinSubstr = false; jefeNombre = false; registro = true;

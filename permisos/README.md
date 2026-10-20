@@ -154,3 +154,9 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
 `permisos.html` es el original legible; **`colabora/permisos.html`** la copia cifrada que se sube a Colabora
 (`cd permisos/proteger && npm install && node proteger.mjs`; bloqueo de dominio `.mdef.es`). Probarla:
 `PERM_HTML=permisos/colabora/permisos.html node permisos/pruebas/simulacion.mjs`.
+
+**Lectura sin datos relacionados (20/10/2026):** si al leer las solicitudes SharePoint responde 404 (el usuario no puede
+leer la lista `UNIDADES` o la lista de usuarios del sitio, de donde salen la unidad y los nombres), la página las lee sin
+`$expand` (personas por su Id y los campos `*Texto` del formulario; unidad por `Unidad0Id`) y muestra un aviso que dice
+cuál de las dos no puede leer. Solución en Colabora: «Leer» para «usuarios del dominio» en `UNIDADES` y, en el sitio,
+al menos «Lectura restringida». Los errores de carga dicen qué recurso falló.

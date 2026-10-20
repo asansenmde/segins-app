@@ -182,7 +182,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-10-20 · 8';
+  var VERSION = '2026-10-20 · 9';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
   var CLAVE = 'permisos-calidad-vida';
@@ -316,6 +316,39 @@
     }
     return u && u.Id ? { Id: u.Id, Title: u.Title || '', Email: u.EMail || '' } : null;
   };
+  // Lectura sin datos relacionados: personas y unidad salen de los Id y de los campos de texto del propio formulario
+  var lecturaSencilla = null;
+  function leerSencilla(nivel) {
+    var base = SEL.filter(function (x) { return x.indexOf('/') < 0; }).concat(['Unidad0Id', 'AuthorId'], PERSONAS.map(function (p) { return p + 'Id'; }));
+    var pid = function (v, txt, mail) {
+      var ids = Array.isArray(v) ? v : v && Array.isArray(v.results) ? v.results : v ? [v] : [];
+      if (!ids.length) return null;
+      return ids.length > 1 ? ids.map(function (id) { return { Id: id, Title: '' }; }) : { Id: ids[0], Title: txt || '', EMail: mail || '' };
+    };
+    return todas(urlLista() + '/items?$top=1000&$select=' + base.join(',') + filtroAlcance(nivel)).then(function (ls) {
+      return ls.map(function (x) {
+        x.Solicitante = pid(x.SolicitanteId, x.SolicitanteTexto, x.CorreoDelSolicitante); x.RepresentanteDelSolicitante = pid(x.RepresentanteDelSolicitanteId, x.RepresentanteTexto);
+        x.AprobadorDePermiso = pid(x.AprobadorDePermisoId, x.AprobadorTexto, x.CorreoDeAPROBADOR); x.AutorizadorDelPermiso = pid(x.AutorizadorDelPermisoId, x.AutorizadorTexto, x.CorreoDeAUTORIZADOR);
+        x.Registro_x0020_SIPERDEF = pid(x.Registro_x0020_SIPERDEFId, '');
+        x.Unidad0 = x.Unidad0Id ? { Id: x.Unidad0Id, Title: (unidades.find(function (u) { return u.Id === x.Unidad0Id; }) || {}).Title || '' } : null;
+        x.Author = x.AuthorId ? { Id: x.AuthorId, Title: '' } : null;
+        return x;
+      });
+    });
+  }
+  // Qué lista relacionada no se puede leer (para el aviso)
+  function diagnosticoSencilla() {
+    var prueba = function (u) { return api(u).then(function () { return true; }, function () { return false; }); };
+    return Promise.all([prueba(web + "/_api/web/lists/getbytitle('UNIDADES')/items?$top=1&$select=Id"), prueba(web + '/_api/web/siteuserinfolist/items?$top=1&$select=Id')])
+      .then(function (r) { lecturaSencilla.unidades = r[0]; lecturaSencilla.usuarios = r[1]; });
+  }
+  function avisoSencilla() {
+    if (!lecturaSencilla) return '';
+    var L = lecturaSencilla, cuales = [L.unidades === false ? 'la lista «UNIDADES»' : '', L.usuarios === false ? 'la lista de usuarios del sitio (nombres de las personas)' : ''].filter(Boolean);
+    return '<div class="aviso">Colabora no te deja leer algunos datos relacionados de las solicitudes, así que algunos nombres de personas o de unidades pueden salir incompletos. ' +
+      (cuales.length ? 'No tienes permiso de lectura en ' + esc(cuales.join(' ni en ')) + ': el administrador debe dar «Leer» a «usuarios del dominio» ' + (L.usuarios === false ? 'en el sitio (al menos «Lectura restringida»)' : 'en esa lista') + '.' : '') +
+      '<div class="small muted">Detalle: ' + esc(L.motivo) + ' · versión ' + esc(VERSION) + '</div></div>';
+  }
   function aSol(it) {
     var t = {
       id: it.Id, asunto: it.Title || '(sin asunto)', estado: estadoCanon(it.Estado), estadoRaw: it.Estado || '', tipo: it.TipoDePermiso || '', cupo: it.CupoDeA_x00f1_o || '',
@@ -354,7 +387,14 @@
       return Promise.all([buscarMisCuentas(), leerMisUnidades()]);
     }).then(function () {
       var leer = function (nivel) { return todas(urlLista() + '/items?$top=1000&$select=' + SEL.join(',') + '&$expand=' + EXPAND + filtroAlcance(nivel)); };
-      return leer(2).catch(function (e) { if (e.status !== 400) throw e; return leer(1); }).catch(function (e) { if (e.status !== 400) throw e; return leer(0); });
+      lecturaSencilla = null;
+      return leer(2).catch(function (e) { if (e.status !== 400) throw e; return leer(1); }).catch(function (e) { if (e.status !== 400) throw e; return leer(0); })
+        .catch(function (e) {
+          // 404 al leer con los datos relacionados (personas, unidad): el usuario no puede leer la lista de la que salen
+          if (e.status !== 404) throw e;
+          lecturaSencilla = { motivo: e.message };
+          return Promise.all([diagnosticoSencilla(), leerSencilla(1).catch(function (e2) { if (e2.status !== 400) throw e2; return leerSencilla(0); })]).then(function (r) { return r[1]; });
+        });
     }).then(function (its) {
       items = its.map(aSol);
       // Registro por unidad: lo que llega solo por ser del grupo de registro, únicamente de mis unidades
@@ -1108,7 +1148,7 @@
     var cuenta = { pendientes: p.aprobar.length + p.autorizar.length, registro: cargadoEn ? porRegistrar().length : 0, accesos: ar.estado === 'ok' ? nPetsPend() : 0 };
     $('#tabs').innerHTML = vistas.map(function (v) { return '<a data-v="' + v[0] + '" class="' + (pref.vista === v[0] ? 'on' : '') + '">' + v[1] + (cuenta[v[0]] ? '<i>' + cuenta[v[0]] + '</i>' : '') + '</a>'; }).join('');
     if (!cargadoEn) return;
-    $('#vista').innerHTML = ({ mias: vistaMias, pendientes: vistaPendientes, registro: vistaRegistro, calendario: vistaCalendario, todas: vistaTodas, accesoreg: vistaAccesoReg, accesos: vistaAccesosReg, ajustes: vistaAjustes }[pref.vista] || vistaMias)();
+    $('#vista').innerHTML = avisoSencilla() + ({ mias: vistaMias, pendientes: vistaPendientes, registro: vistaRegistro, calendario: vistaCalendario, todas: vistaTodas, accesoreg: vistaAccesoReg, accesos: vistaAccesosReg, ajustes: vistaAjustes }[pref.vista] || vistaMias)();
   }
   var aviso = function (txt) { $('#estadoCarga').textContent = txt; setTimeout(function () { if (cargadoEn) $('#estadoCarga').textContent = items.length + ' solicitudes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }, 3000); };
 
