@@ -41,7 +41,7 @@ async function prueba(verbose, soloAlcance) {
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) return r.fulfill({ json: { d: {} } });
       if (resto.startsWith('SP.UI.ApplicationPages')) return r.fulfill({ json: { d: { ClientPeoplePickerSearchUser: '[]' } } });
-      if (resto.startsWith("web/lists/getbytitle('SOLICITUDES DE ACCESO')")) {
+      if (resto.startsWith("web/lists/getbytitle('SOLICITUDES ACCESO APLICACIONES')")) {
         const c2 = JSON.parse(req.postData() || '{}'); delete c2.__metadata; const ms = resto.match(/items\((\d+)\)/);
         if (ms) { Object.assign(pets.find(x => x.Id === +ms[1]), c2, c2.ResueltoPorId ? { ResueltoPor: U[c2.ResueltoPorId] || { Id: c2.ResueltoPorId, Title: 'X' } } : {}); return r.fulfill({ status: 204, body: '' }); }
         if (resto.endsWith('/items')) { const it = { Id: pets.length + 1, ...c2, Solicitante: U[c2.SolicitanteId], Created: new Date().toISOString() }; pets.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } }); }
@@ -70,7 +70,7 @@ async function prueba(verbose, soloAlcance) {
     if (resto.startsWith('SP.UserProfiles.PeopleManager')) return J({ Title: 'COMANDANTE', UserProfileProperties: verbose ? { results: [{ Key: 'Department', Value: 'UNIDAD B' }] } : [{ Key: 'Department', Value: 'UNIDAD B' }] });
     { const gid = resto.match(/web\/getuserbyid\((\d+)\)/); if (gid) return J({ LoginName: 'i:0#.w|et\\u' + gid[1] }); }
     if (resto.startsWith("web/sitegroups/getbyname('Personal de Registro')/users")) return J({ value: grupoReg });
-    for (const [t, ok, rs, ws, lista_, campo] of [['SOLICITUDES DE ACCESO', solLista, 2, 2, pets, 'SolicitanteId'], ['ASIGNACIONES REGISTRO SIPERDEF', asigLista, 1, 4, asigs, 'RegistradorId']]) {
+    for (const [t, ok, rs, ws, lista_, campo] of [['SOLICITUDES ACCESO APLICACIONES', solLista, 2, 2, pets, 'SolicitanteId'], ['ASIGNACIONES REGISTRO SIPERDEF', asigLista, 1, 4, asigs, 'RegistradorId']]) {
       if (!resto.startsWith("web/lists/getbytitle('" + t + "')")) continue;
       if (!ok) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
       if (resto.includes('/fields')) return J({ value: ['Title', 'Solicitante', 'Correo', 'Empleo', 'Unidad', 'UnidadesIds', 'Cargo', 'DepartamentoPerfil', 'Telefono', 'Papel', 'Motivo', 'Aplicacion', 'EstadoSolicitud', 'GrupoAsignado', 'Resolucion', 'ResueltoPor', 'FechaResolucion', 'Registrador', 'UnidadesTexto'].map(n => ({ InternalName: n })) });
@@ -119,7 +119,7 @@ async function prueba(verbose, soloAlcance) {
     await p.click('[data-regpedir]'); await p.waitForTimeout(200);
     console.log(tag, 'sin declaración:', await p.textContent('#regErr'));
     await p.check('#fReg [name=decl]'); posts.length = 0; await p.click('[data-regpedir]'); await p.waitForTimeout(1500);
-    const al = posts.find(x => x.ruta.includes("SOLICITUDES DE ACCESO')/items")), m = posts.filter(x => x.ruta.startsWith('SP.Utilities')).map(x => JSON.parse(x.cuerpo).properties).pop();
+    const al = posts.find(x => x.ruta.includes("SOLICITUDES ACCESO APLICACIONES')/items")), m = posts.filter(x => x.ruta.startsWith('SP.Utilities')).map(x => JSON.parse(x.cuerpo).properties).pop();
     console.log(tag, 'solicitud:', al && JSON.stringify((({ Unidad, UnidadesIds, Cargo, DepartamentoPerfil, Aplicacion, EstadoSolicitud }) => ({ Unidad, UnidadesIds, Cargo, DepartamentoPerfil, Aplicacion, EstadoSolicitud }))(JSON.parse(al.cuerpo))), '| aviso a:', m && m.To.results, '|', m && m.Subject);
     console.log(tag, 'después:', (await p.textContent('#vista .okmsg').catch(() => '')).slice(0, 70), '| errores:', errs);
     await b.close(); return;

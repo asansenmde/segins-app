@@ -182,7 +182,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-10-20 · 6';
+  var VERSION = '2026-10-20 · 7';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
   var CLAVE = 'permisos-calidad-vida';
@@ -833,12 +833,13 @@
     });
   }
   // ---------- Acceso a Registro SIPERDEF por unidad ----------
-  // Quien necesita registrar lo pide en la pestaña «Acceso a Registro SIPERDEF» (lista común «SOLICITUDES DE ACCESO» del
+  // Quien necesita registrar lo pide en la pestaña «Acceso a Registro SIPERDEF» (lista «SOLICITUDES ACCESO APLICACIONES» del
   // sitio, Aplicacion = REGISTRO SIPERDEF). El propietario lo aprueba en «Accesos de registro»: lo mete en «Personal de
   // Registro» y le asigna su unidad o unidades en la lista «ASIGNACIONES REGISTRO SIPERDEF» (todos leen; solo quien
-  // administra la lista escribe). Cada registrador ve y registra solo sus unidades; el propietario (Control total o
+  // administra la lista escribe). OJO: no llamarla «Solicitudes de acceso»: es el nombre de la lista interna de SharePoint
+  // («Access Requests», solo para propietarios) y getbytitle no distingue mayúsculas. Cada registrador ve y registra solo sus unidades; el propietario (Control total o
   // administrar la lista) ve y registra todas. Transición: el registrador sin unidad asignada sigue viéndolas todas.
-  var ACC = { app: 'REGISTRO SIPERDEF', lista: 'SOLICITUDES DE ACCESO', asig: 'ASIGNACIONES REGISTRO SIPERDEF', grupo: 'Personal de Registro', avisar: ['asansen@et.mde.es'], transicion: true };
+  var ACC = { app: 'REGISTRO SIPERDEF', lista: 'SOLICITUDES ACCESO APLICACIONES', asig: 'ASIGNACIONES REGISTRO SIPERDEF', grupo: 'Personal de Registro', avisar: ['asansen@et.mde.es'], transicion: true };
   var AVISO_REG = 'Acceso exclusivo para el personal de las Secciones de Personal. Se comprobará que perteneces a la sección de personal de la unidad indicada; las solicitudes que no lo cumplan se rechazarán.';
   var esSuper = function () { return esAdmin || esGestor; };
   var misUnidadesReg = null;   // null: sin asignación (o sin lista); [ids]: unidades asignadas

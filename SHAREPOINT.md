@@ -85,6 +85,10 @@ del bloque `ACCESO` / `pantallaAcceso` / `vistaAccesos` de VSA y se adapta la co
     `web/roleassignments?$expand=Member`; si no, `ensureuser('c:0(.s|true')`). Sin esto, quien no tiene permiso en el
     sitio recibe **404** al leer la lista de solicitudes;
   - crear el grupo propio (`POST sitegroups {SP.Group, Title}`).
+- **Nombre de la lista**: si el sitio tiene activadas las solicitudes de acceso de SharePoint, ya existe la lista interna
+  **«Solicitudes de acceso»** (solo propietarios) y `getbytitle('SOLICITUDES DE ACCESO')` la encuentra (no distingue
+  mayúsculas): los usuarios reciben 404. Comprobar antes `…/_api/web/lists/getbytitle('…')?$select=Title,Id`; en
+  Permisos (CALIDAD-VIDA) se usa «SOLICITUDES ACCESO APLICACIONES».
 - **Errores**: en la pantalla de acceso, distinguir 404 (no existe o no se ve), 401/403 (sin permiso) y 400 (columna
   que falta) y mostrar el detalle con la versión.
 - La seguridad real exige además quitar «Usuarios del dominio» de la lista principal y dar permiso a los grupos.

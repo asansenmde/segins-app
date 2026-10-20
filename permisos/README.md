@@ -134,9 +134,10 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
 - **Pestaña «Acceso a Registro SIPERDEF»** (quien no es registrador): aviso en rojo («Acceso exclusivo para el personal de
   las Secciones de Personal. Se comprobará…»), formulario con empleo, teléfono, **unidad o unidades** (lista `UNIDADES`),
   cargo en la sección de personal, departamento del perfil (se guarda para comprobarlo), motivo y **declaración
-  obligatoria**. Se guarda en la lista «SOLICITUDES DE ACCESO» del sitio (`Aplicacion` = REGISTRO SIPERDEF) y avisa por
+  obligatoria**. Se guarda en la lista «SOLICITUDES ACCESO APLICACIONES» del sitio (no «Solicitudes de acceso»: ese nombre es el
+  de la lista interna de SharePoint para pedir acceso al sitio, solo para propietarios; daba 404 a los usuarios) (`Aplicacion` = REGISTRO SIPERDEF) y avisa por
   correo a asansen@et.mde.es.
-- **Pestaña «Accesos de registro»** (Control total): preparación (crear las listas «SOLICITUDES DE ACCESO» y
+- **Pestaña «Accesos de registro»** (Control total): preparación (crear las listas «SOLICITUDES ACCESO APLICACIONES» y
   «ASIGNACIONES REGISTRO SIPERDEF», columnas que falten, seguridad: solicitudes «solo sus elementos»; asignaciones las
   leen todos y solo las modifica quien administra la lista, `WriteSecurity` 4); solicitudes pendientes con aviso si el
   departamento del perfil no coincide con la unidad pedida; **aprobar** (alta en «Personal de Registro», asignación de
