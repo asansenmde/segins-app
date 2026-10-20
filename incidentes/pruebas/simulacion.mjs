@@ -78,7 +78,11 @@ async function prueba(verbose, escenario) {
     if (req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
-      if (resto.startsWith('SP.Utilities.Utility.SendEmail')) return rechazaFrom && JSON.parse(req.postData()).properties.From ? r.fulfill({ status: 400, json: { error: { message: { value: 'From no válido' } } } }) : r.fulfill({ json: { d: {} } });
+      if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
+        const pr = JSON.parse(req.postData()).properties, dest = [].concat(pr.To.results, pr.CC.results, pr.BCC ? pr.BCC.results : []);
+        if (dest.some(x => /malo@/.test(x))) return r.fulfill({ status: 500, json: { error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } });
+        return rechazaFrom && pr.From ? r.fulfill({ status: 400, json: { error: { message: { value: 'From no válido' } } } }) : r.fulfill({ json: { d: {} } });
+      }
       const ad = resto.match(/items\((\d+)\)\/AttachmentFiles\/add\(FileName='([^']+)'\)/);
       if (ad) { items.find(x => x.Id === +ad[1]).Attachments = true; return r.fulfill({ json: { d: { FileName: ad[2] } } }); }
       const mi = resto.match(/items\((\d+)\)/);
@@ -226,6 +230,10 @@ async function prueba(verbose, escenario) {
   await p.click('#tabs a[data-v=ajustes]'); await p.waitForTimeout(200);
   await p.fill('#aPruebaA', 'yo@et.mde.es; otro@et.mde.es'); posts.length = 0; await p.click('[data-correoprueba]'); await p.waitForTimeout(800);
   { const m = correos().pop(); console.log(tag, '| correo de prueba:', m && m.To.results.join(','), '|', m && m.Subject, '| formato nuevo:', !!(m && /USO OFICIAL/.test(m.Body) && /<table/.test(m.Body)), '|', (await p.textContent('#aPrueba')).slice(0, 70)); }
+  await p.fill('#aPruebaA', 'yo@et.mde.es; malo@et.mde.es'); posts.length = 0; await p.click('[data-correoprueba]'); await p.waitForTimeout(1200);
+  console.log(tag, '| prueba con una dirección mala:', correos().map(m => m.To.results.join(',')).join(' / '), '|', (await p.textContent('#aPrueba')).replace(/\s+/g, ' ').slice(0, 220));
+  await p.fill('#aPruebaA', 'malo@et.mde.es'); await p.click('[data-correoprueba]'); await p.waitForTimeout(1000);
+  console.log(tag, '| solo dirección mala:', (await p.textContent('#aPrueba')).replace(/\s+/g, ' ').slice(0, 200));
   // 7) Consulta, filtros, impresión, CSV y estadísticas
   await p.click('#tabs a[data-v=panel]'); await p.click('.kpi[data-ir="prob:alta"]'); await p.waitForTimeout(200);
   console.log(tag, '| prob. alta abiertos →', await p.$$eval('#vista .inc', n => n.map(x => x.dataset.id).join(',')));

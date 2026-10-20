@@ -191,7 +191,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-20 · 13';
+  var VERSION = '2026-10-20 · 14';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -339,7 +339,7 @@
     web = location.origin + pref.sitio.replace(/\/+$/, '');
     var grupoIds = []; omitidas = []; sencilla = false;
     return Promise.all([
-      api(web + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) { yo = { Id: u.Id, Title: u.Title, Email: u.Email || '' }; $('#quien').textContent = '👤 ' + u.Title; $('#quien').hidden = false; }),
+      api(web + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) { yo = { Id: u.Id, Title: u.Title, Email: u.Email || '', LoginName: u.LoginName || '' }; $('#quien').textContent = '👤 ' + u.Title; $('#quien').hidden = false; }),
       api(web + '/_api/web/currentuser/groups?$select=Id,Title').then(function (d) {
         var gs = lista(d.value);
         misGrupos = gs.map(function (x) { return x.Title; }); grupoIds = gs.map(function (x) { return x.Id; });
@@ -667,6 +667,7 @@
       '<div class="card"><h3 style="margin-top:0">Correo de prueba</h3><p class="small">Envía un aviso con el <b>formato nuevo</b> (cabecera USO OFICIAL, banda azul y tabla de datos) para comprobar que Colabora lo entrega. ' +
       'Si te llega este pero en los trámites solo recibes el formato antiguo, ese antiguo lo envía una regla o flujo de trabajo de la lista: desactívala cuando confirmes que llega el nuevo.</p>' +
       '<label class="lbl">Enviar a (separa varias direcciones con «;»)</label><input id="aPruebaA" value="' + esc(yo && yo.Email || '') + '">' +
+      '<p class="small muted">Tu cuenta en Colabora: ' + esc(yo && yo.Title || '') + ' · correo en el perfil: ' + esc(yo && yo.Email || '(ninguno)') + '. Colabora solo envía a direcciones de usuarios que conoce; si tu cuenta no tiene buzón, prueba con la dirección de tu usuario habitual.</p>' +
       '<div class="acciones"><button class="prim" data-correoprueba="1">✉ Enviarme un correo de prueba</button></div><div id="aPrueba"></div></div>' +
       '<div class="card"><h3 style="margin-top:0">Papeles</h3><p class="small">Tus papeles: ' + esc(misPapeles().join(', ') || 'ninguno') + '.</p>' +
       '<p class="small muted">Se deducen de los grupos de Colabora: SUIGE = SEGURIDAD_SUIGESUR, _SUIGENOR, _SUIGECAN, _SUIGEPIR, _SECORCEN, _DIIN, _DIAPER; DIACU e IGE = SEGURIDAD_IGE. ' +
@@ -752,12 +753,32 @@
     while ((u + encodeURIComponent(cuerpo)).length > 2000 && cuerpo.length > 200) cuerpo = cuerpo.slice(0, cuerpo.length - 100) + '…';
     return u + encodeURIComponent(cuerpo);
   }
+  var DEST_MAL = /destinatario v|valid recipient|recipient/i;
+  function enviarUno(to, cc, bcc, c) {
+    var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, CC: { results: cc }, Subject: c.asunto, Body: c.html };
+    if (bcc && bcc.length) pr.BCC = { results: bcc };
+    return enviarSP(web + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página');
+  }
+  // SharePoint rechaza el correo entero si alguna dirección no es de un usuario que conozca («Asegúrese de que tenga un
+  // destinatario válido»): entonces se envía a cada destinatario por separado y se dice cuáles no acepta.
+  // Para uno mismo se prueba también con el nombre de inicio de sesión (cuentas sin buzón en el perfil).
   function enviarCorreo(c) {
     if (!c.to.length) return Promise.resolve({ ok: false, motivo: 'no se encontraron destinatarios', sinVer: c.sinVer, mailto: mailto(c) });
-    var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: c.to }, CC: { results: c.cc }, Subject: c.asunto, Body: c.html };
-    if (c.bcc && c.bcc.length) pr.BCC = { results: c.bcc };
-    return enviarSP(web + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página').then(function () { return { ok: true, n: c.to.length + c.cc.length + (c.bcc || []).length, sinVer: c.sinVer, mailto: mailto(c) }; },
-      function (e) { return { ok: false, motivo: e.message || String(e), sinVer: c.sinVer, mailto: mailto(c) }; });
+    var todos = c.to.concat(c.cc, c.bcc || []);
+    var res = function (ok, n, motivo, rech) { return { ok: ok, n: n, motivo: motivo, rechazados: rech || [], sinVer: c.sinVer, mailto: mailto(c) }; };
+    return enviarUno(c.to, c.cc, c.bcc, c).then(function () { return res(true, todos.length); }, function (e) {
+      var m = e.message || String(e);
+      if (!DEST_MAL.test(m)) return res(false, 0, m);
+      var aceptados = 0, rech = [];
+      return todos.reduce(function (p, d) {
+        return p.then(function () {
+          return enviarUno([d], [], [], c).then(function () { aceptados++; }, function () {
+            var esYo = yo && yo.LoginName && String(d).toLowerCase() === String(yo.Email || '').toLowerCase();
+            return esYo ? enviarUno([yo.LoginName], [], [], c).then(function () { aceptados++; }, function () { rech.push(d); }) : rech.push(d);
+          });
+        });
+      }, Promise.resolve()).then(function () { return res(aceptados > 0, aceptados, aceptados ? '' : m, rech); });
+    });
   }
   // Siempre se ofrece preparar el mismo aviso en Outlook, por si el correo de Colabora no llega
   // Correo de prueba (Ajustes): mismo formato que los avisos del circuito
@@ -778,7 +799,8 @@
     if (!r) return '';
     var sv = r.sinVer && r.sinVer.length ? ' Estos grupos no dejan ver sus integrantes o están vacíos, y a ellos no les llega: ' + esc(r.sinVer.join(', ')) + '.' : '';
     var btn = r.mailto ? ' <a class="btn" href="' + esc(r.mailto) + '">✉ ' + (r.ok ? 'Enviarlo también desde Outlook' : 'Preparar el correo en Outlook') + '</a>' : '';
-    return (r.ok ? ' Aviso enviado por Colabora a ' + r.n + ' destinatario' + (r.n === 1 ? '' : 's') + '.' : ' No se pudo enviar el aviso (' + esc(r.motivo) + ').') + sv + btn;
+    var rc = r.rechazados && r.rechazados.length ? ' Colabora no acepta estas direcciones (no son de usuarios del sitio o no tienen buzón): ' + esc(r.rechazados.join(', ')) + '.' : '';
+    return (r.ok ? ' Aviso enviado por Colabora a ' + r.n + ' destinatario' + (r.n === 1 ? '' : 's') + '.' : ' No se pudo enviar el aviso (' + esc(r.motivo) + ').') + rc + sv + btn;
   };
 
   // ---------- Guardar (sin pisar cambios de otros) ----------
