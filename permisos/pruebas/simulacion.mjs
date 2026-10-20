@@ -4,11 +4,12 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
 const fs = require('fs');
-const html = fs.readFileSync(new URL('../permisos.html', import.meta.url), 'utf8');
+const html = fs.readFileSync(process.env.PERM_HTML ? process.env.PERM_HTML : new URL('../permisos.html', import.meta.url), 'utf8');  // PERM_HTML=permisos/colabora/permisos.html para probar la versión protegida
 const WEB = '/et/SUIGESUR/colaborativo/CALIDAD-VIDA', O = 'https://colabora.mdef.es';
 const U = { 279: { Id: 279, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.es' }, 11: { Id: 11, Title: 'APROBADOR UNO', EMail: 'aprob1@et.mde.es' },
   12: { Id: 12, Title: 'AUTORIZADOR UNO', EMail: 'autor1@et.mde.es' }, 13: { Id: 13, Title: 'SOLICITANTE DOS', EMail: 'sol2@et.mde.es' } };
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(0, 0, 0, 0); return x.toISOString(); };
+let pets = [], asigs = [], grupoReg = [], anadidosReg = [], solLista = true, asigLista = true;
 let ultimoFiltro = '', items, gestor = false, registro = true, admin = false, otraCuenta = false, jefeOtraCuenta = false, sinSubstr = false, jefeNombre = false;
 const nuevoStore = () => {
   items = [
@@ -40,6 +41,20 @@ async function prueba(verbose, soloAlcance) {
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) return r.fulfill({ json: { d: {} } });
       if (resto.startsWith('SP.UI.ApplicationPages')) return r.fulfill({ json: { d: { ClientPeoplePickerSearchUser: '[]' } } });
+      if (resto.startsWith("web/lists/getbytitle('SOLICITUDES DE ACCESO')")) {
+        const c2 = JSON.parse(req.postData() || '{}'); delete c2.__metadata; const ms = resto.match(/items\((\d+)\)/);
+        if (ms) { Object.assign(pets.find(x => x.Id === +ms[1]), c2, c2.ResueltoPorId ? { ResueltoPor: U[c2.ResueltoPorId] || { Id: c2.ResueltoPorId, Title: 'X' } } : {}); return r.fulfill({ status: 204, body: '' }); }
+        if (resto.endsWith('/items')) { const it = { Id: pets.length + 1, ...c2, Solicitante: U[c2.SolicitanteId], Created: new Date().toISOString() }; pets.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } }); }
+        return r.fulfill({ status: 204, body: '' });
+      }
+      if (resto.startsWith("web/lists/getbytitle('ASIGNACIONES REGISTRO SIPERDEF')")) {
+        const c2 = JSON.parse(req.postData() || '{}'); delete c2.__metadata; const ms = resto.match(/items\((\d+)\)/);
+        if (ms) { if (req.headers()['x-http-method'] === 'DELETE') asigs = asigs.filter(x => x.Id !== +ms[1]); else Object.assign(asigs.find(x => x.Id === +ms[1]), c2); return r.fulfill({ status: 204, body: '' }); }
+        if (resto.endsWith('/items')) { asigs.push({ Id: 100 + asigs.length, ...c2 }); return r.fulfill({ status: 201, json: { d: { Id: 100 } } }); }
+        return r.fulfill({ status: 204, body: '' });
+      }
+      const gu = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users(\/removebyid\((\d+)\))?/);
+      if (gu) { if (gu[3]) grupoReg = grupoReg.filter(x => x.Id !== +gu[3]); else anadidosReg.push(JSON.parse(req.postData()).LoginName); return r.fulfill({ status: 200, json: { d: {} } }); }
       const mi = resto.match(/items\((\d+)\)/);
       const c = JSON.parse(req.postData()); delete c.__metadata;
       const aplica = (it, c) => { for (const [k, v] of Object.entries(c)) { const m = k.match(/^(.*)Id$/); if (m && m[1] !== 'Unidad0' && (v === null || typeof v === 'number')) it[m[1]] = v ? U[v] : null; else if (k === 'Unidad0Id') it.Unidad0 = { Id: v, Title: v === 1 ? 'UNIDAD A' : 'UNIDAD B' }; else it[k] = v; } it.Modified = new Date(Date.now() + 1000).toISOString(); };
@@ -52,6 +67,17 @@ async function prueba(verbose, soloAlcance) {
       return r.fulfill({ status: 400, body: '' });
     }
     if (resto.startsWith('web/currentuser/groups')) return J({ value: registro ? [{ Title: 'Personal de Registro' }] : [{ Title: 'Integrantes cdv' }] });
+    if (resto.startsWith('SP.UserProfiles.PeopleManager')) return J({ Title: 'COMANDANTE', UserProfileProperties: verbose ? { results: [{ Key: 'Department', Value: 'UNIDAD B' }] } : [{ Key: 'Department', Value: 'UNIDAD B' }] });
+    { const gid = resto.match(/web\/getuserbyid\((\d+)\)/); if (gid) return J({ LoginName: 'i:0#.w|et\\u' + gid[1] }); }
+    if (resto.startsWith("web/sitegroups/getbyname('Personal de Registro')/users")) return J({ value: grupoReg });
+    for (const [t, ok, rs, ws, lista_, campo] of [['SOLICITUDES DE ACCESO', solLista, 2, 2, pets, 'SolicitanteId'], ['ASIGNACIONES REGISTRO SIPERDEF', asigLista, 1, 4, asigs, 'RegistradorId']]) {
+      if (!resto.startsWith("web/lists/getbytitle('" + t + "')")) continue;
+      if (!ok) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
+      if (resto.includes('/fields')) return J({ value: ['Title', 'Solicitante', 'Correo', 'Empleo', 'Unidad', 'UnidadesIds', 'Cargo', 'DepartamentoPerfil', 'Telefono', 'Papel', 'Motivo', 'Aplicacion', 'EstadoSolicitud', 'GrupoAsignado', 'Resolucion', 'ResueltoPor', 'FechaResolucion', 'Registrador', 'UnidadesTexto'].map(n => ({ InternalName: n })) });
+      if (!resto.includes('/items')) return J({ Id: t, Title: t, ListItemEntityTypeFullName: 'SP.Data.X', ReadSecurity: rs, WriteSecurity: ws });
+      const fl = decodeURIComponent((u.match(/\$filter=([^&]*)/) || [])[1] || ''), me = fl.match(new RegExp(campo + ' eq (\\d+)')), app = fl.match(/Aplicacion eq '([^']+)'/);
+      return J({ value: lista_.filter(x => (!me || (campo === 'SolicitanteId' ? x.Solicitante && x.Solicitante.Id : x.RegistradorId) === +me[1]) && (!app || x.Aplicacion === app[1])) });
+    }
     if (resto.startsWith('web/currentuser')) return J({ Id: 279, Title: U[279].Title, Email: U[279].EMail, LoginName: 'i:0#.w|et\\usuario' });
     if (resto.startsWith('web/siteusers')) return J({ value: Object.values(U).map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail })).concat(otraCuenta ? [{ Id: 280, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es', LoginName: 'et\\usuario' }, { Id: 281, Title: 'BUZON COMPARTIDO', Email: 'usuario@et.mde.es' }] : []) });
     if (resto.includes("getbytitle('empleos')")) return J({ value: [{ Title: 'Comandante' }, { Title: 'Sargento' }] });
@@ -79,6 +105,40 @@ async function prueba(verbose, soloAlcance) {
   });
   const tag = verbose ? '[verbose]' : '[ligero]';
   await p.goto(O + WEB + '/Documentos%20compartidos/permisos.html' + (soloAlcance === 'enlace' ? '?id=1' : '')); await p.waitForTimeout(800);
+  if (soloAlcance === 'registro por unidad' || soloAlcance === 'registro sin unidad' || soloAlcance === 'propietario') {
+    await p.click('#tabs a[data-v=registro]'); await p.waitForTimeout(300);
+    console.log(tag, soloAlcance, '| pestañas:', await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | ')));
+    console.log(tag, soloAlcance, '| aviso:', (await p.textContent('#vista .okmsg, #vista .aviso').catch(() => '')).replace(/\s+/g, ' ').slice(0, 110), '| pendientes de registrar:', await p.$$eval('[data-regok]', n => n.map(x => x.dataset.regok).join(',')), '| unidades en el filtro:', await p.$$eval('#rUni option', o => o.map(x => x.textContent).join(' / ')), '| errores:', errs);
+    await b.close(); return;
+  }
+  if (soloAlcance === 'pedir acceso registro') {
+    console.log(tag, 'pestañas:', await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | ')));
+    await p.click('#tabs a[data-v=accesoreg]'); await p.waitForTimeout(800);
+    console.log(tag, 'alerta:', (await p.textContent('#vista .error')).slice(0, 90));
+    await p.selectOption('#fReg [name=empleo]', { index: 1 }); await p.selectOption('#fReg [name=unis]', ['1']); await p.fill('#fReg [name=cargo]', 'Auxiliar de personal'); await p.fill('#fReg [name=tel]', '912345678');
+    await p.click('[data-regpedir]'); await p.waitForTimeout(200);
+    console.log(tag, 'sin declaración:', await p.textContent('#regErr'));
+    await p.check('#fReg [name=decl]'); posts.length = 0; await p.click('[data-regpedir]'); await p.waitForTimeout(1500);
+    const al = posts.find(x => x.ruta.includes("SOLICITUDES DE ACCESO')/items")), m = posts.filter(x => x.ruta.startsWith('SP.Utilities')).map(x => JSON.parse(x.cuerpo).properties).pop();
+    console.log(tag, 'solicitud:', al && JSON.stringify((({ Unidad, UnidadesIds, Cargo, DepartamentoPerfil, Aplicacion, EstadoSolicitud }) => ({ Unidad, UnidadesIds, Cargo, DepartamentoPerfil, Aplicacion, EstadoSolicitud }))(JSON.parse(al.cuerpo))), '| aviso a:', m && m.To.results, '|', m && m.Subject);
+    console.log(tag, 'después:', (await p.textContent('#vista .okmsg').catch(() => '')).slice(0, 70), '| errores:', errs);
+    await b.close(); return;
+  }
+  if (soloAlcance === 'accesos de registro') {
+    await p.click('#tabs a[data-v=accesos]'); await p.waitForTimeout(1200);
+    console.log(tag, 'pestaña:', await p.textContent('#tabs a[data-v=accesos]'), '| preparación:', (await p.textContent('#vista .card')).replace(/\s+/g, ' ').slice(0, 200));
+    console.log(tag, 'pendiente:', (await p.textContent('[data-pet]')).replace(/\s+/g, ' ').slice(0, 220));
+    posts.length = 0; await p.click('[data-araprobar]'); await p.waitForTimeout(1800);
+    const m = posts.filter(x => x.ruta.startsWith('SP.Utilities')).map(x => JSON.parse(x.cuerpo).properties).pop();
+    console.log(tag, 'aprobar:', JSON.stringify(anadidosReg), '| asignaciones:', JSON.stringify(asigs.map(a => [a.RegistradorId, a.UnidadesIds])), '| solicitud:', pets[0].EstadoSolicitud, '| correo:', m && m.To.results, m && m.Subject);
+    await p.selectOption('[data-miem="11"] .arUnis', ['1', '2']); await p.click('[data-arguardar="11"]'); await p.waitForTimeout(1200);
+    console.log(tag, 'asignar al actual:', JSON.stringify(asigs.map(a => [a.RegistradorId, a.UnidadesIds])), '|', (await p.textContent('[data-miem="11"] td:nth-child(2)')).trim());
+    p.removeAllListeners('dialog'); p.on('dialog', dl => dl.accept());
+    await p.click('[data-arretirar="11"]'); await p.waitForTimeout(1200);
+    console.log(tag, 'retirar:', JSON.stringify(grupoReg.map(x => x.Id)), '| asignaciones:', JSON.stringify(asigs.map(a => a.RegistradorId)), '| errores:', errs);
+    if (!verbose) await p.screenshot({ path: new URL('accesos-registro.png', import.meta.url).pathname, fullPage: true });
+    await b.close(); return;
+  }
   if (soloAlcance === 'enlace') {
     console.log(tag, 'enlace del correo abre:', await p.textContent('#dlg h2').catch(() => 'nada'), '| URL limpia:', p.url().endsWith('permisos.html'));
     await b.close(); return;
@@ -286,6 +346,14 @@ async function prueba(verbose, soloAlcance) {
   await b.close();
 }
 await prueba(false); await prueba(true);
+// Registro por unidad
+registro = true; asigs = [{ Id: 100, RegistradorId: 279, UnidadesIds: '2' }]; await prueba(false, 'registro por unidad'); await prueba(true, 'registro por unidad');
+asigs = []; await prueba(false, 'registro sin unidad');
+registro = false; admin = true; await prueba(false, 'propietario'); admin = false;
+registro = false; pets = []; await prueba(false, 'pedir acceso registro'); pets = []; await prueba(true, 'pedir acceso registro');
+admin = true; asigs = []; grupoReg = [{ Id: 11, Title: 'APROBADOR UNO', Email: 'aprob1@et.mde.es', LoginName: 'i:0#.w|et\\a1' }]; anadidosReg = [];
+pets = [{ Id: 1, Title: 'SOLICITANTE DOS', Solicitante: U[13], Correo: U[13].EMail, Empleo: 'Sargento', Unidad: 'UNIDAD B', UnidadesIds: '2', Cargo: 'Auxiliar', DepartamentoPerfil: 'UNIDAD A', Telefono: '600', Aplicacion: 'REGISTRO SIPERDEF', EstadoSolicitud: 'PENDIENTE', Created: d(-1) }];
+await prueba(false, 'accesos de registro'); admin = false; asigs = []; grupoReg = []; registro = true;
 registro = false; await prueba(false, 'usuario normal');
 registro = true; await prueba(false, 'registro');
 gestor = true; await prueba(true, 'gestor');

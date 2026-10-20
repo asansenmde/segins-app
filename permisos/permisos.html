@@ -1,7 +1,14 @@
 <!doctype html>
+<!--
+  Solicitud de permisos · SUIGESUR
+  © 2026 Cte. Alfredo Sánchez Sender. Desarrollador y autor de esta aplicación. Todos los derechos reservados.
+  Prohibida su copia, modificación o redistribución sin autorización del autor.
+-->
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta name="author" content="Cte. Alfredo Sánchez Sender">
+<meta name="copyright" content="© 2026 Cte. Alfredo Sánchez Sender">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Solicitud de permisos · SUIGESUR</title>
 <!--
@@ -38,6 +45,9 @@
   .top button:hover { background: rgba(255,255,255,.22); }
   @media (max-width: 600px) { .oficial .org { display: none; } .oficial > div { grid-template-columns: auto 1fr; } .oficial .uso { justify-self: end; } .top h1 { font-size: 1rem; } }
   main { max-width: 1100px; margin: 0 auto; padding: 0 16px 60px; }
+  .autor { max-width: 1100px; margin: -40px auto 0; padding: 12px 16px 24px; text-align: center; font-size: .78rem; color: var(--muted); border-top: 1px solid var(--line); }
+  @media print { .autor { display: none; } }
+  [hidden] { display: none !important; }
   nav.tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; margin: 12px 0; flex-wrap: wrap; }
   nav.tabs a { flex: 1; text-align: center; padding: 8px 4px; border-radius: 9px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .9rem; cursor: pointer; white-space: nowrap; }
   nav.tabs a.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
@@ -143,6 +153,7 @@
   <nav class="tabs" id="tabs"></nav>
   <div id="vista"><p class="muted">Leyendo la lista «Solicitud de Permisos»…</p></div>
 </main>
+<footer class="autor">© 2026 · Aplicación desarrollada por el <b>Cte. Alfredo Sánchez Sender</b> · Todos los derechos reservados · <span id="verPie"></span></footer>
 <dialog id="dlg"></dialog>
 <script>
 (function () {
@@ -171,7 +182,9 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-10-15 · 5';
+  var VERSION = '2026-10-20 · 6';
+  var AUTOR = 'Cte. Alfredo Sánchez Sender';
+  try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
   var CLAVE = 'permisos-calidad-vida';
   var pref = { sitio: '/et/SUIGESUR/colaborativo/CALIDAD-VIDA', lista: 'Solicitud de Permisos', vista: 'mias', correo: true,
     f: { q: '', estado: '', tipo: '', dependencia: '', unidad: '', cupo: '' }, cal: { dependencia: '', unidad: '', pendientes: true, ver: 'control' }, recordados: {} };
@@ -337,12 +350,14 @@
       todas(web + "/_api/web/lists/getbytitle('empleos')/items?$select=Title&$top=500").then(function (l) { empleos = l.map(function (x) { return x.Title; }).filter(Boolean); }).catch(function () { empleos = []; }),
       todas(web + "/_api/web/lists/getbytitle('UNIDADES')/items?$select=Id,Title&$top=500").then(function (l) { unidades = l.map(function (x) { return { Id: x.Id, Title: x.Title || '' }; }).sort(function (a, b) { return a.Title.localeCompare(b.Title, 'es'); }); }).catch(function () { unidades = []; })
     ]).then(function () {
-      return buscarMisCuentas();
+      return Promise.all([buscarMisCuentas(), leerMisUnidades()]);
     }).then(function () {
       var leer = function (nivel) { return todas(urlLista() + '/items?$top=1000&$select=' + SEL.join(',') + '&$expand=' + EXPAND + filtroAlcance(nivel)); };
       return leer(2).catch(function (e) { if (e.status !== 400) throw e; return leer(1); }).catch(function (e) { if (e.status !== 400) throw e; return leer(0); });
     }).then(function (its) {
       items = its.map(aSol);
+      // Registro por unidad: lo que llega solo por ser del grupo de registro, únicamente de mis unidades
+      if (enRegistro() && !esSuper()) items = items.filter(function (t) { return !soloPorRegistro(t) || unidadOk(t); });
       return cargarNifs();
     }).then(function () {
       cargadoEn = new Date();
@@ -386,7 +401,7 @@
   }
   var q_ = function (v) { return "'" + String(v).replace(/'/g, "''") + "'"; };
   function filtroAlcance(conTexto) {
-    if (esGestor) return '';
+    if (esGestor || esAdmin) return '';
     var c = [];
     if (conTexto === 2) {
       // Apellido más largo, para encontrar el nombre escrito de otra forma (luego se confirma con todas las palabras)
@@ -409,7 +424,7 @@
     return '&$filter=' + encodeURIComponent(c.join(' or '));
   }
   function alcanceTxt() {
-    if (esGestor) return 'Ves todas las solicitudes porque administras la lista en Colabora.';
+    if (esGestor || esAdmin) return 'Ves todas las solicitudes porque administras la lista en Colabora.';
     return 'Ves tus solicitudes y las que te corresponde aprobar o autorizar' + (enRegistro() ? ', y las autorizadas, registradas y anuladas (registro SIPERDEF)' : '') + '.';
   }
 
@@ -435,9 +450,9 @@
   var puedeEditar = function (t) { return esBorrador(t) && esMia(t); };
   var puedeAprobar = function (t) { return t.estado === E.PA && soyApr(t); };
   var puedeAutorizar = function (t) { return t.estado === E.AP && soyAut(t); };
-  var puedeRegistrar = function (t) { return t.estado === E.AU && enRegistro(); };
+  var puedeRegistrar = function (t) { return t.estado === E.AU && (enRegistro() || esSuper()) && unidadOk(t); };
   // Datos personales (NIF): solo quien interviene en la solicitud; el registro, solo en las que le llegan (autorizadas o ya tramitadas por él)
-  var veNif = function (t) { return esMia(t) || soyApr(t) || soyAut(t) || soy(t.reg) || (enRegistro() && [E.AU, E.RG, E.AN].indexOf(t.estado) >= 0); };
+  var veNif = function (t) { return esMia(t) || soyApr(t) || soyAut(t) || soy(t.reg) || ((enRegistro() || esSuper()) && [E.AU, E.RG, E.AN].indexOf(t.estado) >= 0 && unidadOk(t)); };
   var pendientes = function () { return { aprobar: items.filter(puedeAprobar), autorizar: items.filter(puedeAutorizar) }; };
 
   // ---------- Tiempo de espera y solapes ----------
@@ -599,9 +614,9 @@
   var nifs = {}, regVista = 'pendientes', regUnidad = '', confirmando = null, recien = new Set(), ultimaReg = '';
   function cargarNifs() {
     nifs = {};
-    if (!enRegistro()) return Promise.resolve();
+    if (!enRegistro() && !esSuper()) return Promise.resolve();
     return todas(urlLista() + "/items?$top=1000&$select=Id,NIF&$filter=" + encodeURIComponent("Estado eq '" + E.AU + "'"))
-      .then(function (l) { l.forEach(function (x) { nifs[x.Id] = x.NIF || ''; }); }).catch(function () { /* sin NIF: se ve en la ficha */ });
+      .then(function (l) { l.forEach(function (x) { var t = items.find(function (y) { return y.id === x.Id; }); if (t && unidadOk(t)) nifs[x.Id] = x.NIF || ''; }); }).catch(function () { /* sin NIF: se ve en la ficha */ });
   }
   var porRegistrar = function () { return items.filter(puedeRegistrar); };
   // Antes de registrar o anular se vuelve a preguntar al servidor si sigues en el grupo de registro (la página
@@ -609,7 +624,7 @@
   function verificarRegistro() {
     return api(web + '/_api/web/currentuser/groups?$select=Title').then(function (d) { misGrupos = lista(d.value).map(function (x) { return x.Title; }); },
       function () { misGrupos = []; }).then(function () {
-      if (!enRegistro()) { nifs = {}; if (pref.vista === 'registro') pref.vista = 'mias'; throw new Error('No perteneces al grupo «Personal de Registro» de Colabora: no puedes registrar ni anular. Pulsa Actualizar.'); }
+      if (!enRegistro() && !esSuper()) { nifs = {}; if (pref.vista === 'registro') pref.vista = 'mias'; throw new Error('No perteneces al grupo «Personal de Registro» de Colabora: no puedes registrar ni anular. Pulsa Actualizar.'); }
     });
   }
   var limpiarUltimaReg = function () { ultimaReg = ''; };
@@ -617,6 +632,7 @@
   function registroSel() {
     var hace30 = new Date(Date.now() - 30 * 864e5).toISOString();
     var ts = regVista === 'pendientes' ? porRegistrar().concat(items.filter(function (t) { return t.estado === E.RG && recien.has(t.id); })) : items.filter(function (t) { return (t.estado === E.RG || t.estado === E.AN) && String(t.modificado) >= hace30; });
+    ts = ts.filter(unidadOk);
     if (regUnidad) ts = ts.filter(function (t) { return t.unidad ? String(t.unidad.Id) === String(regUnidad) : regUnidad === 'sin'; });
     return ts;
   }
@@ -627,12 +643,17 @@
       .map(function (g) { g[1].sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es') || String(a.ini).localeCompare(String(b.ini)); }); return g; });
   }
   function vistaRegistro() {
-    if (!enRegistro()) return '<div class="card vacio">Esta pestaña es solo para el personal de registro.</div>';
+    if (!enRegistro() && !esSuper()) return '<div class="card vacio">Esta pestaña es solo para el personal de registro.</div>';
+    var perm = unidadesPermitidas(), misUnis = perm === null ? unidades : unidades.filter(function (u) { return perm.indexOf(u.Id) >= 0; });
+    if (regUnidad && regUnidad !== 'sin' && !misUnis.some(function (u) { return String(u.Id) === String(regUnidad); })) regUnidad = '';
     var ts = registroSel(), pend = regVista === 'pendientes';
-    var uniOps = '<option value="">Todas las unidades</option>' + unidades.map(function (u) { return '<option value="' + u.Id + '"' + (String(regUnidad) === String(u.Id) ? ' selected' : '') + '>' + esc(u.Title) + '</option>'; }).join('') +
-      '<option value="sin"' + (regUnidad === 'sin' ? ' selected' : '') + '>Sin unidad</option>';
+    var alc = esSuper() ? '<div class="okmsg">Como propietario ves y puedes registrar los permisos de <b>todas las unidades</b>.</div>' :
+      sinUnidadAsignada() ? (ACC.transicion ? '<div class="aviso">⚠ Aún no tienes <b>unidad asignada</b>: de forma provisional ves todas las unidades. El administrador te asignará la tuya.</div>' : '<div class="aviso">No tienes unidad asignada: pide al administrador que te la asigne.</div>') :
+      '<div class="okmsg">Registras los permisos de: <b>' + esc(nombresUni(perm).join(', ')) + '</b>.</div>';
+    var uniOps = '<option value="">' + (perm === null ? 'Todas las unidades' : 'Todas mis unidades') + '</option>' + misUnis.map(function (u) { return '<option value="' + u.Id + '"' + (String(regUnidad) === String(u.Id) ? ' selected' : '') + '>' + esc(u.Title) + '</option>'; }).join('') +
+      (perm === null ? '<option value="sin"' + (regUnidad === 'sin' ? ' selected' : '') + '>Sin unidad</option>' : '');
     var cab = ['Solicitante', 'Empleo', 'NIF', 'Tipo de permiso', 'Cupo', 'Desde', 'Hasta', 'Días', 'Festivos', pend ? 'Autorizado' : 'Estado', 'Registro SIPERDEF'];
-    return '<div class="card"><div class="acciones" style="margin-top:0">' +
+    return alc + '<div class="card"><div class="acciones" style="margin-top:0">' +
       '<button class="' + (pend ? 'prim' : '') + '" data-regv="pendientes">Pendientes de registrar (' + porRegistrar().length + ')</button>' +
       '<button class="' + (!pend ? 'prim' : '') + '" data-regv="hechos">Ya registrados o anulados (últimos 30 días)</button></div>' +
       (pend && ultimaReg ? '<div class="okmsg">✔ ' + esc(ultimaReg) + ': REGISTRADO EN SIPERDEF. Ya no está en pendientes; la tienes en «Ya registrados o anulados».</div>' : '') +
@@ -811,16 +832,281 @@
       el.innerHTML = h;
     });
   }
+  // ---------- Acceso a Registro SIPERDEF por unidad ----------
+  // Quien necesita registrar lo pide en la pestaña «Acceso a Registro SIPERDEF» (lista común «SOLICITUDES DE ACCESO» del
+  // sitio, Aplicacion = REGISTRO SIPERDEF). El propietario lo aprueba en «Accesos de registro»: lo mete en «Personal de
+  // Registro» y le asigna su unidad o unidades en la lista «ASIGNACIONES REGISTRO SIPERDEF» (todos leen; solo quien
+  // administra la lista escribe). Cada registrador ve y registra solo sus unidades; el propietario (Control total o
+  // administrar la lista) ve y registra todas. Transición: el registrador sin unidad asignada sigue viéndolas todas.
+  var ACC = { app: 'REGISTRO SIPERDEF', lista: 'SOLICITUDES DE ACCESO', asig: 'ASIGNACIONES REGISTRO SIPERDEF', grupo: 'Personal de Registro', avisar: ['asansen@et.mde.es'], transicion: true };
+  var AVISO_REG = 'Acceso exclusivo para el personal de las Secciones de Personal. Se comprobará que perteneces a la sección de personal de la unidad indicada; las solicitudes que no lo cumplan se rechazarán.';
+  var esSuper = function () { return esAdmin || esGestor; };
+  var misUnidadesReg = null;   // null: sin asignación (o sin lista); [ids]: unidades asignadas
+  var idsDe = function (s) { return String(s || '').split(/[;,\s]+/).map(Number).filter(Boolean); };
+  var nombresUni = function (ids) { return ids.map(function (id) { var u = unidades.find(function (x) { return x.Id === id; }); return u ? u.Title : 'Unidad ' + id; }); };
+  var urlLst = function (t) { return web + "/_api/web/lists/getbytitle('" + encodeURIComponent(t.replace(/'/g, "''")) + "')"; };
+  // Unidades que puede ver/registrar el usuario: null = todas
+  var unidadesPermitidas = function () {
+    if (esSuper()) return null;
+    if (!misUnidadesReg || !misUnidadesReg.length) return ACC.transicion ? null : [];
+    return misUnidadesReg;
+  };
+  var unidadOk = function (t) { var p = unidadesPermitidas(); return p === null || !!(t.unidad && p.indexOf(t.unidad.Id) >= 0); };
+  var sinUnidadAsignada = function () { return enRegistro() && !esSuper() && (!misUnidadesReg || !misUnidadesReg.length); };
+  var soloPorRegistro = function (t) { return [E.AU, E.RG, E.AN].indexOf(t.estado) >= 0 && !(esMia(t) || soyApr(t) || soyAut(t) || soy(t.reg)); };
+  function leerMisUnidades() {
+    misUnidadesReg = null;
+    if (!enRegistro() || esSuper()) return Promise.resolve();
+    return todas(urlLst(ACC.asig) + '/items?$top=50&$select=Id,RegistradorId,UnidadesIds&$filter=' + encodeURIComponent('RegistradorId eq ' + yo.Id))
+      .then(function (l) { var s = []; l.forEach(function (x) { idsDe(x.UnidadesIds).forEach(function (i) { if (s.indexOf(i) < 0) s.push(i); }); }); misUnidadesReg = s; },
+        function () { misUnidadesReg = null; });
+  }
+
+  // Columnas de las listas (si se crean desde aquí o faltan)
+  var CAMPOS_SOL = [
+    '<Field Type="User" Name="Solicitante" StaticName="Solicitante" DisplayName="Solicitante" UserSelectionMode="PeopleOnly" />',
+    '<Field Type="Text" Name="Correo" StaticName="Correo" DisplayName="Correo" />',
+    '<Field Type="Text" Name="Empleo" StaticName="Empleo" DisplayName="Empleo" />',
+    '<Field Type="Text" Name="Unidad" StaticName="Unidad" DisplayName="Unidad" />',
+    '<Field Type="Text" Name="UnidadesIds" StaticName="UnidadesIds" DisplayName="Unidades (Id)" />',
+    '<Field Type="Text" Name="Cargo" StaticName="Cargo" DisplayName="Cargo en la sección de personal" />',
+    '<Field Type="Text" Name="DepartamentoPerfil" StaticName="DepartamentoPerfil" DisplayName="Departamento en el perfil" />',
+    '<Field Type="Text" Name="Telefono" StaticName="Telefono" DisplayName="Teléfono" />',
+    '<Field Type="Text" Name="Papel" StaticName="Papel" DisplayName="Papel solicitado" />',
+    '<Field Type="Note" Name="Motivo" StaticName="Motivo" DisplayName="Motivo" NumLines="4" RichText="FALSE" />',
+    '<Field Type="Text" Name="Aplicacion" StaticName="Aplicacion" DisplayName="Aplicación" />',
+    '<Field Type="Choice" Name="EstadoSolicitud" StaticName="EstadoSolicitud" DisplayName="Estado"><Default>PENDIENTE</Default><CHOICES><CHOICE>PENDIENTE</CHOICE><CHOICE>APROBADA</CHOICE><CHOICE>DENEGADA</CHOICE><CHOICE>RETIRADA</CHOICE></CHOICES></Field>',
+    '<Field Type="Text" Name="GrupoAsignado" StaticName="GrupoAsignado" DisplayName="Grupo asignado" />',
+    '<Field Type="Note" Name="Resolucion" StaticName="Resolucion" DisplayName="Resolución" NumLines="3" RichText="FALSE" />',
+    '<Field Type="User" Name="ResueltoPor" StaticName="ResueltoPor" DisplayName="Resuelto por" UserSelectionMode="PeopleOnly" />',
+    '<Field Type="DateTime" Name="FechaResolucion" StaticName="FechaResolucion" DisplayName="Fecha de resolución" />'
+  ];
+  var CAMPOS_ASIG = [
+    '<Field Type="User" Name="Registrador" StaticName="Registrador" DisplayName="Registrador" UserSelectionMode="PeopleOnly" />',
+    '<Field Type="Text" Name="UnidadesIds" StaticName="UnidadesIds" DisplayName="Unidades (Id)" />',
+    '<Field Type="Note" Name="UnidadesTexto" StaticName="UnidadesTexto" DisplayName="Unidades" NumLines="3" RichText="FALSE" />'
+  ];
+  var nombreCampo = function (xml) { return /Name="([^"]+)"/.exec(xml)[1]; };
+  var SEL_SOL = ['Id', 'Title', 'Correo', 'Empleo', 'Unidad', 'UnidadesIds', 'Cargo', 'DepartamentoPerfil', 'Telefono', 'Papel', 'Motivo', 'Aplicacion', 'EstadoSolicitud', 'GrupoAsignado', 'Resolucion', 'FechaResolucion', 'Created',
+    'Solicitante/Id', 'Solicitante/Title', 'Solicitante/EMail', 'ResueltoPor/Title'];
+  var aPet = function (x) {
+    return { id: x.Id, nombre: x.Title || (x.Solicitante && x.Solicitante.Title) || '', solId: x.Solicitante && x.Solicitante.Id, correo: x.Correo || (x.Solicitante && x.Solicitante.EMail) || '', empleo: x.Empleo || '',
+      unidad: x.Unidad || '', uids: idsDe(x.UnidadesIds), cargo: x.Cargo || '', depto: x.DepartamentoPerfil || '', tel: x.Telefono || '', motivo: x.Motivo || '',
+      estado: String(x.EstadoSolicitud || 'PENDIENTE').toUpperCase(), resolucion: x.Resolucion || '', resuelto: x.ResueltoPor && x.ResueltoPor.Title || '', fechaRes: x.FechaResolucion, creado: x.Created };
+  };
+  var perfilReg = null;
+  function leerPerfilReg() {
+    if (perfilReg) return Promise.resolve(perfilReg);
+    return api(web + '/_api/SP.UserProfiles.PeopleManager/GetMyProperties?$select=Title,UserProfileProperties').then(function (d) {
+      var props = {}; lista(d.UserProfileProperties).forEach(function (p) { props[p.Key] = p.Value; });
+      perfilReg = { cargo: d.Title || props.Title || '', departamento: props.Department || props['SPS-Department'] || '', telefono: props.WorkPhone || '' }; return perfilReg;
+    }).catch(function () { perfilReg = {}; return perfilReg; });
+  }
+
+  // ----- Pestaña «Acceso a Registro SIPERDEF» (quien no es registrador) -----
+  var misPets = null, misPetsErr = null;
+  function cargarMisPets() {
+    return todas(urlLst(ACC.lista) + '/items?$top=50&$select=' + SEL_SOL.join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent('(SolicitanteId eq ' + yo.Id + ") and (Aplicacion eq '" + ACC.app + "')"))
+      .then(function (l) { misPets = l.map(aPet).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); }); misPetsErr = null; },
+        function (e) { misPets = []; misPetsErr = e; });
+  }
+  function vistaAccesoReg() {
+    if (misPets === null) { Promise.all([cargarMisPets(), leerPerfilReg()]).then(function () { if (pref.vista === 'accesoreg') render(); }); return '<div class="card"><p class="muted">Cargando…</p></div>'; }
+    var alerta = '<div class="error" style="font-size:1rem">⚠ ' + esc(AVISO_REG) + '</div>';
+    if (misPetsErr) return '<div class="card"><h3 style="margin-top:0">Acceso a Registro SIPERDEF</h3>' + alerta + '<div class="aviso">El sistema de solicitudes aún no está preparado en este sitio. Escribe a ' + esc(ACC.avisar.join(', ')) + ' indicando tu unidad y tu cargo en la sección de personal.<div class="small muted">Detalle: ' + esc(misPetsErr.message || misPetsErr) + '</div></div></div>';
+    var pend = misPets.filter(function (s) { return s.estado === 'PENDIENTE'; })[0], P = perfilReg || {};
+    var hist = misPets.length ? '<div class="card"><h3 style="margin-top:0">Tus solicitudes</h3>' + misPets.map(function (s) {
+      return '<div class="small" style="margin-bottom:6px"><b>' + esc(s.creado ? new Date(s.creado).toLocaleString('es-ES') : '') + '</b> · <span class="badge ' + (s.estado === 'APROBADA' ? 'e4' : s.estado === 'DENEGADA' ? 'e5' : 'e1') + '">' + esc(s.estado) + '</span> · ' +
+        esc(s.unidad) + (s.resolucion ? '<br><span class="muted">' + esc(s.resolucion) + '</span>' : '') + '</div>';
+    }).join('') + '</div>' : '';
+    if (pend) return '<div class="card"><h3 style="margin-top:0">Acceso a Registro SIPERDEF</h3>' + alerta + '<div class="okmsg">Tu solicitud del ' + esc(new Date(pend.creado).toLocaleString('es-ES')) + ' está PENDIENTE de revisión. Recibirás un correo con la respuesta.</div></div>' + hist;
+    var emps = empleos.length ? empleos : ['CORONEL', 'TENIENTE CORONEL', 'COMANDANTE', 'CAPITAN', 'TENIENTE', 'SUBOFICIAL MAYOR', 'SUBTENIENTE', 'BRIGADA', 'SARGENTO PRIMERO', 'SARGENTO', 'CABO MAYOR', 'CABO PRIMERO', 'CABO', 'SOLDADO', 'CIVIL FUNCIONARIO', 'CIVIL LABORAL'];
+    return '<div class="card" id="fReg"><h3 style="margin-top:0">Solicitar acceso a Registro SIPERDEF</h3>' + alerta +
+      '<div class="grid"><div><label class="lbl">Apellidos y nombre</label><input value="' + esc(yo.Title) + '" disabled></div><div><label class="lbl">Correo</label><input value="' + esc(yo.Email) + '" disabled></div>' +
+      '<div><label class="lbl">Empleo *</label><select name="empleo"><option value="">—</option>' + emps.map(function (e) { return '<option' + (sinTildes(e) === sinTildes(P.cargo) ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="lbl">Teléfono *</label><input name="tel" value="' + esc(P.telefono || '') + '" placeholder="RPV o fijo"></div></div>' +
+      '<label class="lbl">Unidad o unidades cuyos permisos vas a registrar * <span class="muted small">(Ctrl + clic para elegir varias)</span></label><select name="unis" multiple size="6" style="width:100%">' +
+      unidades.map(function (u) { return '<option value="' + u.Id + '">' + esc(u.Title) + '</option>'; }).join('') + '</select>' +
+      '<div class="grid"><div><label class="lbl">Cargo en la sección de personal *</label><input name="cargo" placeholder="Jefe de la sección de personal, auxiliar de personal…"></div>' +
+      '<div><label class="lbl">Departamento en tu perfil</label><input value="' + esc(P.departamento || '(no consta)') + '" disabled></div></div>' +
+      '<label class="lbl">Motivo / observaciones</label><textarea name="motivo"></textarea>' +
+      '<label class="check" style="display:block;margin-top:8px"><input type="checkbox" name="decl"> <b>Declaro que pertenezco a la sección de personal de la unidad o unidades indicadas y que tengo el cometido de registrar sus permisos en SIPERDEF.</b></label>' +
+      '<div id="regErr"></div><div class="acciones"><button class="prim" data-regpedir="1">📨 Enviar solicitud de acceso</button></div></div>' + hist;
+  }
+  function enviarPeticionReg(boton) {
+    var f = $('#fReg'), q = function (n) { return f.querySelector('[name="' + n + '"]'); }, err = function (m) { $('#regErr').innerHTML = '<div class="error">' + esc(m) + '</div>'; };
+    var uids = Array.prototype.filter.call(q('unis').options, function (o) { return o.selected; }).map(function (o) { return Number(o.value); });
+    var falta = [];
+    if (!q('empleo').value) falta.push('empleo'); if (!q('tel').value.trim()) falta.push('teléfono'); if (!uids.length) falta.push('unidad'); if (!q('cargo').value.trim()) falta.push('cargo en la sección de personal');
+    if (falta.length) return err('Falta: ' + falta.join(', ') + '.');
+    if (!q('decl').checked) return err('Tienes que marcar la declaración de que perteneces a la sección de personal de esa unidad.');
+    boton.disabled = true;
+    var uni = nombresUni(uids).join('; '), P = perfilReg || {};
+    var c = { Title: yo.Title, SolicitanteId: yo.Id, Correo: yo.Email, Empleo: q('empleo').value, Unidad: uni, UnidadesIds: uids.join(';'), Cargo: q('cargo').value.trim(), DepartamentoPerfil: P.departamento || '',
+      Telefono: q('tel').value.trim(), Papel: 'Registro SIPERDEF', Motivo: q('motivo').value.trim(), Aplicacion: ACC.app, EstadoSolicitud: 'PENDIENTE' };
+    api(urlLst(ACC.lista) + '?$select=ListItemEntityTypeFullName').then(function (l) {
+      return enviarSP(urlLst(ACC.lista) + '/items', Object.assign({ __metadata: { type: l.ListItemEntityTypeFullName } }, c), 'No tienes permiso para escribir en la lista de solicitudes de acceso');
+    }).then(function () {
+      var s = aPet(Object.assign({ Created: new Date().toISOString() }, c));
+      return enviarCorreo(correoReg('nueva', s)).catch(function () { return null; });
+    }).then(function () { misPets = null; render(); aviso('Solicitud de acceso enviada'); })
+      .catch(function (e) { boton.disabled = false; err('No se pudo enviar la solicitud: ' + (e.message || e)); });
+  }
+  function correoReg(tipo, s, txt) {
+    var filas = [['Solicitante', s.nombre], ['Correo', s.correo], ['Empleo', s.empleo], ['Cargo en la sección de personal', s.cargo], ['Unidad o unidades', s.unidad], ['Departamento en su perfil', s.depto],
+      ['Teléfono', s.tel], ['Motivo', s.motivo], ['Resolución', txt]].filter(function (x) { return x[1]; });
+    var P = { nueva: ['SOLICITUD DE ACCESO A REGISTRO SIPERDEF · ' + s.nombre, 'NUEVA SOLICITUD DE ACCESO A REGISTRO SIPERDEF (PERMISOS). COMPRUEBE QUE EL SOLICITANTE PERTENECE A LA SECCIÓN DE PERSONAL DE LA UNIDAD Y RESUÉLVALA EN LA PESTAÑA «ACCESOS DE REGISTRO».'],
+      aprobada: ['ACCESO CONCEDIDO · REGISTRO SIPERDEF', 'SU SOLICITUD DE ACCESO A REGISTRO SIPERDEF HA SIDO APROBADA. VERÁ LOS PERMISOS PENDIENTES DE REGISTRO DE SU UNIDAD (SI NO LE APARECE LA PESTAÑA, CIERRE EL NAVEGADOR Y VUELVA A ENTRAR).'],
+      denegada: ['ACCESO DENEGADO · REGISTRO SIPERDEF', 'SU SOLICITUD DE ACCESO A REGISTRO SIPERDEF NO HA SIDO APROBADA.'],
+      retirada: ['ACCESO RETIRADO · REGISTRO SIPERDEF', 'SE LE HA RETIRADO EL ACCESO A REGISTRO SIPERDEF.'] }[tipo];
+    return { to: tipo === 'nueva' ? ACC.avisar.slice() : [s.correo].filter(Boolean), cc: [], bcc: [], asunto: P[0], html: htmlCorreo(P[1], filas, enlacePagina()),
+      texto: 'USO OFICIAL\n\n' + P[1] + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\n' + enlacePagina() };
+  }
+
+  // ----- Pestaña «Accesos de registro» (propietario: Control total) -----
+  var ar = { estado: '', sol: null, asi: null, pets: [], asigs: [], miembros: null, faltaSol: [], faltaAsig: [] };
+  function cargarAccReg() {
+    ar.estado = 'cargando';
+    var info = function (t) { return api(urlLst(t) + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity').catch(function () { return null; }); };
+    var faltan = function (t, campos) { return todas(urlLst(t) + '/fields?$select=InternalName&$top=500').then(function (l) { var h = l.map(function (x) { return x.InternalName; }); return campos.map(nombreCampo).filter(function (n) { return h.indexOf(n) < 0; }); }, function () { return []; }); };
+    return Promise.all([info(ACC.lista), info(ACC.asig)]).then(function (r) {
+      ar.sol = r[0]; ar.asi = r[1];
+      return Promise.all([
+        ar.sol ? faltan(ACC.lista, CAMPOS_SOL) : [], ar.asi ? faltan(ACC.asig, CAMPOS_ASIG) : [],
+        ar.sol ? todas(urlLst(ACC.lista) + '/items?$top=500&$select=' + SEL_SOL.join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent("Aplicacion eq '" + ACC.app + "'")).catch(function () { return []; }) : [],
+        ar.asi ? todas(urlLst(ACC.asig) + '/items?$top=500&$select=Id,Title,RegistradorId,UnidadesIds,UnidadesTexto').catch(function () { return []; }) : [],
+        todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(ACC.grupo) + "')/users?$select=Id,Title,Email,LoginName").catch(function () { return null; })
+      ]);
+    }).then(function (r) {
+      ar.faltaSol = r[0]; ar.faltaAsig = r[1];
+      ar.pets = (r[2] || []).map(aPet).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); });
+      ar.asigs = r[3] || []; ar.miembros = r[4];
+      ar.estado = 'ok';
+    }).catch(function (e) { ar.estado = 'error: ' + (e.message || e); }).then(function () { if (pref.vista === 'accesos') render(); });
+  }
+  var asigDe = function (uid) { return ar.asigs.filter(function (a) { return a.RegistradorId === uid; })[0]; };
+  var selUnis = function (cls, ids) { return '<select class="' + cls + '" multiple size="4" style="min-width:220px">' + unidades.map(function (u) { return '<option value="' + u.Id + '"' + (ids.indexOf(u.Id) >= 0 ? ' selected' : '') + '>' + esc(u.Title) + '</option>'; }).join('') + '</select>'; };
+  var idsSel = function (el) { return Array.prototype.filter.call(el.options, function (o) { return o.selected; }).map(function (o) { return Number(o.value); }); };
+  var coincide = function (depto, nombres) { var d = sinTildes(depto); return !d || nombres.some(function (n) { var k = sinTildes(n); return k && (d.indexOf(k) >= 0 || k.indexOf(d) >= 0); }); };
+  var nPetsPend = function () { return ar.pets.filter(function (s) { return s.estado === 'PENDIENTE'; }).length; };
+  function vistaAccesosReg() {
+    if (!esAdmin) return '<div class="card vacio">Solo para el propietario (Control total en la lista).</div>';
+    if (!ar.estado) { cargarAccReg(); return '<div class="card"><p class="muted">Cargando…</p></div>'; }
+    if (ar.estado === 'cargando') return '<div class="card"><p class="muted">Cargando…</p></div>';
+    var linea = function (ok, txt) { return '<p class="small">' + (ok ? '✔ ' : '✕ ') + txt + '</p>'; };
+    var prep = '<div class="card"><h3 style="margin-top:0">Preparación <span class="small muted">· versión ' + esc(VERSION) + '</span></h3>' +
+      (ar.sol ? linea(true, 'Lista «' + esc(ACC.lista) + '»' + (Number(ar.sol.ReadSecurity) === 2 ? ' (cada uno ve solo sus solicitudes).' : '. <b>Falta que cada uno vea solo las suyas</b> <button data-arseg="sol">Ajustarlo</button>') +
+        (ar.faltaSol.length ? ' Faltan columnas: ' + esc(ar.faltaSol.join(', ')) + ' <button class="prim" data-arcol="sol">Crearlas</button>' : '')) :
+        linea(false, 'Falta la lista «' + esc(ACC.lista) + '» de este sitio. <button class="prim" data-arcrear="sol">Crear la lista</button>')) +
+      (ar.asi ? linea(true, 'Lista «' + esc(ACC.asig) + '»' + (Number(ar.asi.WriteSecurity) === 4 ? ' (solo el propietario la modifica).' : '. <b>Falta que solo el propietario pueda modificarla</b> <button data-arseg="asi">Ajustarlo</button>') +
+        (ar.faltaAsig.length ? ' Faltan columnas: ' + esc(ar.faltaAsig.join(', ')) + ' <button class="prim" data-arcol="asi">Crearlas</button>' : '')) :
+        linea(false, 'Falta la lista «' + esc(ACC.asig) + '» (qué unidad registra cada uno). <button class="prim" data-arcrear="asi">Crear la lista</button>')) +
+      linea(!!ar.miembros, 'Grupo «' + esc(ACC.grupo) + '»' + (ar.miembros ? ' (' + ar.miembros.length + ' personas).' : ': no se pudo leer.')) +
+      '<p class="small muted">Para que cualquiera pueda pedir acceso, la lista de solicitudes debe dejar «Colaborar» a «Usuarios del dominio» (o heredar del sitio si ya lo tienen). Los avisos de cada solicitud van a ' + esc(ACC.avisar.join(', ')) + '.</p></div>';
+    var pend = ar.pets.filter(function (s) { return s.estado === 'PENDIENTE'; }), res = ar.pets.filter(function (s) { return s.estado !== 'PENDIENTE'; });
+    var hPend = '<div class="sec"><span>Solicitudes pendientes</span><span>' + pend.length + '</span></div>' + (pend.length ? pend.map(function (s) {
+      var noc = !coincide(s.depto, nombresUni(s.uids));
+      return '<div class="card" data-pet="' + s.id + '"><b>' + esc(s.nombre) + '</b>' + (s.empleo ? ' · ' + esc(s.empleo) : '') + '<div class="small">' + esc(s.cargo) + ' · ' + esc([s.correo, s.tel].filter(Boolean).join(' · ')) + ' · ' + esc(new Date(s.creado).toLocaleString('es-ES')) + '</div>' +
+        '<div class="small">Unidad pedida: <b>' + esc(s.unidad) + '</b> · Departamento en su perfil: ' + (s.depto ? '<b' + (noc ? ' style="color:var(--bad)"' : '') + '>' + esc(s.depto) + '</b>' + (noc ? ' <span style="color:var(--bad)">⚠ no coincide con la unidad pedida: compruébalo</span>' : '') : '<span class="muted">(no consta)</span>') + '</div>' +
+        (s.motivo ? '<div class="small muted">' + esc(s.motivo) + '</div>' : '') +
+        '<div class="grid" style="margin-top:6px"><div><label class="lbl">Unidades que podrá registrar</label>' + selUnis('arUnis', s.uids) + '</div><div><label class="lbl">Motivo si se deniega</label><textarea class="arMot" style="min-height:3em"></textarea></div></div>' +
+        '<div class="acciones"><button class="prim" data-araprobar="' + s.id + '">✔ Aprobar y dar acceso</button><button data-ardenegar="' + s.id + '">✕ Denegar</button></div><div class="arMsg"></div></div>';
+    }).join('') : '<p class="muted small">No hay solicitudes pendientes.</p>');
+    var miem = ar.miembros || [];
+    var hMiem = '<div class="sec"><span>Personal de registro y sus unidades</span><span>' + miem.length + '</span></div>' + (miem.length ? '<div class="card" style="overflow-x:auto"><table class="t"><tr><th>Nombre</th><th>Unidades asignadas</th><th>Cambiar</th><th></th></tr>' + miem.map(function (m) {
+      var a = asigDe(m.Id), ids = a ? idsDe(a.UnidadesIds) : [];
+      return '<tr data-miem="' + m.Id + '"><td><b>' + esc(m.Title) + '</b><div class="small muted">' + esc(m.Email || '') + '</div></td><td>' + (ids.length ? esc(nombresUni(ids).join(', ')) : '<span style="color:var(--bad)">sin unidad asignada' + (ACC.transicion ? ' (de momento ve todas)' : ' (no ve nada)') + '</span>') + '</td>' +
+        '<td>' + selUnis('arUnis', ids) + '<div class="acciones"><button data-arguardar="' + m.Id + '">Guardar unidades</button></div></td><td><button data-arretirar="' + m.Id + '">Retirar</button></td></tr>';
+    }).join('') + '</table></div>' : '<p class="muted small">El grupo está vacío o no se puede leer.</p>');
+    var hRes = res.length ? '<details class="card"><summary>Solicitudes resueltas (' + res.length + ')</summary>' + res.slice(0, 60).map(function (s) {
+      return '<div class="small" style="margin:4px 0"><b>' + esc(s.nombre) + '</b> · ' + esc(s.unidad) + ' · <span class="badge ' + (s.estado === 'APROBADA' ? 'e4' : 'e5') + '">' + esc(s.estado) + '</span>' + (s.resuelto ? ' · ' + esc(s.resuelto) : '') + (s.resolucion ? ' · ' + esc(s.resolucion) : '') + '</div>';
+    }).join('') + '</details>' : '';
+    return prep + '<div id="arMsgG"></div>' + hPend + hMiem + hRes;
+  }
+  var msgAr = function (cls, txt, cont) { var el = cont ? cont.querySelector('.arMsg') : $('#arMsgG'); if (el) el.innerHTML = '<div class="' + cls + '">' + esc(txt) + '</div>'; else aviso(txt); };
+  function tipoLst(t) { return api(urlLst(t) + '?$select=ListItemEntityTypeFullName').then(function (l) { return l.ListItemEntityTypeFullName; }); }
+  function guardarAsig(uid, nombre, ids) {
+    var a = asigDe(uid), c = { UnidadesIds: ids.join(';'), UnidadesTexto: nombresUni(ids).join('; ') };
+    return tipoLst(ACC.asig).then(function (tp) {
+      if (a) return enviarSP(urlLst(ACC.asig) + '/items(' + a.Id + ')', Object.assign({ __metadata: { type: tp } }, c), 'No tienes permiso en la lista de asignaciones', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' });
+      return enviarSP(urlLst(ACC.asig) + '/items', Object.assign({ __metadata: { type: tp }, Title: nombre, RegistradorId: uid }, c), 'No tienes permiso en la lista de asignaciones');
+    });
+  }
+  function alGrupo(uid) {
+    if ((ar.miembros || []).some(function (m) { return m.Id === uid; })) return Promise.resolve();
+    return api(web + '/_api/web/getuserbyid(' + uid + ')?$select=LoginName').then(function (u) {
+      return enviarSP(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(ACC.grupo) + "')/users", { __metadata: { type: 'SP.User' }, LoginName: u.LoginName }, 'No tienes permiso para añadir personas al grupo ' + ACC.grupo);
+    });
+  }
+  function resolverPet(id, aprobar, boton) {
+    var s = ar.pets.find(function (x) { return x.id === id; }), card = boton.closest('[data-pet]'); if (!s) return;
+    var ids = idsSel(card.querySelector('.arUnis')), mot = card.querySelector('.arMot').value.trim();
+    if (aprobar && !ids.length) return msgAr('error', 'Elige al menos una unidad.', card);
+    if (!aprobar && !mot) return msgAr('error', 'Escribe el motivo de la denegación (se le envía).', card);
+    if (!s.solId) return msgAr('error', 'La solicitud no tiene solicitante identificado.', card);
+    boton.disabled = true;
+    var txt = aprobar ? 'Unidades: ' + nombresUni(ids).join(', ') : mot;
+    (aprobar ? alGrupo(s.solId).then(function () { return guardarAsig(s.solId, s.nombre, ids); }) : Promise.resolve()).then(function () {
+      return tipoLst(ACC.lista);
+    }).then(function (tp) {
+      return enviarSP(urlLst(ACC.lista) + '/items(' + id + ')', { __metadata: { type: tp }, EstadoSolicitud: aprobar ? 'APROBADA' : 'DENEGADA', GrupoAsignado: aprobar ? ACC.grupo : '', Resolucion: txt, ResueltoPorId: yo.Id, FechaResolucion: new Date().toISOString() },
+        'No tienes permiso en la lista de solicitudes', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' });
+    }).then(function () { return enviarCorreo(correoReg(aprobar ? 'aprobada' : 'denegada', Object.assign({}, s, { unidad: aprobar ? nombresUni(ids).join('; ') : s.unidad }), txt)).catch(function () { return null; }); })
+      .then(function () { aviso(aprobar ? 'Acceso concedido a ' + s.nombre : 'Solicitud denegada'); return cargarAccReg(); })
+      .catch(function (e) { boton.disabled = false; msgAr('error', 'No se pudo: ' + (e.message || e), card); });
+  }
+  function guardarMiembro(uid, boton) {
+    var fila = boton.closest('[data-miem]'), m = (ar.miembros || []).find(function (x) { return x.Id === uid; }), ids = idsSel(fila.querySelector('.arUnis'));
+    if (!ids.length) return msgAr('error', 'Elige al menos una unidad para ' + (m ? m.Title : 'esa persona') + '.');
+    boton.disabled = true;
+    guardarAsig(uid, m ? m.Title : '', ids).then(function () { aviso('Unidades guardadas'); return cargarAccReg(); })
+      .catch(function (e) { boton.disabled = false; msgAr('error', 'No se pudo guardar: ' + (e.message || e)); });
+  }
+  function retirarMiembro(uid, boton) {
+    var m = (ar.miembros || []).find(function (x) { return x.Id === uid; }), a = asigDe(uid);
+    if (!window.confirm('¿Retirar a ' + (m ? m.Title : 'esta persona') + ' del grupo «' + ACC.grupo + '» y borrar sus unidades?')) return;
+    boton.disabled = true;
+    enviarSP(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(ACC.grupo) + "')/users/removebyid(" + uid + ')', {}, 'No tienes permiso para quitar personas del grupo')
+      .then(function () { return a ? enviarSP(urlLst(ACC.asig) + '/items(' + a.Id + ')', {}, 'No tienes permiso en la lista de asignaciones', { 'X-HTTP-Method': 'DELETE', 'IF-MATCH': '*' }) : null; })
+      .then(function () { return m && m.Email ? enviarCorreo(correoReg('retirada', { nombre: m.Title, correo: m.Email })).catch(function () { return null; }) : null; })
+      .then(function () { aviso('Acceso retirado'); return cargarAccReg(); })
+      .catch(function (e) { boton.disabled = false; msgAr('error', 'No se pudo retirar: ' + (e.message || e)); });
+  }
+  // Preparación
+  function crearLst(cual, boton) {
+    var t = cual === 'sol' ? ACC.lista : ACC.asig, campos = cual === 'sol' ? CAMPOS_SOL : CAMPOS_ASIG;
+    boton.disabled = true; aviso('Creando la lista…');
+    enviarSP(web + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: t, Description: cual === 'sol' ? 'Solicitudes de acceso a las aplicaciones' : 'Unidades que registra en SIPERDEF cada persona de registro' }, 'No tienes permiso para crear listas en el sitio')
+      .then(function () { return campos.reduce(function (p, xml) { return p.then(function () { return enviarSP(urlLst(t) + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas'); }); }, Promise.resolve()); })
+      .then(function () { return seguridadLst(cual).catch(function () { return null; }); })
+      .then(function () { aviso('Lista creada'); return cargarAccReg(); })
+      .catch(function (e) { boton.disabled = false; msgAr('error', 'No se pudo crear la lista: ' + (e.message || e)); });
+  }
+  function seguridadLst(cual) {
+    var t = cual === 'sol' ? ACC.lista : ACC.asig;
+    return enviarSP(urlLst(t), cual === 'sol' ? { __metadata: { type: 'SP.List' }, ReadSecurity: 2, WriteSecurity: 2 } : { __metadata: { type: 'SP.List' }, ReadSecurity: 1, WriteSecurity: 4 }, 'No tienes permiso para cambiar la lista', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' });
+  }
+  function crearColsLst(cual, boton) {
+    var t = cual === 'sol' ? ACC.lista : ACC.asig, falta = cual === 'sol' ? ar.faltaSol : ar.faltaAsig, campos = (cual === 'sol' ? CAMPOS_SOL : CAMPOS_ASIG).filter(function (x) { return falta.indexOf(nombreCampo(x)) >= 0; });
+    boton.disabled = true;
+    campos.reduce(function (p, xml) { return p.then(function () { return enviarSP(urlLst(t) + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas'); }); }, Promise.resolve())
+      .then(function () { aviso('Columnas creadas'); return cargarAccReg(); }).catch(function (e) { boton.disabled = false; msgAr('error', 'No se pudieron crear: ' + (e.message || e)); });
+  }
+
   function render() {
-    var vistas = [['mias', 'Mis solicitudes'], ['pendientes', 'Pendientes de mí']].concat(cargadoEn && enRegistro() ? [['registro', 'Registro SIPERDEF']] : [])
-      .concat([['calendario', 'Calendario'], ['todas', 'Consulta']]).concat(cargadoEn && esAdmin ? [['ajustes', 'Ajustes']] : []);
-    if (pref.vista === 'registro' && cargadoEn && !enRegistro()) pref.vista = 'mias';
+    var reg = enRegistro() || esSuper();
+    var vistas = [['mias', 'Mis solicitudes'], ['pendientes', 'Pendientes de mí']].concat(cargadoEn && reg ? [['registro', 'Registro SIPERDEF']] : [])
+      .concat([['calendario', 'Calendario'], ['todas', 'Consulta']]).concat(cargadoEn && !reg ? [['accesoreg', 'Acceso a Registro SIPERDEF']] : [])
+      .concat(cargadoEn && esAdmin ? [['accesos', 'Accesos de registro'], ['ajustes', 'Ajustes']] : []);
+    if (pref.vista === 'registro' && cargadoEn && !reg) pref.vista = 'mias';
+    if (pref.vista === 'accesoreg' && cargadoEn && reg) pref.vista = 'registro';
+    if (pref.vista === 'accesos' && (!cargadoEn || !esAdmin)) pref.vista = 'mias';
     if (pref.vista === 'ajustes' && (!cargadoEn || !esAdmin)) pref.vista = 'mias';
     var p = cargadoEn ? pendientes() : { aprobar: [], autorizar: [] };
-    var cuenta = { pendientes: p.aprobar.length + p.autorizar.length, registro: cargadoEn ? porRegistrar().length : 0 };
+    var cuenta = { pendientes: p.aprobar.length + p.autorizar.length, registro: cargadoEn ? porRegistrar().length : 0, accesos: ar.estado === 'ok' ? nPetsPend() : 0 };
     $('#tabs').innerHTML = vistas.map(function (v) { return '<a data-v="' + v[0] + '" class="' + (pref.vista === v[0] ? 'on' : '') + '">' + v[1] + (cuenta[v[0]] ? '<i>' + cuenta[v[0]] + '</i>' : '') + '</a>'; }).join('');
     if (!cargadoEn) return;
-    $('#vista').innerHTML = ({ mias: vistaMias, pendientes: vistaPendientes, registro: vistaRegistro, calendario: vistaCalendario, todas: vistaTodas, ajustes: vistaAjustes }[pref.vista] || vistaMias)();
+    $('#vista').innerHTML = ({ mias: vistaMias, pendientes: vistaPendientes, registro: vistaRegistro, calendario: vistaCalendario, todas: vistaTodas, accesoreg: vistaAccesoReg, accesos: vistaAccesosReg, ajustes: vistaAjustes }[pref.vista] || vistaMias)();
   }
   var aviso = function (txt) { $('#estadoCarga').textContent = txt; setTimeout(function () { if (cargadoEn) $('#estadoCarga').textContent = items.length + ' solicitudes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }, 3000); };
 
@@ -1349,7 +1635,15 @@
     var el = e.target;
     var tab = el.closest('#tabs a');
     if (tab) { pref.vista = tab.dataset.v; guardarPref(); render(); return; }
-    if (el.closest('#recargar')) { recien.clear(); limpiarUltimaReg(); cargar(); return; }
+    if (el.closest('#recargar')) { recien.clear(); limpiarUltimaReg(); misPets = null; ar.estado = ''; cargar().then(function () { if (esAdmin) cargarAccReg(); }); return; }
+    if (el.closest('[data-regpedir]')) { enviarPeticionReg(el.closest('[data-regpedir]')); return; }
+    var apr_ = el.closest('[data-araprobar]'), den_ = el.closest('[data-ardenegar]');
+    if (apr_ || den_) { resolverPet(Number((apr_ || den_).dataset[apr_ ? 'araprobar' : 'ardenegar']), !!apr_, apr_ || den_); return; }
+    if (el.closest('[data-arguardar]')) { guardarMiembro(Number(el.closest('[data-arguardar]').dataset.arguardar), el.closest('[data-arguardar]')); return; }
+    if (el.closest('[data-arretirar]')) { retirarMiembro(Number(el.closest('[data-arretirar]').dataset.arretirar), el.closest('[data-arretirar]')); return; }
+    if (el.closest('[data-arcrear]')) { crearLst(el.closest('[data-arcrear]').dataset.arcrear, el.closest('[data-arcrear]')); return; }
+    if (el.closest('[data-arcol]')) { crearColsLst(el.closest('[data-arcol]').dataset.arcol, el.closest('[data-arcol]')); return; }
+    if (el.closest('[data-arseg]')) { var bs_ = el.closest('[data-arseg]'); bs_.disabled = true; seguridadLst(bs_.dataset.arseg).then(function () { aviso('Ajustado'); return cargarAccReg(); }, function (er) { bs_.disabled = false; aviso('No se pudo: ' + (er.message || er)); }); return; }
     if (el.closest('[data-regcancel]')) { e.preventDefault(); confirmando = null; render(); return; }
     if (el.closest('#nueva') || el.closest('[data-nueva]')) { if (cargadoEn) formulario(null); return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); return; }
@@ -1417,7 +1711,7 @@
   });
 
   render();
-  cargar();
+  cargar().then(function () { if (esAdmin) cargarAccReg().then(render); });
 })();
 </script>
 </body>

@@ -128,3 +128,28 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
   `EnumerateSubscriptionsByList`).
 - `pruebas/diagnostico.mjs`: prueba con Playwright contra una lista simulada (formato ligero y *verbose*); comprueba
   además que el resumen no contiene nombres ni fechas.
+
+## Acceso a Registro SIPERDEF por unidad (20/10/2026)
+
+- **Pestaña «Acceso a Registro SIPERDEF»** (quien no es registrador): aviso en rojo («Acceso exclusivo para el personal de
+  las Secciones de Personal. Se comprobará…»), formulario con empleo, teléfono, **unidad o unidades** (lista `UNIDADES`),
+  cargo en la sección de personal, departamento del perfil (se guarda para comprobarlo), motivo y **declaración
+  obligatoria**. Se guarda en la lista «SOLICITUDES DE ACCESO» del sitio (`Aplicacion` = REGISTRO SIPERDEF) y avisa por
+  correo a asansen@et.mde.es.
+- **Pestaña «Accesos de registro»** (Control total): preparación (crear las listas «SOLICITUDES DE ACCESO» y
+  «ASIGNACIONES REGISTRO SIPERDEF», columnas que falten, seguridad: solicitudes «solo sus elementos»; asignaciones las
+  leen todos y solo las modifica quien administra la lista, `WriteSecurity` 4); solicitudes pendientes con aviso si el
+  departamento del perfil no coincide con la unidad pedida; **aprobar** (alta en «Personal de Registro», asignación de
+  unidades y correo), denegar con motivo; **personal de registro actual** con sus unidades para asignarlas o cambiarlas,
+  y retirar (sale del grupo y se borra su asignación).
+- **Registro**: cada registrador ve, registra, imprime y exporta (y ve el NIF) solo de **sus unidades**. Quien tiene
+  Control total o administra la lista ve y registra **todas** (sin estar en el grupo). Transición (`ACC.transicion`): el
+  registrador sin unidad asignada sigue viéndolas todas con un aviso; con `false`, no ve ninguna.
+- Es un filtro de la página: para que tampoco se vea fuera de ella harían falta permisos por elemento (pendiente).
+
+## Autoría y versión protegida
+
+© 2026 Cte. Alfredo Sánchez Sender (cabecera, `meta author/copyright` y pie con la versión, oculto al imprimir).
+`permisos.html` es el original legible; **`colabora/permisos.html`** la copia cifrada que se sube a Colabora
+(`cd permisos/proteger && npm install && node proteger.mjs`; bloqueo de dominio `.mdef.es`). Probarla:
+`PERM_HTML=permisos/colabora/permisos.html node permisos/pruebas/simulacion.mjs`.
