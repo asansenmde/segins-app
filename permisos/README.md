@@ -160,3 +160,6 @@ leer la lista `UNIDADES` o la lista de usuarios del sitio, de donde salen la uni
 `$expand` (personas por su Id y los campos `*Texto` del formulario; unidad por `Unidad0Id`) y muestra un aviso que dice
 cuál de las dos no puede leer. Solución en Colabora: «Leer» para «usuarios del dominio» en `UNIDADES` y, en el sitio,
 al menos «Lectura restringida». Los errores de carga dicen qué recurso falló.
+
+Con «Lectura restringida» en el sitio no se puede expandir ninguna columna relacionada (personas ni unidad): los usuarios
+leen por los campos de texto y `UNIDADES`, sin aviso; el aviso con el diagnóstico por columna solo lo ve el administrador.

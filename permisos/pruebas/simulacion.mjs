@@ -368,7 +368,7 @@ registro = false; await prueba(false, 'usuario normal');
 registro = true; await prueba(false, 'registro');
 gestor = true; await prueba(true, 'gestor');
 gestor = false; await prueba(false, 'enlace');
-registro = false; sinExpand = true; await prueba(false, 'sin expand'); await prueba(true, 'sin expand'); sinExpand = false; registro = true;
+registro = false; sinExpand = true; await prueba(false, 'sin expand'); admin = true; await prueba(true, 'sin expand'); admin = false; sinExpand = false; registro = true;
 registro = true; await prueba(false, 'seguridad'); await prueba(true, 'seguridad');
 otraCuenta = true; await prueba(false, 'cuentas'); await prueba(true, 'cuentas'); otraCuenta = false;
 jefeNombre = true; registro = false; await prueba(false, 'jefe por nombre'); sinSubstr = true; await prueba(true, 'jefe por nombre'); sinSubstr = false; jefeNombre = false; registro = true;

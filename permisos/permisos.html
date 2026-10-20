@@ -182,7 +182,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-10-20 · 10';
+  var VERSION = '2026-10-20 · 11';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
   var CLAVE = 'permisos-calidad-vida';
@@ -343,6 +343,9 @@
   // Qué columna relacionada falla (una petición por columna) y, si es la unidad, a qué lista apunta
   function diagnosticoSencilla() {
     var L = lecturaSencilla;
+    // Con «Lectura restringida» en el sitio no se puede expandir ninguna columna relacionada: a los usuarios no se les
+    // hace la comprobación (8 peticiones) y se lee todo por los campos de texto; el diagnóstico es para el administrador
+    if (!esAdmin) { L.malos = CAMPOS_EXP.slice(); return Promise.resolve(); }
     return Promise.all(CAMPOS_EXP.map(function (c) {
       return api(urlLista() + '/items?$top=1&$select=Id,' + c + '/Id&$expand=' + c).then(function () { return null; }, function (e) { return e.status === 404 ? c : null; });
     })).then(function (r) {
@@ -357,9 +360,9 @@
   }
   var NOMBRE_CAMPO = { Unidad0: 'Unidad', Author: 'Creado por', Editor: 'Modificado por', Solicitante: 'Solicitante', RepresentanteDelSolicitante: 'Representante', AprobadorDePermiso: 'Aprobador', AutorizadorDelPermiso: 'Autorizador', Registro_x0020_SIPERDEF: 'Registro SIPERDEF' };
   function avisoSencilla() {
-    if (!lecturaSencilla) return '';
+    if (!lecturaSencilla || !esAdmin) return '';
     var L = lecturaSencilla, malos = L.malos || [];
-    return '<div class="aviso">Colabora no te deja leer algunos datos relacionados de las solicitudes: <b>' + esc(malos.map(function (c) { return NOMBRE_CAMPO[c] || c; }).join(', ')) + '</b>. ' +
+    return '<div class="aviso">(Solo lo ves tú, como administrador.) Colabora no te deja leer algunos datos relacionados de las solicitudes: <b>' + esc(malos.map(function (c) { return NOMBRE_CAMPO[c] || c; }).join(', ')) + '</b>. ' +
       'Se muestran con los datos que guarda el propio formulario (pueden salir incompletos).' +
       (malos.indexOf('Unidad0') >= 0 ? '<br>La columna «Unidad» toma sus valores de ' + (L.tituloUnidad ? 'la lista «' + esc(L.tituloUnidad) + '»' : 'una lista que no puedes leer') +
         (L.listaUnidad ? ' (Id ' + esc(L.listaUnidad) + ')' : '') + ': el administrador debe dar «Leer» a «usuarios del dominio» en esa lista' +
