@@ -198,6 +198,10 @@ Página `SitePages/<App>.aspx` con un **Editor de scripts** (más el código de 
   no salga en «Contenido del sitio»; si es «Documentos compartidos» avisa de que es la general y que conviene mover los
   `.html` a una biblioteca propia («Aplicaciones», solo Lectura para «Usuarios del dominio»). «Volver a mostrarla» lo
   deshace. No es seguridad: quien tenga la dirección la abre; protege la copia cifrada y los permisos de las listas.
+- **Entrar en una biblioteca oculta** (el usuario lo preguntará): ocultarla no la borra; se entra por su dirección directa
+  `…/colaborativo/<Biblioteca>/Forms/AllItems.aspx` (p. ej. `…/Documentos%20compartidos/Forms/AllItems.aspx`; guardarla en
+  favoritos antes de ocultar), con «Volver a mostrarla» en Accesos › Preparación, o abriendo un `.html` de la biblioteca y
+  cambiando el nombre del archivo por `Forms/AllItems.aspx`. Para subir una versión nueva basta la dirección directa.
 
 ## Pruebas
 
