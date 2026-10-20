@@ -127,6 +127,57 @@ queda el aviso de autoría). Aviso de autoría «© 2026 Cte. Alfredo Sánchez S
 `meta author` y pie visible (oculto al imprimir). Las pruebas simuladas se pasan también contra la copia protegida
 (el origen simulado `https://colabora.mdef.es` cumple el bloqueo de dominio).
 
+## Ocultar la ruleta y la cinta en el portal (Editor de scripts) · 20/10/2026
+
+Página del portal: `/et/jige/colaborativo/SitePages/AREA SEGURIDAD PUBLICO.aspx`, elemento web **Editor de scripts**.
+Oculta a los usuarios normales la ruleta (⚙), la cinta, «Compartir», «Seguir», «Contenido del sitio» y la
+configuración; lo ve todo quien es administrador de la colección, puede administrar el sitio (`ManageWeb`
+0x40000000), administrar permisos (0x2000000) o personalizar páginas (0x40000), y en modo edición. **No es
+seguridad** (solo actúa en esa página; quien escriba la dirección entra): lo que protege son los permisos.
+
+**Cómo volver a ver la ruleta (el usuario lo preguntará):**
+1. Abrir la página **directamente** (sin `_layouts/15/start.aspx#/`) y con `?admin=1`:
+   `https://colabora.mdef.es/et/jige/colaborativo/SitePages/AREA%20SEGURIDAD%20PUBLICO.aspx?admin=1`
+   (con la versión actual del código también vale detrás del `#`).
+2. Si aun así no sale: `…/AREA%20SEGURIDAD%20PUBLICO.aspx?contents=1` (mantenimiento de elementos web de SharePoint)
+   › marcar el Editor de scripts › **Eliminar**. La página vuelve a ser normal.
+3. Si como administrador no se ve sin `?admin=1`: F12 › Consola › línea «Permisos (Low): …» (o «Ruleta visible: …»)
+   para saber qué permiso detecta y ajustar la máscara `PUEDE`.
+
+Código (versión vigente):
+
+```html
+<style id="ocultarAdmin">
+  #O365_MainLink_Settings, #siteactiontd, .ms-siteactions-root,
+  a[id$=ctl00_site_share_button], #site_follow_button, .ms-promotedActionButton,
+  #s4-ribbonrow, a[href*="viewlsts.aspx"], a[href*="/_layouts/15/settings.aspx"], .ms-navedit-editLinksText
+  { display: none !important; }
+</style>
+<script>
+  (function () {
+    var ctx = window._spPageContextInfo || {};
+    var mostrar = function (porque) { var s = document.getElementById('ocultarAdmin'); if (s) s.parentNode.removeChild(s); try { console.info('Ruleta visible: ' + porque); } catch (e) {} };
+    var editando = document.forms[0] && document.forms[0].MSOLayout_InDesignMode && document.forms[0].MSOLayout_InDesignMode.value === '1';
+    if (/[?&#]admin=1/.test(location.href)) return mostrar('admin=1');
+    if (ctx.isSiteAdmin) return mostrar('administrador de la colección');
+    if (editando) return mostrar('modo edición');
+    var PUEDE = 0x40000000 | 0x2000000 | 0x40000;   // administrar sitio, administrar permisos, personalizar páginas
+    var web = (ctx.webServerRelativeUrl || '/et/jige/colaborativo').replace(/\/$/, '');
+    fetch(web + '/_api/web/EffectiveBasePermissions', { credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var p = (d.d || d).EffectiveBasePermissions || d.d || d, bajo = Number(p.Low) || 0;
+        try { console.info('Permisos (Low): ' + bajo.toString(16)); } catch (e) {}
+        if (bajo & PUEDE) mostrar('permiso de administración');
+      })
+      .catch(function (e) { try { console.info('No se pudieron leer los permisos: ' + e); } catch (x) {} });
+  })();
+</script>
+```
+
+Bits de `EffectiveBasePermissions.Low` (PermissionKind − 1): ViewListItems 0x1, AddListItems 0x2, EditListItems 0x4,
+ManageLists 0x800, AddAndCustomizePages 0x40000, ManagePermissions 0x2000000, ManageWeb 0x40000000.
+
 ## Pruebas
 
 Playwright contra un SharePoint simulado (rutas `page.route`), con formato ligero y *verbose*, alta,

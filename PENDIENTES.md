@@ -22,6 +22,9 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
    propios y qué grupos tienen qué nivel, marcando en rojo «Usuarios del dominio» / «Todos». Pedida el 20/10/2026 por
    un usuario con «Lectura restringida» que veía todas las listas (pendiente de hacer).
 
+5. **Ocultar la ruleta en el portal**: hecho con un Editor de scripts (receta y cómo volver a verla en `SHAREPOINT.md`,
+   «Ocultar la ruleta y la cinta en el portal»). Pendiente de confirmar que el administrador la ve sin `?admin=1`.
+
 Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar por la que diga).
 
 ## Hecho en VSA (referencia)
