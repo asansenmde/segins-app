@@ -11,6 +11,7 @@ const P = { 61: { Id: 61, Title: 'JEFE UNIDAD A', EMail: 'jefea@et.mde.es' }, 62
 const GRUPOS = { SEGURIDAD_SUIGESUR: 101, SEGURIDAD_SUIGENOR: 102, SEGURIDAD_SUIGECAN: 103, SEGURIDAD_DIAPER: 104, SEGURIDAD_IGE: 105, 'Integrantes de la Colaborativo': 106 };
 const MIEMBROS = { 'Propietarios Colaborativo': ['admin1@et.mde.es'], SEGURIDAD_SUIGESUR: ['sur1@et.mde.es', 'sur2@et.mde.es'], SEGURIDAD_SUIGENOR: ['nor1@et.mde.es'], SEGURIDAD_SUIGECAN: ['can1@et.mde.es'], SEGURIDAD_DIAPER: ['diacu1@et.mde.es'], SEGURIDAD_IGE: ['ige1@et.mde.es'] };
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(9, 0, 0, 0); return x.toISOString(); };
+let biblioOculta = false;
 let expandRoto = false, faltaCampo = null, items, misGrupos = [], admin = false, sinSubstringof = false, ultimoFiltro = '', lecturaMinima = '';
 const base = { A_x00f1_o: '2026', Provincia: 'SEVILLA', Empleo: 'SARGENTO', ZONASE_x00d1_ALIZADA: true, Reiterada: 'NO', Denuncia: false, ValoradoPorSUIGE: false, ValoradoPorDIACU: false, ValoradoPorIGE: false,
   OBSERVACION: '<p>TEXTO RESERVADO DEL PARTE</p>', ANALISIS: '<div>Análisis</div>', MEDIDAS: 'Medidas', CONTROLMEDIDASADOPTADAS: 'Control', CONCLUSION: 'Conclusión', ObservacionesDelExpediente: '',
@@ -63,6 +64,7 @@ const cumple = (it, filtro) => filtro.split(' or ').some(c => {
 });
 async function prueba(verbose, escenario) {
   nuevoStore();
+  biblioOculta = false;
   sols = [{ Id: 1, Title: 'JEFE UNIDAD B', Solicitante: P[62], Correo: P[62].EMail, Empleo: 'CAPITAN', MandoSegundo: 'SUIGENOR', Unidad: 'BASE NORTE', Telefono: '600', Papel: 'Unidad: notificar incidentes de seguridad', Motivo: 'Jefe de seguridad', Aplicacion: 'INCIDENTES', EstadoSolicitud: 'PENDIENTE', Created: d(-1), Modified: d(-1) },
     { Id: 2, Title: 'OTRO', Solicitante: P[61], Correo: P[61].EMail, Papel: 'x', Aplicacion: 'VSA', EstadoSolicitud: 'PENDIENTE', Created: d(-1), Modified: d(-1) }];
   unidades = [{ Id: 61, Title: P[61].Title, Email: P[61].EMail, LoginName: 'i:0#.w|et\\jefea' }]; anadidos = [];
@@ -79,6 +81,7 @@ async function prueba(verbose, escenario) {
   const errs = []; p.on('pageerror', e => errs.push(e.message)); const posts = [], gets = [];
   await p.route(O + '/**', async r => {
     const req = r.request(), u = decodeURIComponent(req.url());
+    if (u.includes('/SitePages/Incidentes.aspx')) return r.fulfill({ contentType: 'text/html', body: '<!doctype html><html><body><iframe id="app" style="width:100%;height:800px;border:0"></iframe><script>var m=(location.search+location.hash).match(/[?&]id=(\\d+)/);document.getElementById("app").src="/et/jige/colaborativo/Documentos%20compartidos/incidentes.html"+(m?"?id="+m[1]:"");</script></body></html>' });
     if (!u.includes('/_api/')) {
       if (/\.png$/.test(u)) return r.fulfill({ status: 404, body: '' });
       return r.fulfill({ body: html, contentType: 'text/html' });
@@ -88,6 +91,7 @@ async function prueba(verbose, escenario) {
     const resto = u.split('/_api/')[1];
     if (req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
+      if (resto.startsWith("web/lists(guid'lib1')")) { biblioOculta = JSON.parse(req.postData()).Hidden; return r.fulfill({ status: 204, body: '' }); }
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = JSON.parse(req.postData()).properties, dest = [].concat(pr.To.results, pr.CC.results, pr.BCC ? pr.BCC.results : []);
@@ -122,6 +126,7 @@ async function prueba(verbose, escenario) {
       return r.fulfill({ status: 400, body: '' });
     }
     gets.push(resto);
+    if (resto.includes('GetFileByServerRelativeUrl')) return J({ Id: 'lib1', Title: 'Documentos compartidos', Hidden: biblioOculta, BaseTemplate: 101 });
     if (resto.startsWith('web/currentuser/groups')) return J({ value: misGrupos.map(n => ({ Id: GRUPOS[n], Title: n })) });
     if (resto.startsWith('web/currentuser')) return J({ Id: YO.Id, Title: YO.Title, Email: YO.EMail, LoginName: 'i:0#.w|et\\usuario' });
     if (resto.startsWith('web/AssociatedOwnerGroup')) return J({ Title: 'Propietarios Colaborativo' });
@@ -197,6 +202,15 @@ async function prueba(verbose, escenario) {
     console.log(tag, '| después:', (await p.textContent('#vista .okmsg').catch(() => '')).slice(0, 80), '| errores:', errs);
     await b.close(); return;
   }
+  if (escenario === 'portal') {
+    await p.goto(O + '/et/jige/colaborativo/SitePages/Incidentes.aspx?id=7'); await p.waitForTimeout(2500);
+    const fr = p.frames().find(x => x.url().includes('incidentes.html'));
+    console.log(tag, '| iframe:', fr && fr.url().replace(O, ''), '| ficha abierta:', fr && await fr.textContent('#dlg h2').catch(() => 'no'));
+    posts.length = 0; await fr.click('[data-acc=recordar]'); await fr.waitForTimeout(1200);
+    const mm = correos().pop(); const enl = mm && (mm.Body.match(/href="([^"]*\?id=\d+)"/) || [])[1];
+    console.log(tag, '| enlace del correo:', enl && enl.replace(O, ''), '| errores:', errs);
+    await b.close(); return;
+  }
   if (escenario === 'accesos') {
     await p.click('#tabs a[data-v=accesos]'); await p.waitForTimeout(800);
     console.log(tag, '| pestaña:', await p.textContent('#tabs a[data-v=accesos]'), '| pendientes (solo INCIDENTES):', await p.$$eval('[data-sol]', n => n.length), '| grupo propuesto:', await p.$eval('.accGrupo', s => s.value));
@@ -204,6 +218,9 @@ async function prueba(verbose, escenario) {
     { const m = correos().pop(); console.log(tag, '| prueba del aviso:', m && m.To.results, '|', m && m.Subject, '|', (await p.textContent('#accPrueba')).replace(/\s+/g, ' ').slice(0, 110)); }
     posts.length = 0; await p.click('[data-accaprobar]'); await p.waitForTimeout(1500);
     const m = correos().pop(); console.log(tag, '| aprobar:', JSON.stringify(anadidos), '| correo:', m && m.To.results, m && m.Subject, '| errores:', errs);
+    biblioOculta = false; await p.click('#tabs a[data-v=panel]'); await p.click('#tabs a[data-v=accesos]'); await p.waitForTimeout(800);
+    let dlgTxt = ''; p.once('dialog', dd => { dlgTxt = dd.message(); dd.accept(); }); await p.click('[data-accbiblio="1"]'); await p.waitForTimeout(1200);
+    console.log(tag, '| ocultar biblioteca:', biblioOculta, '| aviso:', dlgTxt.slice(0, 60), '|', (await p.textContent('[data-accbiblio]').catch(() => '')));
     await b.close(); return;
   }
   if (escenario === 'informe') {
@@ -406,7 +423,7 @@ sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstr
 misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'solo SEGURIDAD_IGE'); await prueba(false, 'informe'); await prueba(true, 'informe');
 misGrupos = ['SEGURIDAD_SUIGESUR']; admin = true; await prueba(false, 'Control total y solo SUIGESUR'); admin = false;
 misGrupos = []; await prueba(false, 'solo información'); await prueba(true, 'solo información'); await prueba(false, 'sin acceso'); await prueba(true, 'sin acceso'); await prueba(false, 'provisional');
-misGrupos = TODOS; admin = true; await prueba(false, 'accesos'); await prueba(true, 'accesos'); admin = false;
+misGrupos = TODOS; admin = true; await prueba(false, 'portal'); await prueba(false, 'accesos'); await prueba(true, 'accesos'); admin = false;
 misGrupos = TODOS; admin = true; await prueba(false, 'enlace');
 faltaCampo = 'ResponsableDelParte'; await prueba(true, 'columna inexistente'); faltaCampo = null;
 expandRoto = true; await prueba(false, 'columna inexistente'); expandRoto = false;

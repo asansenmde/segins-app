@@ -218,7 +218,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-20 · 19';
+  var VERSION = '2026-10-20 · 20';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -765,7 +765,18 @@
   var aviso = function (txt) { $('#estadoCarga').textContent = txt; setTimeout(function () { if (cargadoEn) $('#estadoCarga').textContent = items.length + ' incidentes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }, 3500); };
 
   // ---------- Correo oficial ----------
-  var enlacePagina = function () { return location.origin + location.pathname; };
+  // Si la aplicación se abre dentro de una página del portal (iframe), los enlaces de los correos llevan a esa página,
+  // que pasa el «?id=» al iframe. Con la descarga mínima («_layouts/15/start.aspx#/SitePages/…») se toma la ruta del «#».
+  var enlacePagina = function () {
+    try {
+      if (window.top !== window && window.top.location.origin === location.origin) {
+        var tp = window.top.location.pathname, h = window.top.location.hash.replace(/^#/, '').split('?')[0];
+        if (/\/_layouts\/15\/start\.aspx$/i.test(tp) && h.charAt(0) === '/') tp = tp.replace(/\/_layouts\/15\/start\.aspx$/i, '') + h;
+        return location.origin + tp;
+      }
+    } catch (e) { /* otro origen: la propia página */ }
+    return location.origin + location.pathname;
+  };
   var enlaceInc = function (t) { return enlacePagina() + '?id=' + t.id; };
   var carpetaPagina = location.origin + location.pathname.replace(/[^/]*$/, '');
   var IMG = { minisdef: carpetaPagina + 'incidentes-minisdef.png', uso: carpetaPagina + 'incidentes-uso-oficial.png' };
@@ -1676,9 +1687,26 @@
   }
 
   // Pestaña «Accesos» (solo Control total)
+  // Biblioteca donde está este .html (para ocultarla de «Contenido del sitio»)
+  var accBiblio = null;
+  var rutaPagina = function () { return decodeURIComponent(location.pathname); };
+  function leerBiblioteca() {
+    return api(web + "/_api/web/GetFileByServerRelativeUrl('" + encodeURIComponent(rutaPagina().replace(/'/g, "''")) + "')/ListItemAllFields/ParentList?$select=Id,Title,Hidden,BaseTemplate")
+      .then(function (l) { accBiblio = l; }, function () { accBiblio = null; });
+  }
+  function ocultarBiblioteca(boton, ocultar) {
+    if (!accBiblio) return;
+    if (ocultar && /^(Documentos compartidos|Documentos|Shared Documents)$/i.test(accBiblio.Title) &&
+      !window.confirm('«' + accBiblio.Title + '» es la biblioteca general de documentos del sitio: al ocultarla dejará de verse en «Contenido del sitio» para todos. Lo recomendable es mover antes los .html a una biblioteca propia (p. ej. «Aplicaciones»). ¿Ocultarla igualmente?')) return;
+    boton.disabled = true;
+    enviarSP(web + "/_api/web/lists(guid'" + accBiblio.Id + "')", { __metadata: { type: 'SP.List' }, Hidden: !!ocultar }, 'No tienes permiso para cambiar la biblioteca', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
+      .then(function () { return leerBiblioteca(); }).then(function () { toast(ocultar ? 'Biblioteca oculta en «Contenido del sitio»' : 'Biblioteca visible de nuevo'); render(); })
+      .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
+  }
   function cargarAccesos() {
     accEstado = 'cargando';
     return Promise.all([
+      leerBiblioteca(),
       api(urlAcc() + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity').then(function (l) { accInfo = l; }, function () { accInfo = null; }),
       todas(web + '/_api/web/sitegroups?$select=Id,Title&$top=5000').then(function (l) { accGrupos = l.map(function (g) { return g.Title; }); }, function () { accGrupos = []; })
     ]).then(function () {
@@ -1713,6 +1741,8 @@
         '✕ Falta el grupo «' + esc(ACCESO.grupoBae) + '» para las unidades que notifican incidentes. <button class="prim" data-acccreargrupo="1">Crear el grupo</button>') + '</p>' +
       '<p class="small">✉ Cada solicitud nueva se avisa por correo a <b>' + esc((ACCESO.avisarCorreos || []).concat(ACCESO.avisar).join(', ') || 'los propietarios del sitio') + '</b>. ' +
         '<button data-accprueba="1">Probar el aviso</button></p><div id="accPrueba"></div>' +
+      (accBiblio ? '<p class="small">' + (accBiblio.Hidden ? '✔ La biblioteca «' + esc(accBiblio.Title) + '», donde está esta página, está oculta en «Contenido del sitio». <button data-accbiblio="0">Volver a mostrarla</button>' :
+        '📁 Esta página está en la biblioteca «' + esc(accBiblio.Title) + '», que se ve en «Contenido del sitio». <button data-accbiblio="1">Ocultar la biblioteca</button>') + '</p>' : '') +
       '<p class="small muted">La comprobación de acceso la hace esta página. Para que sea también la de Colabora, quita «Usuarios del dominio» de la lista «' + esc(pref.lista) + '» y da permiso a los grupos SEGURIDAD_* y ' + esc(ACCESO.grupoBae) + '. ' +
       'La lista de solicitudes debe seguir permitiendo «Colaborar» a todos para que cualquiera pueda pedir acceso.</p></div>';
     var pend = (accSols || []).filter(function (s) { return s.estado === 'PENDIENTE'; }), res = (accSols || []).filter(function (s) { return s.estado !== 'PENDIENTE'; });
@@ -1882,6 +1912,7 @@
     if (tab) { pref.vista = tab.dataset.v; guardarPref(); render(); return; }
     if (el.closest('#recargar')) { accEstado = ''; cargar().then(function () { if (esAdmin && cargadoEn) cargarAccesos(); }); return; }
     if (el.closest('[data-accpedir]')) { pantallaAcceso('Entras de forma provisional.'); return; }
+    if (el.closest('[data-accbiblio]')) { ocultarBiblioteca(el.closest('[data-accbiblio]'), el.closest('[data-accbiblio]').dataset.accbiblio === '1'); return; }
     if (el.closest('[data-accprueba]')) { probarAvisoSolicitud(el.closest('[data-accprueba]')); return; }
     if (el.closest('[data-accsolicitar]')) { enviarSolicitud(el.closest('[data-accsolicitar]')); return; }
     var ap = el.closest('[data-accaprobar]'), dn = el.closest('[data-accdenegar]');

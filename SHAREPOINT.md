@@ -178,6 +178,27 @@ Código (versión vigente):
 Bits de `EffectiveBasePermissions.Low` (PermissionKind − 1): ViewListItems 0x1, AddListItems 0x2, EditListItems 0x4,
 ManageLists 0x800, AddAndCustomizePages 0x40000, ManagePermissions 0x2000000, ManageWeb 0x40000000.
 
+## Abrir la aplicación dentro de una página del portal (que no se vea dónde está el .html) · 20/10/2026
+
+Página `SitePages/<App>.aspx` con un **Editor de scripts** (más el código de la ruleta para quitar la cinta):
+
+```html
+<iframe id="app" style="width:100%;height:calc(100vh - 150px);border:0" title="Incidentes de seguridad en instalaciones"></iframe>
+<script>
+  // Pasa el «?id=» de los enlaces de los correos a la aplicación (también con la descarga mínima «start.aspx#/…»)
+  var m = (location.search + location.hash).match(/[?&]id=(\d+)/);
+  document.getElementById('app').src = '/et/jige/colaborativo/Documentos%20compartidos/incidentes.html' + (m ? '?id=' + m[1] : '');
+</script>
+```
+
+- En el portal, los botones apuntan a `SitePages/Incidentes.aspx` / `SitePages/VSA.aspx`, no al `.html`.
+- VSA e Incidentes detectan que están en un iframe del mismo sitio y ponen en los correos el enlace a la página del
+  portal (`…/SitePages/Incidentes.aspx?id=N`), también si se abrió por `_layouts/15/start.aspx#/SitePages/…`.
+- En Accesos › Preparación: «Ocultar la biblioteca» donde está el `.html` (`lists(guid)` MERGE `Hidden: true`) para que
+  no salga en «Contenido del sitio»; si es «Documentos compartidos» avisa de que es la general y que conviene mover los
+  `.html` a una biblioteca propia («Aplicaciones», solo Lectura para «Usuarios del dominio»). «Volver a mostrarla» lo
+  deshace. No es seguridad: quien tenga la dirección la abre; protege la copia cifrada y los permisos de las listas.
+
 ## Pruebas
 
 Playwright contra un SharePoint simulado (rutas `page.route`), con formato ligero y *verbose*, alta,

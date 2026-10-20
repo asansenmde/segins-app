@@ -154,3 +154,9 @@ respuestas «Mejorable» o peor con su observación, relación de cuestionarios 
 cuestionario con sus 24 puntuaciones y las valoraciones de SUIGE/DIACU/IGE (se leen de «Observaciones» al imprimir).
 Se imprime con formato oficial (PDF) o se descarga en CSV (comparativa y medias por pregunta). Mismos criterios que
 Estadísticas: sin borradores ni eliminados, medias sin «No observado». Prueba: escenario «informe» de la simulación.
+
+## Dentro de una página del portal (20/10/2026)
+
+Si se abre dentro de `SitePages/<App>.aspx` (iframe; receta en `SHAREPOINT.md`), los enlaces de los correos llevan
+a esa página con `?id=N`. En Accesos › Preparación, botón para ocultar (o volver a mostrar) la biblioteca donde está
+el `.html`. Prueba: escenario «portal» y «accesos» de la simulación.

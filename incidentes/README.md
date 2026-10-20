@@ -158,3 +158,9 @@ formulario «Solicitar acceso» (lista común «SOLICITUDES DE ACCESO», `Aplica
   aviso» manda uno de prueba y muestra los destinatarios.
 - Pestaña **Accesos** (Control total): preparación, solicitudes pendientes (solo las de INCIDENTES), aprobar (alta en el
   grupo y correo), denegar, miembros y retirar acceso.
+
+## Dentro de una página del portal (20/10/2026)
+
+Si se abre dentro de `SitePages/<App>.aspx` (iframe; receta en `SHAREPOINT.md`), los enlaces de los correos llevan
+a esa página con `?id=N`. En Accesos › Preparación, botón para ocultar (o volver a mostrar) la biblioteca donde está
+el `.html`. Prueba: escenario «portal» y «accesos» de la simulación.

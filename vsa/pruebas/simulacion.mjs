@@ -19,6 +19,7 @@ const AUXL = {
   M2N: [{ Id: 1, Title: 'SUIGESUR', ID_M1NId: 1 }, { Id: 2, Title: 'SUIGENOR', ID_M1NId: 1 }, { Id: 3, Title: 'OFICINA X', ID_M1NId: 1 }],
   M3N: [{ Id: 1, Title: 'BAE SEVILLA', M2NId: 1 }, { Id: 2, Title: 'BAE LEON', M2NId: 2 }, { Id: 3, Title: 'BAE SIN SUIGE', M2NId: 3 }],
 };
+let biblioOculta = false;
 let opcionesVS = ['EN CURSO', 'CERRADO', 'ELEVADO A DIACU', 'RECHAZADO'], extra = false, adj = {}, campos = null, seg = 2, sols, accLista = true, accAbierta = true, accCerrada = false, propios = true, grupoBae = true, baeMiembros, anadidos, items, misGrupos = [], admin = false, sinSubstringof = false, faltaCampo = null, ultimoFiltro = '', lecturaMinima = '';
 const base = { Title: '01/10/2026', ESTADO: 'BORRADOR', VALORACIONSUIGE: null, REGISTRODEACTIVIDAD: '', ModificadoPorTEXTO: '', A_x00f1_o: '2026', EMPRESA0: 'EULEN', NOVEDADES: 'SIN NOVEDAD',
   MANDO1N: '1', MANDO2N: '1', MANDO3N: '1', M1N: 'IGE', M2N: 'SUIGESUR', M3N: 'BAE SEVILLA', suige: 'SUIGESUR', Observaciones: '', ControlDeRegistro: '',
@@ -55,12 +56,14 @@ const cumple = (it, filtro) => filtro.split(' or ').some(c => {
 });
 async function prueba(verbose, escenario) {
   nuevoStore();
+  biblioOculta = false;
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1366, height: 860 }, acceptDownloads: true });
   await ctx.addInitScript(() => { try { localStorage.setItem('vsa-calidad-ige', JSON.stringify({ agrupar: '' })); } catch (e) {} });
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message)); const posts = [];
   await p.route(O + '/**', async r => {
     const req = r.request(), u = decodeURIComponent(req.url());
+    if (u.includes('/SitePages/VSA.aspx')) return r.fulfill({ contentType: 'text/html', body: '<!doctype html><html><body><iframe id="app" style="width:100%;height:800px;border:0"></iframe><script>var m=(location.search+location.hash).match(/[?&]id=(\\d+)/);document.getElementById("app").src="/et/jige/colaborativo/Documentos%20compartidos/vsa.html"+(m?"?id="+m[1]:"");</script></body></html>' });
     if (!u.includes('/_api/')) {
       const fa = u.match(/\/Attachments\/(\d+)\/(.+)$/);
       if (fa) { const a = (adj[+fa[1]] || []).find(x => x.FileName === fa[2]); return a ? r.fulfill({ body: a.bytes, contentType: 'application/pdf' }) : r.fulfill({ status: 404, body: '' }); }
@@ -70,6 +73,7 @@ async function prueba(verbose, escenario) {
     const resto = u.split('/_api/')[1];
     if (req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
+      if (resto.startsWith("web/lists(guid'lib1')")) { biblioOculta = JSON.parse(req.postData()).Hidden; return r.fulfill({ status: 204, body: '' }); }
       const at = resto.match(/items\((\d+)\)\/AttachmentFiles\/(add\(FileName='(.+)'\)|getByFileName\('(.+)'\))/);
       if (at) {
         const id = +at[1]; adj[id] = adj[id] || [];
@@ -111,6 +115,7 @@ async function prueba(verbose, escenario) {
       }
       return r.fulfill({ status: 400, body: '' });
     }
+    if (resto.includes('GetFileByServerRelativeUrl')) return J({ Id: 'lib1', Title: 'Documentos compartidos', Hidden: biblioOculta, BaseTemplate: 101 });
     if (resto.startsWith('web/currentuser/groups')) return J({ value: misGrupos.map(n => ({ Id: GRUPOS[n], Title: n })) });
     if (resto.startsWith('web/currentuser')) return J({ Id: YO.Id, Title: YO.Title, Email: YO.EMail, LoginName: 'i:0#.w|et\\usuario' });
     if (resto.startsWith('SP.UserProfiles.PeopleManager/GetMyProperties')) return J({ DisplayName: YO.Title, Title: 'COMANDANTE', UserProfileProperties: verbose ? { results: [{ Key: 'Department', Value: 'NEGOCIADO X' }] } : [{ Key: 'Department', Value: 'NEGOCIADO X' }] });
@@ -256,6 +261,15 @@ async function prueba(verbose, escenario) {
     console.log(tag, '| antes:', antes, '| POST:', posts.filter(x => x.ruta !== 'contextinfo').map(x => x.ruta.split('/').pop()).join(' ; '), '| después:', despues, '| errores:', errs);
     await b.close(); return;
   }
+  if (escenario === 'portal') {
+    await p.goto(O + '/et/jige/colaborativo/SitePages/VSA.aspx?id=1'); await p.waitForTimeout(2500);
+    const fr = p.frames().find(x => x.url().includes('vsa.html'));
+    console.log(tag, '| iframe:', fr && fr.url().replace(O, ''), '| ficha abierta:', fr && await fr.textContent('#dlg h2').catch(() => 'no'));
+    posts.length = 0; await fr.click('[data-acc=recordar]'); await fr.waitForTimeout(1200);
+    const mm = correos().pop(); const enl = mm && (mm.Body.match(/href="([^"]*\?id=\d+)"/) || [])[1];
+    console.log(tag, '| enlace del correo:', enl && enl.replace(O, ''), '| errores:', errs);
+    await b.close(); return;
+  }
   if (escenario === 'accesos' || escenario === 'preparación') {
     await p.click('#tabs a[data-v=accesos]'); await p.waitForTimeout(700);
     if (escenario === 'preparación') {
@@ -275,6 +289,9 @@ async function prueba(verbose, escenario) {
     console.log(tag, '| tras aprobar:', await p.$$eval('[data-sol]', n => n.length), 'pendientes ·', await p.$$eval('[data-accquitar]', n => n.length), 'miembros');
     p.once('dialog', dd => dd.accept());
     await p.click('[data-accquitar]'); await p.waitForTimeout(1200);
+    biblioOculta = false; await p.click('#tabs a[data-v=panel]'); await p.click('#tabs a[data-v=accesos]'); await p.waitForTimeout(800);
+    { let dlgTxt = ''; p.once('dialog', dd => { dlgTxt = dd.message(); dd.accept(); }); await p.click('[data-accbiblio="1"]'); await p.waitForTimeout(1200);
+      console.log(tag, '| ocultar biblioteca:', biblioOculta, '| aviso:', dlgTxt.slice(0, 60), '|', (await p.textContent('[data-accbiblio]').catch(() => ''))); }
     console.log(tag, '| quitar:', await p.$$eval('[data-accquitar]', n => n.length), 'miembros · correo:', correos().pop().Subject, '| errores:', errs);
     if (!verbose) await p.screenshot({ path: new URL('accesos.png', import.meta.url).pathname, fullPage: true });
     await b.close(); return;
@@ -376,7 +393,7 @@ extra = true; await prueba(false, 'firma'); await prueba(true, 'firma'); extra =
 misGrupos = []; await prueba(false, 'sin acceso'); await prueba(true, 'sin acceso');
 accLista = false; await prueba(false, 'sin acceso y sin lista de solicitudes'); accLista = true;
 accCerrada = true; await prueba(true, 'sin acceso, lista sin permiso'); accCerrada = false;
-misGrupos = ['SEGURIDAD_IGE']; admin = true; await prueba(false, 'accesos'); await prueba(true, 'accesos');
+misGrupos = ['SEGURIDAD_IGE', 'SEGURIDAD_SUIGESUR']; admin = true; await prueba(false, 'portal'); misGrupos = ['SEGURIDAD_IGE']; await prueba(false, 'accesos'); await prueba(true, 'accesos');
 campos = ['Title', 'Solicitante', 'Unidad']; await prueba(false, 'columnas'); campos = ['Title']; await prueba(true, 'columnas'); campos = null;
 seg = 0; await prueba(false, 'seguridad'); seg = 0; await prueba(true, 'seguridad'); seg = 2;
 accAbierta = false; propios = false; await prueba(false, 'abrir'); accAbierta = false; propios = true; await prueba(true, 'abrir'); accAbierta = true;

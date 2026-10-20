@@ -6388,7 +6388,7 @@ var Cipher = {
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-19 · 10';
+  var VERSION = '2026-10-20 · 11';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuestionario de calidad VSA · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -6911,7 +6911,18 @@ var Cipher = {
   var aviso = function (txt) { $('#estadoCarga').textContent = txt; setTimeout(function () { if (cargadoEn) $('#estadoCarga').textContent = items.length + ' cuestionarios · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }, 3500); };
 
   // ---------- Correo oficial ----------
-  var enlacePagina = function () { return location.origin + location.pathname; };
+  // Si la aplicación se abre dentro de una página del portal (iframe), los enlaces de los correos llevan a esa página,
+  // que pasa el «?id=» al iframe. Con la descarga mínima («_layouts/15/start.aspx#/SitePages/…») se toma la ruta del «#».
+  var enlacePagina = function () {
+    try {
+      if (window.top !== window && window.top.location.origin === location.origin) {
+        var tp = window.top.location.pathname, h = window.top.location.hash.replace(/^#/, '').split('?')[0];
+        if (/\/_layouts\/15\/start\.aspx$/i.test(tp) && h.charAt(0) === '/') tp = tp.replace(/\/_layouts\/15\/start\.aspx$/i, '') + h;
+        return location.origin + tp;
+      }
+    } catch (e) { /* otro origen: la propia página */ }
+    return location.origin + location.pathname;
+  };
   var enlaceInc = function (t) { return enlacePagina() + '?id=' + t.id; };
   var carpetaPagina = location.origin + location.pathname.replace(/[^/]*$/, '');
   var IMG = { minisdef: carpetaPagina + 'vsa-minisdef.png', uso: carpetaPagina + 'vsa-uso-oficial.png' };
@@ -8012,9 +8023,26 @@ var Cipher = {
   }
 
   // Pestaña «Accesos» (solo Control total)
+  // Biblioteca donde está este .html (para ocultarla de «Contenido del sitio»)
+  var accBiblio = null;
+  var rutaPagina = function () { return decodeURIComponent(location.pathname); };
+  function leerBiblioteca() {
+    return api(web + "/_api/web/GetFileByServerRelativeUrl('" + encodeURIComponent(rutaPagina().replace(/'/g, "''")) + "')/ListItemAllFields/ParentList?$select=Id,Title,Hidden,BaseTemplate")
+      .then(function (l) { accBiblio = l; }, function () { accBiblio = null; });
+  }
+  function ocultarBiblioteca(boton, ocultar) {
+    if (!accBiblio) return;
+    if (ocultar && /^(Documentos compartidos|Documentos|Shared Documents)$/i.test(accBiblio.Title) &&
+      !window.confirm('«' + accBiblio.Title + '» es la biblioteca general de documentos del sitio: al ocultarla dejará de verse en «Contenido del sitio» para todos. Lo recomendable es mover antes los .html a una biblioteca propia (p. ej. «Aplicaciones»). ¿Ocultarla igualmente?')) return;
+    boton.disabled = true;
+    enviarSP(web + "/_api/web/lists(guid'" + accBiblio.Id + "')", { __metadata: { type: 'SP.List' }, Hidden: !!ocultar }, 'No tienes permiso para cambiar la biblioteca', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
+      .then(function () { return leerBiblioteca(); }).then(function () { toast(ocultar ? 'Biblioteca oculta en «Contenido del sitio»' : 'Biblioteca visible de nuevo'); render(); })
+      .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
+  }
   function cargarAccesos() {
     accEstado = 'cargando';
     return Promise.all([
+      leerBiblioteca(),
       api(urlAcc() + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity').then(function (l) { accInfo = l; }, function () { accInfo = null; }),
       todas(web + '/_api/web/sitegroups?$select=Id,Title&$top=5000').then(function (l) { accGrupos = l.map(function (g) { return g.Title; }); }, function () { accGrupos = []; })
     ]).then(function () {
@@ -8047,6 +8075,8 @@ var Cipher = {
         ' <button class="prim" data-accabrir="1">Permitir que cualquiera solicite acceso</button>') + '</p>' : '') +
       '<p class="small">' + (accGrupos.indexOf(ACCESO.grupoBae) >= 0 ? '✔ Grupo «' + esc(ACCESO.grupoBae) + '» creado (' + (accMiembros ? accMiembros.length : 0) + ' personas).' :
         '✕ Falta el grupo «' + esc(ACCESO.grupoBae) + '» para los responsables de BAE. <button class="prim" data-acccreargrupo="1">Crear el grupo</button>') + '</p>' +
+      (accBiblio ? '<p class="small">' + (accBiblio.Hidden ? '✔ La biblioteca «' + esc(accBiblio.Title) + '», donde está esta página, está oculta en «Contenido del sitio». <button data-accbiblio="0">Volver a mostrarla</button>' :
+        '📁 Esta página está en la biblioteca «' + esc(accBiblio.Title) + '», que se ve en «Contenido del sitio». <button data-accbiblio="1">Ocultar la biblioteca</button>') + '</p>' : '') +
       '<p class="small muted">La comprobación de acceso la hace esta página. Para que sea también la de Colabora, quita «Usuarios del dominio» de la lista «' + esc(pref.lista) + '» y da permiso a los grupos SEGURIDAD_* y ' + esc(ACCESO.grupoBae) + '. ' +
       'La lista de solicitudes debe seguir permitiendo «Colaborar» a todos para que cualquiera pueda pedir acceso.</p></div>';
     var pend = (accSols || []).filter(function (s) { return s.estado === 'PENDIENTE'; }), res = (accSols || []).filter(function (s) { return s.estado !== 'PENDIENTE'; });
@@ -8198,6 +8228,7 @@ var Cipher = {
     if (el.closest('#recargar')) { accEstado = ''; cargar().then(function () { if (esAdmin && cargadoEn) cargarAccesos(); }); return; }
     var fb = el.closest('[data-firmarbae]'), se = el.closest('[data-subiremp]');
     if (fb || se) { var tf_ = items.find(function (x) { return x.id === Number((fb || se).dataset[fb ? 'firmarbae' : 'subiremp']); }); if (tf_) (fb ? firmarBae : subirFirmaEmpresa)(tf_, fb || se); return; }
+    if (el.closest('[data-accbiblio]')) { ocultarBiblioteca(el.closest('[data-accbiblio]'), el.closest('[data-accbiblio]').dataset.accbiblio === '1'); return; }
     if (el.closest('[data-accsolicitar]')) { enviarSolicitud(el.closest('[data-accsolicitar]')); return; }
     var ap = el.closest('[data-accaprobar]'), dn = el.closest('[data-accdenegar]');
     if (ap || dn) { resolverSolicitud(Number((ap || dn).dataset[ap ? 'accaprobar' : 'accdenegar']), !!ap, ap || dn); return; }
