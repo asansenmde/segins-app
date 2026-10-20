@@ -182,7 +182,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-10-20 · 9';
+  var VERSION = '2026-10-20 · 10';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
   var CLAVE = 'permisos-calidad-vida';
@@ -318,35 +318,53 @@
   };
   // Lectura sin datos relacionados: personas y unidad salen de los Id y de los campos de texto del propio formulario
   var lecturaSencilla = null;
+  // Se piden con «$expand» solo las columnas relacionadas que se pueden leer; las demás, por su Id y los campos de texto
+  var CAMPOS_EXP = ['Unidad0', 'Author', 'Editor'].concat(PERSONAS);
   function leerSencilla(nivel) {
-    var base = SEL.filter(function (x) { return x.indexOf('/') < 0; }).concat(['Unidad0Id', 'AuthorId'], PERSONAS.map(function (p) { return p + 'Id'; }));
+    var malos = lecturaSencilla.malos, buenos = CAMPOS_EXP.filter(function (c) { return malos.indexOf(c) < 0; });
+    var sel = SEL.filter(function (x) { return malos.indexOf(x.split('/')[0]) < 0; }).concat(malos.map(function (c) { return c + 'Id'; }));
     var pid = function (v, txt, mail) {
       var ids = Array.isArray(v) ? v : v && Array.isArray(v.results) ? v.results : v ? [v] : [];
       if (!ids.length) return null;
       return ids.length > 1 ? ids.map(function (id) { return { Id: id, Title: '' }; }) : { Id: ids[0], Title: txt || '', EMail: mail || '' };
     };
-    return todas(urlLista() + '/items?$top=1000&$select=' + base.join(',') + filtroAlcance(nivel)).then(function (ls) {
+    var TXT = { Solicitante: ['SolicitanteTexto', 'CorreoDelSolicitante'], RepresentanteDelSolicitante: ['RepresentanteTexto'], AprobadorDePermiso: ['AprobadorTexto', 'CorreoDeAPROBADOR'], AutorizadorDelPermiso: ['AutorizadorTexto', 'CorreoDeAUTORIZADOR'] };
+    return todas(urlLista() + '/items?$top=1000&$select=' + sel.join(',') + (buenos.length ? '&$expand=' + buenos.join(',') : '') + filtroAlcance(nivel)).then(function (ls) {
       return ls.map(function (x) {
-        x.Solicitante = pid(x.SolicitanteId, x.SolicitanteTexto, x.CorreoDelSolicitante); x.RepresentanteDelSolicitante = pid(x.RepresentanteDelSolicitanteId, x.RepresentanteTexto);
-        x.AprobadorDePermiso = pid(x.AprobadorDePermisoId, x.AprobadorTexto, x.CorreoDeAPROBADOR); x.AutorizadorDelPermiso = pid(x.AutorizadorDelPermisoId, x.AutorizadorTexto, x.CorreoDeAUTORIZADOR);
-        x.Registro_x0020_SIPERDEF = pid(x.Registro_x0020_SIPERDEFId, '');
-        x.Unidad0 = x.Unidad0Id ? { Id: x.Unidad0Id, Title: (unidades.find(function (u) { return u.Id === x.Unidad0Id; }) || {}).Title || '' } : null;
-        x.Author = x.AuthorId ? { Id: x.AuthorId, Title: '' } : null;
+        malos.forEach(function (c) {
+          if (c === 'Unidad0') x.Unidad0 = x.Unidad0Id ? { Id: x.Unidad0Id, Title: (unidades.find(function (u) { return u.Id === x.Unidad0Id; }) || {}).Title || '' } : null;
+          else if (c === 'Editor') x.Editor = null;
+          else { var t = TXT[c] || []; x[c] = pid(x[c + 'Id'], t[0] && x[t[0]], t[1] && x[t[1]]); }
+        });
         return x;
       });
     });
   }
-  // Qué lista relacionada no se puede leer (para el aviso)
+  // Qué columna relacionada falla (una petición por columna) y, si es la unidad, a qué lista apunta
   function diagnosticoSencilla() {
-    var prueba = function (u) { return api(u).then(function () { return true; }, function () { return false; }); };
-    return Promise.all([prueba(web + "/_api/web/lists/getbytitle('UNIDADES')/items?$top=1&$select=Id"), prueba(web + '/_api/web/siteuserinfolist/items?$top=1&$select=Id')])
-      .then(function (r) { lecturaSencilla.unidades = r[0]; lecturaSencilla.usuarios = r[1]; });
+    var L = lecturaSencilla;
+    return Promise.all(CAMPOS_EXP.map(function (c) {
+      return api(urlLista() + '/items?$top=1&$select=Id,' + c + '/Id&$expand=' + c).then(function () { return null; }, function (e) { return e.status === 404 ? c : null; });
+    })).then(function (r) {
+      L.malos = r.filter(Boolean);
+      if (!L.malos.length) L.malos = CAMPOS_EXP.slice();   // no se sabe cuál: sin datos relacionados
+      if (L.malos.indexOf('Unidad0') < 0) return null;
+      return api(urlLista() + "/fields/getbyinternalnameortitle('Unidad0')?$select=LookupList,LookupWebId").then(function (f) {
+        L.listaUnidad = String(f.LookupList || '').replace(/[{}]/g, '');
+        return L.listaUnidad ? api(web + "/_api/web/lists(guid'" + L.listaUnidad + "')?$select=Title").then(function (l) { L.tituloUnidad = l.Title; }, function () { L.tituloUnidad = ''; }) : null;
+      }).catch(function () { /* sin dato */ });
+    });
   }
+  var NOMBRE_CAMPO = { Unidad0: 'Unidad', Author: 'Creado por', Editor: 'Modificado por', Solicitante: 'Solicitante', RepresentanteDelSolicitante: 'Representante', AprobadorDePermiso: 'Aprobador', AutorizadorDelPermiso: 'Autorizador', Registro_x0020_SIPERDEF: 'Registro SIPERDEF' };
   function avisoSencilla() {
     if (!lecturaSencilla) return '';
-    var L = lecturaSencilla, cuales = [L.unidades === false ? 'la lista «UNIDADES»' : '', L.usuarios === false ? 'la lista de usuarios del sitio (nombres de las personas)' : ''].filter(Boolean);
-    return '<div class="aviso">Colabora no te deja leer algunos datos relacionados de las solicitudes, así que algunos nombres de personas o de unidades pueden salir incompletos. ' +
-      (cuales.length ? 'No tienes permiso de lectura en ' + esc(cuales.join(' ni en ')) + ': el administrador debe dar «Leer» a «usuarios del dominio» ' + (L.usuarios === false ? 'en el sitio (al menos «Lectura restringida»)' : 'en esa lista') + '.' : '') +
+    var L = lecturaSencilla, malos = L.malos || [];
+    return '<div class="aviso">Colabora no te deja leer algunos datos relacionados de las solicitudes: <b>' + esc(malos.map(function (c) { return NOMBRE_CAMPO[c] || c; }).join(', ')) + '</b>. ' +
+      'Se muestran con los datos que guarda el propio formulario (pueden salir incompletos).' +
+      (malos.indexOf('Unidad0') >= 0 ? '<br>La columna «Unidad» toma sus valores de ' + (L.tituloUnidad ? 'la lista «' + esc(L.tituloUnidad) + '»' : 'una lista que no puedes leer') +
+        (L.listaUnidad ? ' (Id ' + esc(L.listaUnidad) + ')' : '') + ': el administrador debe dar «Leer» a «usuarios del dominio» en esa lista' +
+        (L.listaUnidad ? ' (<a href="' + esc(web + '/_layouts/15/listedit.aspx?List={' + L.listaUnidad + '}') + '" target="_blank" rel="noopener">abrir su configuración</a>, solo para el administrador)' : '') + '.' : '') +
+      (malos.some(function (c) { return c !== 'Unidad0'; }) ? '<br>Para las personas, el administrador debe dar al menos «Lectura restringida» en el sitio a «usuarios del dominio».' : '') +
       '<div class="small muted">Detalle: ' + esc(L.motivo) + ' · versión ' + esc(VERSION) + '</div></div>';
   }
   function aSol(it) {
@@ -393,7 +411,10 @@
           // 404 al leer con los datos relacionados (personas, unidad): el usuario no puede leer la lista de la que salen
           if (e.status !== 404) throw e;
           lecturaSencilla = { motivo: e.message };
-          return Promise.all([diagnosticoSencilla(), leerSencilla(1).catch(function (e2) { if (e2.status !== 400) throw e2; return leerSencilla(0); })]).then(function (r) { return r[1]; });
+          return diagnosticoSencilla().then(function () {
+            var n = lecturaSencilla.malos.indexOf('AprobadorDePermiso') >= 0 || lecturaSencilla.malos.indexOf('AutorizadorDelPermiso') >= 0 ? 1 : 2;
+            return leerSencilla(n).catch(function (e2) { if (e2.status !== 400) throw e2; return leerSencilla(1); }).catch(function (e2) { if (e2.status !== 400) throw e2; return leerSencilla(0); });
+          });
         });
     }).then(function (its) {
       items = its.map(aSol);

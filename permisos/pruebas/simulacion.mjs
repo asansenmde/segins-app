@@ -88,7 +88,9 @@ async function prueba(verbose, soloAlcance) {
     const mi = resto.match(/items\((\d+)\)/);
     if (mi) { const it = items.find(x => x.Id === +mi[1]); return r.fulfill({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, ...it } } }); }
     if (sinExpand && resto.includes('siteuserinfolist')) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
-    if (sinExpand && resto.includes("getbytitle('Solicitud de Permisos')/items") && u.includes('$expand')) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
+    if (sinExpand && resto.includes("getbytitle('Solicitud de Permisos')/items") && /\$expand=[^&]*Unidad0/.test(u)) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
+    if (sinExpand && resto.includes("fields/getbyinternalnameortitle('Unidad0')")) return J({ LookupList: '{ab12cd34-0000-0000-0000-000000000001}', LookupWebId: 'w' });
+    if (sinExpand && resto.includes("lists(guid'ab12cd34")) return r.fulfill({ status: 404, body: '' });
     if (resto.includes('/items')) {
       const filtro = (u.match(/\$filter=([^&]*)/) || [])[1] || ''; if (u.includes('Title')) ultimoFiltro = filtro;
       if (!filtro) return J({ value: items });
