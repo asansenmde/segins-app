@@ -4,7 +4,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
 const fs = require('fs');
-const html = fs.readFileSync(new URL('../incidentes.html', import.meta.url), 'utf8');
+const html = fs.readFileSync(process.env.INC_HTML ? process.env.INC_HTML : new URL('../incidentes.html', import.meta.url), 'utf8');  // INC_HTML=incidentes/colabora/incidentes.html para probar la versión protegida
 const O = 'https://colabora.mdef.es', WEB = '/et/jige/colaborativo';
 const YO = { Id: 50, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.es' };
 const P = { 61: { Id: 61, Title: 'JEFE UNIDAD A', EMail: 'jefea@et.mde.es' }, 62: { Id: 62, Title: 'JEFE UNIDAD B', EMail: 'jefeb@et.mde.es' } };

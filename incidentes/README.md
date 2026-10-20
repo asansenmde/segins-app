@@ -104,3 +104,15 @@ DIACU e IGE comparten `SEGURIDAD_IGE`.
   personas, adjuntos, borrador, informar a SUIGE, solo el responsable), impresión, CSV, estadísticas y enlace. Uso: `node incidentes/pruebas/simulacion.mjs`.
 - `pruebas/diagnostico.mjs`: prueba con un sitio simulado (formato ligero y *verbose*, paginación, privacidad).
   Uso: `node incidentes/pruebas/diagnostico.mjs`.
+
+## Autoría y versión protegida para Colabora
+
+© 2026 Cte. Alfredo Sánchez Sender: aviso en la cabecera del HTML, `meta author/copyright` y pie visible con la versión
+(no sale al imprimir).
+
+- **`incidentes.html`** es el **original legible** (el que se edita; se guarda en local/repositorio).
+- **`colabora/incidentes.html`** es la **copia protegida que se sube a Colabora**. Se regenera con
+  `cd incidentes/proteger && npm install && node proteger.mjs` cada vez que cambia el original: código ofuscado
+  (javascript-obfuscator, *self-defending*), **bloqueo de dominio** `.mdef.es` (fuera de Defensa no arranca) y sin los
+  comentarios internos del HTML y del estilo.
+- Probar la copia protegida: `INC_HTML=incidentes/colabora/incidentes.html node incidentes/pruebas/simulacion.mjs`.
