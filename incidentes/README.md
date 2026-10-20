@@ -105,6 +105,12 @@ DIACU e IGE comparten `SEGURIDAD_IGE`.
 - `pruebas/diagnostico.mjs`: prueba con un sitio simulado (formato ligero y *verbose*, paginación, privacidad).
   Uso: `node incidentes/pruebas/diagnostico.mjs`.
 
+## Correo de prueba (Ajustes)
+
+En Ajustes (Control total), «✉ Enviarme un correo de prueba» manda un aviso con el formato nuevo a las direcciones
+indicadas (por defecto, la propia). Sirve para distinguirlo del correo con formato antiguo, que no lo envía la página
+sino una regla o flujo de trabajo de la lista heredado de InfoPath: desactivarla cuando se confirme que llega el nuevo.
+
 ## Autoría y versión protegida para Colabora
 
 © 2026 Cte. Alfredo Sánchez Sender: aviso en la cabecera del HTML, `meta author/copyright` y pie visible con la versión

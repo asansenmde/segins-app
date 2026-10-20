@@ -222,6 +222,10 @@ async function prueba(verbose, escenario) {
   await p.fill('#vSuige', 'x'); await p.click('[data-acc=suigeIge]'); await p.waitForTimeout(800);
   console.log(tag, '| conflicto:', await p.textContent('#accMsg'));
   await p.click('#dlg [data-cerrar]');
+  // 6b) Correo de prueba desde Ajustes
+  await p.click('#tabs a[data-v=ajustes]'); await p.waitForTimeout(200);
+  await p.fill('#aPruebaA', 'yo@et.mde.es; otro@et.mde.es'); posts.length = 0; await p.click('[data-correoprueba]'); await p.waitForTimeout(800);
+  { const m = correos().pop(); console.log(tag, '| correo de prueba:', m && m.To.results.join(','), '|', m && m.Subject, '| formato nuevo:', !!(m && /USO OFICIAL/.test(m.Body) && /<table/.test(m.Body)), '|', (await p.textContent('#aPrueba')).slice(0, 70)); }
   // 7) Consulta, filtros, impresión, CSV y estadísticas
   await p.click('#tabs a[data-v=panel]'); await p.click('.kpi[data-ir="prob:alta"]'); await p.waitForTimeout(200);
   console.log(tag, '| prob. alta abiertos →', await p.$$eval('#vista .inc', n => n.map(x => x.dataset.id).join(',')));

@@ -191,7 +191,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-20 · 12';
+  var VERSION = '2026-10-20 · 13';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -664,6 +664,10 @@
       '<label class="lbl">Sitio</label><input id="aSitio" value="' + esc(pref.sitio) + '">' +
       '<label class="lbl">Lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
       '<label class="check"><input type="checkbox" id="aCorreo"' + (pref.correo ? ' checked' : '') + '> Enviar avisos por correo al tramitar</label></div>' +
+      '<div class="card"><h3 style="margin-top:0">Correo de prueba</h3><p class="small">Envía un aviso con el <b>formato nuevo</b> (cabecera USO OFICIAL, banda azul y tabla de datos) para comprobar que Colabora lo entrega. ' +
+      'Si te llega este pero en los trámites solo recibes el formato antiguo, ese antiguo lo envía una regla o flujo de trabajo de la lista: desactívala cuando confirmes que llega el nuevo.</p>' +
+      '<label class="lbl">Enviar a (separa varias direcciones con «;»)</label><input id="aPruebaA" value="' + esc(yo && yo.Email || '') + '">' +
+      '<div class="acciones"><button class="prim" data-correoprueba="1">✉ Enviarme un correo de prueba</button></div><div id="aPrueba"></div></div>' +
       '<div class="card"><h3 style="margin-top:0">Papeles</h3><p class="small">Tus papeles: ' + esc(misPapeles().join(', ') || 'ninguno') + '.</p>' +
       '<p class="small muted">Se deducen de los grupos de Colabora: SUIGE = SEGURIDAD_SUIGESUR, _SUIGENOR, _SUIGECAN, _SUIGEPIR, _SECORCEN, _DIIN, _DIAPER; DIACU e IGE = SEGURIDAD_IGE. ' +
       'La SUIGE de cada parte sale, como en el formulario InfoPath, del mando de 2.º nivel (MN2); si no, de la columna SUIGES. Los partes de MADOC van a la SUIGESUR.</p>' +
@@ -756,6 +760,20 @@
       function (e) { return { ok: false, motivo: e.message || String(e), sinVer: c.sinVer, mailto: mailto(c) }; });
   }
   // Siempre se ofrece preparar el mismo aviso en Outlook, por si el correo de Colabora no llega
+  // Correo de prueba (Ajustes): mismo formato que los avisos del circuito
+  function correoPrueba(boton) {
+    var to = limpia(String($('#aPruebaA').value || '').split(/[;,\s]+/)), el = $('#aPrueba');
+    if (!to.length) { el.innerHTML = '<div class="error">Escribe al menos una dirección de correo.</div>'; return; }
+    var intro = 'CORREO DE PRUEBA: ASÍ LLEGAN LOS AVISOS DE LA PÁGINA «INCIDENTES DE SEGURIDAD EN INSTALACIONES».';
+    var filas = [['Enviado por', yo.Title], ['Fecha', fHora(new Date())], ['Versión de la página', VERSION], ['Comprobación', 'Si ves la cabecera USO OFICIAL, la banda azul y esta tabla, el formato nuevo llega bien.']];
+    var c = { to: to, cc: [], bcc: [], sinVer: [], asunto: 'PRUEBA · INCIDENTES DE SEGURIDAD EN INSTALACIONES · FORMATO DEL CORREO', html: htmlCorreo(intro, filas, enlacePagina()),
+      texto: 'USO OFICIAL\n\n' + intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') };
+    boton.disabled = true; el.innerHTML = '<p class="muted small">Enviando…</p>';
+    enviarCorreo(c).then(function (r) {
+      boton.disabled = false;
+      el.innerHTML = '<div class="' + (r.ok ? 'okmsg' : 'aviso') + '">' + (r.ok ? '✓ Colabora ha aceptado el correo. Mira tu bandeja (y «Correo no deseado») en unos minutos.' : '✕') + msgCorreo(r) + '</div>';
+    });
+  }
   var msgCorreo = function (r) {
     if (!r) return '';
     var sv = r.sinVer && r.sinVer.length ? ' Estos grupos no dejan ver sus integrantes o están vacíos, y a ellos no les llega: ' + esc(r.sinVer.join(', ')) + '.' : '';
@@ -1294,6 +1312,7 @@
     var edp = el.closest('[data-editar]');
     if (edp) { var tp = items.find(function (x) { return x.id === Number(edp.dataset.editar); }); if (tp) { if (FORM_PROPIO) formulario(tp); else window.open(urlFormulario('editar', tp.id), '_blank'); } return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); dlgId = null; return; }
+    if (el.closest('[data-correoprueba]')) { correoPrueba(el.closest('[data-correoprueba]')); return; }
     if (el.closest('[data-restablecer]')) { pref.sitio = POR_DEFECTO.sitio; pref.lista = POR_DEFECTO.lista; guardarPref(); cargar(); return; }
     var ir = el.closest('[data-ir]');
     if (ir) {
