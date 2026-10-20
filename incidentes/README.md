@@ -148,6 +148,8 @@ Como VSA (receta en `SHAREPOINT.md`). Tiene acceso quien esté en `SEGURIDAD_<SU
 **`INCIDENTES_UNIDADES`** (unidades que notifican partes) o tenga Control total. Quien no, ve «🔒 No tienes acceso» y el
 formulario «Solicitar acceso» (lista común «SOLICITUDES DE ACCESO», `Aplicacion` = INCIDENTES).
 
+- **Personal de información**: quien figura en «Personal que puede visualizar la información» de algún parte entra
+  siempre, solo a ver esos partes (sin «Nuevo parte»), aunque no esté en ningún grupo.
 - **Transición** (`ACCESO.transicion`): quien ya figura en algún parte (lo dio de alta o es responsable) sigue entrando
   con un aviso de «acceso provisional» y un botón para pedir la acreditación. Cuando todos estén acreditados, poner
   `transicion: false`.

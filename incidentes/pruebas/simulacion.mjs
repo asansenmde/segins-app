@@ -66,7 +66,8 @@ async function prueba(verbose, escenario) {
   sols = [{ Id: 1, Title: 'JEFE UNIDAD B', Solicitante: P[62], Correo: P[62].EMail, Empleo: 'CAPITAN', MandoSegundo: 'SUIGENOR', Unidad: 'BASE NORTE', Telefono: '600', Papel: 'Unidad: notificar incidentes de seguridad', Motivo: 'Jefe de seguridad', Aplicacion: 'INCIDENTES', EstadoSolicitud: 'PENDIENTE', Created: d(-1), Modified: d(-1) },
     { Id: 2, Title: 'OTRO', Solicitante: P[61], Correo: P[61].EMail, Papel: 'x', Aplicacion: 'VSA', EstadoSolicitud: 'PENDIENTE', Created: d(-1), Modified: d(-1) }];
   unidades = [{ Id: 61, Title: P[61].Title, Email: P[61].EMail, LoginName: 'i:0#.w|et\\jefea' }]; anadidos = [];
-  if (escenario === 'sin acceso') items = items.filter(x => !(x.Author && x.Author.Id === YO.Id) && !(x.ResponsableDeLaInformacion && x.ResponsableDeLaInformacion.Id === YO.Id));
+  if (escenario === 'sin acceso' || escenario === 'solo información') items = items.filter(x => !(x.Author && x.Author.Id === YO.Id) && !(x.ResponsableDeLaInformacion && x.ResponsableDeLaInformacion.Id === YO.Id));
+  if (escenario === 'sin acceso') items.forEach(x => { if (x.grupo) x.grupo = x.grupo.filter(g => g.Id !== YO.Id); });
   if (escenario === 'plazo DIACU') {
     const h = n => { const x = new Date(); x.setDate(x.getDate() - n); x.setHours(10, 5, 0, 0); return x.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); };
     const plantilla = items.find(x => x.Id === 2);
@@ -178,6 +179,10 @@ async function prueba(verbose, escenario) {
   const merge = id => { const m = posts.filter(x => new RegExp('items\\(' + id + '\\)').test(x.ruta) && x.cab['x-http-method'] === 'MERGE').pop(); return m && JSON.parse(m.cuerpo); };
   await p.goto(O + '/et/SUIGESUR/JSUIGE/Documentos%20compartidos/incidentes.html' + (escenario === 'enlace' ? '?id=3' : '')); await p.waitForTimeout(900);
   const pestañas = await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | '));
+  if (escenario === 'solo información') {
+    console.log(tag, '| panel:', (await p.textContent('#vista .okmsg').catch(() => 'SIN AVISO')).replace(/\s+/g, ' ').slice(0, 110), '| partes:', await p.$$eval('#vista .inc', n => n.map(x => x.dataset.id).join(',')), '| nuevo visible:', await p.$eval('#nuevo', b => !b.hidden), '| errores:', errs);
+    await b.close(); return;
+  }
   if (escenario === 'sin acceso' || escenario === 'provisional') {
     if (escenario === 'provisional') {
       console.log(tag, '| panel:', (await p.textContent('#vista .aviso').catch(() => 'SIN AVISO')).replace(/\s+/g, ' ').slice(0, 120), '| partes:', await p.$$eval('#vista .inc', n => n.length));
@@ -400,7 +405,7 @@ misGrupos = ['SEGURIDAD_SUIGESUR', 'Integrantes de la Colaborativo']; admin = fa
 sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstringof = false;
 misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'solo SEGURIDAD_IGE'); await prueba(false, 'informe'); await prueba(true, 'informe');
 misGrupos = ['SEGURIDAD_SUIGESUR']; admin = true; await prueba(false, 'Control total y solo SUIGESUR'); admin = false;
-misGrupos = []; await prueba(false, 'sin acceso'); await prueba(true, 'sin acceso'); await prueba(false, 'provisional');
+misGrupos = []; await prueba(false, 'solo información'); await prueba(true, 'solo información'); await prueba(false, 'sin acceso'); await prueba(true, 'sin acceso'); await prueba(false, 'provisional');
 misGrupos = TODOS; admin = true; await prueba(false, 'accesos'); await prueba(true, 'accesos'); admin = false;
 misGrupos = TODOS; admin = true; await prueba(false, 'enlace');
 faltaCampo = 'ResponsableDelParte'; await prueba(true, 'columna inexistente'); faltaCampo = null;

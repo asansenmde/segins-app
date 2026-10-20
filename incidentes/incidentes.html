@@ -218,7 +218,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-20 · 18';
+  var VERSION = '2026-10-20 · 19';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -398,9 +398,13 @@
     }).then(function (its) {
       if (!its) return;
       var ls = its.map(aInc);
-      if (!tieneAcceso() && !(ACCESO.transicion && ls.some(esMio))) { pantallaAcceso(''); return; }
-      provisional = !tieneAcceso();
-      $('#nuevo').hidden = false;
+      // Entra quien tiene acceso; quien figura como «personal que puede visualizar» en algún parte entra solo a verlos;
+      // en la transición, quien ya dio de alta partes o es su responsable entra de forma provisional
+      var acc = tieneAcceso(), mio = ls.some(esMio), info = ls.some(enGrupo);
+      if (!acc && !(ACCESO.transicion && mio) && !info) { pantallaAcceso(''); return; }
+      provisional = !acc && ACCESO.transicion && mio;
+      soloInfo = !acc && !provisional && info;
+      $('#nuevo').hidden = soloInfo;
       items = ls;
       cargadoEn = new Date();
       $('#estadoCarga').textContent = items.length + ' incidentes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -420,7 +424,8 @@
   }
   // Si Colabora rechaza una columna (400 «el campo X no existe»), se quita esa columna y se repite; se avisa en el panel
   var omitidas = [];
-  var sencilla = false, errLista = null, provisional = false;
+  var sencilla = false, errLista = null, provisional = false, soloInfo = false;
+  var enGrupo = function (t) { return (t.grupo || []).some(function (p) { return soy(p); }); };
   // Lectura de respaldo: solo columnas propias (sin «/», sin $expand) y las personas por su número
   function leerSencilla(resto, errorOriginal) {
     sencilla = true;
@@ -591,6 +596,7 @@
     return '<div class="hero"><div class="hola">Incidentes de seguridad en instalaciones</div><div class="nom">👤 ' + esc(yo.Title) + '</div>' +
       (papeles.length ? papeles.map(function (p) { return '<span class="rolh">' + esc(p) + '</span>'; }).join('') : '<span class="rolh">Sin papel de valoración</span>') +
       '<p>' + esc(alcanceTxt()) + '</p></div>' +
+      (soloInfo ? '<div class="okmsg">Ves los partes en los que figuras como <b>personal que puede visualizar la información</b>. Si además tienes que notificar partes, solicita la acreditación. <button data-accpedir="1">Solicitar acreditación</button></div>' : '') +
       (provisional ? '<div class="aviso">Entras de forma <b>provisional</b> porque ya figuras en algún parte. Pide tu acreditación para seguir usando la aplicación. <button class="prim" data-accpedir="1">Solicitar acreditación</button></div>' : '') +
       (omitidas.length ? '<div class="aviso">Colabora no dejó leer estas columnas y se muestran vacías: ' + esc(omitidas.join(', ')) + '. Dímelo para revisarlo.</div>' : '') +
       '<div class="mini">' +
