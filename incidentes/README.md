@@ -38,8 +38,9 @@ mismos campos, textos de ayuda, botones, valores de `ESTADO` y reglas.
 | Fase | Quién | Botones | Qué guarda |
 |---|---|---|---|
 | BORRADOR | responsable / autor | Guardar borrador · Informar a SUIGE | ver arriba |
-| REMITIDO A SUIGE | grupo `SEGURIDAD_<SUIGE>` | Informar a DIACU · INFORMAR A IGE | `VALORACIONSUIGES`, `ValoradoPorSUIGE`; `ESTADO` = REMITIDO A DIACU o REMITIDO A M1 |
+| REMITIDO A SUIGE | grupo `SEGURIDAD_<SUIGE>` | Informar a DIACU (siempre primero) | `VALORACIONSUIGES`, `ValoradoPorSUIGE`; `ESTADO` = REMITIDO A DIACU |
 | REMITIDO A DIACU | `SEGURIDAD_IGE` | Actualizar información · INFORMAR A IGE | `VALORACIONDIACU`, `ValoradoPorDIACU`; al informar, `DIACU` = ELEVADO POR DIACU y `ESTADO` = REMITIDO A M1 |
+| REMITIDO A DIACU, pasados 2 días hábiles | grupo `SEGURIDAD_<SUIGE>` | ELEVAR A IGE (sin valoración de DIACU) | `ESTADO` = REMITIDO A M1; anotación en el historial y correo a IGE con copia a la SUIGE |
 | REMITIDO A M1 (en IGE) | `SEGURIDAD_IGE` | Valoración de IGE | `valoracionIGE`, `ValoradoPorIGE`; `ESTADO` = VALORADO INCIDENTE POR JIGE |
 | VALORADO INCIDENTE POR JIGE / EN SEGUIMIENTO | `SEGURIDAD_IGE` | Cerrar expediente | `ESTADO` = EXP CERRADO (en el InfoPath no hay botón; se hacía a mano). Se puede reabrir con motivo (EN SEGUIMIENTO) |
 
@@ -64,7 +65,8 @@ Estadísticas y Ajustes (solo Control total).
 |---|---|---|---|
 | Informar a SUIGE | NUEVO INCIDENTE DE SEGURIDAD EN ARG <SUIGE> | `SEGURIDAD_<SUIGE>` | personal que puede visualizar |
 | SUIGE › DIACU | NUEVO INCIDENTE DE SEGURIDAD VALORADO POR SUIGE | `SEGURIDAD_IGE` | personal que puede visualizar (oculta) |
-| SUIGE o DIACU › IGE | INCIDENTE DE SEGURIDAD VALORADO POR <DIACU o SUIGE> | `SEGURIDAD_IGE` | SUIGE |
+| DIACU › IGE | INCIDENTE DE SEGURIDAD VALORADO POR DIACU | `SEGURIDAD_IGE` | SUIGE |
+| SUIGE › IGE (DIACU fuera de plazo) | INCIDENTE … ELEVADO POR <SUIGE> SIN VALORACIÓN DE DIACU | `SEGURIDAD_IGE` | SUIGE |
 | Valoración de IGE | INCIDENTE DE SEGURIDAD ACTUALIZADO | SUIGE | personal que puede visualizar |
 | Cierre | … EXPEDIENTE CERRADO | SUIGE | responsable, autor y personal que puede visualizar |
 
@@ -104,6 +106,10 @@ DIACU e IGE comparten `SEGURIDAD_IGE`.
   personas, adjuntos, borrador, informar a SUIGE, solo el responsable), impresión, CSV, estadísticas y enlace. Uso: `node incidentes/pruebas/simulacion.mjs`.
 - `pruebas/diagnostico.mjs`: prueba con un sitio simulado (formato ligero y *verbose*, paginación, privacidad).
   Uso: `node incidentes/pruebas/diagnostico.mjs`.
+
+**Plazo de DIACU** (20/10/2026): la SUIGE ya no informa directamente a IGE. Si DIACU no lo eleva en **2 días hábiles**
+(sin sábados ni domingos; no descuenta festivos) contados desde la anotación «INFORMADO A DIACU» del historial, la SUIGE
+puede elevarlo a IGE desde el día siguiente (`PLAZO_DIACU`). Mientras tanto la ficha dice desde qué día podrá.
 
 ## Correo de prueba (Ajustes)
 

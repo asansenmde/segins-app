@@ -16,7 +16,8 @@
   Una sola página, sin recursos de internet: trabaja con la sesión y los permisos del usuario en Colabora.
   Circuito (el mismo del formulario InfoPath «incidentes_de_seguridad.xsn»):
   BORRADOR › Informar a SUIGE (REMITIDO A SUIGE) › Informar a DIACU (REMITIDO A DIACU) › Informar a IGE (REMITIDO A M1)
-  › Valoración de IGE (VALORADO INCIDENTE POR JIGE) › EXP CERRADO. La SUIGE también puede informar directamente a IGE.
+  › Valoración de IGE (VALORADO INCIDENTE POR JIGE) › EXP CERRADO. Si DIACU no lo eleva en 2 días hábiles, la SUIGE puede
+  elevarlo a IGE sin valoración de DIACU.
 -->
 <style>
   :root {
@@ -191,7 +192,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-20 · 14';
+  var VERSION = '2026-10-20 · 15';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -367,6 +368,7 @@
       $('#estadoCarga').textContent = items.length + ' incidentes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
       $('#estadoCarga').title = 'Versión de la página: ' + VERSION;
       render();
+      cargarEnviosDiacu().then(function (n) { if (n && cargadoEn) render(); });
       if (idInicial) {
         var pedido = idInicial; idInicial = null;
         if (items.some(function (x) { return x.id === pedido; })) abrir(pedido); else aviso('El incidente nº ' + pedido + ' no está entre los que te corresponden');
@@ -475,11 +477,37 @@
   var pDiacu = function (t) { return esDiacu && fase(t) === 2; };
   var pIge = function (t) { return esIge && (fase(t) === 2 || fase(t) === 3 || fase(t) === 4); };
   var pCierre = function (t) { return esIge && (fase(t) === 3 || fase(t) === 4); };
+  // La SUIGE informa primero a DIACU. Si DIACU no lo eleva a IGE en PLAZO_DIACU días hábiles (sin contar sábados ni
+  // domingos; no se descuentan festivos), la SUIGE puede elevarlo ella a IGE por falta de valoración de DIACU.
+  var PLAZO_DIACU = 2;
+  function finPlazoDiacu(desde) {
+    var d = new Date(desde); if (isNaN(d)) return null;
+    d.setHours(0, 0, 0, 0);
+    for (var n = 0; n < PLAZO_DIACU;) { d.setDate(d.getDate() + 1); if (d.getDay() !== 0 && d.getDay() !== 6) n++; }
+    d.setDate(d.getDate() + 1); return d;   // desde el día siguiente al último día hábil del plazo
+  }
+  // Fecha en que se informó a DIACU: la última anotación «INFORMADO A DIACU» del historial; si no, la última modificación
+  function fechaEnvioDiacu(hist) {
+    var m, ult = null, re = /(\d{2})\/(\d{2})\/(\d{4}),?\s+(\d{1,2}):(\d{2})[^\n]*INFORMADO A DIACU/g;
+    while ((m = re.exec(String(hist || '')))) ult = new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5]);
+    return ult;
+  }
+  // Para «Pendientes»: fecha de envío a DIACU de los partes de mi SUIGE que están en DIACU (se lee su historial)
+  function cargarEnviosDiacu() {
+    var ids = items.filter(function (t) { return fase(t) === 2 && esMiSuige(t); }).map(function (t) { return t.id; }), trozos = [], n = 0;
+    for (var i = 0; i < ids.length; i += 40) trozos.push(ids.slice(i, i + 40));
+    return Promise.all(trozos.map(function (tr) {
+      return todas(urlLista() + '/items?$top=500&$select=Id,ObservacionesDelExpediente&$filter=' + encodeURIComponent(tr.map(function (id) { return '(Id eq ' + id + ')'; }).join(' or ')))
+        .then(function (l) { l.forEach(function (x) { var t = items.find(function (y) { return y.id === x.Id; }), f = fechaEnvioDiacu(texto(x.ObservacionesDelExpediente)); if (t && f) { t.envioDiacu = f; n++; } }); });
+    })).then(function () { return n; }, function () { return 0; });
+  }
+  var plazoDiacu = function (t) { return finPlazoDiacu(t.envioDiacu || t.modificado); };
+  var pSuigeIge = function (t) { var p = fase(t) === 2 && esMiSuige(t) && plazoDiacu(t); return !!p && new Date() >= p; };
   var pendientes = function () {
-    return { borrador: items.filter(function (t) { return fase(t) === 0 && esMio(t); }), suige: items.filter(pSuige), diacu: items.filter(pDiacu),
+    return { borrador: items.filter(function (t) { return fase(t) === 0 && esMio(t); }), suige: items.filter(pSuige), suigeIge: items.filter(pSuigeIge), diacu: items.filter(pDiacu),
       ige: items.filter(function (t) { return esIge && fase(t) === 3; }), cierre: items.filter(function (t) { return esIge && fase(t) === 4; }) };
   };
-  var nPend = function () { var p = pendientes(); var s = {}; [].concat(p.borrador, p.suige, p.diacu, p.ige, p.cierre).forEach(function (t) { s[t.id] = 1; }); return Object.keys(s).length; };
+  var nPend = function () { var p = pendientes(); var s = {}; [].concat(p.borrador, p.suige, p.suigeIge, p.diacu, p.ige, p.cierre).forEach(function (t) { s[t.id] = 1; }); return Object.keys(s).length; };
   var FASES = ['Borrador (sin enviar a SUIGE)', 'Remitido a SUIGE: pendiente de valoración', 'Remitido a DIACU: pendiente de valoración', 'Remitido a IGE: pendiente de valoración', 'Valorado por IGE: en seguimiento', 'Expediente cerrado'];
   var faseTxt = function (t) { return FASES[fase(t)] + (fase(t) === 1 && t.suige ? ' (' + t.suige + ')' : ''); };
   var badgeFase = function (t) { return '<span class="badge f' + fase(t) + '" title="Estado en la lista: ' + esc(t.estadoRaw || '—') + '">' + esc(faseTxt(t)) + '</span>'; };
@@ -559,7 +587,8 @@
     return cab + '<p class="muted small">Incidentes que esperan una acción tuya según tu papel, los más antiguos primero. En rojo, los que llevan más de 7 días en la misma fase.</p>' +
       (!algun && !p.borrador.length ? '<div class="card vacio">No tienes papel de valoración (SUIGE, DIACU o IGE) en Colabora ni borradores pendientes de enviar.</div>' : '') +
       bloque('Mis borradores: completar e informar a SUIGE', p.borrador, '', p.borrador.length) +
-      bloque('Valorar como SUIGE (' + misSuiges.join(', ') + ') e informar a DIACU o a IGE', p.suige, 'Nada pendiente de valorar por tu SUIGE.', misSuiges.length) +
+      bloque('Valorar como SUIGE (' + misSuiges.join(', ') + ') e informar a DIACU', p.suige, 'Nada pendiente de valorar por tu SUIGE.', misSuiges.length) +
+      bloque('SUIGE: DIACU no lo ha elevado en ' + PLAZO_DIACU + ' días hábiles · puedes elevarlo a IGE', p.suigeIge, '', p.suigeIge.length) +
       bloque('DIACU: valorar e informar a IGE', p.diacu, 'Nada pendiente en DIACU.', esDiacu) +
       bloque('IGE: valoración de IGE', p.ige, 'Nada remitido a IGE pendiente de valorar.', esIge) +
       bloque('IGE: seguimiento y cierre del expediente', p.cierre, 'Nada valorado pendiente de cierre.', esIge);
@@ -730,6 +759,7 @@
       suige: { a: dest.suige, cc: [], asunto: 'NUEVO INCIDENTE DE SEGURIDAD EN INSTALACIONES · ARG ' + arg + ' · Nº ' + t.id, intro: 'DEBE ANALIZAR EL INCIDENTE Y ELEVAR VALORACIÓN.', personas: 'cc' },
       diacu: { a: dest.diacu, cc: [], asunto: 'NUEVO INCIDENTE DE SEGURIDAD EN INSTALACIONES VALORADO POR SUIGE · Nº ' + t.id, intro: 'DIACU DEBE ACCEDER Y VALORAR LA INCIDENCIA PARA REMITIRLA A IGE.', personas: 'bcc' },
       ige: { a: dest.ige, cc: dest.suige, asunto: 'INCIDENTE DE SEGURIDAD EN INSTALACIONES VALORADO POR ' + (t.estadoPrevio === ES.RD ? 'DIACU' : arg) + ' · Nº ' + t.id, intro: 'INCIDENTE REMITIDO A IGE PARA SU VALORACIÓN.' },
+      igeSinDiacu: { a: dest.ige, cc: dest.suige, asunto: 'INCIDENTE DE SEGURIDAD EN INSTALACIONES ELEVADO POR ' + arg + ' SIN VALORACIÓN DE DIACU · Nº ' + t.id, intro: 'DIACU NO HA VALORADO EL INCIDENTE EN EL PLAZO DE ' + PLAZO_DIACU + ' DÍAS HÁBILES. LA ' + arg + ' LO ELEVA A IGE PARA SU VALORACIÓN.' },
       valIge: { a: dest.suige, cc: [], asunto: 'INCIDENTE DE SEGURIDAD EN INSTALACIONES ACTUALIZADO · Nº ' + t.id, intro: 'SE HA REALIZADO UNA ACTUALIZACIÓN DEL INCIDENTE DE SEGURIDAD EN INSTALACIONES: VALORACIÓN DE IGE.', personas: 'cc' },
       cerrar: { a: dest.suige, cc: [], asunto: 'INCIDENTE DE SEGURIDAD EN INSTALACIONES Nº ' + t.id + ': EXPEDIENTE CERRADO', intro: 'EL EXPEDIENTE DEL INCIDENTE HA QUEDADO CERRADO.', personas: 'cc', resp: true },
       reabrir: { a: dest.suige, cc: dest.diacu, asunto: 'INCIDENTE DE SEGURIDAD EN INSTALACIONES Nº ' + t.id + ': EXPEDIENTE REABIERTO', intro: 'EL EXPEDIENTE DEL INCIDENTE SE HA REABIERTO Y VUELVE A SEGUIMIENTO.' },
@@ -1183,6 +1213,9 @@
       $('#detVal').innerHTML = (vals.length ? '' : '<p class="small muted">Las valoraciones aparecen cuando el parte se envía a SUIGE.</p>') +
         vals.map(function (v) { return '<b class="small muted">' + esc(v[0]) + (v[2] ? ' · ' + esc(v[2]) : '') + '</b><div class="texto">' + (v[1] ? esc(v[1]) : '<span class="muted">—</span>') + '</div>'; }).join('') +
         '<b class="small muted">Observaciones e historial del expediente</b><div class="texto">' + (d.ObservacionesDelExpediente ? esc(texto(d.ObservacionesDelExpediente)) : '<span class="muted">—</span>') + '</div>';
+      // Plazo de DIACU contado desde la anotación «INFORMADO A DIACU» del historial
+      var env = fechaEnvioDiacu(texto(d.ObservacionesDelExpediente));
+      if (env && fase(t) === 2) { t.envioDiacu = env; if (esMiSuige(t)) $('#detAcc').innerHTML = panelAcciones(t); }
       Array.prototype.forEach.call(document.querySelectorAll('#detAcc textarea[data-campo]'), function (ta) { if (!ta.value) ta.value = texto(d[ta.dataset.campo]); });
     }).catch(function () { var el = $('#detTextos'); if (el) el.innerHTML = '<p class="muted small">No se pudieron leer los textos.</p>'; });
   }
@@ -1194,7 +1227,14 @@
     if (pBorrador(t)) h += '<div class="panel turno"><h3>Parte en borrador</h3><p class="small">Complétalo y pulsa «Informar a SUIGE». Solo puede enviarlo el responsable de la información' + (t.resp ? ' (' + esc(t.resp.Title) + ')' : '') + '.</p><div class="acciones"><button class="suige" data-editar="' + t.id + '">✎ Completar e informar a SUIGE</button></div></div>';
     if (pSuige(t)) {
       h += '<div class="panel turno"><h3>Valoración del jefe de negociado de seguridad de las SUIGE (' + esc(t.suige) + ')</h3>' + txt('vSuige', 'VALORACIONSUIGES', 'Valoración (obligatoria)') +
-        '<div class="acciones"><button class="diacu" data-acc="suigeDiacu">Informar a DIACU</button><button class="rojo" data-acc="suigeIge">INFORMAR A IGE</button></div></div>';
+        '<p class="small muted">Se informa primero a DIACU. Si DIACU no lo eleva a IGE en ' + PLAZO_DIACU + ' días hábiles, podrás elevarlo tú a IGE por falta de valoración de DIACU.</p>' +
+        '<div class="acciones"><button class="diacu" data-acc="suigeDiacu">Informar a DIACU</button></div></div>';
+    }
+    if (fase(t) === 2 && esMiSuige(t)) {
+      var fp = plazoDiacu(t);
+      h += pSuigeIge(t) ? '<div class="panel turno"><h3>DIACU no lo ha elevado en plazo</h3><p class="small">Se informó a DIACU el ' + esc(fHora(t.envioDiacu || t.modificado)) + ' y han pasado ' + PLAZO_DIACU + ' días hábiles sin que lo eleve a IGE. Puedes elevarlo tú, sin valoración de DIACU.</p>' +
+        '<label class="lbl">Observación (opcional)</label><textarea id="vSuigeIge"></textarea><div class="acciones"><button class="rojo" data-acc="suigeIgeSD">ELEVAR A IGE (sin valoración de DIACU)</button></div></div>' :
+        '<div class="panel"><h3>En DIACU</h3><p class="small">DIACU tiene ' + PLAZO_DIACU + ' días hábiles para elevarlo a IGE' + (fp ? ': si no lo ha hecho, podrás elevarlo tú a partir del <b>' + esc(fp.toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })) + '</b>' : '') + '.</p></div>';
     }
     if (pDiacu(t)) {
       h += '<div class="panel turno"><h3>Valoración de los analistas de DIACU</h3>' + txt('vDiacu', 'VALORACIONDIACU', 'Valoración (obligatoria)') +
@@ -1216,7 +1256,7 @@
     var v = function (id) { var el = $('#' + id); return el ? el.value.trim() : ''; };
     var c = {}, nota = null, correo = null, txt = '', ok = '';
     var exige = function (x, m) { if (!x) { msgAcc('error', m); throw 0; } };
-    var PERMITIDO = { suigeDiacu: pSuige, suigeIge: pSuige, diacuGuardar: pDiacu, diacuIge: pDiacu, valIge: pIge, cerrar: pCierre,
+    var PERMITIDO = { suigeDiacu: pSuige, suigeIgeSD: pSuigeIge, diacuGuardar: pDiacu, diacuIge: pDiacu, valIge: pIge, cerrar: pCierre,
       reabrir: function (x) { return fase(x) === 5 && (esIge || esGestor); }, anotar: puedeAnotar, recordar: puedeAnotar };
     if (!PERMITIDO[a] || !PERMITIDO[a](t)) { msgAcc('error', 'No te corresponde esta acción en la fase actual del incidente.'); return; }
     try {
@@ -1226,6 +1266,11 @@
         correo = a === 'suigeDiacu' ? 'diacu' : 'ige';
         nota = 'Valoración ' + t.suige + ' · ' + (a === 'suigeDiacu' ? 'INFORMADO A DIACU' : 'INFORMADO A IGE');
         ok = a === 'suigeDiacu' ? 'Valoración guardada: REMITIDO A DIACU.' : 'Valoración guardada: REMITIDO A IGE.';
+      } else if (a === 'suigeIgeSD') {
+        txt = v('vSuigeIge');
+        c.ESTADO = ES.RM; correo = 'igeSinDiacu';
+        nota = t.suige + ' · ELEVADO A IGE SIN VALORACIÓN DE DIACU (plazo de ' + PLAZO_DIACU + ' días hábiles vencido)' + (txt ? ': ' + txt : '');
+        ok = 'Elevado a IGE sin valoración de DIACU: REMITIDO A IGE.';
       } else if (a === 'diacuGuardar' || a === 'diacuIge') {
         txt = v('vDiacu'); exige(txt, 'Escribe la valoración de DIACU.');
         Object.assign(c, { VALORACIONDIACU: aHtml(txt), ValoradoPorDIACU: true });
