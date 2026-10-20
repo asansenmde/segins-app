@@ -151,9 +151,8 @@ formulario «Solicitar acceso» (lista común «SOLICITUDES DE ACCESO», `Aplica
 - **Transición** (`ACCESO.transicion`): quien ya figura en algún parte (lo dio de alta o es responsable) sigue entrando
   con un aviso de «acceso provisional» y un botón para pedir la acreditación. Cuando todos estén acreditados, poner
   `transicion: false`.
-- **Aviso de cada solicitud** por correo al grupo «Propietarios Colaborativo» y a los propietarios del sitio
-  (`AssociatedOwnerGroup`). En Accesos › Preparación, «Probar el aviso» manda uno de prueba y dice si quien lo pulsa está
-  entre los destinatarios. Para que salga cuando lo pide alguien sin acceso, esos grupos deben dejar ver sus miembros a
-  «Todos»; como respaldo, «Alertarme» en la lista de solicitudes.
+- **Aviso de cada solicitud** por correo a la dirección fija de `ACCESO.avisarCorreos` (asansen@et.mde.es, a petición
+  del administrador; no depende de que se vean los miembros de ningún grupo). En Accesos › Preparación, «Probar el
+  aviso» manda uno de prueba y muestra los destinatarios.
 - Pestaña **Accesos** (Control total): preparación, solicitudes pendientes (solo las de INCIDENTES), aprobar (alta en el
   grupo y correo), denegar, miembros y retirar acceso.

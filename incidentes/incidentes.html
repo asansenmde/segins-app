@@ -218,7 +218,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-20 · 17';
+  var VERSION = '2026-10-20 · 18';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -254,9 +254,10 @@
   // Grupo al que se avisa por correo en cada paso
   var GRUPO_CORREO = { diacu: ['SEGURIDAD_IGE'], ige: ['SEGURIDAD_IGE'],
     suige: function (s) { return s === 'SECOORCEN' ? ['SEGURIDAD_SECORCEN'] : s === 'JEFATURA DE IGE' ? ['SEGURIDAD_IGE'] : s ? ['SEGURIDAD_' + s] : []; } };
-  // Control de acceso (como VSA): grupo propio de las unidades, lista común de solicitudes y a quién se avisa de cada una.
+  // Control de acceso (como VSA): grupo propio de las unidades, lista común de solicitudes y a quién se avisa de cada una
+  // (avisarCorreos: direcciones fijas; avisar: grupos, que tienen que dejar ver sus miembros a todos).
   // transicion: quien ya figura en algún parte (lo dio de alta o es responsable) sigue entrando mientras se le acredita.
-  var ACCESO = { app: 'INCIDENTES', lista: 'SOLICITUDES DE ACCESO', grupoBae: 'INCIDENTES_UNIDADES', grupos: ['INCIDENTES_UNIDADES'], avisar: ['Propietarios Colaborativo'], transicion: true,
+  var ACCESO = { app: 'INCIDENTES', lista: 'SOLICITUDES DE ACCESO', grupoBae: 'INCIDENTES_UNIDADES', grupos: ['INCIDENTES_UNIDADES'], avisar: [], avisarCorreos: ['asansen@et.mde.es'], transicion: true,
     papeles: [['Unidad: notificar incidentes de seguridad', 'bae'], ['Negociado de Seguridad de una SUIGE (valorar)', 'suige'], ['DIACU / IGE', 'ige'], ['Solo consulta', 'bae']] };
   // MN1–MN4 tienen nombre interno «_x004d_N1»…: en el REST de SharePoint, los que empiezan por «_» se llaman «OData_…»
   var MANDOS = ['MANDO1N', 'MANDO2N', 'MANDO3N', 'OData__x004d_N1', 'OData__x004d_N2', 'OData__x004d_N3', 'OData__x004d_N4'];
@@ -1636,6 +1637,7 @@
   // A quién avisa una solicitud nueva: los grupos de ACCESO.avisar y los propietarios del sitio. Quien solicita tiene
   // que poder ver los integrantes de esos grupos («Quién puede ver los miembros: Todos») o el aviso no le sale.
   function destAvisos(sinVer) {
+    if (ACCESO.avisarCorreos && ACCESO.avisarCorreos.length) return correosDeGrupos(ACCESO.avisar, sinVer).then(function (l) { return ACCESO.avisarCorreos.concat(l); });
     var prop = api(web + '/_api/web/AssociatedOwnerGroup?$select=Title').then(function (g) { return g && g.Title ? [g.Title] : []; }).catch(function () { return []; });
     return prop.then(function (pg) { return correosDeGrupos(ACCESO.avisar.concat(pg.filter(function (x) { return ACCESO.avisar.indexOf(x) < 0; })), sinVer); });
   }
@@ -1649,7 +1651,7 @@
       return enviarCorreo(c).then(function (r) {
         boton.disabled = false;
         el.innerHTML = '<div class="' + (r.ok && yoEsta ? 'okmsg' : 'aviso') + '">' + (r.ok ? '✓ Aviso de prueba enviado a ' + c.to.length + ' persona' + (c.to.length === 1 ? '' : 's') + '. ' : '') +
-          (yoEsta ? 'Tú estás entre los destinatarios.' : '<b>Tú no estás entre los destinatarios</b>: entra en el grupo «' + esc(ACCESO.avisar[0]) + '» (o en los propietarios del sitio) para recibir los avisos.') + msgCorreo(r) + '</div>';
+          'Destinatarios: ' + esc(c.to.join(', ')) + '. ' + (yoEsta ? 'Tú estás entre ellos.' : '') + msgCorreo(r) + '</div>';
       });
     }).catch(function (e) { boton.disabled = false; el.innerHTML = '<div class="error">' + esc(e.message || e) + '</div>'; });
   }
@@ -1703,10 +1705,8 @@
         ' <button class="prim" data-accabrir="1">Permitir que cualquiera solicite acceso</button>') + '</p>' : '') +
       '<p class="small">' + (accGrupos.indexOf(ACCESO.grupoBae) >= 0 ? '✔ Grupo «' + esc(ACCESO.grupoBae) + '» creado (' + (accMiembros ? accMiembros.length : 0) + ' personas).' :
         '✕ Falta el grupo «' + esc(ACCESO.grupoBae) + '» para las unidades que notifican incidentes. <button class="prim" data-acccreargrupo="1">Crear el grupo</button>') + '</p>' +
-      '<p class="small">✉ Cada solicitud nueva se avisa por correo al grupo «' + esc(ACCESO.avisar.join('», «')) + '» y a los propietarios del sitio. ' +
+      '<p class="small">✉ Cada solicitud nueva se avisa por correo a <b>' + esc((ACCESO.avisarCorreos || []).concat(ACCESO.avisar).join(', ') || 'los propietarios del sitio') + '</b>. ' +
         '<button data-accprueba="1">Probar el aviso</button></p><div id="accPrueba"></div>' +
-      '<p class="small muted">Para que el aviso salga también cuando lo pide alguien sin acceso, en esos grupos «Configuración del grupo › Quién puede ver los miembros» debe ser «Todos». ' +
-        'Como respaldo, en la lista «' + esc(ACCESO.lista) + '» pulsa «Alertarme» (elementos nuevos) y SharePoint te avisará siempre.</p>' +
       '<p class="small muted">La comprobación de acceso la hace esta página. Para que sea también la de Colabora, quita «Usuarios del dominio» de la lista «' + esc(pref.lista) + '» y da permiso a los grupos SEGURIDAD_* y ' + esc(ACCESO.grupoBae) + '. ' +
       'La lista de solicitudes debe seguir permitiendo «Colaborar» a todos para que cualquiera pueda pedir acceso.</p></div>';
     var pend = (accSols || []).filter(function (s) { return s.estado === 'PENDIENTE'; }), res = (accSols || []).filter(function (s) { return s.estado !== 'PENDIENTE'; });
