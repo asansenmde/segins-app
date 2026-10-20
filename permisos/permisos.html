@@ -182,7 +182,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-10-20 · 7';
+  var VERSION = '2026-10-20 · 8';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
   var CLAVE = 'permisos-calidad-vida';
@@ -247,7 +247,8 @@
   function api(url) {
     var pedir = function (accept) {
       return fetch(url, { credentials: 'same-origin', headers: { Accept: accept } }).then(function (r) {
-        if (!r.ok) { var e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+        // El mensaje dice qué recurso falló (sin parámetros), para diagnosticar permisos
+        if (!r.ok) { var rec = ''; try { rec = decodeURIComponent(url.split('/_api/')[1].split('?')[0]); } catch (x) { rec = ''; } var e = new Error('HTTP ' + r.status + (rec ? ' en «' + rec + '»' : '')); e.status = r.status; throw e; }
         return r.json();
       });
     };
@@ -372,7 +373,7 @@
       }
     }).catch(function (e) {
       $('#estadoCarga').textContent = 'Error';
-      $('#vista').innerHTML = '<div class="error">No se pudo leer la lista: ' + esc(e.message || e) + '. ¿Tienes permiso para verla?</div>' +
+      $('#vista').innerHTML = '<div class="error">No se pudo leer la lista: ' + esc(e.message || e) + '. ¿Tienes permiso para verla?<br><small>Sitio: ' + esc(pref.sitio) + ' · lista: ' + esc(pref.lista) + ' · versión ' + esc(VERSION) + '</small></div>' +
         (pref.sitio !== POR_DEFECTO.sitio || pref.lista !== POR_DEFECTO.lista ? '<div class="acciones"><button class="prim" data-restablecer="1">Volver al sitio y la lista de siempre</button></div>' : '');
     });
   }
