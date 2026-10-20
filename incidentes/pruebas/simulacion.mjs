@@ -152,6 +152,24 @@ async function prueba(verbose, escenario) {
   const merge = id => { const m = posts.filter(x => new RegExp('items\\(' + id + '\\)').test(x.ruta) && x.cab['x-http-method'] === 'MERGE').pop(); return m && JSON.parse(m.cuerpo); };
   await p.goto(O + '/et/SUIGESUR/JSUIGE/Documentos%20compartidos/incidentes.html' + (escenario === 'enlace' ? '?id=3' : '')); await p.waitForTimeout(900);
   const pestañas = await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | '));
+  if (escenario === 'informe') {
+    await p.click('#tabs a[data-v=informe]'); await p.waitForTimeout(300);
+    const t = async s => (await p.$$eval(s, n => n.map(x => x.textContent.replace(/\s+/g, ' ').trim())));
+    console.log(tag, '| apartados:', (await t('#vista .inf h3')).join(' | '));
+    console.log(tag, '| resumen:', (await t('#vista .inf .kp div')).join(' · '));
+    await p.selectOption('#iAgr', 'suige'); await p.waitForTimeout(200);
+    console.log(tag, '| comparativa SUIGE:', (await t('#vista .inf h3 + table tr')).slice(0, 4).join(' / '));
+    await p.check('[data-isec=detalle]'); await p.check('[data-isec=valoraciones]'); await p.waitForTimeout(200);
+    const [pop] = await Promise.all([p.waitForEvent('popup'), p.click('[data-iimp]')]);
+    await pop.waitForLoadState(); const imp = await pop.evaluate(() => document.body.innerText);
+    console.log(tag, '| impreso:', (imp.match(/^\d+\. [A-ZÁÉÍÓÚ][^\n]*$/gm) || []).join(' | '), '| texto del parte leído:', /TEXTO RESERVADO DEL PARTE/.test(imp), '| valoración SUIGE:', /Valorado NOR/.test(imp));
+    if (!verbose) await pop.screenshot({ path: new URL('informe.png', import.meta.url).pathname, fullPage: true });
+    await pop.close();
+    const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-icsv]')]);
+    const csvT = fs.readFileSync(await dl.path(), 'utf8');
+    console.log(tag, '| CSV:', dl.suggestedFilename(), csvT.split('\r\n').length, 'filas ·', csvT.split('\r\n')[3], '| errores:', errs);
+    await b.close(); return;
+  }
   if (escenario === 'plazo DIACU') {
     await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(300);
     console.log(tag, '| pendientes:', (await p.$$eval('#vista .sec', s => s.map(x => x.textContent.replace(/(\d+)$/, ' = $1')))).join(' · '));
@@ -169,7 +187,8 @@ async function prueba(verbose, escenario) {
   if (escenario === 'columna inexistente') { console.log(tag, '| carga:', await p.textContent('#estadoCarga'), '| aviso:', await p.textContent('#vista .aviso').catch(() => 'ninguno'), '| errores:', errs); await b.close(); return; }
   if (escenario === 'enlace') { console.log(tag, '| ficha abierta:', await p.textContent('#dlg h2').catch(() => 'nada'), '| URL limpia:', p.url().endsWith('incidentes.html')); await b.close(); return; }
   console.log(tag, '| pestañas:', pestañas, '| filtro:', ultimoFiltro ? (ultimoFiltro.includes('substringof') ? 'con cadena de mando' : 'sin cadena de mando') : 'ninguno (ve todo)');
-  console.log(tag, '| panel:', (await p.$$eval('.kpi', k => k.map(x => x.textContent.replace(/(\d+)$/, ':$1')))).join(' · '));
+  console.log(tag, '| panel:', (await p.$$eval('.mini > div', k => k.map(x => x.textContent.replace(/^\D*?(\d+)/, '$1 ')))).join(' · '), '| circuito:', (await p.$$eval('.flujo .fp', k => k.map(x => x.textContent.replace(/^\S+/, '').replace(/(\d+)$/, ':$1')))).join(' › '));
+  if (!verbose && escenario === 'control total') await p.screenshot({ path: new URL('panel.png', import.meta.url).pathname, fullPage: true });
   if (escenario === 'solo SEGURIDAD_IGE') { await p.click('#tabs a[data-v=panel]'); await p.waitForTimeout(200); }
   await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200);
   console.log(tag, '| pendientes:', (await p.$$eval('#vista .sec', s => s.map(x => x.textContent.replace(/(\d+)$/, ' = $1')))).join(' · '), '| ids:', await p.$$eval('#vista .inc', n => n.map(x => x.dataset.id).join(',')));
@@ -255,7 +274,10 @@ async function prueba(verbose, escenario) {
   await p.fill('#aPruebaA', 'malo@et.mde.es'); await p.click('[data-correoprueba]'); await p.waitForTimeout(1000);
   console.log(tag, '| solo dirección mala:', (await p.textContent('#aPrueba')).replace(/\s+/g, ' ').slice(0, 200));
   // 7) Consulta, filtros, impresión, CSV y estadísticas
-  await p.click('#tabs a[data-v=panel]'); await p.click('.kpi[data-ir="prob:alta"]'); await p.waitForTimeout(200);
+  await p.click('#tabs a[data-v=estadisticas]'); await p.waitForTimeout(200);
+  console.log(tag, '| estadísticas:', (await p.$$eval('.mini > div', k => k.map(x => x.textContent.replace(/^\D*?(\d+)/, '$1 ')))).join(' · '));
+  if (!verbose) await p.screenshot({ path: new URL('estadisticas.png', import.meta.url).pathname, fullPage: true });
+  await p.click('.mini [data-ir="prob:alta"]'); await p.waitForTimeout(200);
   console.log(tag, '| prob. alta abiertos →', await p.$$eval('#vista .inc', n => n.map(x => x.dataset.id).join(',')));
   const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-csv]')]);
   console.log(tag, '| CSV:', dl.suggestedFilename(), fs.readFileSync(await dl.path(), 'utf8').split('\r\n').length - 1, 'filas');
@@ -327,7 +349,7 @@ const TODOS = ['SEGURIDAD_SUIGESUR', 'SEGURIDAD_SUIGENOR', 'SEGURIDAD_SUIGECAN',
 misGrupos = TODOS; admin = true; await prueba(false, 'control total'); sinEmpleos = true; rechazaFrom = true; grupoUnico = true; await prueba(true, 'control total'); sinEmpleos = false; rechazaFrom = false; grupoUnico = false;
 misGrupos = ['SEGURIDAD_SUIGESUR', 'Integrantes de la Colaborativo']; admin = false; await prueba(false, 'solo SUIGESUR'); await prueba(true, 'plazo DIACU');
 sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstringof = false;
-misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'solo SEGURIDAD_IGE');
+misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'solo SEGURIDAD_IGE'); await prueba(false, 'informe'); await prueba(true, 'informe');
 misGrupos = ['SEGURIDAD_SUIGESUR']; admin = true; await prueba(false, 'Control total y solo SUIGESUR'); admin = false;
 misGrupos = TODOS; admin = true; await prueba(false, 'enlace');
 faltaCampo = 'ResponsableDelParte'; await prueba(true, 'columna inexistente'); faltaCampo = null;

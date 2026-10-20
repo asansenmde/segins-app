@@ -99,6 +99,30 @@
   .barras .bar { height: 16px; background: var(--brand); border-radius: 0 4px 4px 0; min-width: 2px; }
   .barras .bar:hover { background: #24507a; }
   .barras .n { font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+  /* Panel principal */
+  .hero { background: linear-gradient(120deg, #13294b 0%, #1b3a5c 55%, #2a5788 100%); color: #fff; border-radius: 16px; padding: 18px 20px; margin: 12px 0; position: relative; overflow: hidden; box-shadow: 0 6px 18px rgba(19,41,75,.18); }
+  .hero::after { content: ''; position: absolute; right: -40px; top: -40px; width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, rgba(184,150,46,.35), transparent 70%); }
+  .hero .hola { font-size: .8rem; letter-spacing: 1.5px; color: #e6d9a8; text-transform: uppercase; }
+  .hero .nom { font-size: 1.35rem; font-weight: 800; margin: 2px 0 8px; }
+  .hero .rolh { display: inline-block; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25); border-radius: 999px; padding: 2px 10px; margin: 0 6px 4px 0; font-size: .78rem; font-weight: 600; }
+  .hero p { margin: 6px 0 0; font-size: .82rem; color: #d7e2f0; max-width: 820px; position: relative; z-index: 1; }
+  .flujo { display: flex; gap: 6px; align-items: stretch; flex-wrap: wrap; margin: 6px 0 14px; }
+  .flujo .fp { flex: 1 1 120px; border-radius: 14px; padding: 10px 12px; color: #fff; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,.08); transition: transform .12s, box-shadow .12s; position: relative; }
+  .flujo .fp:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,.14); }
+  .flujo .fp small { display: block; font-size: .72rem; opacity: .92; text-transform: uppercase; letter-spacing: .6px; }
+  .flujo .fp b { display: block; font-size: 1.9rem; line-height: 1.1; }
+  .flujo .fp i { font-style: normal; font-size: 1.1rem; position: absolute; right: 10px; top: 8px; opacity: .85; }
+  .flujo .fl { align-self: center; color: #9aa6b5; font-weight: 800; }
+  @media (max-width: 700px) { .flujo .fl { display: none; } .flujo .fp { flex-basis: 30%; } }
+  .fp.c0 { background: linear-gradient(135deg, #7d8793, #5f6975); } .fp.c1 { background: linear-gradient(135deg, #f0a92b, #d98400); } .fp.c2 { background: linear-gradient(135deg, #8a5cc2, #6a3d9a); }
+  .fp.c3 { background: linear-gradient(135deg, #2f6fc0, #1d4f91); } .fp.c4 { background: linear-gradient(135deg, #1f9aa8, #00737f); } .fp.c5 { background: linear-gradient(135deg, #43a047, #2e7d32); }
+  .mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 10px 0 12px; }
+  .mini > div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: flex; gap: 12px; align-items: center; transition: box-shadow .12s; }
+  .mini > div[data-ir] { cursor: pointer; } .mini > div[data-ir]:hover { box-shadow: 0 6px 16px rgba(0,0,0,.08); }
+  .mini .ic { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-size: 1.3rem; flex: none; }
+  .mini b { display: block; font-size: 1.45rem; line-height: 1.1; color: var(--text); } .mini span { font-size: .78rem; color: var(--muted); }
+  .ic.r { background: #fde3e3; } .ic.a { background: #fff1d6; } .ic.v { background: #e0f2e1; } .ic.az { background: #e1ebf8; } .ic.m { background: #eee5f8; }
+  .estadis .card h3 { border-left: 4px solid var(--oro); padding-left: 8px; }
   .estadis { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
   @media (max-width: 420px) { .estadis { grid-template-columns: 1fr; } }
   .estadis h3 { margin: 0 0 8px; font-size: 1rem; }
@@ -192,7 +216,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-20 · 15';
+  var VERSION = '2026-10-20 · 16';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -548,25 +572,19 @@
   }
   function vistaPanel() {
     var ab = items.filter(abierto), n = function (f) { return items.filter(f).length; };
-    var anio = String(new Date().getFullYear());
-    var papeles = misPapeles();
-    return '<div class="card" style="border-left:5px solid var(--brand)"><span class="muted small">Usuario</span><div style="font-size:1.15rem;font-weight:800">👤 ' + esc(yo.Title) + '</div>' +
-      '<div class="meta">' + (papeles.length ? papeles.map(function (p) { return '<span class="badge rol">' + esc(p) + '</span>'; }).join('') : '<span class="muted small">Sin papel de valoración: ves los partes que has dado de alta o en los que figuras.</span>') + '</div>' +
-      '<p class="muted small" style="margin:6px 0 0">' + esc(alcanceTxt()) + '</p></div>' +
+    var papeles = misPapeles(), hace30 = iso(new Date(Date.now() - 30 * 864e5));
+    var fases = [['c0', '📝', 'Borradores', 0], ['c1', '🛡️', 'En SUIGE', 1], ['c2', '🔎', 'En DIACU', 2], ['c3', '🏛️', 'En IGE', 3], ['c4', '📌', 'Valorados por IGE', 4], ['c5', '✅', 'Cerrados', 5]];
+    return '<div class="hero"><div class="hola">Incidentes de seguridad en instalaciones</div><div class="nom">👤 ' + esc(yo.Title) + '</div>' +
+      (papeles.length ? papeles.map(function (p) { return '<span class="rolh">' + esc(p) + '</span>'; }).join('') : '<span class="rolh">Sin papel de valoración</span>') +
+      '<p>' + esc(alcanceTxt()) + '</p></div>' +
       (omitidas.length ? '<div class="aviso">Colabora no dejó leer estas columnas y se muestran vacías: ' + esc(omitidas.join(', ')) + '. Dímelo para revisarlo.</div>' : '') +
-      '<div class="kpis">' +
-      '<div class="kpi rojo" data-ir="pendientes">Esperan mi acción<b>' + nPend() + '</b></div>' +
-      '<div class="kpi ambar" data-ir="fase:1">Remitidos a SUIGE<b>' + n(function (t) { return fase(t) === 1; }) + '</b></div>' +
-      '<div class="kpi morado" data-ir="fase:2">Remitidos a DIACU<b>' + n(function (t) { return fase(t) === 2; }) + '</b></div>' +
-      '<div class="kpi azul" data-ir="fase:3">Remitidos a IGE<b>' + n(function (t) { return fase(t) === 3; }) + '</b></div>' +
-      '<div class="kpi azul" data-ir="fase:4">Valorados por IGE<b>' + n(function (t) { return fase(t) === 4; }) + '</b></div>' +
-      '<div class="kpi verde" data-ir="fase:5">Cerrados<b>' + n(function (t) { return fase(t) === 5; }) + '</b></div>' +
-      '<div class="kpi gris" data-ir="fase:0">Borradores<b>' + n(function (t) { return fase(t) === 0; }) + '</b></div></div>' +
-      '<div class="kpis">' +
-      '<div class="kpi rojo" data-ir="prob:alta">Probabilidad alta o muy alta (abiertos)<b>' + ab.filter(function (t) { return probN(t) >= 4; }).length + '</b></div>' +
-      '<div class="kpi ambar" data-ir="todas">Reiterados («SI»)<b>' + n(function (t) { return t.reiterada === 'SI'; }) + '</b></div>' +
-      '<div class="kpi azul" data-ir="todas">Con denuncia<b>' + n(function (t) { return t.denuncia; }) + '</b></div>' +
-      '<div class="kpi gris" data-ir="todas">Partes ' + anio + '<b>' + n(function (t) { return String(t.fecha).slice(0, 4) === anio; }) + '</b></div></div>' +
+      '<div class="mini">' +
+      '<div data-ir="pendientes"><span class="ic r">⏳</span><div><b>' + nPend() + '</b><span>Esperan mi acción</span></div></div>' +
+      '<div data-ir="abiertos"><span class="ic a">📂</span><div><b>' + ab.length + '</b><span>Expedientes abiertos</span></div></div>' +
+      '<div data-ir="todas"><span class="ic az">🗓️</span><div><b>' + n(function (t) { return String(t.fecha) >= hace30; }) + '</b><span>Partes de los últimos 30 días</span></div></div>' +
+      '<div data-ir="estadisticas"><span class="ic m">📊</span><div><b>' + items.length + '</b><span>Partes en total · ver estadísticas</span></div></div></div>' +
+      '<div class="sec"><span>Circuito</span><span>BAE › SUIGE › DIACU › IGE › cierre</span></div><div class="flujo">' +
+      fases.map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<div class="fp ' + f[0] + '" data-ir="fase:' + f[3] + '"><i>' + f[1] + '</i><small>' + f[2] + '</small><b>' + n(function (t) { return fase(t) === f[3]; }) + '</b></div>'; }).join('') + '</div>' +
       '<div class="sec"><span>Últimos incidentes registrados</span><span>' + Math.min(10, items.length) + ' de ' + items.length + '</span></div>' +
       (items.slice().sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); }).slice(0, 10).map(function (t) { return tarjeta(t); }).join('') || '<div class="card vacio">No hay incidentes.</div>');
   }
@@ -600,7 +618,7 @@
   function filtrar() {
     var f = pref.f, q = sinTildes(f.q);
     return items.filter(function (t) {
-      if (f.fase !== '' && String(fase(t)) !== f.fase) return false;
+      if (f.fase === 'abiertos' ? !abierto(t) : f.fase !== '' && String(fase(t)) !== f.fase) return false;
       if (f.tipo && t.tipo !== f.tipo) return false;
       if (f.suige && t.suige !== f.suige) return false;
       if (f.prob === 'alta' ? probN(t) < 4 : f.prob && t.prob !== f.prob) return false;
@@ -616,7 +634,7 @@
     var f = pref.f;
     return '<div class="card"><div class="grid">' +
       '<div><label class="lbl">Buscar</label><input id="fq" type="search" value="' + esc(f.q) + '" placeholder="Nº, tipo, provincia, unidad…"></div>' +
-      '<div><label class="lbl">Fase</label>' + sel('fFase', FASES.slice(0, 6).map(function (x, i) { return [String(i), x]; }), f.fase, 'Todas') + '</div>' +
+      '<div><label class="lbl">Fase</label>' + sel('fFase', [['abiertos', 'Expedientes abiertos']].concat(FASES.slice(0, 6).map(function (x, i) { return [String(i), x]; })), f.fase, 'Todas') + '</div>' +
       '<div><label class="lbl">Tipo de incidente</label>' + sel('fTipo', valores('tipo'), f.tipo, 'Todos') + '</div>' +
       '<div><label class="lbl">SUIGE</label>' + sel('fSuige', SUIGES.filter(function (s) { return items.some(function (t) { return t.suige === s; }); }), f.suige, 'Todas') + '</div>' +
       '<div><label class="lbl">Probabilidad</label>' + sel('fProb', [['alta', 'Alta o muy alta']].concat(PROBS), f.prob, 'Todas') + '</div>' +
@@ -656,12 +674,12 @@
     }).join('') + pie;
   }
   // Barras de una sola serie: etiqueta, barra (longitud = cantidad) y el número con su porcentaje
-  function barras(tit, pares, total, orden) {
+  function barras(tit, pares, total, orden, color) {
     if (!orden) pares.sort(function (a, b) { return b[1] - a[1]; });
     var max = Math.max.apply(null, pares.map(function (p) { return p[1]; }).concat([1]));
     return '<div class="card"><h3>' + esc(tit) + '</h3>' + (pares.length ? '<div class="barras">' + pares.map(function (p) {
       var pc = total ? Math.round(p[1] * 100 / total) : 0;
-      return '<span class="et" title="' + esc(p[0]) + '">' + esc(p[0]) + '</span><span class="pista"><span class="bar" style="display:block;width:' + (p[1] * 100 / max) + '%" title="' + esc(p[0] + ': ' + p[1] + ' (' + pc + ' %)') + '"></span></span><span class="n">' + p[1] + ' · ' + pc + ' %</span>';
+      return '<span class="et" title="' + esc(p[0]) + '">' + esc(p[0]) + '</span><span class="pista"><span class="bar" style="display:block;width:' + (p[1] * 100 / max) + '%' + (color ? ';background:' + (typeof color === 'function' ? color(p[0]) : color) : '') + '" title="' + esc(p[0] + ': ' + p[1] + ' (' + pc + ' %)') + '"></span></span><span class="n">' + p[1] + ' · ' + pc + ' %</span>';
     }).join('') + '</div>' : '<p class="muted small">Sin datos.</p>') + '</div>';
   }
   var contar = function (ts, fn) { var m = {}; ts.forEach(function (t) { var k = fn(t); if (k == null || k === '') k = '(sin dato)'; m[k] = (m[k] || 0) + 1; }); return Object.keys(m).map(function (k) { return [k, m[k]]; }); };
@@ -674,17 +692,28 @@
     var resto = prov.slice(10).reduce(function (a, p) { return a + p[1]; }, 0);
     prov = prov.slice(0, 10).concat(resto ? [['Otras provincias', resto]] : []);
     var sn = function (v) { return v === true ? 'Sí' : v === false ? 'No' : '(sin dato)'; };
+    var anio = String(new Date().getFullYear()), c = function (fn) { return ts.filter(fn).length; };
+    var colProb = { 'Muy alto': '#b71c1c', Alto: '#e65100', Medio: '#d99a00', Bajo: '#2e7d32', 'Muy bajo': '#1d4f91' };
+    var colFase = ['#7d8793', '#d98400', '#6a3d9a', '#1d4f91', '#00838f', '#2e7d32'];
+    var nomFase = ['Borrador', 'Remitido a SUIGE', 'Remitido a DIACU', 'Remitido a IGE', 'Valorado por IGE', 'Cerrado'];
+    var siNo = function (k) { return /^(Sí|SI)$/i.test(k) ? '#c2185b' : /^No$/i.test(k) ? '#90a4ae' : '#b0bec5'; };
     return filtrosHtml() + '<p class="muted small">' + N + ' incidente' + (N === 1 ? '' : 's') + ' con los filtros de arriba (son los mismos que en «Incidentes»). Pasa el ratón por una barra para ver su valor.</p>' +
+      '<div class="mini">' +
+      '<div data-ir="prob:alta"><span class="ic r">🔥</span><div><b>' + c(function (t) { return probN(t) >= 4 && abierto(t); }) + '</b><span>Probabilidad alta o muy alta (abiertos)</span></div></div>' +
+      '<div><span class="ic m">🔁</span><div><b>' + c(function (t) { return t.reiterada === 'SI'; }) + '</b><span>Reiterados («SI»)</span></div></div>' +
+      '<div><span class="ic az">⚖️</span><div><b>' + c(function (t) { return t.denuncia; }) + '</b><span>Con denuncia</span></div></div>' +
+      '<div><span class="ic a">🗓️</span><div><b>' + c(function (t) { return String(t.fecha).slice(0, 4) === anio; }) + '</b><span>Partes ' + anio + '</span></div></div>' +
+      '<div><span class="ic v">✅</span><div><b>' + c(function (t) { return fase(t) === 5; }) + '</b><span>Cerrados</span></div></div></div>' +
       '<div class="estadis">' +
-      barras('Por tipo de incidente', contar(ts, function (t) { return t.tipo; }), N) +
-      barras('Partes por mes (fecha del incidente, últimos 12 meses)', porMes, N, true) +
-      barras('Por SUIGE', contar(ts, function (t) { return t.suige || '(sin determinar)'; }), N) +
-      barras('Por probabilidad', PROBS.map(function (p) { return [p.charAt(0) + p.slice(1).toLowerCase(), ts.filter(function (t) { return t.prob === p; }).length]; }), N, true) +
-      barras('Por fase', ['Borrador', 'Remitido a SUIGE', 'Remitido a DIACU', 'Remitido a IGE', 'Valorado por IGE', 'Cerrado'].map(function (fz, k) { return [fz, ts.filter(function (t) { return fase(t) === k; }).length]; }), N, true) +
-      barras('Provincias con más partes', prov, N, true) +
-      barras('¿Reiterado?', contar(ts, function (t) { return t.reiterada; }), N) +
-      barras('Zona señalizada', contar(ts, function (t) { return sn(t.zona); }), N) +
-      barras('Con denuncia', contar(ts, function (t) { return t.denuncia ? 'Sí' : 'No'; }), N) +
+      barras('Por tipo de incidente', contar(ts, function (t) { return t.tipo; }), N, false, '#6a3d9a') +
+      barras('Partes por mes (fecha del incidente, últimos 12 meses)', porMes, N, true, '#1d4f91') +
+      barras('Por SUIGE', contar(ts, function (t) { return t.suige || '(sin determinar)'; }), N, false, '#00838f') +
+      barras('Por probabilidad', PROBS.slice().reverse().map(function (p) { return [p.charAt(0) + p.slice(1).toLowerCase(), ts.filter(function (t) { return t.prob === p; }).length]; }), N, true, function (k) { return colProb[k] || '#888'; }) +
+      barras('Por fase', nomFase.map(function (fz, k) { return [fz, ts.filter(function (t) { return fase(t) === k; }).length]; }), N, true, function (k) { return colFase[nomFase.indexOf(k)]; }) +
+      barras('Provincias con más partes', prov, N, true, '#d98400') +
+      barras('¿Reiterado?', contar(ts, function (t) { return t.reiterada; }), N, false, siNo) +
+      barras('Zona señalizada', contar(ts, function (t) { return sn(t.zona); }), N, false, siNo) +
+      barras('Con denuncia', contar(ts, function (t) { return t.denuncia ? 'Sí' : 'No'; }), N, false, siNo) +
       '</div>';
   }
   function vistaAjustes() {
@@ -705,12 +734,12 @@
       '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">La página trabaja dentro de Colabora con tu sesión y tus permisos. No envía nada fuera del servidor. Los textos del parte (observación, análisis, medidas…) solo se leen al abrir un incidente. La protección real es la de los permisos de la lista.</p></div>';
   }
   function render() {
-    var vistas = [['panel', 'Incidentes registrados'], ['pendientes', 'Pendiente de valoración y tramitación'], ['consulta', 'Búsqueda y consulta'], ['estadisticas', 'Estadísticas']].concat(cargadoEn && esAdmin ? [['ajustes', 'Ajustes']] : []);
+    var vistas = [['panel', 'Incidentes registrados'], ['pendientes', 'Pendiente de valoración y tramitación'], ['consulta', 'Búsqueda y consulta'], ['estadisticas', 'Estadísticas'], ['informe', 'Informes']].concat(cargadoEn && esAdmin ? [['ajustes', 'Ajustes']] : []);
     if (pref.vista === 'ajustes' && (!cargadoEn || !esAdmin)) pref.vista = 'panel';
     var cuenta = { pendientes: cargadoEn ? nPend() : 0 };
     $('#tabs').innerHTML = vistas.map(function (v) { return '<a data-v="' + v[0] + '" class="' + (pref.vista === v[0] ? 'on' : '') + '">' + v[1] + (cuenta[v[0]] ? '<i>' + cuenta[v[0]] + '</i>' : '') + '</a>'; }).join('');
     if (!cargadoEn) return;
-    $('#vista').innerHTML = ({ panel: vistaPanel, pendientes: vistaPendientes, consulta: vistaConsulta, estadisticas: vistaEstadisticas, ajustes: vistaAjustes }[pref.vista] || vistaPanel)();
+    $('#vista').innerHTML = ({ panel: vistaPanel, pendientes: vistaPendientes, consulta: vistaConsulta, estadisticas: vistaEstadisticas, informe: vistaInforme, ajustes: vistaAjustes }[pref.vista] || vistaPanel)();
   }
   var aviso = function (txt) { $('#estadoCarga').textContent = txt; setTimeout(function () { if (cargadoEn) $('#estadoCarga').textContent = items.length + ' incidentes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }, 3500); };
 
@@ -1349,9 +1378,137 @@
       '<div class="firmas"><div>Responsable de la información</div><div>SUIGE</div><div>DIACU / IGE</div></div>';
     ventanaImprimir({ titulo: 'PARTE DE INCIDENTE DE SEGURIDAD EN INSTALACIONES', subtitulo: 'Nº ' + t.id + ' · ' + esc(faseTxt(t)), cuerpo: cuerpo, nombre: 'incidente-' + t.id });
   }
+  // ---------- Informe detallado (como el de VSA): por tipo, SUIGE, provincia, unidad, probabilidad, año, mes… ----------
+  // Cuentan los partes enviados (sin borradores). Los textos del parte y las valoraciones solo se leen al imprimir el
+  // detalle, y solo de los partes del informe.
+  var INF_DIM = [['tipo', 'Tipo de incidente'], ['suige', 'SUIGE'], ['provincia', 'Provincia'], ['lugar', 'Unidad / lugar'], ['prob', 'Probabilidad'], ['anio', 'Año'], ['trimestre', 'Trimestre'], ['mes', 'Mes'], ['fase', 'Situación'], ['', 'Sin agrupar (solo totales)']];
+  var INF_SEC = [['resumen', 'Resumen general', true], ['comparativa', 'Comparativa por grupo', true], ['evolucion', 'Evolución mensual', true], ['probabilidad', 'Distribución por probabilidad', true],
+    ['tipos', 'Distribución por tipo de incidente', true], ['reiterados', 'Lugares con incidentes repetidos', true], ['relacion', 'Relación de partes', true],
+    ['detalle', 'Detalle de cada parte (datos, observación, análisis, medidas, conclusión)', false], ['valoraciones', 'Valoraciones de SUIGE, DIACU e IGE e historial en el detalle', false]];
+  var MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  var dimMin = function (d) { return /^[A-ZÁÉÍÓÚ]+$/.test(d) ? d : d.toLowerCase(); };
+  var infCfg = function () {
+    var c = pref.inf || {};
+    if (c.agr === undefined) c.agr = 'tipo';
+    if (!c.sec) { c.sec = {}; INF_SEC.forEach(function (s) { c.sec[s[0]] = s[2]; }); }
+    pref.inf = c; return c;
+  };
+  function grupoInf(t, k) {
+    var f = String(t.fecha || ''), y = f.slice(0, 4), m = Number(f.slice(5, 7));
+    if (k === 'anio') return [y || '9999', y || '(sin fecha)'];
+    if (k === 'mes') return f ? [f.slice(0, 7), MESES[m - 1] + ' ' + y] : ['9999', '(sin fecha)'];
+    if (k === 'trimestre') return f ? [y + '-' + Math.ceil(m / 3), Math.ceil(m / 3) + 'º trimestre ' + y] : ['9999', '(sin fecha)'];
+    if (k === 'fase') return [String(fase(t)), FASES[fase(t)]];
+    if (k === 'prob') return [String(9 - probN(t)), t.prob ? t.prob.charAt(0) + t.prob.slice(1).toLowerCase() : '(sin probabilidad)'];
+    var v = t[k] || '(sin dato)'; return [v, v];
+  }
+  function agruparInf(ts, k) {
+    if (!k) return [['', 'Todos', ts]];
+    var m = new Map();
+    ts.forEach(function (t) { var g = grupoInf(t, k); if (!m.has(g[1])) m.set(g[1], [g[0], g[1], []]); m.get(g[1])[2].push(t); });
+    return Array.from(m.values()).sort(['mes', 'anio', 'trimestre', 'fase', 'prob'].indexOf(k) >= 0 ? function (a, b) { return String(a[0]).localeCompare(String(b[0])); } : function (a, b) { return b[2].length - a[2].length || a[1].localeCompare(b[1], 'es'); });
+  }
+  function statsInf(ls) {
+    var c = function (fn) { return ls.filter(fn).length; };
+    return { n: ls.length, abiertos: c(abierto), cerrados: c(function (t) { return fase(t) === 5; }), alta: c(function (t) { return probN(t) >= 4; }), altaAb: c(function (t) { return probN(t) >= 4 && abierto(t); }),
+      reit: c(function (t) { return t.reiterada === 'SI'; }), den: c(function (t) { return t.denuncia; }), zona: c(function (t) { return t.zona === true; }) };
+  }
+  var pct = function (a, b) { return b ? (a * 100 / b).toFixed(1).replace('.', ',') + ' %' : '—'; };
+  var barraInf = function (v, max, color) { return '<span class="inf-barra"><span style="width:' + (max ? Math.round(v * 100 / max) : 0) + '%;background:' + (color || '#1b3a5c') + '"></span></span>'; };
+  var COLOR_PROB = { 'MUY ALTO': '#b71c1c', ALTO: '#e65100', MEDIO: '#d99a00', BAJO: '#2e7d32', 'MUY BAJO': '#1d4f91' };
+  var ESTILO_INF = '<style>.inf h3{color:#1b3a5c;border-bottom:1px solid #b8962e;padding-bottom:2px;margin:16px 0 6px;font-size:1rem}.inf table{width:100%;border-collapse:collapse;font-size:.85em;margin-bottom:6px}' +
+    '.inf th{background:#1b3a5c;color:#fff;text-align:left;padding:4px 5px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.inf td{border:1px solid #c9d1dc;padding:3px 5px;vertical-align:top}' +
+    '.inf tr.tot td{font-weight:bold;background:#e8eef6;-webkit-print-color-adjust:exact;print-color-adjust:exact}.inf td.n{text-align:center;white-space:nowrap}.inf td.alta{background:#fde3cf;font-weight:600;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+    '.inf .kp{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:6px 0}.inf .kp div{border:1px solid #c9d1dc;border-top:4px solid #1b3a5c;border-radius:6px;padding:6px 8px;font-size:.8em;color:#444;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+    '.inf .kp div.r{border-top-color:#b71c1c}.inf .kp div.a{border-top-color:#d99a00}.inf .kp div.v{border-top-color:#2e7d32}.inf .kp div.m{border-top-color:#6a3d9a}.inf .kp b{display:block;font-size:1.5em;color:#1b3a5c}' +
+    '.inf-barra{display:inline-block;width:140px;height:10px;background:#eef1f5;border-radius:3px;vertical-align:middle;margin-right:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+    '.inf-barra span{display:block;height:100%;border-radius:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+    '.inf .ficha{page-break-inside:avoid;margin-bottom:12px}.inf .ficha h4{margin:12px 0 4px;color:#1b3a5c}.inf .txt{white-space:pre-wrap;border:1px solid #c9d1dc;padding:5px;font-size:.85em;margin-bottom:4px}.inf .nota{font-size:.8em;color:#555}</style>';
+  function informeHtml(ts, cfg, txts) {
+    var S = cfg.sec, T = statsInf(ts), dim = (INF_DIM.find(function (d) { return d[0] === cfg.agr; }) || ['', ''])[1];
+    var gs = agruparInf(ts, cfg.agr).map(function (g) { return { nom: g[1], ts: g[2], st: statsInf(g[2]) }; });
+    var h = ESTILO_INF + '<div class="inf"><p class="nota">Criterios: ' + ts.length + ' parte' + (ts.length === 1 ? '' : 's') + ' enviado' + (ts.length === 1 ? '' : 's') + ' a SUIGE (sin borradores) · ' + esc(descFiltros()) + ' · fecha = fecha del incidente.</p>';
+    if (!ts.length) return h + '<p>Ningún parte con estos filtros.</p></div>';
+    var sec = 0, tit = function (s) { return '<h3>' + (++sec) + '. ' + s + '</h3>'; };
+    if (S.resumen) h += tit('Resumen general') + '<div class="kp"><div>Partes<b>' + T.n + '</b></div><div class="a">Abiertos<b>' + T.abiertos + '</b>' + pct(T.abiertos, T.n) + '</div><div class="v">Cerrados<b>' + T.cerrados + '</b>' + pct(T.cerrados, T.n) + '</div>' +
+      '<div class="r">Probabilidad alta o muy alta<b>' + T.alta + '</b>' + T.altaAb + ' siguen abiertos</div><div class="m">Reiterados («SI»)<b>' + T.reit + '</b>' + pct(T.reit, T.n) + '</div><div>Con denuncia<b>' + T.den + '</b>' + pct(T.den, T.n) + '</div>' +
+      '<div>Zona señalizada<b>' + T.zona + '</b>' + pct(T.zona, T.n) + '</div><div>Tipos / provincias<b>' + new Set(ts.map(function (t) { return t.tipo; })).size + ' / ' + new Set(ts.map(function (t) { return t.provincia; })).size + '</b></div></div>';
+    var cab = function (pri) { return '<table><tr><th>' + esc(pri) + '</th><th>Partes</th><th>% del total</th><th>Abiertos</th><th>Cerrados</th><th>Prob. alta o muy alta</th><th>Reiterados</th><th>Con denuncia</th></tr>'; };
+    var fila = function (nom, st, tot) {
+      return '<tr' + (tot ? ' class="tot"' : '') + '><td>' + esc(nom) + '</td><td class="n">' + st.n + '</td><td class="n">' + pct(st.n, T.n) + '</td><td class="n">' + st.abiertos + '</td><td class="n">' + st.cerrados + '</td>' +
+        '<td class="n' + (st.n && st.alta / st.n >= 0.5 ? ' alta' : '') + '">' + st.alta + ' (' + pct(st.alta, st.n) + ')</td><td class="n">' + st.reit + '</td><td class="n">' + st.den + '</td></tr>';
+    };
+    if (S.comparativa && cfg.agr) h += tit('Comparativa por ' + esc(dimMin(dim))) + cab(dim) + gs.map(function (g) { return fila(g.nom, g.st); }).join('') + fila('TOTAL', T, true) + '</table>';
+    if (S.evolucion && cfg.agr !== 'mes') { var ms = agruparInf(ts, 'mes'); if (ms.length > 1) h += tit('Evolución mensual') + cab('Mes') + ms.map(function (g) { return fila(g[1], statsInf(g[2])); }).join('') + '</table>'; }
+    var distrib = function (titulo, pares, colorDe) {
+      var max = Math.max.apply(null, pares.map(function (p) { return p[1]; }).concat([1]));
+      return tit(titulo) + '<table><tr><th>' + esc(titulo.replace(/^Distribución por /, '').replace(/^./, function (c) { return c.toUpperCase(); })) + '</th><th>Partes</th><th>%</th><th></th></tr>' +
+        pares.map(function (p) { return '<tr><td>' + esc(p[0]) + '</td><td class="n">' + p[1] + '</td><td class="n">' + pct(p[1], T.n) + '</td><td>' + barraInf(p[1], max, colorDe(p[0])) + '</td></tr>'; }).join('') + '</table>';
+    };
+    if (S.probabilidad && cfg.agr !== 'prob') h += distrib('Distribución por probabilidad', PROBS.slice().reverse().map(function (p) { return [p.charAt(0) + p.slice(1).toLowerCase(), ts.filter(function (t) { return t.prob === p; }).length]; }).concat([['(sin probabilidad)', ts.filter(function (t) { return !t.prob; }).length]]).filter(function (p) { return p[1]; }),
+      function (n) { return COLOR_PROB[n.toUpperCase()] || '#888'; });
+    if (S.tipos && cfg.agr !== 'tipo') h += distrib('Distribución por tipo de incidente', contar(ts, function (t) { return t.tipo; }).sort(function (a, b) { return b[1] - a[1]; }), function () { return '#6a3d9a'; });
+    if (S.reiterados) {
+      var lug = new Map();
+      ts.forEach(function (t) { var k = claveLugar(t); if (!lug.has(k)) lug.set(k, []); lug.get(k).push(t); });
+      var rep = Array.from(lug.values()).filter(function (l) { return l.length > 1; }).sort(function (a, b) { return b.length - a.length; });
+      h += tit('Lugares con incidentes repetidos (' + rep.length + ')') + (rep.length ? '<table><tr><th>Tipo</th><th>Provincia</th><th>Unidad / lugar</th><th>Partes</th><th>Nº de los partes</th><th>Último</th></tr>' + rep.map(function (l) {
+        var ul = l.slice().sort(function (a, b) { return String(b.fecha).localeCompare(String(a.fecha)); })[0];
+        return '<tr><td>' + esc(ul.tipo) + '</td><td>' + esc(ul.provincia) + '</td><td>' + esc(ul.lugar) + '</td><td class="n alta">' + l.length + '</td><td>' + l.map(function (t) { return t.id; }).join(', ') + '</td><td>' + esc(fCorta(ul.fecha)) + '</td></tr>';
+      }).join('') + '</table>' : '<p class="nota">Ninguno: no hay dos partes del mismo tipo en el mismo lugar.</p>');
+    }
+    if (S.relacion) h += tit('Relación de partes') + '<table><tr><th>Nº</th><th>Fecha</th><th>Tipo</th><th>Provincia</th><th>Unidad / lugar</th><th>SUIGE</th><th>Probabilidad</th><th>Reiterado</th><th>Denuncia</th><th>Situación</th></tr>' +
+      ts.map(function (t) { return '<tr><td>' + t.id + '</td><td>' + esc(fCorta(t.fecha)) + '</td><td>' + esc(t.tipo) + '</td><td>' + esc(t.provincia) + '</td><td>' + esc(t.lugar) + '</td><td>' + esc(t.suige) + '</td><td' + (probN(t) >= 4 ? ' class="alta"' : '') + '>' + esc(t.prob) + '</td><td>' + esc(t.reiterada) + '</td><td>' + (t.denuncia ? 'Sí' + (t.ndenuncia ? ' (' + esc(t.ndenuncia) + ')' : '') : 'No') + '</td><td>' + esc(faseTxt(t)) + '</td></tr>'; }).join('') + '</table>';
+    if (S.detalle) h += tit('Detalle de cada parte') + ts.map(function (t) {
+      var d = txts && txts[t.id] || {}, bloque = function (et, v) { return '<b class="nota">' + esc(et) + '</b><div class="txt">' + (v ? esc(v) : '—') + '</div>'; };
+      return '<div class="ficha"><h4>Nº ' + t.id + ' · ' + esc(t.tipo) + ' · ' + esc(t.provincia) + ' · ' + esc(fCorta(t.fecha)) + '</h4>' +
+        '<p class="nota">Unidad: ' + esc((t.cadena || []).join(' - ') || t.lugar || '—') + ' · SUIGE: ' + esc(t.suige || '—') + ' · Probabilidad: ' + esc(t.prob || '—') + ' · Reiterado: ' + esc(t.reiterada || '—') +
+        ' · Denuncia: ' + (t.denuncia ? 'Sí' + (t.ndenuncia ? ' (' + esc(t.ndenuncia) + ')' : '') : 'No') + ' · Responsable: ' + esc(t.resp && t.resp.Title || t.respParte || '—') + ' · Situación: ' + esc(faseTxt(t)) + '</p>' +
+        (txts ? TEXTOS.map(function (k) { return bloque(k[1], texto(d[k[0]])); }).join('') : '<p class="nota">Los textos del parte se leen al imprimir.</p>') +
+        (txts && S.valoraciones ? bloque('Valoración de la SUIGE', texto(d.VALORACIONSUIGES)) + bloque('Valoración de DIACU', texto(d.VALORACIONDIACU)) + bloque('Valoración de IGE', texto(d.valoracionIGE)) + bloque('Observaciones e historial del expediente', texto(d.ObservacionesDelExpediente)) : '') + '</div>';
+    }).join('');
+    return h + '</div>';
+  }
+  var tsInforme = function () { return filtrar().filter(function (t) { return fase(t) !== 0; }); };
+  function vistaInforme() {
+    var c = infCfg(), ts = tsInforme();
+    return filtrosHtml() + '<div class="card"><h3 style="margin-top:0">Informe detallado</h3>' +
+      '<p class="small muted">Elige arriba los filtros (tipo, SUIGE, probabilidad, desde/hasta…), cómo agrupar y qué apartados incluir. Lo que ves abajo es lo que se imprime.</p>' +
+      '<div class="grid"><div><label class="lbl">Agrupar por</label><select id="iAgr">' + INF_DIM.map(function (d) { return '<option value="' + d[0] + '"' + (c.agr === d[0] ? ' selected' : '') + '>' + esc(d[1]) + '</option>'; }).join('') + '</select></div></div>' +
+      '<div class="small" style="columns:2;margin:8px 0">' + INF_SEC.map(function (s) { return '<label class="check" style="display:block"><input type="checkbox" data-isec="' + s[0] + '"' + (c.sec[s[0]] ? ' checked' : '') + '> ' + esc(s[1]) + '</label>'; }).join('') + '</div>' +
+      '<div class="acciones"><button class="prim" data-iimp="1">🖨 Imprimir informe / PDF</button><button data-icsv="1">📊 Excel del informe (CSV)</button></div></div>' +
+      '<div class="card">' + informeHtml(ts, c, null) + '</div>';
+  }
+  function leerTextosPartes(ids) {
+    var r = {}, trozos = [];
+    for (var i = 0; i < ids.length; i += 40) trozos.push(ids.slice(i, i + 40));
+    return Promise.all(trozos.map(function (tr) {
+      return todas(urlLista() + '/items?$top=500&$select=Id,' + CAMPOS_TEXTO.join(',') + '&$filter=' + encodeURIComponent(tr.map(function (id) { return '(Id eq ' + id + ')'; }).join(' or ')))
+        .then(function (l) { l.forEach(function (x) { r[x.Id] = x; }); });
+    })).then(function () { return r; });
+  }
+  function imprimirInforme() {
+    var c = infCfg(), ts = tsInforme(), dim = (INF_DIM.find(function (d) { return d[0] === c.agr; }) || ['', ''])[1];
+    var hacer = function (txts) {
+      ventanaImprimir({ titulo: 'INFORME DE INCIDENTES DE SEGURIDAD EN INSTALACIONES', subtitulo: (c.agr ? 'Por ' + esc(dimMin(dim)) + ' · ' : '') + esc(descFiltros()) + ' · ' + ts.length + ' partes',
+        cuerpo: informeHtml(ts, c, txts), nombre: 'informe-incidentes-' + hoy(), apaisado: !!(c.sec.relacion || c.sec.comparativa) });
+    };
+    if (c.sec.detalle && ts.length) { aviso('Leyendo los textos de los partes…'); leerTextosPartes(ts.map(function (t) { return t.id; })).then(hacer, function () { aviso('No se pudieron leer los textos'); hacer(null); }); }
+    else hacer(null);
+  }
+  function csvInforme() {
+    var c = infCfg(), ts = tsInforme(), T = statsInf(ts), dim = (INF_DIM.find(function (d) { return d[0] === c.agr; }) || ['', 'Total'])[1] || 'Total';
+    var q = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+    var fila = function (nom, st) { return [nom, st.n, st.abiertos, st.cerrados, st.alta, st.reit, st.den, st.zona]; };
+    var filas = [['INFORME DE INCIDENTES DE SEGURIDAD EN INSTALACIONES', descFiltros()], [], [dim, 'Partes', 'Abiertos', 'Cerrados', 'Prob. alta o muy alta', 'Reiterados', 'Con denuncia', 'Zona señalizada']];
+    if (c.agr) agruparInf(ts, c.agr).forEach(function (g) { filas.push(fila(g[1], statsInf(g[2]))); });
+    filas.push(fila('TOTAL', T));
+    descargar('informe-incidentes-' + hoy() + '.csv', '﻿' + filas.map(function (r) { return r.map(q).join(';'); }).join('\r\n'), 'text/csv;charset=utf-8');
+  }
+
   function descFiltros() {
     var f = pref.f, x = [];
-    if (f.fase !== '') x.push('Fase: ' + FASES[Number(f.fase)]); if (f.tipo) x.push('Tipo: ' + f.tipo); if (f.suige) x.push('SUIGE: ' + f.suige);
+    if (f.fase !== '') x.push('Fase: ' + (f.fase === 'abiertos' ? 'expedientes abiertos' : FASES[Number(f.fase)])); if (f.tipo) x.push('Tipo: ' + f.tipo); if (f.suige) x.push('SUIGE: ' + f.suige);
     if (f.prob) x.push('Probabilidad: ' + (f.prob === 'alta' ? 'alta o muy alta' : f.prob)); if (f.desde) x.push('Desde ' + fCorta(f.desde)); if (f.hasta) x.push('Hasta ' + fCorta(f.hasta)); if (f.q) x.push('Búsqueda: «' + f.q + '»');
     return x.join(' · ') || 'Sin filtros';
   }
@@ -1385,12 +1542,14 @@
     if (ir) {
       var d = ir.dataset.ir;
       if (d === 'pendientes') { pref.vista = 'pendientes'; pendVista = 'pendientes'; }
-      else { pref.f = { q: '', fase: '', tipo: '', suige: '', prob: '', desde: '', hasta: '' }; if (d.indexOf('fase:') === 0) pref.f.fase = d.slice(5); if (d === 'prob:alta') { pref.f.prob = 'alta'; } pref.vista = 'consulta'; }
+      else { pref.f = { q: '', fase: '', tipo: '', suige: '', prob: '', desde: '', hasta: '' }; if (d.indexOf('fase:') === 0) pref.f.fase = d.slice(5); if (d === 'prob:alta') { pref.f.prob = 'alta'; } if (d === 'abiertos') pref.f.fase = 'abiertos'; pref.vista = d === 'estadisticas' ? 'estadisticas' : 'consulta'; }
       guardarPref(); render(); return;
     }
     var pv = el.closest('[data-pv]');
     if (pv) { pendVista = pv.dataset.pv; render(); return; }
     if (el.closest('[data-csv]')) { csv(); return; }
+    if (el.closest('[data-iimp]')) { imprimirInforme(); return; }
+    if (el.closest('[data-icsv]')) { csvInforme(); return; }
     if (el.closest('[data-relimp]')) { imprimirRelacion(); return; }
     if (el.closest('[data-limpiar]')) { pref.f = { q: '', fase: '', tipo: '', suige: '', prob: '', desde: '', hasta: '' }; guardarPref(); render(); return; }
     var fi = el.closest('[data-fichaimp]');
@@ -1403,6 +1562,8 @@
   document.addEventListener('change', function (e) {
     var el = e.target;
     if (el.id === 'fAgrupar') { pref.agrupar = el.value; guardarPref(); render(); return; }
+    if (el.id === 'iAgr') { infCfg().agr = el.value; guardarPref(); render(); return; }
+    if (el.dataset && el.dataset.isec) { infCfg().sec[el.dataset.isec] = el.checked; guardarPref(); render(); return; }
     var f = { fFase: 'fase', fTipo: 'tipo', fSuige: 'suige', fProb: 'prob', fDesde: 'desde', fHasta: 'hasta' }[el.id];
     if (f) { pref.f[f] = el.value; guardarPref(); render(); return; }
     if (el.id === 'aCorreo' && esAdmin) { pref.correo = el.checked; guardarPref(); return; }

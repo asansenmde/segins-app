@@ -128,3 +128,16 @@ sino una regla o flujo de trabajo de la lista heredado de InfoPath: desactivarla
   (javascript-obfuscator, *self-defending*), **bloqueo de dominio** `.mdef.es` (fuera de Defensa no arranca) y sin los
   comentarios internos del HTML y del estilo.
 - Probar la copia protegida: `INC_HTML=incidentes/colabora/incidentes.html node incidentes/pruebas/simulacion.mjs`.
+
+## Panel, Estadísticas e Informes (20/10/2026)
+
+- **Panel**: cabecera con el usuario y sus papeles; tarjetas «Esperan mi acción», «Expedientes abiertos», «Partes de
+  los últimos 30 días» y «Partes en total»; el **circuito** en colores (borradores › SUIGE › DIACU › IGE › valorados ›
+  cerrados), cada fase lleva a la consulta filtrada.
+- **Estadísticas**: tarjetas de probabilidad alta o muy alta (abiertos), reiterados, con denuncia, partes del año y
+  cerrados (antes en el panel) y barras de colores (probabilidad y fase con su color).
+- **Informes** (como VSA): filtros de siempre, agrupar por tipo, SUIGE, provincia, unidad, probabilidad, año,
+  trimestre, mes o situación; apartados: resumen, comparativa con totales, evolución mensual, distribución por
+  probabilidad y por tipo, lugares con incidentes repetidos, relación de partes y, opcional, el detalle de cada parte
+  con sus textos, las valoraciones de SUIGE/DIACU/IGE y el historial (se leen solo al imprimir). Impresión oficial
+  (PDF) y CSV. Sin borradores.
