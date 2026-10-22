@@ -218,7 +218,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-20 · 20';
+  var VERSION = '2026-10-22 · 1';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -804,8 +804,8 @@
   function correosDeGrupos(nombres, sinVer) {
     return Promise.all(nombres.map(function (n) {
       if (cacheGrupos[n]) return Promise.resolve(cacheGrupos[n]);
-      return todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(n.replace(/'/g, "''")) + "')/users?$select=Email")
-        .then(function (l) { var c = l.map(function (u) { return u.Email; }).filter(Boolean); if (c.length) cacheGrupos[n] = c; return c; }).catch(function () { return []; })
+      return todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(n.replace(/'/g, "''")) + "')/users?$select=Id,Title,Email")
+        .then(function (l) { var c = l.map(function (u) { apuntarPersona(u); return u.Email; }).filter(Boolean); if (c.length) cacheGrupos[n] = c; return c; }).catch(function () { return []; })
         .then(function (c) { if (!c.length && sinVer && sinVer.indexOf(n) < 0) sinVer.push(n); return c; });
     })).then(function (rs) { return [].concat.apply([], rs); });
   }
@@ -829,6 +829,7 @@
     if (tipo === 'recordar') { var f = fase(t); P.a = f === 1 ? dest.suige : f === 2 ? dest.diacu : dest.ige; }
     var sinVer = [];
     return Promise.all([correosDeGrupos(P.a, sinVer), correosDeGrupos(P.cc, sinVer)]).then(function (r) {
+      [t.resp, t.autor].forEach(apuntarPersona);
       var gente = P.personas ? correosTexto(t).concat(P.resp ? [t.resp && t.resp.Email, t.autor && t.autor.Email] : []) : [];
       var to = limpia(r[0]), cc = limpia(r[1].concat(P.personas === 'cc' ? gente : [])).filter(function (x) { return to.indexOf(x) < 0; });
       var bcc = limpia(P.personas === 'bcc' ? gente : []).filter(function (x) { return to.indexOf(x) < 0 && cc.indexOf(x) < 0; });
@@ -844,33 +845,85 @@
     while ((u + encodeURIComponent(cuerpo)).length > 2000 && cuerpo.length > 200) cuerpo = cuerpo.slice(0, cuerpo.length - 100) + '…';
     return u + encodeURIComponent(cuerpo);
   }
+  // ---------- Envío robusto de correo (copiado de Permisos; receta «Envío robusto» de SHAREPOINT.md) ----------
+  // Colabora rechaza el correo ENTERO si una sola dirección no es de un usuario que conozca con buzón («Asegúrese de que
+  // tenga un destinatario válido») y hay personas con cuentas antiguas sin buzón. Entonces se envía uno a uno y, a quien se
+  // rechaza, se le prueba su cuenta de inicio de sesión y, si tampoco, otra cuenta del sitio con su mismo nombre.
   var DEST_MAL = /destinatario v|valid recipient|recipient/i;
+  var quienEs = {};   // correo → { Id, Title } de las personas que se van leyendo (para saber a quién reintentar)
+  var apuntarPersona = function (u) { var e = u && (u.Email || u.EMail); if (e && (u.Id || u.Title)) quienEs[String(e).toLowerCase()] = { Id: u.Id, Title: u.Title }; return u; };
+  var palabrasNombre = function (n) { return sinTildes(n).replace(/[^a-zñ ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 3 && ['del', 'las', 'los'].indexOf(w) < 0; }); };
+  var mismasPalabras = function (a, b) { var x = palabrasNombre(a).sort().join(' '), y = palabrasNombre(b).sort().join(' '); return !!x && x === y; };
   function enviarUno(to, cc, bcc, c) {
-    var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, CC: { results: cc }, Subject: c.asunto, Body: c.html };
+    var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, CC: { results: cc || [] }, Subject: c.asunto, Body: c.html };
     if (bcc && bcc.length) pr.BCC = { results: bcc };
     return enviarSP(web + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página');
   }
-  // SharePoint rechaza el correo entero si alguna dirección no es de un usuario que conozca («Asegúrese de que tenga un
-  // destinatario válido»): entonces se envía a cada destinatario por separado y se dice cuáles no acepta.
-  // Para uno mismo se prueba también con el nombre de inicio de sesión (cuentas sin buzón en el perfil).
+  // Cuenta de inicio de sesión de una dirección: la propia, por el Id de la persona si se conoce o buscándola por el correo
+  function loginDe(correo) {
+    var c = String(correo || '').toLowerCase(), q = quienEs[c];
+    if (yo && yo.LoginName && (c === String(yo.Email || '').toLowerCase() || (q && q.Id === yo.Id))) return Promise.resolve(yo.LoginName);
+    var porCorreo = function () {
+      return api(web + '/_api/web/siteusers?$select=LoginName,Email&$filter=' + encodeURIComponent("Email eq '" + c.replace(/'/g, "''") + "'"))
+        .then(function (d) { var u = lista(d.value).find(function (x) { return String(x.Email || '').toLowerCase() === c && x.LoginName; }); return u ? u.LoginName : null; })
+        .catch(function () { return null; });
+    };
+    if (q && q.Id) return api(web + '/_api/web/getuserbyid(' + Number(q.Id) + ')?$select=LoginName').then(function (u) { return (u && u.LoginName) || porCorreo(); }, porCorreo);
+    return porCorreo();
+  }
+  // Otras direcciones de la misma persona: cuentas del sitio con su mismo nombre (aunque cambie el orden) que tienen correo
+  var cuentasSitio = null;
+  function otrasDirecciones(malo) {
+    var q = quienEs[String(malo).toLowerCase()], nombre = q && q.Title;
+    if (!nombre || palabrasNombre(nombre).length < 2) return Promise.resolve([]);
+    var base = cuentasSitio ? Promise.resolve(cuentasSitio) : api(web + '/_api/web/siteusers?$select=Id,Title,Email,PrincipalType&$filter=PrincipalType eq 1&$top=5000')
+      .then(function (d) { cuentasSitio = lista(d.value); return cuentasSitio; }, function () { return []; });
+    return base.then(function (us) {
+      var l = us.concat(yo ? [yo] : []).filter(function (u) { return u.Email && /@/.test(u.Email) && mismasPalabras(u.Title, nombre) && u.Email.toLowerCase() !== String(malo).toLowerCase(); }).map(function (u) { return u.Email; });
+      return l.filter(function (x, i) { return l.map(function (y) { return y.toLowerCase(); }).indexOf(x.toLowerCase()) === i; });
+    });
+  }
+  // c: { to, cc, bcc, asunto, html, texto, sinVer? }. Devuelve { ok, n, motivo, rechazados, desvios, llegaron, sinVer, mailto }
   function enviarCorreo(c) {
-    if (!c.to.length) return Promise.resolve({ ok: false, motivo: 'no se encontraron destinatarios', sinVer: c.sinVer, mailto: mailto(c) });
-    var todos = c.to.concat(c.cc, c.bcc || []);
-    var res = function (ok, n, motivo, rech) { return { ok: ok, n: n, motivo: motivo, rechazados: rech || [], sinVer: c.sinVer, mailto: mailto(c) }; };
-    return enviarUno(c.to, c.cc, c.bcc, c).then(function () { return res(true, todos.length); }, function (e) {
+    var bcc = c.bcc || [], todos = c.to.concat(c.cc || [], bcc), desvios = [], llegaron = [];
+    var res = function (ok, n, motivo, rech) { return { ok: ok, n: n, motivo: motivo, rechazados: rech || [], desvios: desvios, llegaron: ok ? (llegaron.length ? llegaron : todos) : [], sinVer: c.sinVer || [], mailto: mailto(c) }; };
+    if (!c.to.length) return Promise.resolve(res(false, 0, 'no se encontraron destinatarios'));
+    return enviarUno(c.to, c.cc || [], bcc, c).then(function () { return res(true, todos.length); }, function (e) {
       var m = e.message || String(e);
       if (!DEST_MAL.test(m)) return res(false, 0, m);
       var aceptados = 0, rech = [];
       return todos.reduce(function (p, d) {
         return p.then(function () {
-          return enviarUno([d], [], [], c).then(function () { aceptados++; }, function () {
-            var esYo = yo && yo.LoginName && String(d).toLowerCase() === String(yo.Email || '').toLowerCase();
-            return esYo ? enviarUno([yo.LoginName], [], [], c).then(function () { aceptados++; }, function () { rech.push(d); }) : rech.push(d);
+          var porNombre = function () {
+            return otrasDirecciones(d).then(function (alt) {
+              return alt.reduce(function (q, a) {
+                return q.then(function (hecho) { return hecho || enviarUno([a], [], [], c).then(function () { aceptados++; llegaron.push(a); desvios.push(d + ' → ' + a); return true; }, function () { return false; }); });
+              }, Promise.resolve(false)).then(function (hecho) { if (!hecho) rech.push(d); });
+            });
+          };
+          return enviarUno([d], [], [], c).then(function () { aceptados++; llegaron.push(d); }, function () {
+            return loginDe(d).then(function (lg) {
+              if (!lg) return porNombre();
+              return enviarUno([lg], [], [], c).then(function () { aceptados++; llegaron.push(d + ' (por su cuenta)'); }, porNombre);
+            });
           });
         });
       }, Promise.resolve()).then(function () { return res(aceptados > 0, aceptados, aceptados ? '' : m, rech); });
     });
   }
+  var claseCorreo = function (r) { return !r || (r.ok && !(r.rechazados && r.rechazados.length)) ? 'okmsg' : 'aviso'; };
+  // Texto del resultado para el historial del elemento
+  var textoAviso = function (r) {
+    return (r.ok ? 'enviado a ' + r.llegaron.join(', ') : 'NO ENVIADO (' + (r.motivo || '') + ')') + (r.rechazados && r.rechazados.length ? '; Colabora no aceptó: ' + r.rechazados.join(', ') : '') +
+      (r.desvios && r.desvios.length ? '; enviado a otra cuenta: ' + r.desvios.join('; ') : '');
+  };
+  // Detalle del resultado para quien tramita (direcciones no aceptadas y desvíos a otra cuenta)
+  var detalleCorreo = function (r) {
+    if (!r) return '';
+    return (r.rechazados && r.rechazados.length ? ' Colabora no acepta estas direcciones (no son de usuarios del sitio o no tienen buzón), y a ellas NO les llega: ' + esc(r.rechazados.join(', ')) + '.' : '') +
+      (r.desvios && r.desvios.length ? ' Enviado a otra cuenta de la misma persona porque Colabora no aceptaba su dirección: ' + esc(r.desvios.join('; ')) + '.' : '');
+  };
+
   // Siempre se ofrece preparar el mismo aviso en Outlook, por si el correo de Colabora no llega
   // Correo de prueba (Ajustes): mismo formato que los avisos del circuito
   function correoPrueba(boton) {
@@ -883,19 +936,29 @@
     boton.disabled = true; el.innerHTML = '<p class="muted small">Enviando…</p>';
     enviarCorreo(c).then(function (r) {
       boton.disabled = false;
-      el.innerHTML = '<div class="' + (r.ok ? 'okmsg' : 'aviso') + '">' + (r.ok ? '✓ Colabora ha aceptado el correo. Mira tu bandeja (y «Correo no deseado») en unos minutos.' : '✕') + msgCorreo(r) + '</div>';
+      el.innerHTML = '<div class="' + claseCorreo(r) + '">' + (r.ok ? '✓ Colabora ha aceptado el correo. Mira tu bandeja (y «Correo no deseado») en unos minutos.' : '✕') + msgCorreo(r) + '</div>';
     });
   }
   var msgCorreo = function (r) {
     if (!r) return '';
     var sv = r.sinVer && r.sinVer.length ? ' Estos grupos no dejan ver sus integrantes o están vacíos, y a ellos no les llega: ' + esc(r.sinVer.join(', ')) + '.' : '';
-    var btn = r.mailto ? ' <a class="btn" href="' + esc(r.mailto) + '">✉ ' + (r.ok ? 'Enviarlo también desde Outlook' : 'Preparar el correo en Outlook') + '</a>' : '';
-    var rc = r.rechazados && r.rechazados.length ? ' Colabora no acepta estas direcciones (no son de usuarios del sitio o no tienen buzón): ' + esc(r.rechazados.join(', ')) + '.' : '';
-    return (r.ok ? ' Aviso enviado por Colabora a ' + r.n + ' destinatario' + (r.n === 1 ? '' : 's') + '.' : ' No se pudo enviar el aviso (' + esc(r.motivo) + ').') + rc + sv + btn;
+    var btn = r.mailto ? ' <a class="btn" href="' + esc(r.mailto) + '">✉ ' + (r.ok && !(r.rechazados && r.rechazados.length) ? 'Enviarlo también desde Outlook' : 'Preparar el correo en Outlook') + '</a>' : '';
+    return (r.ok ? ' Aviso enviado por Colabora a ' + r.n + ' destinatario' + (r.n === 1 ? '' : 's') + '.' : ' No se pudo enviar el aviso (' + esc(r.motivo) + ').') + detalleCorreo(r) + sv + btn;
   };
 
   // ---------- Guardar (sin pisar cambios de otros) ----------
   var anotacion = function (txt) { return fHora(new Date()) + ' · ' + yo.Title + ' · ' + txt; };
+  // El resultado de cada aviso por correo queda en «Observaciones del expediente» (historial), para saber si salió y a quién
+  function anotarAviso(id, r) {
+    if (!id || !r) return Promise.resolve();
+    return leerTipos().then(function () { return leerElemento(id, ['ObservacionesDelExpediente']); }).then(function (x) {
+      return enviarSP(urlLista() + '/items(' + id + ')', { __metadata: { type: listaInfo.ListItemEntityTypeFullName },
+        ObservacionesDelExpediente: (x.datos.ObservacionesDelExpediente ? x.datos.ObservacionesDelExpediente + '\n' : '') + anotacion('AVISO POR CORREO: ' + textoAviso(r)) }, 'Sin permiso', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': x.etag });
+    }).then(function () {
+      // La anotación cambia la fecha de modificación: se actualiza aquí para que el siguiente trámite no lo tome por un cambio ajeno
+      return leerElemento(id, []).then(function (y) { var it = items.find(function (z) { return z.id === Number(id); }); if (it && y.datos.Modified) it.modificado = y.datos.Modified; });
+    }).catch(function () { /* la tramitación ya está hecha */ });
+  }
   function guardarCambios(t, cuerpo, nota) {
     return leerTipos().then(function () { return leerElemento(t.id, ['ESTADO', 'ObservacionesDelExpediente']); }).then(function (x) {
       if (t.modificado && x.datos.Modified && !mismaFecha(t.modificado, x.datos.Modified)) throw new Error(CONFLICTO);
@@ -933,7 +996,13 @@
   function asegurarUsuario(u) {
     if (u.Id) return Promise.resolve(u);
     return enviarSP(web + '/_api/web/ensureuser', { logonName: u.clave }, 'No tienes permiso para añadir a esa persona al sitio').then(function (r) {
-      var x = { Id: r.Id, Title: r.Title || u.Title, Email: r.Email || u.Email || '' };
+      var x = { Id: r.Id, Title: r.Title || u.Title, Email: r.Email || '' };
+      // Cuenta sin correo en Colabora: si la misma persona tiene otra cuenta del sitio con correo, se usa esa (si no, sus avisos no llegan)
+      if (!x.Email) {
+        var otra = (usuariosSitio || []).filter(function (y) { return y.Id !== x.Id && y.Email && mismasPalabras(y.Title, x.Title); });
+        if (otra.length === 1) return otra[0];
+        x.Email = u.Email || '';
+      }
       if (usuariosSitio && !usuariosSitio.some(function (y) { return y.Id === x.Id; })) usuariosSitio.push(x);
       return x;
     });
@@ -1209,8 +1278,8 @@
           var nuevo = { id: id, tipo: c.TipoDeIncidente, fecha: val('fecha'), provincia: c.Provincia, cadena: mn.filter(Boolean), lugar: mn[2], suige: suige, prob: c.PROBABILIDADES || '',
             estado: c.ESTADO, correos: correos, resp: resp, autor: yo };
           return (remitir && pref.correo ? avisoDe('suige', nuevo, '').then(enviarCorreo) : Promise.resolve(null)).then(function (r) {
-            return cargar().then(function () {
-              var m = '<div class="' + (r && !r.ok || fallos.length ? 'aviso' : 'okmsg') + '">✓ ' + (remitir ? 'Parte enviado: REMITIDO A ' + esc(suige) + ', pendiente de su valoración.' : 'Borrador guardado.') + msgCorreo(r) +
+            return anotarAviso(id, r).then(cargar).then(function () {
+              var m = '<div class="' + (claseCorreo(r) === 'aviso' || fallos.length ? 'aviso' : 'okmsg') + '">✓ ' + (remitir ? 'Parte enviado: REMITIDO A ' + esc(suige) + ', pendiente de su valoración.' : 'Borrador guardado.') + msgCorreo(r) +
                 (fallos.length ? ' No se pudieron subir estos adjuntos: ' + esc(fallos.join(', ')) + '.' : archivos.length ? ' Adjuntos subidos: ' + archivos.length + '.' : '') + '</div>';
               if (id) abrir(id, m); else $('#dlg').close();
             });
@@ -1356,14 +1425,14 @@
     } catch (e) { if (e === 0) return; throw e; }
     boton.disabled = true;
     if (a === 'recordar') {
-      return avisoDe('recordar', t, '').then(enviarCorreo).then(function (r) {
+      return avisoDe('recordar', t, '').then(enviarCorreo).then(function (r) { return anotarAviso(t.id, r).then(function () { return r; }); }).then(function (r) {
         boton.disabled = !!r.ok; msgAcc(r.ok ? 'okmsg' : 'aviso', r.ok ? '✓ Recordatorio enviado.' + msgCorreo(r) : 'No se envió el recordatorio.' + msgCorreo(r));
       });
     }
     guardarCambios(t, c, nota).then(function () {
       var nuevo = Object.assign({}, t, { estadoPrevio: t.estado, estado: c.ESTADO || t.estado });
       return (pref.correo && correo ? avisoDe(correo, nuevo, txt).then(enviarCorreo) : Promise.resolve(null)).then(function (r) {
-        return cargar().then(function () { abrir(t.id, '<div class="' + (r && !r.ok ? 'aviso' : 'okmsg') + '">✓ ' + esc(ok) + msgCorreo(r) + '</div>'); });
+        return anotarAviso(t.id, r).then(cargar).then(function () { abrir(t.id, '<div class="' + claseCorreo(r) + '">✓ ' + esc(ok) + msgCorreo(r) + '</div>'); });
       });
     }).catch(function (e) { boton.disabled = false; msgAcc('error', 'No se pudo guardar: ' + esc(e.message || e)); });
   }
@@ -1582,6 +1651,7 @@
       return perfil;
     }).catch(function () { perfil = {}; return perfil; });
   }
+  var msgSolAcc = '';   // resultado del aviso por correo de la última solicitud de acceso enviada
   function pantallaAcceso(motivo) {
     cargadoEn = null; $('#nuevo').hidden = true; $('#tabs').innerHTML = '';
     $('#estadoCarga').textContent = 'Sin acceso';
@@ -1607,7 +1677,7 @@
           esc([s.unidad, s.mando].filter(Boolean).join(' · ')) + (s.resolucion ? '<br><span class="small">' + esc(s.resolucion) + '</span>' : '') + '</div></div>';
       }).join('') + '</div>' : '';
       if (pend) {
-        $('#vista').innerHTML = cab + '<div class="okmsg">Tu solicitud del ' + esc(fHora(pend.creado)) + ' está <b>PENDIENTE</b> de revisión. Recibirás un correo cuando se resuelva.</div>' + hist;
+        $('#vista').innerHTML = cab + '<div class="okmsg">Tu solicitud del ' + esc(fHora(pend.creado)) + ' está <b>PENDIENTE</b> de revisión. Recibirás un correo cuando se resuelva.</div>' + msgSolAcc + hist;
         return;
       }
       if (ult && ult.estado === 'APROBADA') cab += '<div class="aviso">Tu solicitud fue aprobada (' + esc(ult.grupo) + '), pero Colabora aún no te reconoce en el grupo. Cierra el navegador, vuelve a entrar y pulsa «Actualizar». Si sigue igual, avisa al administrador.</div>';
@@ -1648,7 +1718,12 @@
       return enviarSP(urlAcc() + '/items', Object.assign({ __metadata: { type: l.ListItemEntityTypeFullName } }, c), 'No tienes permiso para escribir en la lista de solicitudes de acceso');
     }).then(function (n) {
       var s = aSol(Object.assign({ Id: n && (n.Id || n.ID), Created: new Date().toISOString() }, c));
-      return (correoAcceso('nueva', s).then(enviarCorreo).catch(function () { return null; })).then(function () { pantallaAcceso(); });
+      return correoAcceso('nueva', s).then(enviarCorreo).catch(function (e) { return { ok: false, n: 0, motivo: e.message || String(e), rechazados: [] }; }).then(function (r) {
+        // Se dice si el aviso a los responsables ha salido (la solicitud queda guardada igualmente)
+        msgSolAcc = '<div class="' + claseCorreo(r) + '" style="margin-top:8px">' + (r.ok && !(r.rechazados && r.rechazados.length) ? '✓ Se ha avisado por correo a los responsables de los accesos.' :
+          msgCorreo(r) + ' La solicitud está guardada; si puedes, avisa también a ' + esc(ACCESO.avisarCorreos && ACCESO.avisarCorreos.length ? ACCESO.avisarCorreos.join(', ') : 'el administrador') + '.') + '</div>';
+        pantallaAcceso();
+      });
     }).catch(function (e) { boton.disabled = false; err('No se pudo enviar la solicitud: ' + (e.message || e)); });
   }
   // A quién avisa una solicitud nueva: los grupos de ACCESO.avisar y los propietarios del sitio. Quien solicita tiene
@@ -1785,7 +1860,7 @@
       s.grupo = aprobar ? grupo : '';
       return pref.correo ? correoAcceso(aprobar ? 'aprobada' : 'denegada', s, txt).then(enviarCorreo) : null;
     }).then(function (r) {
-      return cargarAccesos().then(function () { toast((aprobar ? 'Acceso concedido a ' : 'Solicitud denegada: ') + s.nombre + (r && r.ok ? ' · avisado por correo' : '')); });
+      return cargarAccesos().then(function () { toast((aprobar ? 'Acceso concedido a ' : 'Solicitud denegada: ') + s.nombre + (r && r.ok && !(r.rechazados && r.rechazados.length) ? ' · avisado por correo' : r ? ' · OJO: el correo a ' + (s.correo || 'la persona') + ' no ha salido; avísale tú' : '')); });
     }).catch(function (e) { boton.disabled = false; msg('error', 'No se pudo completar: ' + esc(e.message || e)); });
   }
   function quitarAcceso(boton) {

@@ -3,6 +3,11 @@
 Página para la lista de incidentes de seguridad que usa la página del sitio
 `/et/jige/colaborativo/SitePages/INCIDENTES DE SEGURIDAD.aspx` en Colabora.
 
+- **Avisos por correo con envío robusto** (versión 2026-10-22 · 1, como Permisos; receta «Envío robusto» de `SHAREPOINT.md`): si
+  Colabora rechaza una dirección («destinatario válido»), el aviso se reenvía uno a uno, por la cuenta de la persona y,
+  si tiene una cuenta antigua sin buzón, a su otra cuenta con su mismo nombre. Quien tramita ve a quién llegó y a quién
+  no, y cada aviso queda anotado en «Observaciones del expediente». La solicitud de acceso avisa si el correo a los responsables no ha salido. En *Ajustes*, «Correo de prueba».
+
 ## Estado
 
 1. Diagnóstico (`prueba-incidentes.html`): hecho. Lista «INCIDENTES DE SEGURIDAD» (URL `Lists/INTRUSIONES`).

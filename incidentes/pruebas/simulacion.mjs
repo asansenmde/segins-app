@@ -12,6 +12,10 @@ const GRUPOS = { SEGURIDAD_SUIGESUR: 101, SEGURIDAD_SUIGENOR: 102, SEGURIDAD_SUI
 const MIEMBROS = { 'Propietarios Colaborativo': ['admin1@et.mde.es'], SEGURIDAD_SUIGESUR: ['sur1@et.mde.es', 'sur2@et.mde.es'], SEGURIDAD_SUIGENOR: ['nor1@et.mde.es'], SEGURIDAD_SUIGECAN: ['can1@et.mde.es'], SEGURIDAD_DIAPER: ['diacu1@et.mde.es'], SEGURIDAD_IGE: ['ige1@et.mde.es'] };
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(9, 0, 0, 0); return x.toISOString(); };
 let biblioOculta = false;
+// Colabora que rechaza direcciones («destinatario válido»): buzonMal = direcciones o cuentas rechazadas; enviados = las que acepta
+let buzonMal = [], enviados = [];
+const NOMBRE_DE = { 'sur1@et.mde.es': 'SUR UNO', 'sur2@et.mde.es': 'SUR DOS', 'nor1@et.mde.es': 'NOR UNO', 'can1@et.mde.es': 'CAN UNO', 'diacu1@et.mde.es': 'DIACU UNO', 'ige1@et.mde.es': 'IGE UNO', 'admin1@et.mde.es': 'ADMIN UNO' };
+const CUENTAS_NUEVAS = [{ Id: 301, Title: 'Uno, Ige', Email: 'ige1b@et.mde.es' }];   // otra cuenta (con buzón) de IGE UNO
 let expandRoto = false, faltaCampo = null, items, misGrupos = [], admin = false, sinSubstringof = false, ultimoFiltro = '', lecturaMinima = '';
 const base = { A_x00f1_o: '2026', Provincia: 'SEVILLA', Empleo: 'SARGENTO', ZONASE_x00d1_ALIZADA: true, Reiterada: 'NO', Denuncia: false, ValoradoPorSUIGE: false, ValoradoPorDIACU: false, ValoradoPorIGE: false,
   OBSERVACION: '<p>TEXTO RESERVADO DEL PARTE</p>', ANALISIS: '<div>Análisis</div>', MEDIDAS: 'Medidas', CONTROLMEDIDASADOPTADAS: 'Control', CONCLUSION: 'Conclusión', ObservacionesDelExpediente: '',
@@ -95,6 +99,8 @@ async function prueba(verbose, escenario) {
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = JSON.parse(req.postData()).properties, dest = [].concat(pr.To.results, pr.CC.results, pr.BCC ? pr.BCC.results : []);
+        if (dest.some(x => buzonMal.includes(String(x).toLowerCase()))) return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el mensaje de correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } });
+        if (!dest.some(x => /malo@/.test(x))) enviados.push(...dest);
         if (dest.some(x => /malo@/.test(x))) return r.fulfill({ status: 500, json: { error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } });
         return rechazaFrom && pr.From ? r.fulfill({ status: 400, json: { error: { message: { value: 'From no válido' } } } }) : r.fulfill({ json: { d: {} } });
       }
@@ -144,7 +150,7 @@ async function prueba(verbose, escenario) {
       return J({ value: sols.filter(x => (!me || x.Solicitante.Id === +me[1]) && (!app || x.Aplicacion === app[1])) });
     }
     const g = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users/);
-    if (g) return MIEMBROS[g[1]] ? J({ value: MIEMBROS[g[1]].map(e => ({ Email: e })) }) : r.fulfill({ status: 404, body: '' });
+    if (g) return MIEMBROS[g[1]] ? J({ value: MIEMBROS[g[1]].map(e => ({ Id: 200 + Object.keys(NOMBRE_DE).indexOf(e), Title: NOMBRE_DE[e] || e, Email: e })) }) : r.fulfill({ status: 404, body: '' });
     const mi = resto.match(/items\((\d+)\)/);
     if (mi) { const it = items.find(x => x.Id === +mi[1]); return r.fulfill({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, ...it } } }); }
     const aux = resto.match(/getbytitle\('(PROVINCIAS|M1N|M2N|M3N|empleos)'\)\/items/);
@@ -152,7 +158,7 @@ async function prueba(verbose, escenario) {
       if (aux[1] === 'empleos' && (sinEmpleos || !u.includes('/et/SUIGESUR/colaborativo/CALIDAD-VIDA/_api/'))) return r.fulfill({ status: 404, body: '' });
       return J({ value: AUXL[aux[1]].slice().reverse() });
     }
-    if (resto.startsWith('web/siteusers')) return J({ value: [YO, ...Object.values(P)].map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail })) });
+    if (resto.startsWith('web/siteusers')) return J({ value: [YO, ...Object.values(P)].map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail })).concat(CUENTAS_NUEVAS) });
     if (resto.includes("getbytitle('INCIDENTES DE SEGURIDAD')/fields")) { const ch = a => verbose ? { results: a } : a; return J({ value: [
       { InternalName: 'TipoDeIncidente', Choices: ch(['Intrusión no autorizada', 'Robo o sustracción', 'Pintadas', 'Otro']) }, { InternalName: 'Reiterada', Choices: ch(['SI', 'NO', 'ES LA PRIMERA VEZ']) },
       { InternalName: 'PROBABILIDADES', Choices: ch(['MUY BAJO', 'BAJO', 'MEDIO', 'ALTO', 'MUY ALTO']) }, { InternalName: 'SUIGES', Choices: ch(['JEFATURA DE IGE', 'SECOORCEN', 'SUIGESUR', 'SUIGEPIR', 'SUIGENOR', 'SUIGECAN', 'DIIN']) },
@@ -181,7 +187,10 @@ async function prueba(verbose, escenario) {
   });
   const tag = (verbose ? '[verbose] ' : '[ligero] ') + escenario;
   const correos = () => posts.filter(x => x.ruta.startsWith('SP.Utilities')).map(x => JSON.parse(x.cuerpo).properties);
-  const merge = id => { const m = posts.filter(x => new RegExp('items\\(' + id + '\\)').test(x.ruta) && x.cab['x-http-method'] === 'MERGE').pop(); return m && JSON.parse(m.cuerpo); };
+  // Último guardado del incidente (sin contar la anotación del aviso por correo, que va después)
+  const esAnotacion = x => { const c = JSON.parse(x.cuerpo); return Object.keys(c).filter(k => k !== '__metadata').join() === 'ObservacionesDelExpediente' && /AVISO POR CORREO/.test(c.ObservacionesDelExpediente); };
+  const merge = id => { const m = posts.filter(x => new RegExp('items\\(' + id + '\\)').test(x.ruta) && x.cab['x-http-method'] === 'MERGE' && !esAnotacion(x)).pop(); return m && JSON.parse(m.cuerpo); };
+  const anotacion = id => { const m = posts.filter(x => new RegExp('items\\(' + id + '\\)').test(x.ruta) && x.cab['x-http-method'] === 'MERGE' && esAnotacion(x)).pop(); return m ? JSON.parse(m.cuerpo).ObservacionesDelExpediente.split('\n').pop().slice(0, 220) : 'NINGUNA'; };
   await p.goto(O + '/et/SUIGESUR/JSUIGE/Documentos%20compartidos/incidentes.html' + (escenario === 'enlace' ? '?id=3' : '')); await p.waitForTimeout(900);
   const pestañas = await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | '));
   if (escenario === 'solo información') {
@@ -199,7 +208,7 @@ async function prueba(verbose, escenario) {
     posts.length = 0; await p.click('[data-accsolicitar]'); await p.waitForTimeout(1500);
     const alta = posts.find(x => x.ruta.includes("SOLICITUDES DE ACCESO')/items")), m = correos().pop();
     console.log(tag, '| solicitud:', alta && JSON.stringify((({ Title, Papel, Aplicacion, EstadoSolicitud }) => ({ Title, Papel, Aplicacion, EstadoSolicitud }))(JSON.parse(alta.cuerpo))), '| aviso a:', m && m.To.results, '|', m && m.Subject);
-    console.log(tag, '| después:', (await p.textContent('#vista .okmsg').catch(() => '')).slice(0, 80), '| errores:', errs);
+    console.log(tag, '| después:', (await p.$$eval('#vista .okmsg, #vista .aviso', n => n.map(x => x.textContent).join(' / '))).replace(/\s+/g, ' ').slice(0, 330), '| errores:', errs);
     await b.close(); return;
   }
   if (escenario === 'portal') {
@@ -286,6 +295,15 @@ async function prueba(verbose, escenario) {
     await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200); await p.click('.inc[data-id="6"]'); await p.waitForTimeout(400);
     console.log(tag, '| borrador propio 6:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')), '| InfoPath:', !!(await p.$('#dlg a[href*="EditForm"]')), '| errores:', errs);
     await b.close(); return;
+  }
+  if (escenario === 'correo rechazado') {
+    // IGE UNO (destinatario del aviso a DIACU) figura en su grupo con una cuenta antigua cuya dirección y cuenta Colabora no acepta: el aviso va a su otra cuenta
+    buzonMal = ['ige1@et.mde.es', 'i:0#.w|et\\usuario205']; enviados = [];
+    await p.click('.inc[data-id="1"]'); await p.waitForTimeout(600);
+    await p.fill('#vSuige', 'Riesgo alto.'); posts.length = 0; await p.click('[data-acc=suigeDiacu]'); await p.waitForTimeout(2200);
+    console.log(tag, '| mensaje:', (await p.textContent('#dlg .okmsg, #dlg .aviso')).replace(/\s+/g, ' ').slice(0, 330));
+    console.log(tag, '| llegó a:', enviados.join(', '), '| estado guardado:', merge(1).ESTADO, '| anotado:', anotacion(1), '| errores:', errs);
+    buzonMal = []; await b.close(); return;
   }
   // 1) SUIGE valora el 1 (sin texto, error; con texto, informa a DIACU)
   await p.click('.inc[data-id="1"]'); await p.waitForTimeout(600);
@@ -423,6 +441,8 @@ sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstr
 misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'solo SEGURIDAD_IGE'); await prueba(false, 'informe'); await prueba(true, 'informe');
 misGrupos = ['SEGURIDAD_SUIGESUR']; admin = true; await prueba(false, 'Control total y solo SUIGESUR'); admin = false;
 misGrupos = []; await prueba(false, 'solo información'); await prueba(true, 'solo información'); await prueba(false, 'sin acceso'); await prueba(true, 'sin acceso'); await prueba(false, 'provisional');
+misGrupos = TODOS; admin = true; await prueba(false, 'correo rechazado'); await prueba(true, 'correo rechazado'); admin = false;
+misGrupos = []; buzonMal = ['admin1@et.mde.es', 'asansen@et.mde.es', 'i:0#.w|et\\usuario206']; enviados = []; await prueba(false, 'sin acceso'); buzonMal = [];
 misGrupos = TODOS; admin = true; await prueba(false, 'portal'); await prueba(false, 'accesos'); await prueba(true, 'accesos'); admin = false;
 misGrupos = TODOS; admin = true; await prueba(false, 'enlace');
 faltaCampo = 'ResponsableDelParte'; await prueba(true, 'columna inexistente'); faltaCampo = null;
