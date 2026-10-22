@@ -75,6 +75,12 @@ y `correoPrueba`:
 6. En la ficha, recuadro **«Aviso por correo»**: a qué direcciones iba, si la persona figura con OTRA cuenta o «sin
    correo», y botón «Reenviar el aviso ahora». En Ajustes, **«Correo de prueba»**.
 7. Simular en las pruebas un Colabora que rechaza direcciones (`buzonMal` en `permisos/pruebas/simulacion.mjs`).
+8. Tras anotar el aviso en el elemento, **actualizar su fecha de modificación en la página** (se relee `Modified`): si no,
+   el siguiente trámite sin recargar lo toma por un cambio de otra persona y no deja guardar.
+
+Implantado (22/10/2026) en Permisos, VSA, Incidentes y Tareas Colabora: el núcleo (`enviarUno`, `loginDe`,
+`otrasDirecciones`, `enviarCorreo`, `claseCorreo`, `textoAviso`, `detalleCorreo`, registro `quienEs` con `apuntarPersona`)
+es el mismo en las cuatro; cambian solo `msgCorreo`, `anotarAviso` (columna de historial) y el formato del correo.
 
 ## Comentarios con historial
 
