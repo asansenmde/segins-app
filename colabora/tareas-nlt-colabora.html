@@ -238,7 +238,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-10-22 · 2';
+  var VERSION = '2026-10-22 · 3';
   $('#verPie').textContent = 'versión ' + VERSION;
 
   // ---------- Preferencias de este navegador ----------
@@ -348,7 +348,7 @@
     var p = web ? Promise.resolve(web) : webDe(location.pathname.replace(/\/[^/]*$/, '')).then(function (w) { web = w; return w; });
     return p.then(function () {
       return Promise.all([
-        yo ? yo : api(web.url + '/_api/web/currentuser?$select=Id,Title,Email').then(function (u) { yo = u; return u; }),
+        yo ? yo : api(web.url + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) { yo = u; return u; }),
         api(urlLista() + '?$select=Id,Title,ItemCount,ListItemEntityTypeFullName,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { listaInfo = l; }),
         api(urlLista() + "/fields?$select=InternalName,Title,Choices,RichText,Required,TypeAsString&$filter=(InternalName eq 'ESTADO') or (InternalName eq 'PersonalImplicado0') or (InternalName eq 'Prioridad') or (InternalName eq 'NegociadoAsignado')" +
           " or (InternalName eq 'NegociadosImplicados') or (InternalName eq 'DescripcionDelAsunto') or (InternalName eq 'Comentarios') or (InternalName eq 'ControlExpediente') or (InternalName eq 'FechaVencimiento')")
@@ -1318,9 +1318,91 @@
         filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\nVer en Colabora: ' + disp
     };
   }
-  function enviarCorreoColabora(d, c) {
-    return enviarSP(web.url + '/_api/SP.Utilities.Utility.SendEmail', { properties: { __metadata: { type: 'SP.Utilities.EmailProperties' },
-      To: { results: d.para }, CC: { results: d.cc }, Subject: c.asunto, Body: c.html } }, 'Colabora no te deja enviar correos desde la página');
+  // ---------- Envío robusto de correo (copiado de Permisos; receta «Envío robusto» de SHAREPOINT.md) ----------
+  // Colabora rechaza el correo ENTERO si una sola dirección no es de un usuario que conozca con buzón («Asegúrese de que
+  // tenga un destinatario válido») y hay personas con cuentas antiguas sin buzón. Entonces se envía uno a uno y, a quien se
+  // rechaza, se le prueba su cuenta de inicio de sesión y, si tampoco, otra cuenta del sitio con su mismo nombre.
+  var DEST_MAL = /destinatario v|valid recipient|recipient/i;
+  var quienEs = {};   // correo → { Id, Title } de las personas que se van leyendo (para saber a quién reintentar)
+  var apuntarPersona = function (u) { var e = u && (u.Email || u.EMail); if (e && (u.Id || u.Title)) quienEs[String(e).toLowerCase()] = { Id: u.Id, Title: u.Title }; return u; };
+  var palabrasNombre = function (n) { return sinTildes(n).replace(/[^a-zñ ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 3 && ['del', 'las', 'los'].indexOf(w) < 0; }); };
+  var mismasPalabras = function (a, b) { var x = palabrasNombre(a).sort().join(' '), y = palabrasNombre(b).sort().join(' '); return !!x && x === y; };
+  function enviarUno(to, cc, bcc, c) {
+    var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, CC: { results: cc || [] }, Subject: c.asunto, Body: c.html };
+    if (bcc && bcc.length) pr.BCC = { results: bcc };
+    return enviarSP(web.url + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página');
+  }
+  // Cuenta de inicio de sesión de una dirección: la propia, por el Id de la persona si se conoce o buscándola por el correo
+  function loginDe(correo) {
+    var c = String(correo || '').toLowerCase(), q = quienEs[c];
+    if (yo && yo.LoginName && (c === String(yo.Email || '').toLowerCase() || (q && q.Id === yo.Id))) return Promise.resolve(yo.LoginName);
+    var porCorreo = function () {
+      return api(web.url + '/_api/web/siteusers?$select=LoginName,Email&$filter=' + encodeURIComponent("Email eq '" + c.replace(/'/g, "''") + "'"))
+        .then(function (d) { var u = lista(d.value).find(function (x) { return String(x.Email || '').toLowerCase() === c && x.LoginName; }); return u ? u.LoginName : null; })
+        .catch(function () { return null; });
+    };
+    if (q && q.Id) return api(web.url + '/_api/web/getuserbyid(' + Number(q.Id) + ')?$select=LoginName').then(function (u) { return (u && u.LoginName) || porCorreo(); }, porCorreo);
+    return porCorreo();
+  }
+  // Otras direcciones de la misma persona: cuentas del sitio con su mismo nombre (aunque cambie el orden) que tienen correo
+  var cuentasSitio = null;
+  function otrasDirecciones(malo) {
+    var q = quienEs[String(malo).toLowerCase()], nombre = q && q.Title;
+    if (!nombre || palabrasNombre(nombre).length < 2) return Promise.resolve([]);
+    var base = cuentasSitio ? Promise.resolve(cuentasSitio) : api(web.url + '/_api/web/siteusers?$select=Id,Title,Email,PrincipalType&$filter=PrincipalType eq 1&$top=5000')
+      .then(function (d) { cuentasSitio = lista(d.value); return cuentasSitio; }, function () { return []; });
+    return base.then(function (us) {
+      var l = us.concat(yo ? [yo] : []).filter(function (u) { return u.Email && /@/.test(u.Email) && mismasPalabras(u.Title, nombre) && u.Email.toLowerCase() !== String(malo).toLowerCase(); }).map(function (u) { return u.Email; });
+      return l.filter(function (x, i) { return l.map(function (y) { return y.toLowerCase(); }).indexOf(x.toLowerCase()) === i; });
+    });
+  }
+  // c: { to, cc, bcc, asunto, html, texto, sinVer? }. Devuelve { ok, n, motivo, rechazados, desvios, llegaron, sinVer, mailto }
+  function enviarCorreo(c) {
+    var bcc = c.bcc || [], todos = c.to.concat(c.cc || [], bcc), desvios = [], llegaron = [];
+    var res = function (ok, n, motivo, rech) { return { ok: ok, n: n, motivo: motivo, rechazados: rech || [], desvios: desvios, llegaron: ok ? (llegaron.length ? llegaron : todos) : [], sinVer: c.sinVer || [], mailto: mailto(c.to, c.cc || [], c.asunto, c.texto) }; };
+    if (!c.to.length) return Promise.resolve(res(false, 0, 'no se encontraron destinatarios'));
+    return enviarUno(c.to, c.cc || [], bcc, c).then(function () { return res(true, todos.length); }, function (e) {
+      var m = e.message || String(e);
+      if (!DEST_MAL.test(m)) return res(false, 0, m);
+      var aceptados = 0, rech = [];
+      return todos.reduce(function (p, d) {
+        return p.then(function () {
+          var porNombre = function () {
+            return otrasDirecciones(d).then(function (alt) {
+              return alt.reduce(function (q, a) {
+                return q.then(function (hecho) { return hecho || enviarUno([a], [], [], c).then(function () { aceptados++; llegaron.push(a); desvios.push(d + ' → ' + a); return true; }, function () { return false; }); });
+              }, Promise.resolve(false)).then(function (hecho) { if (!hecho) rech.push(d); });
+            });
+          };
+          return enviarUno([d], [], [], c).then(function () { aceptados++; llegaron.push(d); }, function () {
+            return loginDe(d).then(function (lg) {
+              if (!lg) return porNombre();
+              return enviarUno([lg], [], [], c).then(function () { aceptados++; llegaron.push(d + ' (por su cuenta)'); }, porNombre);
+            });
+          });
+        });
+      }, Promise.resolve()).then(function () { return res(aceptados > 0, aceptados, aceptados ? '' : m, rech); });
+    });
+  }
+  var claseCorreo = function (r) { return !r || (r.ok && !(r.rechazados && r.rechazados.length)) ? 'okmsg' : 'aviso'; };
+  // Texto del resultado para el historial del elemento
+  var textoAviso = function (r) {
+    return (r.ok ? 'enviado a ' + r.llegaron.join(', ') : 'NO ENVIADO (' + (r.motivo || '') + ')') + (r.rechazados && r.rechazados.length ? '; Colabora no aceptó: ' + r.rechazados.join(', ') : '') +
+      (r.desvios && r.desvios.length ? '; enviado a otra cuenta: ' + r.desvios.join('; ') : '');
+  };
+  // Detalle del resultado para quien tramita (direcciones no aceptadas y desvíos a otra cuenta)
+  var detalleCorreo = function (r) {
+    if (!r) return '';
+    return (r.rechazados && r.rechazados.length ? ' Colabora no acepta estas direcciones (no son de usuarios del sitio o no tienen buzón), y a ellas NO les llega: ' + esc(r.rechazados.join(', ')) + '.' : '') +
+      (r.desvios && r.desvios.length ? ' Enviado a otra cuenta de la misma persona porque Colabora no aceptaba su dirección: ' + esc(r.desvios.join('; ')) + '.' : '');
+  };
+
+  // El resultado del aviso queda como comentario del asunto (historial), para saber después si salió y a quién
+  function anotarAviso(t, r) {
+    return anadirComentario(t, 'AVISO POR CORREO: ' + textoAviso(r)).then(function () {
+      // La anotación cambia la fecha de modificación: se actualiza para que la siguiente modificación no la tome por un cambio ajeno
+      return leerElemento(t.id).then(function (y) { if (y.datos.Modified) t.modificada = y.datos.Modified; });
+    }).then(function () { if ($('#comLista') && $('#comLista').dataset.id === String(t.id)) pintarComentarios(t); }).catch(function () { /* el aviso ya salió */ });
   }
   // Envía el aviso de asignación y lo cuenta en el detalle del asunto (#correoAsig)
   function avisarAsignacion(t, solo) {
@@ -1328,11 +1410,22 @@
     var d = solo || destinatarios(t), c = datosAsignacion(t);
     if (!d.para.length) { if (caja()) caja().innerHTML = '<span class="badge warn">Sin correo del responsable ni de los implicados: avisa en persona</span>'; return Promise.resolve(); }
     if (caja()) caja().innerHTML = '<span class="small muted">Enviando correo de asignación…</span>';
-    return enviarCorreoColabora(d, c).then(function () {
-      if (caja()) caja().innerHTML = '<span class="badge ok">✓ Correo de asignación enviado</span> <span class="small muted">a ' + esc(d.para.concat(d.cc).join('; ')) + '</span>';
-    }).catch(function (e) {
-      if (caja()) caja().innerHTML = '<div class="small">No se ha podido enviar desde Colabora (' + esc(e.message || e) + '). Prepáralo en Outlook y pulsa Enviar:</div>' +
-        '<div class="acciones"><a class="btn prim" href="' + esc(mailto(d.para, d.cc, c.asunto, c.texto)) + '">✉ Preparar correo de asignación</a></div>';
+    (t.usuarios || []).forEach(apuntarPersona);
+    return enviarCorreo({ to: d.para, cc: d.cc, bcc: [], asunto: c.asunto, html: c.html, texto: c.texto }).then(function (r) {
+      var outlook = '<div class="acciones"><a class="btn prim" href="' + esc(mailto(d.para, d.cc, c.asunto, c.texto)) + '">✉ Preparar correo de asignación</a></div>';
+      if (caja()) caja().innerHTML = r.ok ? '<span class="badge ' + (claseCorreo(r) === 'okmsg' ? 'ok' : 'warn') + '">✓ Correo de asignación enviado</span> <span class="small muted">a ' + esc(r.llegaron.join('; ')) + '.' + detalleCorreo(r) + '</span>' + (r.rechazados.length ? outlook : '') :
+        '<div class="small">No se ha podido enviar desde Colabora (' + esc(r.motivo) + ').' + detalleCorreo(r) + ' Prepáralo en Outlook y pulsa Enviar:</div>' + outlook;
+      return anotarAviso(t, r);
+    });
+  }
+  function correoPrueba(boton) {
+    var to = String($('#aPruebaA').value || '').split(/[;,\s]+/).filter(function (x) { return /@/.test(x); }), el = $('#aPrueba');
+    if (!to.length) { el.innerHTML = '<div class="error">Escribe al menos una dirección de correo.</div>'; return; }
+    var txt = 'Correo de prueba del Gestor de Tareas de la Jefatura de SUIGESUR. Enviado por ' + (yo ? yo.Title : '') + ' el ' + fHora(new Date()) + ' (versión ' + VERSION + ').';
+    boton.disabled = true; el.innerHTML = '<p class="muted small">Enviando…</p>';
+    enviarCorreo({ to: to, cc: [], bcc: [], asunto: 'PRUEBA · GESTOR DE TAREAS · AVISO POR CORREO', html: '<p style="font-family:Segoe UI,Arial,sans-serif">' + esc(txt) + '</p>', texto: txt }).then(function (r) {
+      boton.disabled = false;
+      el.innerHTML = '<div class="' + claseCorreo(r) + '">' + (r.ok ? '✓ Colabora ha aceptado el correo para ' + esc(r.llegaron.join(', ')) + '. Mira la bandeja (y «Correo no deseado») en unos minutos.' : '✕ No se pudo enviar (' + esc(r.motivo) + ').') + detalleCorreo(r) + '</div>';
     });
   }
   function cargarUsuarios() {
@@ -1370,7 +1463,13 @@
   function asegurarUsuario(u) {
     if (u.Id) return Promise.resolve(u);
     return enviarSP(web.url + '/_api/web/ensureuser', { logonName: u.clave }, 'No tienes permiso para añadir a esa persona al sitio').then(function (r) {
-      var x = { Id: r.Id, Title: r.Title || u.Title, Email: r.Email || u.Email || '' };
+      var x = { Id: r.Id, Title: r.Title || u.Title, Email: r.Email || '' };
+      // Cuenta sin correo en Colabora: si la misma persona tiene otra cuenta del sitio con correo, se usa esa (si no, sus avisos no llegan)
+      if (!x.Email) {
+        var otra = (usuariosSitio || []).filter(function (y) { return y.Id !== x.Id && y.Email && mismasPalabras(y.Title, x.Title); });
+        if (otra.length === 1) return otra[0];
+        x.Email = u.Email || '';
+      }
       if (usuariosSitio && !usuariosSitio.some(function (y) { return y.Id === x.Id; })) usuariosSitio.push(x);
       return x;
     });
@@ -1597,6 +1696,8 @@
         return '<div class="grid" style="align-items:center;margin:4px 0"><div><b>' + esc(e) + '</b></div><div><select data-mapa="' + esc(e) + '">' +
           Object.keys(CLASES).map(function (k) { return '<option value="' + k + '"' + (claseEstado(e) === k ? ' selected' : '') + '>' + CLASES[k] + '</option>'; }).join('') + '</select></div></div>';
       }).join('') || '<p class="muted">Aún no se han leído los estados.</p>') + '</div>' +
+      '<div class="card"><h3 style="margin-top:0">✉ Correo de prueba</h3><p class="small muted">Comprueba si Colabora acepta y entrega los avisos a unas direcciones (separadas por «;»). Si alguna no la acepta, lo dice.</p>' +
+      '<input id="aPruebaA" value="' + esc(yo && yo.Email ? yo.Email : '') + '"><div class="acciones"><button data-pruebacorreo="1">Enviar correo de prueba</button></div><div id="aPrueba"></div></div>' +
       '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">Esta página funciona dentro de Colabora con tu sesión. Lee la lista y <b>solo escribe cuando das de alta un asunto, lo modificas o añades un comentario</b> (nunca borra), con tus permisos de Colabora. El correo de asignación lo envía el propio Colabora con su correo interno. No envía nada fuera del servidor. ' +
       'Tus preferencias (filtros, estados, informe) se guardan solo en este navegador.</p></div>';
   }
@@ -1645,6 +1746,7 @@
     var tab = el.closest('#tabs a');
     if (tab) { pref.vista = tab.dataset.v; kpiSel = ''; guardarPref(); render(); return; }
     if (el.closest('#recargar')) { cargar(); return; }
+    if (el.closest('[data-pruebacorreo]')) { correoPrueba(el.closest('[data-pruebacorreo]')); return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); return; }
     var k = el.closest('[data-kpi]');
     if (k) { kpiSel = kpiSel === k.dataset.kpi ? '' : k.dataset.kpi; render(); return; }

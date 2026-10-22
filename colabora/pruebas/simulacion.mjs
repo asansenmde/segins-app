@@ -22,6 +22,8 @@ const items = Array.from({ length: 706 }, (_, i) => {
     correoResponsable: i % 6 === 0 ? 'usuario@et.mde.es' : (i % 5 === 4 ? '' : 'persona' + (i % 5) + '@et.mde.es'), correoimplicados: i % 10 === 1 ? 'implicado@et.mde.es; usuario@et.mde.es' : '',
     PersonalImplicado0: i % 10 === 1 ? [{ Id: 7, Title: 'USUARIO DE PRUEBA' }] : [], Author: { Title: 'AUTOR' }, Editor: { Title: 'EDITOR' } };
 });
+// Colabora que rechaza direcciones («destinatario válido»): buzonMal = direcciones rechazadas; enviados = las que acepta
+let buzonMal = [], enviados = [];
 let denegar = false, correoFalla = false, anexar = true, versiones = {};
 async function prueba() {
   const b = await chromium.launch();
@@ -75,6 +77,9 @@ async function prueba() {
       if (resto === 'web/ensureuser') { const k = JSON.parse(req.postData()).logonName; return r.fulfill({ json: { d: { Id: k.includes('jmartin') ? 55 : 31, Title: k.includes('jmartin') ? 'MARTIN GOMEZ JUAN' : 'GARCIA LOPEZ ANA', Email: k.includes('jmartin') ? 'jmartin@et.mde.es' : 'agarcia@et.mde.es' } } }); }
       if (resto === 'SP.Utilities.Utility.SendEmail') {
         if (correoFalla) return r.fulfill({ status: 500, json: { error: { message: { value: 'The e-mail message cannot be sent. Make sure the outgoing e-mail settings for the server are configured correctly.' } } } });
+        const pr = JSON.parse(req.postData()).properties, dest = [pr.To, pr.CC, pr.BCC].flatMap(x => x ? x.results : []);
+        if (dest.some(x => buzonMal.includes(String(x).toLowerCase()))) return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el mensaje de correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } });
+        enviados.push(...dest);
         return r.fulfill({ json: { d: { SendEmail: null } } });
       }
       if (resto.endsWith('/items')) {
@@ -91,7 +96,7 @@ async function prueba() {
     }
     if (resto.startsWith('web?')) return r.fulfill({ json: { Url: 'https://colabora.mdef.es' + WEB, Title: 'JSUIGE' } });
     if (resto.startsWith('web/currentuser')) return r.fulfill({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' } });
-    if (resto.startsWith('web/siteusers')) return r.fulfill({ json: { value: [{ Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' }, { Id: 31, Title: 'GARCIA LOPEZ ANA', Email: 'agarcia@et.mde.es' }, { Id: 32, Title: 'PEREZ RUIZ LUIS', Email: 'lperez@et.mde.es' }] } });
+    if (resto.startsWith('web/siteusers')) return r.fulfill({ json: { value: [{ Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' }, { Id: 31, Title: 'GARCIA LOPEZ ANA', Email: 'agarcia@et.mde.es' }, { Id: 32, Title: 'PEREZ RUIZ LUIS', Email: 'lperez@et.mde.es' }, { Id: 41, Title: 'Garcia Lopez, Ana', Email: 'agarcia2@et.mde.es' }] } });
     if (resto.includes("/fields")) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'Prioridad', Choices: PRIOS }, { InternalName: 'NegociadoAsignado', Choices: NEGS },
       { InternalName: 'NegociadosImplicados', Choices: NEGS }, { InternalName: 'DescripcionDelAsunto', RichText: true }, { InternalName: 'Comentarios', RichText: false }, { InternalName: 'FechaVencimiento', Required: false }] } });
     if (resto.includes("/items")) {
@@ -195,6 +200,13 @@ async function prueba() {
   console.log('mailto:', (await p.getAttribute('#correoAsig a', 'href')).slice(0, 200));
   await p.screenshot({ path: new URL('asig-fallo.png', import.meta.url).pathname });
   correoFalla = false;
+  // Colabora no acepta la dirección de una implicada (cuenta antigua): se le envía a su otra cuenta
+  buzonMal = ['agarcia@et.mde.es']; enviados = [];
+  await p.click('#dlg [data-cerrar]'); await p.evaluate(() => { const a = document.createElement('a'); a.dataset.abrir = '707'; document.body.append(a); a.click(); }); await p.waitForTimeout(300);
+  await p.click('[data-asignar]'); await p.waitForTimeout(1500);
+  console.log('caja con dirección rechazada:', (await p.textContent('#correoAsig')).replace(/\s+/g, ' ').slice(0, 300), '| llegó a:', enviados.join(', '));
+  console.log('comentario del aviso:', (await p.textContent('#comLista')).replace(/\s+/g, ' ').slice(0, 200));
+  buzonMal = [];
   // ---- Modificar ----
   await p.click('#dlg [data-cerrar]');
   await p.evaluate(() => { const a = document.createElement('a'); a.dataset.abrir = '707'; document.body.append(a); a.click(); }); await p.waitForTimeout(300);

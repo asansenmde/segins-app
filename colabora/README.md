@@ -71,6 +71,11 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
 - `prueba-sharepoint.html`: página de diagnóstico que comprueba si el sitio ejecuta páginas propias y
   lista las listas y columnas (sin contenido).
 
+- **Avisos por correo con envío robusto** (versión 2026-10-22 · 3, como Permisos; receta «Envío robusto» de `SHAREPOINT.md`): si
+  Colabora rechaza una dirección («destinatario válido»), el aviso se reenvía uno a uno, por la cuenta de la persona y,
+  si tiene una cuenta antigua sin buzón, a su otra cuenta con su mismo nombre. Quien tramita ve a quién llegó y a quién
+  no, y cada aviso queda anotado en los comentarios del asunto. En *Ajustes*, «Correo de prueba».
+
 ## Correspondencia de columnas
 
 | App | Columna de «Gestor de Tareas» (nombre interno) |
