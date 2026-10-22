@@ -176,6 +176,11 @@ async function prueba(verbose, soloAlcance) {
     console.log(tag, 'otra cuenta: pendientes de aprobar:', await p.$$eval('#vista .sol', n => n.map(x => x.dataset.id)), '| filtro con 280:', ultimoFiltro.includes('280'), '| buzón compartido (281) fuera:', !ultimoFiltro.includes('281'));
     console.log(tag, 'estado reconocido:', await p.textContent('.sol[data-id="9"] .badge'));
     console.log(tag, 'sin recuadro «¿Echas en falta…?»:', !(await p.$('[data-comprobar]')), '| errores:', errs);
+    await p.click('.sol[data-id="9"]'); await p.waitForTimeout(600);
+    console.log(tag, 'aviso por correo (otra cuenta):', (await p.textContent('#dlg .panel:has([data-reaviso])')).replace(/\s+/g, ' ').slice(0, 330));
+    posts.length = 0; await p.click('[data-reaviso][data-ami]'); await p.waitForTimeout(800);
+    const ra = posts.find(x => x.ruta.startsWith('SP.Utilities')); console.log(tag, 'enviármelo a mí:', ra && JSON.parse(ra.cuerpo).properties.To.results, '|', (await p.textContent('#reavisoMsg')).slice(0, 120));
+    await p.click('#dlg [data-cerrar]');
     await b.close(); return;
   }
   if (soloAlcance === 'seguridad') {
@@ -233,6 +238,15 @@ async function prueba(verbose, soloAlcance) {
   const m1 = JSON.parse(posts.find(x => x.ruta.startsWith('SP.Utilities')).cuerpo).properties;
   console.log(tag, 'correo alta:', m1.To.results, m1.CC.results, '|', m1.Subject, '| enlace:', (m1.Body.match(/href="([^"]+)"/) || [])[1]);
   console.log(tag, 'mensaje:', await p.textContent('#dlg .okmsg, #dlg .aviso'));
+  if (!soloAlcance) {
+    await p.click('#dlg [data-cerrar]'); await p.click('#tabs a[data-v=todas]').catch(() => {}); await p.waitForTimeout(300);
+    await p.evaluate(() => { const a = document.createElement('a'); a.className = 'sol'; a.dataset.id = '2'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(600);
+    console.log(tag, 'aviso por correo (mi cuenta):', (await p.textContent('#dlg .panel:has([data-reaviso])').catch(() => 'NO HAY')).replace(/\s+/g, ' ').slice(0, 300));
+    buzonMal = ['sol2@et.mde.es']; enviados = []; posts.length = 0; await p.click('[data-reaviso]:not([data-ami])'); await p.waitForTimeout(1200); buzonMal = [];
+    console.log(tag, 'reenviar con el solicitante rechazado:', (await p.textContent('#reavisoMsg')).slice(0, 260), '| llegó a:', enviados.join(', '));
+    await p.click('#dlg [data-cerrar]'); await p.click('#tabs a[data-v=mias]').catch(() => {}); await p.waitForTimeout(300);
+    await p.click('.sol[data-id="7"]'); await p.waitForTimeout(400);
+  }
   if (soloAlcance === 'correo rechazado') {
     console.log(tag, 'rechaza:', buzonMal.join(', '), '| llegó a:', enviados.join(', '), '| cuentas buscadas por Id:', cuentasPedidas.join(','));
     await b.close(); return;

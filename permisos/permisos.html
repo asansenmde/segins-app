@@ -182,7 +182,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-10-22 · 2';
+  var VERSION = '2026-10-22 · 3';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
   var CLAVE = 'permisos-calidad-vida';
@@ -1474,6 +1474,18 @@
         '<div class="acciones"><button class="verde" data-acc="registrar">✔ Marcar como REGISTRADO EN SIPERDEF</button><button class="peligro" data-acc="anular">✕ Anular</button></div></div>';
     }
     if (!h) h = '<div class="panel"><h3>Tramitación</h3><p class="small muted">' + esc(siguientePaso(t)) + '</p>' + (t.estado === E.PA || t.estado === E.AP ? '<div class="meta">' + marcaEspera(t) + '</div>' : '') + '</div>';
+    // Comprobación del aviso por correo de una solicitud pendiente: a qué direcciones iba, con qué cuenta figura el
+    // aprobador o autorizador y reenvío con el resultado (para quien interviene y para el propietario)
+    if ((t.estado === E.PA || t.estado === E.AP) && (esAdmin || esMia(t) || soyApr(t) || soyAut(t))) {
+      var pend = t.estado === E.PA ? { p: t.apr, c: t.correoApr, txt: t.aprTexto, papel: 'aprobador', soyYo: soyApr(t) } : { p: t.aut, c: t.correoAut, txt: t.autTexto, papel: 'autorizador', soyYo: soyAut(t) };
+      var cuenta = !pend.p ? 'sin cuenta de Colabora en la solicitud (solo el nombre «' + (pend.txt || '—') + '»)' :
+        esc(pend.p.Title) + ' (cuenta n.º ' + pend.p.Id + ')' + (pend.soyYo ? (yo && pend.p.Id === yo.Id ? ' · <b>es la cuenta con la que has entrado</b>' :
+          ' · <b class="rojo">te nombra con OTRA cuenta tuya de Colabora (has entrado con la n.º ' + (yo ? yo.Id : '?') + '): el aviso va al correo de esa otra cuenta</b>') : '');
+      var sinDir = function (c) { return c ? esc(c) : '<b class="rojo">sin correo: el aviso no le pudo llegar</b>'; };
+      h += '<div class="panel"><h3>✉ Aviso por correo</h3><p class="small">Al enviarla, el aviso va <b>para</b> el solicitante (' + sinDir(t.correoSol) + ') <b>con copia</b> al ' + pend.papel +
+        ' (' + sinDir(pend.c) + ').<br>' + pend.papel[0].toUpperCase() + pend.papel.slice(1) + ' en la solicitud: ' + cuenta + '.</p>' +
+        '<div class="acciones"><button data-reaviso="' + t.id + '">✉ Reenviar el aviso ahora</button>' + (pend.soyYo ? '<button data-reaviso="' + t.id + '" data-ami="1">✉ Enviármelo solo a mí</button>' : '') + '</div><div id="reavisoMsg"></div></div>';
+    }
     var dest = destRecordatorio(t);
     if (esMia(t) && dest) {
       var ya = pref.recordados && pref.recordados[t.id];
@@ -1481,6 +1493,16 @@
         (ya ? ' Último recordatorio enviado desde este equipo: ' + esc(fCorta(ya)) + '.' : '') + '</p><div class="acciones"><button data-recordar="' + t.id + '"' + (ya === hoy() ? ' disabled title="Ya enviaste uno hoy"' : '') + '>✉ Enviar recordatorio</button></div></div>';
     }
     return h + '<div id="accMsg"></div>';
+  }
+  function reenviarAviso(t, boton, aMi) {
+    var c = correoDe(t.estado === E.PA ? 'solicitud' : 'aprobado', t, '');
+    if (aMi) { c.to = [yo.Email || yo.LoginName].filter(Boolean); c.cc = []; c.bcc = []; c.cuentas = {}; if (yo.Email) c.cuentas[yo.Email.toLowerCase()] = yo.Id; }
+    boton.disabled = true; $('#reavisoMsg').innerHTML = '<p class="muted small">Enviando…</p>';
+    enviarCorreo(c).then(function (r) {
+      boton.disabled = false;
+      $('#reavisoMsg').innerHTML = '<div class="' + claseCorreo(r) + '">' + (r.ok ? '✓ Colabora ha aceptado el aviso para: ' + esc(c.to.concat(c.cc, c.bcc).join(', ')) + '.' : '✕') + msgCorreo(r) +
+        ' Si Colabora lo acepta y aun así no llega, revisa «Correo no deseado» o que esa dirección sea la de tu buzón.</div>';
+    });
   }
   // A quién se recuerda: al aprobador si está pendiente de aprobar y al autorizador si está aprobada
   function destRecordatorio(t) {
@@ -1791,6 +1813,8 @@
     if (el.closest('[data-restablecer]')) { pref.sitio = POR_DEFECTO.sitio; pref.lista = POR_DEFECTO.lista; guardarPref(); cargar(); return; }
     var ic = el.closest('[data-ics]');
     if (ic) { if (ic.dataset.ics === 'mias') exportarIcs(items.filter(esMia), 'mis-permisos'); else exportarIcs(delCalendario(), 'calendario-permisos'); return; }
+    var ra = el.closest('[data-reaviso]');
+    if (ra) { var tr = items.find(function (x) { return x.id === Number(ra.dataset.reaviso); }); if (tr) reenviarAviso(tr, ra, !!ra.dataset.ami); return; }
     var rc = el.closest('[data-recordar]');
     if (rc) { var trc = items.find(function (x) { return x.id === Number(rc.dataset.recordar); }); if (trc) recordar(trc, rc); return; }
     if (el.closest('[data-csv]')) { csv(); return; }
