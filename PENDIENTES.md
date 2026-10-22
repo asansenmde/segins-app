@@ -30,6 +30,13 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
 6. **Tareas Colabora**: hecha toda la propuesta de visibilidad (22/10/2026). Queda por decidir si lleva **control de
    acceso con solicitud** (punto 2) o sigue abierta a quien tenga permiso en la lista.
 
+7. **Nuevo proyecto: Acciones derivadas de inspecciones técnicas** (pedido el 22/10/2026, en análisis). Lista abierta
+   en la que los negociados (seguridad, programación y coordinación, riesgos laborales, acuartelamiento,
+   infraestructura…) cargan las acciones derivadas de cada inspección, con número, deficiencia, acción, plazo y
+   responsable. Cada acuartelamiento ve solo lo suyo y lo subsana en plazo; la jefatura controla el cumplimiento.
+   Esperando del usuario la estructura de la plantilla y las decisiones de la propuesta antes de empezar. Irá en su
+   carpeta, con etiqueta propia.
+
 Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar por la que diga).
 
 ## Hecho en VSA (referencia)
