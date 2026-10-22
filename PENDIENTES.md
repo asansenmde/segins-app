@@ -40,6 +40,9 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
 8. **Permisos, avisos por correo** (22/10/2026, versión · 5, confirmado por el usuario): ya llegan aunque la solicitud
    nombre al autorizador o aprobador con una cuenta antigua sin buzón. Queda pedir al administrador de Colabora que retire
    la cuenta antigua del usuario para que no aparezca al buscarle.
+9. **Pasar el envío robusto de correo de Permisos al resto** (regla nueva en `CLAUDE.md`, 22/10/2026): **VSA** y **Tareas
+   Colabora** tienen todavía el envío antiguo (si falla una dirección no llega a nadie); **Incidentes** reintenta uno a
+   uno pero no por la cuenta de la persona ni por su nombre, ni lo anota en el historial. Esperando el «adelante».
 
 Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar por la que diga).
 

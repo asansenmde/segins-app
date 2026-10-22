@@ -38,6 +38,9 @@ de cada proyecto (`*/pruebas/`).
 - **Autoría y copia protegida** en todas las páginas de Colabora (© 2026 Cte. Alfredo Sánchez Sender; original legible
   en el repositorio y copia ofuscada con bloqueo de dominio para subir; receta en `SHAREPOINT.md`). Entregar siempre los
   dos archivos, indicando cuál se sube a Colabora.
+- **Correo con envío robusto** en toda página que avise por correo: copiar el de Permisos (receta en `SHAREPOINT.md`,
+  «Envío robusto»). Colabora rechaza el correo entero si falla una dirección y la gente tiene cuentas antiguas sin buzón;
+  hay que reintentar uno a uno, por su cuenta y por su nombre, decir a quién no llegó y anotarlo en el historial.
 - **Pendientes del usuario en `PENDIENTES.md`**: revisarlo al empezar y actualizarlo al terminar cada punto.
 - HTML en un solo archivo, sin librerías ni recursos de internet: los datos no salen del servidor.
 - REST de SharePoint con `credentials: 'same-origin'`; primero `odata=nometadata` y, si responde 400/406/415,

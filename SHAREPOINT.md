@@ -52,6 +52,30 @@ para saber listas, columnas (nombres internos) y tipos. **Nunca pedir contenido 
   To: { results }, CC: { results }, Subject, Body (HTML escapado) } }`. Lo envía el correo saliente del propio
   servidor (no sale a internet). Si falla, ofrecer `mailto:` (límite ~2000 caracteres, ver `mailto()`).
 
+### Envío robusto (OBLIGATORIO en toda página que mande correos) · modelo `permisos/permisos.html` (versión 2026-10-22 · 5)
+
+Lección del 22/10/2026: en Permisos un autorizador no recibía las solicitudes. Colabora **rechaza el correo ENTERO** si
+**una sola** dirección no es de un usuario que conozca con buzón («Asegúrese de que tenga un destinatario válido»), y
+además las personas suelen tener **cuentas antiguas** en el sitio (sin buzón o con otro correo); si el solicitante elige
+la antigua, el aviso no llega a nadie. El correo de prueba a la dirección buena sí funcionaba, lo que despistaba.
+Copiar de Permisos `enviarUno`, `loginDe`, `otrasDirecciones`, `enviarCorreo`, `msgCorreo`, `claseCorreo`, `anotarAviso`
+y `correoPrueba`:
+
+1. Primero un único `SendEmail` con todos los destinatarios.
+2. Si falla con «destinatario válido» (`DEST_MAL`), **uno a uno**; para cada dirección rechazada:
+   - su **cuenta de inicio de sesión** (por el Id de la persona en el elemento con `getuserbyid(Id)`; para uno mismo,
+     `currentuser.LoginName`; si no, buscándola en `siteusers` por `Email`);
+   - si tampoco, **otra cuenta del sitio con el mismo nombre** (mismas palabras aunque cambie el orden o las mayúsculas)
+     que tenga correo, y se dice «enviado a otra cuenta: antigua → buena».
+3. A quien tramita, **siempre** el resultado: a cuántos llegó, qué direcciones no acepta Colabora y botón «Preparar el
+   correo en Outlook» (`mailto:`). Nunca tragarse el error con `.catch(() => null)`.
+4. **Anotar en el historial del elemento** a quién llegó de verdad (o «NO ENVIADO (motivo)»).
+5. Al **elegir a una persona** en un formulario: si la cuenta elegida no tiene correo en Colabora y la misma persona tiene
+   otra cuenta del sitio con correo, usar esa.
+6. En la ficha, recuadro **«Aviso por correo»**: a qué direcciones iba, si la persona figura con OTRA cuenta o «sin
+   correo», y botón «Reenviar el aviso ahora». En Ajustes, **«Correo de prueba»**.
+7. Simular en las pruebas un Colabora que rechaza direcciones (`buzonMal` en `permisos/pruebas/simulacion.mjs`).
+
 ## Comentarios con historial
 
 - Columna multilínea con «Anexar cambios al texto existente» (`AppendOnly`): se escribe solo el comentario nuevo.
