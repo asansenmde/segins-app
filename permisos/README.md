@@ -59,6 +59,18 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
   representante, aprobador, autorizador, registrador o autor) y, si está en un grupo de registro, las autorizadas,
   registradas y anuladas. Quien tiene «Administrar listas» en la lista (gestor) ve todas. Es un filtro de la página:
   la protección real depende de los permisos de la lista en Colabora. Adjuntos: desde el formulario de Colabora.
+- **Interinidades de los jefes de unidad** (versión 2026-10-22 · 7). En la solicitud, la casilla «Soy jefe de unidad y comunico
+  mi interinidad» abre los tramos de interinos (persona, desde, hasta, teléfono y correo; «＋ Añadir otro interino»). Al
+  enviar es obligatorio cubrir todos los días del permiso sin huecos ni solapes, nadie puede ser su propio interino y se
+  avisa si un interino también está ausente como jefe. Se guardan en la lista **«INTERINIDADES JEFATURAS»** (una fila por
+  tramo, sin datos del permiso), con estado BORRADOR → PREVISTA (enviada) → CONFIRMADA (autorizada) o ANULADA (rechazada,
+  anulada o sustituida; nunca se borra); si vuelve al solicitante, BORRADOR. Al autorizar se avisa por correo a cada
+  interino. La ficha muestra «👤 Jefe de unidad · deja interinos» y los tramos; el solicitante puede «Cambiar interinos»
+  (o comunicarlos si se le olvidó) con la solicitud ya enviada: si el permiso está autorizado se avisa a los interinos y al
+  autorizador sin volver a autorizar. Pestaña **«Jefaturas»** (General y grupo «PERMISOS - MANDO», y el propietario):
+  «¿Quién manda hoy en cada unidad?» con teléfono y correo, cuadro por meses o trimestre (una barra por ausencia, un color
+  por interino, pendientes rayadas, línea de hoy), próximas ausencias e Imprimir / PDF. En *Ajustes › Interinidades de
+  jefes de unidad* se crean la lista (con sus columnas) y el grupo.
 - **Avisos por correo** (versión 2026-10-22 · 1): Colabora rechaza el correo ENTERO si una sola dirección no es de un
   usuario que conozca («Asegúrese de que tenga un destinatario válido»). Antes, si fallaba la del solicitante, al
   aprobador o al autorizador tampoco le llegaba. Ahora se reintenta destinatario a destinatario (y con la cuenta de inicio

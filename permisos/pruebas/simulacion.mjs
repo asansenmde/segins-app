@@ -10,10 +10,17 @@ const U = { 279: { Id: 279, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.e
   12: { Id: 12, Title: 'AUTORIZADOR UNO', EMail: 'autor1@et.mde.es' }, 13: { Id: 13, Title: 'SOLICITANTE DOS', EMail: 'sol2@et.mde.es' } };
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(0, 0, 0, 0); return x.toISOString(); };
 let sinExpand = false, pets = [], asigs = [], grupoReg = [], anadidosReg = [], solLista = true, asigLista = true;
+// Interinidades de jefes: lista «INTERINIDADES JEFATURAS» (ints), si existe (intLista), grupo «PERMISOS - MANDO» (grupoMando) y si soy de él (mando)
+let ints = [], intLista = true, grupoMando = [{ Id: 90, Title: 'EL GENERAL' }], mando = false, intCampos = null;
+const tramo = (id, sol, uni, tit, aIni, aFin, inter, des, has, tel, est, orden) => ({ Id: id, Title: uni, NumSolicitud: sol, UnidadNum: 1, Titular: tit.Title, TitularUid: tit.Id, AusenciaDesde: aIni, AusenciaHasta: aFin,
+  Interino: inter.Title, InterinoUid: inter.Id, Desde: des, Hasta: has, Telefono: tel, Correo: inter.EMail, Orden: orden, EstadoInterinidad: est });
 let cuentaVieja = false;   // solicitud que nombra al autorizador con una cuenta antigua cuya dirección Colabora no acepta
 let buzonMal = [], enviados = [], cuentasPedidas = [];   // direcciones que Colabora rechaza en SendEmail («destinatario válido») y las que sí acepta
 let ultimoFiltro = '', items, gestor = false, registro = true, admin = false, otraCuenta = false, jefeOtraCuenta = false, sinSubstr = false, jefeNombre = false;
 const nuevoStore = () => {
+  // La 2 (de SOLICITANTE DOS, pendiente de que yo la autorice) y la 3 (mía, autorizada) son de jefes de unidad con interinos
+  ints = [tramo(501, 2, 'UNIDAD A', U[13], d(1), d(1), U[11], d(1), d(1), '600111222', 'PREVISTA', 1),
+    tramo(502, 3, 'UNIDAD A', U[279], d(0), d(2), U[12], d(0), d(1), '600333444', 'CONFIRMADA', 1), tramo(503, 3, 'UNIDAD A', U[279], d(0), d(2), U[13], d(2), d(2), '600555666', 'CONFIRMADA', 2)];
   items = [
     { Id: 1, Title: 'Vacaciones', Estado: '1-Pendiente de Aprobar', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(5), FechaDeFin: d(9), Solicitante: U[13], AprobadorDePermiso: U[279], CorreoDelSolicitante: 'sol2@et.mde.es', CorreoDeAPROBADOR: 'usuario@et.mde.es', AprobadorTexto: 'USUARIO DE PRUEBA', EstadoDeAprobacion: 'SIN APROBAR', Unidad0: { Id: 2, Title: 'UNIDAD B' }, Dependencia: 'SEGURIDAD' },
     { Id: 2, Title: 'Asuntos propios', Estado: '2-Aprobado', TipoDePermiso: 'Permiso por asuntos particulares (Art.6.a)', CupoDeA_x00f1_o: '2026', FechaInicio: d(1), FechaDeFin: d(1), Solicitante: U[13], AprobadorDePermiso: U[11], AutorizadorDelPermiso: U[279], CorreoDelSolicitante: 'sol2@et.mde.es', CorreoDeAPROBADOR: 'aprob1@et.mde.es', CorreoDeAUTORIZADOR: 'usuario@et.mde.es', AprobadorTexto: 'APROBADOR UNO', AutorizadorTexto: 'USUARIO DE PRUEBA', EstadoDeAprobacion: 'APROBADO', Unidad0: { Id: 1, Title: 'UNIDAD A' }, Dependencia: 'JEFATURA' },
@@ -48,6 +55,15 @@ async function prueba(verbose, soloAlcance) {
         enviados.push(...dest); return r.fulfill({ json: { d: {} } });
       }
       if (resto.startsWith('SP.UI.ApplicationPages')) return r.fulfill({ json: { d: { ClientPeoplePickerSearchUser: '[]' } } });
+      if (resto.startsWith("web/lists/getbytitle('INTERINIDADES JEFATURAS')")) {
+        if (resto.includes('createfieldasxml')) { (intCampos ||= []).push(/Name="([^"]+)"/.exec(JSON.parse(req.postData()).parameters.SchemaXml)[1]); return r.fulfill({ json: { d: {} } }); }
+        const c3 = JSON.parse(req.postData() || '{}'); delete c3.__metadata; const m3 = resto.match(/items\((\d+)\)/);
+        if (m3) { Object.assign(ints.find(x => x.Id === +m3[1]), c3); return r.fulfill({ status: 204, body: '' }); }
+        if (resto.endsWith('/items')) { const it = { Id: 600 + ints.length, ...c3 }; ints.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } }); }
+        return r.fulfill({ status: 204, body: '' });
+      }
+      if (resto === 'web/lists') { const c3 = JSON.parse(req.postData()); if (c3.Title === 'INTERINIDADES JEFATURAS') { intLista = true; intCampos = []; } return r.fulfill({ status: 201, json: { d: { Id: 'nueva' } } }); }
+      if (resto === 'web/sitegroups') { if (JSON.parse(req.postData()).Title === 'PERMISOS - MANDO') grupoMando = []; return r.fulfill({ status: 201, json: { d: { Id: 95 } } }); }
       if (resto.startsWith("web/lists/getbytitle('SOLICITUDES ACCESO APLICACIONES')")) {
         const c2 = JSON.parse(req.postData() || '{}'); delete c2.__metadata; const ms = resto.match(/items\((\d+)\)/);
         if (ms) { Object.assign(pets.find(x => x.Id === +ms[1]), c2, c2.ResueltoPorId ? { ResueltoPor: U[c2.ResueltoPorId] || { Id: c2.ResueltoPorId, Title: 'X' } } : {}); return r.fulfill({ status: 204, body: '' }); }
@@ -73,7 +89,14 @@ async function prueba(verbose, soloAlcance) {
       if (resto.endsWith('/items')) { const it = { Id: items.length + 1, Created: new Date().toISOString(), Author: { Id: 279, Title: U[279].Title }, Editor: { Title: U[279].Title } }; aplica(it, c); items.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } }); }
       return r.fulfill({ status: 400, body: '' });
     }
-    if (resto.startsWith('web/currentuser/groups')) return J({ value: registro ? [{ Title: 'Personal de Registro' }] : [{ Title: 'Integrantes cdv' }] });
+    if (resto.startsWith("web/lists/getbytitle('INTERINIDADES JEFATURAS')")) {
+      if (!intLista) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
+      if (resto.includes('/fields')) return J({ value: (intCampos || ['Title', 'NumSolicitud', 'UnidadNum', 'Titular', 'TitularUid', 'AusenciaDesde', 'AusenciaHasta', 'Interino', 'InterinoUid', 'Desde', 'Hasta', 'Telefono', 'Correo', 'Orden', 'EstadoInterinidad']).map(n => ({ InternalName: n })) });
+      if (!resto.includes('/items')) return J({ Id: 'int', Title: 'INTERINIDADES JEFATURAS', ItemCount: ints.length, ListItemEntityTypeFullName: 'SP.Data.INTERINIDADESItem' });
+      return J({ value: ints.filter(x => x.EstadoInterinidad !== 'ANULADA') });
+    }
+    if (resto.startsWith("web/sitegroups/getbyname('PERMISOS - MANDO')/users")) return grupoMando ? J({ value: grupoMando }) : r.fulfill({ status: 404, body: '' });
+    if (resto.startsWith('web/currentuser/groups')) return J({ value: (registro ? [{ Title: 'Personal de Registro' }] : [{ Title: 'Integrantes cdv' }]).concat(mando ? [{ Title: 'PERMISOS - MANDO' }] : []) });
     if (resto.startsWith('SP.UserProfiles.PeopleManager')) return J({ Title: 'COMANDANTE', UserProfileProperties: verbose ? { results: [{ Key: 'Department', Value: 'UNIDAD B' }] } : [{ Key: 'Department', Value: 'UNIDAD B' }] });
     { const gid = resto.match(/web\/getuserbyid\((\d+)\)/); if (gid) { cuentasPedidas.push(+gid[1]); return J({ LoginName: 'i:0#.w|et\\u' + gid[1] }); } }
     if (resto.startsWith("web/sitegroups/getbyname('Personal de Registro')/users")) return J({ value: grupoReg });
@@ -117,6 +140,39 @@ async function prueba(verbose, soloAlcance) {
   });
   const tag = verbose ? '[verbose]' : '[ligero]';
   await p.goto(O + WEB + '/Documentos%20compartidos/permisos.html' + (soloAlcance === 'enlace' ? '?id=1' : '')); await p.waitForTimeout(800);
+  if (soloAlcance === 'jefaturas') {
+    console.log(tag, 'pestañas:', await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | ')));
+    await p.click('#tabs a[data-v=jefaturas]'); await p.waitForTimeout(400);
+    console.log(tag, 'hoy:', (await p.textContent('#vista .card table.t')).replace(/\s+/g, ' ').slice(0, 260));
+    console.log(tag, 'cuadro:', await p.$$eval('.gantt .gfila:not(.gcab) .get b', n => n.map(x => x.textContent).join(',')), '| tramos:', await p.$$eval('.gseg', n => n.map(x => x.textContent + (x.classList.contains('prev') ? ' (rayado)' : '')).join(', ')),
+      '| colores:', await p.$$eval('.gseg', n => [...new Set(n.map(x => x.style.backgroundColor))].length), '| línea de hoy:', await p.$$eval('.lhoy', n => n.length));
+    if (!verbose) await p.screenshot({ path: new URL('jefaturas.png', import.meta.url).pathname, fullPage: true });
+    await p.uncheck('#jefPend'); await p.waitForTimeout(200);
+    console.log(tag, 'sin pendientes:', await p.$$eval('.gseg', n => n.map(x => x.textContent).join(', ')));
+    await p.check('#jefPend'); await p.check('#jefTri'); await p.waitForTimeout(200);
+    console.log(tag, 'tres meses: días en la cabecera:', await p.$$eval('.gdias span', n => n.length));
+    const [imp] = await Promise.all([ctx.waitForEvent('page'), p.click('[data-jefimp]')]); await imp.waitForLoadState();
+    console.log(tag, 'impreso:', await imp.title(), '| secciones:', await imp.$$eval('h3', h => h.map(x => x.textContent).join(' | ')), '| tramos:', await imp.$$eval('.gseg', n => n.length));
+    await imp.close();
+    // Cambiar los interinos de mi permiso ya autorizado (la 3): se anulan los anteriores y se avisa a interinos y autorizador
+    await p.evaluate(() => { const a = document.createElement('a'); a.dataset.id = '3'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(600);
+    console.log(tag, 'ficha 3:', (await p.textContent('#dlg .jefpanel')).replace(/\s+/g, ' ').slice(0, 260));
+    await p.click('[data-intedit]'); await p.waitForTimeout(500);
+    await p.fill('#intEdit .intFila:nth-child(1) [name=iTel]', '699999999'); posts.length = 0;
+    await p.click('#intEdit .intGuardar'); await p.waitForTimeout(1800);
+    const avisos = posts.filter(x => x.ruta.startsWith('SP.Utilities')).map(x => JSON.parse(x.cuerpo).properties);
+    console.log(tag, 'cambiar interinos:', (await p.textContent('#dlg .okmsg, #dlg .aviso')).replace(/\s+/g, ' ').slice(0, 200), '| tramos de la 3:', ints.filter(x => x.NumSolicitud === 3).map(x => x.Interino + ':' + x.Telefono + ':' + x.EstadoInterinidad).join(', '),
+      '| avisos:', avisos.map(x => x.To.results.join() + ' «' + x.Subject.slice(0, 40) + '»').join(' / '), '| errores:', errs);
+    await b.close(); return;
+  }
+  if (soloAlcance === 'preparar jefaturas') {
+    await p.click('#tabs a[data-v=ajustes]'); await p.waitForTimeout(600);
+    console.log(tag, 'antes:', (await p.textContent('#jefPrep')).replace(/\s+/g, ' ').slice(0, 220), '| pestaña Jefaturas:', await p.$$eval('#tabs a[data-v=jefaturas]', n => n.length));
+    await p.click('[data-jefcrear]'); await p.waitForTimeout(1500); await p.click('[data-jefgrupo]'); await p.waitForTimeout(800);
+    await p.click('#tabs a[data-v=ajustes]'); await p.waitForTimeout(600);
+    console.log(tag, 'después:', (await p.textContent('#jefPrep')).replace(/\s+/g, ' ').slice(0, 220), '| columnas creadas:', (intCampos || []).length, '| errores:', errs);
+    await b.close(); return;
+  }
   if (soloAlcance === 'cuenta vieja') {
     await p.evaluate(() => { const a = document.createElement('a'); a.dataset.id = '12'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(700);
     console.log(tag, 'cuenta vieja, recuadro:', (await p.textContent('#dlg .panel:has([data-reaviso])').catch(() => 'NO HAY')).replace(/\s+/g, ' ').slice(0, 420));
@@ -226,7 +282,7 @@ async function prueba(verbose, soloAlcance) {
     console.log(tag, 'errores:', errs); admin = false;
     await b.close(); return;
   }
-  if (soloAlcance && soloAlcance !== 'correo rechazado') {
+  if (soloAlcance && soloAlcance !== 'correo rechazado' && soloAlcance !== 'jefaturas' && soloAlcance !== 'preparar jefaturas') {
     await p.click('#tabs a[data-v=todas]'); await p.waitForTimeout(300);
     console.log(tag, soloAlcance, '| pestañas:', await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | ')));
     console.log(tag, soloAlcance, '| filtro en servidor:', ultimoFiltro ? 'sí' : 'no', '| ids en consulta:', await p.$$eval('.sol', n => n.map(x => x.dataset.id).join(',')), '|', await p.textContent('#vista p.muted.small'));
@@ -243,8 +299,33 @@ async function prueba(verbose, soloAlcance) {
   console.log(tag, 'sin NIF:', await p.textContent('#nError'));
   await p.fill('#fSol [name=nif]', '12345678Z');
   await p.fill('#nApr input', 'aprob'); await p.waitForTimeout(200); await p.click('#nApr [data-sug="0"]'); await p.waitForTimeout(300);
+  if (!soloAlcance) {
+    // Soy jefe de unidad: interinos obligatorios, sin huecos, con teléfono y correo
+    await p.check('#nJefe'); await p.waitForTimeout(300);
+    await p.click('#fSol #nEnviar'); await p.waitForTimeout(200);
+    console.log(tag, 'jefe sin interino:', await p.textContent('#nError'));
+    const fila = n => '#nInt .intFila:nth-child(' + n + ') ';
+    await p.fill(fila(1) + '.iPer input', 'autoriz'); await p.waitForTimeout(300); await p.click(fila(1) + '[data-sug="0"]'); await p.waitForTimeout(300);
+    console.log(tag, 'correo del interino rellenado:', await p.inputValue(fila(1) + '[name=iCorreo]'), '| fechas propuestas:', await p.inputValue(fila(1) + '[name=iDesde]'), await p.inputValue(fila(1) + '[name=iHasta]'));
+    await p.fill(fila(1) + '[name=iHasta]', d(21).slice(0, 10)); await p.fill(fila(1) + '[name=iTel]', '611000111');
+    await p.click('#fSol #nEnviar'); await p.waitForTimeout(200);
+    console.log(tag, 'interinos con hueco:', await p.textContent('#nError'));
+    await p.click('#nIntMas'); await p.waitForTimeout(300);
+    console.log(tag, 'segundo tramo propuesto desde:', await p.inputValue(fila(2) + '[name=iDesde]'), 'hasta', await p.inputValue(fila(2) + '[name=iHasta]'));
+    await p.fill(fila(2) + '.iPer input', 'usuario de'); await p.waitForTimeout(300); await p.click(fila(2) + '[data-sug="0"]'); await p.waitForTimeout(300);
+    await p.fill(fila(2) + '[name=iTel]', '622000222');
+    await p.click('#fSol #nEnviar'); await p.waitForTimeout(200);
+    console.log(tag, 'yo como mi propio interino:', await p.textContent('#nError'));
+    await p.click(fila(2) + '[data-quitar]').catch(() => {}); await p.fill(fila(2) + '.iPer input', 'solicitante'); await p.waitForTimeout(300); await p.click(fila(2) + '[data-sug="0"]'); await p.waitForTimeout(300);
+    await p.fill(fila(2) + '[name=iDesde]', d(21).slice(0, 10));
+    await p.click('#fSol #nEnviar'); await p.waitForTimeout(200);
+    console.log(tag, 'tramos solapados:', await p.textContent('#nError'));
+    await p.fill(fila(2) + '[name=iDesde]', d(22).slice(0, 10));
+  }
   posts.length = 0;
   await p.click('#fSol #nEnviar'); await p.waitForTimeout(1500);
+  if (!soloAlcance) console.log(tag, 'interinos guardados:', JSON.stringify(ints.filter(x => x.NumSolicitud === 7).map(x => [x.Interino, x.Desde.slice(0, 10), x.Hasta.slice(0, 10), x.Telefono, x.Correo, x.EstadoInterinidad, x.Titular, x.Title])),
+    '| marca en la ficha:', (await p.textContent('#dlg .jefpanel h3').catch(() => 'NO')).trim());
   const alta = posts.find(x => x.ruta.endsWith('/items')), cAlta = JSON.parse(alta.cuerpo);
   console.log(tag, 'alta:', JSON.stringify({ Estado: cAlta.Estado, Sol: cAlta.SolicitanteId, Apr: cAlta.AprobadorDePermisoId, AprT: cAlta.AprobadorTexto, Cor: cAlta.CorreoDeAPROBADOR, Uni: cAlta.Unidad0Id, mas1: cAlta.dia_x0020_mas_x0020_uno, Motivo: cAlta.MotivoSeleccionado, Reg: cAlta.RegistroDeBorrador.slice(0, 50), Titulo: cAlta.Title }));
   const m1 = JSON.parse(posts.find(x => x.ruta.startsWith('SP.Utilities')).cuerpo).properties;
@@ -292,6 +373,9 @@ async function prueba(verbose, soloAlcance) {
   posts.length = 0; await p.click('[data-acc=autorizar]'); await p.waitForTimeout(1500);
   const cAu = JSON.parse(posts.find(x => /items\(2\)/.test(x.ruta)).cuerpo);
   console.log(tag, 'autorizar:', JSON.stringify({ Estado: cAu.Estado, EAu: cAu.EstadoDeAutorizacion, ER: cAu.EstadoDeRegistro }));
+  const mInt = posts.filter(x => x.ruta.startsWith('SP.Utilities')).map(x => JSON.parse(x.cuerpo).properties).filter(x => /INTERINIDAD/.test(x.Subject));
+  console.log(tag, 'interinos de la 2 tras autorizar:', ints.filter(x => x.NumSolicitud === 2).map(x => x.EstadoInterinidad).join(','), '| aviso a interinos:', mInt.map(x => x.To.results.join() + ' «' + x.Subject + '»').join(' / '),
+    '| mensaje:', (await p.textContent('#dlg .okmsg, #dlg .aviso')).replace(/\s+/g, ' ').slice(0, 200));
   await p.click('#dlg [data-cerrar]');
   // Ya tramitadas por mí: la 1 (aprobada) y la 2 (autorizada) dejan de estar pendientes pero se siguen viendo
   await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200);
@@ -412,5 +496,7 @@ registro = false; sinExpand = true; await prueba(false, 'sin expand'); admin = t
 registro = true; await prueba(false, 'seguridad'); await prueba(true, 'seguridad');
 otraCuenta = true; await prueba(false, 'cuentas'); await prueba(true, 'cuentas'); otraCuenta = false;
 jefeNombre = true; registro = false; await prueba(false, 'jefe por nombre'); sinSubstr = true; await prueba(true, 'jefe por nombre'); sinSubstr = false; jefeNombre = false; registro = true;
+mando = true; registro = false; await prueba(false, 'jefaturas'); await prueba(true, 'jefaturas'); mando = false;
+admin = true; intLista = false; grupoMando = null; await prueba(false, 'preparar jefaturas'); intLista = true; grupoMando = [{ Id: 90, Title: 'EL GENERAL' }]; intCampos = null; admin = false; registro = true;
 cuentaVieja = true; registro = false; buzonMal = ['viejo@et.mde.es', 'i:0#.w|et\\u777']; await prueba(false, 'cuenta vieja'); await prueba(true, 'cuenta vieja'); buzonMal = []; cuentaVieja = false; registro = true;
 jefeOtraCuenta = true; registro = false; await prueba(false, 'jefe por correo'); await prueba(true, 'jefe por correo'); jefeOtraCuenta = false; registro = true;
