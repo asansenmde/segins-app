@@ -44,6 +44,11 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
    Colabora (· 3) y Permisos (· 6), probado en simulación (original y protegida). Pendiente de que el usuario suba las
    cuatro copias protegidas y haga un «Correo de prueba» en cada una.
 
+10. **Permisos: interinidades de los jefes de unidad** (propuesta del 22/10/2026, esperando respuestas del usuario). Cuando
+    un jefe de unidad pide un permiso, indica uno o varios interinos con sus tramos de fechas, teléfono y correo; el
+    autorizador lo ve marcado como jefe; lista aparte «INTERINIDADES» (sin datos del permiso); pestaña «Jefaturas» para el
+    GENERAL con el cuadro gráfico y «quién manda hoy en cada unidad»; aviso por correo a los interinos al autorizar.
+
 Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar por la que diga).
 
 ## Hecho en VSA (referencia)
