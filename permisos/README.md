@@ -59,6 +59,12 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
   representante, aprobador, autorizador, registrador o autor) y, si está en un grupo de registro, las autorizadas,
   registradas y anuladas. Quien tiene «Administrar listas» en la lista (gestor) ve todas. Es un filtro de la página:
   la protección real depende de los permisos de la lista en Colabora. Adjuntos: desde el formulario de Colabora.
+- **Copia de pruebas** `colabora/permisos-pruebas.html` (se genera con `node proteger.mjs --pruebas`): se sube junto a la
+  buena sin sustituirla. Trabaja sobre listas «… PRUEBAS» (`Solicitud de Permisos PRUEBAS`, `INTERINIDADES JEFATURAS
+  PRUEBAS`, `SOLICITUDES ACCESO APLICACIONES PRUEBAS`, `ASIGNACIONES REGISTRO SIPERDEF PRUEBAS`) y nunca sobre las reales;
+  guarda sus preferencias aparte; banda roja «VERSIÓN DE PRUEBAS»; los correos llevan «[PRUEBAS]» en el asunto. Si falta
+  su lista, ofrece «Crear la lista de pruebas»: copia vacía de las columnas propias de «Solicitud de Permisos».
+  Simulación: `PRUEBAS=1 PERM_HTML=permisos/colabora/permisos-pruebas.html node permisos/pruebas/simulacion.mjs`.
 - **Interinidades de los jefes de unidad** (versión 2026-10-22 · 7). En la solicitud, la casilla «Soy jefe de unidad y comunico
   mi interinidad» abre los tramos de interinos (persona, desde, hasta, teléfono y correo; «＋ Añadir otro interino»). Al
   enviar es obligatorio cubrir todos los días del permiso sin huecos ni solapes, nadie puede ser su propio interino y se

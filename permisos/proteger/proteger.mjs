@@ -1,12 +1,18 @@
 // Genera la versión protegida de permisos.html para subir a Colabora: ../colabora/permisos.html
 // El original legible (../permisos.html) es el que se edita; esta copia se regenera cada vez que cambia.
 // Uso: cd permisos/proteger && npm install && node proteger.mjs
+//      node proteger.mjs --pruebas  → ../colabora/permisos-pruebas.html (copia de pruebas: listas «… PRUEBAS», banda roja)
 // © 2026 Cte. Alfredo Sánchez Sender. Todos los derechos reservados.
 import fs from 'fs';
 import JavaScriptObfuscator from 'javascript-obfuscator';
 
-const origen = new URL('../permisos.html', import.meta.url), destino = new URL('../colabora/permisos.html', import.meta.url);
+const PRUEBAS = process.argv.includes('--pruebas');
+const origen = new URL('../permisos.html', import.meta.url), destino = new URL(PRUEBAS ? '../colabora/permisos-pruebas.html' : '../colabora/permisos.html', import.meta.url);
 let html = fs.readFileSync(origen, 'utf8');
+if (PRUEBAS) {
+  if (!html.includes('var PRUEBAS = false;')) throw new Error('No encuentro «var PRUEBAS = false;» en permisos.html');
+  html = html.replace('var PRUEBAS = false;', 'var PRUEBAS = true;');
+}
 
 // Se ofusca el código de la aplicación (el último <script>). Si algún día se incluye una librería de terceros con
 // licencia (p. ej. AutoFirma), va en otro <script> anterior y se deja tal cual.
@@ -31,7 +37,7 @@ const ofuscado = JavaScriptObfuscator.obfuscate(codigo, {
   unicodeEscapeSequence: false
 }).getObfuscatedCode();
 
-const aviso = '<!--\n  Solicitud de permisos · SUIGESUR · versión ' + version + ' (protegida)\n' +
+const aviso = '<!--\n  Solicitud de permisos · SUIGESUR · versión ' + version + ' (protegida' + (PRUEBAS ? ', COPIA DE PRUEBAS' : '') + ')\n' +
   '  © 2026 Cte. Alfredo Sánchez Sender. Desarrollador y autor de esta aplicación. Todos los derechos reservados.\n' +
   '  Prohibida su copia, modificación o redistribución sin autorización del autor.\n-->\n';
 let salida = html.slice(0, ini + 8) + '\n' + ofuscado + '\n' + html.slice(fin);

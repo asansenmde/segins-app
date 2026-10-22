@@ -4,7 +4,10 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
 const fs = require('fs');
-const html = fs.readFileSync(process.env.PERM_HTML ? process.env.PERM_HTML : new URL('../permisos.html', import.meta.url), 'utf8');  // PERM_HTML=permisos/colabora/permisos.html para probar la versión protegida
+const html = fs.readFileSync(process.env.PERM_HTML ? process.env.PERM_HTML : new URL('../permisos.html', import.meta.url), 'utf8');
+// PRUEBAS=1 con PERM_HTML=permisos/colabora/permisos-pruebas.html: las listas «… PRUEBAS» se sirven como las reales
+const PRUEBAS = !!process.env.PRUEBAS;
+let pruebasSinLista = false, camposPruebas = [], asuntos = [];  // PERM_HTML=permisos/colabora/permisos.html para probar la versión protegida
 const WEB = '/et/SUIGESUR/colaborativo/CALIDAD-VIDA', O = 'https://colabora.mdef.es';
 const U = { 279: { Id: 279, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.es' }, 11: { Id: 11, Title: 'APROBADOR UNO', EMail: 'aprob1@et.mde.es' },
   12: { Id: 12, Title: 'AUTORIZADOR UNO', EMail: 'autor1@et.mde.es' }, 13: { Id: 13, Title: 'SOLICITANTE DOS', EMail: 'sol2@et.mde.es' } };
@@ -40,7 +43,17 @@ async function prueba(verbose, soloAlcance) {
   const errs = []; p.on('pageerror', e => errs.push(e.message)); const posts = [], gets = [], alertas = [];
   p.on('dialog', dl => { alertas.push(dl.message()); dl.dismiss(); });
   await p.route(O + '/**', async r => {
-    const req = r.request(), u = decodeURIComponent(req.url());
+    const req = r.request(); let u = decodeURIComponent(req.url());
+    if (PRUEBAS && u.includes('/_api/')) {
+      if (u.includes("getbytitle('Solicitud de Permisos')") && !u.includes('SchemaXml')) return r.fulfill({ status: 500, json: { error: { message: { value: 'LA COPIA DE PRUEBAS HA TOCADO LA LISTA REAL' } } } });
+      if (u.includes("getbytitle('Solicitud de Permisos PRUEBAS')") && u.includes('createfieldasxml')) { camposPruebas.push(/Name="([^"]+)"/.exec(JSON.parse(req.postData()).parameters.SchemaXml)[1] + (/ ID="/.test(JSON.parse(req.postData()).parameters.SchemaXml) ? ' (CON ID)' : '')); return r.fulfill({ json: { d: {} } }); }
+      if (pruebasSinLista && u.includes("getbytitle('Solicitud de Permisos PRUEBAS')")) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
+      if (u.includes("getbytitle('Solicitud de Permisos')") && u.includes('SchemaXml')) return r.fulfill({ json: { value: [
+        { InternalName: 'Title', SchemaXml: '<Field Name="Title"/>', FromBaseType: true }, { InternalName: 'Estado', SchemaXml: '<Field Type="Choice" ID="{11111111-1111-1111-1111-111111111111}" Name="Estado" StaticName="Estado" SourceID="{x}" Version="3"><CHOICES><CHOICE>1-Pendiente de Aprobar</CHOICE></CHOICES></Field>' },
+        { InternalName: 'Unidad0', SchemaXml: '<Field Type="Lookup" ID="{22222222-2222-2222-2222-222222222222}" Name="Unidad0" StaticName="Unidad0" List="{ab12cd34-0000-0000-0000-000000000001}" ShowField="Title" />' },
+        { InternalName: 'NIF', SchemaXml: '<Field Type="Text" ID="{33333333-3333-3333-3333-333333333333}" Name="NIF" StaticName="NIF" />' }, { InternalName: 'Oculto', SchemaXml: '<Field Name="Oculto"/>', Hidden: true }] } });
+      u = u.replace(/ PRUEBAS'\)/g, "')");
+    }
     if (!u.includes('/_api/')) return r.fulfill({ body: html, contentType: 'text/html' });
     if (verbose && req.method() === 'GET' && (req.headers()['accept'] || '').includes('nometadata')) return r.fulfill({ status: 415, body: '' });
     const J = x => r.fulfill({ json: verbose ? { d: Array.isArray(x.value) ? { results: x.value, __next: x['odata.nextLink'] } : x } : x });
@@ -51,6 +64,7 @@ async function prueba(verbose, soloAlcance) {
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = JSON.parse(req.postData()).properties, dest = [pr.To, pr.CC, pr.BCC].flatMap(x => x ? x.results : []);
+        asuntos.push(pr.Subject);
         if (dest.some(x => buzonMal.includes(String(x).toLowerCase()))) return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el mensaje de correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } });
         enviados.push(...dest); return r.fulfill({ json: { d: {} } });
       }
@@ -62,7 +76,7 @@ async function prueba(verbose, soloAlcance) {
         if (resto.endsWith('/items')) { const it = { Id: 600 + ints.length, ...c3 }; ints.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } }); }
         return r.fulfill({ status: 204, body: '' });
       }
-      if (resto === 'web/lists') { const c3 = JSON.parse(req.postData()); if (c3.Title === 'INTERINIDADES JEFATURAS') { intLista = true; intCampos = []; } return r.fulfill({ status: 201, json: { d: { Id: 'nueva' } } }); }
+      if (resto === 'web/lists') { const c3 = JSON.parse(req.postData()); if (c3.Title === 'Solicitud de Permisos PRUEBAS') pruebasSinLista = false; if (/^INTERINIDADES JEFATURAS/.test(c3.Title)) { intLista = true; intCampos = []; } return r.fulfill({ status: 201, json: { d: { Id: 'nueva' } } }); }
       if (resto === 'web/sitegroups') { if (JSON.parse(req.postData()).Title === 'PERMISOS - MANDO') grupoMando = []; return r.fulfill({ status: 201, json: { d: { Id: 95 } } }); }
       if (resto.startsWith("web/lists/getbytitle('SOLICITUDES ACCESO APLICACIONES')")) {
         const c2 = JSON.parse(req.postData() || '{}'); delete c2.__metadata; const ms = resto.match(/items\((\d+)\)/);
@@ -140,6 +154,13 @@ async function prueba(verbose, soloAlcance) {
   });
   const tag = verbose ? '[verbose]' : '[ligero]';
   await p.goto(O + WEB + '/Documentos%20compartidos/permisos.html' + (soloAlcance === 'enlace' ? '?id=1' : '')); await p.waitForTimeout(800);
+  if (soloAlcance === 'crear lista de pruebas') {
+    console.log(tag, 'banda:', await p.textContent('.bandaPruebas').catch(() => 'NINGUNA'), '| título:', await p.title());
+    console.log(tag, 'sin lista:', (await p.textContent('#vista')).replace(/\s+/g, ' ').slice(0, 200));
+    await p.click('[data-crearpruebas]'); await p.waitForTimeout(2500);
+    console.log(tag, 'columnas copiadas:', camposPruebas.join(', '), '| ahora:', await p.textContent('#estadoCarga'), '| pestañas:', await p.$$eval('#tabs a', a => a.length), '| errores:', errs);
+    await b.close(); return;
+  }
   if (soloAlcance === 'jefaturas') {
     console.log(tag, 'pestañas:', await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | ')));
     await p.click('#tabs a[data-v=jefaturas]'); await p.waitForTimeout(400);
@@ -282,7 +303,7 @@ async function prueba(verbose, soloAlcance) {
     console.log(tag, 'errores:', errs); admin = false;
     await b.close(); return;
   }
-  if (soloAlcance && soloAlcance !== 'correo rechazado' && soloAlcance !== 'jefaturas' && soloAlcance !== 'preparar jefaturas') {
+  if (soloAlcance && soloAlcance !== 'correo rechazado' && soloAlcance !== 'jefaturas' && soloAlcance !== 'preparar jefaturas' && soloAlcance !== 'crear lista de pruebas') {
     await p.click('#tabs a[data-v=todas]'); await p.waitForTimeout(300);
     console.log(tag, soloAlcance, '| pestañas:', await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | ')));
     console.log(tag, soloAlcance, '| filtro en servidor:', ultimoFiltro ? 'sí' : 'no', '| ids en consulta:', await p.$$eval('.sol', n => n.map(x => x.dataset.id).join(',')), '|', await p.textContent('#vista p.muted.small'));
@@ -500,3 +521,7 @@ mando = true; registro = false; await prueba(false, 'jefaturas'); await prueba(t
 admin = true; intLista = false; grupoMando = null; await prueba(false, 'preparar jefaturas'); intLista = true; grupoMando = [{ Id: 90, Title: 'EL GENERAL' }]; intCampos = null; admin = false; registro = true;
 cuentaVieja = true; registro = false; buzonMal = ['viejo@et.mde.es', 'i:0#.w|et\\u777']; await prueba(false, 'cuenta vieja'); await prueba(true, 'cuenta vieja'); buzonMal = []; cuentaVieja = false; registro = true;
 jefeOtraCuenta = true; registro = false; await prueba(false, 'jefe por correo'); await prueba(true, 'jefe por correo'); jefeOtraCuenta = false; registro = true;
+if (PRUEBAS) {
+  pruebasSinLista = true; admin = true; await prueba(false, 'crear lista de pruebas'); admin = false;
+  console.log('[pruebas] correos enviados:', asuntos.length, '| todos con «[PRUEBAS]» en el asunto:', asuntos.every(a => a.startsWith('[PRUEBAS] ')));
+}

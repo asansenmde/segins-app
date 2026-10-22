@@ -131,6 +131,7 @@
   .campo b { display: block; font-size: .8rem; color: var(--muted); }
   .campo div { white-space: pre-wrap; overflow-wrap: anywhere; }
   .panel { background: var(--surface-2); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+  .bandaPruebas { background: var(--bad); color: #fff; text-align: center; font-weight: 800; letter-spacing: .5px; padding: 6px 10px; font-size: .9rem; }
   /* Interinidades de los jefes de unidad */
   .badge.jefe { background: #fff4d6; color: #7a4d00; border: 1px solid #e3c06b; }
   .jefpanel { border-left: 5px solid var(--oro); }
@@ -203,13 +204,24 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-10-22 · 7';
+  var VERSION = '2026-10-22 · 8';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
-  var CLAVE = 'permisos-calidad-vida';
-  var pref = { sitio: '/et/SUIGESUR/colaborativo/CALIDAD-VIDA', lista: 'Solicitud de Permisos', vista: 'mias', correo: true,
+  // Copia de pruebas («node proteger.mjs --pruebas» genera permisos-pruebas.html con PRUEBAS = true): trabaja sobre
+  // listas «… PRUEBAS» (nunca sobre las reales), guarda sus preferencias aparte, lleva una banda roja y marca los correos.
+  var PRUEBAS = false;
+  var SUF = PRUEBAS ? ' PRUEBAS' : '';
+  var CLAVE = 'permisos-calidad-vida' + (PRUEBAS ? '-pruebas' : '');
+  var pref = { sitio: '/et/SUIGESUR/colaborativo/CALIDAD-VIDA', lista: 'Solicitud de Permisos' + SUF, vista: 'mias', correo: true,
     f: { q: '', estado: '', tipo: '', dependencia: '', unidad: '', cupo: '' }, cal: { dependencia: '', unidad: '', pendientes: true, ver: 'control' }, recordados: {} };
   var POR_DEFECTO = { sitio: pref.sitio, lista: pref.lista };
+  if (PRUEBAS) {
+    document.title = 'PRUEBAS · ' + document.title;
+    var bandaP = document.createElement('div');
+    bandaP.className = 'bandaPruebas';
+    bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · trabaja sobre la lista «' + pref.lista + '», no sobre la real · los correos llevan [PRUEBAS] en el asunto';
+    document.body.insertBefore(bandaP, document.body.firstChild);
+  }
   try { var g = JSON.parse(localStorage.getItem(CLAVE) || 'null'); if (g) pref = Object.assign(pref, g, { f: Object.assign(pref.f, g.f || {}), cal: Object.assign(pref.cal, g.cal || {}) }); } catch (e) { /* sin memoria local */ }
   var guardarPref = function () { try { localStorage.setItem(CLAVE, JSON.stringify(pref)); } catch (e) { /* sin memoria local */ } };
 
@@ -459,8 +471,35 @@
     }).catch(function (e) {
       $('#estadoCarga').textContent = 'Error';
       $('#vista').innerHTML = '<div class="error">No se pudo leer la lista: ' + esc(e.message || e) + '. ¿Tienes permiso para verla?<br><small>Sitio: ' + esc(pref.sitio) + ' · lista: ' + esc(pref.lista) + ' · versión ' + esc(VERSION) + '</small></div>' +
-        (pref.sitio !== POR_DEFECTO.sitio || pref.lista !== POR_DEFECTO.lista ? '<div class="acciones"><button class="prim" data-restablecer="1">Volver al sitio y la lista de siempre</button></div>' : '');
+        (pref.sitio !== POR_DEFECTO.sitio || pref.lista !== POR_DEFECTO.lista ? '<div class="acciones"><button class="prim" data-restablecer="1">Volver al sitio y la lista de siempre</button></div>' : '') +
+        (PRUEBAS && e.status === 404 ? '<div class="card"><h3 style="margin-top:0">Preparar la versión de pruebas</h3><p class="small">Crea la lista «' + esc(pref.lista) + '» como copia <b>vacía</b> de «Solicitud de Permisos» (mismas columnas, sin ninguna solicitud). Necesitas permiso para crear listas en el sitio.</p>' +
+          '<div class="acciones"><button class="prim" data-crearpruebas="1">Crear la lista de pruebas</button></div><div id="prMsg"></div></div>' : '');
     });
+  }
+
+  // Copia vacía de la lista real para la versión de pruebas: las columnas propias de «Solicitud de Permisos» (las del sistema
+  // ya vienen con la lista) con su mismo nombre interno; se quitan los identificadores para que no choquen con los de la real
+  function crearListaPruebas(boton) {
+    var real = web + "/_api/web/lists/getbytitle('" + encodeURIComponent('Solicitud de Permisos') + "')", msg = function (t) { var el = $('#prMsg'); if (el) el.innerHTML = t; };
+    boton.disabled = true; msg('<p class="small muted">Leyendo las columnas de la lista real…</p>');
+    var fallos = [];
+    todas(real + '/fields?$select=InternalName,SchemaXml,Hidden,ReadOnlyField,FromBaseType&$top=500').then(function (fs) {
+      var propias = fs.filter(function (f) { return !f.Hidden && !f.ReadOnlyField && !f.FromBaseType && f.InternalName !== 'Title' && f.SchemaXml; });
+      return enviarSP(web + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: pref.lista, Description: 'Copia de pruebas de «Solicitud de Permisos» (página permisos-pruebas.html)' }, 'No tienes permiso para crear listas en el sitio')
+        .then(function () {
+          return propias.reduce(function (p, f, i) {
+            return p.then(function () {
+              msg('<p class="small muted">Creando columnas: ' + (i + 1) + ' de ' + propias.length + '…</p>');
+              var xml = f.SchemaXml.replace(/\s(ID|SourceID|Version|ColName|RowOrdinal|WebId|Customization)="[^"]*"/g, '');
+              return enviarSP(urlLista() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas')
+                .catch(function (e) { fallos.push(f.InternalName + ' (' + (e.message || e) + ')'); });
+            });
+          }, Promise.resolve()).then(function () { return propias.length; });
+        });
+    }).then(function (n) {
+      msg('<div class="' + (fallos.length ? 'aviso' : 'okmsg') + '">✓ Lista de pruebas creada con ' + (n - fallos.length) + ' de ' + n + ' columnas.' + (fallos.length ? ' No se pudieron copiar: ' + esc(fallos.join('; ')) + '.' : '') + ' Cargando…</div>');
+      setTimeout(cargar, 800);
+    }).catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo crear: ' + esc(e.message || e) + '</div>'); });
   }
 
   // ---------- Alcance: cada uno lee solo lo que le corresponde por su papel ----------
@@ -928,7 +967,7 @@
   // administra la lista escribe). OJO: no llamarla «Solicitudes de acceso»: es el nombre de la lista interna de SharePoint
   // («Access Requests», solo para propietarios) y getbytitle no distingue mayúsculas. Cada registrador ve y registra solo sus unidades; el propietario (Control total o
   // administrar la lista) ve y registra todas. Transición: el registrador sin unidad asignada sigue viéndolas todas.
-  var ACC = { app: 'REGISTRO SIPERDEF', lista: 'SOLICITUDES ACCESO APLICACIONES', asig: 'ASIGNACIONES REGISTRO SIPERDEF', grupo: 'Personal de Registro', avisar: ['asansen@et.mde.es'], transicion: true };
+  var ACC = { app: 'REGISTRO SIPERDEF', lista: 'SOLICITUDES ACCESO APLICACIONES' + SUF, asig: 'ASIGNACIONES REGISTRO SIPERDEF' + SUF, grupo: 'Personal de Registro', avisar: ['asansen@et.mde.es'], transicion: true };
   var AVISO_REG = 'Acceso exclusivo para el personal de las Secciones de Personal. Se comprobará que perteneces a la sección de personal de la unidad indicada; las solicitudes que no lo cumplan se rechazarán.';
   var esSuper = function () { return esAdmin || esGestor; };
   var misUnidadesReg = null;   // null: sin asignación (o sin lista); [ids]: unidades asignadas
@@ -1199,7 +1238,7 @@
   // tipo, ni NIF, ni observaciones) para que el GENERAL vea en la pestaña «Jefaturas» quién manda en cada unidad.
   // Estado de cada tramo: BORRADOR (solicitud sin enviar), PREVISTA (pendiente de autorizar), CONFIRMADA (autorizada) y
   // ANULADA (rechazada, anulada o sustituida por otros tramos: nunca se borra).
-  var JEF = { lista: 'INTERINIDADES JEFATURAS', grupo: 'PERMISOS - MANDO' };
+  var JEF = { lista: 'INTERINIDADES JEFATURAS' + SUF, grupo: 'PERMISOS - MANDO' };
   var CAMPOS_INT = [
     '<Field Type="Number" Name="NumSolicitud" StaticName="NumSolicitud" DisplayName="Nº de solicitud" Decimals="0" />',
     '<Field Type="Number" Name="UnidadNum" StaticName="UnidadNum" DisplayName="Unidad (Id)" Decimals="0" />',
@@ -1715,7 +1754,7 @@
   }
   var DEST_MAL = /destinatario v|valid recipient|recipient/i;
   function enviarUno(to, cc, bcc, c) {
-    var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, CC: { results: cc || [] }, Subject: c.asunto, Body: c.html };
+    var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, CC: { results: cc || [] }, Subject: (PRUEBAS ? '[PRUEBAS] ' : '') + c.asunto, Body: c.html };
     if (bcc && bcc.length) pr.BCC = { results: bcc };
     return enviarSP(web + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página');
   }
@@ -2241,6 +2280,7 @@
     if (tab) { pref.vista = tab.dataset.v; guardarPref(); render(); return; }
     if (el.closest('#recargar')) { recien.clear(); limpiarUltimaReg(); misPets = null; ar.estado = ''; cargar().then(function () { if (esAdmin) cargarAccReg(); }); return; }
     if (el.closest('[data-pruebacorreo]')) { correoPrueba(el.closest('[data-pruebacorreo]')); return; }
+    if (el.closest('[data-crearpruebas]')) { crearListaPruebas(el.closest('[data-crearpruebas]')); return; }
     var ie = el.closest('[data-intedit]');
     if (ie) { var ti = items.find(function (x) { return x.id === Number(ie.dataset.intedit); }); if (ti) editarInterinosFicha(ti); return; }
     var jm = el.closest('[data-jefmes]');
