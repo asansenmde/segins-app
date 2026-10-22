@@ -27,10 +27,8 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
 5. **Ocultar la ruleta en el portal**: hecho con un Editor de scripts (receta y cómo volver a verla en `SHAREPOINT.md`,
    «Ocultar la ruleta y la cinta en el portal»). Pendiente de confirmar que el administrador la ve sin `?admin=1`.
 
-6. **Tareas Colabora, mejoras de visibilidad pendientes** (propuestas el 22/10/2026; hechas ya la cabecera, el resumen,
-   los grupos plegables, la tabla, los filtros y la autoría): recorrido de estados con contadores, pestaña de
-   estadísticas (cumplimiento de NLT, retraso medio, por negociado/responsable/mes) y calendario con colores por
-   prioridad.
+6. **Tareas Colabora**: hecha toda la propuesta de visibilidad (22/10/2026). Queda por decidir si lleva **control de
+   acceso con solicitud** (punto 2) o sigue abierta a quien tenga permiso en la lista.
 
 Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar por la que diga).
 

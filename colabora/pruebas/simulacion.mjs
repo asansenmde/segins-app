@@ -130,7 +130,35 @@ async function prueba() {
   console.log('ficha desde tabla:', await p.evaluate(() => document.querySelector('#dlg').open));
   await p.click('#dlg [data-cerrar]'); await p.click('[data-modo=tarjetas]');
   if (CAPTURAS) await p.screenshot({ path: CAPTURAS + '/escritorio-tarjetas.png', fullPage: false });
-  await p.setViewportSize({ width: 420, height: 900 }); await p.selectOption('#fquien', 'mias');
+  // Recorrido de estados, ficha, calendario y estadísticas
+  console.log('recorrido:', (await p.$$eval('.flujo .fp', bs => bs.map(b => b.innerText.replace(/\s+/g, ' ')))).join(' | '));
+  await p.click('.flujo [data-kpi="c:espera"]');
+  console.log('solo en espera:', (await p.$$eval('details.grupo', ds => ds.map(d => d.dataset.grupo + ':' + d.querySelector('.n').textContent))).join(' '),
+    '| todas en espera:', await p.$$eval('details.grupo .tarea .badge[class*=st-]', bs => bs.every(b => b.classList.contains('st-espera'))));
+  await p.click('details.grupo .tarea'); await p.waitForTimeout(200);
+  console.log('fase en ficha:', await p.textContent('#dlg .pasos span.on'));
+  await p.click('#dlg [data-cerrar]'); await p.click('.flujo [data-kpi="c:espera"]');
+  if (CAPTURAS) { await p.evaluate(() => scrollTo(0, 0)); await p.screenshot({ path: CAPTURAS + '/escritorio-panel.png' }); }
+  await p.click('#tabs [data-v=calendario]');
+  console.log('calendario: días con vencidos', await p.$$eval('.dia .pt', x => x.length), '| colores', JSON.stringify(await p.$$eval('.dia i', is => is.reduce((a, i) => (a[i.className || 'resto'] = (a[i.className || 'resto'] || 0) + 1, a), {}))));
+  if (CAPTURAS) await p.screenshot({ path: CAPTURAS + '/calendario.png', fullPage: true });
+  await p.click('[data-mes="1"]'); await p.click('[data-mes="0"]');
+  console.log('vuelve a hoy:', await p.$$eval('.dia.hoy', x => x.length));
+  await p.click('#tabs [data-v=estadisticas]');
+  console.log('kpis:', (await p.$$eval('#estDoc .kpi', ks => ks.map(k => k.innerText.replace(/\s+/g, ' ')))).join(' | '));
+  console.log('meses:', await p.$$eval('.columnas .mes', x => x.length), '| bloques:', (await p.$$eval('#estDoc .est h3', x => x.map(e => e.textContent))).join(', '),
+    '| negociados:', (await p.$$eval('#estDoc .est', es => es[1].innerText.replace(/\s+/g, ' ').slice(0, 300))));
+  await p.click('[data-estper=mes]');
+  console.log('este mes:', (await p.$$eval('#estDoc .kpi', ks => ks.slice(2, 5).map(k => k.innerText.replace(/\s+/g, ' ')))).join(' | '), '| meses', await p.$$eval('.columnas .mes', x => x.length));
+  const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-est=csv]')]);
+  const csv = fs.readFileSync(await dl.path(), 'utf8');
+  console.log('csv:', dl.suggestedFilename(), csv.split('\r\n').length, 'líneas;', csv.split('\r\n').slice(0, 3).join(' / '));
+  await p.click('[data-estper="12m"]');
+  if (CAPTURAS) await p.screenshot({ path: CAPTURAS + '/estadisticas.png', fullPage: true });
+  await p.setViewportSize({ width: 420, height: 900 });
+  if (CAPTURAS) await p.screenshot({ path: CAPTURAS + '/movil-estadisticas.png', fullPage: false });
+  await p.click('#tabs [data-v=nlt]');
+  await p.selectOption('#fquien', 'mias');
   // alta rápida con fecha en el texto
   await p.fill('#altaRapida', 'Preparar informe de visita antes del viernes urgente');
   await p.press('#altaRapida', 'Enter'); await p.waitForTimeout(500);

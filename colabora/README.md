@@ -18,6 +18,15 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   contador (se recuerda cuáles están abiertos); colores por estado, prioridad y plazo («Retraso de 5 días», «Faltan
   3 días»); botón **Tarjetas / Tabla** compacta; filtros de búsqueda, negociado, responsable, estado y prioridad con
   «Limpiar filtros». Pie de autoría con la versión.
+- **Recorrido de estados** (pestaña Tareas): pendientes › en curso › en espera › terminados, con su número; al pulsar uno se
+  ven solo esos. La ficha de cada asunto marca su fase. Qué valor de ESTADO cae en cada fase se ajusta en *Ajustes*.
+- **Estadísticas** (pestaña propia, con los filtros de la barra): periodo (este mes, trimestre, año, últimos 12 meses o
+  todo); abiertos y fuera de plazo hoy, creados y terminados en el periodo, % de NLT cumplida, retraso medio (al terminar
+  y de los vencidos) y tiempo medio de resolución; evolución mensual (creados y terminados, también en tabla); abiertos
+  por negociado, responsable y prioridad (fuera de plazo / en plazo / sin NLT) con terminados y % en plazo.
+  Imprimir / PDF y CSV.
+- **Calendario con colores**: fuera de plazo, prioridad crítica o alta y en espera; punto rojo en los días con
+  vencidos, número de asuntos por día, fines de semana sombreados, botón «Hoy» y leyenda.
 - **Dentro de una página del portal** (iframe): los enlaces de los correos y «Ver en Colabora» llevan a la página del
   portal (también con `start.aspx#/…`).
 - **Alta de asuntos**: botón «＋ Nuevo asunto» o el campo rápido de *Mis NLT*, que entiende fechas escritas

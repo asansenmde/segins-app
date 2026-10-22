@@ -33,6 +33,7 @@
   nav.tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; margin: 12px 0; }
   nav.tabs a { flex: 1; text-align: center; padding: 8px 4px; border-radius: 9px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .9rem; cursor: pointer; }
   nav.tabs a.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  @media (max-width: 560px) { nav.tabs { overflow-x: auto; } nav.tabs a { flex: 1 0 auto; font-size: .8rem; padding: 8px 6px; } }
   main { max-width: 1000px; margin: 0 auto; padding: 0 16px 60px; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
   .muted { color: var(--muted); } .small { font-size: .85rem; }
@@ -77,6 +78,52 @@
   details.grupo > .cuerpo { padding-top: 8px; }
   .g-vencidas { --gc: var(--bad); --gc-bg: var(--bad-bg); } .g-hoy { --gc: var(--hoy); --gc-bg: var(--hoy-bg); } .g-semana { --gc: var(--warn); --gc-bg: var(--warn-bg); }
   .g-despues { --gc: var(--info); --gc-bg: var(--info-bg); } .g-sin { --gc: var(--na); --gc-bg: var(--na-bg); } .g-hechas { --gc: var(--ok); --gc-bg: var(--ok-bg); }
+  /* Recorrido de estados (Tareas y ficha) */
+  .flujo { display: flex; gap: 6px; align-items: stretch; flex-wrap: wrap; margin: 6px 0 12px; }
+  .flujo .fp { flex: 1 1 120px; border: 0; border-radius: 14px; padding: 10px 12px; color: #fff; text-align: left; font-weight: 400; box-shadow: 0 3px 10px rgba(0,0,0,.08); transition: transform .12s, box-shadow .12s; position: relative; }
+  .flujo .fp:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,.14); }
+  .flujo .fp.on { outline: 3px solid var(--brand-2); outline-offset: 2px; }
+  .flujo .fp small { display: block; font-size: .72rem; opacity: .95; text-transform: uppercase; letter-spacing: .6px; }
+  .flujo .fp b { display: block; font-size: 1.7rem; line-height: 1.1; }
+  .flujo .fp i { font-style: normal; font-size: 1.1rem; position: absolute; right: 10px; top: 8px; opacity: .85; }
+  .flujo .fl { align-self: center; color: #9aa59a; font-weight: 800; }
+  @media (max-width: 700px) { .flujo .fl { display: none; } .flujo .fp { flex-basis: 40%; } }
+  .fp.c-pendiente { background: linear-gradient(135deg, #7d8793, #5f6975); } .fp.c-curso { background: linear-gradient(135deg, #2f6fc0, #1d4f91); }
+  .fp.c-espera { background: linear-gradient(135deg, #8a5cc2, #6a3d9a); } .fp.c-hecha { background: linear-gradient(135deg, #43a047, #2e7d32); }
+  .pasos { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin: 0 0 12px; font-size: .8rem; }
+  .pasos span { padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-weight: 600; }
+  .pasos span.on { color: #fff; } .pasos span.on.c-pendiente { background: #5f6975; } .pasos span.on.c-curso { background: var(--info); }
+  .pasos span.on.c-espera { background: var(--esp); } .pasos span.on.c-hecha { background: var(--ok); } .pasos .fl { background: none; padding: 0; color: #9aa59a; }
+  /* Estadísticas */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 8px 0 12px; }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-top: 5px solid var(--line); border-radius: 12px; padding: 10px; text-align: center; font-size: .8rem; color: var(--muted); }
+  .kpi b { display: block; font-size: 1.55rem; color: var(--text); line-height: 1.2; } .kpi em { display: block; font-style: normal; font-size: .72rem; }
+  .kpi.k-rojo { border-top-color: var(--bad); } .kpi.k-rojo b { color: var(--bad); } .kpi.k-azul { border-top-color: var(--info); } .kpi.k-azul b { color: var(--info); }
+  .kpi.k-verde { border-top-color: var(--ok); } .kpi.k-verde b { color: var(--ok); } .kpi.k-ambar { border-top-color: #d99a00; } .kpi.k-ambar b { color: var(--warn); }
+  .kpi.k-morado { border-top-color: var(--esp); } .kpi.k-morado b { color: var(--esp); } .kpi.k-gris { border-top-color: #8a8a84; }
+  .est h3 { margin: 0 0 4px; font-size: 1rem; } .est .sub { margin: 0 0 10px; font-size: .8rem; color: var(--muted); }
+  .leyenda { display: flex; gap: 12px; flex-wrap: wrap; font-size: .78rem; color: var(--muted); margin: 0 0 8px; }
+  .leyenda i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+  .s-fuera { background: #c62828; } .s-plazo { background: #2f6fc0; } .s-sin { background: #c9ccc4; } .s-creados { background: #2f6fc0; } .s-hechos { background: #c98a1b; }
+  .barras { display: grid; grid-template-columns: minmax(110px, 30%) 1fr minmax(150px, auto); gap: 7px 10px; align-items: center; font-size: .84rem; }
+  .barras .et { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .barras .pista { display: flex; gap: 2px; height: 16px; }
+  .barras .pista span { flex: none; height: 16px; min-width: 3px; } .barras .pista span:last-child { border-radius: 0 4px 4px 0; }
+  .barras .pista span:hover { filter: brightness(.88); }
+  .barras .n { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: .8rem; color: var(--muted); } .barras .n b { color: var(--text); }
+  @media (max-width: 600px) { .barras { grid-template-columns: 38% 1fr; } .barras .n { grid-column: 1 / -1; margin: -4px 0 4px; } }
+  .columnas { display: flex; gap: 6px; align-items: flex-end; height: 170px; padding: 0 2px; border-bottom: 1px solid var(--line); }
+  .columnas .mes { flex: 1; display: flex; gap: 2px; align-items: flex-end; justify-content: center; height: 100%; min-width: 0; }
+  .columnas .mes span { flex: 1; max-width: 18px; border-radius: 4px 4px 0 0; min-height: 2px; } .columnas .mes span:hover { filter: brightness(.88); }
+  .ejex { display: flex; gap: 6px; padding: 4px 2px 0; font-size: .7rem; color: var(--muted); } .ejex span { flex: 1; text-align: center; min-width: 0; overflow: hidden; white-space: nowrap; }
+  .medidor { display: inline-block; width: 46px; height: 6px; border-radius: 3px; background: var(--surface-2); vertical-align: middle; margin-right: 4px; overflow: hidden; }
+  .medidor i { display: block; height: 100%; background: #2f6fc0; }
+  .periodos { display: flex; flex-wrap: wrap; gap: 6px; } .periodos button.on { background: var(--brand); color: #fff; border-color: var(--brand); }
+  /* Calendario con colores */
+  .dia i.crit { background: var(--bad); color: #fff; } .dia i.alta { background: var(--hoy-bg); color: var(--hoy); } .dia i.esp { background: var(--esp-bg); color: var(--esp); }
+  .dia .cn { float: right; font-size: .66rem; font-weight: 700; color: var(--muted); }
+  .dia .pt { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--bad); margin-left: 4px; vertical-align: 1px; }
+  .dia.finde { background: #fafbf8; }
   .mas { text-align: center; font-size: .82rem; color: var(--muted); padding: 6px; }
   .sec { margin: 16px 0 6px; font-size: .85rem; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; display: flex; justify-content: space-between; }
   .tarea { border-left: 5px solid var(--line); cursor: pointer; }
@@ -151,7 +198,8 @@
   @media (max-width: 520px) { .mini { grid-template-columns: repeat(2, 1fr); } 
     .mini button { padding: 8px; } .mini button:last-child:nth-child(odd) { grid-column: 1 / -1; } .hero { padding: 14px 16px; } .dia { min-height: 44px; } .dia i { font-size: 0; height: 5px; } }
   @media print {
-    body.imprimiendo .top, body.imprimiendo nav.tabs, body.imprimiendo #vista > :not(#informeDoc) { display: none !important; }
+    body.imprimiendo .top, body.imprimiendo nav.tabs, body.imprimiendo #vista > :not(#informeDoc):not(#estDoc) { display: none !important; }
+    body.imprimiendo #estDoc .card { break-inside: avoid; } body.imprimiendo #estDoc * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body.imprimiendo .informe { border: 0; padding: 0; }
   }
 </style>
@@ -166,7 +214,7 @@
 <main>
   <noscript><div class="error">Esta página necesita JavaScript.</div></noscript>
   <nav class="tabs" id="tabs">
-    <a data-v="nlt" class="on">Tareas</a><a data-v="calendario">Calendario</a><a data-v="avisos">Avisos</a><a data-v="informes">Informes</a><a data-v="ajustes">Ajustes</a>
+    <a data-v="nlt" class="on">Tareas</a><a data-v="calendario">Calendario</a><a data-v="estadisticas">Estadísticas</a><a data-v="avisos">Avisos</a><a data-v="informes">Informes</a><a data-v="ajustes">Ajustes</a>
   </nav>
   <div id="vista"><p class="muted">Leyendo la lista «Gestor de Tareas»…</p></div>
 </main>
@@ -190,7 +238,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-10-22 · 1';
+  var VERSION = '2026-10-22 · 2';
   $('#verPie').textContent = 'versión ' + VERSION;
 
   // ---------- Preferencias de este navegador ----------
@@ -437,6 +485,9 @@
 
   // ---------- Vistas ----------
   var kpiSel = '';
+  var FASES = [['pendiente', '📝', 'Pendientes'], ['curso', '⚙️', 'En curso'], ['espera', '⏸️', 'En espera'], ['hecha', '✅', 'Terminados']];
+  // Valores reales de ESTADO que caen en cada fase (para la ayuda al pasar el ratón)
+  var estadosDe = function (c) { return valores('ESTADO', 'estado').filter(function (e) { return claseEstado(e) === c; }); };
   var GRUPOS = [['vencidas', '🔴 Fuera de plazo'], ['hoy', '⏰ Vencen hoy'], ['semana', '📅 Próximos 7 días'], ['despues', '🗂️ Más adelante (con NLT)'], ['sin', '➖ Sin NLT']];
   var terminadaEn = function (t) { return t.fin || (t.modificada ? fechaSP(t.modificada) : ''); };
   function heroTareas() {
@@ -459,15 +510,17 @@
     var iniMes = hoy().slice(0, 8) + '01';
     var hechas = ts.filter(function (t) { return t.clase === 'hecha'; }).sort(function (a, b) { return terminadaEn(b).localeCompare(terminadaEn(a)); });
     var hechasMes = hechas.filter(function (t) { return terminadaEn(t) >= iniMes; });
-    var n = { vencidas: cuenta('vencidas'), hoy: cuenta('hoy'), semana: cuenta('semana'), curso: abiertas.filter(function (t) { return t.clase === 'curso'; }).length, hechasMes: hechasMes.length };
+    var n = { vencidas: cuenta('vencidas'), hoy: cuenta('hoy'), semana: cuenta('semana'), hechasMes: hechasMes.length };
+    FASES.forEach(function (f) { n['c:' + f[0]] = f[0] === 'hecha' ? hechas.length : abiertas.filter(function (t) { return t.clase === f[0]; }).length; });
+    var cSel = kpiSel.indexOf('c:') === 0 ? kpiSel.slice(2) : '';
     var mini = function (k, ic, cls, txt) {
       return '<button class="' + cls + (n[k] ? '' : ' cero') + (kpiSel === k ? ' on' : '') + '" data-kpi="' + k + '" title="Pulsa para ver solo estos; otra vez para verlos todos"><span class="ic ' + cls + '">' + ic + '</span><div><b>' + n[k] + '</b><span>' + txt + '</span></div></button>';
     };
     var html;
-    if (kpiSel === 'hechasMes') html = grupo('hechas', '✅ Terminados este mes', hechasMes, true) || '<div class="card muted">Ningún asunto terminado este mes con estos filtros.</div>';
+    if (kpiSel === 'hechasMes' || cSel === 'hecha') html = grupo('hechas', cSel ? '✅ Terminados' : '✅ Terminados este mes', cSel ? hechas : hechasMes, true) || '<div class="card muted">Ningún asunto terminado con estos filtros.</div>';
     else {
-      var base = kpiSel === 'curso' ? abiertas.filter(function (t) { return t.clase === 'curso'; }) : abiertas;
-      html = GRUPOS.filter(function (g) { return !kpiSel || kpiSel === 'curso' || kpiSel === g[0]; }).map(function (g) {
+      var base = cSel ? abiertas.filter(function (t) { return t.clase === cSel; }) : abiertas;
+      html = GRUPOS.filter(function (g) { return !kpiSel || cSel || kpiSel === g[0]; }).map(function (g) {
         return grupo(g[0], g[1], base.filter(function (t) { return grupoDe[t.id] === g[0]; }).sort(ordenar), !!kpiSel);
       }).join('') || '<div class="card muted">No hay asuntos abiertos con estos filtros.</div>';
       if (!kpiSel && hechas.length) html += grupo('hechas', '✅ Terminados', hechas.slice(0, 200), false);
@@ -478,12 +531,23 @@
       (kpiSel ? ' · <b>mostrando solo una tarjeta del resumen</b> <button data-kpi="' + kpiSel + '">Ver todo</button>' : '') + '</span>';
     return heroTareas() +
       '<div class="mini">' + mini('vencidas', '🔴', 'r', 'Fuera de plazo') + mini('hoy', '⏰', 'n', 'Vencen hoy') + mini('semana', '📅', 'a', 'Próximos 7 días') +
-      mini('curso', '⚙️', 'az', 'En curso') + mini('hechasMes', '✅', 'v', 'Terminados este mes') + '</div>' +
+      mini('c:curso', '⚙️', 'az', 'En curso') + mini('hechasMes', '✅', 'v', 'Terminados este mes') + '</div>' +
+      '<div class="sec"><span>Recorrido de los asuntos</span><span>pendiente › en curso › en espera › terminado</span></div><div class="flujo">' +
+      FASES.map(function (f, k) {
+        var ests = estadosDe(f[0]);
+        return (k ? '<span class="fl">›</span>' : '') + '<button class="fp c-' + f[0] + (kpiSel === 'c:' + f[0] ? ' on' : '') + '" data-kpi="c:' + f[0] + '" title="' + esc((ests.length ? 'Estados: ' + ests.join(', ') : 'Sin estados') + '. Pulsa para ver solo estos.') + '">' +
+          '<i>' + f[1] + '</i><small>' + f[2] + '</small><b>' + n['c:' + f[0]] + '</b></button>';
+      }).join('') + '</div>' +
       '<div class="card" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="altaRapida" style="flex:1;min-width:200px" placeholder="Nuevo asunto… p. ej. «Informe de visita antes del viernes»">' +
       '<button class="btn prim" id="altaRapidaBtn">＋ Crear</button></div>' +
       barraFiltros(pie) + aviso + html;
   }
 
+  // Color de cada asunto en el calendario: fuera de plazo, prioridad crítica o alta, en espera, resto
+  var colorCal = function (t) {
+    if (urgencia(t).grupo === 'vencidas') return 'bad';
+    return t.prio === 'critica' ? 'crit' : t.prio === 'alta' ? 'alta' : t.clase === 'espera' ? 'esp' : '';
+  };
   var mes = (function () { var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })(), diaSel = hoy();
   function vistaCalendario() {
     var y = mes.getFullYear(), m = mes.getMonth();
@@ -494,16 +558,140 @@
     for (var i = 0; i < 42; i++) {
       var d = new Date(ini); d.setDate(ini.getDate() + i);
       var s = iso(d), ts = (porDia[s] || []).sort(ordenar);
-      celdas += '<button class="dia' + (d.getMonth() !== m ? ' fuera' : '') + (s === hoy() ? ' hoy' : '') + (s === diaSel ? ' sel' : '') + '" data-dia="' + s + '"><b>' + d.getDate() + '</b>' +
-        ts.slice(0, 3).map(function (t) { return '<i class="' + (urgencia(t).cls === 'bad' ? 'bad' : '') + '">' + esc(t.asunto) + '</i>'; }).join('') + (ts.length > 3 ? '<span class="small">+' + (ts.length - 3) + '</span>' : '') + '</button>';
+      var hayVenc = ts.some(function (t) { return urgencia(t).grupo === 'vencidas'; });
+      celdas += '<button class="dia' + (d.getMonth() !== m ? ' fuera' : '') + (d.getDay() % 6 === 0 ? ' finde' : '') + (s === hoy() ? ' hoy' : '') + (s === diaSel ? ' sel' : '') + '" data-dia="' + s + '"' +
+        (ts.length ? ' title="' + ts.length + ' asunto' + (ts.length === 1 ? '' : 's') + (hayVenc ? ', fuera de plazo' : '') + '"' : '') + '><b>' + d.getDate() + '</b>' + (hayVenc ? '<span class="pt"></span>' : '') +
+        (ts.length ? '<span class="cn">' + ts.length + '</span>' : '') +
+        ts.slice(0, 3).map(function (t) { return '<i class="' + colorCal(t) + '">' + esc(t.asunto) + '</i>'; }).join('') + (ts.length > 3 ? '<span class="small">+' + (ts.length - 3) + '</span>' : '') + '</button>';
       var sig = new Date(d); sig.setDate(d.getDate() + 1);
       if (i % 7 === 6 && sig.getMonth() !== m && i >= 27) break;
     }
     var titulo = mes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
     var delDia = (porDia[diaSel] || []).sort(ordenar);
     return barraFiltros() + '<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><button data-mes="-1">◀</button><b>' + esc(titulo[0].toUpperCase() + titulo.slice(1)) +
-      '</b><span><button data-impcal="1" title="Imprimir o guardar en PDF el calendario de este mes">🖨 Imprimir / PDF</button> <button data-mes="1">▶</button></span></div><div class="cal">' + ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(function (x) { return '<div class="dow">' + x + '</div>'; }).join('') + celdas + '</div>' +
+      '</b><span><button data-mes="0" title="Volver al mes actual">Hoy</button> <button data-impcal="1" title="Imprimir o guardar en PDF el calendario de este mes">🖨 Imprimir / PDF</button> <button data-mes="1">▶</button></span></div><div class="cal">' + ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(function (x) { return '<div class="dow">' + x + '</div>'; }).join('') + celdas + '</div>' +
+      '<div class="leyenda" style="margin-top:8px"><span><i style="background:var(--bad-bg);border:1px solid var(--bad)"></i>Fuera de plazo</span><span><i style="background:var(--bad)"></i>Prioridad crítica</span>' +
+      '<span><i style="background:var(--hoy-bg);border:1px solid var(--hoy)"></i>Prioridad alta</span><span><i style="background:var(--esp-bg);border:1px solid var(--esp)"></i>En espera</span><span><i style="background:var(--info-bg);border:1px solid var(--info)"></i>Resto</span>' +
+      '<span><span class="pt" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bad)"></span> Día con asuntos vencidos</span></div>' +
       '<div class="sec"><span>NLT del ' + esc(fMedia(diaSel)) + '</span><span>' + delDia.length + '</span></div>' + (delDia.map(tarjeta).join('') || '<p class="muted">Ningún asunto vence ese día.</p>');
+  }
+
+  // ---------- Estadísticas ----------
+  // Con los filtros de la barra; lo abierto es la foto de hoy y lo creado o terminado se cuenta en el periodo elegido
+  var PERIODOS_EST = { mes: 'Este mes', trimestre: 'Este trimestre', anio: 'Este año', '12m': 'Últimos 12 meses', todo: 'Todo' };
+  var entre = function (a, b) { return Math.round((aFecha(b) - aFecha(a)) / 864e5); };
+  function rangoEst() {
+    var p = pref.estPer || '12m', h = aFecha(hoy());
+    if (p === '12m') return [iso(new Date(h.getFullYear(), h.getMonth() - 11, 1)), hoy()];
+    if (p === 'todo') return [tareas.reduce(function (a, t) { var c = fechaSP(t.creada); return c && c < a ? c : a; }, hoy()).slice(0, 8) + '01', hoy()];
+    var r = periodo(p);
+    return [r[0], r[1] > hoy() ? hoy() : r[1]];
+  }
+  function datosEst() {
+    var r = rangoEst(), ts = filtrar(tareas);
+    var en = function (f) { return !!f && f >= r[0] && f <= r[1]; };
+    var media = function (l, f) { return l.length ? Math.round(l.reduce(function (s, t) { return s + f(t); }, 0) / l.length) : null; };
+    var d = { r: r, abiertas: ts.filter(function (t) { return t.clase !== 'hecha'; }),
+      hechas: ts.filter(function (t) { return t.clase === 'hecha' && en(terminadaEn(t)); }),
+      creados: ts.filter(function (t) { return en(fechaSP(t.creada)); }) };
+    d.conNlt = d.hechas.filter(function (t) { return t.nlt && t.fin; });
+    d.tarde = d.conNlt.filter(function (t) { return t.fin > t.nlt; });
+    d.venc = d.abiertas.filter(function (t) { return urgencia(t).grupo === 'vencidas'; });
+    d.abNlt = d.abiertas.filter(function (t) { return t.nlt; }).length;
+    d.pctPlazo = d.conNlt.length ? Math.round((d.conNlt.length - d.tarde.length) / d.conNlt.length * 100) : null;
+    d.retrasoHechas = media(d.tarde, function (t) { return entre(t.nlt, t.fin); });
+    d.retrasoAbiertas = media(d.venc, function (t) { return -diasHasta(t.nlt); });
+    d.resolucion = media(d.hechas.filter(function (t) { return t.fin && (t.inicio || t.creada); }), function (t) { return Math.max(0, entre(t.inicio || fechaSP(t.creada), t.fin)); });
+    return d;
+  }
+  function porClave(d, clave) {
+    var m = new Map();
+    var de = function (t) { var k = clave(t); if (!m.has(k)) m.set(k, { k: k, fuera: 0, plazo: 0, sin: 0, hechas: 0, enPlazo: 0, conNlt: 0 }); return m.get(k); };
+    d.abiertas.forEach(function (t) { var g = de(t); if (!t.nlt) g.sin++; else if (urgencia(t).grupo === 'vencidas') g.fuera++; else g.plazo++; });
+    d.hechas.forEach(function (t) { var g = de(t); g.hechas++; if (t.nlt && t.fin) { g.conNlt++; if (t.fin <= t.nlt) g.enPlazo++; } });
+    return Array.from(m.values()).map(function (g) { g.abiertas = g.fuera + g.plazo + g.sin; g.pct = g.conNlt ? Math.round(g.enPlazo / g.conNlt * 100) : null; return g; })
+      .sort(function (a, b) { return b.abiertas - a.abiertas || b.hechas - a.hechas || a.k.localeCompare(b.k, 'es'); });
+  }
+  var CLAVES_EST = {
+    negociado: function (t) { return t.negociado || 'Sin negociado'; },
+    responsable: function (t) { return t.responsable || 'Sin responsable'; },
+    prioridad: function (t) { return t.prioridad || 'Sin prioridad'; }
+  };
+  function barrasGrupo(gs, tope) {
+    var max = Math.max.apply(null, gs.map(function (g) { return g.abiertas; }).concat([1]));
+    var seg = function (n, cls, txt) { return n ? '<span class="' + cls + '" style="width:' + (n / max * 100).toFixed(2) + '%" title="' + esc(txt + ': ' + n) + '"></span>' : ''; };
+    return '<div class="barras">' + gs.slice(0, tope).map(function (g) {
+      return '<div class="et" title="' + esc(g.k) + '">' + esc(g.k) + '</div><div class="pista">' + seg(g.fuera, 's-fuera', g.k + ' · abiertos fuera de plazo') +
+        seg(g.plazo, 's-plazo', g.k + ' · abiertos en plazo') + seg(g.sin, 's-sin', g.k + ' · abiertos sin NLT') + '</div>' +
+        '<div class="n"><b>' + g.abiertas + '</b> abiertos' + (g.fuera ? ' (<b>' + g.fuera + '</b> fuera)' : '') + ' · <b>' + g.hechas + '</b> terminados' +
+        (g.pct === null ? '' : ' · <span class="medidor"><i style="width:' + g.pct + '%"></i></span><b>' + g.pct + ' %</b> en plazo') + '</div>';
+    }).join('') + '</div>' + (gs.length > tope ? '<p class="small muted">… y ' + (gs.length - tope) + ' más (en el CSV van todos).</p>' : '');
+  }
+  function mesesEst(d) {
+    var ini = aFecha(d.r[0]), fin = aFecha(d.r[1]), ms = [];
+    for (var x = new Date(ini.getFullYear(), ini.getMonth(), 1); x <= fin; x = new Date(x.getFullYear(), x.getMonth() + 1, 1)) ms.push(iso(x).slice(0, 7));
+    return ms.slice(-24).map(function (k) {
+      var hs = d.hechas.filter(function (t) { return terminadaEn(t).slice(0, 7) === k; });
+      var cn = hs.filter(function (t) { return t.nlt && t.fin; }), ok = cn.filter(function (t) { return t.fin <= t.nlt; }).length;
+      var nom = aFecha(k + '-01').toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }).replace('.', '');
+      return { k: k, nom: nom, creados: d.creados.filter(function (t) { return fechaSP(t.creada).slice(0, 7) === k; }).length, hechas: hs.length, pct: cn.length ? Math.round(ok / cn.length * 100) : null };
+    });
+  }
+  var filtrosVistaTxt = function () {
+    var f = [{ mias: 'Asuntos de ' + (yo ? yo.Title : 'mi responsabilidad'), implicado: 'Asuntos en los que intervengo', todos: 'Todos los asuntos' }[pref.quien]];
+    if (pref.negociado) f.push('Negociado: ' + pref.negociado);
+    if (pref.resp) f.push('Responsable: ' + pref.resp);
+    if (pref.estado) f.push('Estado: ' + pref.estado);
+    if (pref.prio) f.push('Prioridad: ' + pref.prio);
+    if (pref.q) f.push('Búsqueda: «' + pref.q + '»');
+    return f.join(' · ');
+  };
+  function vistaEstadisticas() {
+    var d = datosEst(), per = pref.estPer || '12m', ms = mesesEst(d);
+    var nd = function (v, suf) { return v === null ? '—' : v + (suf || ''); };
+    var kpi = function (cls, v, txt, sub) { return '<div class="kpi k-' + cls + '"><b>' + v + '</b>' + txt + (sub ? '<em>' + sub + '</em>' : '') + '</div>'; };
+    var maxM = Math.max.apply(null, ms.map(function (m) { return Math.max(m.creados, m.hechas); }).concat([1]));
+    var alto = function (n) { return n ? 'max(2px,' + (n / maxM * 100).toFixed(2) + '%)' : '0'; };
+    var bloque = function (tit, sub, cuerpo) { return '<div class="card est"><h3>' + tit + '</h3><p class="sub">' + sub + '</p>' + cuerpo + '</div>'; };
+    var leyAb = '<div class="leyenda"><span><i class="s-fuera"></i>Abiertos fuera de plazo</span><span><i class="s-plazo"></i>Abiertos en plazo</span><span><i class="s-sin"></i>Abiertos sin NLT</span></div>';
+    var clsPct = d.pctPlazo === null ? 'gris' : d.pctPlazo >= 80 ? 'verde' : d.pctPlazo >= 50 ? 'ambar' : 'rojo';
+    return barraFiltros() +
+      '<div class="card"><div class="periodos">' + Object.keys(PERIODOS_EST).map(function (k) { return '<button data-estper="' + k + '"' + (per === k ? ' class="on"' : '') + '>' + PERIODOS_EST[k] + '</button>'; }).join('') + '</div>' +
+      '<div class="acciones"><button data-est="imprimir">🖨 Imprimir / PDF</button><button data-est="csv">📊 Excel (CSV)</button></div></div>' +
+      '<div id="estDoc"><p class="small muted" style="margin:4px 2px 8px"><b>Estadísticas de asuntos</b> · periodo ' + esc(fCorta(d.r[0])) + ' a ' + esc(fCorta(d.r[1])) + ' · ' + esc(filtrosVistaTxt()) + '</p>' +
+      '<div class="kpis">' +
+        kpi('azul', d.abiertas.length, 'Abiertos ahora', d.abNlt + ' con NLT') +
+        kpi('rojo', d.venc.length, 'Fuera de plazo ahora', d.abNlt ? Math.round(d.venc.length / d.abNlt * 100) + ' % de los que tienen NLT' : '') +
+        kpi('gris', d.creados.length, 'Creados en el periodo') +
+        kpi('verde', d.hechas.length, 'Terminados en el periodo') +
+        kpi(clsPct, nd(d.pctPlazo, ' %'), 'NLT cumplida', d.conNlt.length ? (d.conNlt.length - d.tarde.length) + ' de ' + d.conNlt.length + ' terminados con NLT' : 'sin terminados con NLT') +
+        kpi('morado', nd(d.retrasoHechas, ' d'), 'Retraso medio al terminar', d.tarde.length ? 'de los ' + d.tarde.length + ' terminados fuera de plazo' : 'ninguno fuera de plazo') +
+        kpi('ambar', nd(d.retrasoAbiertas, ' d'), 'Retraso medio de los vencidos', d.venc.length ? 'de los ' + d.venc.length + ' abiertos fuera de plazo' : 'ninguno vencido') +
+        kpi('azul', nd(d.resolucion, ' d'), 'Tiempo medio de resolución', 'desde el inicio hasta terminar') + '</div>' +
+      bloque('Evolución mensual', 'Asuntos creados y terminados cada mes' + (ms.length === 24 ? ' (últimos 24 meses del periodo)' : '') + '. Pasa el ratón por las barras para ver el número.',
+        '<div class="leyenda"><span><i class="s-creados"></i>Creados</span><span><i class="s-hechos"></i>Terminados</span></div>' +
+        '<div class="columnas">' + ms.map(function (m) {
+          return '<div class="mes"><span class="s-creados" style="height:' + alto(m.creados) + '" title="' + esc(m.nom + ': ' + m.creados + ' creados') + '"></span>' +
+            '<span class="s-hechos" style="height:' + alto(m.hechas) + '" title="' + esc(m.nom + ': ' + m.hechas + ' terminados' + (m.pct === null ? '' : ', ' + m.pct + ' % en plazo')) + '"></span></div>';
+        }).join('') + '</div><div class="ejex">' + ms.map(function (m) { return '<span>' + esc(m.nom) + '</span>'; }).join('') + '</div>' +
+        '<details style="margin-top:8px"><summary class="small" style="cursor:pointer">Ver en tabla</summary><table class="t" style="margin-top:6px"><tr><th>Mes</th><th>Creados</th><th>Terminados</th><th>NLT cumplida</th></tr>' +
+        ms.map(function (m) { return '<tr><td>' + esc(m.nom) + '</td><td>' + m.creados + '</td><td>' + m.hechas + '</td><td>' + nd(m.pct, ' %') + '</td></tr>'; }).join('') + '</table></details>') +
+      bloque('Por negociado', 'Abiertos hoy (barra), terminados en el periodo y porcentaje de NLT cumplida.', leyAb + barrasGrupo(porClave(d, CLAVES_EST.negociado), 30)) +
+      bloque('Por responsable', 'Los 15 con más asuntos abiertos.', leyAb + barrasGrupo(porClave(d, CLAVES_EST.responsable), 15)) +
+      bloque('Por prioridad', 'Abiertos hoy y terminados en el periodo.', leyAb + barrasGrupo(porClave(d, CLAVES_EST.prioridad), 10)) + '</div>';
+  }
+  function csvEstadisticas() {
+    var d = datosEst(), c = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+    var f = [['Estadísticas de asuntos', 'Periodo ' + fCorta(d.r[0]) + ' a ' + fCorta(d.r[1]), filtrosVistaTxt()], [],
+      ['Abiertos ahora', d.abiertas.length], ['Fuera de plazo ahora', d.venc.length], ['Creados en el periodo', d.creados.length], ['Terminados en el periodo', d.hechas.length],
+      ['NLT cumplida (%)', d.pctPlazo], ['Retraso medio al terminar (días)', d.retrasoHechas], ['Retraso medio de los vencidos (días)', d.retrasoAbiertas], ['Tiempo medio de resolución (días)', d.resolucion], [],
+      ['Mes', 'Creados', 'Terminados', 'NLT cumplida (%)']];
+    mesesEst(d).forEach(function (m) { f.push([m.k, m.creados, m.hechas, m.pct]); });
+    ['negociado', 'responsable', 'prioridad'].forEach(function (k) {
+      f.push([], [k[0].toUpperCase() + k.slice(1), 'Abiertos', 'Fuera de plazo', 'En plazo', 'Sin NLT', 'Terminados en el periodo', 'NLT cumplida (%)']);
+      porClave(d, CLAVES_EST[k]).forEach(function (g) { f.push([g.k, g.abiertas, g.fuera, g.plazo, g.sin, g.hechas, g.pct]); });
+    });
+    return '﻿' + f.map(function (x) { return x.map(c).join(';'); }).join('\r\n');
   }
 
   // ---------- Informes ----------
@@ -1427,6 +1615,7 @@
       ['Creado', new Date(t.creada).toLocaleString('es-ES') + (t.autor ? ' por ' + t.autor : '')], ['Modificado', new Date(t.modificada).toLocaleString('es-ES') + (t.editor ? ' por ' + t.editor : '')]];
     var dlg = $('#dlg');
     dlg.innerHTML = '<div class="dh"><h2>' + esc(t.asunto) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db ficha"><div class="ficha-datos">' +
+      '<div class="pasos" title="Fase del asunto (se ajusta en Ajustes)">' + FASES.map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<span class="c-' + f[0] + (t.clase === f[0] ? ' on' : '') + '">' + f[1] + ' ' + CLASES[f[0]] + '</span>'; }).join('') + '</div>' +
       c.filter(function (x) { return x[0] && x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       '<div class="acciones"><button type="button" class="btn prim" data-modificar="' + t.id + '">✎ Modificar</button>' +
         (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
@@ -1446,7 +1635,7 @@
   // ---------- Navegación y eventos ----------
   function render() {
     document.querySelectorAll('#tabs a').forEach(function (a) { a.classList.toggle('on', a.dataset.v === pref.vista); });
-    var v = { nlt: vistaNlt, calendario: vistaCalendario, avisos: vistaAvisos, informes: vistaInformes, ajustes: vistaAjustes }[pref.vista] || vistaNlt;
+    var v = { nlt: vistaNlt, calendario: vistaCalendario, estadisticas: vistaEstadisticas, avisos: vistaAvisos, informes: vistaInformes, ajustes: vistaAjustes }[pref.vista] || vistaNlt;
     if (!cargadoEn && pref.vista !== 'ajustes') return;
     $('#vista').innerHTML = v();
   }
@@ -1465,7 +1654,11 @@
     var d = el.closest('[data-dia]');
     if (d) { diaSel = d.dataset.dia; render(); return; }
     var m = el.closest('[data-mes]');
-    if (m) { mes = new Date(mes.getFullYear(), mes.getMonth() + Number(m.dataset.mes), 1); render(); return; }
+    if (m) { var dm = Number(m.dataset.mes), ah = new Date(); mes = dm ? new Date(mes.getFullYear(), mes.getMonth() + dm, 1) : new Date(ah.getFullYear(), ah.getMonth(), 1); if (!dm) diaSel = hoy(); render(); return; }
+    var ep = el.closest('[data-estper]');
+    if (ep) { pref.estPer = ep.dataset.estper; guardarPref(); render(); return; }
+    var ea = el.closest('[data-est]');
+    if (ea) { if (ea.dataset.est === 'csv') descargar('estadisticas-asuntos-' + hoy() + '.csv', csvEstadisticas(), 'text/csv;charset=utf-8'); else { document.body.classList.add('imprimiendo'); window.print(); setTimeout(function () { document.body.classList.remove('imprimiendo'); }, 800); } return; }
     var p = el.closest('[data-infper]');
     if (p) { var r = periodo(p.dataset.infper); $('#infOpts [name=desde]').value = r[0]; $('#infOpts [name=hasta]').value = r[1]; actualizarInf(); return; }
     var env = el.closest('[data-enviado]');
