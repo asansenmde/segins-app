@@ -20,6 +20,10 @@ const AUXL = {
   M3N: [{ Id: 1, Title: 'BAE SEVILLA', M2NId: 1 }, { Id: 2, Title: 'BAE LEON', M2NId: 2 }, { Id: 3, Title: 'BAE SIN SUIGE', M2NId: 3 }],
 };
 let biblioOculta = false;
+// Colabora que rechaza direcciones («destinatario válido»): buzonMal = direcciones o cuentas rechazadas; enviados = las que acepta
+let buzonMal = [], enviados = [];
+const NOMBRE_DE = { 'sur1@et.mde.es': 'SUR UNO', 'nor1@et.mde.es': 'NOR UNO', 'ige1@et.mde.es': 'IGE UNO', 'admin1@et.mde.es': 'ADMIN UNO' };
+const CUENTAS_NUEVAS = [{ Id: 301, Title: 'Uno, Ige', Email: 'ige1b@et.mde.es' }];   // otra cuenta (con buzón) de IGE UNO
 let opcionesVS = ['EN CURSO', 'CERRADO', 'ELEVADO A DIACU', 'RECHAZADO'], extra = false, adj = {}, campos = null, seg = 2, sols, accLista = true, accAbierta = true, accCerrada = false, propios = true, grupoBae = true, baeMiembros, anadidos, items, misGrupos = [], admin = false, sinSubstringof = false, faltaCampo = null, ultimoFiltro = '', lecturaMinima = '';
 const base = { Title: '01/10/2026', ESTADO: 'BORRADOR', VALORACIONSUIGE: null, REGISTRODEACTIVIDAD: '', ModificadoPorTEXTO: '', A_x00f1_o: '2026', EMPRESA0: 'EULEN', NOVEDADES: 'SIN NOVEDAD',
   MANDO1N: '1', MANDO2N: '1', MANDO3N: '1', M1N: 'IGE', M2N: 'SUIGESUR', M3N: 'BAE SEVILLA', suige: 'SUIGESUR', Observaciones: '', ControlDeRegistro: '',
@@ -82,7 +86,11 @@ async function prueba(verbose, escenario) {
         adj[id].splice(i, 1); return r.fulfill({ status: 200, body: '' });
       }
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
-      if (resto.startsWith('SP.Utilities.Utility.SendEmail')) return r.fulfill({ json: { d: {} } });
+      if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
+        const pr = JSON.parse(req.postData()).properties, dest = [pr.To, pr.CC, pr.BCC].flatMap(x => x ? x.results : []);
+        if (dest.some(x => buzonMal.includes(String(x).toLowerCase()))) return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el mensaje de correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } });
+        enviados.push(...dest); return r.fulfill({ json: { d: {} } });
+      }
       if (resto.startsWith("web/lists/getbytitle('SOLICITUDES DE ACCESO')")) {
         if (resto.includes('createfieldasxml')) { if (campos) campos.push(/Name="([^"]+)"/.exec(JSON.parse(req.postData()).parameters.SchemaXml)[1]); return r.fulfill({ json: { d: {} } }); }
         if (resto.includes('breakroleinheritance')) { propios = true; return r.fulfill({ status: 200, json: { d: {} } }); }
@@ -139,14 +147,14 @@ async function prueba(verbose, escenario) {
       return J({ value: sols.filter(x => !me || x.Solicitante.Id === +me[1]) });
     }
     const g = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users/);
-    if (g) return MIEMBROS[g[1]] ? J({ value: MIEMBROS[g[1]].map(e => ({ Email: e })) }) : r.fulfill({ status: 404, body: '' });
+    if (g) return MIEMBROS[g[1]] ? J({ value: MIEMBROS[g[1]].map((e, i) => ({ Id: 200 + Object.keys(NOMBRE_DE).indexOf(e), Title: NOMBRE_DE[e] || e, Email: e })) }) : r.fulfill({ status: 404, body: '' });
     const ag = resto.match(/items\((\d+)\)\/AttachmentFiles/);
     if (ag) return J({ value: (adj[+ag[1]] || []).map(a => ({ FileName: a.FileName, ServerRelativeUrl: a.ServerRelativeUrl })) });
     const mi = resto.match(/items\((\d+)\)/);
     if (mi) { const it = items.find(x => x.Id === +mi[1]); return r.fulfill({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, ...it } } }); }
     const aux = resto.match(/getbytitle\('(M1N|M2N|M3N)'\)\/items/);
     if (aux) return J({ value: AUXL[aux[1]] });
-    if (resto.startsWith('web/siteusers')) return J({ value: [YO, ...Object.values(P)].map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail })) });
+    if (resto.startsWith('web/siteusers')) return J({ value: [YO, ...Object.values(P)].map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail })).concat(CUENTAS_NUEVAS) });
     if (resto.includes("fields/getbyinternalnameortitle('VALORACIONSUIGE')")) return J({ Choices: verbose ? { results: opcionesVS } : opcionesVS, FillInChoice: false, TypeAsString: 'Choice' });
     if (resto.includes("getbytitle('CUESTIONARIO DE CALIDAD VSA')/fields")) {
       const ch = a => verbose ? { results: a } : a;
@@ -175,7 +183,10 @@ async function prueba(verbose, escenario) {
   });
   const tag = (verbose ? '[verbose] ' : '[ligero] ') + escenario;
   const correos = () => posts.filter(x => x.ruta.startsWith('SP.Utilities')).map(x => JSON.parse(x.cuerpo).properties);
-  const merge = id => { const m = posts.filter(x => new RegExp('items\\(' + id + '\\)').test(x.ruta) && x.cab['x-http-method'] === 'MERGE').pop(); return m && JSON.parse(m.cuerpo); };
+  // Último guardado del cuestionario (sin contar la anotación del aviso por correo, que va después)
+  const esAnotacion = x => { const c = JSON.parse(x.cuerpo); return Object.keys(c).filter(k => k !== '__metadata').join() === 'Observaciones' && /AVISO POR CORREO/.test(c.Observaciones); };
+  const merge = id => { const m = posts.filter(x => new RegExp('items\\(' + id + '\\)').test(x.ruta) && x.cab['x-http-method'] === 'MERGE' && !esAnotacion(x)).pop(); return m && JSON.parse(m.cuerpo); };
+  const anotacion = id => { const m = posts.filter(x => new RegExp('items\\(' + id + '\\)').test(x.ruta) && x.cab['x-http-method'] === 'MERGE' && esAnotacion(x)).pop(); return m ? JSON.parse(m.cuerpo).Observaciones.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').split('AVISO POR CORREO').pop().slice(0, 200) : 'NINGUNA'; };
   await p.goto(O + '/et/jige/colaborativo/Documentos/vsa.html'); await p.waitForTimeout(900);
   if (escenario.startsWith('sin acceso')) {
     console.log(tag, '| pestañas:', await p.$$eval('#tabs a', a => a.length), '| nuevo visible:', await p.$eval('#nuevo', b => !b.hidden), '| pantalla:', (await p.textContent('#vista h3')).trim());
@@ -188,7 +199,7 @@ async function prueba(verbose, escenario) {
     posts.length = 0; await p.click('[data-accsolicitar]'); await p.waitForTimeout(1200);
     const alta = JSON.parse(posts.find(x => x.ruta.includes("SOLICITUDES DE ACCESO')/items")).cuerpo), m = correos().pop();
     console.log(tag, '| solicitud:', JSON.stringify({ Title: alta.Title, Sol: alta.SolicitanteId, Empleo: alta.Empleo, Mando: alta.MandoSegundo, Unidad: alta.Unidad, Papel: alta.Papel, App: alta.Aplicacion, Estado: alta.EstadoSolicitud }), '| correo:', m && m.Subject);
-    console.log(tag, '| después:', (await p.textContent('#vista .okmsg')).slice(0, 90), '| errores:', errs);
+    console.log(tag, '| después:', (await p.$$eval('#vista .okmsg, #vista .aviso', n => n.map(x => x.textContent).join(' / '))).replace(/\s+/g, ' ').slice(0, 330), '| errores:', errs);
     if (!verbose) await p.screenshot({ path: new URL('sin-acceso.png', import.meta.url).pathname, fullPage: true });
     await b.close(); return;
   }
@@ -301,10 +312,23 @@ async function prueba(verbose, escenario) {
   console.log(tag, '| panel:', (await p.$$eval('.kpi', k => k.map(x => x.textContent.replace(/([\d,—]+)$/, ':$1')))).join(' · '));
   await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200);
   console.log(tag, '| pendientes:', (await p.$$eval('#vista .sec', s => s.map(x => x.textContent.replace(/(\d+)$/, ' = $1')))).join(' · '), '| ids:', await p.$$eval('#vista .inc', n => n.map(x => x.dataset.id).join(',')));
-  if (escenario !== 'control total') {
+  if (escenario !== 'control total' && escenario !== 'correo rechazado') {
     await p.click('#tabs a[data-v=consulta]'); await p.waitForTimeout(200);
     console.log(tag, '| ve:', await p.$$eval('#vista .inc', n => n.map(x => x.dataset.id).sort().join(',')), lecturaMinima ? '| lectura mínima: ' + lecturaMinima : '', '| errores:', errs);
     await b.close(); return;
+  }
+  if (escenario === 'correo rechazado') {
+    // IGE UNO figura en el grupo con una cuenta antigua cuya dirección y cuenta Colabora no acepta: el aviso va a su otra cuenta
+    buzonMal = ['ige1@et.mde.es', 'i:0#.w|et\\usuario202']; enviados = [];
+    await p.click('#tabs a[data-v=consulta]'); await p.click('.inc[data-id="1"]'); await p.waitForTimeout(500);
+    await p.fill('#vTxt', 'Se eleva.'); posts.length = 0; await p.click('[data-acc=suigeDiacu]'); await p.waitForTimeout(2000);
+    console.log(tag, '| mensaje:', (await p.textContent('#dlg .okmsg, #dlg .aviso')).replace(/\s+/g, ' ').slice(0, 330));
+    console.log(tag, '| llegó a:', enviados.join(', '), '| estado guardado:', merge(1).ESTADO, '| anotado:', anotacion(1));
+    await p.click('#dlg [data-cerrar]'); buzonMal = ['nadie@et.mde.es']; enviados = [];
+    await p.click('#tabs a[data-v=ajustes]'); await p.waitForTimeout(300); await p.fill('#aPruebaA', 'usuario@et.mde.es; nadie@et.mde.es');
+    await p.click('[data-pruebacorreo]'); await p.waitForTimeout(1200);
+    console.log(tag, '| correo de prueba:', (await p.textContent('#aPrueba')).replace(/\s+/g, ' ').slice(0, 260), '| errores:', errs);
+    buzonMal = []; await b.close(); return;
   }
   // 1) SUIGE valora el 1: sin observaciones (error), en curso, después cerrado
   await p.click('#tabs a[data-v=consulta]'); await p.click('.inc[data-id="1"]'); await p.waitForTimeout(500);
@@ -390,7 +414,9 @@ misGrupos = ['SEGURIDAD_IGE']; await prueba(false, 'solo SEGURIDAD_IGE');
 misGrupos = ['VSA_BAE']; await prueba(false, 'responsable de BAE');
 misGrupos = ['SEGURIDAD_IGE']; await prueba(false, 'informe'); await prueba(true, 'informe'); misGrupos = ['VSA_BAE'];
 extra = true; await prueba(false, 'firma'); await prueba(true, 'firma'); extra = false;
+misGrupos = ['SEGURIDAD_SUIGESUR', 'SEGURIDAD_SUIGENOR', 'SEGURIDAD_IGE']; admin = true; await prueba(false, 'correo rechazado'); await prueba(true, 'correo rechazado'); admin = false;
 misGrupos = []; await prueba(false, 'sin acceso'); await prueba(true, 'sin acceso');
+misGrupos = []; buzonMal = ['admin1@et.mde.es', 'i:0#.w|et\\usuario203']; enviados = []; await prueba(false, 'sin acceso'); buzonMal = [];
 accLista = false; await prueba(false, 'sin acceso y sin lista de solicitudes'); accLista = true;
 accCerrada = true; await prueba(true, 'sin acceso, lista sin permiso'); accCerrada = false;
 misGrupos = ['SEGURIDAD_IGE', 'SEGURIDAD_SUIGESUR']; admin = true; await prueba(false, 'portal'); misGrupos = ['SEGURIDAD_IGE']; await prueba(false, 'accesos'); await prueba(true, 'accesos');

@@ -8,6 +8,11 @@ Incidentes, el circuito con avisos, la consulta, las estadísticas y los informe
 Se sube a una biblioteca de Colabora junto con `img/vsa-minisdef.png` e `img/vsa-uso-oficial.png` (sin la carpeta
 `img`, al lado de la página: los usan los correos).
 
+- **Avisos por correo con envío robusto** (versión 2026-10-22 · 1, como Permisos; receta «Envío robusto» de `SHAREPOINT.md`): si
+  Colabora rechaza una dirección («destinatario válido»), el aviso se reenvía uno a uno, por la cuenta de la persona y,
+  si tiene una cuenta antigua sin buzón, a su otra cuenta con su mismo nombre. Quien tramita ve a quién llegó y a quién
+  no, y cada aviso queda anotado en «Observaciones» (historial del cuestionario). La solicitud de acceso avisa si el correo a los responsables no ha salido. En *Ajustes*, «Correo de prueba».
+
 ## Formulario de la BAE («＋ Nuevo cuestionario»)
 
 | Sección | Campos (columna) |

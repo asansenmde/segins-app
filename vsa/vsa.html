@@ -6388,7 +6388,7 @@ var Cipher = {
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-20 · 11';
+  var VERSION = '2026-10-22 · 1';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuestionario de calidad VSA · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -6567,7 +6567,7 @@ var Cipher = {
     web = location.origin + pref.sitio.replace(/\/+$/, '');
     omitidas = []; sencilla = false; errLista = null;
     return Promise.all([
-      api(web + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) { yo = { Id: u.Id, Title: u.Title, Email: u.Email || '' }; $('#quien').textContent = '👤 ' + u.Title; $('#quien').hidden = false; }),
+      api(web + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) { yo = { Id: u.Id, Title: u.Title, Email: u.Email || '', LoginName: u.LoginName || '' }; $('#quien').textContent = '👤 ' + u.Title; $('#quien').hidden = false; }),
       api(web + '/_api/web/currentuser/groups?$select=Id,Title').then(function (d) { misGrupos = lista(d.value).map(function (x) { return x.Title; }); }).catch(function () { misGrupos = []; }),
       api(urlLista() + '?$select=Id,Title,ListItemEntityTypeFullName,EffectiveBasePermissions,DefaultNewFormUrl,DefaultEditFormUrl,DefaultDisplayFormUrl').then(function (l) {
         listaInfo = l;
@@ -6894,6 +6894,8 @@ var Cipher = {
       '<label class="lbl">Sitio</label><input id="aSitio" value="' + esc(pref.sitio) + '">' +
       '<label class="lbl">Lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
       '<label class="check"><input type="checkbox" id="aCorreo"' + (pref.correo ? ' checked' : '') + '> Enviar avisos por correo al tramitar</label></div>' +
+      '<div class="card"><h3 style="margin-top:0">✉ Correo de prueba</h3><p class="small muted">Comprueba si Colabora acepta y entrega los avisos a unas direcciones (separadas por «;»). Si alguna no la acepta, lo dice.</p>' +
+      '<input id="aPruebaA" value="' + esc(yo && yo.Email ? yo.Email : '') + '"><div class="acciones"><button data-pruebacorreo="1">Enviar correo de prueba</button></div><div id="aPrueba"></div></div>' +
       '<div class="card"><h3 style="margin-top:0">Papeles</h3><p class="small">Tus papeles: ' + esc(misPapeles().join(', ') || 'ninguno') + '.</p>' +
       '<p class="small muted">Se deducen de los grupos de Colabora: SUIGE = SEGURIDAD_SUIGESUR, _SUIGENOR, _SUIGECAN, _SUIGEPIR, _SECORCEN, _DIIN, _DIAPER; DIACU e IGE = SEGURIDAD_IGE. ' +
       'La SUIGE de cada cuestionario sale del mando de 2.º nivel de la BAE (M2N).</p>' +
@@ -6950,15 +6952,15 @@ var Cipher = {
   function correosDeGrupos(nombres, sinVer) {
     return Promise.all(nombres.map(function (n) {
       if (cacheGrupos[n]) return Promise.resolve(cacheGrupos[n]);
-      return todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(n.replace(/'/g, "''")) + "')/users?$select=Email")
-        .then(function (l) { var c = l.map(function (u) { return u.Email; }).filter(Boolean); if (c.length) cacheGrupos[n] = c; return c; }).catch(function () { return []; })
+      return todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(n.replace(/'/g, "''")) + "')/users?$select=Id,Title,Email")
+        .then(function (l) { var c = l.map(function (u) { apuntarPersona(u); return u.Email; }).filter(Boolean); if (c.length) cacheGrupos[n] = c; return c; }).catch(function () { return []; })
         .then(function (c) { if (!c.length && sinVer && sinVer.indexOf(n) < 0) sinVer.push(n); return c; });
     })).then(function (rs) { return [].concat.apply([], rs); });
   }
   var correosTexto = function (t) { return String(t.correos || '').split(/[;,\s]+/).filter(function (x) { return /@/.test(x); }); };
   var limpia = function (l) { var v = {}; return l.filter(function (x) { x = String(x || '').trim().toLowerCase(); if (!/@/.test(x) || v[x]) return false; v[x] = 1; return true; }); };
   // Avisos de cada paso (la plantilla InfoPath no envía correos): a quien le toca actuar y copia a quien conviene saberlo
-  var correosPersonas = function (ls) { return ls.filter(Boolean).map(function (p) { return p.Email; }).filter(Boolean); };
+  var correosPersonas = function (ls) { return ls.filter(Boolean).map(function (p) { apuntarPersona(p); return p.Email; }).filter(Boolean); };
   function avisoDe(tipo, t, txt) {
     var dest = { suige: GRUPO_CORREO.suige(t.suige), ige: GRUPO_CORREO.ige };
     var bae = correosPersonas([t.resp, t.autor]), vis = correosPersonas(t.visib || []);
@@ -6992,24 +6994,119 @@ var Cipher = {
     while ((u + encodeURIComponent(cuerpo)).length > 2000 && cuerpo.length > 200) cuerpo = cuerpo.slice(0, cuerpo.length - 100) + '…';
     return u + encodeURIComponent(cuerpo);
   }
-  function enviarCorreo(c) {
-    if (!c.to.length) return Promise.resolve({ ok: false, motivo: 'no se encontraron destinatarios', sinVer: c.sinVer, mailto: mailto(c) });
-    var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: c.to }, CC: { results: c.cc }, Subject: c.asunto, Body: c.html };
-    if (c.bcc && c.bcc.length) pr.BCC = { results: c.bcc };
-    return enviarSP(web + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página').then(function () { return { ok: true, n: c.to.length + c.cc.length + (c.bcc || []).length, sinVer: c.sinVer, mailto: mailto(c) }; },
-      function (e) { return { ok: false, motivo: e.message || String(e), sinVer: c.sinVer, mailto: mailto(c) }; });
+  // ---------- Envío robusto de correo (copiado de Permisos; receta «Envío robusto» de SHAREPOINT.md) ----------
+  // Colabora rechaza el correo ENTERO si una sola dirección no es de un usuario que conozca con buzón («Asegúrese de que
+  // tenga un destinatario válido») y hay personas con cuentas antiguas sin buzón. Entonces se envía uno a uno y, a quien se
+  // rechaza, se le prueba su cuenta de inicio de sesión y, si tampoco, otra cuenta del sitio con su mismo nombre.
+  var DEST_MAL = /destinatario v|valid recipient|recipient/i;
+  var quienEs = {};   // correo → { Id, Title } de las personas que se van leyendo (para saber a quién reintentar)
+  var apuntarPersona = function (u) { var e = u && (u.Email || u.EMail); if (e && (u.Id || u.Title)) quienEs[String(e).toLowerCase()] = { Id: u.Id, Title: u.Title }; return u; };
+  var palabrasNombre = function (n) { return sinTildes(n).replace(/[^a-zñ ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 3 && ['del', 'las', 'los'].indexOf(w) < 0; }); };
+  var mismasPalabras = function (a, b) { var x = palabrasNombre(a).sort().join(' '), y = palabrasNombre(b).sort().join(' '); return !!x && x === y; };
+  function enviarUno(to, cc, bcc, c) {
+    var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, CC: { results: cc || [] }, Subject: c.asunto, Body: c.html };
+    if (bcc && bcc.length) pr.BCC = { results: bcc };
+    return enviarSP(web + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página');
   }
-  // Siempre se ofrece preparar el mismo aviso en Outlook, por si el correo de Colabora no llega
+  // Cuenta de inicio de sesión de una dirección: la propia, por el Id de la persona si se conoce o buscándola por el correo
+  function loginDe(correo) {
+    var c = String(correo || '').toLowerCase(), q = quienEs[c];
+    if (yo && yo.LoginName && (c === String(yo.Email || '').toLowerCase() || (q && q.Id === yo.Id))) return Promise.resolve(yo.LoginName);
+    var porCorreo = function () {
+      return api(web + '/_api/web/siteusers?$select=LoginName,Email&$filter=' + encodeURIComponent("Email eq '" + c.replace(/'/g, "''") + "'"))
+        .then(function (d) { var u = lista(d.value).find(function (x) { return String(x.Email || '').toLowerCase() === c && x.LoginName; }); return u ? u.LoginName : null; })
+        .catch(function () { return null; });
+    };
+    if (q && q.Id) return api(web + '/_api/web/getuserbyid(' + Number(q.Id) + ')?$select=LoginName').then(function (u) { return (u && u.LoginName) || porCorreo(); }, porCorreo);
+    return porCorreo();
+  }
+  // Otras direcciones de la misma persona: cuentas del sitio con su mismo nombre (aunque cambie el orden) que tienen correo
+  var cuentasSitio = null;
+  function otrasDirecciones(malo) {
+    var q = quienEs[String(malo).toLowerCase()], nombre = q && q.Title;
+    if (!nombre || palabrasNombre(nombre).length < 2) return Promise.resolve([]);
+    var base = cuentasSitio ? Promise.resolve(cuentasSitio) : api(web + '/_api/web/siteusers?$select=Id,Title,Email,PrincipalType&$filter=PrincipalType eq 1&$top=5000')
+      .then(function (d) { cuentasSitio = lista(d.value); return cuentasSitio; }, function () { return []; });
+    return base.then(function (us) {
+      var l = us.concat(yo ? [yo] : []).filter(function (u) { return u.Email && /@/.test(u.Email) && mismasPalabras(u.Title, nombre) && u.Email.toLowerCase() !== String(malo).toLowerCase(); }).map(function (u) { return u.Email; });
+      return l.filter(function (x, i) { return l.map(function (y) { return y.toLowerCase(); }).indexOf(x.toLowerCase()) === i; });
+    });
+  }
+  // c: { to, cc, bcc, asunto, html, texto, sinVer? }. Devuelve { ok, n, motivo, rechazados, desvios, llegaron, sinVer, mailto }
+  function enviarCorreo(c) {
+    var bcc = c.bcc || [], todos = c.to.concat(c.cc || [], bcc), desvios = [], llegaron = [];
+    var res = function (ok, n, motivo, rech) { return { ok: ok, n: n, motivo: motivo, rechazados: rech || [], desvios: desvios, llegaron: ok ? (llegaron.length ? llegaron : todos) : [], sinVer: c.sinVer || [], mailto: mailto(c) }; };
+    if (!c.to.length) return Promise.resolve(res(false, 0, 'no se encontraron destinatarios'));
+    return enviarUno(c.to, c.cc || [], bcc, c).then(function () { return res(true, todos.length); }, function (e) {
+      var m = e.message || String(e);
+      if (!DEST_MAL.test(m)) return res(false, 0, m);
+      var aceptados = 0, rech = [];
+      return todos.reduce(function (p, d) {
+        return p.then(function () {
+          var porNombre = function () {
+            return otrasDirecciones(d).then(function (alt) {
+              return alt.reduce(function (q, a) {
+                return q.then(function (hecho) { return hecho || enviarUno([a], [], [], c).then(function () { aceptados++; llegaron.push(a); desvios.push(d + ' → ' + a); return true; }, function () { return false; }); });
+              }, Promise.resolve(false)).then(function (hecho) { if (!hecho) rech.push(d); });
+            });
+          };
+          return enviarUno([d], [], [], c).then(function () { aceptados++; llegaron.push(d); }, function () {
+            return loginDe(d).then(function (lg) {
+              if (!lg) return porNombre();
+              return enviarUno([lg], [], [], c).then(function () { aceptados++; llegaron.push(d + ' (por su cuenta)'); }, porNombre);
+            });
+          });
+        });
+      }, Promise.resolve()).then(function () { return res(aceptados > 0, aceptados, aceptados ? '' : m, rech); });
+    });
+  }
+  var claseCorreo = function (r) { return !r || (r.ok && !(r.rechazados && r.rechazados.length)) ? 'okmsg' : 'aviso'; };
+  // Texto del resultado para el historial del elemento
+  var textoAviso = function (r) {
+    return (r.ok ? 'enviado a ' + r.llegaron.join(', ') : 'NO ENVIADO (' + (r.motivo || '') + ')') + (r.rechazados && r.rechazados.length ? '; Colabora no aceptó: ' + r.rechazados.join(', ') : '') +
+      (r.desvios && r.desvios.length ? '; enviado a otra cuenta: ' + r.desvios.join('; ') : '');
+  };
+  // Detalle del resultado para quien tramita (direcciones no aceptadas y desvíos a otra cuenta)
+  var detalleCorreo = function (r) {
+    if (!r) return '';
+    return (r.rechazados && r.rechazados.length ? ' Colabora no acepta estas direcciones (no son de usuarios del sitio o no tienen buzón), y a ellas NO les llega: ' + esc(r.rechazados.join(', ')) + '.' : '') +
+      (r.desvios && r.desvios.length ? ' Enviado a otra cuenta de la misma persona porque Colabora no aceptaba su dirección: ' + esc(r.desvios.join('; ')) + '.' : '');
+  };
+
   var msgCorreo = function (r) {
     if (!r) return '';
     var sv = r.sinVer && r.sinVer.length ? ' Estos grupos no dejan ver sus integrantes o están vacíos, y a ellos no les llega: ' + esc(r.sinVer.join(', ')) + '.' : '';
-    var btn = r.mailto ? ' <a class="btn" href="' + esc(r.mailto) + '">✉ ' + (r.ok ? 'Enviarlo también desde Outlook' : 'Preparar el correo en Outlook') + '</a>' : '';
-    return (r.ok ? ' Aviso enviado por Colabora a ' + r.n + ' destinatario' + (r.n === 1 ? '' : 's') + '.' : ' No se pudo enviar el aviso (' + esc(r.motivo) + ').') + sv + btn;
+    var btn = r.mailto ? ' <a class="btn" href="' + esc(r.mailto) + '">✉ ' + (r.ok && !(r.rechazados && r.rechazados.length) ? 'Enviarlo también desde Outlook' : 'Preparar el correo en Outlook') + '</a>' : '';
+    return (r.ok ? ' Aviso enviado por Colabora a ' + r.n + ' destinatario' + (r.n === 1 ? '' : 's') + '.' : ' No se pudo enviar el aviso (' + esc(r.motivo) + ').') + detalleCorreo(r) + sv + btn;
   };
 
   // ---------- Guardar (sin pisar cambios de otros) ----------
   // Las valoraciones y anotaciones se añaden a «Observaciones» (el campo de observaciones del Negociado en la plantilla)
   var anotacionHtml = function (cab, txt) { return '<p><b>' + esc(fHora(new Date()) + ' · ' + yo.Title + ' · ' + cab) + '</b>' + (txt ? '<br>' + aHtml(txt) : '') + '</p>'; };
+  // El resultado de cada aviso por correo queda en «Observaciones» (historial), para saber después si salió y a quién
+  function anotarAviso(id, r) {
+    if (!id || !r) return Promise.resolve();
+    return leerElemento(id, ['Observaciones']).then(function (x) {
+      return enviarSP(urlLista() + '/items(' + id + ')', { __metadata: { type: listaInfo.ListItemEntityTypeFullName }, Observaciones: (x.datos.Observaciones || '') + anotacionHtml('AVISO POR CORREO', textoAviso(r)) },
+        'Sin permiso', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': x.etag });
+    }).then(function () {
+      // La anotación cambia la fecha de modificación: se actualiza aquí para que el siguiente trámite no lo tome por un cambio ajeno
+      return leerElemento(id, []).then(function (y) { var it = items.find(function (z) { return z.id === Number(id); }); if (it && y.datos.Modified) it.modificado = y.datos.Modified; });
+    }).catch(function () { /* la tramitación ya está hecha */ });
+  }
+  function correoPrueba(boton) {
+    var to = String($('#aPruebaA').value || '').split(/[;,\s]+/).filter(function (x) { return /@/.test(x); }), el = $('#aPrueba');
+    if (!to.length) { el.innerHTML = '<div class="error">Escribe al menos una dirección de correo.</div>'; return; }
+    var intro = 'CORREO DE PRUEBA: ASÍ LLEGAN LOS AVISOS DEL CUESTIONARIO DE CALIDAD VSA.';
+    var filas = [['Enviado por', yo.Title], ['Fecha', fHora(new Date())], ['Versión de la página', VERSION]];
+    var c = { to: to, cc: [], bcc: [], sinVer: [], asunto: 'PRUEBA · CUESTIONARIO DE CALIDAD VSA · AVISO POR CORREO', html: htmlCorreo(intro, filas, enlacePagina()),
+      texto: 'USO OFICIAL\n\n' + intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') };
+    boton.disabled = true; el.innerHTML = '<p class="muted small">Enviando…</p>';
+    enviarCorreo(c).then(function (r) {
+      boton.disabled = false;
+      el.innerHTML = '<div class="' + claseCorreo(r) + '">' + (r.ok ? '✓ Colabora ha aceptado el correo. Mira la bandeja (y «Correo no deseado») en unos minutos.' : '✕') + msgCorreo(r) + '</div>';
+    });
+  }
   function guardarCambios(t, cuerpo, nota) {
     return leerTipos().then(function () { return leerElemento(t.id, ['ESTADO', 'Observaciones']); }).then(function (x) {
       if (t.modificado && x.datos.Modified && !mismaFecha(t.modificado, x.datos.Modified)) throw new Error(CONFLICTO);
@@ -7047,7 +7144,13 @@ var Cipher = {
   function asegurarUsuario(u) {
     if (u.Id) return Promise.resolve(u);
     return enviarSP(web + '/_api/web/ensureuser', { logonName: u.clave }, 'No tienes permiso para añadir a esa persona al sitio').then(function (r) {
-      var x = { Id: r.Id, Title: r.Title || u.Title, Email: r.Email || u.Email || '' };
+      var x = { Id: r.Id, Title: r.Title || u.Title, Email: r.Email || '' };
+      // Cuenta sin correo en Colabora: si la misma persona tiene otra cuenta del sitio con correo, se usa esa (si no, sus avisos no llegan)
+      if (!x.Email) {
+        var otra = (usuariosSitio || []).filter(function (y) { return y.Id !== x.Id && y.Email && mismasPalabras(y.Title, x.Title); });
+        if (otra.length === 1) return otra[0];
+        x.Email = u.Email || '';
+      }
       if (usuariosSitio && !usuariosSitio.some(function (y) { return y.Id === x.Id; })) usuariosSitio.push(x);
       return x;
     });
@@ -7303,7 +7406,7 @@ var Cipher = {
           var nuevo = aVsa(Object.assign({ Id: id }, c, { ResponsableDeLaInformacion: resp && { Id: resp.Id, Title: resp.Title, EMail: resp.Email }, Author: { Id: yo.Id, Title: yo.Title, EMail: yo.Email }, Created: new Date().toISOString(),
             PersonalVisibilidad: grupo.map(function (u) { return { Id: u.Id, Title: u.Title, EMail: u.Email }; }) }));
           return (enviar && pref.correo ? avisoDe('enviado', nuevo, '').then(enviarCorreo) : Promise.resolve(null)).then(function (r) {
-            return cargar().then(function () {
+            return anotarAviso(id, r).then(cargar).then(function () {
               var m = '<div class="' + (r && !r.ok || fallos.length ? 'aviso' : 'okmsg') + '">✓ ' + (enviar ? 'Cuestionario enviado: pendiente de valoración de la ' + esc(suige) + '. <b>Ahora fírmalo</b> en «Firma electrónica» (botón «Firmar como BAE»).' : 'Borrador guardado.') + msgCorreo(r) +
                 (fallos.length ? ' No se pudieron subir estos adjuntos: ' + esc(fallos.join(', ')) + '.' : archivos.length ? ' Adjuntos subidos: ' + archivos.length + '.' : '') + '</div>';
               if (id) abrir(id, m); else $('#dlg').close();
@@ -7412,12 +7515,12 @@ var Cipher = {
     } catch (e) { if (e === 0) return; throw e; }
     boton.disabled = true;
     if (a === 'recordar') {
-      return avisoDe('recordar', t, '').then(enviarCorreo).then(function (r) { boton.disabled = !!r.ok; msgAcc(r.ok ? 'okmsg' : 'aviso', (r.ok ? '✓ Recordatorio enviado.' : 'No se envió el recordatorio.') + msgCorreo(r)); });
+      return avisoDe('recordar', t, '').then(enviarCorreo).then(function (r) { return anotarAviso(t.id, r).then(function () { return r; }); }).then(function (r) { boton.disabled = !!r.ok; msgAcc(r.ok ? 'okmsg' : 'aviso', (r.ok ? '✓ Recordatorio enviado.' : 'No se envió el recordatorio.') + msgCorreo(r)); });
     }
     (c.VALORACIONSUIGE === VS.IG ? asegurarOpcion('VALORACIONSUIGE', VS.IG) : Promise.resolve()).then(function () { return guardarCambios(t, c, nota_); }).then(function () {
       var nuevo = Object.assign({}, t, { estado: c.ESTADO || t.estado, vs: c.VALORACIONSUIGE !== undefined ? (c.VALORACIONSUIGE || '') : t.vs });
       return (pref.correo && correo ? avisoDe(correo, nuevo, txt).then(enviarCorreo) : Promise.resolve(null)).then(function (r) {
-        return cargar().then(function () { if (items.some(function (x) { return x.id === t.id; })) abrir(t.id, '<div class="' + (r && !r.ok ? 'aviso' : 'okmsg') + '">✓ ' + esc(ok) + msgCorreo(r) + '</div>'); else $('#dlg').close(); });
+        return anotarAviso(t.id, r).then(cargar).then(function () { if (items.some(function (x) { return x.id === t.id; })) abrir(t.id, '<div class="' + claseCorreo(r) + '">✓ ' + esc(ok) + msgCorreo(r) + '</div>'); else $('#dlg').close(); });
       });
     }).catch(function (e) {
       boton.disabled = false;
@@ -7939,6 +8042,7 @@ var Cipher = {
       return perfil;
     }).catch(function () { perfil = {}; return perfil; });
   }
+  var msgSolAcc = '';   // resultado del aviso por correo de la última solicitud de acceso enviada
   function pantallaAcceso(motivo) {
     cargadoEn = null; $('#nuevo').hidden = true; $('#tabs').innerHTML = '';
     $('#estadoCarga').textContent = 'Sin acceso';
@@ -7964,7 +8068,7 @@ var Cipher = {
           esc([s.unidad, s.mando].filter(Boolean).join(' · ')) + (s.resolucion ? '<br><span class="small">' + esc(s.resolucion) + '</span>' : '') + '</div></div>';
       }).join('') + '</div>' : '';
       if (pend) {
-        $('#vista').innerHTML = cab + '<div class="okmsg">Tu solicitud del ' + esc(fHora(pend.creado)) + ' está <b>PENDIENTE</b> de revisión. Recibirás un correo cuando se resuelva.</div>' + hist;
+        $('#vista').innerHTML = cab + '<div class="okmsg">Tu solicitud del ' + esc(fHora(pend.creado)) + ' está <b>PENDIENTE</b> de revisión. Recibirás un correo cuando se resuelva.</div>' + msgSolAcc + hist;
         return;
       }
       if (ult && ult.estado === 'APROBADA') cab += '<div class="aviso">Tu solicitud fue aprobada (' + esc(ult.grupo) + '), pero Colabora aún no te reconoce en el grupo. Cierra el navegador, vuelve a entrar y pulsa «Actualizar». Si sigue igual, avisa al administrador.</div>';
@@ -8005,7 +8109,12 @@ var Cipher = {
       return enviarSP(urlAcc() + '/items', Object.assign({ __metadata: { type: l.ListItemEntityTypeFullName } }, c), 'No tienes permiso para escribir en la lista de solicitudes de acceso');
     }).then(function (n) {
       var s = aSol(Object.assign({ Id: n && (n.Id || n.ID), Created: new Date().toISOString() }, c));
-      return (correoAcceso('nueva', s).then(enviarCorreo).catch(function () { return null; })).then(function () { pantallaAcceso(); });
+      return correoAcceso('nueva', s).then(enviarCorreo).catch(function (e) { return { ok: false, n: 0, motivo: e.message || String(e), rechazados: [] }; }).then(function (r) {
+        // Se dice si el aviso a los responsables ha salido (la solicitud queda guardada igualmente)
+        msgSolAcc = '<div class="' + claseCorreo(r) + '" style="margin-top:8px">' + (r.ok && !(r.rechazados && r.rechazados.length) ? '✓ Se ha avisado por correo a los responsables de los accesos.' :
+          msgCorreo(r) + ' La solicitud está guardada; si puedes, avisa también a ' + esc(ACCESO.avisarCorreos && ACCESO.avisarCorreos.length ? ACCESO.avisarCorreos.join(', ') : 'el administrador') + '.') + '</div>';
+        pantallaAcceso();
+      });
     }).catch(function (e) { boton.disabled = false; err('No se pudo enviar la solicitud: ' + (e.message || e)); });
   }
   function correoAcceso(tipo, s, txt) {
@@ -8119,7 +8228,7 @@ var Cipher = {
       s.grupo = aprobar ? grupo : '';
       return pref.correo ? correoAcceso(aprobar ? 'aprobada' : 'denegada', s, txt).then(enviarCorreo) : null;
     }).then(function (r) {
-      return cargarAccesos().then(function () { toast((aprobar ? 'Acceso concedido a ' : 'Solicitud denegada: ') + s.nombre + (r && r.ok ? ' · avisado por correo' : '')); });
+      return cargarAccesos().then(function () { toast((aprobar ? 'Acceso concedido a ' : 'Solicitud denegada: ') + s.nombre + (r && r.ok && !(r.rechazados && r.rechazados.length) ? ' · avisado por correo' : r ? ' · OJO: el correo a ' + (s.correo || 'la persona') + ' no ha salido; avísale tú' : '')); });
     }).catch(function (e) { boton.disabled = false; msg('error', 'No se pudo completar: ' + esc(e.message || e)); });
   }
   function quitarAcceso(boton) {
@@ -8225,6 +8334,7 @@ var Cipher = {
     var el = e.target;
     var tab = el.closest('#tabs a');
     if (tab) { pref.vista = tab.dataset.v; guardarPref(); render(); return; }
+    if (el.closest('[data-pruebacorreo]')) { correoPrueba(el.closest('[data-pruebacorreo]')); return; }
     if (el.closest('#recargar')) { accEstado = ''; cargar().then(function () { if (esAdmin && cargadoEn) cargarAccesos(); }); return; }
     var fb = el.closest('[data-firmarbae]'), se = el.closest('[data-subiremp]');
     if (fb || se) { var tf_ = items.find(function (x) { return x.id === Number((fb || se).dataset[fb ? 'firmarbae' : 'subiremp']); }); if (tf_) (fb ? firmarBae : subirFirmaEmpresa)(tf_, fb || se); return; }
