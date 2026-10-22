@@ -10,6 +10,7 @@ const U = { 279: { Id: 279, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.e
   12: { Id: 12, Title: 'AUTORIZADOR UNO', EMail: 'autor1@et.mde.es' }, 13: { Id: 13, Title: 'SOLICITANTE DOS', EMail: 'sol2@et.mde.es' } };
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(0, 0, 0, 0); return x.toISOString(); };
 let sinExpand = false, pets = [], asigs = [], grupoReg = [], anadidosReg = [], solLista = true, asigLista = true;
+let cuentaVieja = false;   // solicitud que nombra al autorizador con una cuenta antigua cuya dirección Colabora no acepta
 let buzonMal = [], enviados = [], cuentasPedidas = [];   // direcciones que Colabora rechaza en SendEmail («destinatario válido») y las que sí acepta
 let ultimoFiltro = '', items, gestor = false, registro = true, admin = false, otraCuenta = false, jefeOtraCuenta = false, sinSubstr = false, jefeNombre = false;
 const nuevoStore = () => {
@@ -22,6 +23,7 @@ const nuevoStore = () => {
     { Id: 4, Title: 'Viejo', Estado: '4-Registrado SIPERDEF', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2025', FechaInicio: d(-40), FechaDeFin: d(-30), Solicitante: U[279], Unidad0: { Id: 1, Title: 'UNIDAD A' } },
   ].concat(otraCuenta ? [{ Id: 9, Title: 'Antigua', Estado: '1-Pendiente de aprobar ', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(30), FechaDeFin: d(31), Solicitante: U[13], AprobadorDePermiso: { Id: 280, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.es' }, AprobadorTexto: 'USUARIO DE PRUEBA', Unidad0: { Id: 1, Title: 'UNIDAD A' } }] : [])
    .concat(jefeNombre ? [{ Id: 11, Title: 'Nombre al revés', Estado: '2-Aprobado', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(50), FechaDeFin: d(51), Solicitante: U[13], AprobadorDePermiso: U[11], AutorizadorDelPermiso: { Id: 888, Title: 'Prueba, Usuario de', EMail: '' }, AutorizadorTexto: 'Prueba, Usuario de', Unidad0: { Id: 1, Title: 'UNIDAD A' } }] : [])
+   .concat(cuentaVieja ? [{ Id: 12, Title: 'Cuenta vieja', Estado: '2-Aprobado', AutorizarDirecto: true, TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(60), FechaDeFin: d(61), Solicitante: U[13], CorreoDelSolicitante: 'sol2@et.mde.es', AutorizadorDelPermiso: { Id: 777, Title: 'Prueba, Usuario de', EMail: '' }, CorreoDeAUTORIZADOR: 'viejo@et.mde.es', AutorizadorTexto: 'Prueba, Usuario de', Unidad0: { Id: 1, Title: 'UNIDAD A' } }] : [])
    .concat(jefeOtraCuenta ? [{ Id: 10, Title: 'Del jefe', Estado: '2-Aprobado', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(40), FechaDeFin: d(41), Solicitante: U[13], AprobadorDePermiso: U[11], AutorizadorDelPermiso: { Id: 777, Title: 'Usuario De Prueba', EMail: '' }, CorreoDeAUTORIZADOR: 'USUARIO@et.mde.es', AutorizadorTexto: 'USUARIO DE PRUEBA', Unidad0: { Id: 1, Title: 'UNIDAD A' } }] : [])
    .map(x => ({ Created: d(-3), Modified: d(-2) + '', Author: { Id: x.Solicitante.Id, Title: x.Solicitante.Title }, Editor: { Title: 'X' }, NIF: '00000000T', RegistroDeBorrador: '', ...x }));
 };
@@ -115,6 +117,14 @@ async function prueba(verbose, soloAlcance) {
   });
   const tag = verbose ? '[verbose]' : '[ligero]';
   await p.goto(O + WEB + '/Documentos%20compartidos/permisos.html' + (soloAlcance === 'enlace' ? '?id=1' : '')); await p.waitForTimeout(800);
+  if (soloAlcance === 'cuenta vieja') {
+    await p.evaluate(() => { const a = document.createElement('a'); a.dataset.id = '12'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(700);
+    console.log(tag, 'cuenta vieja, recuadro:', (await p.textContent('#dlg .panel:has([data-reaviso])').catch(() => 'NO HAY')).replace(/\s+/g, ' ').slice(0, 420));
+    enviados = []; await p.click('[data-reaviso]:not([data-ami])'); await p.waitForTimeout(1500);
+    console.log(tag, 'cuenta vieja, reenviar:', (await p.textContent('#reavisoMsg')).replace(/\s+/g, ' ').slice(0, 330), '| llegó a:', enviados.join(', '));
+    console.log(tag, 'cuenta vieja, historial:', items.find(x => x.Id === 12).RegistroDeBorrador.split(' / ').filter(x => x.includes('AVISO')).join(' | '), '| errores:', errs);
+    await b.close(); return;
+  }
   if (soloAlcance === 'registro por unidad' || soloAlcance === 'registro sin unidad' || soloAlcance === 'propietario') {
     await p.click('#tabs a[data-v=registro]'); await p.waitForTimeout(300);
     console.log(tag, soloAlcance, '| pestañas:', await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | ')));
@@ -400,4 +410,5 @@ registro = false; sinExpand = true; await prueba(false, 'sin expand'); admin = t
 registro = true; await prueba(false, 'seguridad'); await prueba(true, 'seguridad');
 otraCuenta = true; await prueba(false, 'cuentas'); await prueba(true, 'cuentas'); otraCuenta = false;
 jefeNombre = true; registro = false; await prueba(false, 'jefe por nombre'); sinSubstr = true; await prueba(true, 'jefe por nombre'); sinSubstr = false; jefeNombre = false; registro = true;
+cuentaVieja = true; registro = false; buzonMal = ['viejo@et.mde.es', 'i:0#.w|et\\u777']; await prueba(false, 'cuenta vieja'); await prueba(true, 'cuenta vieja'); buzonMal = []; cuentaVieja = false; registro = true;
 jefeOtraCuenta = true; registro = false; await prueba(false, 'jefe por correo'); await prueba(true, 'jefe por correo'); jefeOtraCuenta = false; registro = true;
