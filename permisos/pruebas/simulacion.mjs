@@ -238,6 +238,7 @@ async function prueba(verbose, soloAlcance) {
   const m1 = JSON.parse(posts.find(x => x.ruta.startsWith('SP.Utilities')).cuerpo).properties;
   console.log(tag, 'correo alta:', m1.To.results, m1.CC.results, '|', m1.Subject, '| enlace:', (m1.Body.match(/href="([^"]+)"/) || [])[1]);
   console.log(tag, 'mensaje:', await p.textContent('#dlg .okmsg, #dlg .aviso'));
+  console.log(tag, 'historial tras enviar:', (items.find(x => x.Id === 7) || {}).RegistroDeBorrador?.split(' / ').filter(x => x.includes('AVISO')).join(' | '));
   if (!soloAlcance) {
     await p.click('#dlg [data-cerrar]'); await p.click('#tabs a[data-v=todas]').catch(() => {}); await p.waitForTimeout(300);
     await p.evaluate(() => { const a = document.createElement('a'); a.className = 'sol'; a.dataset.id = '2'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(600);

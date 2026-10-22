@@ -182,7 +182,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-10-22 · 3';
+  var VERSION = '2026-10-22 · 4';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
   var CLAVE = 'permisos-calidad-vida';
@@ -1356,7 +1356,7 @@
   function enviarCorreo(c) {
     if (!c || !c.to.length) return Promise.resolve({ ok: false, n: 0, motivo: 'sin direcciones de correo en la solicitud', rechazados: [], mailto: c ? mailto(c) : '' });
     var todos = c.to.concat(c.cc, c.bcc || []);
-    var res = function (ok, n, motivo, rech) { return { ok: ok, n: n, motivo: motivo, rechazados: rech || [], mailto: mailto(c) }; };
+    var res = function (ok, n, motivo, rech) { return { ok: ok, n: n, motivo: motivo, rechazados: rech || [], para: todos, mailto: mailto(c) }; };
     return enviarUno(c.to, c.cc, c.bcc, c).then(function () { return res(true, todos.length); }, function (e) {
       var m = e.message || String(e);
       if (!DEST_MAL.test(m)) return res(false, 0, m);
@@ -1372,6 +1372,15 @@
         });
       }, Promise.resolve()).then(function () { return res(aceptados > 0, aceptados, aceptados ? '' : m, rech); });
     });
+  }
+  // El resultado del aviso queda en el historial de la solicitud («Registro de Borrador»), para saber después si salió y a quién
+  function anotarAviso(id, r) {
+    if (!id || !r) return Promise.resolve();
+    var rech = r.rechazados || [], llego = (r.para || []).filter(function (x) { return rech.indexOf(x) < 0; });
+    var txt = ' / AVISO POR CORREO ' + ahoraTxt() + ': ' + (r.ok ? 'enviado a ' + llego.join(', ') : 'NO ENVIADO (' + (r.motivo || '') + ')') + (rech.length ? '; Colabora no aceptó: ' + rech.join(', ') : '');
+    return leerElemento(id, ['RegistroDeBorrador']).then(function (x) {
+      return enviarSP(urlLista() + '/items(' + id + ')', { __metadata: tipoEntidad(), RegistroDeBorrador: (x.datos.RegistroDeBorrador || '') + esc(txt) }, 'Sin permiso', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': x.etag });
+    }).catch(function () { /* si no se puede anotar, la tramitación ya está hecha */ });
   }
   // Texto del resultado del correo para mostrarlo a quien tramita
   var msgCorreo = function (r) {
@@ -1498,7 +1507,7 @@
     var c = correoDe(t.estado === E.PA ? 'solicitud' : 'aprobado', t, '');
     if (aMi) { c.to = [yo.Email || yo.LoginName].filter(Boolean); c.cc = []; c.bcc = []; c.cuentas = {}; if (yo.Email) c.cuentas[yo.Email.toLowerCase()] = yo.Id; }
     boton.disabled = true; $('#reavisoMsg').innerHTML = '<p class="muted small">Enviando…</p>';
-    enviarCorreo(c).then(function (r) {
+    enviarCorreo(c).then(function (r) { return (aMi ? Promise.resolve() : anotarAviso(t.id, r)).then(function () { return r; }); }).then(function (r) {
       boton.disabled = false;
       $('#reavisoMsg').innerHTML = '<div class="' + claseCorreo(r) + '">' + (r.ok ? '✓ Colabora ha aceptado el aviso para: ' + esc(c.to.concat(c.cc, c.bcc).join(', ')) + '.' : '✕') + msgCorreo(r) +
         ' Si Colabora lo acepta y aun así no llega, revisa «Correo no deseado» o que esa dirección sea la de tu buzón.</div>';
@@ -1596,7 +1605,7 @@
     previo.then(function () { return guardarCambios(t, c, anotarRegistro(HIST[a]) + '. En Estado: ' + c.Estado); }).then(function () {
       var cr = pref.correo && correo ? correoDe(correo, nuevo, obsTxt) : null;
       return (cr ? enviarCorreo(cr) : Promise.resolve(null)).then(function (r) {
-        return cargar().then(function () {
+        return anotarAviso(t.id, r).then(cargar).then(function () {
           var txt = '✓ Guardado: la solicitud pasa a «' + esc(c.Estado) + '».';
           var m = '<div class="' + claseCorreo(r) + '">' + txt + msgCorreo(r) + '</div>';
           abrir(t.id, m);
@@ -1694,7 +1703,7 @@
           directo: directo, correoSol: sol.Email || '', correoApr: c.CorreoDeAPROBADOR, correoAut: c.CorreoDeAUTORIZADOR, aprTexto: c.AprobadorTexto, autTexto: c.AutorizadorTexto };
         var cr = enviar && pref.correo ? correoDe(directo ? 'aprobado' : 'solicitud', nuevo, v('obs')) : null;
         return (cr ? enviarCorreo(cr) : Promise.resolve(null)).then(function (r) {
-          return cargar().then(function () {
+          return anotarAviso(id, r).then(cargar).then(function () {
             var txt = enviar ? '✓ Solicitud enviada a ' + (directo ? 'autorización' : 'aprobación') + '.' : '✓ Borrador guardado.';
             var m = '<div class="' + claseCorreo(r) + '">' + txt + msgCorreo(r) + '</div>';
             pref.vista = 'mias'; guardarPref(); render();
