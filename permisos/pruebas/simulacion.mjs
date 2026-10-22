@@ -122,6 +122,8 @@ async function prueba(verbose, soloAlcance) {
     console.log(tag, 'cuenta vieja, recuadro:', (await p.textContent('#dlg .panel:has([data-reaviso])').catch(() => 'NO HAY')).replace(/\s+/g, ' ').slice(0, 420));
     enviados = []; await p.click('[data-reaviso]:not([data-ami])'); await p.waitForTimeout(1500);
     console.log(tag, 'cuenta vieja, reenviar:', (await p.textContent('#reavisoMsg')).replace(/\s+/g, ' ').slice(0, 330), '| llegó a:', enviados.join(', '));
+    posts.length = 0; await p.click('[data-acc=autorizar]'); await p.waitForTimeout(1500);
+    console.log(tag, 'autorizar justo después de reenviar:', (await p.textContent('#accMsg, #dlg .okmsg, #dlg .aviso').catch(() => '')).replace(/\s+/g, ' ').slice(0, 120), '| estado:', items.find(x => x.Id === 12).Estado);
     console.log(tag, 'cuenta vieja, historial:', items.find(x => x.Id === 12).RegistroDeBorrador.split(' / ').filter(x => x.includes('AVISO')).join(' | '), '| errores:', errs);
     await b.close(); return;
   }

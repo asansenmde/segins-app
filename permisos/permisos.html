@@ -182,7 +182,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-10-22 · 5';
+  var VERSION = '2026-10-22 · 6';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
   var CLAVE = 'permisos-calidad-vida';
@@ -1408,6 +1408,9 @@
     var txt = ' / AVISO POR CORREO ' + ahoraTxt() + ': ' + (r.ok ? 'enviado a ' + llego.join(', ') : 'NO ENVIADO (' + (r.motivo || '') + ')') + (rech.length ? '; Colabora no aceptó: ' + rech.join(', ') : '') + (r.desvios && r.desvios.length ? '; enviado a otra cuenta: ' + r.desvios.join('; ') : '');
     return leerElemento(id, ['RegistroDeBorrador']).then(function (x) {
       return enviarSP(urlLista() + '/items(' + id + ')', { __metadata: tipoEntidad(), RegistroDeBorrador: (x.datos.RegistroDeBorrador || '') + esc(txt) }, 'Sin permiso', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': x.etag });
+    }).then(function () {
+      // La anotación cambia la fecha de modificación: se actualiza aquí para que el siguiente trámite no lo tome por un cambio ajeno
+      return leerElemento(id, []).then(function (y) { var it = items.find(function (z) { return z.id === Number(id); }); if (it && y.datos.Modified) it.modificado = y.datos.Modified; });
     }).catch(function () { /* si no se puede anotar, la tramitación ya está hecha */ });
   }
   // Texto del resultado del correo para mostrarlo a quien tramita
