@@ -10,6 +10,7 @@ const U = { 279: { Id: 279, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.e
   12: { Id: 12, Title: 'AUTORIZADOR UNO', EMail: 'autor1@et.mde.es' }, 13: { Id: 13, Title: 'SOLICITANTE DOS', EMail: 'sol2@et.mde.es' } };
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(0, 0, 0, 0); return x.toISOString(); };
 let sinExpand = false, pets = [], asigs = [], grupoReg = [], anadidosReg = [], solLista = true, asigLista = true;
+let buzonMal = [], enviados = [];   // direcciones que Colabora rechaza en SendEmail («destinatario válido») y las que sí acepta
 let ultimoFiltro = '', items, gestor = false, registro = true, admin = false, otraCuenta = false, jefeOtraCuenta = false, sinSubstr = false, jefeNombre = false;
 const nuevoStore = () => {
   items = [
@@ -39,7 +40,11 @@ async function prueba(verbose, soloAlcance) {
     if (req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
-      if (resto.startsWith('SP.Utilities.Utility.SendEmail')) return r.fulfill({ json: { d: {} } });
+      if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
+        const pr = JSON.parse(req.postData()).properties, dest = [pr.To, pr.CC, pr.BCC].flatMap(x => x ? x.results : []);
+        if (dest.some(x => buzonMal.includes(String(x).toLowerCase()))) return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el mensaje de correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } });
+        enviados.push(...dest); return r.fulfill({ json: { d: {} } });
+      }
       if (resto.startsWith('SP.UI.ApplicationPages')) return r.fulfill({ json: { d: { ClientPeoplePickerSearchUser: '[]' } } });
       if (resto.startsWith("web/lists/getbytitle('SOLICITUDES ACCESO APLICACIONES')")) {
         const c2 = JSON.parse(req.postData() || '{}'); delete c2.__metadata; const ms = resto.match(/items\((\d+)\)/);
@@ -79,7 +84,7 @@ async function prueba(verbose, soloAlcance) {
       return J({ value: lista_.filter(x => (!me || (campo === 'SolicitanteId' ? x.Solicitante && x.Solicitante.Id : x.RegistradorId) === +me[1]) && (!app || x.Aplicacion === app[1])) });
     }
     if (resto.startsWith('web/currentuser')) return J({ Id: 279, Title: U[279].Title, Email: U[279].EMail, LoginName: 'i:0#.w|et\\usuario' });
-    if (resto.startsWith('web/siteusers')) return J({ value: Object.values(U).map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail })).concat(otraCuenta ? [{ Id: 280, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es', LoginName: 'et\\usuario' }, { Id: 281, Title: 'BUZON COMPARTIDO', Email: 'usuario@et.mde.es' }] : []) });
+    if (resto.startsWith('web/siteusers')) return J({ value: Object.values(U).map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail, LoginName: 'i:0#.w|et\\u' + x.Id })).concat(otraCuenta ? [{ Id: 280, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es', LoginName: 'et\\usuario' }, { Id: 281, Title: 'BUZON COMPARTIDO', Email: 'usuario@et.mde.es' }] : []) });
     if (resto.includes("getbytitle('empleos')")) return J({ value: [{ Title: 'Comandante' }, { Title: 'Sargento' }] });
     if (resto.includes("getbytitle('UNIDADES')")) return J({ value: [{ Id: 1, Title: 'UNIDAD A' }, { Id: 2, Title: 'UNIDAD B' }] });
     if (resto.includes('/fields')) return J({ value: [{ InternalName: 'Estado', Choices: ['0-Borrador de Solicitante', '1-Pendiente de Aprobar', '2-Aprobado', '3-Autorizado', '4-Registrado SIPERDEF', '5-Rechazado'] },
@@ -131,7 +136,7 @@ async function prueba(verbose, soloAlcance) {
     await p.check('#fReg [name=decl]'); posts.length = 0; await p.click('[data-regpedir]'); await p.waitForTimeout(1500);
     const al = posts.find(x => x.ruta.includes("SOLICITUDES ACCESO APLICACIONES')/items")), m = posts.filter(x => x.ruta.startsWith('SP.Utilities')).map(x => JSON.parse(x.cuerpo).properties).pop();
     console.log(tag, 'solicitud:', al && JSON.stringify((({ Unidad, UnidadesIds, Cargo, DepartamentoPerfil, Aplicacion, EstadoSolicitud }) => ({ Unidad, UnidadesIds, Cargo, DepartamentoPerfil, Aplicacion, EstadoSolicitud }))(JSON.parse(al.cuerpo))), '| aviso a:', m && m.To.results, '|', m && m.Subject);
-    console.log(tag, 'después:', (await p.textContent('#vista .okmsg').catch(() => '')).slice(0, 70), '| errores:', errs);
+    console.log(tag, 'después:', (await p.$$eval('#vista .okmsg, #vista .aviso', n => n.map(x => x.textContent).join(' / '))).replace(/\s+/g, ' ').slice(0, 400), '| errores:', errs);
     await b.close(); return;
   }
   if (soloAlcance === 'accesos de registro') {
@@ -204,7 +209,7 @@ async function prueba(verbose, soloAlcance) {
     console.log(tag, 'errores:', errs); admin = false;
     await b.close(); return;
   }
-  if (soloAlcance) {
+  if (soloAlcance && soloAlcance !== 'correo rechazado') {
     await p.click('#tabs a[data-v=todas]'); await p.waitForTimeout(300);
     console.log(tag, soloAlcance, '| pestañas:', await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | ')));
     console.log(tag, soloAlcance, '| filtro en servidor:', ultimoFiltro ? 'sí' : 'no', '| ids en consulta:', await p.$$eval('.sol', n => n.map(x => x.dataset.id).join(',')), '|', await p.textContent('#vista p.muted.small'));
@@ -228,6 +233,10 @@ async function prueba(verbose, soloAlcance) {
   const m1 = JSON.parse(posts.find(x => x.ruta.startsWith('SP.Utilities')).cuerpo).properties;
   console.log(tag, 'correo alta:', m1.To.results, m1.CC.results, '|', m1.Subject, '| enlace:', (m1.Body.match(/href="([^"]+)"/) || [])[1]);
   console.log(tag, 'mensaje:', await p.textContent('#dlg .okmsg, #dlg .aviso'));
+  if (soloAlcance === 'correo rechazado') {
+    console.log(tag, 'rechaza:', buzonMal.join(', '), '| llegó a:', enviados.join(', '));
+    await b.close(); return;
+  }
   await p.click('#dlg [data-cerrar]');
   // Aprobar: sin autorizador → error; con autorizador → 2-Aprobado
   await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200);
@@ -361,6 +370,10 @@ registro = true; asigs = [{ Id: 100, RegistradorId: 279, UnidadesIds: '2' }]; aw
 asigs = []; await prueba(false, 'registro sin unidad');
 registro = false; admin = true; await prueba(false, 'propietario'); admin = false;
 registro = false; pets = []; await prueba(false, 'pedir acceso registro'); pets = []; await prueba(true, 'pedir acceso registro');
+// Colabora rechaza una dirección: el aviso sale igualmente al resto (y a uno mismo por su cuenta de inicio de sesión)
+buzonMal = ['asansen@et.mde.es']; enviados = []; pets = []; await prueba(false, 'pedir acceso registro');
+buzonMal = ['usuario@et.mde.es']; enviados = []; await prueba(false, 'correo rechazado');
+buzonMal = ['usuario@et.mde.es', 'aprob1@et.mde.es', 'i:0#.w|et\\u11']; enviados = []; await prueba(true, 'correo rechazado'); buzonMal = [];
 admin = true; asigs = []; grupoReg = [{ Id: 11, Title: 'APROBADOR UNO', Email: 'aprob1@et.mde.es', LoginName: 'i:0#.w|et\\a1' }]; anadidosReg = [];
 pets = [{ Id: 1, Title: 'SOLICITANTE DOS', Solicitante: U[13], Correo: U[13].EMail, Empleo: 'Sargento', Unidad: 'UNIDAD B', UnidadesIds: '2', Cargo: 'Auxiliar', DepartamentoPerfil: 'UNIDAD A', Telefono: '600', Aplicacion: 'REGISTRO SIPERDEF', EstadoSolicitud: 'PENDIENTE', Created: d(-1) }];
 await prueba(false, 'accesos de registro'); admin = false; asigs = []; grupoReg = []; registro = true;
