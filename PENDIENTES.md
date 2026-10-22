@@ -10,7 +10,8 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
    - original legible en local/repositorio y copia ofuscada `<proyecto>/colabora/<página>.html` con bloqueo de
      dominio `.mdef.es` para subir a Colabora;
    - pasar las pruebas simuladas también contra la copia protegida.
-   - **Hecho:** VSA (19/10/2026), Incidentes y Permisos (20/10/2026). **Falta:** Tareas Colabora.
+   - **Hecho:** VSA (19/10/2026), Incidentes y Permisos (20/10/2026), Tareas Colabora (22/10/2026, con el nuevo panel de
+     la pestaña Tareas).
 2. **Control de acceso con solicitud** (receta «Control de acceso con solicitud»): pantalla «Solicitar acceso»,
    lista común «SOLICITUDES DE ACCESO» (columna `Aplicacion`), pestaña «Accesos», grupo propio de cada aplicación.
    - **Hecho:** VSA (17/10/2026) e Incidentes (20/10/2026, con transición y aviso por correo de cada solicitud).
@@ -25,6 +26,11 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
 
 5. **Ocultar la ruleta en el portal**: hecho con un Editor de scripts (receta y cómo volver a verla en `SHAREPOINT.md`,
    «Ocultar la ruleta y la cinta en el portal»). Pendiente de confirmar que el administrador la ve sin `?admin=1`.
+
+6. **Tareas Colabora, mejoras de visibilidad pendientes** (propuestas el 22/10/2026; hechas ya la cabecera, el resumen,
+   los grupos plegables, la tabla, los filtros y la autoría): recorrido de estados con contadores, pestaña de
+   estadísticas (cumplimiento de NLT, retraso medio, por negociado/responsable/mes) y calendario con colores por
+   prioridad.
 
 Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar por la que diga).
 

@@ -1,7 +1,14 @@
 <!doctype html>
+<!--
+  Gestor de tareas de la Jefatura de SUIGESUR (Tareas NLT para Colabora)
+  © 2026 Cte. Alfredo Sánchez Sender. Desarrollador y autor de esta aplicación. Todos los derechos reservados.
+  Prohibida su copia, modificación o redistribución sin autorización del autor.
+-->
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta name="author" content="Cte. Alfredo Sánchez Sender">
+<meta name="copyright" content="© 2026 Cte. Alfredo Sánchez Sender">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GESTOR DE TAREAS DE LA JEFATURA DE SUIGESUR</title>
 <!--
@@ -15,6 +22,7 @@
     --brand: #3b4a2f; --brand-2: #56693f; --on-brand: #fff;
     --ok: #2e7d32; --ok-bg: #dcefdc; --warn: #9a5b00; --warn-bg: #fdebc8; --bad: #b71c1c; --bad-bg: #fbdada;
     --info: #1d4f91; --info-bg: #dde8f7; --na: #555; --na-bg: #e7e7e7;
+    --hoy: #c2410c; --hoy-bg: #ffe3cc; --esp: #6b3fa0; --esp-bg: #efe3fb;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
@@ -35,15 +43,64 @@
   label.check { display: inline-flex; gap: 6px; align-items: center; margin: 4px 12px 4px 0; font-size: .9rem; }
   label.check input { width: auto; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
-  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
-  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px; text-align: center; cursor: pointer; font: inherit; color: inherit; }
-  .kpi.on { outline: 2px solid var(--brand-2); }
-  .kpi b { display: block; font-size: 1.5rem; }
-  .kpi.bad b { color: var(--bad); } .kpi.warn b { color: var(--warn); }
+  /* Cabecera de bienvenida y tarjetas de resumen (como en Incidentes) */
+  .hero { background: linear-gradient(120deg, #26331d 0%, #3b4a2f 55%, #56693f 100%); color: #fff; border-radius: 16px; padding: 16px 20px; margin: 12px 0; position: relative; overflow: hidden; box-shadow: 0 6px 18px rgba(38,51,29,.2); }
+  .hero::after { content: ''; position: absolute; right: -40px; top: -40px; width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, rgba(201,168,76,.35), transparent 70%); }
+  .hero .hola { font-size: .78rem; letter-spacing: 1.5px; color: #e6d9a8; text-transform: uppercase; }
+  .hero .nom { font-size: 1.3rem; font-weight: 800; margin: 2px 0 8px; }
+  .hero .rolh { display: inline-block; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25); border-radius: 999px; padding: 2px 10px; margin: 0 6px 4px 0; font-size: .78rem; font-weight: 600; }
+  .hero p { margin: 6px 0 0; font-size: .82rem; color: #e3ead9; position: relative; z-index: 1; }
+  .mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 10px 0 12px; }
+  .mini button { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; text-align: left; font-weight: 400; transition: box-shadow .12s; }
+  .mini button:hover { box-shadow: 0 6px 16px rgba(0,0,0,.08); }
+  .mini button.on { outline: 2px solid var(--brand-2); outline-offset: 1px; background: var(--surface-2); }
+  .mini .ic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 1.2rem; flex: none; }
+  .ic.r { background: var(--bad-bg); } .ic.n { background: var(--hoy-bg); } .ic.a { background: var(--warn-bg); } .ic.az { background: var(--info-bg); } .ic.v { background: var(--ok-bg); }
+  .mini b { display: block; font-size: 1.45rem; line-height: 1.1; } .mini span { font-size: .76rem; color: var(--muted); }
+  .mini .r b { color: var(--bad); } .mini .n b { color: var(--hoy); } .mini .cero b { color: var(--muted); }
+  /* Barra de filtros */
+  .filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+  .filtros > div { flex: 1 1 120px; min-width: 0; } .filtros > .q { flex: 2 1 200px; }
+  .filtros label.lbl { margin-top: 0; }
+  .modo { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; flex: none; }
+  .modo button { border: 0; border-radius: 0; padding: 8px 11px; background: var(--surface); }
+  .modo button.on { background: var(--brand); color: #fff; }
+  .fpie { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; font-size: .82rem; color: var(--muted); }
+  .fpie button { padding: 3px 10px; font-size: .8rem; }
+  /* Grupos plegables */
+  details.grupo { margin: 10px 0; }
+  details.grupo > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); border-left: 6px solid var(--gc, var(--line)); font-weight: 700; user-select: none; }
+  details.grupo > summary::-webkit-details-marker { display: none; }
+  details.grupo > summary .fl { color: var(--muted); transition: transform .15s; font-size: .8rem; }
+  details.grupo[open] > summary .fl { transform: rotate(90deg); }
+  details.grupo > summary .n { margin-left: auto; background: var(--gc-bg, var(--surface-2)); color: var(--gc, var(--muted)); border-radius: 999px; padding: 1px 10px; font-size: .85rem; }
+  details.grupo > .cuerpo { padding-top: 8px; }
+  .g-vencidas { --gc: var(--bad); --gc-bg: var(--bad-bg); } .g-hoy { --gc: var(--hoy); --gc-bg: var(--hoy-bg); } .g-semana { --gc: var(--warn); --gc-bg: var(--warn-bg); }
+  .g-despues { --gc: var(--info); --gc-bg: var(--info-bg); } .g-sin { --gc: var(--na); --gc-bg: var(--na-bg); } .g-hechas { --gc: var(--ok); --gc-bg: var(--ok-bg); }
+  .mas { text-align: center; font-size: .82rem; color: var(--muted); padding: 6px; }
   .sec { margin: 16px 0 6px; font-size: .85rem; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; display: flex; justify-content: space-between; }
   .tarea { border-left: 5px solid var(--line); cursor: pointer; }
-  .tarea.bad { border-left-color: var(--bad); } .tarea.warn { border-left-color: var(--warn); } .tarea.ok { border-left-color: var(--ok); } .tarea.hecha { opacity: .7; }
-  .tarea .tit { font-weight: 650; }
+  .tarea.bad { border-left-color: var(--bad); } .tarea.hoy { border-left-color: var(--hoy); } .tarea.warn { border-left-color: var(--warn); } .tarea.ok { border-left-color: var(--ok); } .tarea.hecha { opacity: .7; }
+  div.tarea { transition: box-shadow .12s; } div.tarea:hover { box-shadow: 0 4px 12px rgba(0,0,0,.07); }
+  .tarea .tit { font-weight: 650; overflow-wrap: anywhere; }
+  .t-top { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; }
+  .t-top .badge { flex: none; margin-top: 2px; }
+  .exp { font-family: ui-monospace, Consolas, monospace; font-size: .74rem; color: var(--muted); }
+  /* Colores de estado y prioridad */
+  .st-pendiente { background: var(--na-bg); color: var(--na); } .st-curso { background: var(--info-bg); color: var(--info); }
+  .st-espera { background: var(--esp-bg); color: var(--esp); } .st-hecha { background: var(--ok-bg); color: var(--ok); }
+  .pr-critica { background: var(--bad); color: #fff; } .pr-alta { background: var(--hoy-bg); color: var(--hoy); }
+  .pr-media { background: var(--surface-2); color: var(--muted); } .pr-baja { background: #edf2f6; color: #5b7184; }
+  .badge.hoy { background: var(--hoy-bg); color: var(--hoy); }
+  /* Vista en tabla compacta */
+  .tabla-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+  table.tt { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  table.tt th { text-align: left; font-size: .7rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); padding: 7px 8px; border-bottom: 1px solid var(--line); background: var(--surface-2); white-space: nowrap; }
+  table.tt td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.tt tr:last-child td { border-bottom: 0; }
+  table.tt tr.tarea:hover td { background: #f8faf5; }
+  table.tt .nw { white-space: nowrap; }
+  @media (max-width: 640px) { table.tt .opc { display: none; } }
   .meta { display: flex; flex-wrap: wrap; gap: 5px 8px; margin-top: 4px; font-size: .82rem; align-items: center; }
   .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .74rem; font-weight: 700; white-space: nowrap; }
   .badge.ok { background: var(--ok-bg); color: var(--ok); } .badge.warn { background: var(--warn-bg); color: var(--warn); }
@@ -89,7 +146,10 @@
   .aviso { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
   .error { background: var(--bad-bg); color: var(--bad); border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-weight: 600; }
   .acciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 10px 0; }
-  @media (max-width: 520px) { .kpis { grid-template-columns: repeat(2, 1fr); } .dia { min-height: 44px; } .dia i { font-size: 0; height: 5px; } }
+  .autor { max-width: 1000px; margin: 0 auto; padding: 12px 16px 24px; text-align: center; font-size: .78rem; color: var(--muted); border-top: 1px solid var(--line); }
+  @media print { .autor { display: none; } }
+  @media (max-width: 520px) { .mini { grid-template-columns: repeat(2, 1fr); } 
+    .mini button { padding: 8px; } .mini button:last-child:nth-child(odd) { grid-column: 1 / -1; } .hero { padding: 14px 16px; } .dia { min-height: 44px; } .dia i { font-size: 0; height: 5px; } }
   @media print {
     body.imprimiendo .top, body.imprimiendo nav.tabs, body.imprimiendo #vista > :not(#informeDoc) { display: none !important; }
     body.imprimiendo .informe { border: 0; padding: 0; }
@@ -110,6 +170,7 @@
   </nav>
   <div id="vista"><p class="muted">Leyendo la lista «Gestor de Tareas»…</p></div>
 </main>
+<footer class="autor">© 2026 · Aplicación desarrollada por el <b>Cte. Alfredo Sánchez Sender</b> · Todos los derechos reservados · <span id="verPie"></span></footer>
 <dialog id="dlg"></dialog>
 <script>
 (function () {
@@ -129,10 +190,13 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
+  var VERSION = '2026-10-22 · 1';
+  $('#verPie').textContent = 'versión ' + VERSION;
 
   // ---------- Preferencias de este navegador ----------
   var CLAVE = 'tareas-nlt-colabora';
-  var pref = { lista: 'Gestor de Tareas', vista: 'nlt', quien: 'mias', q: '', negociado: '', estado: '', prio: '', mapaEstados: {}, avisoDias: 3, informe: null };
+  var pref = { lista: 'Gestor de Tareas', vista: 'nlt', quien: 'mias', q: '', negociado: '', estado: '', prio: '', resp: '', mapaEstados: {}, avisoDias: 3, informe: null,
+    modo: 'tarjetas', grupos: { vencidas: true, hoy: true } };
   try { Object.assign(pref, JSON.parse(localStorage.getItem(CLAVE)) || {}); } catch (e) { /* sin memoria local */ }
   var guardarPref = function () { try { localStorage.setItem(CLAVE, JSON.stringify(pref)); } catch (e) { /* sin memoria local */ } };
 
@@ -265,11 +329,12 @@
       tareas = items.map(aTarea);
       cargadoEn = new Date();
       $('#estadoCarga').textContent = tareas.length + ' asuntos · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      $('#estadoCarga').title = 'Versión de la página: ' + VERSION;
       render();
     }).catch(function (e) {
       $('#estadoCarga').textContent = 'Error';
       $('#vista').innerHTML = '<div class="error">No se pudo leer la lista «' + esc(pref.lista) + '»: ' + esc(e.message || e) +
-        '.</div><p class="muted">Comprueba en Ajustes el nombre de la lista y que tienes permiso para verla.</p>';
+        '.<br><small>Versión de la página: ' + esc(VERSION) + '</small></div><p class="muted">Comprueba en Ajustes el nombre de la lista y que tienes permiso para verla.</p>';
       if (pref.vista === 'ajustes') render();
     });
   }
@@ -282,9 +347,9 @@
     }
     if (!t.nlt) return { cls: 'none', grupo: 'sin', txt: 'Sin NLT' };
     var d = diasHasta(t.nlt);
-    if (d < 0) return { cls: 'bad', grupo: 'vencidas', txt: 'Vencida hace ' + (-d) + ' d' };
+    if (d < 0) return { cls: 'bad', grupo: 'vencidas', txt: 'Retraso de ' + (-d) + (d === -1 ? ' día' : ' días') };
     if (d === 0) return { cls: 'bad', grupo: 'hoy', txt: 'Vence hoy' };
-    var txt = d === 1 ? 'Vence mañana' : 'Quedan ' + d + ' d';
+    var txt = d === 1 ? 'Vence mañana' : 'Faltan ' + d + ' días';
     return { cls: d <= pref.avisoDias ? 'warn' : 'ok', grupo: d <= 7 ? 'semana' : 'despues', txt: txt };
   }
   var ordenar = function (a, b) {
@@ -301,6 +366,7 @@
       if (pref.negociado && t.negociado !== pref.negociado && t.negociados.indexOf(pref.negociado) < 0) return false;
       if (pref.estado && t.estado !== pref.estado) return false;
       if (pref.prio && t.prioridad !== pref.prio) return false;
+      if (pref.resp && (t.responsable || 'Sin responsable') !== pref.resp) return false;
       if (q && sinTildes([t.asunto, t.descripcion, t.expediente, t.responsable, t.implicados.join(' '), t.negociado, t.estado, t.observaciones].join(' ')).indexOf(q) < 0) return false;
       return true;
     });
@@ -314,53 +380,108 @@
     return '<option value="">' + esc(vacio) + '</option>' + lista.map(function (v) { return '<option' + (v === sel ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
   };
 
-  function barraFiltros() {
+  var hayFiltros = function () { return !!(pref.q || pref.negociado || pref.estado || pref.prio || pref.resp); };
+  function barraFiltros(pie) {
     var negs = valores('NegociadoAsignado', 'negociado');
     tareas.forEach(function (t) { t.negociados.forEach(function (n) { if (negs.indexOf(n) < 0) negs.push(n); }); });
-    return '<div class="card"><div class="grid">' +
-      '<div><label class="lbl">Buscar</label><input id="fq" type="search" value="' + esc(pref.q) + '" placeholder="Asunto, expediente, persona…"></div>' +
+    var resps = Array.from(new Set(tareas.map(function (t) { return t.responsable || 'Sin responsable'; }))).sort(function (a, b) { return a.localeCompare(b, 'es'); });
+    return '<div class="card"><div class="filtros">' +
+      '<div class="q"><label class="lbl">Buscar</label><input id="fq" type="search" value="' + esc(pref.q) + '" placeholder="Asunto, expediente, persona…"></div>' +
       '<div><label class="lbl">Qué asuntos</label><select id="fquien">' +
         [['mias', 'Soy responsable'], ['implicado', 'Responsable o implicado'], ['todos', 'Todos']].map(function (o) { return '<option value="' + o[0] + '"' + (pref.quien === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
       '<div><label class="lbl">Negociado</label><select id="fneg">' + opciones(negs.sort(), pref.negociado, 'Todos') + '</select></div>' +
+      '<div><label class="lbl">Responsable</label><select id="fresp">' + opciones(resps, pref.resp, 'Todos') + '</select></div>' +
       '<div><label class="lbl">Estado</label><select id="fest">' + opciones(valores('ESTADO', 'estado'), pref.estado, 'Todos') + '</select></div>' +
       '<div><label class="lbl">Prioridad</label><select id="fprio">' + opciones(valores('Prioridad', 'prioridad'), pref.prio, 'Todas') + '</select></div>' +
-      '</div></div>';
+      '</div>' + (pie || hayFiltros() ? '<div class="fpie">' + (pie || '') + (hayFiltros() ? '<button data-limpiar="1">✕ Limpiar filtros</button>' : '') + '</div>' : '') + '</div>';
   }
+
+  // Color de la situación: «vence hoy» en naranja para distinguirlo de lo ya vencido
+  var colorU = function (t, u) { return t.clase === 'hecha' ? 'hecha' : u.grupo === 'hoy' ? 'hoy' : u.cls; };
+  var chipEstado = function (t) { return t.estado ? '<span class="badge st-' + t.clase + '">' + esc(t.estado) + '</span>' : ''; };
+  var chipPrio = function (t) { return t.prioridad ? '<span class="badge pr-' + t.prio + '">' + esc(t.prio === 'critica' && t.clase !== 'hecha' ? t.prioridad.toUpperCase() : t.prioridad) + '</span>' : ''; };
+  var chipPlazo = function (t, u) { return '<span class="badge ' + (u.grupo === 'hoy' ? 'hoy' : u.cls) + '">' + (u.cls === 'bad' || u.grupo === 'hoy' ? '⏰ ' : '') + esc(u.txt) + '</span>'; };
 
   function tarjeta(t) {
     var u = urgencia(t);
-    return '<div class="card tarea ' + (t.clase === 'hecha' ? 'hecha' : u.cls) + '" data-id="' + t.id + '">' +
-      (t.expediente ? '<div class="small muted">' + esc(t.expediente.split('\n')[0].slice(0, 80)) + '</div>' : '') +
-      '<div class="tit">' + esc(t.asunto) + '</div><div class="meta">' +
-      (t.prio === 'critica' && t.clase !== 'hecha' ? '<span class="badge crit">' + esc(t.prioridad.toUpperCase()) + '</span>' : t.prioridad ? '<span class="chip">' + esc(t.prioridad) + '</span>' : '') +
-      '<span class="badge ' + u.cls + '">' + esc(u.txt) + '</span>' +
-      (t.nlt ? '<span class="muted">NLT ' + esc(fMedia(t.nlt)) + '</span>' : '') +
-      (t.estado ? '<span class="badge info">' + esc(t.estado) + '</span>' : '') +
+    return '<div class="card tarea ' + colorU(t, u) + '" data-id="' + t.id + '">' +
+      '<div class="t-top"><div>' + (t.expediente ? '<div class="exp">' + esc(t.expediente.split('\n')[0].slice(0, 80)) + '</div>' : '') +
+      '<div class="tit">' + esc(t.asunto) + '</div></div>' + chipPlazo(t, u) + '</div><div class="meta">' +
+      chipEstado(t) + chipPrio(t) +
+      (t.nlt ? '<span class="muted">📅 NLT ' + esc(fMedia(t.nlt)) + '</span>' : '') +
       (t.responsable ? '<span class="muted">👤 ' + esc(t.responsable) + '</span>' : '') +
       (t.negociado ? '<span class="chip">' + esc(t.negociado) + '</span>' : '') + '</div></div>';
+  }
+  function tablaTareas(ts) {
+    return '<div class="tabla-wrap"><table class="tt"><tr><th>Plazo</th><th>Asunto</th><th>Estado</th><th class="opc">Prioridad</th><th class="opc">Responsable</th><th class="opc">Negociado</th></tr>' +
+      ts.map(function (t) {
+        var u = urgencia(t);
+        return '<tr class="tarea ' + colorU(t, u) + '" data-id="' + t.id + '"><td class="nw">' + chipPlazo(t, u) + (t.nlt ? '<div class="small muted">' + esc(fCorta(t.nlt)) + '</div>' : '') + '</td>' +
+          '<td>' + (t.expediente ? '<div class="exp">' + esc(t.expediente.split('\n')[0].slice(0, 60)) + '</div>' : '') + '<b>' + esc(t.asunto) + '</b></td>' +
+          '<td>' + chipEstado(t) + '</td><td class="opc">' + chipPrio(t) + '</td><td class="opc">' + esc(t.responsable) + '</td><td class="opc">' + esc(t.negociado) + '</td></tr>';
+      }).join('') + '</table></div>';
+  }
+  var TOPE = 300;
+  function listaTareas(ts) {
+    var vis = ts.slice(0, TOPE);
+    return (pref.modo === 'tabla' ? tablaTareas(vis) : vis.map(tarjeta).join('')) +
+      (ts.length > TOPE ? '<div class="mas">Se muestran ' + TOPE + ' de ' + ts.length + '. Afina con la búsqueda o los filtros.</div>' : '');
+  }
+  // Grupo plegable; lo que se abre o cierra se recuerda en este navegador
+  function grupo(clave, titulo, ts, forzar) {
+    if (!ts.length) return '';
+    var abierto = forzar || !!(pref.grupos || {})[clave];
+    return '<details class="grupo g-' + clave + '" data-grupo="' + clave + '"' + (abierto ? ' open' : '') + '><summary><span class="fl">▶</span><span>' + titulo + '</span><span class="n">' + ts.length + '</span></summary>' +
+      '<div class="cuerpo">' + listaTareas(ts) + '</div></details>';
   }
 
   // ---------- Vistas ----------
   var kpiSel = '';
+  var GRUPOS = [['vencidas', '🔴 Fuera de plazo'], ['hoy', '⏰ Vencen hoy'], ['semana', '📅 Próximos 7 días'], ['despues', '🗂️ Más adelante (con NLT)'], ['sin', '➖ Sin NLT']];
+  var terminadaEn = function (t) { return t.fin || (t.modificada ? fechaSP(t.modificada) : ''); };
+  function heroTareas() {
+    if (!yo) return '';
+    var ab = tareas.filter(function (t) { return t.clase !== 'hecha'; });
+    var mias = ab.filter(esMia).length, impl = ab.filter(function (t) { return meImplica(t) && !esMia(t); }).length;
+    var fecha = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    return '<div class="hero"><div class="hola">Gestor de tareas · Jefatura de SUIGESUR</div><div class="nom">👤 ' + esc(yo.Title) + '</div>' +
+      '<span class="rolh">Responsable de ' + mias + ' asunto' + (mias === 1 ? '' : 's') + ' abierto' + (mias === 1 ? '' : 's') + '</span>' +
+      (impl ? '<span class="rolh">Implicado en ' + impl + ' más</span>' : '') +
+      '<span class="rolh">Viendo: ' + { mias: 'mis asuntos', implicado: 'míos y en los que intervengo', todos: 'todos los asuntos' }[pref.quien] + '</span>' +
+      '<p>' + esc(fecha[0].toUpperCase() + fecha.slice(1)) + ' · ' + ab.length + ' asuntos abiertos en «' + esc(listaInfo ? listaInfo.Title : pref.lista) + '»</p></div>';
+  }
   function vistaNlt() {
     var ts = filtrar(tareas);
     var abiertas = ts.filter(function (t) { return t.clase !== 'hecha'; });
-    var cuenta = function (g) { return abiertas.filter(function (t) { return urgencia(t).grupo === g; }).length; };
-    var n = { vencidas: cuenta('vencidas'), hoy: cuenta('hoy'), semana: cuenta('semana'), abiertas: abiertas.length };
-    var kpi = function (k, l, cls) { return '<button class="kpi ' + cls + (kpiSel === k ? ' on' : '') + '" data-kpi="' + k + '">' + l + '<b>' + n[k] + '</b></button>'; };
-    var grupos = [['vencidas', 'Tareas fuera de plazo establecido'], ['hoy', 'Vencen hoy'], ['semana', 'Próximos 7 días'], ['despues', 'Tareas con NLT'], ['sin', 'Sin NLT']]
-      .filter(function (g) { return !kpiSel || kpiSel === 'abiertas' || kpiSel === g[0]; });
-    var html = grupos.map(function (g) {
-      var l = abiertas.filter(function (t) { return urgencia(t).grupo === g[0]; }).sort(ordenar);
-      return l.length ? '<div class="sec"><span>' + g[1] + '</span><span>' + l.length + '</span></div>' + l.slice(0, 300).map(tarjeta).join('') : '';
-    }).join('');
-    var hechas = ts.filter(function (t) { return t.clase === 'hecha'; }).sort(function (a, b) { return (b.fin || b.modificada || '').localeCompare(a.fin || a.modificada || ''); });
+    var grupoDe = {};
+    abiertas.forEach(function (t) { grupoDe[t.id] = urgencia(t).grupo; });
+    var cuenta = function (g) { return abiertas.filter(function (t) { return grupoDe[t.id] === g; }).length; };
+    var iniMes = hoy().slice(0, 8) + '01';
+    var hechas = ts.filter(function (t) { return t.clase === 'hecha'; }).sort(function (a, b) { return terminadaEn(b).localeCompare(terminadaEn(a)); });
+    var hechasMes = hechas.filter(function (t) { return terminadaEn(t) >= iniMes; });
+    var n = { vencidas: cuenta('vencidas'), hoy: cuenta('hoy'), semana: cuenta('semana'), curso: abiertas.filter(function (t) { return t.clase === 'curso'; }).length, hechasMes: hechasMes.length };
+    var mini = function (k, ic, cls, txt) {
+      return '<button class="' + cls + (n[k] ? '' : ' cero') + (kpiSel === k ? ' on' : '') + '" data-kpi="' + k + '" title="Pulsa para ver solo estos; otra vez para verlos todos"><span class="ic ' + cls + '">' + ic + '</span><div><b>' + n[k] + '</b><span>' + txt + '</span></div></button>';
+    };
+    var html;
+    if (kpiSel === 'hechasMes') html = grupo('hechas', '✅ Terminados este mes', hechasMes, true) || '<div class="card muted">Ningún asunto terminado este mes con estos filtros.</div>';
+    else {
+      var base = kpiSel === 'curso' ? abiertas.filter(function (t) { return t.clase === 'curso'; }) : abiertas;
+      html = GRUPOS.filter(function (g) { return !kpiSel || kpiSel === 'curso' || kpiSel === g[0]; }).map(function (g) {
+        return grupo(g[0], g[1], base.filter(function (t) { return grupoDe[t.id] === g[0]; }).sort(ordenar), !!kpiSel);
+      }).join('') || '<div class="card muted">No hay asuntos abiertos con estos filtros.</div>';
+      if (!kpiSel && hechas.length) html += grupo('hechas', '✅ Terminados', hechas.slice(0, 200), false);
+    }
     var aviso = !yo || pref.quien === 'todos' ? '' : !ts.length && tareas.length ? '<div class="aviso">No hay asuntos en los que figures como responsable. Cambia «Qué asuntos» a «Todos».</div>' : '';
-    return '<div class="card" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="altaRapida" style="flex:1;min-width:200px" placeholder="Nuevo asunto… p. ej. «Informe de visita antes del viernes»">' +
+    var modo = '<span class="modo" title="Cómo se ven los asuntos"><button data-modo="tarjetas" class="' + (pref.modo !== 'tabla' ? 'on' : '') + '">▤ Tarjetas</button><button data-modo="tabla" class="' + (pref.modo === 'tabla' ? 'on' : '') + '">☰ Tabla</button></span>';
+    var pie = modo + '<span>' + abiertas.length + ' abierto' + (abiertas.length === 1 ? '' : 's') + ' y ' + hechas.length + ' terminado' + (hechas.length === 1 ? '' : 's') + ' con estos filtros' +
+      (kpiSel ? ' · <b>mostrando solo una tarjeta del resumen</b> <button data-kpi="' + kpiSel + '">Ver todo</button>' : '') + '</span>';
+    return heroTareas() +
+      '<div class="mini">' + mini('vencidas', '🔴', 'r', 'Fuera de plazo') + mini('hoy', '⏰', 'n', 'Vencen hoy') + mini('semana', '📅', 'a', 'Próximos 7 días') +
+      mini('curso', '⚙️', 'az', 'En curso') + mini('hechasMes', '✅', 'v', 'Terminados este mes') + '</div>' +
+      '<div class="card" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="altaRapida" style="flex:1;min-width:200px" placeholder="Nuevo asunto… p. ej. «Informe de visita antes del viernes»">' +
       '<button class="btn prim" id="altaRapidaBtn">＋ Crear</button></div>' +
-      '<div class="kpis">' + kpi('vencidas', 'Vencidas', n.vencidas ? 'bad' : '') + kpi('hoy', 'Hoy', n.hoy ? 'warn' : '') + kpi('semana', '7 días', '') + kpi('abiertas', 'Abiertas', '') + '</div>' +
-      barraFiltros() + aviso + (html || '<p class="muted">No hay asuntos abiertos con estos filtros.</p>') +
-      (hechas.length && !kpiSel ? '<details class="card"><summary><b>Terminados</b> (' + hechas.length + ')</summary><div style="margin-top:8px">' + hechas.slice(0, 100).map(tarjeta).join('') + '</div></details>' : '');
+      barraFiltros(pie) + aviso + html;
   }
 
   var mes = (function () { var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })(), diaSel = hoy();
@@ -673,7 +794,18 @@
     var u = urgencia(t);
     return '- ' + t.asunto + (t.expediente ? ' [' + t.expediente.split('\n')[0].slice(0, 40) + ']' : '') + ' — NLT ' + fCorta(t.nlt) + ' (' + u.txt + ')' + (t.estado ? ' — ' + t.estado : '');
   };
-  var enlacePagina = function () { return location.origin + location.pathname; };
+  // Si la página se abre dentro de una página del portal (iframe), los enlaces llevan a esa página. Con la descarga
+  // mínima («_layouts/15/start.aspx#/SitePages/…») se toma la ruta del «#».
+  var enlacePagina = function () {
+    try {
+      if (window.top !== window && window.top.location.origin === location.origin) {
+        var tp = window.top.location.pathname, h = window.top.location.hash.replace(/^#/, '').split('?')[0];
+        if (/\/_layouts\/15\/start\.aspx$/i.test(tp) && h.charAt(0) === '/') tp = tp.replace(/\/_layouts\/15\/start\.aspx$/i, '') + h;
+        return location.origin + tp;
+      }
+    } catch (e) { /* otro origen: la propia página */ }
+    return location.origin + location.pathname;
+  };
   // mailto: el enlace completo no debe pasar de ~2000 caracteres (límite de Outlook); si no cabe, se quitan líneas de la lista
   function mailto(para, cc, asunto, cuerpo) {
     var montar = function (c) {
@@ -1150,7 +1282,7 @@
         : 'Se creará en la lista compartida de Colabora, igual que si lo dieras de alta allí: los avisos o flujos automáticos de la lista se ejecutarán como siempre.') + '</p>' +
       '<div class="error" id="nError" hidden></div>' +
       '<div class="acciones"><button type="button" data-cerrar>Cancelar</button><button type="button" class="btn prim" id="nCrear">' + (t ? 'Guardar cambios' : 'Crear en Colabora') + '</button></div>' +
-      (base ? '<p class="small"><a href="' + esc(base + (t ? '/EditForm.aspx?ID=' + t.id + '&' : '/NewForm.aspx?') + 'Source=' + encodeURIComponent(location.href)) + '">Prefiero el formulario de Colabora</a></p>' : '') + '</div>';
+      (base ? '<p class="small"><a target="_top" href="' + esc(base + (t ? '/EditForm.aspx?ID=' + t.id + '&' : '/NewForm.aspx?') + 'Source=' + encodeURIComponent(enlacePagina())) + '">Prefiero el formulario de Colabora</a></p>' : '') + '</div>';
     dlg.showModal(); dlg.scrollTop = 0;
     var porId = function (id) { return t && t.usuarios.find(function (u) { return u.Id === id; }); };
     var implicados = t ? t.implicadosIds.map(porId).filter(Boolean) : [];
@@ -1264,7 +1396,7 @@
     var ests = valores('ESTADO', 'estado');
     return '<div class="card"><h3 style="margin-top:0">Lista de SharePoint</h3>' +
       '<p class="small muted">Sitio: ' + esc(web ? (web.titulo || '') + ' (' + web.url + ')' : '—') + '<br>Usuario: ' + esc(yo ? yo.Title : '—') +
-      (listaInfo ? '<br>Lista: «' + esc(listaInfo.Title) + '», ' + listaInfo.ItemCount + ' elementos' : '') + (cargadoEn ? '<br>Leída a las ' + cargadoEn.toLocaleTimeString('es-ES') : '') + '</p>' +
+      (listaInfo ? '<br>Lista: «' + esc(listaInfo.Title) + '», ' + listaInfo.ItemCount + ' elementos' : '') + (cargadoEn ? '<br>Leída a las ' + cargadoEn.toLocaleTimeString('es-ES') : '') + '<br>Versión de la página: ' + esc(VERSION) + '</p>' +
       '<label class="lbl">Nombre de la lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
       '<label class="lbl">Marcar en naranja cuando queden (días)</label><input id="aDias" type="number" min="1" max="30" value="' + pref.avisoDias + '">' +
       '<label class="lbl">Estado con el que se crean los asuntos</label><select id="aEstAlta">' +
@@ -1286,7 +1418,7 @@
     var t = tareas.find(function (x) { return x.id === id; });
     if (!t) return;
     var base = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl : '';
-    var volver = encodeURIComponent(location.href);
+    var volver = encodeURIComponent(enlacePagina());
     var u = urgencia(t);
     var c = [['Estado', t.estado], ['Prioridad', t.prioridad], ['NLT (fecha vencimiento)', t.nlt ? fLarga(t.nlt) + ' · ' + u.txt : '—'], ['Fecha de inicio', t.inicio && fLarga(t.inicio)],
       ['Fecha finalización', t.fin && fLarga(t.fin)], ['Responsable de la información', t.responsable], ['Personal implicado', t.implicados.join(', ')],
@@ -1298,7 +1430,7 @@
       c.filter(function (x) { return x[0] && x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       '<div class="acciones"><button type="button" class="btn prim" data-modificar="' + t.id + '">✎ Modificar</button>' +
         (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
-        (base ? '<a class="btn" href="' + esc(base + '/DispForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Ver en Colabora</a>' : '') + '</div>' +
+        (base ? '<a class="btn" target="_top" href="' + esc(base + '/DispForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Ver en Colabora</a>' : '') + '</div>' +
       (t.clase !== 'hecha' && destinatarios(t).para.length ? '<div id="correoAsig" style="margin-top:10px"><button type="button" data-asignar="' + t.id + '">✉ Enviar aviso de asignación</button></div>' : '<div id="correoAsig"></div>') + '</div><div class="ficha-com">' +
       '<h3 style="margin:0 0 6px">Comentarios <span class="small muted">(' + esc(NOMBRE_CAMPO[campoComentarios()]) + ')</span></h3>' +
       '<textarea id="comTxt" rows="6" placeholder="Escribe un comentario…" ' + AREA + '></textarea>' +
@@ -1327,6 +1459,9 @@
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); return; }
     var k = el.closest('[data-kpi]');
     if (k) { kpiSel = kpiSel === k.dataset.kpi ? '' : k.dataset.kpi; render(); return; }
+    var md = el.closest('[data-modo]');
+    if (md) { pref.modo = md.dataset.modo; guardarPref(); render(); return; }
+    if (el.closest('[data-limpiar]')) { pref.q = pref.negociado = pref.estado = pref.prio = pref.resp = ''; kpiSel = ''; guardarPref(); render(); return; }
     var d = el.closest('[data-dia]');
     if (d) { diaSel = d.dataset.dia; render(); return; }
     var m = el.closest('[data-mes]');
@@ -1380,6 +1515,7 @@
     else if (el.id === 'fneg') pref.negociado = el.value;
     else if (el.id === 'fest') pref.estado = el.value;
     else if (el.id === 'fprio') pref.prio = el.value;
+    else if (el.id === 'fresp') pref.resp = el.value;
     else if (el.id === 'aDias') pref.avisoDias = Math.max(1, Number(el.value) || 3);
     else if (el.id === 'aCom') pref.campoComentarios = el.value;
     else if (el.id === 'aEstAlta') pref.estadoAlta = el.value;
@@ -1390,6 +1526,12 @@
     } else return;
     guardarPref(); render();
   });
+  // Grupos plegables: «toggle» no burbujea, se escucha en captura
+  document.addEventListener('toggle', function (e) {
+    var g = e.target.dataset && e.target.dataset.grupo;
+    if (!g || kpiSel) return;
+    pref.grupos = Object.assign({}, pref.grupos); pref.grupos[g] = e.target.open; guardarPref();
+  }, true);
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && e.target.id === 'altaRapida') { e.preventDefault(); formularioNuevo(e.target.value.trim()); }
   });

@@ -7,9 +7,19 @@ Versión de Tareas NLT que se ejecuta **dentro de Colabora** (SharePoint interno
 sobre la lista **«Gestor de Tareas»** del sitio `/et/SUIGESUR/JSUIGE`, con la sesión del usuario.
 Los datos no salen del servidor: la página no carga nada de internet ni envía nada fuera.
 
-- `tareas-nlt-colabora.html`: la app. Se sube a una biblioteca del sitio y se abre desde allí.
+- `tareas-nlt-colabora.html`: **original legible** (el que se edita). © 2026 Cte. Alfredo Sánchez Sender.
+- `colabora/tareas-nlt-colabora.html`: **copia protegida, la que se sube a Colabora** (código ofuscado y bloqueado al
+  dominio `.mdef.es`). Se regenera tras cada cambio con `cd colabora/proteger && npm install && node proteger.mjs`.
+  La app se sube a una biblioteca del sitio y se abre desde allí (o dentro de una página del portal).
   Lee la lista con la API REST y escribe solo para **dar de alta, modificar y comentar** asuntos, con los
   permisos del usuario (403 = sin permiso). **Nunca borra.**
+- **Pestaña Tareas** (versión 2026-10-22): cabecera con el usuario y sus asuntos; cinco tarjetas de resumen que filtran
+  al pulsarlas (fuera de plazo, vencen hoy, próximos 7 días, en curso, terminados este mes); grupos plegables con
+  contador (se recuerda cuáles están abiertos); colores por estado, prioridad y plazo («Retraso de 5 días», «Faltan
+  3 días»); botón **Tarjetas / Tabla** compacta; filtros de búsqueda, negociado, responsable, estado y prioridad con
+  «Limpiar filtros». Pie de autoría con la versión.
+- **Dentro de una página del portal** (iframe): los enlaces de los correos y «Ver en Colabora» llevan a la página del
+  portal (también con `start.aspx#/…`).
 - **Alta de asuntos**: botón «＋ Nuevo asunto» o el campo rápido de *Mis NLT*, que entiende fechas escritas
   («informe de visita antes del viernes urgente» → NLT y prioridad Alta). El formulario rellena asunto, NLT,
   inicio, estado, prioridad, negociado(s), responsable (por defecto el usuario), personal implicado,
@@ -47,6 +57,8 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   Si el navegador no deja abrir ventanas, se descarga como `.html` para abrirlo e imprimirlo.
 - **Estado al crear**: «Remitido al negociado» (como al enviarlo desde Colabora); se cambia en *Ajustes*.
 - `pruebas/simulacion.mjs`: prueba con Playwright contra un Colabora simulado (`node colabora/pruebas/simulacion.mjs`).
+  `VERBOSE=1` simula SharePoint 2013 (*verbose*); `TAREAS_HTML=colabora/colabora/tareas-nlt-colabora.html` prueba la
+  copia protegida; `CAPTURAS=<carpeta>` guarda capturas del panel.
 - `prueba-sharepoint.html`: página de diagnóstico que comprueba si el sitio ejecuta páginas propias y
   lista las listas y columnas (sin contenido).
 

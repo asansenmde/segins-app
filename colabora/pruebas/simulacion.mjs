@@ -2,14 +2,17 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
 const fs = require('fs');
-const html0 = fs.readFileSync(new URL('../tareas-nlt-colabora.html', import.meta.url), 'utf8'); const html = html0;
+// TAREAS_HTML=colabora/colabora/tareas-nlt-colabora.html para probar la versión protegida; VERBOSE=1 para SharePoint 2013 (odata=verbose)
+const html0 = fs.readFileSync(process.env.TAREAS_HTML ? process.env.TAREAS_HTML : new URL('../tareas-nlt-colabora.html', import.meta.url), 'utf8'); const html = html0;
+const VERBOSE = !!process.env.VERBOSE, CAPTURAS = process.env.CAPTURAS || '';
+const aVerbose = j => j && !j.d && !j.error ? (Array.isArray(j.value) ? { d: { results: j.value, __next: j['odata.nextLink'] } } : { d: j }) : j;
 const WEB = '/et/SUIGESUR/JSUIGE';
 const ESTADOS = ['BORRADOR', 'REMITIDO AL NEGOCIADO', 'EN CURSO', 'EN ESPERA DE RESPUESTA', 'FINALIZADO'];
 const PRIOS = ['Alta', 'Media', 'Baja', 'Urgente'];
 const NEGS = ['Seguridad', 'Personal', 'Logística'];
 const hoy = new Date(); const d = n => { const x = new Date(hoy); x.setDate(x.getDate() + n); x.setHours(0, 0, 0, 0); return x.toISOString(); };
 const items = Array.from({ length: 706 }, (_, i) => {
-  const est = ESTADOS[i % 4];
+  const est = i % 13 === 5 ? 'FINALIZADO' : ESTADOS[i % 4];
   return { Id: i + 1, Title: `Asunto ${i + 1}`, ESTADO: est, Prioridad: PRIOS[i % 4], FechaDeInicio: d(-30), FechaVencimiento: i % 9 === 0 ? null : d((i % 40) - 10),
     fECHAFINALIZACION: est === 'FINALIZADO' ? d(-(i % 20)) : null, NegociadoAsignado: NEGS[i % 3], NegociadosImplicados: [NEGS[(i + 1) % 3]],
     Descripcion: 'Resumen ' + i, DescripcionDelAsunto: `<div><p>Descripción <b>detallada</b> ${i}</p><p>Segunda línea</p></div>`, Comentarios: i % 5 ? '' : 'Obs <br>línea 2',
@@ -26,8 +29,10 @@ async function prueba() {
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   const posts = [];
-  await p.route('https://colabora.mdef.es/**', async r => {
-    const req = r.request();
+  await p.route('https://colabora.mdef.es/**', async r0 => {
+    const req = r0.request();
+    const r = { request: () => req, fulfill: o => r0.fulfill(VERBOSE && o.json ? { ...o, json: aVerbose(o.json) } : o) };
+    if (VERBOSE && req.method() === 'GET' && /odata=nometadata/.test(req.headers().accept || '')) return r0.fulfill({ status: 406, body: '' });
     const u = decodeURIComponent(req.url());
     if (u.includes('/_vti_bin/Lists.asmx')) {
       const id = Number(req.postData().match(/<strlistItemID>(\d+)</)[1]);
@@ -98,6 +103,34 @@ async function prueba() {
     return r.fulfill({ status: 404, body: '' });
   });
   await p.goto('https://colabora.mdef.es' + WEB + '/seguridad/Documentos%20compartidos/tareas-nlt-colabora.html'); await p.waitForTimeout(1500);
+  // Panel: cabecera, resumen, grupos plegables, filtros y vista en tabla
+  console.log('hero:', (await p.textContent('.hero')).replace(/\s+/g, ' '));
+  console.log('resumen:', (await p.$$eval('.mini button', bs => bs.map(b => b.innerText.replace(/\s+/g, ' ')))).join(' | '));
+  console.log('grupos:', (await p.$$eval('details.grupo', ds => ds.map(d => d.dataset.grupo + (d.open ? '(abierto)' : '') + ':' + d.querySelector('.n').textContent))).join(' '));
+  console.log('pie:', await p.textContent('.fpie'), '| autor:', await p.textContent('footer.autor'));
+  if (CAPTURAS) await p.screenshot({ path: CAPTURAS + '/movil-tarjetas.png', fullPage: false });
+  await p.click('details[data-grupo=semana] > summary');
+  console.log('semana abierta y recordada:', await p.evaluate(() => JSON.parse(localStorage.getItem('tareas-nlt-colabora')).grupos.semana));
+  await p.click('[data-kpi=vencidas]');
+  console.log('solo vencidas:', (await p.$$eval('details.grupo', ds => ds.map(d => d.dataset.grupo + (d.open ? '(abierto)' : '')))).join(' '));
+  await p.click('.fpie [data-kpi]');
+  await p.selectOption('#fquien', 'todos');
+  await p.click('[data-kpi=hechasMes]');
+  console.log('terminados este mes:', await p.textContent('details.grupo .n'));
+  await p.click('[data-kpi=hechasMes]');
+  await p.selectOption('#fresp', 'PERSONA 1');
+  console.log('filtro responsable:', await p.textContent('.fpie'), '| responsables distintos:', await p.$$eval('details.grupo .tarea', ts => new Set(ts.map(t => (t.innerText.match(/👤 (.+)/) || [])[1])).size));
+  await p.click('[data-limpiar]');
+  console.log('tras limpiar:', await p.inputValue('#fresp') === '', '| quien sigue en', await p.inputValue('#fquien'));
+  await p.click('[data-modo=tabla]');
+  console.log('tabla filas:', await p.$$eval('table.tt tr.tarea', x => x.length));
+  await p.setViewportSize({ width: 1280, height: 900 });
+  if (CAPTURAS) await p.screenshot({ path: CAPTURAS + '/escritorio-tabla.png', fullPage: false });
+  await p.click('table.tt tr.tarea'); await p.waitForTimeout(200);
+  console.log('ficha desde tabla:', await p.evaluate(() => document.querySelector('#dlg').open));
+  await p.click('#dlg [data-cerrar]'); await p.click('[data-modo=tarjetas]');
+  if (CAPTURAS) await p.screenshot({ path: CAPTURAS + '/escritorio-tarjetas.png', fullPage: false });
+  await p.setViewportSize({ width: 420, height: 900 }); await p.selectOption('#fquien', 'mias');
   // alta rápida con fecha en el texto
   await p.fill('#altaRapida', 'Preparar informe de visita antes del viernes urgente');
   await p.press('#altaRapida', 'Enter'); await p.waitForTimeout(500);

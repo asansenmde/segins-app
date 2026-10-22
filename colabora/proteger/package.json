@@ -1,0 +1,8 @@
+{
+  "name": "tareas-colabora-proteger",
+  "private": true,
+  "description": "Genera la versión protegida (ofuscada) de tareas-nlt-colabora.html para subir a Colabora",
+  "type": "module",
+  "scripts": { "proteger": "node proteger.mjs" },
+  "dependencies": { "javascript-obfuscator": "5.9.0" }
+}
