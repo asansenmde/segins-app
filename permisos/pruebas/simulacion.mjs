@@ -10,7 +10,7 @@ const U = { 279: { Id: 279, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.e
   12: { Id: 12, Title: 'AUTORIZADOR UNO', EMail: 'autor1@et.mde.es' }, 13: { Id: 13, Title: 'SOLICITANTE DOS', EMail: 'sol2@et.mde.es' } };
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(0, 0, 0, 0); return x.toISOString(); };
 let sinExpand = false, pets = [], asigs = [], grupoReg = [], anadidosReg = [], solLista = true, asigLista = true;
-let buzonMal = [], enviados = [];   // direcciones que Colabora rechaza en SendEmail («destinatario válido») y las que sí acepta
+let buzonMal = [], enviados = [], cuentasPedidas = [];   // direcciones que Colabora rechaza en SendEmail («destinatario válido») y las que sí acepta
 let ultimoFiltro = '', items, gestor = false, registro = true, admin = false, otraCuenta = false, jefeOtraCuenta = false, sinSubstr = false, jefeNombre = false;
 const nuevoStore = () => {
   items = [
@@ -73,7 +73,7 @@ async function prueba(verbose, soloAlcance) {
     }
     if (resto.startsWith('web/currentuser/groups')) return J({ value: registro ? [{ Title: 'Personal de Registro' }] : [{ Title: 'Integrantes cdv' }] });
     if (resto.startsWith('SP.UserProfiles.PeopleManager')) return J({ Title: 'COMANDANTE', UserProfileProperties: verbose ? { results: [{ Key: 'Department', Value: 'UNIDAD B' }] } : [{ Key: 'Department', Value: 'UNIDAD B' }] });
-    { const gid = resto.match(/web\/getuserbyid\((\d+)\)/); if (gid) return J({ LoginName: 'i:0#.w|et\\u' + gid[1] }); }
+    { const gid = resto.match(/web\/getuserbyid\((\d+)\)/); if (gid) { cuentasPedidas.push(+gid[1]); return J({ LoginName: 'i:0#.w|et\\u' + gid[1] }); } }
     if (resto.startsWith("web/sitegroups/getbyname('Personal de Registro')/users")) return J({ value: grupoReg });
     for (const [t, ok, rs, ws, lista_, campo] of [['SOLICITUDES ACCESO APLICACIONES', solLista, 2, 2, pets, 'SolicitanteId'], ['ASIGNACIONES REGISTRO SIPERDEF', asigLista, 1, 4, asigs, 'RegistradorId']]) {
       if (!resto.startsWith("web/lists/getbytitle('" + t + "')")) continue;
@@ -234,7 +234,7 @@ async function prueba(verbose, soloAlcance) {
   console.log(tag, 'correo alta:', m1.To.results, m1.CC.results, '|', m1.Subject, '| enlace:', (m1.Body.match(/href="([^"]+)"/) || [])[1]);
   console.log(tag, 'mensaje:', await p.textContent('#dlg .okmsg, #dlg .aviso'));
   if (soloAlcance === 'correo rechazado') {
-    console.log(tag, 'rechaza:', buzonMal.join(', '), '| llegó a:', enviados.join(', '));
+    console.log(tag, 'rechaza:', buzonMal.join(', '), '| llegó a:', enviados.join(', '), '| cuentas buscadas por Id:', cuentasPedidas.join(','));
     await b.close(); return;
   }
   await p.click('#dlg [data-cerrar]');
@@ -372,7 +372,7 @@ registro = false; admin = true; await prueba(false, 'propietario'); admin = fals
 registro = false; pets = []; await prueba(false, 'pedir acceso registro'); pets = []; await prueba(true, 'pedir acceso registro');
 // Colabora rechaza una dirección: el aviso sale igualmente al resto (y a uno mismo por su cuenta de inicio de sesión)
 buzonMal = ['asansen@et.mde.es']; enviados = []; pets = []; await prueba(false, 'pedir acceso registro');
-buzonMal = ['usuario@et.mde.es']; enviados = []; await prueba(false, 'correo rechazado');
+buzonMal = ['usuario@et.mde.es', 'aprob1@et.mde.es']; enviados = []; await prueba(false, 'correo rechazado');
 buzonMal = ['usuario@et.mde.es', 'aprob1@et.mde.es', 'i:0#.w|et\\u11']; enviados = []; await prueba(true, 'correo rechazado'); buzonMal = [];
 admin = true; asigs = []; grupoReg = [{ Id: 11, Title: 'APROBADOR UNO', Email: 'aprob1@et.mde.es', LoginName: 'i:0#.w|et\\a1' }]; anadidosReg = [];
 pets = [{ Id: 1, Title: 'SOLICITANTE DOS', Solicitante: U[13], Correo: U[13].EMail, Empleo: 'Sargento', Unidad: 'UNIDAD B', UnidadesIds: '2', Cargo: 'Auxiliar', DepartamentoPerfil: 'UNIDAD A', Telefono: '600', Aplicacion: 'REGISTRO SIPERDEF', EstadoSolicitud: 'PENDIENTE', Created: d(-1) }];

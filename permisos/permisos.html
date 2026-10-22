@@ -182,7 +182,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-10-22 · 1';
+  var VERSION = '2026-10-22 · 2';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
   var CLAVE = 'permisos-calidad-vida';
@@ -1314,6 +1314,11 @@
     var limpia = function (l) { return (l || []).filter(function (x) { return x && /@/.test(x); }).filter(function (x, i, a) { return a.indexOf(x) === i; }); };
     C.to = limpia(C.to); C.cc = limpia(C.cc).filter(function (x) { return C.to.indexOf(x) < 0; }); C.bcc = limpia(C.bcc);
     if (!C.to.length) { C.to = C.cc; C.cc = []; }
+    // Quién es cada dirección (para reintentar con su cuenta si Colabora no acepta el correo)
+    C.cuentas = {};
+    [[t.correoSol, t.sol], [t.correoApr, t.apr], [t.correoAut, t.aut]].forEach(function (x) {
+      if (x[1] && x[1].Id) [x[0], x[1].Email].forEach(function (e) { if (e) C.cuentas[String(e).toLowerCase()] = x[1].Id; });
+    });
     var filas = [['Asunto', t.asunto], ['Solicitante', t.nombre], ['Representante', rep], ['Tipo de permiso', t.tipo], ['Cupo de año', t.cupo],
       ['Desde', fLarga(t.ini)], ['Hasta', fLarga(t.fin)], ['Días festivos', t.festivos], ['Unidad', t.unidad && t.unidad.Title], ['Dependencia', t.dependencia],
       ['Estado', estadoTxt(t)], ['Observaciones', obs]].filter(function (x) { return x[1]; });
@@ -1335,10 +1340,12 @@
     if (bcc && bcc.length) pr.BCC = { results: bcc };
     return enviarSP(web + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página');
   }
-  // Nombre de inicio de sesión de un usuario del sitio a partir de su correo (cuentas cuyo buzón no figura en el perfil)
-  function loginDe(correo) {
+  // Nombre de inicio de sesión de un usuario del sitio (cuentas cuyo buzón no figura en el perfil): por su Id si se sabe
+  // quién es (solicitante, aprobador, autorizador) y, si no, buscándolo por el correo
+  function loginDe(correo, id) {
     var c = String(correo || '').toLowerCase();
-    if (yo && yo.LoginName && c === String(yo.Email || '').toLowerCase()) return Promise.resolve(yo.LoginName);
+    if (yo && yo.LoginName && (c === String(yo.Email || '').toLowerCase() || id === yo.Id)) return Promise.resolve(yo.LoginName);
+    if (id) return api(web + '/_api/web/getuserbyid(' + Number(id) + ')?$select=LoginName').then(function (u) { return u && u.LoginName; }).catch(function () { return loginDe(correo); });
     return api(web + '/_api/web/siteusers?$select=LoginName,Email&$filter=' + encodeURIComponent("Email eq '" + c.replace(/'/g, "''") + "'"))
       .then(function (d) { var u = lista(d.value).find(function (x) { return String(x.Email || '').toLowerCase() === c && x.LoginName; }); return u ? u.LoginName : null; })
       .catch(function () { return null; });
@@ -1357,7 +1364,7 @@
       return todos.reduce(function (p, d) {
         return p.then(function () {
           return enviarUno([d], [], [], c).then(function () { aceptados++; }, function () {
-            return loginDe(d).then(function (lg) {
+            return loginDe(d, (c.cuentas || {})[String(d).toLowerCase()]).then(function (lg) {
               if (!lg) { rech.push(d); return; }
               return enviarUno([lg], [], [], c).then(function () { aceptados++; }, function () { rech.push(d); });
             });
@@ -1661,6 +1668,7 @@
       hecho.then(function (id) {
         var nuevo = { id: id, asunto: asunto, nombre: sol.Title, rep: rep, tipo: v('tipo'), cupo: v('cupo'), ini: v('ini'), fin: v('fin'), festivos: v('festivos'),
           unidad: unidades.find(function (u) { return String(u.Id) === v('unidad'); }) || null, dependencia: v('dependencia'), estado: estado,
+          sol: sol, apr: !directo ? apr : null, aut: directo ? aut : null,
           directo: directo, correoSol: sol.Email || '', correoApr: c.CorreoDeAPROBADOR, correoAut: c.CorreoDeAUTORIZADOR, aprTexto: c.AprobadorTexto, autTexto: c.AutorizadorTexto };
         var cr = enviar && pref.correo ? correoDe(directo ? 'aprobado' : 'solicitud', nuevo, v('obs')) : null;
         return (cr ? enviarCorreo(cr) : Promise.resolve(null)).then(function (r) {
