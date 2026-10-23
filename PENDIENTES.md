@@ -44,10 +44,10 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
    Colabora (· 3) y Permisos (· 6), probado en simulación (original y protegida). Pendiente de que el usuario suba las
    cuatro copias protegidas y haga un «Correo de prueba» en cada una.
 
-10. **Permisos: interinidades de los jefes de unidad**: hecho el 22/10/2026 (versión · 8), probado en simulación. El
-    usuario lo probará primero con la **copia de pruebas** `permisos-pruebas.html` (listas «… PRUEBAS»). Después, en la
-    buena: subir la copia protegida, crear desde *Ajustes* la lista «INTERINIDADES JEFATURAS» y el grupo
-    «PERMISOS - MANDO», añadir al General al grupo y comprobar que quien pide permisos puede escribir en la lista.
+10. **Permisos: sustituciones de los jefes de unidad** (versión 2026-10-23 · 1, probado en simulación): tipos de sustitución,
+    sin «interino», sustitutos que no pueden estar de permiso; pestaña renombrada «Mandos sustitutos» (de momento la ve el
+    General/grupo; el usuario pidió además que cada autorizador vea solo lo suyo con calendarios e impresión: **queda
+    aparcado «por ahora»**). Probar primero con `permisos-pruebas.html` (lista «SUSTITUCIONES JEFES UNIDAD PRUEBAS»).
 
 Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar por la que diga).
 

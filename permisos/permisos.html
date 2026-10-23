@@ -132,7 +132,7 @@
   .campo div { white-space: pre-wrap; overflow-wrap: anywhere; }
   .panel { background: var(--surface-2); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
   .bandaPruebas { background: var(--bad); color: #fff; text-align: center; font-weight: 800; letter-spacing: .5px; padding: 6px 10px; font-size: .9rem; }
-  /* Interinidades de los jefes de unidad */
+  /* Sustituciones de los jefes de unidad */
   .badge.jefe { background: #fff4d6; color: #7a4d00; border: 1px solid #e3c06b; }
   .jefpanel { border-left: 5px solid var(--oro); }
   .intFila { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin: 8px 0; }
@@ -204,7 +204,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-10-22 · 8';
+  var VERSION = '2026-10-23 · 1';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
   // Copia de pruebas («node proteger.mjs --pruebas» genera permisos-pruebas.html con PRUEBAS = true): trabaja sobre
@@ -456,7 +456,7 @@
       items = its.map(aSol);
       // Registro por unidad: lo que llega solo por ser del grupo de registro, únicamente de mis unidades
       if (enRegistro() && !esSuper()) items = items.filter(function (t) { return !soloPorRegistro(t) || unidadOk(t); });
-      return Promise.all([cargarNifs(), cargarInterinos()]);
+      return Promise.all([cargarNifs(), cargarSustituciones()]);
     }).then(function () {
       cargadoEn = new Date();
       $('#estadoCarga').textContent = items.length + ' solicitudes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -918,7 +918,7 @@
       '<label class="lbl">Lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
       '<p class="small muted">Usuario: ' + esc(yo ? yo.Title : '—') + '<br>' + esc(alcanceTxt()) + (misGrupos.length ? '<br>Tus grupos: ' + esc(misGrupos.join(', ')) : '') + '</p>' +
       '<label class="check"><input type="checkbox" id="aCorreo"' + (pref.correo ? ' checked' : '') + '> Enviar los avisos por correo al tramitar (como el formulario de Colabora)</label></div>' +
-      '<div class="card"><h3 style="margin-top:0">👤 Interinidades de jefes de unidad</h3><div id="jefPrep">' + htmlPrepJef() + '</div></div>' +
+      '<div class="card"><h3 style="margin-top:0">👤 Sustituciones de jefes de unidad</h3><div id="jefPrep">' + htmlPrepJef() + '</div></div>' +
       '<div class="card"><h3 style="margin-top:0">✉ Correo de prueba</h3><p class="small muted">Comprueba si Colabora acepta y entrega los avisos a unas direcciones (separadas por «;»). Si alguna no la acepta, lo dice.</p>' +
       '<input id="aPruebaA" value="' + esc(yo && yo.Email ? yo.Email : '') + '"><div class="acciones"><button data-pruebacorreo="1">Enviar correo de prueba</button></div><div id="aPrueba"></div></div>' +
       '<div class="card"><h3 style="margin-top:0">🔒 Seguridad y accesos</h3><p class="small muted">Comprueba en Colabora tus permisos en la lista, quién forma el grupo de registro y quién tiene acceso a la lista. Solo lee.</p>' +
@@ -1231,14 +1231,21 @@
       .then(function () { aviso('Columnas creadas'); return cargarAccReg(); }).catch(function (e) { boton.disabled = false; msgAr('error', 'No se pudieron crear: ' + (e.message || e)); });
   }
 
-  // ---------- Interinidades de los jefes de unidad ----------
-  // El jefe de unidad que pide un permiso marca «Soy jefe de unidad y comunico mi interinidad» e indica quién le sustituye
-  // en cada tramo de su ausencia (interino, fechas, teléfono y correo); puede haber varios interinos, que deben cubrir todos
-  // los días del permiso. Se guarda en la lista «INTERINIDADES JEFATURAS» (una fila por tramo y sin datos del permiso: ni
-  // tipo, ni NIF, ni observaciones) para que el GENERAL vea en la pestaña «Jefaturas» quién manda en cada unidad.
+  // ---------- Sustituciones de los jefes de unidad ----------
+  // El jefe de unidad que pide un permiso marca «Soy jefe de unidad y comunico quién me sustituye» e indica, para cada tramo
+  // de su ausencia, el tipo de sustitución (mando accidental, encargado de despacho o más caracterizado de los presentes),
+  // la persona, las fechas, el teléfono y el correo. Deben cubrir todos los días del permiso y ningún sustituto puede estar
+  // de permiso (ni ausente como jefe) en las fechas que sustituye. Se guarda en la lista «SUSTITUCIONES JEFES UNIDAD» (una
+  // fila por tramo y sin datos del permiso: ni tipo, ni NIF, ni observaciones) para la pestaña «Mandos sustitutos».
   // Estado de cada tramo: BORRADOR (solicitud sin enviar), PREVISTA (pendiente de autorizar), CONFIRMADA (autorizada) y
   // ANULADA (rechazada, anulada o sustituida por otros tramos: nunca se borra).
-  var JEF = { lista: 'INTERINIDADES JEFATURAS' + SUF, grupo: 'PERMISOS - MANDO' };
+  var JEF = { lista: 'SUSTITUCIONES JEFES UNIDAD' + SUF, grupo: 'PERMISOS - MANDO' };
+  var TIPOS_SUST = [
+    { nombre: 'Mando accidental', corto: 'MA', desc: 'Por ausencia temporal del titular o del interino, cuando proceda formalizar la sustitución. Asume las atribuciones y responsabilidades del titular, con las limitaciones establecidas para modificar las instrucciones vigentes.' },
+    { nombre: 'Encargado de despacho', corto: 'ED', desc: 'Para atender los asuntos de trámite, en los supuestos previstos en la normativa y con la aprobación superior correspondiente. No supone una sucesión en el mando.' },
+    { nombre: 'Más caracterizado de los presentes', corto: 'MCP', desc: 'Cuando el jefe no se encuentra en la base, acuartelamiento o puesto de mando y es necesario adoptar decisiones urgentes. Adopta las decisiones necesarias por su urgencia e informa al titular cuanto antes.' }
+  ];
+  var tipoSust = function (n) { return TIPOS_SUST.find(function (x) { return x.nombre === n; }) || { nombre: n || 'Sustituto', corto: '', desc: '' }; };
   var CAMPOS_INT = [
     '<Field Type="Number" Name="NumSolicitud" StaticName="NumSolicitud" DisplayName="Nº de solicitud" Decimals="0" />',
     '<Field Type="Number" Name="UnidadNum" StaticName="UnidadNum" DisplayName="Unidad (Id)" Decimals="0" />',
@@ -1246,59 +1253,64 @@
     '<Field Type="Number" Name="TitularUid" StaticName="TitularUid" DisplayName="Jefe titular (Id)" Decimals="0" />',
     '<Field Type="DateTime" Name="AusenciaDesde" StaticName="AusenciaDesde" DisplayName="Ausencia desde" Format="DateOnly" />',
     '<Field Type="DateTime" Name="AusenciaHasta" StaticName="AusenciaHasta" DisplayName="Ausencia hasta" Format="DateOnly" />',
-    '<Field Type="Text" Name="Interino" StaticName="Interino" DisplayName="Jefe interino" />',
-    '<Field Type="Number" Name="InterinoUid" StaticName="InterinoUid" DisplayName="Jefe interino (Id)" Decimals="0" />',
-    '<Field Type="DateTime" Name="Desde" StaticName="Desde" DisplayName="Interino desde" Format="DateOnly" />',
-    '<Field Type="DateTime" Name="Hasta" StaticName="Hasta" DisplayName="Interino hasta" Format="DateOnly" />',
-    '<Field Type="Text" Name="Telefono" StaticName="Telefono" DisplayName="Teléfono del interino" />',
-    '<Field Type="Text" Name="Correo" StaticName="Correo" DisplayName="Correo del interino" />',
+    '<Field Type="Text" Name="TipoSustitucion" StaticName="TipoSustitucion" DisplayName="Tipo de sustitución" />',
+    '<Field Type="Text" Name="Sustituto" StaticName="Sustituto" DisplayName="Sustituto" />',
+    '<Field Type="Number" Name="SustitutoUid" StaticName="SustitutoUid" DisplayName="Sustituto (Id)" Decimals="0" />',
+    '<Field Type="DateTime" Name="Desde" StaticName="Desde" DisplayName="Sustituto desde" Format="DateOnly" />',
+    '<Field Type="DateTime" Name="Hasta" StaticName="Hasta" DisplayName="Sustituto hasta" Format="DateOnly" />',
+    '<Field Type="Text" Name="Telefono" StaticName="Telefono" DisplayName="Teléfono del sustituto" />',
+    '<Field Type="Text" Name="Correo" StaticName="Correo" DisplayName="Correo del sustituto" />',
     '<Field Type="Number" Name="Orden" StaticName="Orden" DisplayName="Orden" Decimals="0" />',
-    '<Field Type="Text" Name="EstadoInterinidad" StaticName="EstadoInterinidad" DisplayName="Estado" />'
+    '<Field Type="Text" Name="EstadoSustitucion" StaticName="EstadoSustitucion" DisplayName="Estado" />'
   ];
-  var SEL_INT = ['Id', 'Title', 'NumSolicitud', 'UnidadNum', 'Titular', 'TitularUid', 'AusenciaDesde', 'AusenciaHasta', 'Interino', 'InterinoUid', 'Desde', 'Hasta', 'Telefono', 'Correo', 'Orden', 'EstadoInterinidad'];
-  var interinos = [], intEstado = '', intTipo = '';   // intEstado: '' sin leer · 'ok' · 'sinlista' · 'error: …'
+  var SEL_INT = ['Id', 'Title', 'NumSolicitud', 'UnidadNum', 'Titular', 'TitularUid', 'AusenciaDesde', 'AusenciaHasta', 'TipoSustitucion', 'Sustituto', 'SustitutoUid', 'Desde', 'Hasta', 'Telefono', 'Correo', 'Orden', 'EstadoSustitucion'];
+  var sustituciones = [], intEstado = '', intTipo = '';   // intEstado: '' sin leer · 'ok' · 'sinlista' · 'error: …'
   var aInt = function (x) {
     return { id: x.Id, sol: Number(x.NumSolicitud) || 0, unidadId: Number(x.UnidadNum) || 0, unidad: x.Title || '', titular: x.Titular || '', titularId: Number(x.TitularUid) || 0,
-      ausIni: fechaSP(x.AusenciaDesde), ausFin: fechaSP(x.AusenciaHasta), interino: x.Interino || '', interinoId: Number(x.InterinoUid) || 0,
-      desde: fechaSP(x.Desde), hasta: fechaSP(x.Hasta), tel: x.Telefono || '', correo: x.Correo || '', orden: Number(x.Orden) || 0, estado: x.EstadoInterinidad || '' };
+      ausIni: fechaSP(x.AusenciaDesde), ausFin: fechaSP(x.AusenciaHasta), tipo: x.TipoSustitucion || '', sustituto: x.Sustituto || '', sustitutoId: Number(x.SustitutoUid) || 0,
+      desde: fechaSP(x.Desde), hasta: fechaSP(x.Hasta), tel: x.Telefono || '', correo: x.Correo || '', orden: Number(x.Orden) || 0, estado: x.EstadoSustitucion || '' };
   };
-  // Se leen todas las vigentes (la lista es pequeña): la ficha, las tarjetas y el cuadro de jefaturas salen de aquí
-  function cargarInterinos() {
-    return todas(urlLst(JEF.lista) + '/items?$top=2000&$select=' + SEL_INT.join(',') + '&$filter=' + encodeURIComponent("EstadoInterinidad ne 'ANULADA'"))
-      .then(function (l) { interinos = l.map(aInt); intEstado = 'ok'; }, function (e) { interinos = []; intEstado = e.status === 404 ? 'sinlista' : 'error: ' + (e.message || e); });
+  // Se leen todas las vigentes (la lista es pequeña): la ficha, las tarjetas y la pestaña «Mandos sustitutos» salen de aquí
+  function cargarSustituciones() {
+    return todas(urlLst(JEF.lista) + '/items?$top=2000&$select=' + SEL_INT.join(',') + '&$filter=' + encodeURIComponent("EstadoSustitucion ne 'ANULADA'"))
+      .then(function (l) { sustituciones = l.map(aInt); intEstado = 'ok'; }, function (e) { sustituciones = []; intEstado = e.status === 404 ? 'sinlista' : 'error: ' + (e.message || e); });
   }
-  var intDe = function (solId) { return interinos.filter(function (r) { return r.sol === solId && r.estado !== 'ANULADA'; }).sort(function (a, b) { return a.orden - b.orden || a.desde.localeCompare(b.desde); }); };
-  var esJefe = function (t) { return intDe(t.id).length > 0; };
+  var sustDe = function (solId) { return sustituciones.filter(function (r) { return r.sol === solId && r.estado !== 'ANULADA'; }).sort(function (a, b) { return a.orden - b.orden || a.desde.localeCompare(b.desde); }); };
+  var esJefe = function (t) { return sustDe(t.id).length > 0; };
   var esMando = function () { return esAdmin || misGrupos.some(function (g) { return sinTildes(g) === sinTildes(JEF.grupo); }); };
   var diaSig = function (s) { var d = aFecha(s); d.setDate(d.getDate() + 1); return iso(d); };
   var COLORES_INT = ['#2f6fc0', '#c0731f', '#8a5cc2', '#1d9a6c'];   // validados para daltonismo; del 5.º en adelante, gris
   var colorInt = function (i) { return COLORES_INT[i] || '#7d8793'; };
   var ESTADO_INT = { BORRADOR: 'Borrador', PREVISTA: 'Pendiente de autorizar', CONFIRMADA: 'Confirmada (permiso autorizado)', ANULADA: 'Anulada' };
-  var marcaJefe = function () { return '<span class="badge jefe">👤 Jefe de unidad · deja interinos</span>'; };
+  var marcaJefe = function () { return '<span class="badge jefe">👤 Jefe de unidad · deja sustitutos</span>'; };
 
-  // Editor de tramos (formulario de la solicitud y «Cambiar interinos» de la ficha). Devuelve { leer(), validar(ini, fin, titular) }
-  function editorInterinos(cont, iniciales, fechas) {
+  // Editor de tramos (formulario de la solicitud y «Cambiar sustitutos» de la ficha). Devuelve { leer(), validar(ini, fin, titular) }
+  function editorSustitutos(cont, iniciales, fechas) {
     var filas = [];
-    var pintar = function () { Array.prototype.forEach.call(cont.querySelectorAll('.intFila .num'), function (n, i) { n.textContent = 'Interino ' + (i + 1); }); };
+    var pintar = function () { Array.prototype.forEach.call(cont.querySelectorAll('.intFila .num'), function (n, i) { n.textContent = 'Sustituto ' + (i + 1); }); };
     var anadir = function (r) {
       var f = fechas(), ult = filas[filas.length - 1];
       var desde = r ? r.desde : ult && ult.el.querySelector('[name=iHasta]').value ? diaSig(ult.el.querySelector('[name=iHasta]').value) : f.ini || '';
       var div = document.createElement('div');
       div.className = 'intFila';
       div.innerHTML = '<div class="intCab"><b class="num"></b> <button type="button" class="quitar" title="Quitar este tramo">✕ Quitar</button></div>' +
-        '<div class="grid"><div><label class="lbl">Interino *</label><div class="iPer"></div></div>' +
+        '<label class="lbl">Tipo de sustitución *</label><select name="iTipo">' + TIPOS_SUST.map(function (x) { return '<option' + (r && r.tipo === x.nombre ? ' selected' : '') + '>' + esc(x.nombre) + '</option>'; }).join('') + '</select>' +
+        '<div class="small muted iDesc"></div>' +
+        '<div class="grid"><div><label class="lbl">Sustituto *</label><div class="iPer"></div></div>' +
         '<div><label class="lbl">Desde *</label><input type="date" name="iDesde" value="' + esc(desde) + '"></div>' +
         '<div><label class="lbl">Hasta *</label><input type="date" name="iHasta" value="' + esc(r ? r.hasta : f.fin || '') + '"></div>' +
         '<div><label class="lbl">Teléfono de contacto *</label><input name="iTel" value="' + esc(r ? r.tel : '') + '" autocomplete="off"></div>' +
         '<div><label class="lbl">Correo *</label><input name="iCorreo" value="' + esc(r ? r.correo : '') + '" autocomplete="off"></div></div>';
       cont.appendChild(div);
+      var verDesc = function () { div.querySelector('.iDesc').textContent = tipoSust(div.querySelector('[name=iTipo]').value).desc; };
+      div.querySelector('[name=iTipo]').onchange = verDesc; verDesc();
       var fila = { el: div, p: null };
       filas.push(fila);
       cargarUsuarios().then(function () {
-        // Al elegir (o cambiar) de interino se rellenan su correo y el último teléfono usado; lo escrito a mano no se toca
+        // Al elegir (o cambiar) de sustituto se rellenan su correo y el último teléfono usado; lo escrito a mano no se toca
         var auto = function (n, v) { var el = div.querySelector('[name=' + n + ']'); if (!el.value || el.dataset.auto === '1') { el.value = v || ''; el.dataset.auto = v ? '1' : ''; } };
         div.querySelector('[name=iCorreo]').oninput = div.querySelector('[name=iTel]').oninput = function () { this.dataset.auto = ''; };
-        fila.p = campoPersona(div.querySelector('.iPer'), r && r.interinoId ? { Id: r.interinoId, Title: r.interino, Email: r.correo } : null, function (x) {
+        fila.p = campoPersona(div.querySelector('.iPer'), r && r.sustitutoId ? { Id: r.sustitutoId, Title: r.sustituto, Email: r.correo } : null, function (x) {
           auto('iCorreo', x && x.Email); auto('iTel', x && (pref.telefonos || {})[x.Id]);
         });
       });
@@ -1309,100 +1321,120 @@
     var leer = function () {
       return filas.map(function (f, i) {
         var q = function (n) { return (f.el.querySelector('[name=' + n + ']').value || '').trim(); }, p = f.p && f.p.valor();
-        return { orden: i + 1, interinoId: p ? p.Id : 0, interino: p ? p.Title : '', desde: q('iDesde'), hasta: q('iHasta'), tel: q('iTel'), correo: q('iCorreo') };
+        return { orden: i + 1, tipo: q('iTipo'), sustitutoId: p ? p.Id : 0, sustituto: p ? p.Title : '', desde: q('iDesde'), hasta: q('iHasta'), tel: q('iTel'), correo: q('iCorreo') };
       });
     };
-    // Todos los días del permiso cubiertos, sin huecos ni solapes, y nadie como interino de sí mismo
+    // Todos los días del permiso cubiertos, sin huecos ni solapes, y nadie como sustituto de sí mismo
     var validar = function (ini, fin, titular) {
       var rs = leer().slice().sort(function (a, b) { return a.desde.localeCompare(b.desde); });
-      if (!rs.length) return 'Indica al menos un interino.';
+      if (!rs.length) return 'Indica al menos un sustituto.';
       for (var i = 0; i < rs.length; i++) {
-        var r = rs[i], n = 'Interino ' + r.orden + ': ';
-        if (!r.interinoId) return n + 'elige a la persona (escribe 3 letras de su nombre o apellido).';
-        if (titular && r.interinoId === titular.Id) return n + 'no puedes ser tu propio interino.';
+        var r = rs[i], n = 'Sustituto ' + r.orden + ': ';
+        if (!r.tipo) return n + 'elige el tipo de sustitución.';
+        if (!r.sustitutoId) return n + 'elige a la persona (escribe 3 letras de su nombre o apellido).';
+        if (titular && r.sustitutoId === titular.Id) return n + 'no puedes ser tu propio sustituto.';
         if (!r.desde || !r.hasta) return n + 'faltan las fechas.';
         if (r.hasta < r.desde) return n + 'la fecha «hasta» es anterior a «desde».';
         if (r.desde < ini || r.hasta > fin) return n + 'sus fechas deben estar dentro del permiso (' + fCorta(ini) + ' a ' + fCorta(fin) + ').';
         if (!r.tel) return n + 'falta el teléfono de contacto.';
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(r.correo)) return n + 'falta un correo válido.';
-        if (i === 0 && r.desde !== ini) return 'Los interinos deben cubrir todo el permiso: falta del ' + fCorta(ini) + ' al ' + fCorta(diaAnt(r.desde)) + '.';
+        if (i === 0 && r.desde !== ini) return 'Los sustitutos deben cubrir todo el permiso: falta del ' + fCorta(ini) + ' al ' + fCorta(diaAnt(r.desde)) + '.';
         if (i > 0) {
           var esp = diaSig(rs[i - 1].hasta);
-          if (r.desde > esp) return 'Los interinos deben cubrir todo el permiso: falta del ' + fCorta(esp) + ' al ' + fCorta(diaAnt(r.desde)) + '.';
-          if (r.desde < esp) return 'Los tramos de los interinos se solapan (' + fCorta(r.desde) + '): cada día solo puede tener un interino.';
+          if (r.desde > esp) return 'Los sustitutos deben cubrir todo el permiso: falta del ' + fCorta(esp) + ' al ' + fCorta(diaAnt(r.desde)) + '.';
+          if (r.desde < esp) return 'Los tramos de los sustitutos se solapan (' + fCorta(r.desde) + '): cada día solo puede tener un sustituto.';
         }
       }
-      if (rs[rs.length - 1].hasta !== fin) return 'Los interinos deben cubrir todo el permiso: falta del ' + fCorta(diaSig(rs[rs.length - 1].hasta)) + ' al ' + fCorta(fin) + '.';
+      if (rs[rs.length - 1].hasta !== fin) return 'Los sustitutos deben cubrir todo el permiso: falta del ' + fCorta(diaSig(rs[rs.length - 1].hasta)) + ' al ' + fCorta(fin) + '.';
       return '';
     };
-    // Aviso (no bloquea): un interino que también está ausente como jefe esos días
-    var ausentes = function (solId) {
-      return leer().map(function (r) {
-        var x = interinos.find(function (y) { return y.sol !== solId && y.titularId === r.interinoId && y.estado !== 'ANULADA' && y.estado !== 'BORRADOR' && y.ausIni <= r.hasta && r.desde <= y.ausFin; });
-        return x ? r.interino + ' también está ausente como jefe de ' + x.unidad + ' del ' + fCorta(x.ausIni) + ' al ' + fCorta(x.ausFin) : '';
-      }).filter(Boolean);
-    };
-    return { leer: leer, validar: validar, ausentes: ausentes, anadir: function () { anadir(null); } };
+    return { leer: leer, validar: validar, anadir: function () { anadir(null); } };
   }
+  // Un sustituto no puede estar de permiso (ni ausente como jefe) en las fechas que sustituye: se comprueba en sus solicitudes
+  // (las que lee la página y, en el servidor, solo fechas y estado de las suyas) y en la lista de sustituciones.
+  // Devuelve { conflictos: [textos que impiden guardar], sinComprobar: [nombres cuyas solicitudes no se han podido leer] }
+  var vigenteSol = function (estado) { var e = estadoCanon(estado); return e !== E.RE && e !== E.AN && e !== E.BS && e !== E.BR && e !== E.SI; };
+  function comprobarSustitutos(rs, solId) {
+    var res = { conflictos: [], sinComprobar: [] };
+    return rs.filter(function (r) { return r.sustitutoId && r.desde && r.hasta; }).reduce(function (p, r) {
+      return p.then(function () {
+        var choca = function (ini, fin) { return ini && ini <= r.hasta && r.desde <= (fin || ini); };
+        var aus = sustituciones.find(function (y) { return y.sol !== solId && y.titularId === r.sustitutoId && (y.estado === 'PREVISTA' || y.estado === 'CONFIRMADA') && choca(y.ausIni, y.ausFin); });
+        if (aus) { res.conflictos.push(r.sustituto + ' estará ausente (es jefe de ' + aus.unidad + ' y está de permiso del ' + fCorta(aus.ausIni) + ' al ' + fCorta(aus.ausFin) + ')'); return; }
+        var local = items.find(function (x) { return x.id !== solId && x.sol && x.sol.Id === r.sustitutoId && vigenteSol(x.estadoRaw || x.estado) && choca(x.ini, x.fin); });
+        if (local) { res.conflictos.push(r.sustituto + ' tiene un permiso del ' + fCorta(local.ini) + ' al ' + fCorta(local.fin)); return; }
+        return todas(urlLista() + '/items?$top=200&$select=Id,FechaInicio,FechaDeFin,Estado&$filter=' + encodeURIComponent('SolicitanteId eq ' + Number(r.sustitutoId))).then(function (l) {
+          var x = l.find(function (y) { return y.Id !== solId && vigenteSol(y.Estado) && choca(fechaSP(y.FechaInicio), fechaSP(y.FechaDeFin)); });
+          if (x) res.conflictos.push(r.sustituto + ' tiene un permiso del ' + fCorta(fechaSP(x.FechaInicio)) + ' al ' + fCorta(fechaSP(x.FechaDeFin)));
+        }, function () { res.sinComprobar.push(r.sustituto); });
+      });
+    }, Promise.resolve()).then(function () { return res; });
+  }
+  var textoConflictos = function (res) { return 'No puede ser: ' + res.conflictos.join('; ') + '. Elige otro sustituto para esas fechas.'; };
+  // Quien está designado sustituto de un jefe no puede pedir permiso en esas fechas
+  var designadoSustituto = function (persona, ini, fin, solId) {
+    return sustituciones.filter(function (y) { return persona && y.sustitutoId === persona.Id && y.sol !== solId && (y.estado === 'PREVISTA' || y.estado === 'CONFIRMADA') && y.desde <= fin && ini <= y.hasta; });
+  };
   var diaAnt = function (s) { var d = aFecha(s); d.setDate(d.getDate() - 1); return iso(d); };
-  // Recuerda en este navegador el teléfono de cada interino para la próxima vez
-  var recordarTelefonos = function (rs) { pref.telefonos = pref.telefonos || {}; rs.forEach(function (r) { if (r.interinoId && r.tel) pref.telefonos[r.interinoId] = r.tel; }); guardarPref(); };
+  // Recuerda en este navegador el teléfono de cada sustituto para la próxima vez
+  var recordarTelefonos = function (rs) { pref.telefonos = pref.telefonos || {}; rs.forEach(function (r) { if (r.sustitutoId && r.tel) pref.telefonos[r.sustitutoId] = r.tel; }); guardarPref(); };
 
   // Guarda los tramos de una solicitud: si cambian, los anteriores pasan a ANULADA y se crean los nuevos
-  function guardarInterinos(solId, rs, estado, ctx) {
-    var antes = intDe(solId);
-    var clave = function (l) { return l.map(function (r) { return [r.interinoId, r.desde, r.hasta, r.tel, r.correo].join('|'); }).sort().join('#'); };
+  function guardarSustituciones(solId, rs, estado, ctx) {
+    var antes = sustDe(solId);
+    var clave = function (l) { return l.map(function (r) { return [r.tipo, r.sustitutoId, r.desde, r.hasta, r.tel, r.correo].join('|'); }).sort().join('#'); };
     var mismoEstado = antes.every(function (r) { return r.estado === estado; });
     if (antes.length === rs.length && clave(antes) === clave(rs) && mismoEstado && antes.every(function (r) { return r.ausIni === ctx.ini && r.ausFin === ctx.fin; })) return Promise.resolve(false);
     var tipo = function () { return intTipo ? Promise.resolve(intTipo) : tipoLst(JEF.lista).then(function (t) { intTipo = t; return t; }); };
     return tipo().then(function (tp) {
       // Mismos tramos: solo se cambia el estado
-      if (antes.length === rs.length && clave(antes) === clave(rs)) return marcarInterinos(solId, estado);
+      if (antes.length === rs.length && clave(antes) === clave(rs)) return marcarSustituciones(solId, estado);
       return antes.reduce(function (p, r) {
-        return p.then(function () { return enviarSP(urlLst(JEF.lista) + '/items(' + r.id + ')', { __metadata: { type: tp }, EstadoInterinidad: 'ANULADA' }, 'No tienes permiso en la lista de interinidades', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }); });
+        return p.then(function () { return enviarSP(urlLst(JEF.lista) + '/items(' + r.id + ')', { __metadata: { type: tp }, EstadoSustitucion: 'ANULADA' }, 'No tienes permiso en la lista de sustituciones', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }); });
       }, Promise.resolve()).then(function () {
         return rs.reduce(function (p, r, i) {
           return p.then(function () {
             return enviarSP(urlLst(JEF.lista) + '/items', { __metadata: { type: tp }, Title: ctx.unidad, NumSolicitud: solId, UnidadNum: ctx.unidadId || null, Titular: ctx.titular.Title, TitularUid: ctx.titular.Id,
-              AusenciaDesde: aISO(ctx.ini), AusenciaHasta: aISO(ctx.fin), Interino: r.interino, InterinoUid: r.interinoId, Desde: aISO(r.desde), Hasta: aISO(r.hasta), Telefono: r.tel, Correo: r.correo,
-              Orden: i + 1, EstadoInterinidad: estado }, 'No tienes permiso para guardar en la lista de interinidades');
+              AusenciaDesde: aISO(ctx.ini), AusenciaHasta: aISO(ctx.fin), TipoSustitucion: r.tipo, Sustituto: r.sustituto, SustitutoUid: r.sustitutoId, Desde: aISO(r.desde), Hasta: aISO(r.hasta), Telefono: r.tel, Correo: r.correo,
+              Orden: i + 1, EstadoSustitucion: estado }, 'No tienes permiso para guardar en la lista de sustituciones');
           });
         }, Promise.resolve());
       });
-    }).then(function () { return cargarInterinos(); }).then(function () { return true; });
+    }).then(function () { return cargarSustituciones(); }).then(function () { return true; });
   }
   // Cambia el estado de los tramos vigentes de una solicitud (al autorizar, rechazar, devolver o anular)
-  function marcarInterinos(solId, estado) {
-    var rs = intDe(solId).filter(function (r) { return r.estado !== estado; });
+  function marcarSustituciones(solId, estado) {
+    var rs = sustDe(solId).filter(function (r) { return r.estado !== estado; });
     if (!rs.length) return Promise.resolve();
     var tipo = intTipo ? Promise.resolve(intTipo) : tipoLst(JEF.lista).then(function (t) { intTipo = t; return t; });
     return tipo.then(function (tp) {
       return rs.reduce(function (p, r) {
-        return p.then(function () { return enviarSP(urlLst(JEF.lista) + '/items(' + r.id + ')', { __metadata: { type: tp }, EstadoInterinidad: estado }, 'No tienes permiso en la lista de interinidades', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }); });
+        return p.then(function () { return enviarSP(urlLst(JEF.lista) + '/items(' + r.id + ')', { __metadata: { type: tp }, EstadoSustitucion: estado }, 'No tienes permiso en la lista de sustituciones', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }); });
       }, Promise.resolve());
-    }).then(cargarInterinos);
+    }).then(cargarSustituciones);
   }
 
-  // Correo a cada interino (al autorizarse el permiso o al cambiar los interinos de un permiso ya autorizado)
-  function correoInterino(t, r, todos, cambio) {
+  // Correo a cada sustituto (al autorizarse el permiso o al cambiar los sustitutos de un permiso ya autorizado)
+  function correoSustituto(t, r, todos, cambio) {
     var filas = [['Unidad', r.unidad], ['Jefe titular ausente', r.titular], ['Ausencia del titular', fLarga(r.ausIni) + ' a ' + fLarga(r.ausFin)],
-      ['Su interinidad', fLarga(r.desde) + ' a ' + fLarga(r.hasta)], ['Interinos de toda la ausencia', todos.map(function (x) { return x.interino + ' (' + fCorta(x.desde) + ' a ' + fCorta(x.hasta) + ' · ' + x.tel + ')'; }).join('\n')]];
-    var intro = (cambio ? 'SE HAN MODIFICADO LOS INTERINOS DE LA JEFATURA. ' : '') + 'QUEDA USTED COMO JEFE INTERINO DE LA UNIDAD ' + String(r.unidad).toUpperCase() + ' DEL ' + fCorta(r.desde) + ' AL ' + fCorta(r.hasta) + ', DURANTE LA AUSENCIA DE SU JEFE TITULAR (PERMISO AUTORIZADO).';
-    var c = { to: [r.correo], cc: [], bcc: [], asunto: 'INTERINIDAD DE JEFATURA · ' + r.unidad + ' · del ' + fCorta(r.desde) + ' al ' + fCorta(r.hasta), html: htmlCorreo(intro, filas, ''),
+      ['Su sustitución', tipoSust(r.tipo).nombre + ' · ' + fLarga(r.desde) + ' a ' + fLarga(r.hasta)], ['Qué supone', tipoSust(r.tipo).desc],
+      ['Sustitutos de toda la ausencia', todos.map(function (x) { return tipoSust(x.tipo).nombre + ': ' + x.sustituto + ' (' + fCorta(x.desde) + ' a ' + fCorta(x.hasta) + ' · ' + x.tel + ')'; }).join('\n')]];
+    var intro = (cambio ? 'SE HAN MODIFICADO LOS SUSTITUTOS DE LA JEFATURA. ' : '') + 'QUEDA USTED COMO ' + tipoSust(r.tipo).nombre.toUpperCase() + ' DE LA UNIDAD ' + String(r.unidad).toUpperCase() + ' DEL ' + fCorta(r.desde) + ' AL ' + fCorta(r.hasta) + ', DURANTE LA AUSENCIA DE SU JEFE TITULAR (PERMISO AUTORIZADO).';
+    var c = { to: [r.correo], cc: [], bcc: [], asunto: tipoSust(r.tipo).nombre.toUpperCase() + ' · ' + r.unidad + ' · del ' + fCorta(r.desde) + ' al ' + fCorta(r.hasta), html: htmlCorreo(intro, filas, ''),
       texto: 'USO OFICIAL\n\n' + intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') };
     c.cuentas = {}; c.nombres = {};
-    c.cuentas[r.correo.toLowerCase()] = r.interinoId; c.nombres[r.correo.toLowerCase()] = r.interino;
+    c.cuentas[r.correo.toLowerCase()] = r.sustitutoId; c.nombres[r.correo.toLowerCase()] = r.sustituto;
     return c;
   }
-  // Envía el aviso a cada interino (uno por persona) y junta los resultados en uno solo para mostrarlo y anotarlo
-  function avisarInterinos(t, cambio, solo) {
-    var rs = intDe(t.id), vistos = {};
-    var dest = rs.filter(function (r) { var k = String(r.interinoId || r.correo); if (vistos[k] || (solo && solo.indexOf(r.interinoId) < 0)) return false; vistos[k] = 1; return true; });
+  // Envía el aviso a cada sustituto (uno por persona) y junta los resultados en uno solo para mostrarlo y anotarlo
+  function avisarSustitutos(t, cambio, solo) {
+    var rs = sustDe(t.id), vistos = {};
+    var dest = rs.filter(function (r) { var k = String(r.sustitutoId || r.correo); if (vistos[k] || (solo && solo.indexOf(r.sustitutoId) < 0)) return false; vistos[k] = 1; return true; });
     if (!dest.length || !pref.correo) return Promise.resolve(null);
     var total = { ok: false, n: 0, motivo: '', rechazados: [], desvios: [], llegaron: [], para: [], mailto: '' };
     return dest.reduce(function (p, r) {
       return p.then(function () {
-        return enviarCorreo(correoInterino(t, r, rs, cambio)).then(function (x) {
+        return enviarCorreo(correoSustituto(t, r, rs, cambio)).then(function (x) {
           total.ok = total.ok || x.ok; total.n += x.n || 0; total.motivo = total.motivo || x.motivo;
           total.rechazados = total.rechazados.concat(x.rechazados || []); total.desvios = total.desvios.concat(x.desvios || []);
           total.llegaron = total.llegaron.concat(x.llegaron || []); total.para = total.para.concat(x.para || []); total.mailto = total.mailto || x.mailto;
@@ -1411,66 +1443,65 @@
     }, Promise.resolve()).then(function () { return total; });
   }
 
-  // Panel de la ficha: interinos de la solicitud (lo ven todos los que pueden abrirla)
-  function panelInterinos(t) {
-    var rs = intDe(t.id), mia = esMia(t) && activa(t) && !esBorrador(t);
+  // Panel de la ficha: sustitutos de la solicitud (lo ven todos los que pueden abrirla)
+  function panelSustitutos(t) {
+    var rs = sustDe(t.id), mia = esMia(t) && activa(t) && !esBorrador(t);
     if (!rs.length && !mia) return '';
-    var tabla = rs.length ? '<div style="overflow-x:auto"><table class="t"><tr><th>Interino</th><th>Desde</th><th>Hasta</th><th>Teléfono</th><th>Correo</th></tr>' + rs.map(function (r, i) {
-      return '<tr><td><i class="punto" style="background:' + colorInt(i) + '"></i><b>' + esc(r.interino) + '</b></td><td>' + esc(fCorta(r.desde)) + '</td><td>' + esc(fCorta(r.hasta)) + '</td><td>' + esc(r.tel) + '</td><td>' + esc(r.correo) + '</td></tr>';
+    var tabla = rs.length ? '<div style="overflow-x:auto"><table class="t"><tr><th>Tipo</th><th>Sustituto</th><th>Desde</th><th>Hasta</th><th>Teléfono</th><th>Correo</th></tr>' + rs.map(function (r, i) {
+      return '<tr><td title="' + esc(tipoSust(r.tipo).desc) + '">' + esc(tipoSust(r.tipo).nombre) + '</td><td><i class="punto" style="background:' + colorInt(i) + '"></i><b>' + esc(r.sustituto) + '</b></td><td>' + esc(fCorta(r.desde)) + '</td><td>' + esc(fCorta(r.hasta)) + '</td><td>' + esc(r.tel) + '</td><td>' + esc(r.correo) + '</td></tr>';
     }).join('') + '</table></div><p class="small muted">Estado: ' + esc(ESTADO_INT[rs[0].estado] || rs[0].estado) + '.</p>' : '';
-    return '<div class="panel jefpanel"><h3>' + (rs.length ? marcaJefe() + ' Interinidad de la jefatura' : 'Interinidad de la jefatura') + '</h3>' + tabla +
-      (mia ? '<div class="acciones"><button data-intedit="' + t.id + '">' + (rs.length ? '✎ Cambiar interinos' : '👤 Soy jefe de unidad: comunicar mi interinidad') + '</button></div><div id="intEdit"></div>' : '') + '</div>';
+    return '<div class="panel jefpanel"><h3>' + (rs.length ? marcaJefe() + ' Sustitución de la jefatura' : 'Sustitución de la jefatura') + '</h3>' + tabla +
+      (mia ? '<div class="acciones"><button data-intedit="' + t.id + '">' + (rs.length ? '✎ Cambiar sustitutos' : '👤 Soy jefe de unidad: comunicar quién me sustituye') + '</button></div><div id="intEdit"></div>' : '') + '</div>';
   }
-  // «Cambiar interinos» / «Comunicar mi interinidad» desde la ficha (solicitante, con la solicitud ya enviada)
-  function editarInterinosFicha(t) {
+  // «Cambiar sustitutos» / «Comunicar mi sustitución» desde la ficha (solicitante, con la solicitud ya enviada)
+  function editarSustitutosFicha(t) {
     var caja = $('#intEdit');
     if (!caja) return;
-    if (intEstado !== 'ok') { caja.innerHTML = '<div class="aviso">No se puede guardar la interinidad: ' + (intEstado === 'sinlista' ? 'falta la lista «' + esc(JEF.lista) + '» en Colabora' : esc(intEstado)) + '. Avisa al administrador.</div>'; return; }
-    caja.innerHTML = '<div class="intEditor"></div><button type="button" class="intMas">＋ Añadir otro interino</button><div class="intErr"></div>' +
-      '<div class="acciones"><button type="button" class="prim intGuardar">💾 Guardar interinos</button></div>';
-    var ed = editorInterinos(caja.querySelector('.intEditor'), intDe(t.id), function () { return { ini: t.ini, fin: t.fin }; });
+    if (intEstado !== 'ok') { caja.innerHTML = '<div class="aviso">No se puede guardar la sustitución: ' + (intEstado === 'sinlista' ? 'falta la lista «' + esc(JEF.lista) + '» en Colabora' : esc(intEstado)) + '. Avisa al administrador.</div>'; return; }
+    caja.innerHTML = '<div class="intEditor"></div><button type="button" class="intMas">＋ Añadir otro sustituto</button><div class="intErr"></div>' +
+      '<div class="acciones"><button type="button" class="prim intGuardar">💾 Guardar sustitutos</button></div>';
+    var ed = editorSustitutos(caja.querySelector('.intEditor'), sustDe(t.id), function () { return { ini: t.ini, fin: t.fin }; });
     caja.querySelector('.intMas').onclick = function () { ed.anadir(); };
-    var visto = '';
     caja.querySelector('.intGuardar').onclick = function () {
       var boton = this, err = function (m) { caja.querySelector('.intErr').innerHTML = '<div class="error">' + esc(m) + '</div>'; };
       var e = ed.validar(t.ini, t.fin, t.sol);
       if (e) return err(e);
-      var aus = ed.ausentes(t.id);
-      if (aus.length && visto !== aus.join()) { visto = aus.join(); return err('Atención: ' + aus.join('; ') + '. Si es correcto, pulsa otra vez «Guardar interinos».'); }
       var rs = ed.leer(), estado = concedido(t) ? 'CONFIRMADA' : 'PREVISTA';
-      var antes = intDe(t.id).map(function (r) { return r.interinoId; });
+      var antes = sustDe(t.id).map(function (r) { return r.sustitutoId; });
       boton.disabled = true;
-      recordarTelefonos(rs);
-      guardarInterinos(t.id, rs, estado, { unidad: t.unidad ? t.unidad.Title : '', unidadId: t.unidad && t.unidad.Id, titular: t.sol || { Id: 0, Title: t.nombre }, ini: t.ini, fin: t.fin }).then(function (cambio) {
+      comprobarSustitutos(rs, t.id).then(function (res) {
+        if (res.conflictos.length) throw new Error(textoConflictos(res));
+        recordarTelefonos(rs);
+        return guardarSustituciones(t.id, rs, estado, { unidad: t.unidad ? t.unidad.Title : '', unidadId: t.unidad && t.unidad.Id, titular: t.sol || { Id: 0, Title: t.nombre }, ini: t.ini, fin: t.fin }).then(function (cambio) {
         if (!cambio) return { txt: 'Sin cambios.' };
-        // Permiso ya autorizado: se avisa a los interinos (todos, con la nueva relación) y al autorizador
-        if (!concedido(t)) return { txt: '✓ Interinos guardados. Se avisará a cada interino cuando se autorice el permiso.' };
-        return avisarInterinos(t, true).then(function (r) {
+        // Permiso ya autorizado: se avisa a los sustitutos (todos, con la nueva relación) y al autorizador
+        if (!concedido(t)) return { txt: '✓ Sustitutos guardados. Se avisará a cada sustituto cuando se autorice el permiso.' };
+        return avisarSustitutos(t, true).then(function (r) {
           var aut = t.correoAut || (t.aut && t.aut.Email);
-          var nuevos = intDe(t.id);
-          var c = aut ? { to: [aut], cc: [], bcc: [], asunto: 'INTERINOS MODIFICADOS · ' + (t.unidad ? t.unidad.Title + ' · ' : '') + t.nombre, html: htmlCorreo('EL JEFE DE UNIDAD HA MODIFICADO LOS INTERINOS DE SU PERMISO AUTORIZADO.',
-            [['Jefe titular', t.nombre], ['Unidad', t.unidad && t.unidad.Title], ['Permiso', fLarga(t.ini) + ' a ' + fLarga(t.fin)], ['Interinos', nuevos.map(function (x) { return x.interino + ' (' + fCorta(x.desde) + ' a ' + fCorta(x.hasta) + ' · ' + x.tel + ')'; }).join('\n')],
-              ['Antes', antes.length ? 'Había ' + antes.length + ' interino' + (antes.length === 1 ? '' : 's') : 'Sin interinidad comunicada']].filter(function (x) { return x[1]; }), enlaceSolicitud(t)),
-            texto: 'USO OFICIAL\n\nEL JEFE DE UNIDAD HA MODIFICADO LOS INTERINOS DE SU PERMISO AUTORIZADO.\n\n' + enlaceSolicitud(t) } : null;
+          var nuevos = sustDe(t.id);
+          var c = aut ? { to: [aut], cc: [], bcc: [], asunto: 'SUSTITUTOS MODIFICADOS · ' + (t.unidad ? t.unidad.Title + ' · ' : '') + t.nombre, html: htmlCorreo('EL JEFE DE UNIDAD HA MODIFICADO LOS SUSTITUTOS DE SU PERMISO AUTORIZADO.',
+            [['Jefe titular', t.nombre], ['Unidad', t.unidad && t.unidad.Title], ['Permiso', fLarga(t.ini) + ' a ' + fLarga(t.fin)], ['Sustitutos', nuevos.map(function (x) { return tipoSust(x.tipo).nombre + ': ' + x.sustituto + ' (' + fCorta(x.desde) + ' a ' + fCorta(x.hasta) + ' · ' + x.tel + ')'; }).join('\n')],
+              ['Antes', antes.length ? 'Había ' + antes.length + ' sustituto' + (antes.length === 1 ? '' : 's') : 'Sin sustitución comunicada']].filter(function (x) { return x[1]; }), enlaceSolicitud(t)),
+            texto: 'USO OFICIAL\n\nEL JEFE DE UNIDAD HA MODIFICADO LOS SUSTITUTOS DE SU PERMISO AUTORIZADO.\n\n' + enlaceSolicitud(t) } : null;
           if (c) { c.cuentas = {}; c.nombres = {}; if (t.aut && t.aut.Id) c.cuentas[aut.toLowerCase()] = t.aut.Id; c.nombres[aut.toLowerCase()] = (t.aut && t.aut.Title) || t.autTexto; }
           return (c && pref.correo ? enviarCorreo(c) : Promise.resolve(null)).then(function (r2) {
             var junto = r ? Object.assign({}, r) : r2;
             if (r && r2) { junto.ok = r.ok || r2.ok; junto.n = r.n + r2.n; junto.rechazados = r.rechazados.concat(r2.rechazados); junto.desvios = r.desvios.concat(r2.desvios); junto.llegaron = r.llegaron.concat(r2.llegaron); }
-            return anotarAviso(t.id, junto).then(function () { return { txt: '✓ Interinos cambiados. Se ha avisado a los interinos y al autorizador.', r: junto }; });
+            return anotarAviso(t.id, junto).then(function () { return { txt: '✓ Sustitutos cambiados. Se ha avisado a los sustitutos y al autorizador.', r: junto }; });
           });
         });
-      }).then(function (x) {
+      }); }).then(function (x) {
         abrir(t.id, '<div class="' + (x.r ? claseCorreo(x.r) : 'okmsg') + '">' + x.txt + (x.r ? msgCorreo(x.r) : '') + '</div>');
-      }).catch(function (e2) { boton.disabled = false; err('No se pudieron guardar los interinos: ' + (e2.message || e2)); });
+      }).catch(function (e2) { boton.disabled = false; err('No se pudieron guardar los sustitutos: ' + (e2.message || e2)); });
     };
   }
 
-  // ---------- Pestaña «Jefaturas» (GENERAL y grupo PERMISOS - MANDO) ----------
+  // ---------- Pestaña «Mandos sustitutos» (GENERAL y grupo PERMISOS - MANDO) ----------
   var jefMes = (function () { var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })();
   // Ausencias de jefes (una por solicitud) con sus tramos, sin borradores
   function ausenciasJefes() {
     var m = new Map();
-    interinos.filter(function (r) { return r.estado === 'PREVISTA' || r.estado === 'CONFIRMADA'; }).forEach(function (r) {
+    sustituciones.filter(function (r) { return r.estado === 'PREVISTA' || r.estado === 'CONFIRMADA'; }).forEach(function (r) {
       if (!m.has(r.sol)) m.set(r.sol, { sol: r.sol, unidad: r.unidad, titular: r.titular, ini: r.ausIni, fin: r.ausFin, estado: r.estado, tramos: [] });
       m.get(r.sol).tramos.push(r);
     });
@@ -1478,16 +1509,16 @@
       .filter(function (a) { return pref.jefPend !== false || a.estado === 'CONFIRMADA'; })
       .sort(function (a, b) { return a.unidad.localeCompare(b.unidad, 'es') || a.ini.localeCompare(b.ini); });
   }
-  var interinoEl = function (a, dia) { return a.tramos.find(function (r) { return r.desde <= dia && dia <= r.hasta; }); };
+  var sustitutoEl = function (a, dia) { return a.tramos.find(function (r) { return r.desde <= dia && dia <= r.hasta; }); };
   function htmlHoy(aus, dia) {
     var hoyA = aus.filter(function (a) { return a.ini <= dia && dia <= a.fin; });
-    return hoyA.length ? '<div style="overflow-x:auto"><table class="t"><tr><th>Unidad</th><th>Jefe titular ausente</th><th>Manda hoy (interino)</th><th>Teléfono</th><th>Correo</th><th>Hasta</th></tr>' + hoyA.map(function (a) {
-      var r = interinoEl(a, dia);
+    return hoyA.length ? '<div style="overflow-x:auto"><table class="t"><tr><th>Unidad</th><th>Jefe titular ausente</th><th>Hoy al mando</th><th>Teléfono</th><th>Correo</th><th>Hasta</th></tr>' + hoyA.map(function (a) {
+      var r = sustitutoEl(a, dia);
       return '<tr><td><b>' + esc(a.unidad) + '</b>' + (a.estado === 'PREVISTA' ? ' <span class="badge e2">pendiente de autorizar</span>' : '') + '</td><td>' + esc(a.titular) + '<div class="small muted">' + esc(fCorta(a.ini)) + ' a ' + esc(fCorta(a.fin)) + '</div></td>' +
-        '<td><b>' + esc(r ? r.interino : '—') + '</b></td><td>' + esc(r ? r.tel : '') + '</td><td>' + esc(r ? r.correo : '') + '</td><td>' + esc(r ? fCorta(r.hasta) : '') + '</td></tr>';
+        '<td><b>' + esc(r ? r.sustituto : '—') + '</b>' + (r ? '<div class="small muted">' + esc(tipoSust(r.tipo).nombre) + '</div>' : '') + '</td><td>' + esc(r ? r.tel : '') + '</td><td>' + esc(r ? r.correo : '') + '</td><td>' + esc(r ? fCorta(r.hasta) : '') + '</td></tr>';
     }).join('') + '</table></div>' : '<p class="muted small">Hoy no hay ningún jefe de unidad ausente comunicado.</p>';
   }
-  // Cuadro: una fila por ausencia; la barra es la ausencia del titular, partida por colores según el interino de cada tramo
+  // Cuadro: una fila por ausencia; la barra es la ausencia del titular, partida por colores según el sustituto de cada tramo
   function htmlCuadro(aus, ini, fin, imprimir) {
     var n = dias(ini, fin);
     var enPeriodo = aus.filter(function (a) { return a.ini <= fin && ini <= a.fin; });
@@ -1501,7 +1532,7 @@
         var i = a.tramos.indexOf(r), d0 = r.desde < ini ? ini : r.desde, d1 = r.hasta > fin ? fin : r.hasta;
         var izq = (dias(ini, d0) - 1) / n * 100, ancho = dias(d0, d1) / n * 100;
         return '<span class="gseg' + (a.estado === 'PREVISTA' ? ' prev' : '') + '" style="left:' + izq + '%;width:' + ancho + '%;background-color:' + colorInt(i) + '" title="' +
-          esc(r.interino + ' · interino del ' + fCorta(r.desde) + ' al ' + fCorta(r.hasta) + ' · ' + r.tel + ' · ' + r.correo) + '">' + esc(r.interino) + '</span>';
+          esc(tipoSust(r.tipo).nombre + ': ' + r.sustituto + ' · del ' + fCorta(r.desde) + ' al ' + fCorta(r.hasta) + ' · ' + r.tel + ' · ' + r.correo) + '">' + esc((tipoSust(r.tipo).corto ? tipoSust(r.tipo).corto + ' · ' : '') + r.sustituto) + '</span>';
       }).join('');
       return '<div class="gfila"><div class="get"><b>' + esc(a.unidad) + '</b><span class="small muted">' + esc(a.titular) + ' · ' + esc(fCorta(a.ini)) + '–' + esc(fCorta(a.fin)) + '</span></div><div class="gpista">' + hoyLinea + segs + '</div></div>';
     }).join('') + '</div>';
@@ -1512,8 +1543,8 @@
   }
   function vistaJefaturas() {
     if (!esMando()) return '<div class="card vacio">Solo para el General y el grupo «' + esc(JEF.grupo) + '» de Colabora.</div>';
-    if (intEstado === 'sinlista') return '<div class="card"><div class="aviso">Aún no existe la lista «' + esc(JEF.lista) + '» en este sitio.' + (esAdmin ? ' Créala en <b>Ajustes › Interinidades de jefes de unidad</b>.' : ' Avisa al administrador.') + '</div></div>';
-    if (intEstado && intEstado !== 'ok') return '<div class="card"><div class="error">No se pudo leer la lista de interinidades: ' + esc(intEstado) + '</div></div>';
+    if (intEstado === 'sinlista') return '<div class="card"><div class="aviso">Aún no existe la lista «' + esc(JEF.lista) + '» en este sitio.' + (esAdmin ? ' Créala en <b>Ajustes › Sustituciones de jefes de unidad</b>.' : ' Avisa al administrador.') + '</div></div>';
+    if (intEstado && intEstado !== 'ok') return '<div class="card"><div class="error">No se pudo leer la lista de sustituciones: ' + esc(intEstado) + '</div></div>';
     var aus = ausenciasJefes(), p = periodoJef();
     var prox = aus.filter(function (a) { return a.ini > hoy() && a.ini <= iso(new Date(Date.now() + 30 * 864e5)); });
     var nom = jefMes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }) + (pref.jefMeses === 3 ? ' (trimestre)' : '');
@@ -1521,11 +1552,11 @@
       '<div class="card"><div class="acciones" style="justify-content:space-between;align-items:center;margin-top:0"><span><button data-jefmes="-1">◀</button> <b>' + esc(nom[0].toUpperCase() + nom.slice(1)) + '</b> <button data-jefmes="1">▶</button> <button data-jefmes="0">Hoy</button></span>' +
       '<span><label class="check"><input type="checkbox" id="jefTri"' + (pref.jefMeses === 3 ? ' checked' : '') + '> Ver tres meses</label> <label class="check"><input type="checkbox" id="jefPend"' + (pref.jefPend !== false ? ' checked' : '') + '> Incluir pendientes de autorizar</label> ' +
       '<button data-jefimp="1">🖨 Imprimir / PDF</button></span></div>' +
-      '<div class="leyenda">Cada barra es la ausencia del jefe titular; cada color, un interino (nombre dentro y detalle al pasar el ratón). <span><i class="rayado"></i>Pendiente de autorizar</span><span><i style="background:var(--bad);width:2px"></i>Hoy</span></div>' +
+      '<div class="leyenda">Cada barra es la ausencia del jefe titular; cada color, un sustituto (tipo y nombre dentro: MA mando accidental, ED encargado de despacho, MCP más caracterizado de los presentes; detalle al pasar el ratón). <span><i class="rayado"></i>Pendiente de autorizar</span><span><i style="background:var(--bad);width:2px"></i>Hoy</span></div>' +
       htmlCuadro(aus, p[0], p[1]) + '</div>' +
       '<div class="card"><h3 style="margin-top:0">Próximas ausencias de jefes (30 días)</h3>' + (prox.length ? prox.map(function (a) {
-        return '<div class="campo"><b>' + esc(a.unidad) + ' · ' + esc(a.titular) + '</b><div>' + esc(fCorta(a.ini)) + ' a ' + esc(fCorta(a.fin)) + (a.estado === 'PREVISTA' ? ' · pendiente de autorizar' : '') + ' · interinos: ' +
-          esc(a.tramos.map(function (r) { return r.interino + ' (' + fCorta(r.desde) + '–' + fCorta(r.hasta) + ', ' + r.tel + ')'; }).join('; ')) + '</div></div>';
+        return '<div class="campo"><b>' + esc(a.unidad) + ' · ' + esc(a.titular) + '</b><div>' + esc(fCorta(a.ini)) + ' a ' + esc(fCorta(a.fin)) + (a.estado === 'PREVISTA' ? ' · pendiente de autorizar' : '') + ' · sustitutos: ' +
+          esc(a.tramos.map(function (r) { return tipoSust(r.tipo).nombre + ': ' + r.sustituto + ' (' + fCorta(r.desde) + '–' + fCorta(r.hasta) + ', ' + r.tel + ')'; }).join('; ')) + '</div></div>';
       }).join('') : '<p class="muted small">Ninguna en los próximos 30 días.</p>') + '</div>';
   }
   function imprimirJefaturas() {
@@ -1535,12 +1566,12 @@
       '.gseg{position:absolute;top:3px;bottom:3px;color:#fff;font-weight:bold;font-size:6.8pt;overflow:hidden;white-space:nowrap;padding:1px 3px;border-radius:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
       '.gseg.prev{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.35) 0 4px,transparent 4px 8px)}.lhoy{position:absolute;top:0;bottom:0;width:2px;background:#b71c1c;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
       'table.t{width:100%;border-collapse:collapse}table.t th{background:#1b3a5c;color:#fff;text-align:left;padding:3px 4px;-webkit-print-color-adjust:exact;print-color-adjust:exact}table.t td{border:1px solid #bbb;padding:3px 4px}.badge{font-size:7pt}</style>';
-    ventanaImprimir({ titulo: 'JEFATURAS DE UNIDAD E INTERINOS', apaisado: true, nombre: 'jefaturas-' + p[0].slice(0, 7),
+    ventanaImprimir({ titulo: 'MANDOS SUSTITUTOS DE LAS UNIDADES', apaisado: true, nombre: 'mandos-sustitutos-' + p[0].slice(0, 7),
       subtitulo: 'Periodo: ' + esc(fCorta(p[0])) + ' a ' + esc(fCorta(p[1])) + (pref.jefPend !== false ? ' · incluye las pendientes de autorizar (rayadas)' : ' · solo autorizadas'),
-      cuerpo: css + '<h3>Quién manda hoy (' + esc(fCorta(hoy())) + ')</h3>' + htmlHoy(aus, hoy()) + '<h3>Cuadro de ausencias de jefes e interinos</h3>' + htmlCuadro(aus, p[0], p[1], true) });
+      cuerpo: css + '<h3>Quién está al mando hoy (' + esc(fCorta(hoy())) + ')</h3>' + htmlHoy(aus, hoy()) + '<h3>Cuadro de ausencias de jefes y sus sustitutos</h3>' + htmlCuadro(aus, p[0], p[1], true) });
   }
 
-  // Preparación (Ajustes): lista de interinidades y grupo del mando
+  // Preparación (Ajustes): lista de sustituciones y grupo del mando
   var jefPrep = { estado: '', info: null, falta: [], grupo: null };
   function cargarPrepJef() {
     jefPrep.estado = 'cargando';
@@ -1556,15 +1587,15 @@
     var linea = function (ok, txt) { return '<p class="small">' + (ok ? '✔ ' : '✕ ') + txt + '</p>'; };
     return (jefPrep.info ? linea(true, 'Lista «' + esc(JEF.lista) + '» (' + (jefPrep.info.ItemCount || 0) + ' tramos).' + (jefPrep.falta.length ? ' Faltan columnas: ' + esc(jefPrep.falta.join(', ')) + ' <button class="prim" data-jefcols="1">Crearlas</button>' : '')) :
       linea(false, 'Falta la lista «' + esc(JEF.lista) + '». <button class="prim" data-jefcrear="1">Crear la lista</button>')) +
-      (jefPrep.grupo ? linea(true, 'Grupo «' + esc(JEF.grupo) + '» (' + jefPrep.grupo.length + ' personas' + (jefPrep.grupo.length ? ': ' + esc(jefPrep.grupo.map(function (u) { return u.Title; }).join(', ')) : '') + '). Añade al General y a quien deba ver la pestaña «Jefaturas» desde «Personas y grupos» de Colabora.') :
-        linea(false, 'Falta el grupo «' + esc(JEF.grupo) + '» (quién ve la pestaña «Jefaturas»). <button class="prim" data-jefgrupo="1">Crear el grupo</button>')) +
-      '<p class="small muted">La lista hereda los permisos del sitio: quien pueda pedir permisos debe poder añadir y modificar elementos en ella («Colaborar»), porque el aprobador, el autorizador y el registro cambian el estado de los tramos. Solo guarda unidad, jefe, interinos, fechas, teléfonos y correos de trabajo: nada del permiso.</p>';
+      (jefPrep.grupo ? linea(true, 'Grupo «' + esc(JEF.grupo) + '» (' + jefPrep.grupo.length + ' personas' + (jefPrep.grupo.length ? ': ' + esc(jefPrep.grupo.map(function (u) { return u.Title; }).join(', ')) : '') + '). Añade al General y a quien deba ver la pestaña «Mandos sustitutos» desde «Personas y grupos» de Colabora.') :
+        linea(false, 'Falta el grupo «' + esc(JEF.grupo) + '» (quién ve la pestaña «Mandos sustitutos»). <button class="prim" data-jefgrupo="1">Crear el grupo</button>')) +
+      '<p class="small muted">La lista hereda los permisos del sitio: quien pueda pedir permisos debe poder añadir y modificar elementos en ella («Colaborar»), porque el aprobador, el autorizador y el registro cambian el estado de los tramos. Solo guarda unidad, jefe, sustitutos, fechas, teléfonos y correos de trabajo: nada del permiso.</p>';
   }
   function crearListaJef(boton) {
-    boton.disabled = true; aviso('Creando la lista de interinidades…');
-    enviarSP(web + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: JEF.lista, Description: 'Interinos de los jefes de unidad durante sus permisos (página de Solicitud de permisos)' }, 'No tienes permiso para crear listas en el sitio')
+    boton.disabled = true; aviso('Creando la lista de sustituciones…');
+    enviarSP(web + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: JEF.lista, Description: 'Sustitutos de los jefes de unidad durante sus permisos (página de Solicitud de permisos)' }, 'No tienes permiso para crear listas en el sitio')
       .then(function () { return crearColsJef(CAMPOS_INT); })
-      .then(function () { aviso('Lista creada'); jefPrep.estado = ''; return cargarInterinos(); }).then(render)
+      .then(function () { aviso('Lista creada'); jefPrep.estado = ''; return cargarSustituciones(); }).then(render)
       .catch(function (e) { boton.disabled = false; window.alert('No se pudo crear la lista: ' + (e.message || e)); });
   }
   function crearColsJef(campos) {
@@ -1572,7 +1603,7 @@
   }
   function crearGrupoJef(boton) {
     boton.disabled = true;
-    enviarSP(web + '/_api/web/sitegroups', { __metadata: { type: 'SP.Group' }, Title: JEF.grupo, Description: 'Ven la pestaña «Jefaturas» (jefes de unidad ausentes e interinos) de la página de Solicitud de permisos' }, 'No tienes permiso para crear grupos en el sitio')
+    enviarSP(web + '/_api/web/sitegroups', { __metadata: { type: 'SP.Group' }, Title: JEF.grupo, Description: 'Ven la pestaña «Mandos sustitutos» (jefes de unidad ausentes y sus sustitutos) de la página de Solicitud de permisos' }, 'No tienes permiso para crear grupos en el sitio')
       .then(function () { aviso('Grupo creado'); jefPrep.estado = ''; render(); })
       .catch(function (e) { boton.disabled = false; window.alert('No se pudo crear el grupo: ' + (e.message || e)); });
   }
@@ -1580,7 +1611,7 @@
   function render() {
     var reg = enRegistro() || esSuper();
     var vistas = [['mias', 'Mis solicitudes'], ['pendientes', 'Pendientes de mí']].concat(cargadoEn && reg ? [['registro', 'Registro SIPERDEF']] : [])
-      .concat([['calendario', 'Calendario'], ['todas', 'Consulta']]).concat(cargadoEn && esMando() ? [['jefaturas', 'Jefaturas']] : []).concat(cargadoEn && !reg ? [['accesoreg', 'Acceso a Registro SIPERDEF']] : [])
+      .concat([['calendario', 'Calendario'], ['todas', 'Consulta']]).concat(cargadoEn && esMando() ? [['jefaturas', 'Mandos sustitutos']] : []).concat(cargadoEn && !reg ? [['accesoreg', 'Acceso a Registro SIPERDEF']] : [])
       .concat(cargadoEn && esAdmin ? [['accesos', 'Accesos de registro'], ['ajustes', 'Ajustes']] : []);
     if (pref.vista === 'registro' && cargadoEn && !reg) pref.vista = 'mias';
     if (pref.vista === 'accesoreg' && cargadoEn && reg) pref.vista = 'registro';
@@ -1878,7 +1909,7 @@
       ['Creada', new Date(t.creado).toLocaleString('es-ES')], ['Modificada', new Date(t.modificado).toLocaleString('es-ES') + (t.editor ? ' por ' + t.editor : '')]];
     var dlg = $('#dlg');
     dlg.innerHTML = '<div class="dh"><h2>' + esc(t.nombre) + ' · ' + esc(t.tipo || t.asunto) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.4rem">✕</button></div>' +
-      '<div class="db">' + (msg || '') + pasos(t) + panelInterinos(t) + '<div class="ficha"><div>' +
+      '<div class="db">' + (msg || '') + pasos(t) + panelSustitutos(t) + '<div class="ficha"><div>' +
       '<div class="campo"><b>Asunto</b><div>' + esc(t.asunto) + '</div></div>' +
       c.filter(function (x) { return x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       '<div id="detMas"><p class="muted small">Cargando observaciones…</p></div>' +
@@ -2043,8 +2074,11 @@
     boton.disabled = true;
     var obsTxt = ob('oAprob') || ob('oAutor') || ob('oReg');
     var previo = a === 'registrar' || a === 'anular' ? verificarRegistro() : Promise.resolve();
-    // Interinidad del jefe: al autorizar queda CONFIRMADA (y se avisa a cada interino); al rechazar o anular, ANULADA;
-    // si vuelve al solicitante, BORRADOR (deja de verse en el cuadro de jefaturas hasta que la reenvíe)
+    if (a === 'autorizar' && esJefe(t)) previo = comprobarSustitutos(sustDe(t.id), t.id).then(function (res) {
+      if (res.conflictos.length) throw Object.assign(new Error('No se puede autorizar: ' + res.conflictos.join('; ') + '. Devuélvela al solicitante para que cambie el sustituto.'), { tal: true });
+    });
+    // Sustitución del jefe: al autorizar queda CONFIRMADA (y se avisa a cada sustituto); al rechazar o anular, ANULADA;
+    // si vuelve al solicitante, BORRADOR (deja de verse en «Mandos sustitutos» hasta que la reenvíe)
     var estInt = { autorizar: 'CONFIRMADA', rechazarAprob: 'ANULADA', rechazarAutor: 'ANULADA', anular: 'ANULADA', devolverAprob: 'BORRADOR', devolverAutorSol: 'BORRADOR' }[a];
     var conInt = esJefe(t), msgInt = '';
     previo.then(function () { return guardarCambios(t, c, anotarRegistro(HIST[a]) + '. En Estado: ' + c.Estado); }).then(function () {
@@ -2052,15 +2086,15 @@
       return (cr ? enviarCorreo(cr) : Promise.resolve(null)).then(function (r) {
         return anotarAviso(t.id, r).then(function () {
           if (!conInt || !estInt) return null;
-          return marcarInterinos(t.id, estInt).then(function () { return a === 'autorizar' ? avisarInterinos(t, false) : null; })
-            .then(function (ri) { if (ri) { msgInt = ' <b>Interinos:</b>' + msgCorreo(ri); return anotarAviso(t.id, ri); } }, function (e) { msgInt = ' <b>No se pudo actualizar la interinidad:</b> ' + esc(e.message || e); });
+          return marcarSustituciones(t.id, estInt).then(function () { return a === 'autorizar' ? avisarSustitutos(t, false) : null; })
+            .then(function (ri) { if (ri) { msgInt = ' <b>Sustitutos:</b>' + msgCorreo(ri); return anotarAviso(t.id, ri); } }, function (e) { msgInt = ' <b>No se pudo actualizar la sustitución:</b> ' + esc(e.message || e); });
         }).then(cargar).then(function () {
           var txt = '✓ Guardado: la solicitud pasa a «' + esc(c.Estado) + '».';
           var m = '<div class="' + claseCorreo(r) + '">' + txt + msgCorreo(r) + msgInt + '</div>';
           abrir(t.id, m);
         });
       });
-    }).catch(function (e) { boton.disabled = false; msgAcc('error', 'No se pudo guardar: ' + esc(e.message || e)); });
+    }).catch(function (e) { boton.disabled = false; msgAcc('error', (e.tal ? '' : 'No se pudo guardar: ') + esc(e.message || e)); });
   }
 
   // ---------- Nueva solicitud / completar borrador ----------
@@ -2091,9 +2125,9 @@
       '<label class="check" style="display:flex"><input type="radio" name="nCamino" id="nDirecto" value="directo"' + (t && t.directo ? ' checked' : '') + '> <span><b>No tengo mando intermedio:</b> va directamente al autorizador.</span></label></div>' +
       '<div id="nAprCaja"' + (t && t.directo ? ' hidden' : '') + '><label class="lbl">Tu jefe inmediato (aprobador) *</label><div id="nApr"></div></div>' +
       '<div id="nAutCaja"' + (t && t.directo ? '' : ' hidden') + '><label class="lbl">Autorizador (concede el permiso) *</label><div id="nAut"></div></div>' +
-      '<div class="panel jefpanel" style="margin-top:12px"><label class="check" style="display:flex"><input type="checkbox" id="nJefe"' + (t && esJefe(t) ? ' checked' : '') + '> <span><b>Soy jefe de unidad y comunico mi interinidad</b>' +
-        '<br><span class="small muted">Indica quién te sustituye en cada tramo de tu ausencia (puede haber varios interinos), con su teléfono y su correo. Deben cubrir todos los días del permiso. Lo verá el General en el cuadro de jefaturas y se avisará a cada interino cuando se autorice.</span></span></label>' +
-        '<div id="nIntCaja"' + (t && esJefe(t) ? '' : ' hidden') + '><div id="nInt"></div><button type="button" id="nIntMas">＋ Añadir otro interino</button></div></div>' +
+      '<div class="panel jefpanel" style="margin-top:12px"><label class="check" style="display:flex"><input type="checkbox" id="nJefe"' + (t && esJefe(t) ? ' checked' : '') + '> <span><b>Soy jefe de unidad y comunico quién me sustituye</b>' +
+        '<br><span class="small muted">Para cada tramo de tu ausencia indica el tipo de sustitución (mando accidental, encargado de despacho o más caracterizado de los presentes), la persona, su teléfono y su correo. Deben cubrir todos los días del permiso y ningún sustituto puede estar de permiso esas fechas. Se avisará a cada uno cuando se autorice y saldrá en «Mandos sustitutos».</span></span></label>' +
+        '<div id="nIntCaja"' + (t && esJefe(t) ? '' : ' hidden') + '><div id="nInt"></div><button type="button" id="nIntMas">＋ Añadir otro sustituto</button></div></div>' +
       '<p class="small muted">Para adjuntar documentos, guarda la solicitud y añádelos desde el formulario de Colabora.</p>' +
       '<div id="nError"></div>' +
       '<div class="acciones"><button type="button" data-cerrar>Cancelar</button><button type="button" id="nBorrador">💾 Guardar borrador</button><button type="button" class="prim" id="nEnviar">📨 Enviar</button></div></div>';
@@ -2108,11 +2142,11 @@
     $('#nOtro').onchange = function () { $('#nOtroCaja').hidden = !this.checked; $('#nYo').hidden = this.checked; };
     var fechasForm = function () { return { ini: $('#fSol [name=ini]').value, fin: $('#fSol [name=fin]').value }; };
     var edInt = null;
-    var abrirEditor = function () { if (!edInt) edInt = editorInterinos($('#nInt'), t ? intDe(t.id) : [], fechasForm); };
+    var abrirEditor = function () { if (!edInt) edInt = editorSustitutos($('#nInt'), t ? sustDe(t.id) : [], fechasForm); };
     if (t && esJefe(t)) abrirEditor();
     $('#nJefe').onchange = function () { $('#nIntCaja').hidden = !this.checked; if (this.checked) abrirEditor(); };
     $('#nIntMas').onclick = function () { abrirEditor(); edInt.anadir(); };
-    var ausVisto = '';
+    var comprobado = false;   // las comprobaciones con el servidor ya se hicieron para este envío
     Array.prototype.forEach.call(document.querySelectorAll('#fSol [name=nCamino]'), function (rb) {
       rb.onchange = function () { var d = $('#nDirecto').checked; $('#nAprCaja').hidden = d; $('#nAutCaja').hidden = !d; };
     });
@@ -2141,14 +2175,25 @@
       }
       var jefe = $('#nJefe').checked && edInt, rsInt = jefe ? edInt.leer() : [];
       if (jefe) {
-        if (intEstado !== 'ok') return err('No se puede guardar la interinidad: ' + (intEstado === 'sinlista' ? 'falta la lista «' + JEF.lista + '» en Colabora' : intEstado) + '. Desmarca «Soy jefe de unidad» para guardar la solicitud sin ella y avisa al administrador.');
+        if (intEstado !== 'ok') return err('No se puede guardar la sustitución: ' + (intEstado === 'sinlista' ? 'falta la lista «' + JEF.lista + '» en Colabora' : intEstado) + '. Desmarca «Soy jefe de unidad» para guardar la solicitud sin ella y avisa al administrador.');
         if (enviar) {
           var eInt = edInt.validar(v('ini'), v('fin'), sol);
           if (eInt) return err(eInt);
-          var aus = edInt.ausentes(t && t.id);
-          if (aus.length && ausVisto !== aus.join()) { ausVisto = aus.join(); return err('Atención: ' + aus.join('; ') + '. Si es correcto, pulsa otra vez el botón.'); }
-        } else rsInt = rsInt.filter(function (r) { return r.interinoId && r.desde && r.hasta; });   // borrador: se guardan los tramos completos
+        } else rsInt = rsInt.filter(function (r) { return r.sustitutoId && r.desde && r.hasta; });   // borrador: se guardan los tramos completos
       }
+      // Al enviar: quien es sustituto de un jefe no puede pedir permiso esas fechas, y sus sustitutos no pueden estar de permiso
+      if (enviar && !comprobado) {
+        var desig = designadoSustituto(sol, v('ini'), v('fin'), t && t.id);
+        if (desig.length) return err((otro ? sol.Title + ' está designado' : 'Estás designado') + ' ' + desig.map(function (y) { return tipoSust(y.tipo).nombre.toLowerCase() + ' de ' + y.unidad + ' del ' + fCorta(y.desde) + ' al ' + fCorta(y.hasta) + ' (jefe titular: ' + y.titular + ')'; }).join('; ') +
+          '. No puede pedirse permiso en esas fechas: el jefe titular tiene que cambiar antes su sustituto.');
+        boton.disabled = true;
+        return (jefe ? comprobarSustitutos(rsInt, t && t.id) : Promise.resolve({ conflictos: [] })).then(function (res) {
+          boton.disabled = false;
+          if (res.conflictos.length) return err(textoConflictos(res));
+          comprobado = true; guardar(enviar, boton);
+        }, function (e) { boton.disabled = false; err('No se pudo comprobar a los sustitutos: ' + (e.message || e)); });
+      }
+      comprobado = false;
       var estado = !enviar ? (otro ? E.BR : E.BS) : directo ? E.AP : E.PA;
       var asunto = v('asunto') || (v('tipo').replace(/\s*\(.*$/, '') + ' del ' + fCorta(v('ini')) + ' al ' + fCorta(v('fin')));
       var c = { Title: asunto, SolicitanteId: sol.Id, SolicitanteTexto: sol.Title, CorreoDelSolicitante: sol.Email || '',
@@ -2166,11 +2211,11 @@
         enviarSP(urlLista() + '/items', Object.assign({ __metadata: tipoEntidad(), RegistroDeBorrador: anotar ? esc(anotar) : null }, c), 'No tienes permiso para crear solicitudes en esta lista')
           .then(function (n) { return n && n.Id; });
       hecho.then(function (id) {
-        // Interinidad: tramos nuevos (o anulación de los anteriores si se ha desmarcado la casilla)
+        // Sustitución: tramos nuevos (o anulación de los anteriores si se ha desmarcado la casilla)
         var ctxInt = { unidad: (unidades.find(function (u) { return String(u.Id) === v('unidad'); }) || {}).Title || '', unidadId: Number(v('unidad')), titular: sol, ini: v('ini'), fin: v('fin') };
         if (jefe && rsInt.length) recordarTelefonos(rsInt);
-        var pInt = !id ? Promise.resolve() : jefe && rsInt.length ? guardarInterinos(id, rsInt, enviar ? 'PREVISTA' : 'BORRADOR', ctxInt) : intDe(id).length ? marcarInterinos(id, 'ANULADA') : Promise.resolve();
-        return pInt.then(function () { return id; }, function (e) { aviso('La interinidad no se pudo guardar: ' + (e.message || e)); return id; });
+        var pInt = !id ? Promise.resolve() : jefe && rsInt.length ? guardarSustituciones(id, rsInt, enviar ? 'PREVISTA' : 'BORRADOR', ctxInt) : sustDe(id).length ? marcarSustituciones(id, 'ANULADA') : Promise.resolve();
+        return pInt.then(function () { return id; }, function (e) { aviso('La sustitución no se pudo guardar: ' + (e.message || e)); return id; });
       }).then(function (id) {
         var nuevo = { id: id, asunto: asunto, nombre: sol.Title, rep: rep, tipo: v('tipo'), cupo: v('cupo'), ini: v('ini'), fin: v('fin'), festivos: v('festivos'),
           unidad: unidades.find(function (u) { return String(u.Id) === v('unidad'); }) || null, dependencia: v('dependencia'), estado: estado,
@@ -2262,7 +2307,7 @@
         ['Autorizador', t.aut ? t.aut.Title : t.autTexto], ['Autorización', [t.eAutor, fh(t.fAutor)].filter(Boolean).join(' · ')], ['Observaciones del autorizador', d.ObservacionesAutorizador],
         ['Registro SIPERDEF', [t.eReg, t.reg && t.reg.Title].filter(Boolean).join(' · ')], ['Observaciones del registro', d.ObservacionesDelRegistro],
         ['Solicitud creada', fh(t.creado)]]) +
-      (esJefe(t) ? '<h3>INTERINIDAD DE LA JEFATURA (JEFE DE UNIDAD)</h3>' + tabla(intDe(t.id).map(function (r) { return ['Interino ' + r.orden, r.interino + ' · del ' + fCorta(r.desde) + ' al ' + fCorta(r.hasta) + ' · ' + r.tel + ' · ' + r.correo]; })) : '') +
+      (esJefe(t) ? '<h3>SUSTITUCIÓN DE LA JEFATURA (JEFE DE UNIDAD)</h3>' + tabla(sustDe(t.id).map(function (r) { return [tipoSust(r.tipo).nombre, r.sustituto + ' · del ' + fCorta(r.desde) + ' al ' + fCorta(r.hasta) + ' · ' + r.tel + ' · ' + r.correo]; })) : '') +
       '<div class="firmas"><div>El solicitante</div><div>El aprobador</div><div>El autorizador</div></div>';
     ventanaImprimir({ titulo: 'FORMULARIO DE SOLICITUD DE PERMISO', subtitulo: 'Nº ' + t.id + ' · ' + esc(estadoTxt(t)), cuerpo: cuerpo, nombre: 'solicitud-permiso-' + t.id, apaisado: false });
   }
@@ -2282,7 +2327,7 @@
     if (el.closest('[data-pruebacorreo]')) { correoPrueba(el.closest('[data-pruebacorreo]')); return; }
     if (el.closest('[data-crearpruebas]')) { crearListaPruebas(el.closest('[data-crearpruebas]')); return; }
     var ie = el.closest('[data-intedit]');
-    if (ie) { var ti = items.find(function (x) { return x.id === Number(ie.dataset.intedit); }); if (ti) editarInterinosFicha(ti); return; }
+    if (ie) { var ti = items.find(function (x) { return x.id === Number(ie.dataset.intedit); }); if (ti) editarSustitutosFicha(ti); return; }
     var jm = el.closest('[data-jefmes]');
     if (jm) { var dj = Number(jm.dataset.jefmes), hj = new Date(); jefMes = dj ? new Date(jefMes.getFullYear(), jefMes.getMonth() + dj, 1) : new Date(hj.getFullYear(), hj.getMonth(), 1); render(); return; }
     if (el.closest('[data-jefimp]')) { imprimirJefaturas(); return; }

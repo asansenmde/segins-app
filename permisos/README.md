@@ -65,18 +65,17 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
   guarda sus preferencias aparte; banda roja «VERSIÓN DE PRUEBAS»; los correos llevan «[PRUEBAS]» en el asunto. Si falta
   su lista, ofrece «Crear la lista de pruebas»: copia vacía de las columnas propias de «Solicitud de Permisos».
   Simulación: `PRUEBAS=1 PERM_HTML=permisos/colabora/permisos-pruebas.html node permisos/pruebas/simulacion.mjs`.
-- **Interinidades de los jefes de unidad** (versión 2026-10-22 · 7). En la solicitud, la casilla «Soy jefe de unidad y comunico
-  mi interinidad» abre los tramos de interinos (persona, desde, hasta, teléfono y correo; «＋ Añadir otro interino»). Al
-  enviar es obligatorio cubrir todos los días del permiso sin huecos ni solapes, nadie puede ser su propio interino y se
-  avisa si un interino también está ausente como jefe. Se guardan en la lista **«INTERINIDADES JEFATURAS»** (una fila por
-  tramo, sin datos del permiso), con estado BORRADOR → PREVISTA (enviada) → CONFIRMADA (autorizada) o ANULADA (rechazada,
-  anulada o sustituida; nunca se borra); si vuelve al solicitante, BORRADOR. Al autorizar se avisa por correo a cada
-  interino. La ficha muestra «👤 Jefe de unidad · deja interinos» y los tramos; el solicitante puede «Cambiar interinos»
-  (o comunicarlos si se le olvidó) con la solicitud ya enviada: si el permiso está autorizado se avisa a los interinos y al
-  autorizador sin volver a autorizar. Pestaña **«Jefaturas»** (General y grupo «PERMISOS - MANDO», y el propietario):
-  «¿Quién manda hoy en cada unidad?» con teléfono y correo, cuadro por meses o trimestre (una barra por ausencia, un color
-  por interino, pendientes rayadas, línea de hoy), próximas ausencias e Imprimir / PDF. En *Ajustes › Interinidades de
-  jefes de unidad* se crean la lista (con sus columnas) y el grupo.
+- **Sustituciones de los jefes de unidad** (versión 2026-10-23 · 1). En la solicitud, la casilla «Soy jefe de unidad y
+  comunico quién me sustituye» abre los tramos: **tipo de sustitución** (*Mando accidental*, *Encargado de despacho* o *Más
+  caracterizado de los presentes*, con su explicación), persona, desde, hasta, teléfono y correo. Al enviar: deben cubrir
+  todos los días del permiso sin huecos ni solapes y nadie puede ser su propio sustituto. **Ningún sustituto puede estar
+  de permiso** en las fechas que sustituye (se mira en sus solicitudes —solo fechas y estado— y en las sustituciones):
+  se impide al designarlo, al autorizar y cuando quien es sustituto pide un permiso en esas fechas. Lista
+  **«SUSTITUCIONES JEFES UNIDAD»** (una fila por tramo, sin datos del permiso): BORRADOR → PREVISTA → CONFIRMADA o ANULADA
+  (nunca se borra). Al autorizar se avisa a cada sustituto con su tipo y lo que supone. El solicitante puede «Cambiar
+  sustitutos» con el permiso ya enviado o autorizado. Pestaña **«Mandos sustitutos»** (General, grupo «PERMISOS - MANDO» y
+  propietario): quién está al mando hoy, cuadro por meses o trimestre (MA / ED / MCP y nombre en cada tramo), próximas
+  ausencias e Imprimir / PDF. En *Ajustes* se crean la lista y el grupo.
 - **Avisos por correo** (versión 2026-10-22 · 1): Colabora rechaza el correo ENTERO si una sola dirección no es de un
   usuario que conozca («Asegúrese de que tenga un destinatario válido»). Antes, si fallaba la del solicitante, al
   aprobador o al autorizador tampoco le llegaba. Ahora se reintenta destinatario a destinatario (y con la cuenta de inicio
