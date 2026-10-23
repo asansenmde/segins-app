@@ -68,8 +68,9 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
 - **Sustituciones de los jefes de unidad** (versión 2026-10-23 · 1). En la solicitud, la casilla «Soy jefe de unidad y
   comunico quién me sustituye» abre los tramos: **tipo de sustitución** (*Mando accidental*, *Encargado de despacho* o *Más
   caracterizado de los presentes*, con su explicación), persona, desde, hasta, teléfono y correo. Al enviar: deben cubrir
-  todos los días del permiso sin huecos ni solapes y nadie puede ser su propio sustituto. **Ningún sustituto puede estar
-  de permiso** en las fechas que sustituye (se mira en sus solicitudes —solo fechas y estado— y en las sustituciones):
+  todos los días del permiso sin huecos ni solapes y nadie puede ser su propio sustituto. **Ningún sustituto puede tener
+  permiso en las mismas fechas ni solapadas** (versión 2026-10-23 · 2: cuentan también los borradores y la persona se
+  reconoce por su cuenta, su correo o su nombre; se mira en sus solicitudes —solo fechas y estado— y en las sustituciones):
   se impide al designarlo, al autorizar y cuando quien es sustituto pide un permiso en esas fechas. Lista
   **«SUSTITUCIONES JEFES UNIDAD»** (una fila por tramo, sin datos del permiso): BORRADOR → PREVISTA → CONFIRMADA o ANULADA
   (nunca se borra). Al autorizar se avisa a cada sustituto con su tipo y lo que supone. El solicitante puede «Cambiar

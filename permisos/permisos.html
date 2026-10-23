@@ -204,7 +204,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-10-23 · 1';
+  var VERSION = '2026-10-23 · 2';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
   // Copia de pruebas («node proteger.mjs --pruebas» genera permisos-pruebas.html con PRUEBAS = true): trabaja sobre
@@ -1353,27 +1353,36 @@
   // Un sustituto no puede estar de permiso (ni ausente como jefe) en las fechas que sustituye: se comprueba en sus solicitudes
   // (las que lee la página y, en el servidor, solo fechas y estado de las suyas) y en la lista de sustituciones.
   // Devuelve { conflictos: [textos que impiden guardar], sinComprobar: [nombres cuyas solicitudes no se han podido leer] }
-  var vigenteSol = function (estado) { var e = estadoCanon(estado); return e !== E.RE && e !== E.AN && e !== E.BS && e !== E.BR && e !== E.SI; };
+  // Cuenta todo permiso salvo los rechazados o anulados (también los borradores): ni el jefe ni su sustituto pueden tener
+  // fechas coincidentes o solapadas. La persona se reconoce por su cuenta, su correo o su nombre (puede tener varias cuentas).
+  var vigenteSol = function (estado) { var e = estadoCanon(estado); return e !== E.RE && e !== E.AN; };
+  var mismaPersona_ = function (id, nombre, correo, otroId, otroNombre, otroCorreo) {
+    return !!((id && otroId && id === otroId) || (correo && otroCorreo && String(correo).toLowerCase() === String(otroCorreo).toLowerCase()) || (nombre && otroNombre && mismasPalabras(nombre, otroNombre)));
+  };
   function comprobarSustitutos(rs, solId) {
     var res = { conflictos: [], sinComprobar: [] };
     return rs.filter(function (r) { return r.sustitutoId && r.desde && r.hasta; }).reduce(function (p, r) {
       return p.then(function () {
         var choca = function (ini, fin) { return ini && ini <= r.hasta && r.desde <= (fin || ini); };
-        var aus = sustituciones.find(function (y) { return y.sol !== solId && y.titularId === r.sustitutoId && (y.estado === 'PREVISTA' || y.estado === 'CONFIRMADA') && choca(y.ausIni, y.ausFin); });
-        if (aus) { res.conflictos.push(r.sustituto + ' estará ausente (es jefe de ' + aus.unidad + ' y está de permiso del ' + fCorta(aus.ausIni) + ' al ' + fCorta(aus.ausFin) + ')'); return; }
-        var local = items.find(function (x) { return x.id !== solId && x.sol && x.sol.Id === r.sustitutoId && vigenteSol(x.estadoRaw || x.estado) && choca(x.ini, x.fin); });
-        if (local) { res.conflictos.push(r.sustituto + ' tiene un permiso del ' + fCorta(local.ini) + ' al ' + fCorta(local.fin)); return; }
-        return todas(urlLista() + '/items?$top=200&$select=Id,FechaInicio,FechaDeFin,Estado&$filter=' + encodeURIComponent('SolicitanteId eq ' + Number(r.sustitutoId))).then(function (l) {
+        var aus = sustituciones.find(function (y) { return y.sol !== solId && y.estado !== 'ANULADA' && mismaPersona_(r.sustitutoId, r.sustituto, r.correo, y.titularId, y.titular, '') && choca(y.ausIni, y.ausFin); });
+        if (aus) { res.conflictos.push(r.sustituto + ' estará ausente (es jefe de ' + aus.unidad + ' y tiene permiso del ' + fCorta(aus.ausIni) + ' al ' + fCorta(aus.ausFin) + ')'); return; }
+        var local = items.find(function (x) { return x.id !== solId && vigenteSol(x.estadoRaw || x.estado) && mismaPersona_(r.sustitutoId, r.sustituto, r.correo, x.sol && x.sol.Id, x.nombre, x.correoSol) && choca(x.ini, x.fin); });
+        if (local) { res.conflictos.push(r.sustituto + ' tiene un permiso' + (esBorrador(local) ? ' (en borrador)' : '') + ' del ' + fCorta(local.ini) + ' al ' + fCorta(local.fin)); return; }
+        // En el servidor: solo fechas y estado de sus solicitudes (por su cuenta, su correo o su nombre)
+        var q = function (f) { return todas(urlLista() + '/items?$top=200&$select=Id,FechaInicio,FechaDeFin,Estado&$filter=' + encodeURIComponent(f)); };
+        var porId = 'SolicitanteId eq ' + Number(r.sustitutoId), txt = function (v) { return String(v).replace(/'/g, "''"); };
+        var amplio = '(' + porId + ')' + (r.correo ? " or (CorreoDelSolicitante eq '" + txt(r.correo) + "')" : '') + (r.sustituto ? " or (SolicitanteTexto eq '" + txt(r.sustituto) + "')" : '');
+        return q(amplio).catch(function (e) { if (e.status === 400) return q(porId); throw e; }).then(function (l) {
           var x = l.find(function (y) { return y.Id !== solId && vigenteSol(y.Estado) && choca(fechaSP(y.FechaInicio), fechaSP(y.FechaDeFin)); });
           if (x) res.conflictos.push(r.sustituto + ' tiene un permiso del ' + fCorta(fechaSP(x.FechaInicio)) + ' al ' + fCorta(fechaSP(x.FechaDeFin)));
         }, function () { res.sinComprobar.push(r.sustituto); });
       });
     }, Promise.resolve()).then(function () { return res; });
   }
-  var textoConflictos = function (res) { return 'No puede ser: ' + res.conflictos.join('; ') + '. Elige otro sustituto para esas fechas.'; };
-  // Quien está designado sustituto de un jefe no puede pedir permiso en esas fechas
+  var textoConflictos = function (res) { return 'No puede ser: ' + res.conflictos.join('; ') + '. El sustituto no puede tener permiso en las mismas fechas ni solapadas: elige otro sustituto para esas fechas.'; };
+  // Quien está designado sustituto de un jefe (aunque la solicitud del jefe esté en borrador) no puede pedir permiso en esas fechas
   var designadoSustituto = function (persona, ini, fin, solId) {
-    return sustituciones.filter(function (y) { return persona && y.sustitutoId === persona.Id && y.sol !== solId && (y.estado === 'PREVISTA' || y.estado === 'CONFIRMADA') && y.desde <= fin && ini <= y.hasta; });
+    return sustituciones.filter(function (y) { return persona && y.sol !== solId && y.estado !== 'ANULADA' && mismaPersona_(persona.Id, persona.Title, persona.Email, y.sustitutoId, y.sustituto, y.correo) && y.desde <= fin && ini <= y.hasta; });
   };
   var diaAnt = function (s) { var d = aFecha(s); d.setDate(d.getDate() - 1); return iso(d); };
   // Recuerda en este navegador el teléfono de cada sustituto para la próxima vez

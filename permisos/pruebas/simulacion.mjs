@@ -162,6 +162,27 @@ async function prueba(verbose, soloAlcance) {
   });
   const tag = verbose ? '[verbose]' : '[ligero]';
   await p.goto(O + WEB + '/Documentos%20compartidos/permisos.html' + (soloAlcance === 'enlace' ? '?id=1' : '')); await p.waitForTimeout(800);
+  if (soloAlcance === 'solape en borrador') {
+    const nueva = async (ini, fin, otro) => {
+      await p.click('#tabs a[data-v=mias]'); await p.waitForTimeout(300); await p.click('[data-nueva]'); await p.waitForTimeout(400);
+      if (otro) { await p.check('#nOtro'); await p.fill('#nSol input', otro); await p.waitForTimeout(300); await p.click('#nSol [data-sug="0"]'); await p.waitForTimeout(300); }
+      await p.selectOption('#fSol [name=tipo]', 'Vacaciones (Art.5)'); await p.fill('#fSol [name=ini]', d(ini).slice(0, 10)); await p.fill('#fSol [name=fin]', d(fin).slice(0, 10));
+      await p.selectOption('#fSol [name=empleo]', 'Comandante'); await p.selectOption('#fSol [name=unidad]', '1'); await p.fill('#fSol [name=nif]', '12345678Z');
+      await p.fill('#nApr input', 'autoriz'); await p.waitForTimeout(200); await p.click('#nApr [data-sug="0"]'); await p.waitForTimeout(300);
+    };
+    const jefe = async (quien) => { await p.check('#nJefe'); await p.waitForTimeout(300); await p.fill('#nInt .intFila .iPer input', quien); await p.waitForTimeout(300); await p.click('#nInt .intFila [data-sug="0"]'); await p.waitForTimeout(300); await p.fill('#nInt .intFila [name=iTel]', '600000000'); };
+    // 1) SOLICITANTE DOS tiene un borrador (hecho por mí como representante) del +30 al +32; yo, jefe, lo pongo de sustituto del +30 al +31
+    await nueva(30, 32, 'solicitante'); await p.click('#fSol #nBorrador'); await p.waitForTimeout(1500); await p.click('#dlg [data-cerrar]').catch(() => {});
+    await nueva(30, 31); await jefe('solicitante'); posts.length = 0; await p.click('#fSol #nEnviar'); await p.waitForTimeout(1200);
+    console.log(tag, 'sustituto con borrador en esas fechas:', await p.textContent('#nError'), '| no guardado:', !posts.some(x => x.ruta.endsWith('/items')));
+    await p.click('#dlg [data-cerrar]');
+    // 2) Yo, jefe, dejo en borrador mi permiso del +40 al +41 con APROBADOR UNO de sustituto; luego pido permiso en su nombre el +40
+    await nueva(40, 41); await jefe('aprob'); await p.click('#fSol #nBorrador'); await p.waitForTimeout(1500); await p.click('#dlg [data-cerrar]').catch(() => {});
+    console.log(tag, 'designación en borrador guardada:', ints.filter(x => x.Desde && x.Desde.slice(0, 10) === d(40).slice(0, 10)).map(x => x.Sustituto + ':' + x.EstadoSustitucion).join(','));
+    await nueva(40, 40, 'aprob'); posts.length = 0; await p.click('#fSol #nEnviar'); await p.waitForTimeout(800);
+    console.log(tag, 'pedir permiso siendo sustituto (designación en borrador):', await p.textContent('#nError'), '| no guardado:', !posts.some(x => x.ruta.endsWith('/items')), '| errores:', errs);
+    await b.close(); return;
+  }
   if (soloAlcance === 'crear lista de pruebas') {
     console.log(tag, 'banda:', await p.textContent('.bandaPruebas').catch(() => 'NINGUNA'), '| título:', await p.title());
     console.log(tag, 'sin lista:', (await p.textContent('#vista')).replace(/\s+/g, ' ').slice(0, 200));
@@ -324,7 +345,7 @@ async function prueba(verbose, soloAlcance) {
     console.log(tag, 'errores:', errs); admin = false;
     await b.close(); return;
   }
-  if (soloAlcance && soloAlcance !== 'correo rechazado' && soloAlcance !== 'jefaturas' && soloAlcance !== 'preparar jefaturas' && soloAlcance !== 'crear lista de pruebas') {
+  if (soloAlcance && soloAlcance !== 'correo rechazado' && soloAlcance !== 'jefaturas' && soloAlcance !== 'preparar jefaturas' && soloAlcance !== 'crear lista de pruebas' && soloAlcance !== 'solape en borrador') {
     await p.click('#tabs a[data-v=todas]'); await p.waitForTimeout(300);
     console.log(tag, soloAlcance, '| pestañas:', await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | ')));
     console.log(tag, soloAlcance, '| filtro en servidor:', ultimoFiltro ? 'sí' : 'no', '| ids en consulta:', await p.$$eval('.sol', n => n.map(x => x.dataset.id).join(',')), '|', await p.textContent('#vista p.muted.small'));
@@ -542,6 +563,7 @@ registro = false; sinExpand = true; await prueba(false, 'sin expand'); admin = t
 registro = true; await prueba(false, 'seguridad'); await prueba(true, 'seguridad');
 otraCuenta = true; await prueba(false, 'cuentas'); await prueba(true, 'cuentas'); otraCuenta = false;
 jefeNombre = true; registro = false; await prueba(false, 'jefe por nombre'); sinSubstr = true; await prueba(true, 'jefe por nombre'); sinSubstr = false; jefeNombre = false; registro = true;
+registro = false; await prueba(false, 'solape en borrador'); await prueba(true, 'solape en borrador'); registro = true;
 mando = true; registro = false; sustYo = true; await prueba(false, 'jefaturas'); await prueba(true, 'jefaturas'); mando = false; sustYo = false;
 admin = true; intLista = false; grupoMando = null; await prueba(false, 'preparar jefaturas'); intLista = true; grupoMando = [{ Id: 90, Title: 'EL GENERAL' }]; intCampos = null; admin = false; registro = true;
 cuentaVieja = true; registro = false; buzonMal = ['viejo@et.mde.es', 'i:0#.w|et\\u777']; await prueba(false, 'cuenta vieja'); await prueba(true, 'cuenta vieja'); buzonMal = []; cuentaVieja = false; registro = true;
