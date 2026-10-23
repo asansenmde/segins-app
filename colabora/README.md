@@ -30,6 +30,11 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
 - **Los enlaces de los correos llevan al asunto dentro de la página** (versión 2026-10-23 · 2): el correo de asignación,
   «Recordar por correo», los avisos y las citas de Outlook abren `tareas-nlt-colabora.html?id=N`, que entra directamente en la
   ficha. Se mantienen, como alternativa, «Ver en Colabora» en la ficha y «Prefiero el formulario de Colabora» en el formulario.
+- **Expediente = nº de Colabora y estado ⇔ fecha de fin** (versión 2026-10-23 · 3): el expediente es el Id del elemento
+  («Exp. N»); al crear se escribe también en `ControlExpediente`, y al modificar uno antiguo se sustituye su texto (que se
+  sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
+  pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
+  de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
 - **Dentro de una página del portal** (iframe): los enlaces de los correos y «Ver en Colabora» llevan a la página del
   portal (también con `start.aspx#/…`).
 - **Alta de asuntos**: botón «＋ Nuevo asunto» o el campo rápido de *Mis NLT*, que entiende fechas escritas

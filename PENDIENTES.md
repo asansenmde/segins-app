@@ -48,6 +48,10 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
     sin «interino», sustitutos que no pueden estar de permiso; pestaña renombrada «Mandos sustitutos» (de momento la ve el
     General/grupo; el usuario pidió además que cada autorizador vea solo lo suyo con calendarios e impresión: **queda
     aparcado «por ahora»**). Probar primero con `permisos-pruebas.html` (lista «SUSTITUCIONES JEFES UNIDAD PRUEBAS»).
+11. **Tareas Colabora: expediente y estado** (versión 2026-10-23 · 3, probado en simulación): el expediente es el nº de
+    Colabora; estado terminado ⇔ fecha de finalización obligatoria; la situación la marca solo el estado. Los asuntos
+    antiguos incoherentes salen con aviso ⚠ («Fecha de fin sin estado terminado» / «Terminado sin fecha de fin»):
+    corregirlos poco a poco desde la propia página. Pendiente de subir la copia protegida.
 
 Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar por la que diga).
 

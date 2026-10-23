@@ -22,6 +22,8 @@ const items = Array.from({ length: 706 }, (_, i) => {
     correoResponsable: i % 6 === 0 ? 'usuario@et.mde.es' : (i % 5 === 4 ? '' : 'persona' + (i % 5) + '@et.mde.es'), correoimplicados: i % 10 === 1 ? 'implicado@et.mde.es; usuario@et.mde.es' : '',
     PersonalImplicado0: i % 10 === 1 ? [{ Id: 7, Title: 'USUARIO DE PRUEBA' }] : [], Author: { Title: 'AUTOR' }, Editor: { Title: 'EDITOR' } };
 });
+// Datos incoherentes heredados: fecha de fin con estado abierto (Id 3) y terminado sin fecha (Id 19)
+items[2].fECHAFINALIZACION = d(-3); items[18].fECHAFINALIZACION = null;
 // Colabora que rechaza direcciones («destinatario válido»): buzonMal = direcciones rechazadas; enviados = las que acepta
 let buzonMal = [], enviados = [];
 let denegar = false, correoFalla = false, anexar = true, versiones = {};
@@ -181,12 +183,20 @@ async function prueba() {
   await p.fill('#nImplTxt', 'NADIE INVENTADO'); await p.click('#nImplAdd');
   console.log('error implicado inexistente:', await p.textContent('#nError'));
   await p.check('#fNuevo [name=negImpl][value=Personal]');
-  await p.fill('#fNuevo [name=ControlExpediente]', 'EXP-2026/9999');
+  console.log('expediente en el alta:', await p.isDisabled('#fNuevo [data-exp]'), await p.inputValue('#fNuevo [data-exp]'));
+  // Estado y fecha de finalización deben ir de acuerdo
+  { const est0 = await p.inputValue('#fNuevo [name=ESTADO]');
+    await p.fill('#fNuevo [name=fin]', '2026-10-20'); await p.click('#nCrear'); await p.waitForTimeout(300);
+    console.log('fin sin estado terminado:', await p.textContent('#nError'));
+    await p.fill('#fNuevo [name=fin]', ''); await p.selectOption('#fNuevo [name=ESTADO]', 'FINALIZADO'); await p.click('#nCrear'); await p.waitForTimeout(300);
+    console.log('terminado sin fin:', await p.textContent('#nError'));
+    await p.selectOption('#fNuevo [name=ESTADO]', est0); }
   await p.fill('#fNuevo [name=DescripcionDelAsunto]', 'Línea 1\nLínea <2>');
   await p.click('#nCrear'); await p.waitForTimeout(1500);
   const alta = posts.find(x => x.ruta.endsWith('/items'));
   console.log('cabeceras:', alta.cab['x-requestdigest'], alta.cab['content-type']);
   console.log('cuerpo:', alta.cuerpo);
+  { const fija = posts.find(x => /items\(707\)/.test(x.ruta)); console.log('nº de expediente tras crear:', fija && fija.cuerpo, '| en la lista:', items[706].ControlExpediente); }
   console.log('abierto tras crear:', await p.evaluate(() => document.querySelector('#dlg').open), '|', (await p.textContent('#dlg h2')));
   console.log('cabecera:', await p.textContent('#estadoCarga'));
   const mail = posts.find(x => x.ruta === 'SP.Utilities.Utility.SendEmail');
@@ -255,6 +265,12 @@ async function prueba() {
   await p.goto('https://colabora.mdef.es' + WEB + '/seguridad/Documentos%20compartidos/tareas-nlt-colabora.html?id=5'); await p.waitForTimeout(1800);
   console.log('abrir con ?id=5:', await p.evaluate(() => document.querySelector('#dlg').open), '|', await p.textContent('#dlg h2').catch(() => ''), '| URL limpia:', !p.url().includes('?id='),
     '| «Ver en Colabora» en la ficha (se mantiene):', await p.$$eval('#dlg a[href*="Form.aspx"]', n => n.length));
+  // Incoherencias heredadas: la situación la manda el estado y se avisa con ⚠
+  await p.click('#dlg [data-cerrar]').catch(() => {});
+  await p.selectOption('#fquien', 'todos'); await p.fill('#fq', 'exp 3'); await p.waitForTimeout(500);
+  console.log('buscar «exp 3»:', (await p.$$eval('.tarea', n => n.map(x => x.innerText.replace(/\s+/g, ' ').slice(0, 160)))).slice(0, 3).join(' || '));
+  await p.fill('#fq', ''); await p.waitForTimeout(300);
+  console.log('avisos ⚠ en pantalla:', await p.$$eval('.badge.warn', n => [...new Set(n.map(x => x.textContent))].join(' / ')));
   console.log('errores:', errs);
   await b.close();
 }

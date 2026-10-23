@@ -238,7 +238,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-10-23 · 2';
+  var VERSION = '2026-10-23 · 3';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -322,6 +322,10 @@
   }
   var ORDEN_PRIO = { critica: 0, alta: 1, media: 2, baja: 3 };
 
+  // Estado y fecha de finalización deben cuadrar: terminado ⇔ con fecha de finalización (muchos asuntos antiguos no cuadran)
+  var incoherencia = function (t) { return t.fin && t.clase !== 'hecha' ? 'fin' : !t.fin && t.clase === 'hecha' ? 'sinfin' : ''; };
+  var textoIncoh = function (t) { return t.incoh === 'fin' ? 'Tiene fecha de finalización (' + fCorta(t.fin) + ') pero su estado es «' + t.estado + '»: cuenta como abierto' : t.incoh === 'sinfin' ? 'Estado «' + t.estado + '» (terminado) sin fecha de finalización' : ''; };
+  var chipIncoh = function (t) { return t.incoh ? '<span class="badge warn" title="' + esc(textoIncoh(t)) + '">⚠ ' + (t.incoh === 'fin' ? 'Fecha de fin sin estado terminado' : 'Terminado sin fecha de fin') + '</span>' : ''; };
   function aTarea(it) {
     var resp = it.ResponsableDeLaInformacion || null;
     var implicados = lista(it.PersonalImplicado0).map(function (u) { return u.Title; });
@@ -330,7 +334,7 @@
       inicio: fechaSP(it.FechaDeInicio), nlt: fechaSP(it.FechaVencimiento), fin: fechaSP(it.fECHAFINALIZACION),
       negociado: it.NegociadoAsignado || '', negociados: lista(it.NegociadosImplicados).length ? lista(it.NegociadosImplicados) : (Array.isArray(it.NegociadosImplicados) ? it.NegociadosImplicados : []),
       descripcion: texto(it.DescripcionDelAsunto) || texto(it.Descripcion), resumenDesc: texto(it.Descripcion),
-      observaciones: texto(it.Comentarios), expediente: texto(it.ControlExpediente), registro: texto(it.REGISTRODEACTIVIDAD),
+      observaciones: texto(it.Comentarios), expediente: String(it.Id), ctrlExp: texto(it.ControlExpediente), registro: texto(it.REGISTRODEACTIVIDAD),
       respId: resp && resp.Id, responsable: (resp && resp.Title) || it.NombreResponsable || '',
       implicadosIds: lista(it.PersonalImplicado0).map(function (u) { return u.Id; }),
       correoResp: correos(it.correoResponsable).concat(resp && resp.EMail ? [resp.EMail] : []).filter(unico),
@@ -340,7 +344,7 @@
       creada: it.Created, modificada: it.Modified, autor: it.Author && it.Author.Title, editor: it.Editor && it.Editor.Title,
     };
     t.clase = claseEstado(t.estado);
-    if (t.fin && t.clase !== 'hecha') t.clase = 'hecha';
+    t.incoh = incoherencia(t);
     t.prio = clasePrio(t.prioridad);
     return t;
   }
@@ -423,7 +427,7 @@
       if (pref.estado && t.estado !== pref.estado) return false;
       if (pref.prio && t.prioridad !== pref.prio) return false;
       if (pref.resp && (t.responsable || 'Sin responsable') !== pref.resp) return false;
-      if (q && sinTildes([t.asunto, t.descripcion, t.expediente, t.responsable, t.implicados.join(' '), t.negociado, t.estado, t.observaciones].join(' ')).indexOf(q) < 0) return false;
+      if (q && sinTildes([t.asunto, t.descripcion, t.expediente, t.ctrlExp, 'exp ' + t.expediente, t.responsable, t.implicados.join(' '), t.negociado, t.estado, t.observaciones].join(' ')).indexOf(q) < 0) return false;
       return true;
     });
   }
@@ -442,7 +446,7 @@
     tareas.forEach(function (t) { t.negociados.forEach(function (n) { if (negs.indexOf(n) < 0) negs.push(n); }); });
     var resps = Array.from(new Set(tareas.map(function (t) { return t.responsable || 'Sin responsable'; }))).sort(function (a, b) { return a.localeCompare(b, 'es'); });
     return '<div class="card"><div class="filtros">' +
-      '<div class="q"><label class="lbl">Buscar</label><input id="fq" type="search" value="' + esc(pref.q) + '" placeholder="Asunto, expediente, persona…"></div>' +
+      '<div class="q"><label class="lbl">Buscar</label><input id="fq" type="search" value="' + esc(pref.q) + '" placeholder="Asunto, nº de expediente, persona…"></div>' +
       '<div><label class="lbl">Qué asuntos</label><select id="fquien">' +
         [['mias', 'Soy responsable'], ['implicado', 'Responsable o implicado'], ['todos', 'Todos']].map(function (o) { return '<option value="' + o[0] + '"' + (pref.quien === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
       '<div><label class="lbl">Negociado</label><select id="fneg">' + opciones(negs.sort(), pref.negociado, 'Todos') + '</select></div>' +
@@ -461,9 +465,9 @@
   function tarjeta(t) {
     var u = urgencia(t);
     return '<div class="card tarea ' + colorU(t, u) + '" data-id="' + t.id + '">' +
-      '<div class="t-top"><div>' + (t.expediente ? '<div class="exp">' + esc(t.expediente.split('\n')[0].slice(0, 80)) + '</div>' : '') +
+      '<div class="t-top"><div><div class="exp">Exp. ' + esc(t.expediente) + '</div>' +
       '<div class="tit">' + esc(t.asunto) + '</div></div>' + chipPlazo(t, u) + '</div><div class="meta">' +
-      chipEstado(t) + chipPrio(t) +
+      chipEstado(t) + chipPrio(t) + chipIncoh(t) +
       (t.nlt ? '<span class="muted">📅 NLT ' + esc(fMedia(t.nlt)) + '</span>' : '') +
       (t.responsable ? '<span class="muted">👤 ' + esc(t.responsable) + '</span>' : '') +
       (t.negociado ? '<span class="chip">' + esc(t.negociado) + '</span>' : '') + '</div></div>';
@@ -473,7 +477,7 @@
       ts.map(function (t) {
         var u = urgencia(t);
         return '<tr class="tarea ' + colorU(t, u) + '" data-id="' + t.id + '"><td class="nw">' + chipPlazo(t, u) + (t.nlt ? '<div class="small muted">' + esc(fCorta(t.nlt)) + '</div>' : '') + '</td>' +
-          '<td>' + (t.expediente ? '<div class="exp">' + esc(t.expediente.split('\n')[0].slice(0, 60)) + '</div>' : '') + '<b>' + esc(t.asunto) + '</b></td>' +
+          '<td><div class="exp">Exp. ' + esc(t.expediente) + '</div><b>' + esc(t.asunto) + '</b>' + (t.incoh ? '<div>' + chipIncoh(t) + '</div>' : '') + '</td>' +
           '<td>' + chipEstado(t) + '</td><td class="opc">' + chipPrio(t) + '</td><td class="opc">' + esc(t.responsable) + '</td><td class="opc">' + esc(t.negociado) + '</td></tr>';
       }).join('') + '</table></div>';
   }
@@ -746,7 +750,7 @@
   }
   function fila(t) {
     var u = urgencia(t);
-    return { exp: t.expediente.split('\n')[0].slice(0, 60), asunto: t.asunto, resp: t.responsable || '—', neg: t.negociado, prio: t.prioridad,
+    return { exp: t.expediente, asunto: t.asunto, resp: t.responsable || '—', neg: t.negociado, prio: t.prioridad,
       nlt: t.nlt ? fCorta(t.nlt) : '—', estado: t.estado, situacion: t.clase === 'hecha' ? u.txt + (t.fin ? ' ' + fCorta(t.fin) : '') : u.txt, rojo: u.cls === 'bad' };
   }
   function resumenInf(ts) {
@@ -988,7 +992,7 @@
   }
   var linea = function (t) {
     var u = urgencia(t);
-    return '- ' + t.asunto + (t.expediente ? ' [' + t.expediente.split('\n')[0].slice(0, 40) + ']' : '') + ' — NLT ' + fCorta(t.nlt) + ' (' + u.txt + ')' + (t.estado ? ' — ' + t.estado : '');
+    return '- ' + t.asunto + ' [Exp. ' + t.expediente + ']' + ' — NLT ' + fCorta(t.nlt) + ' (' + u.txt + ')' + (t.estado ? ' — ' + t.estado : '');
   };
   // Si la página se abre dentro de una página del portal (iframe), los enlaces llevan a esa página. Con la descarga
   // mínima («_layouts/15/start.aspx#/SitePages/…») se toma la ruta del «#».
@@ -1039,7 +1043,7 @@
     var u = urgencia(t);
     var base = enlaceAsunto(t);
     return mailto(t.correoResp, t.correosImpl.filter(function (c) { return t.correoResp.indexOf(c) < 0; }), 'Recordatorio NLT: ' + t.asunto,
-      'Recordatorio del asunto:\n\n' + t.asunto + (t.expediente ? '\nExpediente: ' + t.expediente.split('\n')[0] : '') + '\nNLT: ' + (t.nlt ? fLarga(t.nlt) + ' (' + u.txt + ')' : 'sin fecha') +
+      'Recordatorio del asunto:\n\n' + t.asunto + '\nExpediente: ' + t.expediente + '\nNLT: ' + (t.nlt ? fLarga(t.nlt) + ' (' + u.txt + ')' : 'sin fecha') +
       (t.estado ? '\nEstado: ' + t.estado : '') + '\n\nAbrir el asunto: ' + base + '\n\nUn saludo' + (yo ? ',\n' + yo.Title : '.'));
   }
   var claveEnviado = function (k) { return 'avisado:' + hoy() + ':' + k; };
@@ -1081,7 +1085,7 @@
     var lineas = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Tareas NLT Colabora//ES', 'CALSCALE:GREGORIAN'];
     ts.forEach(function (t) {
       lineas.push('BEGIN:VEVENT', 'UID:colabora-gestor-' + t.id + '@mdef', 'DTSTAMP:' + sello, 'DTSTART;VALUE=DATE:' + f(t.nlt), 'DTEND;VALUE=DATE:' + f(sig(t.nlt)),
-        'SUMMARY:' + e('NLT · ' + t.asunto), 'DESCRIPTION:' + e([t.expediente && 'Expediente: ' + t.expediente.split('\n')[0], t.estado && 'Estado: ' + t.estado, base && 'Ver: ' + base + t.id].filter(Boolean).join('\n')),
+        'SUMMARY:' + e('NLT · ' + t.asunto), 'DESCRIPTION:' + e(['Expediente: ' + t.expediente, t.estado && 'Estado: ' + t.estado, base && 'Ver: ' + base + t.id].filter(Boolean).join('\n')),
         'TRANSP:TRANSPARENT', 'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + e('Vence: ' + t.asunto), 'TRIGGER:' + trig, 'END:VALARM', 'END:VEVENT');
     });
     lineas.push('END:VCALENDAR');
@@ -1316,7 +1320,7 @@
     var disp = enlaceAsunto(t);
     var filas = [['Asunto', t.asunto], ['NLT (fecha vencimiento)', t.nlt ? fLarga(t.nlt) : 'Sin fecha'], ['Prioridad', t.prioridad], ['Estado', t.estado],
       ['Responsable de la información', t.responsable], ['Personal implicado', t.implicados.join(', ')], ['Negociado asignado', t.negociado],
-      ['Negociados implicados', t.negociados.join(', ')], ['Control expediente', t.expediente], ['Descripción del asunto', t.descripcion]].filter(function (x) { return x[1]; });
+      ['Negociados implicados', t.negociados.join(', ')], ['Expediente (nº de Colabora)', t.expediente], ['Descripción del asunto', t.descripcion]].filter(function (x) { return x[1]; });
     var quien = yo ? yo.Title : '';
     return {
       asunto: 'Asunto asignado: ' + t.asunto,
@@ -1563,14 +1567,15 @@
       '<div><label class="lbl">Prioridad</label><select name="Prioridad">' + opciones(con(prios, prioIni), prioIni, '—') + '</select></div>' +
       '<div><label class="lbl">Negociado asignado</label><select name="NegociadoAsignado">' + opciones(con(negs, t ? t.negociado : ''), t ? t.negociado : pref.negociado, '—') + '</select></div>' +
       '<div><label class="lbl">Responsable de la información</label><input name="resp" value="' + esc(t ? t.responsable : yo ? yo.Title : '') + '" placeholder="Escribe nombre o apellido"><div class="sugs" id="nRespSug" hidden></div></div>' +
-      (t ? '<div><label class="lbl">Fecha finalización</label><input type="date" name="fin" value="' + (t.fin || '') + '"></div>' : '') + '</div>' +
+      '<div><label class="lbl">Fecha finalización <span class="small muted">(obligatoria si el estado es terminado)</span></label><input type="date" name="fin" value="' + (t ? t.fin || '' : '') + '"></div></div>' +
       '<label class="lbl">Personal implicado</label><div id="nImpl" class="meta"></div>' +
       '<div style="display:flex;gap:6px;margin-top:4px"><input id="nImplTxt" placeholder="Escribe nombre o apellido y elige (puedes añadir varias)"><button type="button" id="nImplAdd">＋</button></div>' +
       '<div class="sugs" id="nImplSug" hidden></div>' +
       (negsImpl.length ? '<label class="lbl">Negociados implicados</label><div>' + negsImpl.map(function (n) {
         return '<label class="check"><input type="checkbox" name="negImpl" value="' + esc(n) + '"' + (t && t.negociados.indexOf(n) >= 0 ? ' checked' : '') + '> ' + esc(n) + '</label>';
       }).join('') + '</div>' : '') +
-      '<label class="lbl">Control expediente</label><input name="ControlExpediente" value="' + esc(t ? t.expediente : '') + '">' +
+      '<label class="lbl">Expediente</label><input value="' + (t ? 'Nº ' + esc(t.expediente) + ' (número de Colabora)' : 'Se asigna al crearlo: el número de Colabora') + '" data-exp disabled>' +
+      (t && t.ctrlExp && t.ctrlExp !== t.expediente ? '<p class="small muted">Texto anterior de «Control expediente»: ' + esc(t.ctrlExp.split('\n')[0].slice(0, 120)) + ' (se sustituirá por el número al guardar)</p>' : '') +
       '<label class="lbl">Descripción del asunto</label><textarea name="DescripcionDelAsunto" rows="8" ' + AREA + '>' + esc(t ? t.descripcion : '') + '</textarea>' +
       (conObs ? '<label class="lbl">Observaciones</label><textarea name="Comentarios" rows="4" ' + AREA + '>' + esc(t ? t.observaciones : '') + '</textarea>' : '') +
       '<label class="check"><input type="checkbox" id="nCorreo"' + (pref.correoAlta !== false ? ' checked' : '') + '> ' +
@@ -1628,6 +1633,10 @@
       if (!nlt && obligNlt) return err('La fecha de vencimiento es obligatoria en esta lista.');
       var resp = !v('resp') ? null : respElegido && respElegido.Title === v('resp') ? respElegido : usuarioPorNombre(v('resp'));
       if (v('resp') && !resp) return err('No encuentro al responsable «' + v('resp') + '»: escribe al menos 3 letras del nombre o apellido y elígelo de la lista.');
+      var terminado = v('ESTADO') && claseEstado(v('ESTADO')) === 'hecha';
+      if (terminado && !v('fin')) return err('El estado «' + v('ESTADO') + '» es de asunto terminado: pon la fecha de finalización.');
+      if (v('fin') && !terminado) return err('Has puesto fecha de finalización: el estado tiene que ser de asunto terminado (' + valores('ESTADO', 'estado').filter(function (e) { return claseEstado(e) === 'hecha'; }).join(', ') + '). Cambia el estado o borra la fecha.');
+      if (v('fin') && v('inicio') && v('fin') < v('inicio')) return err('La fecha de finalización no puede ser anterior a la de inicio.');
       if (!listaInfo || !listaInfo.ListItemEntityTypeFullName) return err('No he podido leer el tipo de la lista; pulsa Actualizar y vuelve a intentarlo.');
       var cuerpo = { __metadata: { type: listaInfo.ListItemEntityTypeFullName } };
       // En el alta se ponen los campos con valor; al modificar, solo los que han cambiado (vacío = borrar)
@@ -1639,13 +1648,14 @@
       poner('Title', asunto, t && t.asunto);
       poner('FechaVencimiento', nlt, t && t.nlt, fecha(nlt));
       poner('FechaDeInicio', v('inicio'), t && t.inicio, fecha(v('inicio')));
-      if (t) poner('fECHAFINALIZACION', v('fin'), t.fin, fecha(v('fin')));
+      poner('fECHAFINALIZACION', v('fin'), t && t.fin, fecha(v('fin')));
       poner('ESTADO', v('ESTADO'), t && t.estado);
       poner('Prioridad', v('Prioridad'), t && t.prioridad);
       poner('NegociadoAsignado', v('NegociadoAsignado'), t && t.negociado);
       var negImpl = Array.from(f.querySelectorAll('[name=negImpl]:checked')).map(function (c) { return c.value; });
       if (t ? negImpl.join('|') !== t.negociados.join('|') : negImpl.length) cuerpo.NegociadosImplicados = { __metadata: { type: 'Collection(Edm.String)' }, results: negImpl };
-      poner('ControlExpediente', v('ControlExpediente'), t && t.expediente, comoTexto('ControlExpediente', v('ControlExpediente')));
+      // Expediente = nº de Colabora: al modificar un asunto antiguo se deja escrito en «Control expediente» (en el alta, al crearlo)
+      if (t && t.ctrlExp !== t.expediente) cuerpo.ControlExpediente = comoTexto('ControlExpediente', t.expediente);
       poner('DescripcionDelAsunto', v('DescripcionDelAsunto'), t && t.descripcion, comoTexto('DescripcionDelAsunto', v('DescripcionDelAsunto')));
       if (conObs) poner('Comentarios', v('Comentarios'), t && t.observaciones, comoTexto('Comentarios', v('Comentarios')));
       if (!t ? resp : (resp ? resp.Id : null) !== (t.respId || null)) {
@@ -1668,7 +1678,14 @@
       if (pref.correoAlta !== conCorreo) { pref.correoAlta = conCorreo; guardarPref(); }
       if (t && Object.keys(cuerpo).length === 1) { $('#dlg').close(); abrir(t.id); return; }
       $('#nCrear').disabled = true; $('#nCrear').textContent = t ? 'Guardando…' : 'Creando…';
-      (t ? modificarElemento(t, cuerpo) : crearElemento(cuerpo)).then(function (nuevo) {
+      (t ? modificarElemento(t, cuerpo) : crearElemento(cuerpo).then(function (nuevo) {
+        // Recién creado: su número de Colabora pasa a ser el expediente
+        if (!nuevo || !nuevo.Id) return nuevo;
+        return leerElemento(nuevo.Id).then(function (x) {
+          return enviarSP(urlLista() + '/items(' + nuevo.Id + ')', { __metadata: { type: listaInfo.ListItemEntityTypeFullName }, ControlExpediente: comoTexto('ControlExpediente', String(nuevo.Id)) },
+            'No tienes permiso para modificar este asunto', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': x.etag });
+        }).then(function () { return nuevo; }, function () { return nuevo; });
+      })).then(function (nuevo) {
         var id = t ? t.id : nuevo && nuevo.Id;
         $('#dlg').close();
         if (!t && $('#altaRapida')) $('#altaRapida').value = '';
@@ -1701,7 +1718,7 @@
       '<label class="lbl">Columna donde se guardan los comentarios</label><select id="aCom">' + Object.keys(NOMBRE_CAMPO).filter(function (k) { return !infoCampo[k] || infoCampo[k].existe !== false; }).map(function (k) {
         return '<option value="' + k + '"' + (campoComentarios() === k ? ' selected' : '') + '>' + NOMBRE_CAMPO[k] + (anexa(k) ? ' (con historial, como en Colabora)' : '') + '</option>';
       }).join('') + '</select></div>' +
-      '<div class="card"><h3 style="margin-top:0">Cómo se interpreta cada ESTADO</h3><p class="small muted">Sirve para saber qué asuntos siguen abiertos. Un asunto con «fecha finalización» cuenta siempre como terminado.</p>' +
+      '<div class="card"><h3 style="margin-top:0">Cómo se interpreta cada ESTADO</h3><p class="small muted">Sirve para saber qué asuntos siguen abiertos. El estado manda: un asunto solo está terminado si su estado es de terminado (y entonces debe tener fecha de finalización).</p>' +
       (ests.map(function (e) {
         return '<div class="grid" style="align-items:center;margin:4px 0"><div><b>' + esc(e) + '</b></div><div><select data-mapa="' + esc(e) + '">' +
           Object.keys(CLASES).map(function (k) { return '<option value="' + k + '"' + (claseEstado(e) === k ? ' selected' : '') + '>' + CLASES[k] + '</option>'; }).join('') + '</select></div></div>';
@@ -1721,7 +1738,8 @@
     var u = urgencia(t);
     var c = [['Estado', t.estado], ['Prioridad', t.prioridad], ['NLT (fecha vencimiento)', t.nlt ? fLarga(t.nlt) + ' · ' + u.txt : '—'], ['Fecha de inicio', t.inicio && fLarga(t.inicio)],
       ['Fecha finalización', t.fin && fLarga(t.fin)], ['Responsable de la información', t.responsable], ['Personal implicado', t.implicados.join(', ')],
-      ['Negociado asignado', t.negociado], ['Negociados implicados', t.negociados.join(', ')], ['Control expediente', t.expediente], ['Descripción del asunto', t.descripcion],
+      ['Negociado asignado', t.negociado], ['Negociados implicados', t.negociados.join(', ')], ['Expediente (nº de Colabora)', t.expediente],
+      ['Control expediente (texto anterior)', t.ctrlExp && t.ctrlExp !== t.expediente ? t.ctrlExp : ''], ['Descripción del asunto', t.descripcion],
       [campoComentarios() === 'Comentarios' ? '' : 'Observaciones', t.observaciones], [campoComentarios() === 'REGISTRODEACTIVIDAD' ? '' : 'Registro de actividad', t.registro],
       ['Creado', new Date(t.creada).toLocaleString('es-ES') + (t.autor ? ' por ' + t.autor : '')], ['Modificado', new Date(t.modificada).toLocaleString('es-ES') + (t.editor ? ' por ' + t.editor : '')]];
     var dlg = $('#dlg');
@@ -1827,7 +1845,7 @@
     else if (el.id === 'aLista') { pref.lista = el.value.trim() || 'Gestor de Tareas'; guardarPref(); listaInfo = null; cargar(); return; }
     else if (el.dataset.mapa !== undefined) {
       pref.mapaEstados[el.dataset.mapa] = el.value;
-      tareas.forEach(function (t) { t.clase = t.fin ? 'hecha' : claseEstado(t.estado); });
+      tareas.forEach(function (t) { t.clase = claseEstado(t.estado); t.incoh = incoherencia(t); });
     } else return;
     guardarPref(); render();
   });
