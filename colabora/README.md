@@ -27,6 +27,10 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   Imprimir / PDF y CSV.
 - **Calendario con colores**: fuera de plazo, prioridad crítica o alta y en espera; punto rojo en los días con
   vencidos, número de asuntos por día, fines de semana sombreados, botón «Hoy» y leyenda.
+- **Los enlaces llevan al asunto dentro de la página** (versión 2026-10-23 · 1): el correo de asignación, «Recordar por correo»,
+  los avisos y las citas de Outlook abren `tareas-nlt-colabora.html?id=N`, que entra directamente en la ficha del asunto. Ya no
+  se enlaza al formulario de SharePoint (`DispForm`/`EditForm`/`NewForm`): ni «Ver en Colabora» ni «Prefiero el formulario de
+  Colabora».
 - **Dentro de una página del portal** (iframe): los enlaces de los correos y «Ver en Colabora» llevan a la página del
   portal (también con `start.aspx#/…`).
 - **Alta de asuntos**: botón «＋ Nuevo asunto» o el campo rápido de *Mis NLT*, que entiende fechas escritas

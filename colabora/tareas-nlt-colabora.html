@@ -238,7 +238,9 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-10-22 · 3';
+  var VERSION = '2026-10-23 · 1';
+  // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
+  var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
 
   // ---------- Preferencias de este navegador ----------
@@ -379,6 +381,12 @@
       $('#estadoCarga').textContent = tareas.length + ' asuntos · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
       $('#estadoCarga').title = 'Versión de la página: ' + VERSION;
       render();
+      if (idInicial) {
+        var pedido = idInicial; idInicial = null;
+        if (tareas.some(function (x) { return x.id === pedido; })) abrir(pedido);
+        else aviso('El asunto nº ' + pedido + ' no existe o no tienes permiso para verlo');
+        try { history.replaceState(null, '', location.pathname); } catch (e) { /* sin historial */ }
+      }
     }).catch(function (e) {
       $('#estadoCarga').textContent = 'Error';
       $('#vista').innerHTML = '<div class="error">No se pudo leer la lista «' + esc(pref.lista) + '»: ' + esc(e.message || e) +
@@ -984,6 +992,8 @@
   };
   // Si la página se abre dentro de una página del portal (iframe), los enlaces llevan a esa página. Con la descarga
   // mínima («_layouts/15/start.aspx#/SitePages/…») se toma la ruta del «#».
+  // Enlace a un asunto: la propia página (o la del portal que la contiene) abre su ficha; nunca el formulario de SharePoint
+  var enlaceAsunto = function (t) { return enlacePagina() + '?id=' + t.id; };
   var enlacePagina = function () {
     try {
       if (window.top !== window && window.top.location.origin === location.origin) {
@@ -1010,7 +1020,7 @@
       lineas.splice(lineas.lastIndexOf(ultima), 1);
       quitadas++;
       var i = lineas.lastIndexOf(items[items.length - 1] || '');
-      var extra = '(… y ' + quitadas + ' asunto' + (quitadas > 1 ? 's' : '') + ' más: consúltalos en Colabora)';
+      var extra = '(… y ' + quitadas + ' asunto' + (quitadas > 1 ? 's' : '') + ' más: consúltalos en el Gestor de Tareas)';
       var c = lineas.slice();
       c.splice(i >= 0 ? i + 1 : 0, 0, extra);
       url = montar(c.join('\n'));
@@ -1022,15 +1032,15 @@
     var asunto = 'Aviso NLT: ' + g.tareas.length + ' asunto' + (g.tareas.length > 1 ? 's' : '') + (venc ? ' (' + venc + ' vencido' + (venc > 1 ? 's' : '') + ')' : '') + ' próximos a su fecha límite';
     var cuerpo = 'Buenos días' + (g.nombre && g.nombre !== 'Sin responsable' ? ', ' + g.nombre : '') + ':\n\nLos siguientes asuntos del Gestor de Tareas de los que eres responsable ' +
       (venc ? 'han vencido o vencen' : 'vencen') + ' en los próximos ' + o.dias + ' días:\n\n' + g.tareas.map(linea).join('\n') +
-      '\n\nPuedes consultarlos en Colabora: ' + enlacePagina() + '\n\nUn saludo' + (yo ? ',\n' + yo.Title : '.');
+      '\n\nPuedes consultarlos en el Gestor de Tareas: ' + enlacePagina() + '\n\nUn saludo' + (yo ? ',\n' + yo.Title : '.');
     return mailto(g.correos, o.cc ? g.cc : [], asunto, cuerpo);
   }
   function correoTarea(t) {
     var u = urgencia(t);
-    var base = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl + '/DispForm.aspx?ID=' + t.id : enlacePagina();
+    var base = enlaceAsunto(t);
     return mailto(t.correoResp, t.correosImpl.filter(function (c) { return t.correoResp.indexOf(c) < 0; }), 'Recordatorio NLT: ' + t.asunto,
       'Recordatorio del asunto:\n\n' + t.asunto + (t.expediente ? '\nExpediente: ' + t.expediente.split('\n')[0] : '') + '\nNLT: ' + (t.nlt ? fLarga(t.nlt) + ' (' + u.txt + ')' : 'sin fecha') +
-      (t.estado ? '\nEstado: ' + t.estado : '') + '\n\nVer en Colabora: ' + base + '\n\nUn saludo' + (yo ? ',\n' + yo.Title : '.'));
+      (t.estado ? '\nEstado: ' + t.estado : '') + '\n\nAbrir el asunto: ' + base + '\n\nUn saludo' + (yo ? ',\n' + yo.Title : '.'));
   }
   var claveEnviado = function (k) { return 'avisado:' + hoy() + ':' + k; };
   function vistaAvisos() {
@@ -1067,7 +1077,7 @@
     var sello = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
     var min = dias * 1440 - 540; // 9:00 del día que toca, contado desde el inicio (00:00) de la cita de día completo
     var trig = min > 0 ? '-PT' + min + 'M' : 'PT' + (-min) + 'M';
-    var base = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl + '/DispForm.aspx?ID=' : '';
+    var base = enlacePagina() + '?id=';
     var lineas = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Tareas NLT Colabora//ES', 'CALSCALE:GREGORIAN'];
     ts.forEach(function (t) {
       lineas.push('BEGIN:VEVENT', 'UID:colabora-gestor-' + t.id + '@mdef', 'DTSTAMP:' + sello, 'DTSTART;VALUE=DATE:' + f(t.nlt), 'DTEND;VALUE=DATE:' + f(sig(t.nlt)),
@@ -1303,7 +1313,7 @@
     return para.length ? { para: para, cc: cc } : { para: cc, cc: [] };
   }
   function datosAsignacion(t) {
-    var disp = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl + '/DispForm.aspx?ID=' + t.id : enlacePagina();
+    var disp = enlaceAsunto(t);
     var filas = [['Asunto', t.asunto], ['NLT (fecha vencimiento)', t.nlt ? fLarga(t.nlt) : 'Sin fecha'], ['Prioridad', t.prioridad], ['Estado', t.estado],
       ['Responsable de la información', t.responsable], ['Personal implicado', t.implicados.join(', ')], ['Negociado asignado', t.negociado],
       ['Negociados implicados', t.negociados.join(', ')], ['Control expediente', t.expediente], ['Descripción del asunto', t.descripcion]].filter(function (x) { return x[1]; });
@@ -1313,9 +1323,9 @@
       html: '<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px"><p>Se te ha asignado un asunto en el Gestor de Tareas' + (quien ? ' (lo ha dado de alta ' + esc(quien) + ')' : '') + ':</p>' +
         '<table cellpadding="6" style="border-collapse:collapse">' + filas.map(function (x) {
           return '<tr><td style="border:1px solid #ccc;background:#f3f3f3;vertical-align:top"><b>' + esc(x[0]) + '</b></td><td style="border:1px solid #ccc">' + esc(x[1]).replace(/\n/g, '<br>') + '</td></tr>';
-        }).join('') + '</table><p><a href="' + esc(disp) + '">Ver el asunto en Colabora</a></p></div>',
+        }).join('') + '</table><p><a href="' + esc(disp) + '">Abrir el asunto en el Gestor de Tareas</a></p></div>',
       texto: 'Se te ha asignado un asunto en el Gestor de Tareas' + (quien ? ' (lo ha dado de alta ' + quien + ')' : '') + ':\n\n' +
-        filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\nVer en Colabora: ' + disp
+        filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\nAbrir el asunto: ' + disp
     };
   }
   // ---------- Envío robusto de correo (copiado de Permisos; receta «Envío robusto» de SHAREPOINT.md) ----------
@@ -1539,7 +1549,6 @@
     var negs = valores('NegociadoAsignado', 'negociado').sort();
     var negsImpl = campos.NegociadosImplicados && campos.NegociadosImplicados.length ? campos.NegociadosImplicados : negs;
     if (t) negsImpl = t.negociados.reduce(function (a, n) { return con(a, n); }, negsImpl);
-    var base = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl : '';
     var obligNlt = infoCampo.FechaVencimiento && infoCampo.FechaVencimiento.obligatorio;
     var campoCom = campoComentarios();
     var conObs = !t || campoCom !== 'Comentarios';
@@ -1569,7 +1578,6 @@
         : 'Se creará en la lista compartida de Colabora, igual que si lo dieras de alta allí: los avisos o flujos automáticos de la lista se ejecutarán como siempre.') + '</p>' +
       '<div class="error" id="nError" hidden></div>' +
       '<div class="acciones"><button type="button" data-cerrar>Cancelar</button><button type="button" class="btn prim" id="nCrear">' + (t ? 'Guardar cambios' : 'Crear en Colabora') + '</button></div>' +
-      (base ? '<p class="small"><a target="_top" href="' + esc(base + (t ? '/EditForm.aspx?ID=' + t.id + '&' : '/NewForm.aspx?') + 'Source=' + encodeURIComponent(enlacePagina())) + '">Prefiero el formulario de Colabora</a></p>' : '') + '</div>';
     dlg.showModal(); dlg.scrollTop = 0;
     var porId = function (id) { return t && t.usuarios.find(function (u) { return u.Id === id; }); };
     var implicados = t ? t.implicadosIds.map(porId).filter(Boolean) : [];
@@ -1706,8 +1714,6 @@
   function abrir(id) {
     var t = tareas.find(function (x) { return x.id === id; });
     if (!t) return;
-    var base = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl : '';
-    var volver = encodeURIComponent(enlacePagina());
     var u = urgencia(t);
     var c = [['Estado', t.estado], ['Prioridad', t.prioridad], ['NLT (fecha vencimiento)', t.nlt ? fLarga(t.nlt) + ' · ' + u.txt : '—'], ['Fecha de inicio', t.inicio && fLarga(t.inicio)],
       ['Fecha finalización', t.fin && fLarga(t.fin)], ['Responsable de la información', t.responsable], ['Personal implicado', t.implicados.join(', ')],
@@ -1720,7 +1726,7 @@
       c.filter(function (x) { return x[0] && x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       '<div class="acciones"><button type="button" class="btn prim" data-modificar="' + t.id + '">✎ Modificar</button>' +
         (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
-        (base ? '<a class="btn" target="_top" href="' + esc(base + '/DispForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Ver en Colabora</a>' : '') + '</div>' +
+        '</div>' +
       (t.clase !== 'hecha' && destinatarios(t).para.length ? '<div id="correoAsig" style="margin-top:10px"><button type="button" data-asignar="' + t.id + '">✉ Enviar aviso de asignación</button></div>' : '<div id="correoAsig"></div>') + '</div><div class="ficha-com">' +
       '<h3 style="margin:0 0 6px">Comentarios <span class="small muted">(' + esc(NOMBRE_CAMPO[campoComentarios()]) + ')</span></h3>' +
       '<textarea id="comTxt" rows="6" placeholder="Escribe un comentario…" ' + AREA + '></textarea>' +

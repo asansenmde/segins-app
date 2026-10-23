@@ -191,6 +191,7 @@ async function prueba() {
   console.log('cabecera:', await p.textContent('#estadoCarga'));
   const mail = posts.find(x => x.ruta === 'SP.Utilities.Utility.SendEmail');
   console.log('correo:', mail && mail.cab['x-requestdigest'], mail && mail.cuerpo.slice(0, 400));
+  { const cuerpoMail = mail ? JSON.parse(mail.cuerpo).properties.Body : ''; console.log('enlace del correo:', (cuerpoMail.match(/href=\\?"([^"\\]+)/) || [])[1], '| sin formulario de SharePoint:', !/DispForm|EditForm|NewForm/.test(cuerpoMail)); }
   console.log('caja correo:', await p.textContent('#correoAsig'));
   await p.screenshot({ path: new URL('asig-ok.png', import.meta.url).pathname });
   correoFalla = true;
@@ -250,6 +251,10 @@ async function prueba() {
   await p.fill('#fNuevo [name=Title]', 'Sin permiso'); await p.click('#nCrear'); await p.waitForTimeout(800);
   console.log('sin permiso:', await p.textContent('#nError'), '| sigue abierto:', await p.evaluate(() => document.querySelector('#dlg').open));
   console.log('métodos POST:', posts.map(x => x.ruta));
+  // El enlace de los correos abre la ficha del asunto en la página (y la ficha ya no enlaza al formulario de SharePoint)
+  await p.goto('https://colabora.mdef.es' + WEB + '/seguridad/Documentos%20compartidos/tareas-nlt-colabora.html?id=5'); await p.waitForTimeout(1800);
+  console.log('abrir con ?id=5:', await p.evaluate(() => document.querySelector('#dlg').open), '|', await p.textContent('#dlg h2').catch(() => ''), '| URL limpia:', !p.url().includes('?id='),
+    '| enlaces a SharePoint en la ficha:', await p.$$eval('#dlg a[href*="Form.aspx"]', n => n.length));
   console.log('errores:', errs);
   await b.close();
 }
