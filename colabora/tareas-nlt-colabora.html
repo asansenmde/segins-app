@@ -238,7 +238,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-10-23 · 1';
+  var VERSION = '2026-10-23 · 2';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -992,7 +992,7 @@
   };
   // Si la página se abre dentro de una página del portal (iframe), los enlaces llevan a esa página. Con la descarga
   // mínima («_layouts/15/start.aspx#/SitePages/…») se toma la ruta del «#».
-  // Enlace a un asunto: la propia página (o la del portal que la contiene) abre su ficha; nunca el formulario de SharePoint
+  // Enlace a un asunto en correos y avisos: la propia página (o la del portal que la contiene) abre su ficha
   var enlaceAsunto = function (t) { return enlacePagina() + '?id=' + t.id; };
   var enlacePagina = function () {
     try {
@@ -1549,6 +1549,7 @@
     var negs = valores('NegociadoAsignado', 'negociado').sort();
     var negsImpl = campos.NegociadosImplicados && campos.NegociadosImplicados.length ? campos.NegociadosImplicados : negs;
     if (t) negsImpl = t.negociados.reduce(function (a, n) { return con(a, n); }, negsImpl);
+    var base = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl : '';
     var obligNlt = infoCampo.FechaVencimiento && infoCampo.FechaVencimiento.obligatorio;
     var campoCom = campoComentarios();
     var conObs = !t || campoCom !== 'Comentarios';
@@ -1578,6 +1579,7 @@
         : 'Se creará en la lista compartida de Colabora, igual que si lo dieras de alta allí: los avisos o flujos automáticos de la lista se ejecutarán como siempre.') + '</p>' +
       '<div class="error" id="nError" hidden></div>' +
       '<div class="acciones"><button type="button" data-cerrar>Cancelar</button><button type="button" class="btn prim" id="nCrear">' + (t ? 'Guardar cambios' : 'Crear en Colabora') + '</button></div>' +
+      (base ? '<p class="small"><a target="_top" href="' + esc(base + (t ? '/EditForm.aspx?ID=' + t.id + '&' : '/NewForm.aspx?') + 'Source=' + encodeURIComponent(enlacePagina())) + '">Prefiero el formulario de Colabora</a></p>' : '') + '</div>';
     dlg.showModal(); dlg.scrollTop = 0;
     var porId = function (id) { return t && t.usuarios.find(function (u) { return u.Id === id; }); };
     var implicados = t ? t.implicadosIds.map(porId).filter(Boolean) : [];
@@ -1714,6 +1716,8 @@
   function abrir(id) {
     var t = tareas.find(function (x) { return x.id === id; });
     if (!t) return;
+    var base = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl : '';
+    var volver = encodeURIComponent(enlacePagina());
     var u = urgencia(t);
     var c = [['Estado', t.estado], ['Prioridad', t.prioridad], ['NLT (fecha vencimiento)', t.nlt ? fLarga(t.nlt) + ' · ' + u.txt : '—'], ['Fecha de inicio', t.inicio && fLarga(t.inicio)],
       ['Fecha finalización', t.fin && fLarga(t.fin)], ['Responsable de la información', t.responsable], ['Personal implicado', t.implicados.join(', ')],
@@ -1726,7 +1730,7 @@
       c.filter(function (x) { return x[0] && x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       '<div class="acciones"><button type="button" class="btn prim" data-modificar="' + t.id + '">✎ Modificar</button>' +
         (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
-        '</div>' +
+        (base ? '<a class="btn" target="_top" href="' + esc(base + '/DispForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Ver en Colabora</a>' : '') + '</div>' +
       (t.clase !== 'hecha' && destinatarios(t).para.length ? '<div id="correoAsig" style="margin-top:10px"><button type="button" data-asignar="' + t.id + '">✉ Enviar aviso de asignación</button></div>' : '<div id="correoAsig"></div>') + '</div><div class="ficha-com">' +
       '<h3 style="margin:0 0 6px">Comentarios <span class="small muted">(' + esc(NOMBRE_CAMPO[campoComentarios()]) + ')</span></h3>' +
       '<textarea id="comTxt" rows="6" placeholder="Escribe un comentario…" ' + AREA + '></textarea>' +

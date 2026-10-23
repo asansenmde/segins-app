@@ -254,7 +254,7 @@ async function prueba() {
   // El enlace de los correos abre la ficha del asunto en la página (y la ficha ya no enlaza al formulario de SharePoint)
   await p.goto('https://colabora.mdef.es' + WEB + '/seguridad/Documentos%20compartidos/tareas-nlt-colabora.html?id=5'); await p.waitForTimeout(1800);
   console.log('abrir con ?id=5:', await p.evaluate(() => document.querySelector('#dlg').open), '|', await p.textContent('#dlg h2').catch(() => ''), '| URL limpia:', !p.url().includes('?id='),
-    '| enlaces a SharePoint en la ficha:', await p.$$eval('#dlg a[href*="Form.aspx"]', n => n.length));
+    '| «Ver en Colabora» en la ficha (se mantiene):', await p.$$eval('#dlg a[href*="Form.aspx"]', n => n.length));
   console.log('errores:', errs);
   await b.close();
 }
