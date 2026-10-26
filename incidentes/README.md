@@ -141,6 +141,12 @@ sino una regla o flujo de trabajo de la lista heredado de InfoPath: desactivarla
   cerrados), cada fase lleva a la consulta filtrada.
 - **Estadísticas**: tarjetas de probabilidad alta o muy alta (abiertos), reiterados, con denuncia, partes del año y
   cerrados (antes en el panel) y barras de colores (probabilidad y fase con su color).
+- **Confirmar, guardar, avisar y cerrar** (versión 2026-10-26 · 1): informar a DIACU, elevar a IGE, la valoración de IGE,
+  cerrar y reabrir piden confirmación; al aceptar se guarda, se envía el aviso, se cierra la ficha y el resultado (y si el
+  correo no salió, con «Preparar el correo en Outlook») queda arriba en la página. Lo que falle después de guardar (correo,
+  anotación, recarga) ya no sale como «No se pudo guardar». Con el parte ya valorado, el botón es «Actualizar la valoración
+  de IGE». Motivo: un usuario de IGE sin permiso de correo en Colabora («Acceso denegado» al enviar) veía «… is null» tras
+  guardar y repetía la valoración.
 - **Informes** (como VSA): filtros de siempre, agrupar por tipo, SUIGE, provincia, unidad, probabilidad, año,
   trimestre, mes o situación; apartados: resumen, comparativa con totales, evolución mensual, distribución por
   probabilidad y por tipo, lugares con incidentes repetidos, relación de partes y, opcional, el detalle de cada parte

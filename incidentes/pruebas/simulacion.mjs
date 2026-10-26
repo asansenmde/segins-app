@@ -13,7 +13,7 @@ const MIEMBROS = { 'Propietarios Colaborativo': ['admin1@et.mde.es'], SEGURIDAD_
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(9, 0, 0, 0); return x.toISOString(); };
 let biblioOculta = false;
 // Colabora que rechaza direcciones («destinatario válido»): buzonMal = direcciones o cuentas rechazadas; enviados = las que acepta
-let buzonMal = [], enviados = [];
+let buzonMal = [], enviados = [], correoDenegado = false;
 const NOMBRE_DE = { 'sur1@et.mde.es': 'SUR UNO', 'sur2@et.mde.es': 'SUR DOS', 'nor1@et.mde.es': 'NOR UNO', 'can1@et.mde.es': 'CAN UNO', 'diacu1@et.mde.es': 'DIACU UNO', 'ige1@et.mde.es': 'IGE UNO', 'admin1@et.mde.es': 'ADMIN UNO' };
 const CUENTAS_NUEVAS = [{ Id: 301, Title: 'Uno, Ige', Email: 'ige1b@et.mde.es' }];   // otra cuenta (con buzón) de IGE UNO
 let expandRoto = false, faltaCampo = null, items, misGrupos = [], admin = false, sinSubstringof = false, ultimoFiltro = '', lecturaMinima = '';
@@ -82,7 +82,8 @@ async function prueba(verbose, escenario) {
   }
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1366, height: 860 }, acceptDownloads: true }); if (escenario !== 'Control total y solo SUIGESUR') await ctx.addInitScript(() => { try { localStorage.setItem('incidentes-seguridad-ige', JSON.stringify({ agrupar: '' })); } catch (e) {} });
   const p = await ctx.newPage();
-  const errs = []; p.on('pageerror', e => errs.push(e.message)); const posts = [], gets = [];
+  const errs = []; p.on('pageerror', e => errs.push(e.message)); const posts = [], gets = [], dialogos = [];
+  p.on('dialog', dl => { dialogos.push(dl.message()); dl.accept().catch(() => {}); });
   await p.route(O + '/**', async r => {
     const req = r.request(), u = decodeURIComponent(req.url());
     if (u.includes('/SitePages/Incidentes.aspx')) return r.fulfill({ contentType: 'text/html', body: '<!doctype html><html><body><iframe id="app" style="width:100%;height:800px;border:0"></iframe><script>var m=(location.search+location.hash).match(/[?&]id=(\\d+)/);document.getElementById("app").src="/et/jige/colaborativo/Documentos%20compartidos/incidentes.html"+(m?"?id="+m[1]:"");</script></body></html>' });
@@ -97,6 +98,7 @@ async function prueba(verbose, escenario) {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
       if (resto.startsWith("web/lists(guid'lib1')")) { biblioOculta = JSON.parse(req.postData()).Hidden; return r.fulfill({ status: 204, body: '' }); }
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
+      if (resto.startsWith('SP.Utilities.Utility.SendEmail') && correoDenegado) return r.fulfill({ status: 401, json: { error: { message: { value: 'Acceso denegado. No tiene el permiso necesario para realizar esta acción o tener acceso a este recurso.' } } } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = JSON.parse(req.postData()).properties, dest = [].concat(pr.To.results, pr.CC.results, pr.BCC ? pr.BCC.results : []);
         if (dest.some(x => buzonMal.includes(String(x).toLowerCase()))) return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el mensaje de correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } });
@@ -228,7 +230,7 @@ async function prueba(verbose, escenario) {
     posts.length = 0; await p.click('[data-accaprobar]'); await p.waitForTimeout(1500);
     const m = correos().pop(); console.log(tag, '| aprobar:', JSON.stringify(anadidos), '| correo:', m && m.To.results, m && m.Subject, '| errores:', errs);
     biblioOculta = false; await p.click('#tabs a[data-v=panel]'); await p.click('#tabs a[data-v=accesos]'); await p.waitForTimeout(800);
-    let dlgTxt = ''; p.once('dialog', dd => { dlgTxt = dd.message(); dd.accept(); }); await p.click('[data-accbiblio="1"]'); await p.waitForTimeout(1200);
+    let dlgTxt = ''; p.once('dialog', dd => { dlgTxt = dd.message(); dd.accept().catch(() => {}); }); await p.click('[data-accbiblio="1"]'); await p.waitForTimeout(1200);
     console.log(tag, '| ocultar biblioteca:', biblioOculta, '| aviso:', dlgTxt.slice(0, 60), '|', (await p.textContent('[data-accbiblio]').catch(() => '')));
     await b.close(); return;
   }
@@ -274,7 +276,17 @@ async function prueba(verbose, escenario) {
     console.log(tag, '| paneles:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
     await p.fill('#vIge', 'Remitido 26/10/2026 análisis incidente'); posts.length = 0; await p.click('[data-acc=valIge]'); await p.waitForTimeout(2500);
     const c = merge(3);
-    console.log(tag, '| guardado:', JSON.stringify(c && { ESTADO: c.ESTADO, ValoradoPorIGE: c.ValoradoPorIGE }), '| mensaje:', (await p.textContent('#dlg .okmsg, #dlg .aviso, #accMsg').catch(() => '')).replace(/\s+/g, ' ').slice(0, 250), '| errores:', errs);
+    console.log(tag, '| confirmación:', dialogos.pop(), '| ficha cerrada:', !(await p.evaluate(() => document.querySelector('#dlg').open)));
+    console.log(tag, '| guardado:', JSON.stringify(c && { ESTADO: c.ESTADO, ValoradoPorIGE: c.ValoradoPorIGE }), '| mensaje:', (await p.textContent('#vista .resultado').catch(() => '')).replace(/\s+/g, ' ').slice(0, 250), '| errores:', errs);
+    // Colabora no le deja enviar correo a este usuario (401 «Acceso denegado»): se guarda igual y se dice, sin error de la página
+    correoDenegado = true;
+    for (const vez of [1, 2]) {
+      await p.evaluate(() => { const a = document.createElement('a'); a.className = 'inc'; a.dataset.id = '3'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(700);
+      if (vez === 1) console.log(tag, '| botón ya valorado:', await p.textContent('[data-acc=valIge]'));
+      await p.fill('#vIge', 'Nueva valoración ' + vez); posts.length = 0; await p.click('[data-acc=valIge]'); await p.waitForTimeout(2500);
+      console.log(tag, '| correo denegado, intento', vez, ':', (await p.textContent('#vista .resultado').catch(() => 'SIN RESULTADO')).replace(/\s+/g, ' ').slice(0, 300), '| anotado:', anotacion(3), '| errores:', errs);
+    }
+    correoDenegado = false;
     await b.close(); return;
   }
   if (escenario === 'solo SEGURIDAD_IGE') { await p.click('#tabs a[data-v=panel]'); await p.waitForTimeout(200); }
@@ -309,7 +321,7 @@ async function prueba(verbose, escenario) {
     buzonMal = ['ige1@et.mde.es', 'i:0#.w|et\\usuario205']; enviados = [];
     await p.click('.inc[data-id="1"]'); await p.waitForTimeout(600);
     await p.fill('#vSuige', 'Riesgo alto.'); posts.length = 0; await p.click('[data-acc=suigeDiacu]'); await p.waitForTimeout(2200);
-    console.log(tag, '| mensaje:', (await p.textContent('#dlg .okmsg, #dlg .aviso')).replace(/\s+/g, ' ').slice(0, 330));
+    console.log(tag, '| mensaje:', (await p.textContent('#vista .resultado')).replace(/\s+/g, ' ').slice(0, 330));
     console.log(tag, '| llegó a:', enviados.join(', '), '| estado guardado:', merge(1).ESTADO, '| anotado:', anotacion(1), '| errores:', errs);
     buzonMal = []; await b.close(); return;
   }
@@ -325,7 +337,8 @@ async function prueba(verbose, escenario) {
   console.log(tag, '| SUIGE › DIACU:', JSON.stringify({ ESTADO: c.ESTADO, ValoradoPorSUIGE: c.ValoradoPorSUIGE, VALORACIONSUIGES: c.VALORACIONSUIGES, Obs: (c.ObservacionesDelExpediente || '').slice(-50), Mod: c.ModificadoPorTEXTO }));
   console.log(tag, '| correo:', m.To.results, 'cc', m.CC.results, 'cco', (m.BCC ? m.BCC.results : []), '|', m.Subject, '| sin texto del parte:', !m.Body.includes('TEXTO RESERVADO'), '| enlace:', (m.Body.match(/href="([^"]+)"/) || [])[1]);
   if (!verbose) fs.writeFileSync(new URL('correo.html', import.meta.url), m.Body);
-  console.log(tag, '| mensaje:', (await p.textContent('#dlg .okmsg, #dlg .aviso')).slice(0, 90), '| pasos:', (await p.textContent('#dlg .pasos')).replace(/\s+/g, ' '));
+  console.log(tag, '| confirmación:', dialogos.pop(), '| ficha cerrada:', !(await p.evaluate(() => document.querySelector('#dlg').open)), '| resultado:', (await p.textContent('#vista .resultado')).slice(0, 90));
+  await p.evaluate(() => { const a = document.createElement('a'); a.className = 'inc'; a.dataset.id = '1'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(700); console.log(tag, '| pasos:', (await p.textContent('#dlg .pasos')).replace(/\s+/g, ' '));
   await p.click('#dlg [data-cerrar]');
   // 2) DIACU informa a IGE el 2 (sin texto, error)
   await p.click('#tabs a[data-v=pendientes]'); await p.click('.inc[data-id="2"]'); await p.waitForTimeout(600);
@@ -335,18 +348,19 @@ async function prueba(verbose, escenario) {
   await p.fill('#vDiacu', 'Se informa a IGE por reincidencia.'); posts.length = 0; await p.click('[data-acc=diacuIge]'); await p.waitForTimeout(1400);
   c = merge(2); m = correos().pop();
   console.log(tag, '| DIACU › IGE:', JSON.stringify({ ESTADO: c.ESTADO, DIACU: c.DIACU, ValoradoPorDIACU: c.ValoradoPorDIACU, VALORACIONDIACU: c.VALORACIONDIACU }), '| correo a:', m.To.results, 'cc:', m.CC.results, '|', m.Subject);
-  await p.click('#dlg [data-cerrar]');
   // 3) IGE valora el 3
   await p.click('#tabs a[data-v=pendientes]'); await p.click('.inc[data-id="3"]'); await p.waitForTimeout(600);
   await p.fill('#vIge', 'Conforme con las medidas.'); posts.length = 0; await p.click('[data-acc=valIge]'); await p.waitForTimeout(1400);
   c = merge(3); m = correos().pop();
-  console.log(tag, '| IGE:', JSON.stringify({ ESTADO: c.ESTADO, ValoradoPorIGE: c.ValoradoPorIGE, valoracionIGE: c.valoracionIGE }), '| correo a:', m.To.results, 'cc:', m.CC.results, '|', m.Subject, '| ahora:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
+  console.log(tag, '| IGE:', JSON.stringify({ ESTADO: c.ESTADO, ValoradoPorIGE: c.ValoradoPorIGE, valoracionIGE: c.valoracionIGE }), '| correo a:', m.To.results, 'cc:', m.CC.results, '|', m.Subject, '| ficha cerrada:', !(await p.evaluate(() => document.querySelector('#dlg').open)));
+  await p.evaluate(() => { const a = document.createElement('a'); a.className = 'inc'; a.dataset.id = '3'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(700); console.log(tag, '| reabierta, paneles:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
   // 4) Cierre del 3
   await p.fill('#vCierre', 'Medidas implantadas.'); posts.length = 0; await p.click('[data-acc=cerrar]'); await p.waitForTimeout(1400);
   c = merge(3); m = correos().pop();
   console.log(tag, '| cerrar:', JSON.stringify({ ESTADO: c.ESTADO, Obs: (c.ObservacionesDelExpediente || '').split('\n').length + ' líneas' }), '| correo a:', m.To.results, 'cc:', m.CC.results);
   if (!verbose) await p.screenshot({ path: new URL('ficha.png', import.meta.url).pathname });
   // 5) Reabrir exige motivo; anotar; recordatorio
+  await p.evaluate(() => { const a = document.createElement('a'); a.className = 'inc'; a.dataset.id = '3'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(700);
   await p.click('[data-acc=reabrir]'); await p.waitForTimeout(150);
   console.log(tag, '| reabrir sin motivo:', await p.textContent('#accMsg'));
   await p.fill('#vNota', 'Pendiente informe de la Guardia Civil.'); posts.length = 0; await p.click('[data-acc=anotar]'); await p.waitForTimeout(1200);

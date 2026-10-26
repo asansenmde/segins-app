@@ -218,7 +218,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-22 · 1';
+  var VERSION = '2026-10-26 · 1';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -754,13 +754,15 @@
       '<p class="small">Incidentes sin SUIGE determinada: <b>' + items.filter(function (t) { return !t.suige; }).length + '</b> de ' + items.length + '.</p></div>' +
       '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">La página trabaja dentro de Colabora con tu sesión y tus permisos. No envía nada fuera del servidor. Los textos del parte (observación, análisis, medidas…) solo se leen al abrir un incidente. La protección real es la de los permisos de la lista.</p></div>';
   }
+  // Resultado del último trámite que cierra la ficha (guardado, aviso por correo): se queda arriba hasta ocultarlo o hacer otro
+  var resultadoTramite = null;
   function render() {
     var vistas = [['panel', 'Incidentes registrados'], ['pendientes', 'Pendiente de valoración y tramitación'], ['consulta', 'Búsqueda y consulta'], ['estadisticas', 'Estadísticas'], ['informe', 'Informes']].concat(cargadoEn && esAdmin ? [['accesos', 'Accesos'], ['ajustes', 'Ajustes']] : []);
     if ((pref.vista === 'ajustes' || pref.vista === 'accesos') && (!cargadoEn || !esAdmin)) pref.vista = 'panel';
     var cuenta = { pendientes: cargadoEn ? nPend() : 0, accesos: nPendAcc() };
     $('#tabs').innerHTML = vistas.map(function (v) { return '<a data-v="' + v[0] + '" class="' + (pref.vista === v[0] ? 'on' : '') + '">' + v[1] + (cuenta[v[0]] ? '<i>' + cuenta[v[0]] + '</i>' : '') + '</a>'; }).join('');
     if (!cargadoEn) return;
-    $('#vista').innerHTML = ({ panel: vistaPanel, pendientes: vistaPendientes, consulta: vistaConsulta, estadisticas: vistaEstadisticas, informe: vistaInforme, accesos: vistaAccesos, ajustes: vistaAjustes }[pref.vista] || vistaPanel)();
+    $('#vista').innerHTML = (resultadoTramite ? '<div class="' + resultadoTramite.cls + ' resultado">' + resultadoTramite.html + ' <a href="#" data-quitarres="1" class="small">ocultar</a></div>' : '') + ({ panel: vistaPanel, pendientes: vistaPendientes, consulta: vistaConsulta, estadisticas: vistaEstadisticas, informe: vistaInforme, accesos: vistaAccesos, ajustes: vistaAjustes }[pref.vista] || vistaPanel)();
   }
   var aviso = function (txt) { $('#estadoCarga').textContent = txt; setTimeout(function () { if (cargadoEn) $('#estadoCarga').textContent = items.length + ' incidentes · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }, 3500); };
 
@@ -1372,7 +1374,7 @@
     }
     if (pIge(t)) {
       h += '<div class="panel' + (fase(t) === 3 ? ' turno' : '') + '"><h3>Valoración de seguridad de IGE</h3>' + txt('vIge', 'valoracionIGE', 'Valoración (obligatoria)') +
-        '<div class="acciones"><button class="ige" data-acc="valIge">Valoración de IGE</button></div></div>';
+        '<div class="acciones"><button class="ige" data-acc="valIge">' + (t.valIge ? 'Actualizar la valoración de IGE' : 'Valoración de IGE') + '</button></div></div>';
     }
     if (pCierre(t)) h += '<div class="panel' + (fase(t) === 4 ? ' turno' : '') + '"><h3>Cierre del expediente</h3><label class="lbl">Observación de cierre (opcional)</label><textarea id="vCierre"></textarea><div class="acciones"><button class="verde" data-acc="cerrar">✔ Cerrar expediente (EXP CERRADO)</button></div></div>';
     if (fase(t) === 5 && (esIge || esGestor)) h += '<div class="panel"><h3>Expediente cerrado</h3><label class="lbl">Motivo para reabrir</label><textarea id="vReabrir"></textarea><div class="acciones"><button data-acc="reabrir">↺ Reabrir expediente (EN SEGUIMIENTO)</button></div></div>';
@@ -1423,6 +1425,11 @@
         nota = txt; ok = 'Observación añadida al expediente.';
       }
     } catch (e) { if (e === 0) return; throw e; }
+    // Los trámites que cambian la fase se confirman antes; después se guarda, se avisa y se cierra la ficha
+    var CONFIRMA = { suigeDiacu: 'informar a DIACU', suigeIgeSD: 'elevar a IGE sin valoración de DIACU', diacuIge: 'informar a IGE', valIge: 'guardar la valoración de IGE', cerrar: 'cerrar el expediente', reabrir: 'reabrir el expediente' };
+    var cierra = !!CONFIRMA[a];
+    resultadoTramite = null;
+    if (cierra && !window.confirm('Incidente nº ' + t.id + ': ¿seguro que quieres ' + CONFIRMA[a] + '?\n\nSe guardará' + (pref.correo && correo ? ', se enviará el aviso por correo' : '') + ' y se cerrará la ficha.')) return;
     boton.disabled = true;
     if (a === 'recordar') {
       return avisoDe('recordar', t, '').then(enviarCorreo).then(function (r) { return anotarAviso(t.id, r).then(function () { return r; }); }).then(function (r) {
@@ -1430,11 +1437,19 @@
       });
     }
     guardarCambios(t, c, nota).then(function () {
+      // Ya está guardado: lo que falle a partir de aquí (aviso, anotación, recarga) se dice como aviso, nunca como «No se pudo guardar»
+      if (cierra) { $('#dlg').close(); dlgId = null; }
       var nuevo = Object.assign({}, t, { estadoPrevio: t.estado, estado: c.ESTADO || t.estado });
-      return (pref.correo && correo ? avisoDe(correo, nuevo, txt).then(enviarCorreo) : Promise.resolve(null)).then(function (r) {
-        return anotarAviso(t.id, r).then(cargar).then(function () { abrir(t.id, '<div class="' + claseCorreo(r) + '">✓ ' + esc(ok) + msgCorreo(r) + '</div>'); });
+      var sinEnvio = function (e) { return { ok: false, n: 0, motivo: (e && e.message) || String(e), rechazados: [], desvios: [], llegaron: [], sinVer: [], mailto: '' }; };
+      return (pref.correo && correo ? avisoDe(correo, nuevo, txt).then(enviarCorreo).catch(sinEnvio) : Promise.resolve(null)).then(function (r) {
+        var msg = '<div class="' + claseCorreo(r) + '">✓ Nº ' + t.id + ': ' + esc(ok) + msgCorreo(r) + '</div>';
+        return anotarAviso(t.id, r).then(cargar).catch(function () { /* se ve al actualizar */ }).then(function () {
+          if (!cierra) { try { abrir(t.id, msg); } catch (e2) { aviso('Guardado. Pulsa Actualizar para ver el incidente.'); } return; }
+          resultadoTramite = { cls: claseCorreo(r), html: '✓ Nº ' + t.id + ': ' + esc(ok) + msgCorreo(r) }; render();
+          aviso('Nº ' + t.id + ': ' + ok); window.scrollTo(0, 0);
+        });
       });
-    }).catch(function (e) { boton.disabled = false; msgAcc('error', 'No se pudo guardar: ' + esc(e.message || e)); });
+    }, function (e) { boton.disabled = false; msgAcc('error', 'No se pudo guardar: ' + esc(e.message || e)); });
   }
 
   // ---------- Impresión con formato oficial y exportación ----------
@@ -2001,6 +2016,7 @@
     if (el.closest('#nuevo')) { if (!cargadoEn) return; if (FORM_PROPIO) formulario(null); else window.open(urlFormulario('nuevo'), '_blank'); return; }
     var edp = el.closest('[data-editar]');
     if (edp) { var tp = items.find(function (x) { return x.id === Number(edp.dataset.editar); }); if (tp) { if (FORM_PROPIO) formulario(tp); else window.open(urlFormulario('editar', tp.id), '_blank'); } return; }
+    if (el.closest('[data-quitarres]')) { e.preventDefault(); resultadoTramite = null; render(); return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); dlgId = null; return; }
     if (el.closest('[data-correoprueba]')) { correoPrueba(el.closest('[data-correoprueba]')); return; }
     if (el.closest('[data-restablecer]')) { pref.sitio = POR_DEFECTO.sitio; pref.lista = POR_DEFECTO.lista; guardarPref(); cargar(); return; }
