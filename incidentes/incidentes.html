@@ -47,10 +47,16 @@
   main { max-width: 1180px; margin: 0 auto; padding: 0 16px 60px; }
   .autor { max-width: 1180px; margin: -40px auto 0; padding: 12px 16px 24px; text-align: center; font-size: .78rem; color: var(--muted); border-top: 1px solid var(--line); }
   @media print { .autor { display: none; } }
-  nav.tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; margin: 12px 0; flex-wrap: wrap; }
-  nav.tabs a { flex: 1; text-align: center; padding: 8px 4px; border-radius: 9px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .9rem; cursor: pointer; white-space: nowrap; }
-  nav.tabs a.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-  nav.tabs a i { font-style: normal; background: var(--bad); color: #fff; border-radius: 999px; padding: 0 7px; margin-left: 4px; font-size: .78rem; }
+  nav.tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 8px; margin: 12px 0; }
+  nav.tabs a { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; padding: 10px 6px 8px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--line);
+    color: var(--text); text-decoration: none; font-weight: 700; font-size: .9rem; line-height: 1.2; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.05); transition: border-color .15s, transform .15s; }
+  nav.tabs a:hover { border-color: var(--brand); transform: translateY(-1px); }
+  nav.tabs a .ico { font-size: 1.55rem; line-height: 1.1; }
+  nav.tabs a small { font-weight: 400; color: var(--muted); font-size: .72rem; line-height: 1.2; }
+  nav.tabs a.alerta { border-top-color: var(--bad); }
+  nav.tabs a.on { background: var(--brand); color: #fff; border-color: var(--brand); border-top-color: var(--oro); box-shadow: 0 3px 8px rgba(0,0,0,.18); }
+  nav.tabs a.on small { color: #dbe5f0; }
+  nav.tabs a i { position: absolute; top: 6px; right: 8px; font-style: normal; background: var(--bad); color: #fff; border-radius: 999px; padding: 0 7px; font-size: .78rem; font-weight: 700; }
   [hidden] { display: none !important; }
   .card.turno { border-left: 5px solid #d99a00; } .txt-bad { color: var(--bad); font-weight: 700; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
@@ -219,7 +225,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-26 · 2';
+  var VERSION = '2026-10-26 · 3';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -757,11 +763,18 @@
   }
   // Resultado del último trámite que cierra la ficha (guardado, aviso por correo): se queda arriba hasta ocultarlo o hacer otro
   var resultadoTramite = null;
+  // Menú de pestañas (como Permisos): icono, nombre, para qué sirve y, en rojo, lo que espera tu acción
+  var ICO_VISTA = { panel: '🛡️', pendientes: '📥', consulta: '🔎', estadisticas: '📊', informe: '🖨️', accesos: '👥', ajustes: '⚙️' };
+  var SUB_VISTA = { panel: 'Panel y situación', pendientes: 'Esperan mi acción', consulta: 'Buscar y filtrar partes', estadisticas: 'Gráficos y tendencias',
+    informe: 'Imprimir / PDF', accesos: 'Solicitudes de acceso', ajustes: 'Configuración' };
   function render() {
     var vistas = [['panel', 'Incidentes registrados'], ['pendientes', 'Pendiente de valoración y tramitación'], ['consulta', 'Búsqueda y consulta'], ['estadisticas', 'Estadísticas'], ['informe', 'Informes']].concat(cargadoEn && esAdmin ? [['accesos', 'Accesos'], ['ajustes', 'Ajustes']] : []);
     if ((pref.vista === 'ajustes' || pref.vista === 'accesos') && (!cargadoEn || !esAdmin)) pref.vista = 'panel';
     var cuenta = { pendientes: cargadoEn ? nPend() : 0, accesos: nPendAcc() };
-    $('#tabs').innerHTML = vistas.map(function (v) { return '<a data-v="' + v[0] + '" class="' + (pref.vista === v[0] ? 'on' : '') + '">' + v[1] + (cuenta[v[0]] ? '<i>' + cuenta[v[0]] + '</i>' : '') + '</a>'; }).join('');
+    $('#tabs').innerHTML = vistas.map(function (v) {
+      return '<a data-v="' + v[0] + '" class="' + (pref.vista === v[0] ? 'on' : '') + (cuenta[v[0]] ? ' alerta' : '') + '"><span class="ico">' + (ICO_VISTA[v[0]] || '') + '</span><span class="tx">' + v[1] + '</span>' +
+        '<small>' + (SUB_VISTA[v[0]] || '') + '</small>' + (cuenta[v[0]] ? '<i>' + cuenta[v[0]] + '</i>' : '') + '</a>';
+    }).join('');
     if (!cargadoEn) return;
     $('#vista').innerHTML = (resultadoTramite ? '<div class="' + resultadoTramite.cls + ' resultado">' + resultadoTramite.html + ' <a href="#" data-quitarres="1" class="small">ocultar</a></div>' : '') + ({ panel: vistaPanel, pendientes: vistaPendientes, consulta: vistaConsulta, estadisticas: vistaEstadisticas, informe: vistaInforme, accesos: vistaAccesos, ajustes: vistaAjustes }[pref.vista] || vistaPanel)();
   }
