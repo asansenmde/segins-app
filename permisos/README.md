@@ -77,6 +77,18 @@ Circuito supuesto (por confirmar): borrador → `1-Pendiente de Aprobar` (aproba
   sustitutos» con el permiso ya enviado o autorizado. Pestaña **«Mandos sustitutos»** (General, grupo «PERMISOS - MANDO» y
   propietario): quién está al mando hoy, cuadro por meses o trimestre (MA / ED / MCP y nombre en cada tramo), próximas
   ausencias e Imprimir / PDF. En *Ajustes* se crean la lista y el grupo.
+- **Versión 2026-10-26 · 1** (primero en la copia de pruebas):
+  - **«Mandos sustitutos»** la ven el General, el grupo «PERMISOS - MANDO» y el administrador (todas las unidades), los
+    autorizadores (las ausencias de los jefes cuyos permisos autorizan: si han autorizado varios, las ven todas) y el jefe
+    de unidad que ha comunicado sustitutos (las suyas). A nadie más le aparece la pestaña.
+  - Filtros: desde/hasta (con atajos de mes, tres meses y año), unidad, tipo de sustitución, búsqueda (jefe, sustituto,
+    teléfono, correo) y pendientes de autorizar. Las barras llevan tipo, nombre y **teléfono** del sustituto; debajo, el
+    **detalle** (unidad, jefe, ausencia, estado, tipo, sustituto, fechas, días en el periodo, teléfono y correo) y el
+    **resumen por unidad** (ausencias, días, pendientes, sustitutos y días por tipo). El informe para imprimir / PDF y el
+    CSV para Excel salen con los mismos filtros y todo ese detalle.
+  - **Eliminar una solicitud**: solo el administrador del sitio (permiso de administrar permisos) ve el panel en la ficha.
+    Va a la papelera de reciclaje de Colabora (se puede restaurar) y se anulan sus sustitutos.
+  - Menú de pestañas en tarjetas con icono, para qué sirve y lo pendiente en rojo.
 - **Avisos por correo** (versión 2026-10-22 · 1): Colabora rechaza el correo ENTERO si una sola dirección no es de un
   usuario que conozca («Asegúrese de que tenga un destinatario válido»). Antes, si fallaba la del solicitante, al
   aprobador o al autorizador tampoco le llegaba. Ahora se reintenta destinatario a destinatario (y con la cuenta de inicio

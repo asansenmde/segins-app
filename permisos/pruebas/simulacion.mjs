@@ -18,15 +18,17 @@ let sinExpand = false, pets = [], asigs = [], grupoReg = [], anadidosReg = [], s
 let sustYo = false, ints = [], intLista = true, grupoMando = [{ Id: 90, Title: 'EL GENERAL' }], mando = false, intCampos = null;
 const tramo = (id, sol, uni, tit, aIni, aFin, inter, des, has, tel, est, orden, tipo = 'Mando accidental') => ({ TipoSustitucion: tipo, Id: id, Title: uni, NumSolicitud: sol, UnidadNum: 1, Titular: tit.Title, TitularUid: tit.Id, AusenciaDesde: aIni, AusenciaHasta: aFin,
   Sustituto: inter.Title, SustitutoUid: inter.Id, Desde: des, Hasta: has, Telefono: tel, Correo: inter.EMail, Orden: orden, EstadoSustitucion: est });
+let ajeno = false, soloMios = false;   // ni autorizo ni soy jefe con sustitutos: no debo ver «Mandos sustitutos»
 let cuentaVieja = false;   // solicitud que nombra al autorizador con una cuenta antigua cuya dirección Colabora no acepta
 let buzonMal = [], enviados = [], cuentasPedidas = [];   // direcciones que Colabora rechaza en SendEmail («destinatario válido») y las que sí acepta
 let ultimoFiltro = '', items, gestor = false, registro = true, admin = false, otraCuenta = false, jefeOtraCuenta = false, sinSubstr = false, jefeNombre = false;
 const nuevoStore = () => {
   // La 2 (de SOLICITANTE DOS, pendiente de que yo la autorice) y la 3 (mía, autorizada) son de jefes de unidad con sustitutos;
   // en la 6 (de SOLICITANTE DOS, autorizada) el sustituto soy yo del día +6 al +8
-  ints = [tramo(501, 2, 'UNIDAD A', U[13], d(1), d(1), sustYo ? U[279] : U[11], d(1), d(1), '600111222', 'PREVISTA', 1),
+  ints = (ajeno ? [] : [tramo(501, 2, 'UNIDAD A', U[13], d(1), d(1), sustYo ? U[279] : U[11], d(1), d(1), '600111222', 'PREVISTA', 1),
     tramo(504, 6, 'UNIDAD B', U[13], d(6), d(8), U[279], d(6), d(8), '600777888', 'CONFIRMADA', 1, 'Encargado de despacho'),
-    tramo(502, 3, 'UNIDAD A', U[279], d(0), d(2), U[12], d(0), d(1), '600333444', 'CONFIRMADA', 1), tramo(503, 3, 'UNIDAD A', U[279], d(0), d(2), U[13], d(2), d(2), '600555666', 'CONFIRMADA', 2)];
+    tramo(502, 3, 'UNIDAD A', U[279], d(0), d(2), U[12], d(0), d(1), '600333444', 'CONFIRMADA', 1), tramo(503, 3, 'UNIDAD A', U[279], d(0), d(2), U[13], d(2), d(2), '600555666', 'CONFIRMADA', 2)]);
+  if (ajeno) ints = [tramo(504, 6, 'UNIDAD B', U[13], d(6), d(8), U[279], d(6), d(8), '600777888', 'CONFIRMADA', 1, 'Encargado de despacho')];
   items = [
     { Id: 1, Title: 'Vacaciones', Estado: '1-Pendiente de Aprobar', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(5), FechaDeFin: d(9), Solicitante: U[13], AprobadorDePermiso: U[279], CorreoDelSolicitante: 'sol2@et.mde.es', CorreoDeAPROBADOR: 'usuario@et.mde.es', AprobadorTexto: 'USUARIO DE PRUEBA', EstadoDeAprobacion: 'SIN APROBAR', Unidad0: { Id: 2, Title: 'UNIDAD B' }, Dependencia: 'SEGURIDAD' },
     { Id: 2, Title: 'Asuntos propios', Estado: '2-Aprobado', TipoDePermiso: 'Permiso por asuntos particulares (Art.6.a)', CupoDeA_x00f1_o: '2026', FechaInicio: d(1), FechaDeFin: d(1), Solicitante: U[13], AprobadorDePermiso: U[11], AutorizadorDelPermiso: U[279], CorreoDelSolicitante: 'sol2@et.mde.es', CorreoDeAPROBADOR: 'aprob1@et.mde.es', CorreoDeAUTORIZADOR: 'usuario@et.mde.es', AprobadorTexto: 'APROBADOR UNO', AutorizadorTexto: 'USUARIO DE PRUEBA', EstadoDeAprobacion: 'APROBADO', Unidad0: { Id: 1, Title: 'UNIDAD A' }, Dependencia: 'JEFATURA' },
@@ -38,6 +40,7 @@ const nuevoStore = () => {
    .concat(jefeNombre ? [{ Id: 11, Title: 'Nombre al revés', Estado: '2-Aprobado', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(50), FechaDeFin: d(51), Solicitante: U[13], AprobadorDePermiso: U[11], AutorizadorDelPermiso: { Id: 888, Title: 'Prueba, Usuario de', EMail: '' }, AutorizadorTexto: 'Prueba, Usuario de', Unidad0: { Id: 1, Title: 'UNIDAD A' } }] : [])
    .concat(cuentaVieja ? [{ Id: 12, Title: 'Cuenta vieja', Estado: '2-Aprobado', AutorizarDirecto: true, TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(60), FechaDeFin: d(61), Solicitante: U[13], CorreoDelSolicitante: 'sol2@et.mde.es', AutorizadorDelPermiso: { Id: 777, Title: 'Prueba, Usuario de', EMail: '' }, CorreoDeAUTORIZADOR: 'viejo@et.mde.es', AutorizadorTexto: 'Prueba, Usuario de', Unidad0: { Id: 1, Title: 'UNIDAD A' } }] : [])
    .concat(jefeOtraCuenta ? [{ Id: 10, Title: 'Del jefe', Estado: '2-Aprobado', TipoDePermiso: 'Vacaciones (Art.5)', CupoDeA_x00f1_o: '2026', FechaInicio: d(40), FechaDeFin: d(41), Solicitante: U[13], AprobadorDePermiso: U[11], AutorizadorDelPermiso: { Id: 777, Title: 'Usuario De Prueba', EMail: '' }, CorreoDeAUTORIZADOR: 'USUARIO@et.mde.es', AutorizadorTexto: 'USUARIO DE PRUEBA', Unidad0: { Id: 1, Title: 'UNIDAD A' } }] : [])
+   .map(x => ajeno && x.Id === 2 ? { ...x, AutorizadorDelPermiso: U[12], CorreoDeAUTORIZADOR: 'autor1@et.mde.es', AutorizadorTexto: 'AUTORIZADOR UNO' } : x)
    .map(x => ({ Created: d(-3), Modified: d(-2) + '', Author: { Id: x.Solicitante.Id, Title: x.Solicitante.Title }, Editor: { Title: 'X' }, NIF: '00000000T', RegistroDeBorrador: '', ...x }));
 };
 async function prueba(verbose, soloAlcance) {
@@ -95,6 +98,8 @@ async function prueba(verbose, soloAlcance) {
       }
       const gu = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users(\/removebyid\((\d+)\))?/);
       if (gu) { if (gu[3]) grupoReg = grupoReg.filter(x => x.Id !== +gu[3]); else anadidosReg.push(JSON.parse(req.postData()).LoginName); return r.fulfill({ status: 200, json: { d: {} } }); }
+      const rc = resto.match(/items\((\d+)\)\/recycle\(\)/);
+      if (rc) { if (!admin) return r.fulfill({ status: 403, json: { error: { message: { value: 'Access denied' } } } }); items = items.filter(x => x.Id !== +rc[1]); return r.fulfill({ json: { d: { Recycle: 'guid' } } }); }
       const mi = resto.match(/items\((\d+)\)/);
       const c = JSON.parse(req.postData()); delete c.__metadata;
       const aplica = (it, c) => { for (const [k, v] of Object.entries(c)) { const m = k.match(/^(.*)Id$/); if (m && m[1] !== 'Unidad0' && (v === null || typeof v === 'number')) it[m[1]] = v ? U[v] : null; else if (k === 'Unidad0Id') it.Unidad0 = { Id: v, Title: v === 1 ? 'UNIDAD A' : 'UNIDAD B' }; else it[k] = v; } it.Modified = new Date(Date.now() + 1000).toISOString(); };
@@ -191,19 +196,39 @@ async function prueba(verbose, soloAlcance) {
     await b.close(); return;
   }
   if (soloAlcance === 'jefaturas') {
-    console.log(tag, 'pestañas:', await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | ')));
+    console.log(tag, 'pestañas:', await p.$$eval('#tabs a', a => a.map(x => x.querySelector('.tx').textContent + (x.querySelector('i') ? '(' + x.querySelector('i').textContent + ')' : '')).join(' | ')), '| iconos:', await p.$$eval('#tabs a .ico', a => a.length));
     await p.click('#tabs a[data-v=jefaturas]'); await p.waitForTimeout(400);
+    console.log(tag, 'alcance:', await p.textContent('#vista .card p.small'));
     console.log(tag, 'hoy:', (await p.textContent('#vista .card table.t')).replace(/\s+/g, ' ').slice(0, 260));
     console.log(tag, 'cuadro:', await p.$$eval('.gantt .gfila:not(.gcab) .get b', n => n.map(x => x.textContent).join(',')), '| tramos:', await p.$$eval('.gseg', n => n.map(x => x.textContent + (x.classList.contains('prev') ? ' (rayado)' : '')).join(', ')),
       '| colores:', await p.$$eval('.gseg', n => [...new Set(n.map(x => x.style.backgroundColor))].length), '| línea de hoy:', await p.$$eval('.lhoy', n => n.length));
     if (!verbose) await p.screenshot({ path: new URL('jefaturas.png', import.meta.url).pathname, fullPage: true });
-    await p.uncheck('#jefPend'); await p.waitForTimeout(200);
+    console.log(tag, 'detalle:', await p.$$eval('table.det tr', n => n.slice(1).map(x => [...x.cells].map(c => c.textContent).join('/')).join(' || ')));
+    console.log(tag, 'resumen:', (await p.$$eval('table.t', n => n[n.length - 1].innerText)).replace(/\s+/g, ' ').slice(0, 300));
+    await p.uncheck('#jfPend'); await p.waitForTimeout(200);
     console.log(tag, 'sin pendientes:', await p.$$eval('.gseg', n => n.map(x => x.textContent).join(', ')));
-    await p.check('#jefPend'); await p.check('#jefTri'); await p.waitForTimeout(200);
-    console.log(tag, 'tres meses: días en la cabecera:', await p.$$eval('.gdias span', n => n.length));
+    await p.check('#jfPend'); await p.click('[data-jfr=tri]'); await p.waitForTimeout(200);
+    console.log(tag, 'tres meses: cabecera:', await p.$$eval('.gdias span', n => n.length + ' (' + n.map(x => x.textContent).join(',') + ')'), '| desde', await p.inputValue('#jfDesde'), 'hasta', await p.inputValue('#jfHasta'));
+    if (soloMios) { console.log(tag, 'unidades que puede elegir:', await p.$$eval('#jfUni option', n => n.map(x => x.textContent).join(',')), '| errores:', errs); await b.close(); return; }
+    await p.selectOption('#jfUni', 'UNIDAD B'); await p.waitForTimeout(200);
+    console.log(tag, 'filtro UNIDAD B:', await p.$$eval('.gantt .gfila:not(.gcab) .get b', n => n.map(x => x.textContent).join(',')), '| filas detalle:', await p.$$eval('table.det tr', n => n.length - 1));
+    await p.selectOption('#jfUni', ''); await p.fill('#jfQ', '600333'); await p.waitForTimeout(200);
+    console.log(tag, 'buscar teléfono 600333:', await p.$$eval('table.det tr', n => n.slice(1).map(x => x.cells[5].textContent).join(',')), '| foco sigue:', await p.evaluate(() => document.activeElement.id));
+    await p.fill('#jfQ', ''); await p.selectOption('#jfTipo', 'Encargado de despacho'); await p.waitForTimeout(200);
+    console.log(tag, 'tipo ED:', await p.$$eval('table.det tr', n => n.slice(1).map(x => x.cells[4].textContent + ':' + x.cells[5].textContent).join(',')));
+    await p.selectOption('#jfTipo', '');
+    await p.fill('#jfDesde', d(-400).slice(0, 10)); await p.dispatchEvent('#jfDesde', 'change'); await p.waitForTimeout(200);
+    console.log(tag, 'periodo largo: meses en la cabecera:', await p.$$eval('.gdias span.mes', n => n.length));
+    await p.click('[data-jfr=tri]'); await p.waitForTimeout(200);
     const [imp] = await Promise.all([ctx.waitForEvent('page'), p.click('[data-jefimp]')]); await imp.waitForLoadState();
-    console.log(tag, 'impreso:', await imp.title(), '| secciones:', await imp.$$eval('h3', h => h.map(x => x.textContent).join(' | ')), '| tramos:', await imp.$$eval('.gseg', n => n.length));
+    console.log(tag, 'impreso:', await imp.title(), '| filtros:', (await imp.textContent('.sub')).slice(0, 160), '| secciones:', await imp.$$eval('h3', h => h.map(x => x.textContent).join(' | ')), '| tramos:', await imp.$$eval('.gseg', n => n.length),
+      '| teléfonos en barras:', await imp.$$eval('.gseg', n => n.filter(x => x.textContent.includes('☎')).length), '| filas detalle:', await imp.$$eval('table.det tr', n => n.length - 1));
+    if (!verbose) await imp.screenshot({ path: new URL('jefaturas-informe.png', import.meta.url).pathname, fullPage: true });
     await imp.close();
+    const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-jefcsv]')]);
+    const csv = fs.readFileSync(await dl.path(), 'utf8').split('\r\n');
+    console.log(tag, 'CSV:', dl.suggestedFilename(), '| filas:', csv.length - 1, '| cabecera:', csv[0].slice(0, 120));
+
     // Cambiar los sustitutos de mi permiso ya autorizado (la 3): se anulan los anteriores y se avisa a sustitutos y autorizador
     await p.evaluate(() => { const a = document.createElement('a'); a.dataset.id = '3'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(600);
     console.log(tag, 'ficha 3:', (await p.textContent('#dlg .jefpanel')).replace(/\s+/g, ' ').slice(0, 260));
@@ -226,6 +251,22 @@ async function prueba(verbose, soloAlcance) {
     await p.fill('#nApr input', 'aprob'); await p.waitForTimeout(200); await p.click('#nApr [data-sug="0"]'); await p.waitForTimeout(300);
     posts.length = 0; await p.click('#fSol #nEnviar'); await p.waitForTimeout(500);
     console.log(tag, 'pedir permiso siendo sustituto:', await p.textContent('#nError'), '| no guardado:', !posts.some(x => x.ruta.endsWith('/items')), '| errores:', errs);
+    await b.close(); return;
+  }
+  if (soloAlcance === 'sin pestaña') {
+    console.log(tag, 'sin autorizar ni ser jefe: pestaña «Mandos sustitutos»:', await p.$$eval('#tabs a[data-v=jefaturas]', n => n.length), '| pestañas:', await p.$$eval('#tabs a .tx', a => a.map(x => x.textContent).join(' | ')));
+    await b.close(); return;
+  }
+  if (soloAlcance === 'eliminar') {
+    await p.evaluate(() => { const a = document.createElement('a'); a.dataset.id = '3'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(600);
+    console.log(tag, 'botón eliminar (admin=' + admin + '):', await p.$$eval('#dlg [data-borrar]', n => n.length), '| panel admin:', await p.$$eval('#dlg .panel.admin', n => n.length));
+    if (admin) {
+      await p.click('#dlg [data-borrar]'); await p.waitForTimeout(200);
+      console.log(tag, 'confirmación:', await p.textContent('#dlg [data-borrarok]'));
+      posts.length = 0; await p.click('#dlg [data-borrarok]'); await p.waitForTimeout(1500);
+      console.log(tag, 'eliminada:', posts.filter(x => x.ruta.includes('recycle')).map(x => x.ruta).join(), '| ficha cerrada:', !(await p.evaluate(() => document.querySelector('#dlg').open)),
+        '| sigue en la lista:', await p.$$eval('[data-id="3"]', n => n.length), '| sustitutos de la 3:', ints.filter(x => x.NumSolicitud === 3).map(x => x.EstadoSustitucion).join(','), '| cabecera:', await p.textContent('#estadoCarga'), '| errores:', errs);
+    }
     await b.close(); return;
   }
   if (soloAlcance === 'preparar jefaturas') {
@@ -345,7 +386,7 @@ async function prueba(verbose, soloAlcance) {
     console.log(tag, 'errores:', errs); admin = false;
     await b.close(); return;
   }
-  if (soloAlcance && soloAlcance !== 'correo rechazado' && soloAlcance !== 'jefaturas' && soloAlcance !== 'preparar jefaturas' && soloAlcance !== 'crear lista de pruebas' && soloAlcance !== 'solape en borrador') {
+  if (soloAlcance && soloAlcance !== 'correo rechazado' && soloAlcance !== 'jefaturas' && soloAlcance !== 'sin pestaña' && soloAlcance !== 'eliminar' && soloAlcance !== 'preparar jefaturas' && soloAlcance !== 'crear lista de pruebas' && soloAlcance !== 'solape en borrador') {
     await p.click('#tabs a[data-v=todas]'); await p.waitForTimeout(300);
     console.log(tag, soloAlcance, '| pestañas:', await p.$$eval('#tabs a', a => a.map(x => x.textContent).join(' | ')));
     console.log(tag, soloAlcance, '| filtro en servidor:', ultimoFiltro ? 'sí' : 'no', '| ids en consulta:', await p.$$eval('.sol', n => n.map(x => x.dataset.id).join(',')), '|', await p.textContent('#vista p.muted.small'));
@@ -565,6 +606,11 @@ otraCuenta = true; await prueba(false, 'cuentas'); await prueba(true, 'cuentas')
 jefeNombre = true; registro = false; await prueba(false, 'jefe por nombre'); sinSubstr = true; await prueba(true, 'jefe por nombre'); sinSubstr = false; jefeNombre = false; registro = true;
 registro = false; await prueba(false, 'solape en borrador'); await prueba(true, 'solape en borrador'); registro = true;
 mando = true; registro = false; sustYo = true; await prueba(false, 'jefaturas'); await prueba(true, 'jefaturas'); mando = false; sustYo = false;
+// Autorizador (sin ser del grupo del mando): ve sus ausencias de jefe y las de los permisos que autoriza, no las de otras unidades
+console.log('--- autorizador sin grupo del mando ---'); registro = false; soloMios = true; await prueba(false, 'jefaturas'); soloMios = false;
+ajeno = true; await prueba(false, 'sin pestaña'); await prueba(true, 'sin pestaña'); ajeno = false;
+// Eliminar: solo el administrador del sitio
+await prueba(false, 'eliminar'); admin = true; await prueba(false, 'eliminar'); await prueba(true, 'eliminar'); admin = false; registro = true;
 admin = true; intLista = false; grupoMando = null; await prueba(false, 'preparar jefaturas'); intLista = true; grupoMando = [{ Id: 90, Title: 'EL GENERAL' }]; intCampos = null; admin = false; registro = true;
 cuentaVieja = true; registro = false; buzonMal = ['viejo@et.mde.es', 'i:0#.w|et\\u777']; await prueba(false, 'cuenta vieja'); await prueba(true, 'cuenta vieja'); buzonMal = []; cuentaVieja = false; registro = true;
 jefeOtraCuenta = true; registro = false; await prueba(false, 'jefe por correo'); await prueba(true, 'jefe por correo'); jefeOtraCuenta = false; registro = true;

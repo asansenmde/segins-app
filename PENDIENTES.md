@@ -45,9 +45,11 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
    cuatro copias protegidas y haga un «Correo de prueba» en cada una.
 
 10. **Permisos: sustituciones de los jefes de unidad** (versión 2026-10-23 · 1, probado en simulación): tipos de sustitución,
-    sin «interino», sustitutos que no pueden estar de permiso; pestaña renombrada «Mandos sustitutos» (de momento la ve el
-    General/grupo; el usuario pidió además que cada autorizador vea solo lo suyo con calendarios e impresión: **queda
-    aparcado «por ahora»**). Probar primero con `permisos-pruebas.html` (lista «SUSTITUCIONES JEFES UNIDAD PRUEBAS»).
+    sin «interino», sustitutos que no pueden estar de permiso; pestaña «Mandos sustitutos». El usuario probó la copia de
+    pruebas (26/10/2026) y pidió la versión 2026-10-26 · 1: pestaña solo para autorizadores (lo que autorizan), jefes (lo
+    suyo) y mando (todo); filtros por fechas y unidad, teléfonos en las barras, detalle, resumen, informe y CSV; eliminar
+    solicitudes solo el administrador; menú más visual. **Entregada la copia de pruebas; cuando la dé por buena, entregar
+    la original protegida (`permisos.html`).**
 11. **Tareas Colabora: expediente y estado** (versión 2026-10-23 · 3, probado en simulación): el expediente es el nº de
     Colabora; estado terminado ⇔ fecha de finalización obligatoria; la situación la marca solo el estado. Los asuntos
     antiguos incoherentes salen con aviso ⚠ («Fecha de fin sin estado terminado» / «Terminado sin fecha de fin»):
