@@ -83,6 +83,8 @@ async function prueba(verbose, escenario) {
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1366, height: 860 }, acceptDownloads: true }); if (escenario !== 'Control total y solo SUIGESUR') await ctx.addInitScript(() => { try { localStorage.setItem('incidentes-seguridad-ige', JSON.stringify({ agrupar: '' })); } catch (e) {} });
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message)); const posts = [], gets = [], dialogos = [];
+  // Confirmación dentro de la ficha: la deja en «dialogos» y pulsa «Sí, guardar y enviar»
+  const ok = async () => { await p.waitForTimeout(150); const bk = await p.$('#detAcc [data-accok]'); if (bk) { dialogos.push((await p.textContent('#detAcc .confirma')).replace(/\s+/g, ' ')); await bk.click(); } };
   p.on('dialog', dl => { dialogos.push(dl.message()); dl.accept().catch(() => {}); });
   await p.route(O + '/**', async r => {
     const req = r.request(), u = decodeURIComponent(req.url());
@@ -261,7 +263,7 @@ async function prueba(verbose, escenario) {
     console.log(tag, '| informado hoy:', (await p.textContent('#detAcc .panel')).replace(/\s+/g, ' ').slice(0, 170), '| botón IGE:', !!(await p.$('[data-acc=suigeIgeSD]')));
     await p.click('#dlg [data-cerrar]'); await p.click('.inc[data-id="11"]'); await p.waitForTimeout(800);
     console.log(tag, '| hace 10 días:', (await p.textContent('#detAcc .panel')).replace(/\s+/g, ' ').slice(0, 140));
-    posts.length = 0; await p.click('[data-acc=suigeIgeSD]'); await p.waitForTimeout(1400);
+    posts.length = 0; await p.click('[data-acc=suigeIgeSD]'); await ok(); await p.waitForTimeout(1400);
     const c = merge(11), m = correos().pop();
     console.log(tag, '| eleva a IGE:', JSON.stringify({ ESTADO: c.ESTADO, Hist: (c.ObservacionesDelExpediente || '').split('\n').pop().replace(/^.*? · .*? · /, '') }), '| correo a:', m && m.To.results, 'cc:', m && m.CC.results, '|', m && m.Subject, '| errores:', errs);
     await b.close(); return;
@@ -274,7 +276,7 @@ async function prueba(verbose, escenario) {
   if (escenario === 'IGE valora') {
     await p.evaluate(() => { const a = document.createElement('a'); a.className = 'inc'; a.dataset.id = '3'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(700);
     console.log(tag, '| paneles:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
-    await p.fill('#vIge', 'Remitido 26/10/2026 análisis incidente'); posts.length = 0; await p.click('[data-acc=valIge]'); await p.waitForTimeout(2500);
+    await p.fill('#vIge', 'Remitido 26/10/2026 análisis incidente'); posts.length = 0; await p.click('[data-acc=valIge]'); await ok(); await p.waitForTimeout(2500);
     const c = merge(3);
     console.log(tag, '| confirmación:', dialogos.pop(), '| ficha cerrada:', !(await p.evaluate(() => document.querySelector('#dlg').open)));
     console.log(tag, '| guardado:', JSON.stringify(c && { ESTADO: c.ESTADO, ValoradoPorIGE: c.ValoradoPorIGE }), '| mensaje:', (await p.textContent('#vista .resultado').catch(() => '')).replace(/\s+/g, ' ').slice(0, 250), '| errores:', errs);
@@ -283,7 +285,7 @@ async function prueba(verbose, escenario) {
     for (const vez of [1, 2]) {
       await p.evaluate(() => { const a = document.createElement('a'); a.className = 'inc'; a.dataset.id = '3'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(700);
       if (vez === 1) console.log(tag, '| botón ya valorado:', await p.textContent('[data-acc=valIge]'));
-      await p.fill('#vIge', 'Nueva valoración ' + vez); posts.length = 0; await p.click('[data-acc=valIge]'); await p.waitForTimeout(2500);
+      await p.fill('#vIge', 'Nueva valoración ' + vez); posts.length = 0; await p.click('[data-acc=valIge]'); await ok(); await p.waitForTimeout(2500);
       console.log(tag, '| correo denegado, intento', vez, ':', (await p.textContent('#vista .resultado').catch(() => 'SIN RESULTADO')).replace(/\s+/g, ' ').slice(0, 300), '| anotado:', anotacion(3), '| errores:', errs);
     }
     correoDenegado = false;
@@ -320,7 +322,7 @@ async function prueba(verbose, escenario) {
     // IGE UNO (destinatario del aviso a DIACU) figura en su grupo con una cuenta antigua cuya dirección y cuenta Colabora no acepta: el aviso va a su otra cuenta
     buzonMal = ['ige1@et.mde.es', 'i:0#.w|et\\usuario205']; enviados = [];
     await p.click('.inc[data-id="1"]'); await p.waitForTimeout(600);
-    await p.fill('#vSuige', 'Riesgo alto.'); posts.length = 0; await p.click('[data-acc=suigeDiacu]'); await p.waitForTimeout(2200);
+    await p.fill('#vSuige', 'Riesgo alto.'); posts.length = 0; await p.click('[data-acc=suigeDiacu]'); await ok(); await p.waitForTimeout(2200);
     console.log(tag, '| mensaje:', (await p.textContent('#vista .resultado')).replace(/\s+/g, ' ').slice(0, 330));
     console.log(tag, '| llegó a:', enviados.join(', '), '| estado guardado:', merge(1).ESTADO, '| anotado:', anotacion(1), '| errores:', errs);
     buzonMal = []; await b.close(); return;
@@ -329,10 +331,10 @@ async function prueba(verbose, escenario) {
   await p.click('.inc[data-id="1"]'); await p.waitForTimeout(600);
   console.log(tag, '| pasos 1:', (await p.textContent('#dlg .pasos')).replace(/\s+/g, ' '), '| aviso reiterado:', (await p.textContent('#dlg .aviso').catch(() => '')).slice(0, 40));
   console.log(tag, '| textos leídos:', (await p.textContent('#detTextos')).includes('TEXTO RESERVADO DEL PARTE'), '| botones:', await p.$$eval('#detAcc [data-acc]', n => n.map(x => x.textContent).join(' | ')));
-  await p.fill('#vSuige', ''); await p.click('[data-acc=suigeDiacu]'); await p.waitForTimeout(150);
+  await p.fill('#vSuige', ''); await p.click('[data-acc=suigeDiacu]'); await ok(); await p.waitForTimeout(150);
   console.log(tag, '| informar sin valoración:', await p.textContent('#accMsg'));
   await p.fill('#vSuige', 'Riesgo alto: reforzar el vallado.\nRevisar cámaras.'); posts.length = 0;
-  await p.click('[data-acc=suigeDiacu]'); await p.waitForTimeout(1400);
+  await p.click('[data-acc=suigeDiacu]'); await ok(); await p.waitForTimeout(1400);
   let c = merge(1), m = correos().pop();
   console.log(tag, '| SUIGE › DIACU:', JSON.stringify({ ESTADO: c.ESTADO, ValoradoPorSUIGE: c.ValoradoPorSUIGE, VALORACIONSUIGES: c.VALORACIONSUIGES, Obs: (c.ObservacionesDelExpediente || '').slice(-50), Mod: c.ModificadoPorTEXTO }));
   console.log(tag, '| correo:', m.To.results, 'cc', m.CC.results, 'cco', (m.BCC ? m.BCC.results : []), '|', m.Subject, '| sin texto del parte:', !m.Body.includes('TEXTO RESERVADO'), '| enlace:', (m.Body.match(/href="([^"]+)"/) || [])[1]);
@@ -343,19 +345,19 @@ async function prueba(verbose, escenario) {
   // 2) DIACU informa a IGE el 2 (sin texto, error)
   await p.click('#tabs a[data-v=pendientes]'); await p.click('.inc[data-id="2"]'); await p.waitForTimeout(600);
   console.log(tag, '| ficha 2, paneles:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
-  await p.click('[data-acc=diacuIge]'); await p.waitForTimeout(150);
+  await p.click('[data-acc=diacuIge]'); await ok(); await p.waitForTimeout(150);
   console.log(tag, '| informar a IGE sin texto:', await p.textContent('#accMsg'));
-  await p.fill('#vDiacu', 'Se informa a IGE por reincidencia.'); posts.length = 0; await p.click('[data-acc=diacuIge]'); await p.waitForTimeout(1400);
+  await p.fill('#vDiacu', 'Se informa a IGE por reincidencia.'); posts.length = 0; await p.click('[data-acc=diacuIge]'); await ok(); await p.waitForTimeout(1400);
   c = merge(2); m = correos().pop();
   console.log(tag, '| DIACU › IGE:', JSON.stringify({ ESTADO: c.ESTADO, DIACU: c.DIACU, ValoradoPorDIACU: c.ValoradoPorDIACU, VALORACIONDIACU: c.VALORACIONDIACU }), '| correo a:', m.To.results, 'cc:', m.CC.results, '|', m.Subject);
   // 3) IGE valora el 3
   await p.click('#tabs a[data-v=pendientes]'); await p.click('.inc[data-id="3"]'); await p.waitForTimeout(600);
-  await p.fill('#vIge', 'Conforme con las medidas.'); posts.length = 0; await p.click('[data-acc=valIge]'); await p.waitForTimeout(1400);
+  await p.fill('#vIge', 'Conforme con las medidas.'); posts.length = 0; await p.click('[data-acc=valIge]'); await ok(); await p.waitForTimeout(1400);
   c = merge(3); m = correos().pop();
   console.log(tag, '| IGE:', JSON.stringify({ ESTADO: c.ESTADO, ValoradoPorIGE: c.ValoradoPorIGE, valoracionIGE: c.valoracionIGE }), '| correo a:', m.To.results, 'cc:', m.CC.results, '|', m.Subject, '| ficha cerrada:', !(await p.evaluate(() => document.querySelector('#dlg').open)));
   await p.evaluate(() => { const a = document.createElement('a'); a.className = 'inc'; a.dataset.id = '3'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(700); console.log(tag, '| reabierta, paneles:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
   // 4) Cierre del 3
-  await p.fill('#vCierre', 'Medidas implantadas.'); posts.length = 0; await p.click('[data-acc=cerrar]'); await p.waitForTimeout(1400);
+  await p.fill('#vCierre', 'Medidas implantadas.'); posts.length = 0; await p.click('[data-acc=cerrar]'); await ok(); await p.waitForTimeout(1400);
   c = merge(3); m = correos().pop();
   console.log(tag, '| cerrar:', JSON.stringify({ ESTADO: c.ESTADO, Obs: (c.ObservacionesDelExpediente || '').split('\n').length + ' líneas' }), '| correo a:', m.To.results, 'cc:', m.CC.results);
   if (!verbose) await p.screenshot({ path: new URL('ficha.png', import.meta.url).pathname });
@@ -373,7 +375,7 @@ async function prueba(verbose, escenario) {
   // 6) Conflicto: otro cambia el 8 mientras está abierto
   await p.click('#dlg [data-cerrar]'); await p.click('.inc[data-id="8"]'); await p.waitForTimeout(500);
   items.find(x => x.Id === 8).Modified = new Date(Date.now() + 99999).toISOString();
-  await p.fill('#vSuige', 'x'); await p.click('[data-acc=suigeDiacu]'); await p.waitForTimeout(800);
+  await p.fill('#vSuige', 'x'); await p.click('[data-acc=suigeDiacu]'); await ok(); await p.waitForTimeout(800);
   console.log(tag, '| conflicto:', await p.textContent('#accMsg'));
   await p.click('#dlg [data-cerrar]');
   // 6b) Correo de prueba desde Ajustes

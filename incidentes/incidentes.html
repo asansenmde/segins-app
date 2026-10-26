@@ -173,6 +173,7 @@
   button.diacu { background: #6aa84f; color: #fff; border-color: #6aa84f; }
   button.ige { background: #38761d; color: #fff; border-color: #38761d; }
   @media (max-width: 600px) { .barras { grid-template-columns: 40% 1fr auto; } }
+  .confirma { background: #fff4d6; border: 2px solid #c8961e; border-radius: 10px; padding: 10px 12px; margin: 8px 0; color: #3d2a00; }
 </style>
 </head>
 <body>
@@ -218,7 +219,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-26 · 1';
+  var VERSION = '2026-10-26 · 2';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -1384,7 +1385,7 @@
     return h + '<div id="accMsg"></div>';
   }
   var msgAcc = function (cls, txt) { var el = $('#accMsg'); if (el) el.innerHTML = '<div class="' + cls + '">' + txt + '</div>'; };
-  function accion(t, a, boton) {
+  function accion(t, a, boton, confirmado) {
     var v = function (id) { var el = $('#' + id); return el ? el.value.trim() : ''; };
     var c = {}, nota = null, correo = null, txt = '', ok = '';
     var exige = function (x, m) { if (!x) { msgAcc('error', m); throw 0; } };
@@ -1429,7 +1430,19 @@
     var CONFIRMA = { suigeDiacu: 'informar a DIACU', suigeIgeSD: 'elevar a IGE sin valoración de DIACU', diacuIge: 'informar a IGE', valIge: 'guardar la valoración de IGE', cerrar: 'cerrar el expediente', reabrir: 'reabrir el expediente' };
     var cierra = !!CONFIRMA[a];
     resultadoTramite = null;
-    if (cierra && !window.confirm('Incidente nº ' + t.id + ': ¿seguro que quieres ' + CONFIRMA[a] + '?\n\nSe guardará' + (pref.correo && correo ? ', se enviará el aviso por correo' : '') + ' y se cerrará la ficha.')) return;
+    // Confirmación dentro de la ficha (no con window.confirm: en la página del portal o con los diálogos bloqueados no sale)
+    if (cierra && !confirmado) {
+      var fila = boton.closest('.acciones'), previa = document.querySelector('#detAcc .confirma');
+      if (previa) previa.remove();
+      Array.prototype.forEach.call(document.querySelectorAll('#detAcc .acciones'), function (x) { x.hidden = false; });
+      if (fila) fila.hidden = true;
+      var caja = '<div class="confirma"><b>Incidente nº ' + t.id + ': ¿seguro que quieres ' + esc(CONFIRMA[a]) + '?</b><br>Se guardará' +
+        (pref.correo && correo ? ', <b>se enviará el aviso por correo</b>' : '') + ' y se cerrará la ficha.' +
+        '<div class="acciones"><button class="prim" data-accok="' + a + '">✓ Sí, guardar y enviar</button><button data-acccancel="1">Cancelar</button></div></div>';
+      if (fila) fila.insertAdjacentHTML('afterend', caja); else msgAcc('aviso', caja);
+      var cj = document.querySelector('#detAcc .confirma'); if (cj && cj.scrollIntoView) cj.scrollIntoView({ block: 'center' });
+      return;
+    }
     boton.disabled = true;
     if (a === 'recordar') {
       return avisoDe('recordar', t, '').then(enviarCorreo).then(function (r) { return anotarAviso(t.id, r).then(function () { return r; }); }).then(function (r) {
@@ -2036,6 +2049,9 @@
     if (el.closest('[data-limpiar]')) { pref.f = { q: '', fase: '', tipo: '', suige: '', prob: '', desde: '', hasta: '' }; guardarPref(); render(); return; }
     var fi = el.closest('[data-fichaimp]');
     if (fi) { var tf = items.find(function (x) { return x.id === Number(fi.dataset.fichaimp); }); if (tf) imprimirFicha(tf); return; }
+    var ak = el.closest('[data-accok]');
+    if (ak) { var tk = items.find(function (x) { return x.id === dlgId; }); if (tk) accion(tk, ak.dataset.accok, ak, true); return; }
+    if (el.closest('[data-acccancel]')) { var cc = el.closest('.confirma'); if (cc) cc.remove(); Array.prototype.forEach.call(document.querySelectorAll('#detAcc .acciones'), function (x) { x.hidden = false; }); return; }
     var ac = el.closest('[data-acc]');
     if (ac) { var ta = items.find(function (x) { return x.id === dlgId; }); if (ta) accion(ta, ac.dataset.acc, ac); return; }
     var s = el.closest('[data-id]');

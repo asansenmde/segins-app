@@ -141,7 +141,8 @@ sino una regla o flujo de trabajo de la lista heredado de InfoPath: desactivarla
   cerrados), cada fase lleva a la consulta filtrada.
 - **Estadísticas**: tarjetas de probabilidad alta o muy alta (abiertos), reiterados, con denuncia, partes del año y
   cerrados (antes en el panel) y barras de colores (probabilidad y fase con su color).
-- **Confirmar, guardar, avisar y cerrar** (versión 2026-10-26 · 1): informar a DIACU, elevar a IGE, la valoración de IGE,
+- **Confirmar, guardar, avisar y cerrar** (versión 2026-10-26 · 1; · 2: la confirmación es una caja dentro de la ficha,
+  no `window.confirm`, que en el portal o con los diálogos bloqueados no sale): informar a DIACU, elevar a IGE, la valoración de IGE,
   cerrar y reabrir piden confirmación; al aceptar se guarda, se envía el aviso, se cierra la ficha y el resultado (y si el
   correo no salió, con «Preparar el correo en Outlook») queda arriba en la página. Lo que falle después de guardar (correo,
   anotación, recarga) ya no sale como «No se pudo guardar». Con el parte ya valorado, el botón es «Actualizar la valoración
