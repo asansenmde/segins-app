@@ -58,6 +58,9 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
     circuito unidad › SUIGE › IGE, acceso de Incidentes, datos personales solo para quien tramita. Pendiente: subir
     `perdidas/colabora/perdidas.html`, crear las columnas de seguimiento en «Ajustes» y comprobar con datos reales
     (34 notificaciones antiguas, casi todas en REMITIDO A M1 sin SUIGES: la SUIGE sale de la unidad).
+    Permisos de la lista: «Colaborar» a INCIDENTES_UNIDADES y SEGURIDAD_*, sin «Usuarios del dominio» (como Incidentes).
+    **Aparcado «por ahora»** (el usuario lo analiza): permisos por elemento al remitir (cada pérdida visible solo para su
+    unidad, su SUIGE e IGE), porque con «Colaborar» la lista abierta directamente en Colabora deja ver las de otras unidades.
 
 Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar por la que diga).
 
