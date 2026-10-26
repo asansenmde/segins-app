@@ -48,8 +48,8 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
     sin «interino», sustitutos que no pueden estar de permiso; pestaña «Mandos sustitutos». El usuario probó la copia de
     pruebas (26/10/2026) y pidió la versión 2026-10-26 · 1: pestaña solo para autorizadores (lo que autorizan), jefes (lo
     suyo) y mando (todo); filtros por fechas y unidad, teléfonos en las barras, detalle, resumen, informe y CSV; eliminar
-    solicitudes solo el administrador; menú más visual. **Entregada la copia de pruebas; cuando la dé por buena, entregar
-    la original protegida (`permisos.html`).**
+    solicitudes solo el administrador; menú más visual. El usuario dio por buena la copia de pruebas y se entregó la
+    original protegida (`permisos/colabora/permisos.html`, 26/10/2026). Pendiente de que la suba a Colabora.
 11. **Tareas Colabora: expediente y estado** (versión 2026-10-23 · 3, probado en simulación): el expediente es el nº de
     Colabora; estado terminado ⇔ fecha de finalización obligatoria; la situación la marca solo el estado. Los asuntos
     antiguos incoherentes salen con aviso ⚠ («Fecha de fin sin estado terminado» / «Terminado sin fecha de fin»):
