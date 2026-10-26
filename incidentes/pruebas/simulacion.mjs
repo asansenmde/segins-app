@@ -269,6 +269,14 @@ async function prueba(verbose, escenario) {
   console.log(tag, '| pestañas:', pestañas, '| filtro:', ultimoFiltro ? (ultimoFiltro.includes('substringof') ? 'con cadena de mando' : 'sin cadena de mando') : 'ninguno (ve todo)');
   console.log(tag, '| panel:', (await p.$$eval('.mini > div', k => k.map(x => x.textContent.replace(/^\D*?(\d+)/, '$1 ')))).join(' · '), '| circuito:', (await p.$$eval('.flujo .fp', k => k.map(x => x.textContent.replace(/^\S+/, '').replace(/(\d+)$/, ':$1')))).join(' › '));
   if (!verbose && escenario === 'control total') await p.screenshot({ path: new URL('panel.png', import.meta.url).pathname, fullPage: true });
+  if (escenario === 'IGE valora') {
+    await p.evaluate(() => { const a = document.createElement('a'); a.className = 'inc'; a.dataset.id = '3'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(700);
+    console.log(tag, '| paneles:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
+    await p.fill('#vIge', 'Remitido 26/10/2026 análisis incidente'); posts.length = 0; await p.click('[data-acc=valIge]'); await p.waitForTimeout(2500);
+    const c = merge(3);
+    console.log(tag, '| guardado:', JSON.stringify(c && { ESTADO: c.ESTADO, ValoradoPorIGE: c.ValoradoPorIGE }), '| mensaje:', (await p.textContent('#dlg .okmsg, #dlg .aviso, #accMsg').catch(() => '')).replace(/\s+/g, ' ').slice(0, 250), '| errores:', errs);
+    await b.close(); return;
+  }
   if (escenario === 'solo SEGURIDAD_IGE') { await p.click('#tabs a[data-v=panel]'); await p.waitForTimeout(200); }
   await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200);
   console.log(tag, '| pendientes:', (await p.$$eval('#vista .sec', s => s.map(x => x.textContent.replace(/(\d+)$/, ' = $1')))).join(' · '), '| ids:', await p.$$eval('#vista .inc', n => n.map(x => x.dataset.id).join(',')));
@@ -438,7 +446,7 @@ const TODOS = ['SEGURIDAD_SUIGESUR', 'SEGURIDAD_SUIGENOR', 'SEGURIDAD_SUIGECAN',
 misGrupos = TODOS; admin = true; await prueba(false, 'control total'); sinEmpleos = true; rechazaFrom = true; grupoUnico = true; await prueba(true, 'control total'); sinEmpleos = false; rechazaFrom = false; grupoUnico = false;
 misGrupos = ['SEGURIDAD_SUIGESUR', 'Integrantes de la Colaborativo']; admin = false; await prueba(false, 'solo SUIGESUR'); await prueba(true, 'plazo DIACU');
 sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstringof = false;
-misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'solo SEGURIDAD_IGE'); await prueba(false, 'informe'); await prueba(true, 'informe');
+misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'IGE valora'); await prueba(true, 'IGE valora'); if (process.env.SOLO_IGE) process.exit(0); await prueba(false, 'solo SEGURIDAD_IGE'); await prueba(false, 'informe'); await prueba(true, 'informe');
 misGrupos = ['SEGURIDAD_SUIGESUR']; admin = true; await prueba(false, 'Control total y solo SUIGESUR'); admin = false;
 misGrupos = []; await prueba(false, 'solo información'); await prueba(true, 'solo información'); await prueba(false, 'sin acceso'); await prueba(true, 'sin acceso'); await prueba(false, 'provisional');
 misGrupos = TODOS; admin = true; await prueba(false, 'correo rechazado'); await prueba(true, 'correo rechazado'); admin = false;
