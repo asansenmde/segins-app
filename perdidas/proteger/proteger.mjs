@@ -28,7 +28,10 @@ const ofuscado = JavaScriptObfuscator.obfuscate(codigo, {
   deadCodeInjection: false,
   selfDefending: true,            // deja de funcionar si alguien lo reformatea para leerlo
   domainLock: ['.mdef.es'],       // solo funciona dentro de los dominios de Defensa (colabora.mdef.es…)
-  unicodeEscapeSequence: false
+  unicodeEscapeSequence: false,
+  // Semilla fija: la misma página da siempre la misma copia. Algunas copias (al azar) llegaban a Edge con el programa anulado
+  // y salía el código como texto (la del 27/10 · 2); con esta semilla funciona. Si vuelve a pasar: SEMILLA=otro número.
+  seed: Number(process.env.SEMILLA || 20261027)
 }).getObfuscatedCode();
 
 const aviso = '<!--\n  Pérdida de documentación · Inspección General del Ejército · versión ' + version + ' (protegida)\n' +

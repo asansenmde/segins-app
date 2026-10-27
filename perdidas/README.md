@@ -4,7 +4,9 @@ Página de una sola pieza (`perdidas.html`) para la lista **«PERDIDA DOCUMENTAC
 `/et/jige/colaborativo` (el mismo de Incidentes y VSA). Sustituye al formulario InfoPath `perdida_de_documentacion.xsn`.
 
 - **Se sube a Colabora:** `colabora/perdidas.html` (copia protegida: ofuscada, solo funciona en `*.mdef.es`).
-  Regenerarla tras cada cambio: `cd perdidas/proteger && npm install && node proteger.mjs`.
+  Regenerarla tras cada cambio: `cd perdidas/proteger && npm install && node proteger.mjs`. La ofuscación usa una semilla
+  fija (20261027): con la elegida al azar, la copia del 27/10 · 2 llegaba a Edge con el programa anulado y se veía el código
+  como texto. Si una copia nueva vuelve a hacerlo, regenerarla con otra semilla (`SEMILLA=123 node proteger.mjs`).
 - **Original legible:** `perdidas.html` (es el que se edita).
 - © 2026 Cte. Alfredo Sánchez Sender.
 

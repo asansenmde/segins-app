@@ -163,6 +163,13 @@ queda el aviso de autoría). Aviso de autoría «© 2026 Cte. Alfredo Sánchez S
 `meta author` y pie visible (oculto al imprimir). Las pruebas simuladas se pasan también contra la copia protegida
 (el origen simulado `https://colabora.mdef.es` cumple el bloqueo de dominio).
 
+**Si la copia protegida sale como código** (la cabecera y los estilos se ven, pero el programa aparece como texto debajo
+del pie y la página se queda en «Cargando…»): a algunas copias, según cómo salgan al azar, algo entre Colabora y Edge
+(antivirus o filtro de red) les anula el programa; el original y la simulación funcionan. Pasó con Incidentes 26/10 · 1
+y Pérdidas 27/10 · 2. Arreglo: generar otra copia con otra `seed` del ofuscador y probarla con otro nombre; en
+`perdidas/proteger` la semilla ya es fija (`SEMILLA=n` para cambiarla). La variante sin cifrar los textos
+(`stringArrayEncoding: []`) tampoco pasó.
+
 ## Ocultar la ruleta y la cinta en el portal (Editor de scripts) · 20/10/2026
 
 Página del portal: `/et/jige/colaborativo/SitePages/AREA SEGURIDAD PUBLICO.aspx`, elemento web **Editor de scripts**.
