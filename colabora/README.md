@@ -35,6 +35,14 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Asuntos desde MENSADEF y desde correos de Outlook** (versión 2026-10-27 · 1; ver `SINCRONIZACION.md`): el visor de
+  MENSADEF abre la página con `#importar=<datos>` («➜ Crear tarea en Colabora») y aparece el alta rellena (asunto y, en
+  la descripción, origen, referencias, expediente de MENSADEF, enlace y texto). También funciona si el `#` llega a la página
+  del portal que la contiene. Los correos se arrastran a la página o se eligen con «✉ Desde correo»: `.msg` (Outlook de
+  escritorio) y `.eml` (Outlook en la web), leídos en el navegador. **Sin duplicados**: la descripción lleva
+  `Id. mensaje MENSADEF: …` o `Id. correo: …`; si se vuelve a pasar, avisa y enseña el asunto existente.
+- **Actualización automática** (cada 2 minutos por defecto, *Ajustes*; 0 = no): con la pestaña visible y sin ficha abierta;
+  marca «Nuevo» / «Cambiado» lo que han tocado otras personas hasta que se abre.
 - **Dentro de una página del portal** (iframe): los enlaces de los correos y «Ver en Colabora» llevan a la página del
   portal (también con `start.aspx#/…`).
 - **Alta de asuntos**: botón «＋ Nuevo asunto» o el campo rápido de *Mis NLT*, que entiende fechas escritas
