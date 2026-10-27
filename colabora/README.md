@@ -42,8 +42,19 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   usuario**: la página no manda correos por sí misma. El enlace se limita a ~2000 caracteres. En el detalle
   de cada asunto, «Recordar por correo». También exporta los asuntos propios a Outlook (.ics) con alarma
   N días antes a las 9:00. Para avisos automáticos haría falta un flujo de trabajo en el servidor.
+- **Asuntos desde MENSADEF**: el visor de MENSADEF abre esta página con `#importar=<datos>` (botón «➜ Crear tarea
+  en Colabora») y aparece el alta rellena para revisarla y crearla. El fragmento no llega a ningún servidor y se
+  borra de la dirección al leerlo.
+- **Asuntos desde un correo de Outlook**: arrastrar el correo a la página o «✉ Desde correo». Lee `.msg` (Outlook de
+  escritorio, formato compuesto de Microsoft) y `.eml` (Outlook en la web) en el navegador: asunto, remitente,
+  destinatarios, fecha, texto y nombres de adjuntos.
+- **Sin duplicados**: la descripción lleva `Id. mensaje MENSADEF: …` o `Id. correo: …`; si se vuelve a pasar el
+  mismo, avisa y enseña el asunto existente.
+- **Actualización automática** (cada 2 minutos por defecto, *Ajustes*; 0 = no): con la pestaña visible y sin ficha
+  abierta. Marca «Nuevo» / «Cambiado» lo que han tocado otras personas hasta que se abre.
 - **Estado al crear**: «Remitido al negociado» (como al enviarlo desde Colabora); se cambia en *Ajustes*.
 - `pruebas/simulacion.mjs`: prueba con Playwright contra un Colabora simulado (`node colabora/pruebas/simulacion.mjs`).
+  `pruebas/importar.mjs`: alta desde MENSADEF y desde correos .msg/.eml, duplicados y actualización automática.
 - `prueba-sharepoint.html`: página de diagnóstico que comprueba si el sitio ejecuta páginas propias y
   lista las listas y columnas (sin contenido).
 

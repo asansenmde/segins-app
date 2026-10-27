@@ -62,6 +62,8 @@
   .dia i.bad { background: var(--bad-bg); color: var(--bad); }
   dialog { width: min(760px, calc(100vw - 16px)); max-height: calc(100vh - 16px); border: 0; border-radius: 14px; padding: 0; }
   dialog::backdrop { background: rgba(0,0,0,.45); }
+  body.soltando main { outline: 3px dashed var(--brand); outline-offset: -6px; }
+  body.soltando main::before { content: "Suelta el correo para crear un asunto"; display: block; text-align: center; font-weight: 700; padding: 10px; }
   .dh { position: sticky; top: 0; background: var(--brand); color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; gap: 10px; }
   .dh h2 { margin: 0; font-size: 1.05rem; }
   .db { padding: 12px 16px; }
@@ -92,6 +94,8 @@
   <h1>Tareas NLT · Colabora</h1>
   <span class="estado" id="estadoCarga">Cargando…</span>
   <button id="nuevo" title="Dar de alta un asunto en Colabora">＋ Nuevo asunto</button>
+  <button id="desdeCorreo" title="Crear un asunto a partir de un correo de Outlook (.msg o .eml). También puedes arrastrarlo a la página">✉ Desde correo</button>
+  <input type="file" id="ficheroCorreo" accept=".msg,.eml,message/rfc822,application/vnd.ms-outlook" hidden>
   <button id="recargar" title="Volver a leer la lista">↻ Actualizar</button>
 </header>
 <main>
@@ -222,10 +226,14 @@
     return t;
   }
 
-  function cargar() {
-    $('#estadoCarga').textContent = 'Cargando…';
+  // silencioso: actualización automática (no muestra «Cargando…» ni redibuja si se está escribiendo)
+  var cargando = null;
+  function cargar(silencioso) {
+    // Si ya hay una lectura en curso: la automática se une a ella; la pedida (tras guardar) lee otra vez al terminar
+    if (cargando) return silencioso ? cargando : cargando.then(function () { return cargar(); });
+    if (!silencioso) $('#estadoCarga').textContent = 'Cargando…';
     var p = web ? Promise.resolve(web) : webDe(location.pathname.replace(/\/[^/]*$/, '')).then(function (w) { web = w; return w; });
-    return p.then(function () {
+    cargando = p.then(function () {
       return Promise.all([
         yo ? yo : api(web.url + '/_api/web/currentuser?$select=Id,Title,Email').then(function (u) { yo = u; return u; }),
         api(urlLista() + '?$select=Id,Title,ItemCount,ListItemEntityTypeFullName,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { listaInfo = l; }),
@@ -246,23 +254,35 @@
       var pagina = function (url) {
         return api(url).then(function (d) {
           todos = todos.concat(lista(d.value));
-          $('#estadoCarga').textContent = 'Cargando… ' + todos.length;
+          if (!silencioso) $('#estadoCarga').textContent = 'Cargando… ' + todos.length;
           var sig = d['odata.nextLink'] || d['@odata.nextLink'];
           return sig ? pagina(sig) : todos;
         });
       };
       return pagina(urlLista() + '/items?$top=500&$select=' + CAMPOS_SEL.join(',') + '&$expand=' + EXPANDIR);
     }).then(function (items) {
+      var antes = cargadoEn ? new Map(tareas.map(function (t) { return [t.id, t.modificada]; })) : null;
       tareas = items.map(aTarea);
+      // Novedades desde la última lectura hechas por otras personas (las del usuario no se marcan)
+      var nuevas = 0;
+      if (antes) tareas.forEach(function (t) {
+        if (antes.get(t.id) === t.modificada || (yo && t.editor === yo.Title)) return;
+        novedades[t.id] = antes.has(t.id) ? 'Cambiado' : 'Nuevo'; nuevas++;
+      });
       cargadoEn = new Date();
-      $('#estadoCarga').textContent = tareas.length + ' asuntos · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-      render();
+      $('#estadoCarga').textContent = tareas.length + ' asuntos · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) +
+        (Object.keys(novedades).length ? ' · ' + Object.keys(novedades).length + ' novedades' : '');
+      var escribiendo = document.activeElement && document.activeElement.closest && document.activeElement.closest('#vista input, #vista textarea, #vista select');
+      if (!silencioso || (nuevas && !escribiendo)) render();
+      if (importacion) { var d = importacion; importacion = null; ofrecerImportacion(d); }
     }).catch(function (e) {
+      if (silencioso) return;
       $('#estadoCarga').textContent = 'Error';
       $('#vista').innerHTML = '<div class="error">No se pudo leer la lista «' + esc(pref.lista) + '»: ' + esc(e.message || e) +
         '.</div><p class="muted">Comprueba en Ajustes el nombre de la lista y que tienes permiso para verla.</p>';
       if (pref.vista === 'ajustes') render();
-    });
+    }).then(function () { cargando = null; });
+    return cargando;
   }
 
   // ---------- Reglas de NLT ----------
@@ -322,7 +342,7 @@
     var u = urgencia(t);
     return '<div class="card tarea ' + (t.clase === 'hecha' ? 'hecha' : u.cls) + '" data-id="' + t.id + '">' +
       (t.expediente ? '<div class="small muted">' + esc(t.expediente.split('\n')[0].slice(0, 80)) + '</div>' : '') +
-      '<div class="tit">' + esc(t.asunto) + '</div><div class="meta">' +
+      '<div class="tit">' + (novedades[t.id] ? '<span class="badge warn">' + esc(novedades[t.id]) + '</span> ' : '') + esc(t.asunto) + '</div><div class="meta">' +
       (t.prio === 'critica' && t.clase !== 'hecha' ? '<span class="badge crit">' + esc(t.prioridad.toUpperCase()) + '</span>' : t.prioridad ? '<span class="chip">' + esc(t.prioridad) + '</span>' : '') +
       '<span class="badge ' + u.cls + '">' + esc(u.txt) + '</span>' +
       (t.nlt ? '<span class="muted">NLT ' + esc(fMedia(t.nlt)) + '</span>' : '') +
@@ -1046,8 +1066,10 @@
       ests.find(function (e) { return claseEstado(e) === 'pendiente' && !/borrador/.test(sinTildes(e)); }) || ests[0] || '';
   }
   // Alta (t vacío) o modificación (t = asunto existente). Al modificar solo se envían los campos cambiados.
-  function formularioNuevo(texto, t) {
+  // pre: datos de un mensaje de MENSADEF o de un correo para rellenar el alta (asunto literal, sin interpretar)
+  function formularioNuevo(texto, t, pre) {
     var r = !t && texto ? interpretar(texto) : { titulo: '', nlt: '', prioridad: '' };
+    if (pre) r = { titulo: pre.asunto || '', nlt: interpretar(pre.asunto || '').nlt, prioridad: '' };
     var con = function (lst, v) { return v && lst.indexOf(v) < 0 ? lst.concat(v) : lst; };
     var ests = valores('ESTADO', 'estado'), prios = valores('Prioridad', 'prioridad');
     var estIni = t ? t.estado : estadoAlta(ests);
@@ -1060,9 +1082,9 @@
     var campoCom = campoComentarios();
     var conObs = !t || campoCom !== 'Comentarios';
     var dlg = $('#dlg');
-    dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Modificar asunto' : 'Nuevo asunto en «' + esc(pref.lista) + '»') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db" id="fNuevo">' +
+    dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Modificar asunto' : pre ? 'Nuevo asunto desde ' + esc(pre.origen === 'MENSADEF' ? 'MENSADEF' : 'correo') : 'Nuevo asunto en «' + esc(pref.lista) + '»') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db" id="fNuevo">' +
       '<label class="lbl">Asunto *</label><input name="Title" value="' + esc(t ? t.asunto : r.titulo || texto || '') + '">' +
-      '<p class="small muted" id="nDetect"></p>' +
+      '<p class="small muted" id="nDetect">' + (pre && r.nlt ? 'Fecha detectada en el asunto: ' + esc(fLarga(r.nlt)) + ' (puesta como NLT; cámbiala si no lo es)' : '') + '</p>' +
       '<div class="grid"><div><label class="lbl">Fecha vencimiento (NLT)' + (obligNlt ? ' *' : '') + '</label><input type="date" name="nlt" value="' + ((t ? t.nlt : r.nlt) || '') + '"></div>' +
       '<div><label class="lbl">Fecha de inicio</label><input type="date" name="inicio" value="' + (t ? t.inicio : hoy()) + '"></div>' +
       '<div><label class="lbl">Estado</label><select name="ESTADO">' + opciones(con(ests, estIni), estIni, '—') + '</select></div>' +
@@ -1076,8 +1098,8 @@
       (negsImpl.length ? '<label class="lbl">Negociados implicados</label><div>' + negsImpl.map(function (n) {
         return '<label class="check"><input type="checkbox" name="negImpl" value="' + esc(n) + '"' + (t && t.negociados.indexOf(n) >= 0 ? ' checked' : '') + '> ' + esc(n) + '</label>';
       }).join('') + '</div>' : '') +
-      '<label class="lbl">Control expediente</label><input name="ControlExpediente" value="' + esc(t ? t.expediente : '') + '">' +
-      '<label class="lbl">Descripción del asunto</label><textarea name="DescripcionDelAsunto" rows="4" ' + AREA + '>' + esc(t ? t.descripcion : '') + '</textarea>' +
+      '<label class="lbl">Control expediente</label><input name="ControlExpediente" value="' + esc(t ? t.expediente : pre ? pre.expediente : '') + '">' +
+      '<label class="lbl">Descripción del asunto</label><textarea name="DescripcionDelAsunto" rows="' + (pre ? 8 : 4) + '" ' + AREA + '>' + esc(t ? t.descripcion : pre ? pre.descripcion : '') + '</textarea>' +
       (conObs ? '<label class="lbl">Observaciones</label><textarea name="Comentarios" rows="2" ' + AREA + '>' + esc(t ? t.observaciones : '') + '</textarea>' : '') +
       '<label class="check"><input type="checkbox" id="nCorreo"' + (pref.correoAlta !== false ? ' checked' : '') + '> ' +
         (t ? 'Enviar correo de asignación a las personas que añada' : 'Enviar correo de asignación al responsable y al personal implicado') + '</label>' +
@@ -1120,16 +1142,16 @@
     $('#nImpl').onclick = function (e) { var q = e.target.closest('[data-quitarimpl]'); if (q) { e.preventDefault(); implicados.splice(Number(q.dataset.quitarimpl), 1); pintarImpl(); } };
     // Fechas escritas en el asunto («antes del viernes»): se usan como NLT si no se elige otra (solo en el alta)
     var tit = $('#fNuevo [name=Title]');
-    if (!t) tit.oninput = function () {
+    if (!t && !pre) tit.oninput = function () {
       var x = interpretar(tit.value);
       $('#nDetect').textContent = x.nlt && !$('#fNuevo [name=nlt]').value ? 'Fecha detectada en el texto: ' + fLarga(x.nlt) + ' (se usará como NLT)' : '';
     };
     $('#nCrear').onclick = function () {
       var f = $('#fNuevo');
       var v = function (n) { var el = f.querySelector('[name=' + n + ']'); return el ? (el.value || '').trim() : ''; };
-      var x = t ? { titulo: '', nlt: '' } : interpretar(v('Title'));
+      var x = t || pre ? { titulo: '', nlt: '' } : interpretar(v('Title'));
       var nlt = v('nlt') || x.nlt;
-      var asunto = t || v('nlt') ? v('Title') : (x.titulo || v('Title'));
+      var asunto = t || pre || v('nlt') ? v('Title') : (x.titulo || v('Title'));
       if (!asunto) return err('Escribe el asunto.');
       if (!nlt && obligNlt) return err('La fecha de vencimiento es obligatoria en esta lista.');
       var resp = !v('resp') ? null : respElegido && respElegido.Title === v('resp') ? respElegido : usuarioPorNombre(v('resp'));
@@ -1194,6 +1216,211 @@
     };
   }
 
+  // ---------- Asuntos desde MENSADEF y desde correos de Outlook ----------
+  // MENSADEF abre esta página con «#importar=<datos>»: el fragmento (lo que va tras «#») no se envía a ningún
+  // servidor, se queda en el navegador. Los correos se leen del archivo .msg o .eml en el propio navegador.
+  var novedades = {}, importacion = null;
+  function tomarImportacion() {
+    var m = /^#importar=(.+)$/.exec(location.hash);
+    if (!m) return;
+    try { importacion = JSON.parse(decodeURIComponent(m[1])); } catch (e) { importacion = null; }
+    if (!importacion || typeof importacion !== 'object' || !importacion.asunto) importacion = null;
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { location.hash = ''; }
+    // Con la lista ya cargada (la página estaba abierta) se ofrece en el momento
+    if (importacion && cargadoEn && !cargando) { var d = importacion; importacion = null; if ($('#dlg').open) $('#dlg').close(); ofrecerImportacion(d); }
+  }
+  tomarImportacion();
+  window.addEventListener('hashchange', tomarImportacion);
+
+  var recortar = function (s, n) { s = String(s == null ? '' : s).trim(); return s.length > n ? s.slice(0, n) + '…' : s; };
+  // Línea que identifica el origen: sirve para no crear dos veces el mismo mensaje o correo
+  var marcaOrigen = function (d) { return d.id ? (d.origen === 'MENSADEF' ? 'Id. mensaje MENSADEF: ' : 'Id. correo: ') + d.id : ''; };
+  function datosImportados(d) {
+    var f = d.fecha && !isNaN(new Date(d.fecha)) ? new Date(d.fecha).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    var lineas = [d.origen === 'MENSADEF' ? 'Origen: MENSADEF' + (d.tipo ? ' (' + d.tipo + ')' : '') : 'Origen: correo electrónico',
+      f && 'Fecha: ' + f, d.de && (d.origen === 'MENSADEF' ? 'Autoridad: ' : 'De: ') + d.de, d.para && 'Para: ' + d.para,
+      d.referencia && 'Referencia: ' + d.referencia, d.suReferencia && 'Su referencia: ' + d.suReferencia, d.expediente && 'Expediente: ' + d.expediente,
+      d.adjuntos && d.adjuntos.length && 'Adjuntos: ' + d.adjuntos.join(', '), d.enlace && 'Enlace: ' + d.enlace, marcaOrigen(d)].filter(Boolean);
+    return {
+      origen: d.origen === 'MENSADEF' ? 'MENSADEF' : 'correo', asunto: recortar(d.asunto, 255),
+      expediente: recortar(d.expediente || d.referencia || '', 255),
+      descripcion: lineas.join('\n') + (d.texto ? '\n\n' + recortar(d.texto, 8000) : ''),
+      marca: marcaOrigen(d), referencia: d.referencia || '',
+    };
+  }
+  function duplicados(pre) {
+    return tareas.filter(function (t) {
+      var h = t.descripcion + '\n' + t.expediente;
+      if (pre.marca) return h.indexOf(pre.marca) >= 0;
+      return pre.referencia && h.indexOf(pre.referencia) >= 0 && sinTildes(t.asunto) === sinTildes(pre.asunto);
+    });
+  }
+  function ofrecerImportacion(d) {
+    var pre = datosImportados(d), ya = duplicados(pre);
+    if (!ya.length) return formularioNuevo('', null, pre);
+    var dlg = $('#dlg');
+    dlg.innerHTML = '<div class="dh"><h2>Ya está en Colabora</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db">' +
+      '<p>Este ' + (pre.origen === 'MENSADEF' ? 'mensaje de MENSADEF' : 'correo') + ' ya tiene ' + (ya.length === 1 ? 'un asunto' : ya.length + ' asuntos') + ' en «' + esc(pref.lista) + '»:</p>' +
+      ya.map(function (t) { var u = urgencia(t); return '<div>• <a href="#" data-abrir="' + t.id + '">' + esc(t.asunto) + '</a> <span class="badge ' + u.cls + '">' + esc(t.estado || u.txt) + '</span>' + (t.responsable ? ' <span class="muted">👤 ' + esc(t.responsable) + '</span>' : '') + '</div>'; }).join('') +
+      '<div class="acciones"><button type="button" data-cerrar>Cerrar</button><button type="button" class="btn" id="impOtro">Crear otro asunto igualmente</button></div></div>';
+    dlg.showModal();
+    $('#impOtro').onclick = function () { formularioNuevo('', null, pre); };
+  }
+
+  // Correo .eml (formato MIME de Outlook en la web, Thunderbird…)
+  var bytesTexto = function (bytes, cs) {
+    try { return new TextDecoder(String(cs || 'utf-8').trim().replace(/^["']|["']$/g, '')).decode(bytes); } catch (e) { return new TextDecoder('windows-1252').decode(bytes); }
+  };
+  var binario = function (s) { var b = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) b[i] = s.charCodeAt(i) & 255; return b; };
+  var dePrintable = function (s) { return binario(s.replace(/=\r?\n/g, '').replace(/=([0-9A-F]{2})/gi, function (m, h) { return String.fromCharCode(parseInt(h, 16)); })); };
+  var deBase64 = function (s) { try { return binario(atob(s.replace(/[^A-Za-z0-9+/=]/g, ''))); } catch (e) { return new Uint8Array(0); } };
+  // «=?utf-8?B?…?=» y «=?iso-8859-1?Q?…?=» en las cabeceras
+  var cabeceraMime = function (v) {
+    return String(v || '').replace(/\?=\s+=\?/g, '?==?').replace(/=\?([^?]+)\?([BQ])\?([^?]*)\?=/gi, function (m, cs, enc, txt) {
+      return bytesTexto(enc.toUpperCase() === 'B' ? deBase64(txt) : dePrintable(txt.replace(/_/g, ' ')), cs);
+    }).trim();
+  };
+  function parteMime(bruto) {
+    var corte = bruto.search(/\r?\n\r?\n/);
+    var cab = corte < 0 ? bruto : bruto.slice(0, corte), cuerpo = corte < 0 ? '' : bruto.slice(corte).replace(/^\r?\n\r?\n/, '');
+    var h = {};
+    cab.replace(/\r?\n[ \t]+/g, ' ').split(/\r?\n/).forEach(function (l) { var i = l.indexOf(':'); if (i > 0) { var k = l.slice(0, i).trim().toLowerCase(); if (!(k in h)) h[k] = l.slice(i + 1).trim(); } });
+    var param = function (v, n) { var m = new RegExp(';\\s*' + n + '\\*?=\\s*(?:"([^"]*)"|([^;\\s]*))', 'i').exec(v || ''); return m ? (m[1] != null ? m[1] : m[2]) : ''; };
+    return { h: h, cuerpo: cuerpo, tipo: (h['content-type'] || 'text/plain').split(';')[0].trim().toLowerCase(), param: param };
+  }
+  function leerEml(buf) {
+    var bruto = new TextDecoder('latin1').decode(new Uint8Array(buf));
+    var raiz = parteMime(bruto), plano = '', html = '', adjuntos = [];
+    var recorrer = function (p, nivel) {
+      if (nivel > 8) return;
+      if (/^multipart\//.test(p.tipo)) {
+        var lim = p.param(p.h['content-type'], 'boundary');
+        if (!lim) return;
+        p.cuerpo.split('--' + lim).slice(1).forEach(function (trozo) { if (!/^--/.test(trozo)) recorrer(parteMime(trozo.replace(/^\r?\n/, '')), nivel + 1); });
+        return;
+      }
+      var disp = p.h['content-disposition'] || '', nombre = cabeceraMime(p.param(disp, 'filename') || p.param(p.h['content-type'], 'name'));
+      if (/^attachment/i.test(disp) || (nombre && !/^text\//.test(p.tipo))) { if (nombre) adjuntos.push(nombre); return; }
+      if (p.tipo === 'message/rfc822') return;
+      var enc = (p.h['content-transfer-encoding'] || '').toLowerCase();
+      var bytes = enc === 'base64' ? deBase64(p.cuerpo) : enc === 'quoted-printable' ? dePrintable(p.cuerpo) : binario(p.cuerpo);
+      var txt = bytesTexto(bytes, p.param(p.h['content-type'], 'charset') || 'utf-8');
+      if (p.tipo === 'text/plain' && !plano) plano = txt;
+      else if (p.tipo === 'text/html' && !html) html = txt;
+    };
+    recorrer(raiz, 0);
+    var h = raiz.h;
+    if (!h.subject && !h.from && !h.date) throw new Error('El archivo no parece un correo (.eml)');
+    return { origen: 'correo', asunto: cabeceraMime(h.subject) || '(sin asunto)', de: cabeceraMime(h.from), para: recortar(cabeceraMime(h.to), 300),
+      fecha: h.date && !isNaN(new Date(h.date)) ? new Date(h.date).toISOString() : '', id: (h['message-id'] || '').replace(/[<>\s]/g, ''),
+      texto: (plano || texto(html.replace(/<(style|script|head)[\s\S]*?<\/\1>/gi, ''))).replace(/\r\n/g, '\n').trim(), adjuntos: adjuntos };
+  }
+
+  // Correo .msg de Outlook de escritorio: archivo compuesto de Microsoft (CFB) con una propiedad MAPI por flujo
+  function leerMsg(buf) {
+    var dv = new DataView(buf), u8 = new Uint8Array(buf);
+    if (buf.byteLength < 512 || dv.getUint32(0, true) !== 0xE011CFD0 || dv.getUint32(4, true) !== 0xE11AB1A1) throw new Error('El archivo no parece un correo de Outlook (.msg)');
+    var ss = 1 << dv.getUint16(30, true), ms = 1 << dv.getUint16(32, true), corteMini = dv.getUint32(56, true);
+    var sector = function (n) { return (n + 1) * ss; };
+    var fatSect = [];
+    for (var i = 0; i < 109; i++) { var x = dv.getUint32(76 + i * 4, true); if (x < 0xFFFFFFFA) fatSect.push(x); }
+    for (var dif = dv.getUint32(68, true), vueltas = 0; dif < 0xFFFFFFFA && vueltas < 1000; vueltas++) {
+      for (var j = 0; j < ss / 4 - 1; j++) { var y = dv.getUint32(sector(dif) + j * 4, true); if (y < 0xFFFFFFFA) fatSect.push(y); }
+      dif = dv.getUint32(sector(dif) + ss - 4, true);
+    }
+    var fat = [];
+    fatSect.forEach(function (s) { for (var k = 0; k < ss / 4; k++) fat.push(dv.getUint32(sector(s) + k * 4, true)); });
+    var cadena = function (ini, tabla) { var r = [], n = ini; while (n < 0xFFFFFFFA && r.length <= tabla.length) { r.push(n); n = tabla[n]; } return r; };
+    var leerCadena = function (ini) { var cs = cadena(ini, fat), out = new Uint8Array(cs.length * ss); cs.forEach(function (s, k) { out.set(u8.subarray(sector(s), sector(s) + ss), k * ss); }); return out; };
+    var dir = leerCadena(dv.getUint32(48, true)), ddv = new DataView(dir.buffer), ents = [];
+    for (var o = 0; o + 128 <= dir.length; o += 128) {
+      var nl = ddv.getUint16(o + 64, true);
+      ents.push({ nombre: nl > 2 ? new TextDecoder('utf-16le').decode(dir.subarray(o, o + nl - 2)) : '', tipo: dir[o + 66],
+        izq: ddv.getUint32(o + 68, true), der: ddv.getUint32(o + 72, true), hijo: ddv.getUint32(o + 76, true), ini: ddv.getUint32(o + 116, true), tam: ddv.getUint32(o + 120, true) });
+    }
+    var raiz = ents[0], miniFat = [], mini = raiz && raiz.tam ? leerCadena(raiz.ini) : new Uint8Array(0);
+    var mf = leerCadena(dv.getUint32(60, true)), mdv = new DataView(mf.buffer);
+    if (dv.getUint32(64, true)) for (var q = 0; q + 4 <= mf.length; q += 4) miniFat.push(mdv.getUint32(q, true));
+    var flujo = function (e) {
+      if (e.tam >= corteMini) return leerCadena(e.ini).subarray(0, e.tam);
+      var cs = cadena(e.ini, miniFat), out = new Uint8Array(cs.length * ms);
+      cs.forEach(function (s, k) { out.set(mini.subarray(s * ms, s * ms + ms), k * ms); });
+      return out.subarray(0, e.tam);
+    };
+    var hijos = function (e) {
+      var r = [], pila = [e.hijo], vistos = {};
+      while (pila.length) { var n = pila.pop(); if (n >= ents.length || vistos[n]) continue; vistos[n] = 1; r.push(ents[n]); pila.push(ents[n].izq, ents[n].der); }
+      return r;
+    };
+    var props = function (e) { var p = {}; hijos(e).forEach(function (h) { var m = /^__substg1\.0_([0-9A-F]{4})([0-9A-F]{4})$/i.exec(h.nombre); if (m && h.tipo === 2) p[m[1].toUpperCase()] = { tipo: m[2].toUpperCase(), e: h }; }); return p; };
+    var p = props(raiz);
+    var valor = function (id, cp) {
+      var x = cp ? cp[id] : p[id];
+      if (!x) return '';
+      var b = flujo(x.e);
+      return (x.tipo === '001F' ? new TextDecoder('utf-16le').decode(b) : x.tipo === '001E' ? new TextDecoder('windows-1252').decode(b) : bytesTexto(b, 'utf-8')).replace(/\0+$/, '');
+    };
+    var fecha = '', pv = hijos(raiz).find(function (h) { return h.nombre === '__properties_version1.0'; });
+    if (pv) {
+      var pb = flujo(pv), pdv = new DataView(pb.buffer, pb.byteOffset, pb.byteLength);
+      for (var z = 32; z + 16 <= pb.length; z += 16) {
+        var tag = pdv.getUint32(z, true);
+        if (tag === 0x0E060040 || (tag === 0x00390040 && !fecha)) {
+          var ms100 = pdv.getUint32(z + 12, true) * 4294967296 + pdv.getUint32(z + 8, true);
+          fecha = new Date(ms100 / 1e4 - 11644473600000).toISOString();
+        }
+      }
+    }
+    var adjuntos = hijos(raiz).filter(function (h) { return h.tipo === 1 && /^__attach_version1\.0_/.test(h.nombre); })
+      .map(function (a) { var ap = props(a); return valor('3707', ap) || valor('3704', ap) || valor('3001', ap); }).filter(Boolean);
+    var de = valor('0C1A') || valor('0042'), dirDe = valor('5D01') || (/@/.test(valor('0C1F')) ? valor('0C1F') : '');
+    var cuerpo = valor('1000') || texto(valor('1013').replace(/<(style|script|head)[\s\S]*?<\/\1>/gi, ''));
+    if (!p['0037'] && !p['1000'] && !p['0C1A']) throw new Error('El archivo .msg no contiene un correo');
+    return { origen: 'correo', asunto: valor('0037') || '(sin asunto)', de: de + (dirDe && dirDe !== de ? ' <' + dirDe + '>' : ''), para: recortar(valor('0E04'), 300),
+      fecha: fecha, id: valor('1035').replace(/[<>\s]/g, ''), texto: cuerpo.replace(/\r\n/g, '\n').trim() || '(El texto del correo no se ha podido leer: está solo en formato enriquecido; ábrelo en Outlook.)', adjuntos: adjuntos };
+  }
+  function leerCorreo(f) {
+    if (f.size > 40 * 1024 * 1024) return Promise.reject(new Error('El archivo es demasiado grande (más de 40 MB)'));
+    return f.arrayBuffer().then(function (buf) {
+      var u = new Uint8Array(buf, 0, Math.min(8, buf.byteLength));
+      return u[0] === 0xD0 && u[1] === 0xCF ? leerMsg(buf) : leerEml(buf);
+    });
+  }
+  function importarArchivo(f) {
+    if (!f) return;
+    if (!cargadoEn) { aviso('Espera a que termine de cargar la lista'); return; }
+    leerCorreo(f).then(ofrecerImportacion).catch(function (e) {
+      aviso('No se pudo leer el correo');
+      var dlg = $('#dlg');
+      dlg.innerHTML = '<div class="dh"><h2>No se pudo leer el correo</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db">' +
+        '<div class="error">' + esc(e.message || e) + '</div><p class="small">Admite correos de Outlook de escritorio (.msg: arrastra el correo desde Outlook, o guárdalo con <i>Archivo → Guardar como</i>) ' +
+        'y de Outlook en la web (.eml: <i>⋯ → Descargar</i>).</p><div class="acciones"><button type="button" data-cerrar>Cerrar</button></div></div>';
+      if (!dlg.open) dlg.showModal();
+    });
+  }
+  $('#ficheroCorreo').addEventListener('change', function (e) { importarArchivo(e.target.files[0]); e.target.value = ''; });
+  // Arrastrar el correo desde Outlook (o el archivo) a cualquier parte de la página
+  var conArchivos = function (e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0; };
+  document.addEventListener('dragover', function (e) { if (conArchivos(e)) { e.preventDefault(); document.body.classList.add('soltando'); } });
+  document.addEventListener('dragleave', function (e) { if (!e.relatedTarget) document.body.classList.remove('soltando'); });
+  document.addEventListener('drop', function (e) {
+    document.body.classList.remove('soltando');
+    if (!conArchivos(e)) return;
+    e.preventDefault();
+    if ($('#dlg').open) $('#dlg').close();
+    importarArchivo(e.dataTransfer.files[0]);
+  });
+
+  // Actualización automática: el grupo de trabajo ve lo que cambian los demás sin pulsar «Actualizar»
+  var minutosAuto = function () { return pref.autoMin === undefined ? 2 : Number(pref.autoMin) || 0; };
+  setInterval(function () {
+    if (!minutosAuto() || !cargadoEn || document.hidden || $('#dlg').open) return;
+    if (Date.now() - cargadoEn.getTime() >= minutosAuto() * 6e4) cargar(true);
+  }, 15000);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && minutosAuto() && cargadoEn && !$('#dlg').open && Date.now() - cargadoEn.getTime() >= minutosAuto() * 6e4) cargar(true);
+  });
+
   // ---------- Ajustes ----------
   function vistaAjustes() {
     var ests = valores('ESTADO', 'estado');
@@ -1201,6 +1428,7 @@
       '<p class="small muted">Sitio: ' + esc(web ? (web.titulo || '') + ' (' + web.url + ')' : '—') + '<br>Usuario: ' + esc(yo ? yo.Title : '—') +
       (listaInfo ? '<br>Lista: «' + esc(listaInfo.Title) + '», ' + listaInfo.ItemCount + ' elementos' : '') + (cargadoEn ? '<br>Leída a las ' + cargadoEn.toLocaleTimeString('es-ES') : '') + '</p>' +
       '<label class="lbl">Nombre de la lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
+      '<label class="lbl">Actualizar la lista automáticamente cada (minutos; 0 = no)</label><input id="aAuto" type="number" min="0" max="60" value="' + minutosAuto() + '">' +
       '<label class="lbl">Marcar en naranja cuando queden (días)</label><input id="aDias" type="number" min="1" max="30" value="' + pref.avisoDias + '">' +
       '<label class="lbl">Estado con el que se crean los asuntos</label><select id="aEstAlta">' +
         valores('ESTADO', 'estado').map(function (e) { return '<option' + (estadoAlta(valores('ESTADO', 'estado')) === e ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select>' +
@@ -1212,7 +1440,7 @@
         return '<div class="grid" style="align-items:center;margin:4px 0"><div><b>' + esc(e) + '</b></div><div><select data-mapa="' + esc(e) + '">' +
           Object.keys(CLASES).map(function (k) { return '<option value="' + k + '"' + (claseEstado(e) === k ? ' selected' : '') + '>' + CLASES[k] + '</option>'; }).join('') + '</select></div></div>';
       }).join('') || '<p class="muted">Aún no se han leído los estados.</p>') + '</div>' +
-      '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">Esta página funciona dentro de Colabora con tu sesión. Lee la lista y <b>solo escribe cuando das de alta un asunto, lo modificas o añades un comentario</b> (nunca borra), con tus permisos de Colabora. El correo de asignación lo envía el propio Colabora con su correo interno. No envía nada fuera del servidor. ' +
+      '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">Esta página funciona dentro de Colabora con tu sesión. Lee la lista y <b>solo escribe cuando das de alta un asunto, lo modificas o añades un comentario</b> (nunca borra), con tus permisos de Colabora. El correo de asignación lo envía el propio Colabora con su correo interno. No envía nada fuera del servidor. Los correos que arrastras (.msg o .eml) y los mensajes que llegan de MENSADEF se leen en este navegador y solo se guardan en Colabora si pulsas «Crear». ' +
       'Tus preferencias (filtros, estados, informe) se guardan solo en este navegador.</p></div>';
   }
 
@@ -1220,6 +1448,7 @@
   function abrir(id) {
     var t = tareas.find(function (x) { return x.id === id; });
     if (!t) return;
+    if (novedades[id]) { delete novedades[id]; render(); }
     var base = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl : '';
     var volver = encodeURIComponent(location.href);
     var u = urgencia(t);
@@ -1302,6 +1531,7 @@
     var inf = el.closest('[data-inf]');
     if (inf) { accionInforme(inf.dataset.inf); return; }
     if (el.closest('#nuevo')) { if (cargadoEn) formularioNuevo(''); return; }
+    if (el.closest('#desdeCorreo')) { $('#ficheroCorreo').click(); return; }
     if (el.closest('#altaRapidaBtn')) { formularioNuevo($('#altaRapida').value.trim()); return; }
     var t = el.closest('.tarea');
     if (t) abrir(Number(t.dataset.id));
@@ -1316,6 +1546,7 @@
     else if (el.id === 'fprio') pref.prio = el.value;
     else if (el.id === 'aDias') pref.avisoDias = Math.max(1, Number(el.value) || 3);
     else if (el.id === 'aCom') pref.campoComentarios = el.value;
+    else if (el.id === 'aAuto') pref.autoMin = Math.max(0, Math.min(60, Number(el.value) || 0));
     else if (el.id === 'aEstAlta') pref.estadoAlta = el.value;
     else if (el.id === 'aLista') { pref.lista = el.value.trim() || 'Gestor de Tareas'; guardarPref(); listaInfo = null; cargar(); return; }
     else if (el.dataset.mapa !== undefined) {
