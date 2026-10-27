@@ -1,12 +1,15 @@
 // Prueba de la importación en Tareas Colabora: mensaje de MENSADEF (#importar=…), correo .eml y .msg de Outlook,
 // duplicados y actualización automática con novedades de otras personas. Datos simulados.
-// TAREAS_HTML=colabora/colabora/tareas-nlt-colabora.html para probar la copia protegida.
+// TAREAS_HTML=colabora/colabora/tareas-nlt-colabora.html para probar la copia protegida; con
+// TAREAS_HTML=colabora/colabora/tareas-nlt-colabora-pruebas.html PRUEBAS=1, la copia de pruebas (lista «… PRUEBAS» que hay que crear).
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
 const fs = require('fs');
 const html = fs.readFileSync(process.env.TAREAS_HTML ? process.env.TAREAS_HTML : new URL('../tareas-nlt-colabora.html', import.meta.url), 'utf8');
 const WEB = '/et/SUIGESUR/JSUIGE', O = 'https://colabora.mdef.es';
+const PRUEBAS = !!process.env.PRUEBAS, LISTA = 'Gestor de Tareas' + (PRUEBAS ? ' PRUEBAS' : '');
+let listaCreada = !PRUEBAS; const creadas = [], asuntosCorreo = [], tocadas = new Set();
 const PAGINA = O + WEB + '/Documentos%20compartidos/tareas-nlt-colabora.html';
 const ESTADOS = ['REMITIDO AL NEGOCIADO', 'EN CURSO', 'FINALIZADO'];
 const ahora = () => new Date().toISOString();
@@ -70,6 +73,13 @@ await p.route(O + '/**', async r => {
   if (!u.includes('/_api/')) return r.fulfill({ body: html, contentType: 'text/html' });
   const [base, resto] = u.split('/_api/');
   if (base.replace(O, '') !== WEB) return r.fulfill({ status: 404, body: '' });
+  const ml = resto.match(/getbytitle\('([^']+)'\)/); if (ml) tocadas.add(ml[1] + (req.method() === 'POST' ? ' (escritura)' : ''));
+  if (PRUEBAS && resto === 'web/lists' && req.method() === 'POST') { listaCreada = true; return r.fulfill({ status: 201, json: { d: { Title: LISTA } } }); }
+  if (PRUEBAS && resto.endsWith('/fields/createfieldasxml')) { creadas.push(JSON.parse(req.postData()).parameters.SchemaXml); return r.fulfill({ status: 201, json: { d: {} } }); }
+  if (PRUEBAS && resto.startsWith("web/lists/getbytitle('Gestor de Tareas')/fields?$select=InternalName,SchemaXml"))
+    return r.fulfill({ json: { value: [{ InternalName: 'Title', SchemaXml: '<Field/>' }, { InternalName: 'ESTADO', SchemaXml: '<Field Type="Choice" ID="{1}" Name="ESTADO" SourceID="x"/>' },
+      { InternalName: 'FechaVencimiento', SchemaXml: '<Field Type="DateTime" ID="{2}" Name="FechaVencimiento"/>' }, { InternalName: 'Oculto', Hidden: true, SchemaXml: '<Field/>' }] } });
+  if (PRUEBAS && resto.includes("getbytitle('" + LISTA + "')") && !listaCreada) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
   const mItem = resto.match(/\/items\((\d+)\)/);
   if (mItem) {
     const it = items.find(x => x.Id === Number(mItem[1]));
@@ -78,7 +88,7 @@ await p.route(O + '/**', async r => {
   }
   if (req.method() === 'POST') {
     if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'D', FormDigestTimeoutSeconds: 1800 } } } });
-    if (resto === 'SP.Utilities.Utility.SendEmail') return r.fulfill({ json: { d: {} } });
+    if (resto === 'SP.Utilities.Utility.SendEmail') { asuntosCorreo.push(JSON.parse(req.postData()).properties.Subject); return r.fulfill({ json: { d: {} } }); }
     if (resto.endsWith('/items')) {
       const c = JSON.parse(req.postData()); altas.push(c);
       items.push({ Id: items.length + 1, Title: c.Title, ESTADO: c.ESTADO, Prioridad: c.Prioridad || '', FechaVencimiento: c.FechaVencimiento, DescripcionDelAsunto: c.DescripcionDelAsunto, ControlExpediente: c.ControlExpediente,
@@ -93,9 +103,19 @@ await p.route(O + '/**', async r => {
   if (resto.includes('getbyinternalnameortitle')) return r.fulfill({ json: { AppendOnly: false, RichText: false } });
   if (resto.includes('/fields')) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'DescripcionDelAsunto', RichText: false }] } });
   if (resto.includes('/items')) { lecturas++; return r.fulfill({ json: { value: items } }); }
-  if (resto.startsWith("web/lists/getbytitle('Gestor de Tareas')?")) return r.fulfill({ json: { Title: 'Gestor de Tareas', ItemCount: items.length, ListItemEntityTypeFullName: 'SP.Data.GestorListItem', RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor' } } });
+  if (resto.startsWith("web/lists/getbytitle('" + LISTA + "')?")) return r.fulfill({ json: { Title: LISTA, ItemCount: items.length, ListItemEntityTypeFullName: 'SP.Data.GestorListItem', RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor' } } });
   return r.fulfill({ status: 404, body: '' });
 });
+
+// 0. Copia de pruebas: banda roja y, si falta la lista «… PRUEBAS», la crea vacía con las columnas de la real
+if (PRUEBAS) {
+  await p.goto(PAGINA); await p.waitForTimeout(1200);
+  console.log('PRUEBAS banda:', await p.textContent('.bandaPruebas'), '| título:', await p.title());
+  await p.click('[data-crearpruebas]'); await p.waitForTimeout(2000);
+  console.log('PRUEBAS lista creada:', listaCreada, '| columnas copiadas:', creadas.length, creadas, '| ahora:', await p.textContent('#estadoCarga'));
+  await p.evaluate(() => { const s = JSON.parse(localStorage.getItem('tareas-nlt-colabora-pruebas')); s.lista = 'Gestor de Tareas'; localStorage.setItem('tareas-nlt-colabora-pruebas', JSON.stringify(s)); });
+  await p.goto(PAGINA); await p.waitForTimeout(1000); console.log('PRUEBAS no deja apuntar a la lista real:', await p.evaluate(() => JSON.parse(localStorage.getItem('tareas-nlt-colabora-pruebas')).lista));
+}
 
 // 1. Desde MENSADEF
 const datos = { v: 1, origen: 'MENSADEF', id: 'MSG-2026-0042', asunto: 'Inspección de seguridad 3 de noviembre', fecha: '2026-10-20T08:00:00Z', de: 'Jefe A', tipo: 'Orden',
@@ -146,7 +166,7 @@ fs.unlinkSync(malo);
 
 // 4. Actualización automática: otra persona cambia un asunto y crea otro
 await p.goto(PAGINA); await p.waitForTimeout(1000);
-await p.evaluate(() => { const s = JSON.parse(localStorage.getItem('tareas-nlt-colabora')); s.quien = 'todos'; localStorage.setItem('tareas-nlt-colabora', JSON.stringify(s)); });
+await p.evaluate(k => { const s = JSON.parse(localStorage.getItem(k)); s.quien = 'todos'; localStorage.setItem(k, JSON.stringify(s)); }, PRUEBAS ? 'tareas-nlt-colabora-pruebas' : 'tareas-nlt-colabora');
 await p.clock.install(); await p.goto(PAGINA); await p.waitForTimeout(1000);
 items[0].Modified = ahora(); items[0].Editor = { Title: 'OTRA PERSONA' };
 items.push(Object.assign({}, items[1], { Id: 99, Title: 'Asunto creado por otro', Modified: ahora(), Created: ahora() }));
@@ -154,6 +174,7 @@ const antes = lecturas; await p.clock.fastForward('02:20'); await p.waitForTimeo
 console.log('lecturas automáticas:', lecturas - antes, '| cabecera:', await p.textContent('#estadoCarga'));
 console.log('marcas:', await p.$$eval('.tarea .tit .badge', x => x.map(e => e.textContent + ' ' + e.parentNode.textContent.replace(e.textContent, '').trim())));
 await p.screenshot({ path: new URL('importar.png', import.meta.url).pathname });
+console.log('listas leídas o escritas:', [...tocadas], '| asuntos de correo:', asuntosCorreo.slice(0, 2));
 console.log('errores de página:', errs);
 await b.close();
 if (!process.argv.includes('conservar')) { fs.unlinkSync(rutaMsg); fs.unlinkSync(rutaEml); }

@@ -1,12 +1,18 @@
 // Genera la versión protegida de tareas-nlt-colabora.html para subir a Colabora: ../colabora/tareas-nlt-colabora.html
 // El original legible (../tareas-nlt-colabora.html) es el que se edita; esta copia se regenera cada vez que cambia.
 // Uso: cd colabora/proteger && npm install && node proteger.mjs
+//      node proteger.mjs --pruebas  → ../colabora/tareas-nlt-colabora-pruebas.html (copia de pruebas: lista «Gestor de Tareas PRUEBAS», banda roja)
 // © 2026 Cte. Alfredo Sánchez Sender. Todos los derechos reservados.
 import fs from 'fs';
 import JavaScriptObfuscator from 'javascript-obfuscator';
 
-const origen = new URL('../tareas-nlt-colabora.html', import.meta.url), destino = new URL('../colabora/tareas-nlt-colabora.html', import.meta.url);
+const PRUEBAS = process.argv.includes('--pruebas');
+const origen = new URL('../tareas-nlt-colabora.html', import.meta.url), destino = new URL(PRUEBAS ? '../colabora/tareas-nlt-colabora-pruebas.html' : '../colabora/tareas-nlt-colabora.html', import.meta.url);
 let html = fs.readFileSync(origen, 'utf8');
+if (PRUEBAS) {
+  if (!html.includes('var PRUEBAS = false;')) throw new Error('No encuentro «var PRUEBAS = false;» en tareas-nlt-colabora.html');
+  html = html.replace('var PRUEBAS = false;', 'var PRUEBAS = true;');
+}
 
 // Se ofusca el código de la aplicación (el último <script>)
 const ini = html.lastIndexOf('<script>'), fin = html.lastIndexOf('</script>');
@@ -30,7 +36,7 @@ const ofuscado = JavaScriptObfuscator.obfuscate(codigo, {
   unicodeEscapeSequence: false
 }).getObfuscatedCode();
 
-const aviso = '<!--\n  Gestor de tareas de la Jefatura de SUIGESUR · versión ' + version + ' (protegida)\n' +
+const aviso = '<!--\n  Gestor de tareas de la Jefatura de SUIGESUR · versión ' + version + ' (protegida' + (PRUEBAS ? ', COPIA DE PRUEBAS' : '') + ')\n' +
   '  © 2026 Cte. Alfredo Sánchez Sender. Desarrollador y autor de esta aplicación. Todos los derechos reservados.\n' +
   '  Prohibida su copia, modificación o redistribución sin autorización del autor.\n-->\n';
 let salida = html.slice(0, ini + 8) + '\n' + ofuscado + '\n' + html.slice(fin);

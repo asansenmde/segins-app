@@ -35,6 +35,12 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Copia de pruebas** `colabora/tareas-nlt-colabora-pruebas.html` (se genera con `node proteger.mjs --pruebas`): se sube
+  junto a la buena sin sustituirla. Trabaja sobre la lista **«Gestor de Tareas PRUEBAS»** y nunca sobre la real (no deja
+  cambiarla a otra que no acabe en PRUEBAS); guarda sus preferencias aparte; banda roja «VERSIÓN DE PRUEBAS»; los correos
+  llevan «[PRUEBAS]» en el asunto. Si falta su lista, ofrece «Crear la lista de pruebas»: copia vacía de las columnas de
+  «Gestor de Tareas» (de la real solo se leen las columnas). La versión 2026-10-27 · 1 está **solo en la copia de pruebas**;
+  `colabora/tareas-nlt-colabora.html` sigue siendo la 2026-10-23 · 3 hasta que el usuario la dé por buena.
 - **Asuntos desde MENSADEF y desde correos de Outlook** (versión 2026-10-27 · 1; ver `SINCRONIZACION.md`): el visor de
   MENSADEF abre la página con `#importar=<datos>` («➜ Crear tarea en Colabora») y aparece el alta rellena (asunto y, en
   la descripción, origen, referencias, expediente de MENSADEF, enlace y texto). También funciona si el `#` llega a la página

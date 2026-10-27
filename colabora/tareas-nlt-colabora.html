@@ -193,6 +193,8 @@
   table.t td { border-bottom: 1px solid var(--line); padding: 5px 6px; vertical-align: top; }
   .rojo { color: var(--bad); font-weight: 700; }
   .aviso { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
+  .bandaPruebas { background: var(--bad); color: #fff; text-align: center; font-weight: 800; letter-spacing: .5px; padding: 6px 10px; font-size: .9rem; }
+  @media print { .bandaPruebas { display: none; } }
   .error { background: var(--bad-bg); color: var(--bad); border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-weight: 600; }
   .acciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 10px 0; }
   .autor { max-width: 1000px; margin: 0 auto; padding: 12px 16px 24px; text-align: center; font-size: .78rem; color: var(--muted); border-top: 1px solid var(--line); }
@@ -248,10 +250,24 @@
   $('#verPie').textContent = 'versión ' + VERSION;
 
   // ---------- Preferencias de este navegador ----------
-  var CLAVE = 'tareas-nlt-colabora';
-  var pref = { lista: 'Gestor de Tareas', vista: 'nlt', quien: 'mias', q: '', negociado: '', estado: '', prio: '', resp: '', mapaEstados: {}, avisoDias: 3, informe: null,
+  // Copia de pruebas («node proteger.mjs --pruebas» genera tareas-nlt-colabora-pruebas.html con PRUEBAS = true): trabaja
+  // sobre la lista «Gestor de Tareas PRUEBAS» (nunca sobre la real), guarda sus preferencias aparte, lleva una banda roja
+  // y marca los correos.
+  var PRUEBAS = false;
+  var LISTA = 'Gestor de Tareas' + (PRUEBAS ? ' PRUEBAS' : '');
+  var listaPermitida = function (n) { n = String(n || '').trim(); return !n ? LISTA : PRUEBAS && !/PRUEBAS$/i.test(n) ? LISTA : n; };
+  var CLAVE = 'tareas-nlt-colabora' + (PRUEBAS ? '-pruebas' : '');
+  var pref = { lista: LISTA, vista: 'nlt', quien: 'mias', q: '', negociado: '', estado: '', prio: '', resp: '', mapaEstados: {}, avisoDias: 3, informe: null,
     modo: 'tarjetas', grupos: { vencidas: true, hoy: true } };
   try { Object.assign(pref, JSON.parse(localStorage.getItem(CLAVE)) || {}); } catch (e) { /* sin memoria local */ }
+  pref.lista = listaPermitida(pref.lista);
+  if (PRUEBAS) {
+    document.title = 'PRUEBAS · ' + document.title;
+    var bandaP = document.createElement('div');
+    bandaP.className = 'bandaPruebas';
+    bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · trabaja sobre la lista «' + pref.lista + '», no sobre la real · los correos llevan [PRUEBAS] en el asunto';
+    document.body.insertBefore(bandaP, document.body.firstChild);
+  }
   var guardarPref = function () { try { localStorage.setItem(CLAVE, JSON.stringify(pref)); } catch (e) { /* sin memoria local */ } };
 
   // ---------- SharePoint (REST, solo lectura) ----------
@@ -413,10 +429,38 @@
       if (silencioso) return;
       $('#estadoCarga').textContent = 'Error';
       $('#vista').innerHTML = '<div class="error">No se pudo leer la lista «' + esc(pref.lista) + '»: ' + esc(e.message || e) +
-        '.<br><small>Versión de la página: ' + esc(VERSION) + '</small></div><p class="muted">Comprueba en Ajustes el nombre de la lista y que tienes permiso para verla.</p>';
+        '.<br><small>Versión de la página: ' + esc(VERSION) + '</small></div><p class="muted">Comprueba en Ajustes el nombre de la lista y que tienes permiso para verla.</p>' +
+        (PRUEBAS && e.status === 404 ? '<div class="card"><h3 style="margin-top:0">Preparar la versión de pruebas</h3><p class="small">Crea la lista «' + esc(pref.lista) + '» como copia <b>vacía</b> de «Gestor de Tareas» (mismas columnas, sin ningún asunto). Necesitas permiso para crear listas en el sitio.</p>' +
+          '<div class="acciones"><button class="btn prim" data-crearpruebas="1">Crear la lista de pruebas</button></div><div id="prMsg"></div></div>' : '');
       if (pref.vista === 'ajustes') render();
     }).then(function () { cargando = null; });
     return cargando;
+  }
+
+  // Copia vacía de la lista real para la versión de pruebas (copiado de Permisos): las columnas propias de «Gestor de Tareas»
+  // con su mismo nombre interno; se quitan los identificadores para que no choquen con los de la real
+  function crearListaPruebas(boton) {
+    var real = web.url + "/_api/web/lists/getbytitle('Gestor%20de%20Tareas')", msg = function (t) { var el = $('#prMsg'); if (el) el.innerHTML = t; };
+    if (!PRUEBAS) return;
+    boton.disabled = true; msg('<p class="small muted">Leyendo las columnas de la lista real…</p>');
+    var fallos = [];
+    api(real + '/fields?$select=InternalName,SchemaXml,Hidden,ReadOnlyField,FromBaseType&$top=500').then(function (d) {
+      var propias = lista(d.value).filter(function (f) { return !f.Hidden && !f.ReadOnlyField && !f.FromBaseType && f.InternalName !== 'Title' && f.SchemaXml; });
+      return enviarSP(web.url + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: pref.lista, Description: 'Copia de pruebas de «Gestor de Tareas» (página tareas-nlt-colabora-pruebas.html)' }, 'No tienes permiso para crear listas en el sitio')
+        .then(function () {
+          return propias.reduce(function (p, f, i) {
+            return p.then(function () {
+              msg('<p class="small muted">Creando columnas: ' + (i + 1) + ' de ' + propias.length + '…</p>');
+              var xml = f.SchemaXml.replace(/\s(ID|SourceID|Version|ColName|RowOrdinal|WebId|Customization)="[^"]*"/g, '');
+              return enviarSP(urlLista() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas')
+                .catch(function (e) { fallos.push(f.InternalName + ' (' + (e.message || e) + ')'); });
+            });
+          }, Promise.resolve()).then(function () { return propias.length; });
+        });
+    }).then(function (n) {
+      msg('<div class="' + (fallos.length ? 'error' : 'small') + '">✓ Lista de pruebas creada con ' + (n - fallos.length) + ' de ' + n + ' columnas.' + (fallos.length ? ' No se pudieron copiar: ' + esc(fallos.join('; ')) + '.' : '') + ' Cargando…</div>');
+      setTimeout(cargar, 800);
+    }).catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo crear: ' + esc(e.message || e) + '</div>'); });
   }
 
   // ---------- Reglas de NLT ----------
@@ -1034,7 +1078,7 @@
   function mailto(para, cc, asunto, cuerpo) {
     var montar = function (c) {
       return 'mailto:' + para.map(encodeURIComponent).join(';') + '?' + (cc.length ? 'cc=' + cc.map(encodeURIComponent).join(';') + '&' : '') +
-        'subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(c);
+        'subject=' + encodeURIComponent((PRUEBAS ? '[PRUEBAS] ' : '') + asunto) + '&body=' + encodeURIComponent(c);
     };
     var url = montar(cuerpo);
     if (url.length <= 2000) return url;
@@ -1364,7 +1408,7 @@
   var palabrasNombre = function (n) { return sinTildes(n).replace(/[^a-zñ ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 3 && ['del', 'las', 'los'].indexOf(w) < 0; }); };
   var mismasPalabras = function (a, b) { var x = palabrasNombre(a).sort().join(' '), y = palabrasNombre(b).sort().join(' '); return !!x && x === y; };
   function enviarUno(to, cc, bcc, c) {
-    var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, CC: { results: cc || [] }, Subject: c.asunto, Body: c.html };
+    var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, CC: { results: cc || [] }, Subject: (PRUEBAS ? '[PRUEBAS] ' : '') + c.asunto, Body: c.html };
     if (bcc && bcc.length) pr.BCC = { results: bcc };
     return enviarSP(web.url + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página');
   }
@@ -2007,6 +2051,7 @@
     var tab = el.closest('#tabs a');
     if (tab) { pref.vista = tab.dataset.v; kpiSel = ''; guardarPref(); render(); return; }
     if (el.closest('#recargar')) { cargar(); return; }
+    if (el.closest('[data-crearpruebas]')) { crearListaPruebas(el.closest('[data-crearpruebas]')); return; }
     if (el.closest('[data-pruebacorreo]')) { correoPrueba(el.closest('[data-pruebacorreo]')); return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); return; }
     var k = el.closest('[data-kpi]');
@@ -2077,7 +2122,7 @@
     else if (el.id === 'aCom') pref.campoComentarios = el.value;
     else if (el.id === 'aAuto') pref.autoMin = Math.max(0, Math.min(60, Number(el.value) || 0));
     else if (el.id === 'aEstAlta') pref.estadoAlta = el.value;
-    else if (el.id === 'aLista') { pref.lista = el.value.trim() || 'Gestor de Tareas'; guardarPref(); listaInfo = null; cargar(); return; }
+    else if (el.id === 'aLista') { pref.lista = listaPermitida(el.value); guardarPref(); listaInfo = null; cargar(); return; }
     else if (el.dataset.mapa !== undefined) {
       pref.mapaEstados[el.dataset.mapa] = el.value;
       tareas.forEach(function (t) { t.clase = claseEstado(t.estado); t.incoh = incoherencia(t); });
