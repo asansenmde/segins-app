@@ -73,3 +73,8 @@ Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar 
 
 Control de acceso · firma con AutoFirma (BAE + empresa) · circuito SUIGE → DIACU/IGE · Informes · copia protegida y
 autoría.
+13. **MENSADEF + Outlook → Tareas Colabora** (versión 2026-10-27 · 1, probada en simulación, original y protegida; diseño en
+    `SINCRONIZACION.md`): «➜ Crear tarea en Colabora» en el visor de MENSADEF, alta desde correos .msg/.eml (arrastrar o
+    «✉ Desde correo»), sin duplicados y actualización automática con novedades. Pendiente: que el usuario suba la copia
+    protegida, vuelva a arrastrar el favorito «Mensajes MENSADEF» y lo pruebe desde la célula SETEC SEGURIDAD. Siguientes
+    fases (reglas de clasificación, varios mensajes a la vez, tablero del grupo) a la espera de sus reglas.
