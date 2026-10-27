@@ -48,7 +48,7 @@ await p.route(O + '/**', async r => {
   }
   r.fulfill({ status: 404, body: '' });
 });
-await p.goto(O + WEB + '/SitePages/Inicio.aspx');
+await p.goto(process.env.INICIO || O + WEB + '/SitePages/Inicio.aspx'); // INICIO=… para arrancar desde otra página de MENSADEF
 await p.evaluate(codigo); await p.waitForTimeout(1200);
 console.log('quién:', await p.textContent('#quien'), '| estado:', await p.textContent('#estado'));
 const filas = () => p.$$eval('#lista tbody tr', t => t.length);
