@@ -79,7 +79,7 @@ async function prueba(verbose, esc) {
         return r.fulfill({ status: 204, body: '' });
       }
       if (resto.endsWith(LISTA + '/items')) { const it = { Id: 20 + items.length, Created: new Date().toISOString(), Modified: new Date().toISOString(), Author: YO, Editor: YO, Attachments: false, ...c }; items.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } }); }
-      if (resto.startsWith("web/lists/getbytitle('SOLICITUDES DE ACCESO')")) return r.fulfill({ status: 201, json: { d: { Id: 1 } } });
+      if (resto.startsWith("web/lists/getbytitle('SOLICITUDES ACCESO APLICACIONES')")) return r.fulfill({ status: 201, json: { d: { Id: 1 } } });
       return r.fulfill({ status: 400, body: '' });
     }
     if (resto.startsWith('web/currentuser/groups')) return J({ value: misGrupos.map(n => ({ Id: GRUPOS[n] || 1, Title: n })) });
@@ -87,7 +87,7 @@ async function prueba(verbose, esc) {
     { const g = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users/); if (g) return MIEMBROS[g[1]] ? J({ value: MIEMBROS[g[1]].map((e, i) => ({ Id: 300 + i, Title: e, Email: e })) }) : r.fulfill({ status: 404, body: '' }); }
     if (resto.startsWith('web/siteusers')) return J({ value: Object.values(P).map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail })) });
     if (resto.match(/web\/getuserbyid\((\d+)\)/)) return J({ LoginName: 'i:0#.w|et\\u' + resto.match(/getuserbyid\((\d+)\)/)[1] });
-    if (resto.startsWith("web/lists/getbytitle('SOLICITUDES DE ACCESO')")) { if (resto.includes('/items')) return J({ value: [] }); if (resto.includes('/fields')) return J({ value: [] }); return J({ Id: 'a', Title: 'SOLICITUDES DE ACCESO', ListItemEntityTypeFullName: 'SP.Data.SOLItem', ReadSecurity: 2, WriteSecurity: 2 }); }
+    if (resto.startsWith("web/lists/getbytitle('SOLICITUDES ACCESO APLICACIONES')")) { if (resto.includes('/items')) return J({ value: [] }); if (resto.includes('/fields')) return J({ value: [] }); return J({ Id: 'a', Title: 'SOLICITUDES ACCESO APLICACIONES', ListItemEntityTypeFullName: 'SP.Data.SOLItem', ReadSecurity: 2, WriteSecurity: 2 }); }
     if (resto.startsWith('SP.UserProfiles')) return J({ Title: 'COMANDANTE', UserProfileProperties: verbose ? { results: [] } : [] });
     { const aux = resto.match(/getbytitle\('(M1N|M2N|M3N|PROVINCIAS|empleos)'\)\/items/); if (aux) return J({ value: AUXL[aux[1]] }); }
     if (resto.startsWith(LISTA + '/fields')) {

@@ -225,7 +225,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-26 · 3';
+  var VERSION = '2026-10-27 · 1';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -264,7 +264,9 @@
   // Control de acceso (como VSA): grupo propio de las unidades, lista común de solicitudes y a quién se avisa de cada una
   // (avisarCorreos: direcciones fijas; avisar: grupos, que tienen que dejar ver sus miembros a todos).
   // transicion: quien ya figura en algún parte (lo dio de alta o es responsable) sigue entrando mientras se le acredita.
-  var ACCESO = { app: 'INCIDENTES', lista: 'SOLICITUDES DE ACCESO', grupoBae: 'INCIDENTES_UNIDADES', grupos: ['INCIDENTES_UNIDADES'], avisar: [], avisarCorreos: ['asansen@et.mde.es'], transicion: true,
+  // OJO: la lista de solicitudes NO puede llamarse «Solicitudes de acceso»: es la lista interna (oculta) de SharePoint para
+  // las peticiones de acceso al sitio y getbytitle no distingue mayúsculas (hasta la versión 2026-10-27 se usaba esa por error).
+  var ACCESO = { app: 'INCIDENTES', lista: 'SOLICITUDES ACCESO APLICACIONES', grupoBae: 'INCIDENTES_UNIDADES', grupos: ['INCIDENTES_UNIDADES'], avisar: [], avisarCorreos: ['asansen@et.mde.es'], transicion: true,
     papeles: [['Unidad: notificar incidentes de seguridad', 'bae'], ['Negociado de Seguridad de una SUIGE (valorar)', 'suige'], ['DIACU / IGE', 'ige'], ['Solo consulta', 'bae']] };
   // MN1–MN4 tienen nombre interno «_x004d_N1»…: en el REST de SharePoint, los que empiezan por «_» se llaman «OData_…»
   var MANDOS = ['MANDO1N', 'MANDO2N', 'MANDO3N', 'OData__x004d_N1', 'OData__x004d_N2', 'OData__x004d_N3', 'OData__x004d_N4'];
@@ -1823,7 +1825,7 @@
     accEstado = 'cargando';
     return Promise.all([
       leerBiblioteca(),
-      api(urlAcc() + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity').then(function (l) { accInfo = l; }, function () { accInfo = null; }),
+      api(urlAcc() + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity,Hidden,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { accInfo = l; }, function () { accInfo = null; }),
       todas(web + '/_api/web/sitegroups?$select=Id,Title&$top=5000').then(function (l) { accGrupos = l.map(function (g) { return g.Title; }); }, function () { accGrupos = []; })
     ]).then(function () {
       if (!accInfo) { accSols = []; accAbierta = null; accFaltan = []; return; }
@@ -1855,6 +1857,9 @@
         ' <button class="prim" data-accabrir="1">Permitir que cualquiera solicite acceso</button>') + '</p>' : '') +
       '<p class="small">' + (accGrupos.indexOf(ACCESO.grupoBae) >= 0 ? '✔ Grupo «' + esc(ACCESO.grupoBae) + '» creado (' + (accMiembros ? accMiembros.length : 0) + ' personas).' :
         '✕ Falta el grupo «' + esc(ACCESO.grupoBae) + '» para las unidades que notifican incidentes. <button class="prim" data-acccreargrupo="1">Crear el grupo</button>') + '</p>' +
+      (accInfo ? '<p class="small">📋 ' + (accInfo.RootFolder && accInfo.RootFolder.ServerRelativeUrl ? '<a href="' + esc(location.origin + accInfo.RootFolder.ServerRelativeUrl) + '" target="_blank" rel="noopener">Abrir la lista «' + esc(ACCESO.lista) + '»</a> · ' : '') +
+        '<a href="' + esc(web + '/_layouts/15/SubNew.aspx?List=' + encodeURIComponent('{' + String(accInfo.Id).replace(/[{}]/g, '') + '}') + '&Source=' + encodeURIComponent(location.href)) + '" target="_blank" rel="noopener">🔔 Avisarme por correo de cada solicitud nueva (alerta de SharePoint)</a>' +
+        '<br><span class="muted">El aviso de la página lo envía Colabora con la cuenta de quien solicita, que aún no tiene permisos y a veces se rechaza. La alerta la envía SharePoint y llega siempre: créala con «Se agregan nuevos elementos» y «Enviar notificación inmediatamente».</span></p>' : '') +
       '<p class="small">✉ Cada solicitud nueva se avisa por correo a <b>' + esc((ACCESO.avisarCorreos || []).concat(ACCESO.avisar).join(', ') || 'los propietarios del sitio') + '</b>. ' +
         '<button data-accprueba="1">Probar el aviso</button></p><div id="accPrueba"></div>' +
       (accBiblio ? '<p class="small">' + (accBiblio.Hidden ? '✔ La biblioteca «' + esc(accBiblio.Title) + '», donde está esta página, está oculta en «Contenido del sitio». <button data-accbiblio="0">Volver a mostrarla</button>' :

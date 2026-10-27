@@ -100,8 +100,10 @@ del bloque `ACCESO` / `pantallaAcceso` / `vistaAccesos` de VSA y se adapta la co
   «Solicitar acceso».
 - **Solicitud**: nombre y correo de la cuenta (no se escriben); empleo y unidad propuestos con
   `SP.UserProfiles.PeopleManager/GetMyProperties` (Title, Department); mando/unidad en cascada; papel y motivo. Se guarda
-  en la lista común **«SOLICITUDES DE ACCESO»** (columna `Aplicacion` distingue cada app) y avisa por correo a
-  «Propietarios Colaborativo». El solicitante ve el estado de sus solicitudes.
+  en la lista común de solicitudes (columna `Aplicacion` distingue cada app; en el sitio JIGE, Incidentes y Pérdidas usan
+  **«SOLICITUDES ACCESO APLICACIONES»**, ver «Nombre de la lista») y avisa por correo a «Propietarios Colaborativo».
+  Ese correo lo envía la cuenta de quien solicita, que aún no tiene permisos: Colabora puede rechazarlo. Lo fiable es una
+  **alerta de SharePoint** en la lista (`_layouts/15/SubNew.aspx?List={id}`, «Se agregan nuevos elementos»). El solicitante ve el estado de sus solicitudes.
 - **Pestaña «Accesos»** (Control total): aprobar = `POST sitegroups/getbyname('G')/users {SP.User, LoginName}` (login de
   `getuserbyid(n)`) + MERGE de la solicitud + correo; denegar con motivo; quitar = `users/removebyid(id)`.
 - **Preparación** (botones, todo por REST, cada línea con ✔/✕ y la versión de la página):

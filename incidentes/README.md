@@ -158,7 +158,10 @@ sino una regla o flujo de trabajo de la lista heredado de InfoPath: desactivarla
 
 Como VSA (receta en `SHAREPOINT.md`). Tiene acceso quien esté en `SEGURIDAD_<SUIGE>`, `SEGURIDAD_IGE`, en el grupo propio
 **`INCIDENTES_UNIDADES`** (unidades que notifican partes) o tenga Control total. Quien no, ve «🔒 No tienes acceso» y el
-formulario «Solicitar acceso» (lista común «SOLICITUDES DE ACCESO», `Aplicacion` = INCIDENTES).
+formulario «Solicitar acceso» (lista común «SOLICITUDES ACCESO APLICACIONES», `Aplicacion` = INCIDENTES; hasta la versión
+2026-10-27 se usaba por error la lista interna oculta «Solicitudes de acceso» de SharePoint). En «Accesos › Preparación» hay
+enlaces para abrir la lista y crear la **alerta de SharePoint** de cada solicitud nueva (llega siempre; el correo de la página
+lo envía la cuenta de quien solicita, que aún no tiene permisos, y Colabora puede rechazarlo).
 
 - **Personal de información**: quien figura en «Personal que puede visualizar la información» de algún parte entra
   siempre, solo a ver esos partes (sin «Nuevo parte»), aunque no esté en ningún grupo.

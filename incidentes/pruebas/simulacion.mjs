@@ -108,7 +108,7 @@ async function prueba(verbose, escenario) {
         if (dest.some(x => /malo@/.test(x))) return r.fulfill({ status: 500, json: { error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } });
         return rechazaFrom && pr.From ? r.fulfill({ status: 400, json: { error: { message: { value: 'From no válido' } } } }) : r.fulfill({ json: { d: {} } });
       }
-      if (resto.startsWith("web/lists/getbytitle('SOLICITUDES DE ACCESO')")) {
+      if (resto.startsWith("web/lists/getbytitle('SOLICITUDES ACCESO APLICACIONES')")) {
         const c = JSON.parse(req.postData() || '{}'); delete c.__metadata; const ms = resto.match(/items\((\d+)\)/);
         if (ms) { Object.assign(sols.find(x => x.Id === +ms[1]), c, c.ResueltoPorId ? { ResueltoPor: quien(c.ResueltoPorId) } : {}); return r.fulfill({ status: 204, body: '' }); }
         if (resto.endsWith('/items')) { const it = { Id: sols.length + 1, ...c, Solicitante: quien(c.SolicitanteId), Created: new Date().toISOString() }; sols.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } }); }
@@ -145,11 +145,11 @@ async function prueba(verbose, escenario) {
     if (gid) return J({ LoginName: 'i:0#.w|et\\usuario' + gid[1] });
     if (resto.startsWith('web/sitegroups?')) return J({ value: Object.keys(GRUPOS).concat(['INCIDENTES_UNIDADES', 'Propietarios Colaborativo']).map((t, i) => ({ Id: i + 1, Title: t })) });
     if (resto.startsWith("web/sitegroups/getbyname('INCIDENTES_UNIDADES')/users")) return J({ value: unidades });
-    if (resto.startsWith("web/lists/getbytitle('SOLICITUDES DE ACCESO')")) {
+    if (resto.startsWith("web/lists/getbytitle('SOLICITUDES ACCESO APLICACIONES')")) {
       if (resto.includes('/roleassignments')) return J({ value: [{ PrincipalId: 7, Member: { Id: 7, Title: 'MDEF\\usuarios del dominio', LoginName: 'c:0+.w|s-1-5-21-513' }, RoleDefinitionBindings: verbose ? { results: [{ RoleTypeKind: 3 }] } : [{ RoleTypeKind: 3 }] }] });
       if (resto.includes('/fields')) return J({ value: ['Title', 'Solicitante', 'Correo', 'Empleo', 'MandoSegundo', 'Unidad', 'Telefono', 'Papel', 'Motivo', 'Aplicacion', 'EstadoSolicitud', 'GrupoAsignado', 'Resolucion', 'ResueltoPor', 'FechaResolucion'].map(n => ({ InternalName: n })) });
       if (resto.includes('HasUniqueRoleAssignments')) return J({ HasUniqueRoleAssignments: true });
-      if (!resto.includes('/items')) return J({ Id: 'a', Title: 'SOLICITUDES DE ACCESO', ListItemEntityTypeFullName: 'SP.Data.SOLICITUDESItem', ReadSecurity: 2, WriteSecurity: 2 });
+      if (!resto.includes('/items')) return J({ Id: 'a1b2', RootFolder: { ServerRelativeUrl: WEB + '/Lists/SOLICITUDES ACCESO APLICACIONES' }, Title: 'SOLICITUDES ACCESO APLICACIONES', ListItemEntityTypeFullName: 'SP.Data.SOLICITUDESItem', ReadSecurity: 2, WriteSecurity: 2 });
       const fl = decodeURIComponent((u.match(/\$filter=([^&]*)/) || [])[1] || ''), me = fl.match(/SolicitanteId eq (\d+)/), app = fl.match(/Aplicacion eq '([^']+)'/);
       return J({ value: sols.filter(x => (!me || x.Solicitante.Id === +me[1]) && (!app || x.Aplicacion === app[1])) });
     }
@@ -210,7 +210,7 @@ async function prueba(verbose, escenario) {
     await p.selectOption('#fAcceso [name=empleo]', { index: 3 }); await p.selectOption('#fAcceso [name=m2]', { index: 1 }); await p.waitForTimeout(100);
     await p.selectOption('#fAcceso [name=m3]', { index: 1 }).catch(() => {}); await p.fill('#fAcceso [name=unidadTxt]', 'UNIDAD X'); await p.selectOption('#fAcceso [name=papel]', { index: 1 });
     posts.length = 0; await p.click('[data-accsolicitar]'); await p.waitForTimeout(1500);
-    const alta = posts.find(x => x.ruta.includes("SOLICITUDES DE ACCESO')/items")), m = correos().pop();
+    const alta = posts.find(x => x.ruta.includes("SOLICITUDES ACCESO APLICACIONES')/items")), m = correos().pop();
     console.log(tag, '| solicitud:', alta && JSON.stringify((({ Title, Papel, Aplicacion, EstadoSolicitud }) => ({ Title, Papel, Aplicacion, EstadoSolicitud }))(JSON.parse(alta.cuerpo))), '| aviso a:', m && m.To.results, '|', m && m.Subject);
     console.log(tag, '| después:', (await p.$$eval('#vista .okmsg, #vista .aviso', n => n.map(x => x.textContent).join(' / '))).replace(/\s+/g, ' ').slice(0, 330), '| errores:', errs);
     await b.close(); return;
@@ -226,6 +226,7 @@ async function prueba(verbose, escenario) {
   }
   if (escenario === 'accesos') {
     await p.click('#tabs a[data-v=accesos]'); await p.waitForTimeout(800);
+    console.log(tag, '| enlaces de la lista:', await p.$$eval('#vista a[href*="SubNew.aspx"], #vista a[href*="/Lists/"]', n => n.map(x => x.textContent.slice(0, 40) + ' → ' + x.getAttribute('href').replace(/^https:\/\/colabora\.mdef\.es/, '').slice(0, 90)).join(' · ')));
     console.log(tag, '| pestaña:', await p.textContent('#tabs a[data-v=accesos]'), '| pendientes (solo INCIDENTES):', await p.$$eval('[data-sol]', n => n.length), '| grupo propuesto:', await p.$eval('.accGrupo', s => s.value));
     posts.length = 0; await p.click('[data-accprueba]'); await p.waitForTimeout(800);
     { const m = correos().pop(); console.log(tag, '| prueba del aviso:', m && m.To.results, '|', m && m.Subject, '|', (await p.textContent('#accPrueba')).replace(/\s+/g, ' ').slice(0, 110)); }

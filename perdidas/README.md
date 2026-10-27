@@ -47,8 +47,8 @@ nota), `VALORACIONSUIGES` (nota) y `ValoradoPorSUIGE` (sí/no). Mientras falten,
 
 ## Quién ve qué
 
-- **Acceso**: el **mismo de Incidentes** (grupo `INCIDENTES_UNIDADES`, grupos `SEGURIDAD_*` y lista común «SOLICITUDES DE
-  ACCESO» con `Aplicacion = INCIDENTES`): quien notifica incidentes notifica pérdidas, y las solicitudes se resuelven desde
+- **Acceso**: el **mismo de Incidentes** (grupo `INCIDENTES_UNIDADES`, grupos `SEGURIDAD_*` y lista común «SOLICITUDES ACCESO
+  APLICACIONES» con `Aplicacion = INCIDENTES`): quien notifica incidentes notifica pérdidas, y las solicitudes se resuelven desde
   la pestaña «Accesos» de cualquiera de las dos páginas. Aviso de cada solicitud a asansen@et.mde.es.
 - **Notificaciones**: IGE (`SEGURIDAD_IGE`) todas; cada SUIGE, las de sus unidades; el resto, las que dio de alta o de las
   que es responsable.
