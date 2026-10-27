@@ -28,6 +28,9 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   autoridad, enlace y texto del mensaje). Los datos van en el fragmento de la dirección (`#importar=…`), que no se
   envía a ningún servidor. La primera vez pide la dirección de la página de Colabora. Los mensajes ya pasados se
   marcan con «➜ Tarea». Ver [`SINCRONIZACION.md`](../SINCRONIZACION.md).
+  **De momento solo en la copia de pruebas**: `marcador-visor-mensadef-pruebas.html` (favorito «Mensajes MENSADEF
+  (pruebas)», `python3 generar-marcador.py --pruebas`), con banda roja, memoria aparte y que solo admite la página de
+  Tareas de pruebas. El favorito bueno (`marcador-visor-mensadef.html`) no cambia hasta que se dé por buena.
 - `prueba-mensadef.html` (marcador: `marcador-mensadef.html`, favorito «Prueba MENSADEF»): diagnóstico. Indica
   dónde se ejecuta, lista las listas y bibliotecas del sitio (nombre, tipo, recuento) y analiza la que se elija:
   columnas, tipos de contenido, archivos por tipo, meses y columnas rellenas. El resumen para copiar no incluye

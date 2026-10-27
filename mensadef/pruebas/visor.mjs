@@ -16,7 +16,9 @@ const item = (l, i) => ({ ID: i + 1, FileSystemObjectType: 0, Title: 'T' + i, Cr
   MensajeUrlCarpeta: WEB + '/SMDMDMensajesDocumentos_' + dias[0] + '/' + l + '-' + i });
 const b = await chromium.launch();
 const mp = await b.newPage();
-await mp.goto(new URL('../marcador-visor-mensadef.html', import.meta.url).href);
+// PRUEBAS=1: copia de pruebas del visor (marcador-visor-mensadef-pruebas.html)
+const PRUEBAS = !!process.env.PRUEBAS;
+await mp.goto(new URL(PRUEBAS ? '../marcador-visor-mensadef-pruebas.html' : '../marcador-visor-mensadef.html', import.meta.url).href);
 const codigo = decodeURIComponent((await mp.getAttribute('#marcador', 'href')).slice(11));
 const p = await b.newPage({ acceptDownloads: true }); const errs = []; p.on('pageerror', e => errs.push(e.message)); const metodos = new Set(); const pedidas = [];
 await p.route(O + '/**', async r => {
@@ -71,7 +73,8 @@ await p.click('#lista tbody tr >> nth=1'); await p.waitForTimeout(500);
 console.log('botón activo tras leer el cuerpo:', await p.isEnabled('#aColabora'));
 await p.click('#aColabora'); console.log('pide dirección:', await p.isVisible('#urlColabora'));
 await p.fill('#urlColabora', O + WEB + '/x'); await p.click('#guardarColabora'); console.log('rechaza dirección de MENSADEF:', await p.textContent('#errColabora'));
-await p.fill('#urlColabora', 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/Documentos/tareas-nlt-colabora.html');
+if (PRUEBAS) { await p.fill('#urlColabora', 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/Documentos/tareas-nlt-colabora.html'); await p.click('#guardarColabora'); console.log('PRUEBAS rechaza la página buena:', await p.textContent('#errColabora'), '| banda:', await p.$eval('body > div', d => d.textContent)); }
+await p.fill('#urlColabora', 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/Documentos/tareas-nlt-colabora' + (PRUEBAS ? '-pruebas' : '') + '.html');
 const [nueva] = await Promise.all([p.context().waitForEvent('page'), p.click('#guardarColabora')]);
 await nueva.waitForLoadState(); const destino = nueva.url(); const enviado = JSON.parse(decodeURIComponent(destino.split('#importar=')[1]));
 console.log('abre:', destino.split('#')[0], '| datos:', JSON.stringify(enviado).slice(0, 330));

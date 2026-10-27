@@ -98,8 +98,19 @@
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var lista = function (x) { return !x ? [] : Array.isArray(x) ? x : (x.results || x.value || []); };
-  var guardar = function (k, v) { try { localStorage.setItem('visorMensadef.' + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
-  var leer = function (k, d) { try { var v = localStorage.getItem('visorMensadef.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
+  // Copia de pruebas (marcador «Mensajes MENSADEF (pruebas)», generado con PRUEBAS = true): guarda aparte su memoria
+  // (la dirección de la página de Tareas de pruebas y los mensajes pasados) y lleva una banda roja
+  var PRUEBAS = false;
+  var MEMORIA = PRUEBAS ? 'visorMensadefPruebas.' : 'visorMensadef.';
+  if (PRUEBAS) {
+    document.title = 'PRUEBAS · ' + document.title;
+    var bandaP = document.createElement('div');
+    bandaP.style.cssText = 'background:#b71c1c;color:#fff;text-align:center;font-weight:800;padding:6px 10px';
+    bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
+    document.body.insertBefore(bandaP, document.body.firstChild);
+  }
+  var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
+  var leer = function (k, d) { try { var v = localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
 
   if (!window.fetch || !window.Promise || document.documentMode) {
     $('aviso').hidden = false; $('aviso').innerHTML = '<div class="bad">Ábrelo en Microsoft Edge o Chrome normal (no en modo Internet Explorer).</div>'; return;
@@ -397,13 +408,14 @@
   function configurarColabora(m, despues) {
     var caja = $('colabora');
     caja.innerHTML = '<div class="card" style="margin:6px 0"><b>¿Dónde está tu página de Tareas Colabora?</b>' +
-      '<p class="muted">Ábrela en Colabora (el archivo <i>tareas-nlt-colabora.html</i> de la biblioteca donde la subiste), copia la dirección de la barra del navegador y pégala aquí. Solo se pide una vez.</p>' +
-      '<div class="fila"><input id="urlColabora" style="flex:1;min-width:240px" placeholder="https://colabora.mdef.es/…/tareas-nlt-colabora.html" value="' + esc(urlColabora()) + '">' +
+      '<p class="muted">Ábrela en Colabora (el archivo <i>tareas-nlt-colabora' + (PRUEBAS ? '-pruebas' : '') + '.html</i> de la biblioteca donde la subiste), copia la dirección de la barra del navegador y pégala aquí. Solo se pide una vez.</p>' +
+      '<div class="fila"><input id="urlColabora" style="flex:1;min-width:240px" placeholder="https://colabora.mdef.es/…/tareas-nlt-colabora' + (PRUEBAS ? '-pruebas' : '') + '.html" value="' + esc(urlColabora()) + '">' +
       '<button type="button" class="prim" id="guardarColabora">Guardar</button></div><div class="muted" id="errColabora"></div></div>';
     $('guardarColabora').addEventListener('click', function () {
       var v = $('urlColabora').value.trim().replace(/#.*$/, '');
       if (!/^https?:\/\/[^/]+\/./i.test(v)) { $('errColabora').textContent = 'Pega la dirección completa, empezando por https://'; return; }
       if (v.indexOf(location.origin + '/') === 0) { $('errColabora').textContent = 'Esa dirección es de MENSADEF; tiene que ser la de la página en Colabora.'; return; }
+      if (PRUEBAS && !/pruebas/i.test(v)) { $('errColabora').textContent = 'Esta es la versión de pruebas: pon la dirección de tareas-nlt-colabora-pruebas.html, no la de la buena.'; return; }
       guardar('colabora', v); pintarColabora(m);
       if (despues) despues();
     });

@@ -7,10 +7,14 @@
 Cada marcador (favorito «javascript:») sustituye la página de MENSADEF que está abierta por la
 página correspondiente, en el mismo servidor y con la misma sesión, así que no depende de que
 MENSADEF ejecute archivos subidos. Volver a ejecutar este script cada vez que cambie una página.
+
+Con --pruebas solo genera la copia de pruebas del visor (marcador-visor-mensadef-pruebas.html, favorito
+«Mensajes MENSADEF (pruebas)», con PRUEBAS = true) y no toca los marcadores buenos.
 """
 import html
 import json
 import pathlib
+import sys
 import urllib.parse
 
 aqui = pathlib.Path(__file__).parent
@@ -69,8 +73,11 @@ PLANTILLA = '''<!doctype html>
 '''
 
 
-def generar(fuente, salida, nombre, titulo, intro, pasos):
+def generar(fuente, salida, nombre, titulo, intro, pasos, pruebas=False):
     pagina = (aqui / fuente).read_text(encoding='utf-8')
+    if pruebas:
+        assert 'var PRUEBAS = false;' in pagina, 'No encuentro «var PRUEBAS = false;» en ' + fuente
+        pagina = pagina.replace('var PRUEBAS = false;', 'var PRUEBAS = true;')
     codigo = '(function(){var h=' + json.dumps(pagina) + ';document.open();document.write(h);document.close();})()'
     marcador = 'javascript:' + urllib.parse.quote(codigo, safe='')
     uso = '\n'.join('      <li>' + p + '</li>' for p in pasos)
@@ -78,6 +85,19 @@ def generar(fuente, salida, nombre, titulo, intro, pasos):
                                                 marcador=html.escape(marcador, quote=True)), encoding='utf-8')
     print(salida + ':', len(marcador), 'caracteres de marcador')
 
+
+if '--pruebas' in sys.argv:
+    generar('visor-mensadef.html', 'marcador-visor-mensadef-pruebas.html', 'Mensajes MENSADEF (pruebas)',
+            'Visor de mensajes de MENSADEF · VERSIÓN DE PRUEBAS',
+            'Copia de pruebas del visor, para probar <b>«➜ Crear tarea en Colabora»</b> sin tocar el favorito bueno. Lleva '
+            'una banda roja, guarda su memoria aparte y solo admite la página de Tareas de pruebas '
+            '(<i>tareas-nlt-colabora-pruebas.html</i>). Solo <b>lee</b> MENSADEF, con tu sesión.',
+            ['Abre MENSADEF en tu célula (por ejemplo SETEC SEGURIDAD).',
+             'Pulsa el favorito <b>Mensajes MENSADEF (pruebas)</b>.',
+             'Abre un mensaje y pulsa <b>➜ Crear tarea en Colabora</b>. La primera vez pega la dirección de '
+             '<i>tareas-nlt-colabora-pruebas.html</i> en Colabora.',
+             'Para volver a MENSADEF normal, recarga (F5).'], pruebas=True)
+    sys.exit()
 
 generar('prueba-mensadef.html', 'marcador-mensadef.html', 'Prueba MENSADEF', 'Prueba de MENSADEF con un marcador',
         'MENSADEF descarga los archivos en vez de abrirlos, así que la prueba se lanza con un <b>favorito especial</b> '
