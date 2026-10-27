@@ -55,8 +55,8 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
     antiguos incoherentes salen con aviso ⚠ («Fecha de fin sin estado terminado» / «Terminado sin fecha de fin»):
     corregirlos poco a poco desde la propia página. Pendiente de subir la copia protegida.
 12. **Pérdida de documentación** (`perdidas/`, versión 2026-10-27 · 1, probada en simulación): formulario del InfoPath,
-    circuito unidad › SUIGE › IGE, acceso de Incidentes, datos personales solo para quien tramita. Pendiente: subir
-    `perdidas/colabora/perdidas.html`, crear las columnas de seguimiento en «Ajustes» y comprobar con datos reales
+    circuito unidad › SUIGE › IGE, acceso de Incidentes, datos personales solo para quien tramita. Subida (copia con semilla
+    fija, 27/10/2026) y columnas de seguimiento creadas (confirmado por el usuario). Pendiente: comprobar con datos reales
     (34 notificaciones antiguas, casi todas en REMITIDO A M1 sin SUIGES: la SUIGE sale de la unidad).
     Permisos de la lista: «Colaborar» a INCIDENTES_UNIDADES y SEGURIDAD_*, sin «Usuarios del dominio» (como Incidentes).
     **Aparcado «por ahora»** (el usuario lo analiza): permisos por elemento al remitir (cada pérdida visible solo para su
