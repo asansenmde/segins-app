@@ -4,8 +4,15 @@ Objetivo: que un mensaje oficial de **MENSADEF** o un **correo de Outlook** se c
 tarea del **grupo de trabajo**, y que todo el grupo la vea y la gestione al momento.
 
 La aplicación de tareas es el **Gestor de tareas de la Jefatura de SUIGESUR** (`colabora/`, versión 2026-10-27 · 1):
-se edita `colabora/tareas-nlt-colabora.html` y se sube a Colabora la copia protegida
-`colabora/colabora/tareas-nlt-colabora.html`. MENSADEF se usa en
+se edita `colabora/tareas-nlt-colabora.html`. **Primero se prueba con las copias de pruebas**, que se suben y se
+instalan junto a las buenas sin tocarlas:
+
+- `colabora/colabora/tareas-nlt-colabora-pruebas.html`: trabaja sobre la lista «Gestor de Tareas PRUEBAS» (la crea
+  vacía, con las columnas de la real, la primera vez) y marca los correos con «[PRUEBAS]».
+- `mensadef/marcador-visor-mensadef-pruebas.html`: favorito «Mensajes MENSADEF (pruebas)», que solo pasa mensajes a
+  la página de Tareas de pruebas.
+
+Cuando el usuario las dé por buenas se regeneran las buenas (`node proteger.mjs` y `python3 generar-marcador.py`). MENSADEF se usa en
 `https://mensadef.mdef.es/ambito/2SUIGE/SitePages/ambito.aspx` (célula SETEC SEGURIDAD); el marcador del visor se
 pulsa desde esa misma página.
 

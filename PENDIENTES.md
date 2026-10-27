@@ -75,6 +75,8 @@ Control de acceso · firma con AutoFirma (BAE + empresa) · circuito SUIGE → D
 autoría.
 13. **MENSADEF + Outlook → Tareas Colabora** (versión 2026-10-27 · 1, probada en simulación, original y protegida; diseño en
     `SINCRONIZACION.md`): «➜ Crear tarea en Colabora» en el visor de MENSADEF, alta desde correos .msg/.eml (arrastrar o
-    «✉ Desde correo»), sin duplicados y actualización automática con novedades. Pendiente: que el usuario suba la copia
-    protegida, vuelva a arrastrar el favorito «Mensajes MENSADEF» y lo pruebe desde la célula SETEC SEGURIDAD. Siguientes
+    «✉ Desde correo»), sin duplicados y actualización automática con novedades. Entregadas **solo copias de pruebas** (el
+    usuario no quiere tocar las buenas): `colabora/colabora/tareas-nlt-colabora-pruebas.html` (lista «Gestor de Tareas
+    PRUEBAS») y el favorito «Mensajes MENSADEF (pruebas)». Pendiente: que las pruebe desde la célula SETEC SEGURIDAD y,
+    si las da por buenas, regenerar y entregar las buenas. Siguientes
     fases (reglas de clasificación, varios mensajes a la vez, tablero del grupo) a la espera de sus reglas.
