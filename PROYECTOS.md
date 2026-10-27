@@ -9,7 +9,8 @@
 | `[COLABORA]` | `colabora/` | Tareas Colabora, lista «Gestor de Tareas» del SharePoint interno |
 | `[MENSADEF]` | `mensadef/` | Visor de mensajes de MENSADEF |
 
-Para el desarrollo, las piezas reutilizables y las pruebas están en `SHAREPOINT.md`.
+Para el desarrollo, las piezas reutilizables y las pruebas están en `SHAREPOINT.md`. Cómo se conectan MENSADEF,
+Outlook y Tareas Colabora (pasar mensajes y correos a tareas del grupo): `SINCRONIZACION.md`.
 
 ## Para pedir un cambio
 

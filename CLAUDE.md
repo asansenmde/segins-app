@@ -10,6 +10,9 @@ entre ellos (salvo la librería de Word de SEGINS, que Tareas NLT carga desde `.
 | `[COLABORA]` | `colabora/` | Tareas Colabora, lista «Gestor de Tareas» del SharePoint interno | Se sube a Colabora y se abre allí |
 | `[MENSADEF]` | `mensadef/` | Visor de mensajes de MENSADEF | Marcador del navegador en `mensadef.mdef.es` |
 
+La integración MENSADEF + Outlook → Tareas Colabora (grupo de trabajo) está descrita en **`SINCRONIZACION.md`**:
+el centro es la lista de Colabora; los datos oficiales no van a Tareas NLT (claude.ai).
+
 Las páginas nuevas de SharePoint van en **su propia carpeta** (por ejemplo `incidentes/`), con su README y su
 etiqueta añadida a esta tabla y a `PROYECTOS.md`.
 

@@ -59,9 +59,21 @@ para saber listas, columnas (nombres internos) y tipos. **Nunca pedir contenido 
   cada `<Version>` trae el valor, `Modified` y `Editor` (`id;#Nombre,#…`). Funciona desde SharePoint 2010.
 - Si la columna no anexa: releer el texto justo antes y escribir el comentario al principio con fecha y autor.
 
+## Pasar datos de un servidor a otro (MENSADEF → Colabora)
+
+Una página no puede escribir en otro servidor. Se abre la página de destino con los datos en el fragmento
+(`url#importar=` + `encodeURIComponent(JSON)`): no se envía a ningún servidor; el destino lo lee, lo valida, lo
+borra con `history.replaceState` y solo crea algo cuando el usuario pulsa. Detalle en `SINCRONIZACION.md`.
+
+## Leer correos (.msg y .eml) en el navegador
+
+En `colabora/tareas-nlt-colabora.html`: `leerEml` (MIME, `=?…?=`, quoted-printable, base64, multipart) y
+`leerMsg` (archivo compuesto CFB con propiedades MAPI `__substg1.0_XXXXTTTT`: 0037 asunto, 0C1A remitente,
+1000 texto, 1035 Message-ID, 0E04 para; fecha en `__properties_version1.0`).
+
 ## Pruebas
 
 Playwright contra un SharePoint simulado (rutas `page.route`), con formato ligero y *verbose*, alta,
 modificación con conflicto, comentarios y correo. Para ejecutarlas: `node colabora/pruebas/simulacion.mjs`,
-`node mensadef/pruebas/visor.mjs` y `node mensadef/pruebas/diagnostico.mjs` (Playwright global y Chromium ya
+`node colabora/pruebas/importar.mjs`, `node mensadef/pruebas/visor.mjs` y `node mensadef/pruebas/diagnostico.mjs` (Playwright global y Chromium ya
 instalados). Copiarlas a la carpeta del proyecto nuevo y adaptar los datos simulados (sin datos reales).
