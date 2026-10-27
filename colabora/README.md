@@ -82,6 +82,8 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   Si el navegador no deja abrir ventanas, se descarga como `.html` para abrirlo e imprimirlo.
 - **Estado al crear**: «Remitido al negociado» (como al enviarlo desde Colabora); se cambia en *Ajustes*.
 - `pruebas/simulacion.mjs`: prueba con Playwright contra un Colabora simulado (`node colabora/pruebas/simulacion.mjs`).
+  `pruebas/importar.mjs`: alta desde MENSADEF (también dentro del portal) y desde correos .msg/.eml, duplicados y
+  actualización automática (`TAREAS_HTML=colabora/colabora/tareas-nlt-colabora.html` para la copia protegida).
   `VERBOSE=1` simula SharePoint 2013 (*verbose*); `TAREAS_HTML=colabora/colabora/tareas-nlt-colabora.html` prueba la
   copia protegida; `CAPTURAS=<carpeta>` guarda capturas del panel.
 - `prueba-sharepoint.html`: página de diagnóstico que comprueba si el sitio ejecuta páginas propias y

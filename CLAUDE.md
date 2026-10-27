@@ -14,6 +14,9 @@ entre ellos (salvo la librería de Word de SEGINS, que Tareas NLT carga desde `.
 | `[VSA]` | `vsa/` | Cuestionario de calidad VSA (lista «CUESTIONARIO DE CALIDAD VSA», mismo sitio que Incidentes) | Se sube a Colabora y se abre allí |
 | `[PERDIDAS]` | `perdidas/` | Pérdida de documentación (lista «PERDIDA DOCUMENTACION», mismo sitio que Incidentes) | Se sube a Colabora y se abre allí |
 
+La integración MENSADEF + Outlook → Tareas Colabora (grupo de trabajo) está descrita en **`SINCRONIZACION.md`**:
+el centro es la lista de Colabora; los datos oficiales no van a Tareas NLT (claude.ai).
+
 Las páginas nuevas de SharePoint van en **su propia carpeta** (por ejemplo `incidentes/`), con su README y su
 etiqueta añadida a esta tabla y a `PROYECTOS.md`.
 
