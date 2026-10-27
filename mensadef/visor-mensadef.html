@@ -170,6 +170,9 @@
   };
 
   var web = null, listasDia = [], listasHist = [], mensajes = [], filtrados = [], orden = { campo: 'fecha', desc: true }, abierto = null, mostrar = 300;
+  // Mensajes ya pasados a Tareas Colabora desde este navegador (solo el identificador y la fecha)
+  var enviados = leer('enviados', {});
+  var claveMensaje = function (m) { return m.MensajeId || (m._lista.titulo + ':' + m.ID); };
 
   // Fechas por defecto: los últimos 3 días (o lo último que se usó)
   var hoy = new Date();
@@ -318,7 +321,7 @@
       filas.map(function (m, i) {
         return '<tr data-i="' + i + '"' + (m === abierto ? ' class="sel"' : '') + '><td class="fecha">' + esc(verFecha(fechaDe(m))) + '</td><td>' + (m.MensajeTipo_es ? '<span class="tag">' + esc(m.MensajeTipo_es) + '</span>' : '') +
           '</td><td class="nowrap">' + esc(m.MensajeEstado) + '</td><td>' + esc(autoridad(m)) + '</td><td class="asunto">' + esc(m._asunto) + '</td><td class="nowrap">' + esc(m.MensajeNum_referencia) +
-          '</td><td>' + esc(organo(m)) + '</td><td>' + (m.Attachments ? '📎' : '') + '</td></tr>';
+          '</td><td>' + esc(organo(m)) + '</td><td class="nowrap">' + (m.Attachments ? '📎' : '') + (enviados[claveMensaje(m)] ? ' <span class="tag" title="Pasado a Tareas Colabora">➜ Tarea</span>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>' +
       (filtrados.length > mostrar ? '<p style="margin-top:8px"><button type="button" id="mas">Mostrar ' + Math.min(300, filtrados.length - mostrar) + ' más (quedan ' + (filtrados.length - mostrar) + ')</button></p>' : '');
     Array.prototype.forEach.call($('lista').querySelectorAll('th[data-orden]'), function (th) {
@@ -343,10 +346,13 @@
       return '<dt>' + esc(ETIQUETAS[k]) + '</dt><dd>' + (u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(v) + '</a>' : esc(v)) + '</dd>';
     }).join('');
     $('detalle').innerHTML = '<div class="acciones"><button type="button" id="cerrar">✕ Cerrar</button>' + (disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
-      '<button type="button" id="copiarTarea">Copiar para Gestor de Tareas</button></div>' +
+      '<button type="button" class="prim" id="aColabora" disabled title="Abre Tareas Colabora con el alta rellena">➜ Crear tarea en Colabora</button>' +
+      '<button type="button" id="copiarTarea">Copiar para Gestor de Tareas</button></div><div id="colabora"></div>' +
       '<h2>' + esc(m._asunto || '(sin asunto)') + '</h2><dl>' + datos + '<dt>Lista</dt><dd>' + esc(l.titulo) + '</dd></dl>' +
       '<div id="adjuntos"></div><div id="docs"></div><div class="cuerpo" id="cuerpo">Cargando el texto del mensaje…</div>';
     $('cerrar').addEventListener('click', function () { abierto = null; $('detalle').hidden = true; $('layout').classList.remove('detalle-abierto'); pintarTabla(); });
+    pintarColabora(m);
+    $('aColabora').addEventListener('click', function () { pasarAColabora(m, disp); });
     $('copiarTarea').addEventListener('click', function () {
       var t = (m._asunto || '') + (m.MensajeNum_referencia ? ' — Ref. ' + m.MensajeNum_referencia : '') + (m.MensajeNum_expediente ? ' — Exp. ' + m.MensajeNum_expediente : '') +
         ' — ' + verFecha(fechaDe(m)) + (autoridad(m) ? ' — ' + autoridad(m) : '');
@@ -356,8 +362,10 @@
     api(base + '?$select=MensajeCuerpo', web.url).then(function (d) {
       if (abierto !== m) return;
       var c = texto(d.MensajeCuerpo);
+      m._cuerpo = c;
       $('cuerpo').textContent = c || '(sin texto)';
-    }).catch(function (e) { if (abierto === m) $('cuerpo').textContent = 'No se pudo leer el texto (' + (e.message || e) + ').'; });
+    }).catch(function (e) { if (abierto === m) $('cuerpo').textContent = 'No se pudo leer el texto (' + (e.message || e) + ').'; })
+      .then(function () { if (abierto === m && $('aColabora')) $('aColabora').disabled = false; });
     if (m.Attachments) {
       api(base + '/AttachmentFiles', web.url).then(function (d) {
         if (abierto !== m) return;
@@ -376,10 +384,51 @@
     }
   }
 
+  // Pasar un mensaje a Tareas Colabora: se abre la página de Colabora con los datos en el fragmento de la
+  // dirección («#importar=…»), que no se envía a ningún servidor; allí se revisa el alta y se pulsa «Crear».
+  // MENSADEF no puede escribir en Colabora (es otro servidor): el alta la hace Colabora con tu sesión.
+  var urlColabora = function () { return leer('colabora', ''); };
+  function pintarColabora(m) {
+    var caja = $('colabora'), u = urlColabora(), env = enviados[claveMensaje(m)];
+    caja.innerHTML = (env ? '<p class="muted">➜ Pasado a Tareas Colabora el ' + esc(verFecha(new Date(env))) + ' desde este navegador.</p>' : '') +
+      (u ? '<p class="muted">Tareas Colabora: <a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(u.replace(/^https?:\/\//, '').slice(0, 70)) + '</a> · <a href="#" id="cambiarColabora">cambiar</a></p>' : '');
+    if ($('cambiarColabora')) $('cambiarColabora').addEventListener('click', function (e) { e.preventDefault(); configurarColabora(m); });
+  }
+  function configurarColabora(m, despues) {
+    var caja = $('colabora');
+    caja.innerHTML = '<div class="card" style="margin:6px 0"><b>¿Dónde está tu página de Tareas Colabora?</b>' +
+      '<p class="muted">Ábrela en Colabora (el archivo <i>tareas-nlt-colabora.html</i> de la biblioteca donde la subiste), copia la dirección de la barra del navegador y pégala aquí. Solo se pide una vez.</p>' +
+      '<div class="fila"><input id="urlColabora" style="flex:1;min-width:240px" placeholder="https://colabora.mdef.es/…/tareas-nlt-colabora.html" value="' + esc(urlColabora()) + '">' +
+      '<button type="button" class="prim" id="guardarColabora">Guardar</button></div><div class="muted" id="errColabora"></div></div>';
+    $('guardarColabora').addEventListener('click', function () {
+      var v = $('urlColabora').value.trim().replace(/#.*$/, '');
+      if (!/^https?:\/\/[^/]+\/./i.test(v)) { $('errColabora').textContent = 'Pega la dirección completa, empezando por https://'; return; }
+      if (v.indexOf(location.origin + '/') === 0) { $('errColabora').textContent = 'Esa dirección es de MENSADEF; tiene que ser la de la página en Colabora.'; return; }
+      guardar('colabora', v); pintarColabora(m);
+      if (despues) despues();
+    });
+  }
+  function pasarAColabora(m, disp) {
+    var u = urlColabora();
+    if (!u) return configurarColabora(m, function () { pasarAColabora(m, disp); });
+    var f = fechaDe(m), cuerpo = m._cuerpo || '';
+    var datos = { v: 1, origen: 'MENSADEF', id: claveMensaje(m), asunto: m._asunto || m.Title || '(sin asunto)', fecha: f ? f.toISOString() : '', de: autoridad(m),
+      tipo: m.MensajeTipo_es || '', referencia: m.MensajeNum_referencia || '', suReferencia: m.MensajeSu_referencia || '', expediente: m.MensajeNum_expediente || '',
+      enlace: disp || '', texto: cuerpo.length > 6000 ? cuerpo.slice(0, 6000) + '…' : cuerpo };
+    window.open(u + '#importar=' + encodeURIComponent(JSON.stringify(datos)), '_blank', 'noopener');
+    enviados[claveMensaje(m)] = new Date().toISOString();
+    // Se guardan como mucho los 2000 últimos
+    var ks = Object.keys(enviados).sort(function (a, b) { return enviados[a] < enviados[b] ? 1 : -1; });
+    ks.slice(2000).forEach(function (k) { delete enviados[k]; });
+    guardar('enviados', enviados);
+    pintarColabora(m); pintarTabla();
+  }
+
   // Exporta lo filtrado a CSV (se guarda en tu ordenador; no sale de él)
   $('csv').addEventListener('click', function () {
     var cols = [['Fecha', function (m) { return verFecha(fechaDe(m)); }], ['Tipo', 'MensajeTipo_es'], ['Estado', 'MensajeEstado'], ['Canal', 'MensajeCanal'], ['Autoridad', autoridad],
-      ['Asunto', function (m) { return m._asunto; }], ['Referencia', 'MensajeNum_referencia'], ['Su referencia', 'MensajeSu_referencia'], ['Expediente', 'MensajeNum_expediente'], ['Órgano', organo], ['Adjuntos', function (m) { return m.Attachments ? 'sí' : ''; }]];
+      ['Asunto', function (m) { return m._asunto; }], ['Referencia', 'MensajeNum_referencia'], ['Su referencia', 'MensajeSu_referencia'], ['Expediente', 'MensajeNum_expediente'], ['Órgano', organo], ['Adjuntos', function (m) { return m.Attachments ? 'sí' : ''; }],
+      ['Pasado a Colabora', function (m) { return enviados[claveMensaje(m)] ? verFecha(new Date(enviados[claveMensaje(m)])) : ''; }]];
     var celda = function (v) { v = String(v == null ? '' : v); return /[";\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
     var csv = '﻿' + cols.map(function (c) { return c[0]; }).join(';') + '\r\n' + filtrados.map(function (m) {
       return cols.map(function (c) { return celda(typeof c[1] === 'function' ? c[1](m) : m[c[1]]); }).join(';');

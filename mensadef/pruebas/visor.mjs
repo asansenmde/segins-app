@@ -65,6 +65,20 @@ await p.click('button[data-dias="6"]'); await p.waitForTimeout(800); console.log
 await p.check('#historicas'); await p.click('#cargar'); await p.waitForTimeout(800); console.log('con históricas (+1, sin duplicado):', await filas(), '|', await p.textContent('#estado'));
 console.log('métodos:', [...metodos], '| errores de página:', errs);
 console.log('pidió cuerpo en la carga masiva?', pedidas.some(x => x.includes('items?') && x.includes('MensajeCuerpo')));
+// Pasar a Tareas Colabora: la primera vez pide la dirección de la página; abre Colabora con los datos en el fragmento
+const aColabora = []; await p.context().route('https://colabora.mdef.es/**', r => aColabora.push(r.request().url()) && r.fulfill({ contentType: 'text/html', body: '<html><body>Colabora</body></html>' }));
+await p.click('#lista tbody tr >> nth=1'); await p.waitForTimeout(500);
+console.log('botón activo tras leer el cuerpo:', await p.isEnabled('#aColabora'));
+await p.click('#aColabora'); console.log('pide dirección:', await p.isVisible('#urlColabora'));
+await p.fill('#urlColabora', O + WEB + '/x'); await p.click('#guardarColabora'); console.log('rechaza dirección de MENSADEF:', await p.textContent('#errColabora'));
+await p.fill('#urlColabora', 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/Documentos/tareas-nlt-colabora.html');
+const [nueva] = await Promise.all([p.context().waitForEvent('page'), p.click('#guardarColabora')]);
+await nueva.waitForLoadState(); const destino = nueva.url(); const enviado = JSON.parse(decodeURIComponent(destino.split('#importar=')[1]));
+console.log('abre:', destino.split('#')[0], '| datos:', JSON.stringify(enviado).slice(0, 330));
+console.log('los datos llegaron al servidor de Colabora?', aColabora.some(x => x.includes('importar')), '| peticiones a Colabora:', aColabora.length);
+await nueva.close(); await p.waitForTimeout(200);
+console.log('marca en la tabla:', await p.$$eval('#lista tbody tr', t => t.filter(r => r.textContent.includes('➜ Tarea')).length), '| detalle:', (await p.textContent('#colabora')).slice(0, 80));
+const [otra] = await Promise.all([p.context().waitForEvent('page'), p.click('#aColabora')]); await otra.waitForLoadState(); console.log('segunda vez sin preguntar:', otra.url().includes('#importar=')); await otra.close();
 await p.setViewportSize({ width: 390, height: 800 }); await p.screenshot({ path: new URL('visor-movil.png', import.meta.url).pathname, fullPage: false });
 await p.setViewportSize({ width: 1400, height: 900 }); await p.screenshot({ path: new URL('visor.png', import.meta.url).pathname });
 await b.close();

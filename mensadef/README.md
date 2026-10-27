@@ -24,6 +24,10 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   `SMDMDMensajes2026…`), con búsqueda, filtros (tipo, estado, canal, órgano, autoridad, con adjuntos), orden por
   columnas, detalle con el texto (se pide al abrir cada mensaje), adjuntos, documentos de `MensajeUrlCarpeta`,
   enlace a la ficha en MENSADEF, «Copiar para Gestor de Tareas» y exportación a CSV.
+  **«➜ Crear tarea en Colabora»** abre Tareas Colabora con el alta rellena (asunto, expediente, referencias,
+  autoridad, enlace y texto del mensaje). Los datos van en el fragmento de la dirección (`#importar=…`), que no se
+  envía a ningún servidor. La primera vez pide la dirección de la página de Colabora. Los mensajes ya pasados se
+  marcan con «➜ Tarea». Ver [`SINCRONIZACION.md`](../SINCRONIZACION.md).
 - `prueba-mensadef.html` (marcador: `marcador-mensadef.html`, favorito «Prueba MENSADEF»): diagnóstico. Indica
   dónde se ejecuta, lista las listas y bibliotecas del sitio (nombre, tipo, recuento) y analiza la que se elija:
   columnas, tipos de contenido, archivos por tipo, meses y columnas rellenas. El resumen para copiar no incluye
