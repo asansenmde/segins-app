@@ -63,8 +63,8 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
     unidad, su SUIGE e IGE), porque con «Colaborar» la lista abierta directamente en Colabora deja ver las de otras unidades.
 13. **Solicitudes de acceso del sitio JIGE** (27/10/2026): Incidentes y Pérdidas usaban por error la lista interna oculta
     «Solicitudes de acceso» de SharePoint; ahora «SOLICITUDES ACCESO APLICACIONES» (Incidentes 2026-10-27 · 1, Pérdidas · 2).
-    Pendiente del usuario: subir las dos, en Incidentes › Accesos › Preparación pulsar «Crear la lista» y «Permitir que
-    cualquiera solicite acceso», y crear la alerta «Avisarme». **VSA tiene el mismo fallo** (sigue con «SOLICITUDES DE
+    Hecho (27/10/2026, confirmado en Preparación): lista creada, solo sus elementos, abierta a «usuarios del dominio» y
+    grupo INCIDENTES_UNIDADES (8 personas). Queda confirmar la alerta «Avisarme» con una solicitud de prueba. **VSA tiene el mismo fallo** (sigue con «SOLICITUDES DE
     ACCESO»): corregirlo cuando el usuario diga.
 
 Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar por la que diga).
