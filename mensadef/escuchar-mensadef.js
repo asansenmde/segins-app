@@ -6,6 +6,7 @@
 (function () {
   'use strict';
   if (window.__escuchaMensadef) { window.__escuchaMensadef(); return; }
+  var VERSION = 2; // se ve en el recuadro y en el resumen, para saber qué favorito se ha pulsado
   var reg = [], indice = {};
   try { performance.setResourceTimingBufferSize(5000); } catch (e) { /* sin registro de recursos */ }
 
@@ -148,12 +149,12 @@
   document.body.appendChild(caja);
   var minimizado = false;
   function texto() {
-    return ['ESCUCHA DE MENSADEF (sin contenido) · ' + new Date().toLocaleString('es-ES'), 'Página: ' + location.pathname + ' ' + decodeURIComponent(location.hash).replace(/[0-9a-f]{8}-[0-9a-f-]{27}/gi, '{id}'), '']
+    return ['ESCUCHA DE MENSADEF v' + VERSION + ' (sin contenido) · ' + new Date().toLocaleString('es-ES'), 'Página: ' + location.pathname + ' ' + decodeURIComponent(location.hash).replace(/[0-9a-f]{8}-[0-9a-f-]{27}/gi, '{id}'), '']
       .concat(antes.length ? ['ANTES DE ESCUCHAR (solo rutas):'].concat(antes.map(function (x) { return '- ' + x; }), ['', 'MIENTRAS ESCUCHABA:']) : [])
       .concat(reg.map(function (r) { return '- ' + r.k + (r.n > 1 ? ' ×' + r.n : '') + ' → ' + (r.estado || '?') + (r.cab ? ' (' + r.cab + ')' : '') + (r.cuerpo ? '\n    envía: ' + r.cuerpo : '') + (r.resp ? '\n    recibe: ' + r.resp : ''); })).join('\n');
   }
   function pintar() {
-    caja.innerHTML = '<b style="color:#b71c1c">● Escuchando MENSADEF</b> · ' + reg.length + ' consultas anotadas' +
+    caja.innerHTML = '<b style="color:#b71c1c">● Escuchando MENSADEF · versión ' + VERSION + '</b> · ' + reg.length + ' consultas anotadas' +
       (minimizado ? ' <button type="button" data-a="ver">Ver</button>' :
         '<p style="margin:6px 0">1. Ve a tu célula y abre tu <b>bandeja de mensajes</b> (cambia de célula o de carpeta para que se vuelvan a cargar).<br>2. Cuando veas tus mensajes, pulsa <b>Copiar</b> y pégalo en la conversación. Solo lleva rutas y nombres de campos, sin valores.</p>' +
         '<textarea readonly style="width:100%;height:140px;font:11px monospace"></textarea>' +
