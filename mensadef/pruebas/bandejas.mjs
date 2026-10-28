@@ -59,6 +59,12 @@ await ctx.route(O + '/**', r => {
   if (verbose && acc.includes('nometadata') && u.includes('/_api/')) return r.fulfill({ status: 406, body: '' });
   const J = o => r.fulfill({ contentType: 'application/json', body: JSON.stringify(verbose ? { d: o } : o) });
   // Página de MENSADEF simulada: al entrar en la ruta de una célula, la aplicación consulta su servicio con sus cabeceras
+  // Bandeja pintada por la «aplicación» (para «Abrir en MENSADEF»): 5 filas tras 1,5 s y un buscador que deja la fila pedida
+  if (!u.includes('/_api/') && u.includes('?app=1')) return r.fulfill({ contentType: 'text/html', body: '<html><body><h1>MENSADEF</h1><input placeholder="Buscar mensajes"><table id="t"></table><script>' +
+    'function fila(i){return "<tr class=\\"ms-Row\\" onclick=\\"window.abierto=\\x27RE-"+i+"\\x27\\"><td>RE-"+i+"</td><td><span>Mensaje "+i+" de 8d71</span></td></tr>";}' +
+    'setTimeout(function(){t.innerHTML=[0,1,2,3,4].map(fila).join("");},1500);' +
+    'document.querySelector("input").addEventListener("keyup",function(e){if(e.key!=="Enter")return;var n=/RE-(\\d+)/.exec(this.value);window.buscado=this.value;setTimeout(function(){t.innerHTML=n?fila(n[1]):"";},600);});' +
+    '</script></body></html>' });
   if (!u.includes('/_api/')) return r.fulfill({ contentType: 'text/html', body: '<html><body>MENSADEF<script>addEventListener("hashchange", function () { if (/^#\\/celula\\//.test(location.hash)) fetch("' + API + '/api/usuariovista/UsuarioVistaObtener?x=1", { headers: { "Content-Type": "application/json", passcode: "' + PASS + '", user: "' + UID + '" } }); });</script></body></html>' });
   if (u.startsWith(O + WEB + '/_api/web?')) return J({ Url: O + WEB, Title: 'Segunda SUIGE' });
   if (u.includes('/_api/web?')) return r.fulfill({ status: 404, body: '' });
@@ -107,7 +113,7 @@ await p2.evaluate(() => { try { localStorage.removeItem('visorMensadefPruebas.ce
 await consultasApp(p2); await p2.evaluate(codigo); await p2.waitForTimeout(1500); console.log('desde la célula SECRETARIA:', await p2.textContent('#resumenCelulas')); await p2.close();
 await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(300);
 console.log('detalle:', (await p.textContent('#detalle')).replace(/\s+/g, ' ').slice(0, 420));
-console.log('abrir en MENSADEF:', await p.$eval('#detalle a', a => a.href));
+console.log('abrir en MENSADEF: botón', !!(await p.$('#abrirMensadef')));
 await p.click('#aColabora'); await p.fill('#urlColabora', 'https://colabora.mdef.es/x/tareas-nlt-colabora-pruebas.html');
 await ctx.route('https://colabora.mdef.es/**', r => r.fulfill({ contentType: 'text/html', body: 'ok' }));
 const [nueva] = await Promise.all([ctx.waitForEvent('page'), p.click('#guardarColabora')]); await nueva.waitForLoadState();
@@ -122,6 +128,17 @@ console.log('banderas en la tabla:', await p.$$eval('#lista .bandera', l => [...
 await p.selectOption('[data-x="Bandera"]', 'Urgente');
 await p.waitForTimeout(200); console.log('solo urgentes:', await p.$$eval('#lista tr[data-i]', l => l.length), '| todas con bandera Urgente:', await p.$$eval('#lista tr[data-i]', l => l.every(t => /Urgente/.test(t.textContent))));
 await p.selectOption('[data-x="Bandera"]', '');
+// «Abrir en MENSADEF» localiza el mensaje: a la vista (RE-0) y con el buscador (uno que no está en las 5 primeras)
+await p.evaluate(() => { const o = window.open; window.open = (url, n) => o.call(window, url.replace('#', '?app=1#'), n); });
+for (const n of [0, 40]) {
+  await p.fill('#buscar', 'RE-' + n); await p.waitForTimeout(400);
+  await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(200);
+  const [pest] = await Promise.all([ctx.waitForEvent('page'), p.click('#abrirMensadef')]);
+  await pest.waitForFunction(() => window.abierto || (document.getElementById('avisoVisor') || {}).style?.background === 'rgb(138, 28, 28)', null, { timeout: 30000 }).catch(() => 0);
+  console.log('localizar RE-' + n + ':', await pest.evaluate(() => ({ abierto: window.abierto || '', buscado: window.buscado || '', aviso: (document.getElementById('avisoVisor') || {}).textContent || '', resaltada: !!document.querySelector('tr[style*="outline"]'), url: location.hash.slice(0, 20) })));
+  await pest.close(); await p.bringToFront();
+}
+await p.fill('#buscar', ''); await p.waitForTimeout(300);
 // Informe con los filtros
 await p.selectOption('#fSitio', 'SETEC SEGURIDAD'); await p.click('#kpis [data-kpi="noleidos"]');
 await p.click('#informe'); await p.waitForTimeout(300);

@@ -102,6 +102,10 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   **Versión 2026-10-29 · 4 (pruebas)**: banderas de MENSADEF (Urgente, Finalizado…). Cada mensaje trae `IdEtiqueta` y el
   catálogo sale de `GET api/etiqueta/EtiquetasObtener?emailUsuario&urlColeccionSitio` (`[{IdEtiqueta, Nombre, Color}]`).
   Se ven con su color delante del asunto y en la ficha, con filtro «Bandera», y en el informe (columna, resumen y agrupar).
+  **Versión 2026-10-29 · 5 (pruebas)**: «Abrir en MENSADEF» abre la célula en otra pestaña y localiza el mensaje: espera a
+  que la aplicación pinte la bandeja, busca la fila por su n.º de registro (o el asunto), y si no está a la vista pasa a
+  «Salida» si hace falta y usa el buscador de la bandeja; al encontrarla la resalta y la abre. Si no la encuentra, avisa
+  con lo que hay que buscar (copiado al portapapeles). Probado con una bandeja simulada; la de verdad puede necesitar ajuste.
 
 ## Estructura de MENSADEF (ámbito 2SUIGE)
 

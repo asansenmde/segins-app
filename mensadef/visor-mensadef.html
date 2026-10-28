@@ -229,7 +229,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-10-29 · 4';
+  var VERSION = '2026-10-29 · 5';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -763,6 +763,80 @@
       _enlace: location.origin + location.pathname + '#/celula/' + encodeURIComponent(celula.nombre) + '/' + celula.id,
       _lista: { id: 'api', sitio: celula, titulo: 'tipoES ' + es + ' de ' + celula.nombre } };
   }
+  // «Abrir en MENSADEF» localizando el mensaje: abre la célula en otra pestaña (mismo sitio, así que el visor puede
+  // mirar en ella) y, cuando la aplicación pinta la bandeja, busca la fila por su n.º de registro o su asunto; si no
+  // está a la vista, usa el buscador de la propia bandeja. Al encontrarla la resalta y la abre (como hacer clic en ella).
+  // Si no la encuentra, deja un aviso con lo que hay que buscar (y lo copia).
+  function localizarEnMensadef(m) {
+    var ref = String(m.MensajeNum_referencia || '').trim(), asunto = String(m._asunto || '').trim(), salida = m._x && m._x.__es === 'Salida';
+    var clave = ref || asunto;
+    try { if (navigator.clipboard && clave) navigator.clipboard.writeText(clave).catch(function () {}); } catch (e) { /* sin portapapeles */ }
+    var w = window.open(m._enlace, '_blank');
+    if (!w) { alert('El navegador ha bloqueado la pestaña nueva. Permite las ventanas emergentes de MENSADEF o busca: ' + clave); return; }
+    var inicio = Date.now(), fase = 0, buscado = '';
+    var normalT = function (t) { return String(t || '').replace(/\s+/g, ' ').trim().toLowerCase(); };
+    var aviso = function (d, html, color) {
+      var a = d.getElementById('avisoVisor');
+      if (!a) { a = d.createElement('div'); a.id = 'avisoVisor'; a.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;max-width:380px;padding:10px 14px;border-radius:10px;font:14px system-ui,Segoe UI,sans-serif;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.35);cursor:pointer'; a.title = 'Clic para cerrar'; a.onclick = function () { a.remove(); }; d.body.appendChild(a); }
+      a.style.background = color || '#3b4a2f'; a.innerHTML = html;
+    };
+    // La fila (o tarjeta) que contiene el texto buscado: el elemento más pequeño con ese texto y, de él, su fila
+    var buscarFila = function (d) {
+      var hojas = [], todo = d.body.querySelectorAll('td, span, div, a, p, li, label, h1, h2, h3, h4, strong, b');
+      var nr = normalT(ref), na = normalT(asunto);
+      for (var i = 0; i < todo.length; i++) {
+        var el = todo[i]; if (el.id === 'avisoVisor' || (el.closest && el.closest('#avisoVisor'))) continue;
+        var t = normalT(el.textContent); if (!t || t.length > 600) continue;
+        var ok = (nr && t.indexOf(nr) >= 0) || (na && (t === na || (na.length > 25 && t.indexOf(na) >= 0)));
+        if (ok && !Array.prototype.some.call(el.children, function (h) { var th = normalT(h.textContent); return (nr && th.indexOf(nr) >= 0) || (na && (th === na || (na.length > 25 && th.indexOf(na) >= 0))); })) hojas.push(el);
+      }
+      if (!hojas.length) return null;
+      var visibles = hojas.filter(function (el) { return el.offsetParent !== null || el.getClientRects().length; });
+      var el = (visibles[0] || hojas[0]);
+      return { celda: el, fila: el.closest('tr, [role="row"], li, [class*="row" i], [class*="item" i], [class*="card" i]') || el };
+    };
+    var buscador = function (d) {
+      var ins = d.querySelectorAll('input[type="search"], input[type="text"], input:not([type])');
+      for (var i = 0; i < ins.length; i++) { var x = ins[i], et = (x.placeholder || '') + ' ' + (x.getAttribute('aria-label') || '') + ' ' + (x.title || '') + ' ' + (x.name || '') + ' ' + (x.id || ''); if (/busc|search|filtr|criterio/i.test(et) && (x.offsetParent !== null)) return x; }
+      return null;
+    };
+    var escribir = function (inp, v, d) {
+      var set = Object.getOwnPropertyDescriptor(w.HTMLInputElement.prototype, 'value').set; set.call(inp, v);
+      inp.dispatchEvent(new w.Event('input', { bubbles: true })); inp.dispatchEvent(new w.Event('change', { bubbles: true }));
+      ['keydown', 'keypress', 'keyup'].forEach(function (t) { inp.dispatchEvent(new w.KeyboardEvent(t, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true })); });
+      var b = inp.parentNode && inp.parentNode.querySelector('button, [role="button"], i[class*="search" i]'); if (b && b !== inp) try { b.click(); } catch (e) { /* sin botón */ }
+    };
+    // Pestaña de salida (Enviados / Salida) si el mensaje es de salida y no está a la vista
+    var irASalida = function (d) {
+      var c = d.querySelectorAll('button, a, [role="tab"], li, span');
+      for (var i = 0; i < c.length; i++) { var t = normalT(c[i].textContent); if (/^(bandeja de )?(salida|enviados?|mensajes enviados)( \(\d+\))?$/.test(t) && c[i].offsetParent !== null) { c[i].click(); return true; } }
+      return false;
+    };
+    var paso = function () {
+      if (w.closed) return;
+      var d; try { d = w.document; } catch (e) { return; }
+      if (!d || !d.body || d.readyState === 'loading') return setTimeout(paso, 400);
+      var seg = (Date.now() - inicio) / 1000;
+      var r = buscarFila(d);
+      if (r) {
+        r.fila.scrollIntoView({ block: 'center' });
+        r.fila.style.outline = '3px solid #c9a84c'; r.fila.style.outlineOffset = '-2px'; r.fila.style.background = '#fff6d6';
+        try { r.celda.click(); } catch (e) { /* no se puede abrir */ }
+        aviso(d, '✔ Mensaje localizado' + (ref ? ': <b>' + esc(ref) + '</b>' : '') + '<br><span style="font-size:12px;opacity:.85">Lo ha buscado el visor de mensajes (Cte. A. Sánchez Sender)</span>');
+        setTimeout(function () { var a = d.getElementById('avisoVisor'); if (a) a.remove(); }, 6000);
+        return;
+      }
+      if (seg < 2.5) { aviso(d, '🔎 Buscando el mensaje' + (ref ? ' ' + esc(ref) : '') + '…'); return setTimeout(paso, 500); }
+      if (fase === 0 && salida && irASalida(d)) { fase = 1; return setTimeout(paso, 1500); }
+      if (fase <= 1) fase = 2;
+      var inp = buscador(d);
+      if (fase === 2 && inp && clave) { buscado = clave; escribir(inp, clave, d); fase = 3; return setTimeout(paso, 2500); }
+      if (fase === 3 && inp && ref && asunto && buscado !== asunto) { buscado = asunto; escribir(inp, asunto, d); fase = 4; return setTimeout(paso, 2500); }
+      if (seg < 25) return setTimeout(paso, 700);
+      aviso(d, 'No he podido localizar el mensaje en la pantalla.<br>Búscalo por: <b>' + esc(clave) + '</b>' + (navigator.clipboard ? ' (copiado: pégalo con Ctrl+V)' : '') + (salida ? '<br>Es un mensaje de <b>salida</b>.' : ''), '#8a1c1c');
+    };
+    setTimeout(paso, 800);
+  }
   // Bandejas de todas las células del periodo: páginas de 100 hasta pasar de «Desde» (o 20 páginas por bandeja)
   function cargarApi(desde, hasta) {
     var ini = new Date(desde + 'T00:00:00'), fin = new Date(hasta + 'T23:59:59');
@@ -1099,7 +1173,7 @@
         (otros.length ? '<details class="otros"><summary>Otros campos (' + otros.length + ')</summary><dl>' + otros.map(function (k) { return '<dt>' + esc(EXTRA[k].titulo) + '</dt><dd>' + esc(x[k]) + '</dd>'; }).join('') + '</dl></details>' : '');
     }
     var maxi = $('layout').classList.contains('max');
-    $('detalle').innerHTML = '<div class="acciones"><button type="button" id="cerrar">✕ Cerrar</button><button type="button" id="ampliar" title="Ver la ficha a toda la pantalla">' + (maxi ? '⤡ Reducir' : '⛶ Ampliar') + '</button>' + (disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
+    $('detalle').innerHTML = '<div class="acciones"><button type="button" id="cerrar">✕ Cerrar</button><button type="button" id="ampliar" title="Ver la ficha a toda la pantalla">' + (maxi ? '⤡ Reducir' : '⛶ Ampliar') + '</button>' + (m._api ? '<button type="button" id="abrirMensadef" title="Abre tu célula en MENSADEF en otra pestaña y busca este mensaje">Abrir en MENSADEF</button>' : disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
       '<button type="button" class="prim" id="aColabora" disabled title="Abre Tareas Colabora con el alta rellena">➜ Crear tarea en Colabora</button>' +
       '<button type="button" id="copiarTarea">Copiar para Gestor de Tareas</button><button type="button" id="verDet">' + (vistos[claveMensaje(m)] ? '✓ Visto · quitar' : '✓ Marcar visto') + '</button></div><div id="colabora"></div>' +
       (m._api ? '<div class="cab-msg">' + (m._x.__es ? '<span class="tag st-azul">' + (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + esc(m._x.__es) + '</span>' : '') +
@@ -1116,6 +1190,7 @@
       $('layout').classList.toggle('max', on); this.textContent = on ? '⤡ Reducir' : '⛶ Ampliar';
       $('detalle').scrollIntoView({ block: 'start' });
     });
+    if ($('abrirMensadef')) $('abrirMensadef').addEventListener('click', function () { localizarEnMensadef(m); });
     pintarColabora(m);
     $('verDet').addEventListener('click', function () { var si = !vistos[claveMensaje(m)]; marcarVisto(m, si); this.textContent = si ? '✓ Visto · quitar' : '✓ Marcar visto'; pintarKpis(); pintarTabla(); });
     $('aColabora').addEventListener('click', function () { pasarAColabora(m, disp); });
