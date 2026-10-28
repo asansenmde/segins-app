@@ -80,3 +80,8 @@ autoría.
     PRUEBAS») y el favorito «Mensajes MENSADEF (pruebas)». Pendiente: que las pruebe desde la célula SETEC SEGURIDAD y,
     si las da por buenas, regenerar y entregar las buenas. Siguientes
     fases (reglas de clasificación, varios mensajes a la vez, tablero del grupo) a la espera de sus reglas.
+14. **Visor de MENSADEF con bandejas** (copia de pruebas, 28/10/2026): lee las bandejas de las células del usuario con el
+    servicio `mensadefapi` (cabeceras `passcode` y `user` tomadas de la propia aplicación), por defecto todas las suyas,
+    con «✓ Visto», «➜ Tarea», tarjetas, píldoras de célula, autoría y diseño. **Confirmado por el usuario** que ya lee su
+    célula. Pendiente: que lo use unos días; decidir si «visto» debe ser compartido por el grupo (ahora es de cada
+    navegador) y, cuando lo dé por bueno, regenerar el favorito bueno.

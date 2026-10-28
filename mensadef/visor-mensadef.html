@@ -1,7 +1,14 @@
 <!doctype html>
+<!--
+  Visor de mensajes de MENSADEF (Jefatura de SUIGESUR)
+  © 2026 Cte. Alfredo Sánchez Sender. Desarrollador y autor de esta aplicación. Todos los derechos reservados.
+  Prohibida su copia, modificación o redistribución sin autorización del autor.
+-->
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta name="author" content="Cte. Alfredo Sánchez Sender">
+<meta name="copyright" content="© 2026 Cte. Alfredo Sánchez Sender">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Mensajes MENSADEF</title>
 <style>
@@ -49,6 +56,29 @@
   a { color: #1d4f91; }
   .barra { height: 4px; background: var(--soft); border-radius: 4px; overflow: hidden; margin-top: 6px; }
   .barra div { height: 100%; width: 0; background: var(--brand); transition: width .2s; }
+  .hero { background: linear-gradient(120deg, #26331d 0%, #3b4a2f 55%, #56693f 100%); color: #fff; border-radius: 16px; padding: 16px 20px; margin: 12px 0; position: relative; overflow: hidden; box-shadow: 0 6px 18px rgba(38,51,29,.2); }
+  .hero::after { content: ''; position: absolute; right: -40px; top: -40px; width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, rgba(201,168,76,.35), transparent 70%); }
+  .hero .hola { font-size: .78rem; letter-spacing: 1.5px; color: #e6d9a8; text-transform: uppercase; }
+  .hero .nom { font-size: 1.3rem; font-weight: 800; margin: 2px 0 8px; }
+  .hero .rolh { display: inline-block; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25); border-radius: 999px; padding: 2px 10px; margin: 0 6px 4px 0; font-size: .78rem; font-weight: 600; }
+  .hero p { margin: 6px 0 0; font-size: .82rem; color: #e3ead9; position: relative; z-index: 1; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin: 10px 0; }
+  .kpi { background: var(--card); border: 1px solid var(--line); border-top: 5px solid var(--line); border-radius: 12px; padding: 10px; text-align: center; font-size: .8rem; color: var(--muted); cursor: pointer; font-weight: 600; }
+  .kpi b { display: block; font-size: 1.55rem; color: var(--text); line-height: 1.2; }
+  .kpi.on { outline: 3px solid var(--brand); outline-offset: -1px; }
+  .kpi.k-azul { border-top-color: #1d4f91; } .kpi.k-azul b { color: #1d4f91; } .kpi.k-rojo { border-top-color: var(--bad); } .kpi.k-rojo b { color: var(--bad); }
+  .kpi.k-verde { border-top-color: var(--ok); } .kpi.k-verde b { color: var(--ok); } .kpi.k-ambar { border-top-color: #d99a00; } .kpi.k-ambar b { color: #9a5b00; }
+  .kpi.k-morado { border-top-color: #6b3fa0; } .kpi.k-morado b { color: #6b3fa0; }
+  .pildoras { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
+  .pildora { font-size: .82rem; font-weight: 700; padding: 5px 12px; border-radius: 999px; background: #fff; border: 1px solid var(--line); cursor: pointer; }
+  .pildora.on { background: var(--brand); color: #fff; border-color: var(--brand); }
+  tbody tr.noleido td.asunto { font-weight: 700; }
+  tbody tr.visto { color: var(--muted); }
+  td.ver { width: 34px; text-align: center; }
+  td.ver input { width: 18px; height: 18px; cursor: pointer; }
+  .tag.t-tarea { background: #efe3fb; color: #6b3fa0; } .tag.t-visto { background: var(--okbg); color: var(--ok); }
+  .autor { max-width: 1400px; margin: 0 auto; padding: 12px 16px 24px; text-align: center; font-size: .78rem; color: var(--muted); border-top: 1px solid var(--line); }
+  @media print { .autor { display: none; } }
 </style>
 </head>
 <body>
@@ -56,6 +86,7 @@
 <main>
   <noscript><div class="card bad">El navegador no ejecuta el código de esta página.</div></noscript>
   <div class="card" id="aviso" hidden></div>
+  <div class="hero" id="hero" hidden></div>
 
   <div class="card">
     <div class="fila">
@@ -74,7 +105,9 @@
     <div class="barra"><div id="progreso"></div></div>
   </div>
 
+  <div class="kpis" id="kpis" hidden></div>
   <div class="card" id="filtros" hidden>
+    <div class="pildoras" id="pildoras"></div>
     <div class="fila">
       <label>Buscar<input type="search" id="buscar" placeholder="Asunto, autoridad, referencia, expediente…"></label>
       <label>Tipo<select id="fTipo"></select></label>
@@ -85,6 +118,7 @@
       <label>Negociado / sitio<select id="fSitio"></select></label>
       <label class="check"><input type="checkbox" id="fAdjuntos"> Con adjuntos</label>
       <label class="check"><input type="checkbox" id="fBorrador"> Ocultar borradores</label>
+      <label class="check"><input type="checkbox" id="fVistos"> Ocultar vistos</label>
       <button type="button" id="limpiar">Quitar filtros</button>
       <button type="button" id="csv">Exportar CSV</button>
     </div>
@@ -99,6 +133,7 @@
     <div class="card" id="detalle" hidden></div>
   </div>
 </main>
+<footer class="autor">© 2026 · Aplicación desarrollada por el <b>Cte. Alfredo Sánchez Sender</b> · Todos los derechos reservados · <span id="verPie"></span></footer>
 <script>
 (function () {
   'use strict';
@@ -116,6 +151,8 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
+  var VERSION = '2026-10-28 · 1';
+  try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
 
@@ -209,6 +246,15 @@
   var web = null, listasDia = [], listasHist = [], mensajes = [], filtrados = [], orden = { campo: 'fecha', desc: true }, abierto = null, mostrar = 300;
   // Mensajes ya pasados a Tareas Colabora desde este navegador (solo el identificador y la fecha)
   var enviados = leer('enviados', {});
+  // Mensajes marcados como vistos en este navegador (identificador y fecha); como mucho los 5000 últimos
+  var vistos = leer('vistos', {});
+  function marcarVisto(m, si) {
+    var k = claveMensaje(m);
+    if (si) vistos[k] = new Date().toISOString(); else delete vistos[k];
+    var ks = Object.keys(vistos).sort(function (a, b) { return vistos[a] < vistos[b] ? 1 : -1; });
+    ks.slice(5000).forEach(function (x) { delete vistos[x]; });
+    guardar('vistos', vistos);
+  }
   var claveMensaje = function (m) { return m.MensajeId || (m._lista.titulo + ':' + m.ID); };
 
   // Fechas por defecto: los últimos 3 días (o lo último que se usó)
@@ -326,12 +372,17 @@
   function celulasElegidas() {
     var cs = apiCtx.celulas, g = leer('celulasElegidas', null);
     if (g && g.length) { var e = cs.filter(function (c) { return g.indexOf(String(c.id).toLowerCase()) >= 0; }); if (e.length) return e; }
-    var pag = cs.filter(function (c) { return String(c.id).toLowerCase() === apiCtx.dePagina; });
-    if (pag.length) return pag;
     var t4 = cs.filter(function (c) { return c.en4; });
     if (t4.length) return t4;
     var oam = cs.filter(function (c) { return grupoDe(c) === 'oam'; });
     return oam.length ? oam : cs;
+  }
+  function pintarHero() {
+    var e = celulasElegidas(), nombre = ($('quien').textContent || '').split(' · ').pop();
+    $('hero').hidden = false;
+    $('hero').innerHTML = '<div class="hola">Mensajes MENSADEF' + (nombre ? ' · Hola' : '') + '</div><div class="nom">' + esc(nombre || 'Tus bandejas') + '</div>' +
+      e.map(function (c) { return '<span class="rolh">' + (c.en4 ? '★ ' : '') + esc(c.nombre) + '</span>'; }).join('') +
+      '<p>Tus bandejas de entrada y salida de las células que elijas. Marca ✓ lo revisado y pasa a tarea lo que haya que hacer. Lo que marcas se guarda en este navegador.</p>';
   }
   function pintarResumenCelulas() {
     var e = celulasElegidas();
@@ -361,7 +412,7 @@
     $('aplicarCelulas').addEventListener('click', function () {
       var ids = Array.prototype.filter.call(caja.querySelectorAll('[data-i]'), function (x) { return x.checked; }).map(function (x) { return String(apiCtx.celulas[+x.getAttribute('data-i')].id).toLowerCase(); });
       if (!ids.length) { alert('Marca al menos una célula.'); return; }
-      guardar('celulasElegidas', ids); caja.hidden = true; pintarResumenCelulas(); cargar();
+      guardar('celulasElegidas', ids); caja.hidden = true; pintarResumenCelulas(); $('fSitio').value = ''; cargar();
     });
   });
   var GUID = /^\{?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}?$/i;
@@ -514,6 +565,12 @@
   var NOMBRES_API = { asunto: ['Asunto'], fecha: ['Fecha', 'FechaRegistroEntrada', 'FechaRegistroSalida'], estado: ['EstadoMensaje', 'EstadoParaUsuario'], tipo: ['TipoMensaje'],
     remitente: ['CelulaRemitente', 'UsuarioRemitente'], referencia: ['NumeroRegistroEntrada', 'NumeroRegistroSalida', 'Nref'], suReferencia: ['Sref'], adjuntos: ['ContieneAnexos'], id: ['IdMensaje'], cuerpo: ['Cuerpo'] };
   var NO_MOSTRAR_API = { Cuerpo: 1, Distribuciones: 1 };
+  // Ya tienen su filtro (Estado, Tipo, Bandeja): no se repiten
+  var SIN_FILTRO = { EstadoMensaje: 1, TipoMensaje: 1, TipoES: 1 };
+  var ETIQUETAS_API = { Actuacion: 'Actuación', CelulaRemitente: 'Célula remitente', CelulaDestinataria: 'Célula destinataria', CodigoPrioridad: 'Prioridad', ContieneAnexos: 'Anexos',
+    EstadoMensaje: 'Estado del mensaje', EstadoParaUsuario: 'Estado para mí', Leido: 'Leído', TipoES: 'Entrada/Salida', TipoMensaje: 'Tipo de mensaje', NumeroRegistroEntrada: 'N.º registro de entrada',
+    NumeroRegistroSalida: 'N.º registro de salida', FechaRegistroEntrada: 'Fecha registro de entrada', FechaRegistroSalida: 'Fecha registro de salida', UsuarioRemitente: 'Usuario remitente',
+    MotivoDistribucion: 'Motivo de distribución', UltimoComentario: 'Último comentario', Sref: 'Su referencia', Nref: 'Nuestra referencia', Destinatarios: 'Destinatarios', Firma: 'Firma' };
   var siNo = function (v) { return v === true || /^(s[ií]|si|true|1|s)$/i.test(String(v == null ? '' : v).trim()); };
   function deApi(e, celula, es) {
     var x = {}, campo = function (re, cond) { return Object.keys(e).filter(function (k) { return re.test(k) && e[k] != null && e[k] !== '' && typeof e[k] !== 'object' && (!cond || cond(e[k])); })[0]; };
@@ -524,7 +581,7 @@
       // Listas (p. ej. etiquetas): sus nombres separados por comas; otros objetos no se muestran
       if (Array.isArray(v)) v = v.map(function (y) { return y && typeof y === 'object' ? (y.Nombre || y.nombre || y.Descripcion || y.descripcion || y.Title || '') : y; }).filter(Boolean).join(', ');
       else if (typeof v === 'object') return;
-      if (!EXTRA[k]) EXTRA[k] = { titulo: k.replace(/([a-z])([A-Z])/g, '$1 $2'), tipo: typeof e[k] === 'boolean' ? 'Boolean' : tipoDe(e[k]) === 'fecha' ? 'DateTime' : 'Text' };
+      if (!EXTRA[k]) EXTRA[k] = { titulo: ETIQUETAS_API[k] || k.replace(/([a-z])([A-Z])/g, '$1 $2'), tipo: typeof e[k] === 'boolean' ? 'Boolean' : tipoDe(e[k]) === 'fecha' ? 'DateTime' : 'Text' };
       var t = comoTexto(v, EXTRA[k].tipo); if (t) x[k] = t;
     });
     EXTRA.__es = EXTRA.__es || { titulo: 'Bandeja', tipo: 'Text' };
@@ -541,6 +598,7 @@
     return { _api: true, _x: x, ID: kid ? e[kid] : '', MensajeId: kid ? String(e[kid]) : '', _asunto: val('asunto', CLAVES_API.asunto), MensajeFecha: fecha, MensajeEstado: val('estado', CLAVES_API.estado),
       MensajeTipo_es: val('tipo', CLAVES_API.tipo), MensajeNombre_Autoridad: val('remitente', CLAVES_API.remitente), MensajeNum_referencia: val('referencia', CLAVES_API.referencia, CLAVES_API.referencia2),
       MensajeSu_referencia: val('suReferencia', /^sref$|su_?ref/i), MensajeNum_expediente: val('', CLAVES_API.expediente),
+      _leido: typeof e.Leido === 'boolean' ? e.Leido : undefined,
       Attachments: kadj ? siNo(e[kadj]) : false, _cuerpoApi: kc ? texto(String(e[kc])) : '',
       _enlace: location.origin + location.pathname + '#/celula/' + encodeURIComponent(celula.nombre) + '/' + celula.id,
       _lista: { id: 'api', sitio: celula, titulo: 'tipoES ' + es + ' de ' + celula.nombre } };
@@ -639,6 +697,7 @@
     if (modoApi) {
       $('cargar').disabled = true;
       sitios = celulasElegidas();
+      pintarHero();
       return cargarApi(desde, hasta).then(function (r) {
         mensajes = r.mensajes; $('cargar').disabled = false;
         $('estado').textContent = mensajes.length + ' mensajes del ' + desde.split('-').reverse().join('/') + ' al ' + hasta.split('-').reverse().join('/') + ' en ' + sitios.length + (sitios.length === 1 ? ' célula' : ' células') +
@@ -689,9 +748,12 @@
     opciones('fOrgano', mensajes.map(organo), 'Todos');
     opciones('fAutoridad', mensajes.map(autoridad), 'Todas');
     opciones('fSitio', mensajes.map(sitioDe), 'Todos');
+    // Fuera los filtros sin datos (p. ej. canal u órgano en las bandejas)
+    ['fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad'].forEach(function (id) { $(id).parentNode.style.display = $(id).options.length > 1 ? '' : 'none'; });
     $('fSitio').parentNode.style.display = sitios.length < 2 ? 'none' : '';
     // Un desplegable por cada columna de MENSADEF con pocos valores distintos en lo cargado
     var cols = Object.keys(EXTRA).filter(function (k) {
+      if (SIN_FILTRO[k]) return false;
       // Con 2 a 80 valores distintos, o con un solo valor que no tienen todos (p. ej. una etiqueta)
       var v = {}, con = 0; mensajes.forEach(function (m) { if (m._x[k]) { v[m._x[k]] = 1; con++; } }); var n = Object.keys(v).length; return (n >= 2 || (n === 1 && con < mensajes.length)) && n <= 80;
     }).sort(function (a, b) { return EXTRA[a].titulo.localeCompare(EXTRA[b].titulo, 'es'); });
@@ -710,17 +772,21 @@
   var sitioDe = function (m) { return m._lista.sitio ? m._lista.sitio.titulo : ''; };
   $('fBorrador').checked = leer('ocultarBorradores', true);
   $('fBorrador').addEventListener('change', function () { guardar('ocultarBorradores', $('fBorrador').checked); });
-  ['fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad', 'fSitio', 'fAdjuntos', 'fBorrador'].forEach(function (id) { $(id).addEventListener('change', function () { mostrar = 300; filtrar(); }); });
+  $('fVistos').checked = leer('ocultarVistos', false);
+  $('fVistos').addEventListener('change', function () { guardar('ocultarVistos', $('fVistos').checked); });
+  ['fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad', 'fSitio', 'fAdjuntos', 'fBorrador', 'fVistos'].forEach(function (id) { $(id).addEventListener('change', function () { mostrar = 300; filtrar(); }); });
   var espera; $('buscar').addEventListener('input', function () { clearTimeout(espera); espera = setTimeout(function () { mostrar = 300; filtrar(); }, 200); });
-  $('limpiar').addEventListener('click', function () { ['buscar', 'fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad', 'fSitio'].forEach(function (id) { $(id).value = ''; }); $('fAdjuntos').checked = false; fx = {}; pintarTodo(); });
+  $('limpiar').addEventListener('click', function () { ['buscar', 'fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad', 'fSitio'].forEach(function (id) { $(id).value = ''; }); $('fAdjuntos').checked = false; fx = {}; kpiSel = ''; pintarTodo(); });
 
   var normal = function (s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
   function filtrar() {
     var q = normal($('buscar').value).split(/\s+/).filter(Boolean);
     var t = $('fTipo').value, e = $('fEstado').value, c = $('fCanal').value, o = $('fOrgano').value, a = $('fAutoridad').value, adj = $('fAdjuntos').checked;
-    var st = $('fSitio').value, sinBorr = $('fBorrador').checked, xs = Object.keys(fx);
+    var st = $('fSitio').value, sinBorr = $('fBorrador').checked, xs = Object.keys(fx), sinVistos = $('fVistos').checked;
     filtrados = mensajes.filter(function (m) {
       if (st && sitioDe(m) !== st) return false;
+      if (kpiSel && !KPIS[kpiSel].f(m)) return false;
+      if (sinVistos && !kpiSel && vistos[claveMensaje(m)]) return false;
       if (sinBorr && !e && /borrador/i.test(m.MensajeEstado || '')) return false;
       for (var j = 0; j < xs.length; j++) if (m._x[xs[j]] !== fx[xs[j]]) return false;
       if (t && m.MensajeTipo_es !== t) return false;
@@ -747,7 +813,37 @@
     filtrados.sort(function (x, y) { var a = k(x), b = k(y); return a < b ? -s : a > b ? s : 0; });
   }
 
+  // Tarjetas de resumen (sobre la célula elegida); al pulsar una se ven solo esos
+  var kpiSel = '';
+  var KPIS = {
+    todos: { t: 'Mensajes', c: '', f: function () { return true; } },
+    noleidos: { t: 'No leídos', c: 'k-rojo', f: function (m) { return m._leido === false; } },
+    entrada: { t: 'Entrada', c: 'k-azul', f: function (m) { return m._x.__es === 'Entrada'; } },
+    salida: { t: 'Salida', c: 'k-verde', f: function (m) { return m._x.__es === 'Salida'; } },
+    sinver: { t: 'Sin revisar', c: 'k-ambar', f: function (m) { return !vistos[claveMensaje(m)]; } },
+    tarea: { t: 'Pasados a tarea', c: 'k-morado', f: function (m) { return !!enviados[claveMensaje(m)]; } }
+  };
+  function pintarKpis() {
+    var st = $('fSitio').value, base = mensajes.filter(function (m) { return !st || sitioDe(m) === st; });
+    var hay = function (k) { return k === 'todos' || k === 'sinver' || k === 'tarea' || base.some(KPIS[k].f); };
+    $('kpis').hidden = !mensajes.length;
+    $('kpis').innerHTML = Object.keys(KPIS).filter(hay).map(function (k) {
+      return '<div class="kpi ' + KPIS[k].c + (kpiSel === k || (!kpiSel && k === 'todos') ? ' on' : '') + '" data-kpi="' + k + '">' + KPIS[k].t + '<b>' + base.filter(KPIS[k].f).length + '</b></div>';
+    }).join('');
+    Array.prototype.forEach.call($('kpis').querySelectorAll('[data-kpi]'), function (d) {
+      d.addEventListener('click', function () { var k = d.getAttribute('data-kpi'); kpiSel = k === 'todos' || kpiSel === k ? '' : k; mostrar = 300; filtrar(); });
+    });
+    // Píldoras de célula: cambiar de una a otra con un clic
+    var cuenta = {}; mensajes.forEach(function (m) { var c = sitioDe(m); if (c) cuenta[c] = (cuenta[c] || 0) + 1; });
+    var cs = Object.keys(cuenta).sort(function (a, b) { return a.localeCompare(b, 'es'); });
+    $('pildoras').innerHTML = cs.length < 2 ? '' : '<span class="pildora' + (!st ? ' on' : '') + '" data-pil="">Todas · ' + mensajes.length + '</span>' +
+      cs.map(function (c) { return '<span class="pildora' + (st === c ? ' on' : '') + '" data-pil="' + esc(c) + '">' + esc(c.replace(/^ET \w+ /, '')) + ' · ' + cuenta[c] + '</span>'; }).join('');
+    Array.prototype.forEach.call($('pildoras').querySelectorAll('[data-pil]'), function (d) {
+      d.addEventListener('click', function () { $('fSitio').value = d.getAttribute('data-pil'); mostrar = 300; filtrar(); });
+    });
+  }
   function pintarChips() {
+    pintarKpis();
     var cuenta = {}; filtrados.forEach(function (m) { var k = m.MensajeEstado || '(sin estado)'; cuenta[k] = (cuenta[k] || 0) + 1; });
     $('chips').innerHTML = '<span class="chip on">' + filtrados.length + ' de ' + mensajes.length + '</span>' +
       Object.keys(cuenta).sort().map(function (k) { return '<span class="chip" data-estado="' + esc(k) + '">' + esc(k) + ' · ' + cuenta[k] + '</span>'; }).join('');
@@ -760,18 +856,23 @@
     var cab = [['fecha', 'Fecha'], ['tipo', 'Tipo'], ['estado', 'Estado'], ['autoridad', 'Autoridad'], ['asunto', 'Asunto'], ['referencia', 'Referencia'], ['organo', 'Órgano']];
     var filas = filtrados.slice(0, mostrar);
     $('lista').innerHTML = !mensajes.length ? '<p class="muted">No hay mensajes en el periodo elegido.</p>' :
-      '<table><thead><tr>' + cab.map(function (c) { return '<th data-orden="' + c[0] + '">' + c[1] + (orden.campo === c[0] ? (orden.desc ? ' ▾' : ' ▴') : '') + '</th>'; }).join('') + '<th>📎</th></tr></thead><tbody>' +
+      '<table><thead><tr><th title="Visto">✓</th>' + cab.map(function (c) { return '<th data-orden="' + c[0] + '">' + c[1] + (orden.campo === c[0] ? (orden.desc ? ' ▾' : ' ▴') : '') + '</th>'; }).join('') + '<th>📎</th></tr></thead><tbody>' +
       filas.map(function (m, i) {
-        return '<tr data-i="' + i + '"' + (m === abierto ? ' class="sel"' : '') + '><td class="fecha">' + esc(verFecha(fechaDe(m))) + '</td><td>' + (m.MensajeTipo_es ? '<span class="tag">' + esc(m.MensajeTipo_es) + '</span>' : '') +
+        var vis = !!vistos[claveMensaje(m)], cls = [m === abierto ? 'sel' : '', m._leido === false ? 'noleido' : '', vis ? 'visto' : ''].filter(Boolean).join(' ');
+        return '<tr data-i="' + i + '"' + (cls ? ' class="' + cls + '"' : '') + '><td class="ver"><input type="checkbox" data-visto="' + i + '" title="Marcar como visto"' + (vis ? ' checked' : '') + '></td><td class="fecha">' + esc(verFecha(fechaDe(m))) + '</td><td>' + (m.MensajeTipo_es ? '<span class="tag">' + esc(m.MensajeTipo_es) + '</span>' : '') +
           '</td><td class="nowrap">' + esc(m.MensajeEstado) + '</td><td>' + esc(autoridad(m)) + '</td><td class="asunto">' + esc(m._asunto) + '</td><td class="nowrap">' + esc(m.MensajeNum_referencia) +
-          '</td><td>' + esc(organo(m)) + '</td><td class="nowrap">' + (m.Attachments ? '📎' : '') + (enviados[claveMensaje(m)] ? ' <span class="tag" title="Pasado a Tareas Colabora">➜ Tarea</span>' : '') + '</td></tr>';
+          '</td><td>' + esc(organo(m)) + '</td><td class="nowrap">' + (m.Attachments ? '📎' : '') + (enviados[claveMensaje(m)] ? ' <span class="tag t-tarea" title="Pasado a Tareas Colabora">➜ Tarea</span>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>' +
       (filtrados.length > mostrar ? '<p style="margin-top:8px"><button type="button" id="mas">Mostrar ' + Math.min(300, filtrados.length - mostrar) + ' más (quedan ' + (filtrados.length - mostrar) + ')</button></p>' : '');
     Array.prototype.forEach.call($('lista').querySelectorAll('th[data-orden]'), function (th) {
       th.addEventListener('click', function () { var c = th.getAttribute('data-orden'); orden = { campo: c, desc: orden.campo === c ? !orden.desc : c === 'fecha' }; ordenar(); pintarTabla(); });
     });
     Array.prototype.forEach.call($('lista').querySelectorAll('tbody tr'), function (tr) {
-      tr.addEventListener('click', function () { abrir(filas[+tr.getAttribute('data-i')]); });
+      tr.addEventListener('click', function (e) {
+        var cb = e.target.closest && e.target.closest('[data-visto]');
+        if (cb) { marcarVisto(filas[+cb.getAttribute('data-visto')], cb.checked); e.stopPropagation(); pintarKpis(); tr.classList.toggle('visto', cb.checked); return; }
+        abrir(filas[+tr.getAttribute('data-i')]);
+      });
     });
     if ($('mas')) $('mas').addEventListener('click', function () { mostrar += 300; pintarTabla(); });
   }
@@ -790,13 +891,14 @@
     }).join('');
     $('detalle').innerHTML = '<div class="acciones"><button type="button" id="cerrar">✕ Cerrar</button>' + (disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
       '<button type="button" class="prim" id="aColabora" disabled title="Abre Tareas Colabora con el alta rellena">➜ Crear tarea en Colabora</button>' +
-      '<button type="button" id="copiarTarea">Copiar para Gestor de Tareas</button></div><div id="colabora"></div>' +
+      '<button type="button" id="copiarTarea">Copiar para Gestor de Tareas</button><button type="button" id="verDet">' + (vistos[claveMensaje(m)] ? '✓ Visto · quitar' : '✓ Marcar visto') + '</button></div><div id="colabora"></div>' +
       '<h2>' + esc(m._asunto || '(sin asunto)') + '</h2><dl>' + datos +
         Object.keys(m._x).sort(function (a, b) { return EXTRA[a].titulo.localeCompare(EXTRA[b].titulo, 'es'); }).map(function (k) { return '<dt>' + esc(EXTRA[k].titulo) + '</dt><dd>' + esc(m._x[k]) + '</dd>'; }).join('') +
         (l.sitio ? '<dt>' + (m._api ? 'Célula' : 'Sitio') + '</dt><dd>' + esc(l.sitio.titulo) + '</dd>' : '') + '<dt>' + (m._api ? 'Bandeja' : 'Lista') + '</dt><dd>' + esc(l.titulo) + '</dd></dl>' +
       '<div id="adjuntos"></div><div id="docs"></div><div class="cuerpo" id="cuerpo">Cargando el texto del mensaje…</div>';
     $('cerrar').addEventListener('click', function () { abierto = null; $('detalle').hidden = true; $('layout').classList.remove('detalle-abierto'); pintarTabla(); });
     pintarColabora(m);
+    $('verDet').addEventListener('click', function () { var si = !vistos[claveMensaje(m)]; marcarVisto(m, si); this.textContent = si ? '✓ Visto · quitar' : '✓ Marcar visto'; pintarKpis(); pintarTabla(); });
     $('aColabora').addEventListener('click', function () { pasarAColabora(m, disp); });
     $('copiarTarea').addEventListener('click', function () {
       var t = (m._asunto || '') + (m.MensajeNum_referencia ? ' — Ref. ' + m.MensajeNum_referencia : '') + (m.MensajeNum_expediente ? ' — Exp. ' + m.MensajeNum_expediente : '') +
@@ -917,7 +1019,7 @@
   $('csv').addEventListener('click', function () {
     var cols = [['Fecha', function (m) { return verFecha(fechaDe(m)); }], ['Tipo', 'MensajeTipo_es'], ['Estado', 'MensajeEstado'], ['Canal', 'MensajeCanal'], ['Autoridad', autoridad],
       ['Asunto', function (m) { return m._asunto; }], ['Referencia', 'MensajeNum_referencia'], ['Su referencia', 'MensajeSu_referencia'], ['Expediente', 'MensajeNum_expediente'], ['Órgano', organo], ['Adjuntos', function (m) { return m.Attachments ? 'sí' : ''; }],
-      ['Pasado a Colabora', function (m) { return enviados[claveMensaje(m)] ? verFecha(new Date(enviados[claveMensaje(m)])) : ''; }], ['Sitio', sitioDe]]
+      ['Pasado a Colabora', function (m) { return enviados[claveMensaje(m)] ? verFecha(new Date(enviados[claveMensaje(m)])) : ''; }], ['Sitio', sitioDe], ['Visto', function (m) { return vistos[claveMensaje(m)] ? verFecha(new Date(vistos[claveMensaje(m)])) : ''; }]]
       .concat(Object.keys(EXTRA).map(function (k) { return [EXTRA[k].titulo, function (m) { return m._x[k]; }]; }));
     var celda = function (v) { v = String(v == null ? '' : v); return /[";\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
     var csv = '﻿' + cols.map(function (c) { return c[0]; }).join(';') + '\r\n' + filtrados.map(function (m) {

@@ -76,6 +76,12 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   pestaña (sessionStorage, 8 horas) y abre el visor, que las usa. Campos reales de la bandeja: `Asunto`, `Cuerpo`, `Fecha`,
   `EstadoMensaje`, `EstadoParaUsuario`, `TipoES` (E/S → Entrada/Salida), `TipoMensaje`, `CodigoPrioridad`, `CelulaRemitente`,
   `CelulaDestinataria`, `NumeroRegistroEntrada/Salida`, `Sref`, `ContieneAnexos`, `Leido`, `Actuacion`…
+  **Versión 2026-10-28 · 1 (pruebas)**: autoría (© 2026 Cte. Alfredo Sánchez Sender: aviso en el HTML, meta y pie con la
+  versión) y diseño como el Gestor de Tareas: cabecera con el usuario y sus células, tarjetas (mensajes, no leídos,
+  entrada, salida, sin revisar, pasados a tarea) que filtran al pulsarlas, píldoras para cambiar de célula, no leídos en
+  negrita. Cada usuario ve **sus** células (el servicio las da según su sesión); por defecto se cargan todas las suyas (★,
+  si no OAM) y se elige en «Células que se cargan…». **✓ Visto** por mensaje (casilla en la tabla y botón en el detalle),
+  «Ocultar vistos», y la marca «➜ Tarea» de lo pasado a Tareas Colabora; ambas se guardan en el navegador de cada uno.
 
 ## Estructura de MENSADEF (ámbito 2SUIGE)
 
