@@ -126,6 +126,22 @@
     $('estado').textContent = ''; return;
   }
 
+  // Direcciones que consultó la aplicación de MENSADEF antes de pulsar el marcador (para saber de dónde saca los mensajes
+  // de la célula). Solo rutas y nombres de parámetros: los valores entre comillas se quitan.
+  var peticionesApp = (function () {
+    try {
+      var vistas = {};
+      performance.getEntriesByType('resource').forEach(function (e) {
+        var u = new URL(e.name, location.origin);
+        if (u.origin !== location.origin || !/\/_api\/|\/_vti_bin\/|\.svc|\.asmx|\/api\//i.test(u.pathname)) return;
+        var q = decodeURIComponent(u.search).replace(/'[^']*'/g, "'…'").replace(/=([^&]*)/g, function (m, v) { return /^\$(select|expand|filter|orderby|top)$/i.test(m) ? m : '=' + (v.length > 80 ? v.slice(0, 80) + '…' : v); });
+        var k = decodeURIComponent(u.pathname) + (q ? ' ' + q : '');
+        vistas[k] = (vistas[k] || 0) + 1;
+      });
+      return Object.keys(vistas).map(function (k) { return k + (vistas[k] > 1 ? ' ×' + vistas[k] : ''); });
+    } catch (e) { return []; }
+  })();
+
   // Columnas que se leen de cada mensaje (el cuerpo se pide aparte, al abrir uno)
   var CAMPOS = ['ID', 'FileSystemObjectType', 'Title', 'Created', 'Attachments', 'MensajeId', 'MensajeAsunto', 'MensajeFecha', 'MensajeAutoridad', 'MensajeNombre_Autoridad',
     'MensajeCanal', 'MensajeEstado', 'MensajeTipo_es', 'MensajeNivel_1_Organico', 'MensajeNivel_2_Organico', 'MensajeNivel_3_Organico', 'MensajeNivel_4_Organico',
@@ -204,7 +220,7 @@
 
   webDe(location.pathname).then(function (w) {
     web = w;
-    api('web/currentuser?$select=Title', w.url).then(function (u) { $('quien').textContent = (w.titulo || '') + ' · ' + u.Title; }).catch(function () { $('quien').textContent = w.titulo || ''; });
+    api('web/currentuser?$select=Title', w.url).then(function (u) { $('quien').textContent = [w.titulo, u.Title].filter(Boolean).join(' · '); }).catch(function () { $('quien').textContent = w.titulo || ''; });
     $('estado').textContent = 'Buscando las listas de mensajes…';
     return buscarListas(w);
   }).then(function (r) {
@@ -292,9 +308,10 @@
       var hay = {}, select = [], expand = [];
       lista(d.value).forEach(function (f) {
         hay[f.InternalName] = 1;
-        if (CAMPOS.indexOf(f.InternalName) >= 0 || NO_LEER[f.InternalName] || f.Hidden || f.FromBaseType || !TIPOS_EXTRA.test(f.TypeAsString || '')) return;
-        if (Object.keys(EXTRA).length >= 60 && !EXTRA[f.InternalName]) return;
-        EXTRA[f.InternalName] = EXTRA[f.InternalName] || { titulo: f.Title || f.InternalName, tipo: f.TypeAsString };
+        if (CAMPOS.indexOf(f.InternalName) >= 0 || NO_LEER[f.InternalName] || f.FromBaseType || !TIPOS_EXTRA.test(f.TypeAsString || '')) return;
+        if (Object.keys(EXTRA).length >= 80 && !EXTRA[f.InternalName]) return;
+        // También las ocultas: MENSADEF puede guardar en ellas la célula o el destinatario
+        EXTRA[f.InternalName] = EXTRA[f.InternalName] || { titulo: (f.Title || f.InternalName) + (f.Hidden ? ' (oculta)' : ''), tipo: f.TypeAsString };
         if (/^(User|UserMulti|Lookup|LookupMulti)$/.test(f.TypeAsString)) { select.push(f.InternalName + '/Title'); expand.push(f.InternalName); } else select.push(f.InternalName);
       });
       CAMPOS.forEach(function (c) { if (hay[c] || c === 'ID' || c === 'FileSystemObjectType') select.unshift(c); });
@@ -572,6 +589,13 @@
       .concat(revisadosTodos.map(function (x) { return '- ' + x.ruta + ' · ' + (x.error ? x.error : x.listas + ' listas, ' + x.mensajes + ' de mensajes (' + x.total + ' elementos), cargados ' + mensajes.filter(function (m) { return m._lista.sitio === x; }).length); }))
       .concat(['', 'LISTAS DE CADA SITIO (nombre · ×nº de listas · (elementos)):'])
       .concat(revisadosTodos.filter(function (x) { return x.todas; }).map(function (x) { return '- ' + x.ruta + ': ' + x.todas.join('; '); }))
+      .concat(['', 'VALORES DE ESTADO, TIPO Y CANAL (nombre · nº de mensajes):'])
+      .concat([['MensajeEstado', 'Estado'], ['MensajeTipo_es', 'Tipo'], ['MensajeCanal', 'Canal']].map(function (c) {
+        var v = {}; mensajes.forEach(function (m) { var x = m[c[0]] || '(vacío)'; v[x] = (v[x] || 0) + 1; });
+        return '- ' + c[1] + ': ' + Object.keys(v).sort().map(function (k) { return k + ' ' + v[k]; }).join('; ');
+      }))
+      .concat(['', 'DIRECCIONES QUE CONSULTÓ MENSADEF ANTES DE PULSAR EL FAVORITO (' + peticionesApp.length + '):'])
+      .concat(peticionesApp.length ? peticionesApp.map(function (x) { return '- ' + x; }) : ['- (ninguna: abre tu célula en MENSADEF, espera a que salgan tus mensajes y pulsa el favorito sin recargar)'])
       .concat(['', 'COLUMNAS (nombre interno · nombre visible · tipo · valores distintos · mensajes con valor):'])
       .concat(cols.map(function (c) { var v = {}, n = 0; mensajes.forEach(function (m) { var x = c.f(m); if (x) { v[x] = 1; n++; } }); return '- ' + c.n + ' · ' + c.t + (c.tipo ? ' · ' + c.tipo : '') + ' · ' + Object.keys(v).length + ' · ' + n; }))
       .join('\n');

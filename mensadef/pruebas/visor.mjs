@@ -84,6 +84,13 @@ await p.route(O + '/**', async r => {
   r.fulfill({ status: 404, body: '' });
 });
 await p.goto(process.env.INICIO || O + WEB + '/SitePages/Inicio.aspx'); // INICIO=… para arrancar desde otra página de MENSADEF
+// La aplicación de MENSADEF consulta su servicio al abrir la célula (se ve luego en «Ver estructura», sin valores)
+// (las respuestas simuladas no quedan en el registro del navegador: se simula el registro)
+await p.evaluate(() => { const o = performance.getEntriesByType.bind(performance); performance.getEntriesByType = t => t !== 'resource' ? o(t) : [
+  { name: location.origin + "/ambito/2SUIGE/_vti_bin/SMDMD/Mensajes.svc/Bandeja?celula=8d714e44&usuario=asansen" },
+  { name: location.origin + "/ambito/2SUIGE/_api/web/lists/getbytitle('SMDMDMensajes_20261028')/items?$filter=MensajeCelula eq 'SETEC SEGURIDAD'&$top=50" },
+  { name: location.origin + "/ambito/2SUIGE/_api/web/lists/getbytitle('SMDMDMensajes_20261028')/items?$filter=MensajeCelula eq 'OTRA'&$top=50" },
+  { name: 'https://otro.servidor.es/_api/x' }, { name: location.origin + '/ambito/2SUIGE/SiteAssets/app.js' }]; });
 await p.evaluate(codigo); await p.waitForTimeout(1200);
 console.log('quién:', await p.textContent('#quien'), '| estado:', await p.textContent('#estado'));
 if (process.env.NADA) { console.log('aviso:', await p.textContent('#aviso')); await b.close(); process.exit(); }
@@ -95,7 +102,7 @@ await p.selectOption('#fx_MensajeNegociadoDestino', 'Personal'); console.log('Ne
 await p.fill('#buscar', 'Usuario 2'); await p.waitForTimeout(400); console.log('buscar por destinatario:', await nfil()); await p.fill('#buscar', ''); await p.waitForTimeout(300);
 if (process.env.CELULA) { const ops = await p.$$eval('#fSitio option', o => o.map(x => x.textContent)); console.log('sitios:', ops); await p.selectOption('#fSitio', { index: 1 }); console.log('solo ' + ops[1] + ':', await nfil()); await p.selectOption('#fSitio', ''); }
 await p.click('#estructura'); const est = await p.inputValue('#cajaEstructura textarea'); console.log('estructura:\n' + est);
-console.log('¿estructura con contenido?', /Asunto |Jefe A|Usuario 2|REF-/.test(est), '| pidió la columna oculta o el cuerpo en masa?', pedidas.some(x => x.includes('items?') && (x.includes('Oculto') || x.includes('MensajeCuerpo'))));
+console.log('¿estructura con contenido?', /Asunto |Jefe A|Usuario 2|REF-/.test(est), '| pidió el cuerpo en masa?', pedidas.some(x => x.includes('items?') && x.includes('MensajeCuerpo')));
 const filas = () => p.$$eval('#lista tbody tr', t => t.length);
 console.log('filas (3 días: dia0 3 + dia1 3 + dia2 1):', await filas(), '| chips:', await p.textContent('#chips'));
 await p.fill('#buscar', 'extintores'); await p.waitForTimeout(400); console.log('buscar extintores:', await filas());
