@@ -221,9 +221,21 @@
   webDe(location.pathname).then(function (w) {
     web = w;
     api('web/currentuser?$select=Title', w.url).then(function (u) { $('quien').textContent = [w.titulo, u.Title].filter(Boolean).join(' · '); }).catch(function () { $('quien').textContent = w.titulo || ''; });
-    $('estado').textContent = 'Buscando las listas de mensajes…';
-    return buscarListas(w);
-  }).then(function (r) {
+    $('estado').textContent = 'Buscando tus células y bandejas en MENSADEF…';
+    return iniciarApi(w).then(function () {
+      modoApi = true;
+      $('historicas').parentNode.style.display = 'none';
+      $('estado').textContent = apiCtx.celulas.length + (apiCtx.celulas.length === 1 ? ' célula' : ' células') + ': ' + apiCtx.celulas.map(function (c) { return c.nombre; }).join(', ') + '.';
+      return cargar();
+    }, function (e) {
+      errorApi = e;
+      $('estado').textContent = 'Buscando las listas de mensajes…';
+      return buscarListas(w).then(seguirConListas);
+    });
+  }).catch(function (e) {
+    $('aviso').hidden = false; $('aviso').innerHTML = '<div class="bad">' + esc(e.message || e) + '</div>' + (e.ayuda ? '<p class="muted">' + esc(e.ayuda) + '</p>' : ''); $('estado').textContent = '';
+  });
+  function seguirConListas(r) {
     listasDia.sort(function (a, b) { return a.dia < b.dia ? -1 : 1; });
     revisadosTodos = r.revisados;
     if (!listasDia.length && !listasHist.length) {
@@ -234,10 +246,9 @@
     }
     $('estado').textContent = listasDia.length + ' listas diarias de mensajes' + (listasDia.length ? ' (del ' + listasDia[0].dia.split('-').reverse().join('/') + ' al ' + listasDia[listasDia.length - 1].dia.split('-').reverse().join('/') + ')' : '') +
       ' en ' + sitios.length + (sitios.length === 1 ? ' sitio' : ' sitios') + ': ' + sitios.map(function (x) { return x.titulo; }).join(', ') + '.';
+    if (errorApi) { $('aviso').hidden = false; $('aviso').innerHTML = '<p class="muted">No se ha podido usar el servicio de bandejas de MENSADEF (' + esc(errorApi.message || errorApi) + '): se muestran las listas del sitio, que solo tienen parte de los mensajes. «Ver estructura» da el detalle.</p>'; }
     return cargar();
-  }).catch(function (e) {
-    $('aviso').hidden = false; $('aviso').innerHTML = '<div class="bad">' + esc(e.message || e) + '</div>' + (e.ayuda ? '<p class="muted">' + esc(e.ayuda) + '</p>' : ''); $('estado').textContent = '';
-  });
+  }
 
   // Busca TODAS las listas de mensajes a las que tiene acceso el usuario (cada negociado o célula puede tener las suyas):
   // el sitio de la página (también las listas ocultas), el del ámbito (/ambito/XXX), el raíz y sus subsitios (hasta 3
@@ -293,6 +304,155 @@
     }).then(buscador).then(function (webs) {
       return porNiveles(webs.filter(function (u) { return !vistos[ruta(u)]; }), 3);
     }).then(function () { sitios = revisados.filter(function (x) { return x.mensajes; }); return { revisados: revisados }; });
+  }
+
+  // ---------- Bandejas de MENSADEF: el servicio mensadefapi.mdef.es, el mismo que usa la aplicación ----------
+  // Con la sesión del usuario (credentials: 'include'), solo lectura (GET). Cadena: correo → usuario (ConsultaUsuarioDicodefPorCorreo)
+  // → sus células (ambito/UsuarioCelulas, tipoCelula=-1) → bandeja de cada célula (buzon/ObtenerBuzonCelula, tipoES 1 y 2, por
+  // páginas). Los nombres de los campos no se conocen de antemano: se reconocen por su nombre (asunto, fecha, remitente…).
+  var API = location.protocol + '//' + location.hostname.replace(/^mensadef\./i, 'mensadefapi.');
+  var modoApi = false, apiCtx = null, errorApi = null, diagApi = [];
+  var GUID = /^\{?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}?$/i;
+  var tipoDe = function (v) {
+    if (v === null || v === undefined) return 'vacío';
+    if (typeof v === 'number') return 'número';
+    if (typeof v === 'boolean') return 'sí/no';
+    if (typeof v === 'string') return GUID.test(v) ? 'id' : /^\d{4}-\d{2}-\d{2}T|^\/Date\(/.test(v) ? 'fecha' : 'texto';
+    return 'objeto';
+  };
+  // Estructura (nombres y tipos, sin valores) de una respuesta, para «Ver estructura»
+  function describir(o, nivel) {
+    if (Array.isArray(o)) {
+      var cs = {}; o.slice(0, 20).forEach(function (x) { if (x && typeof x === 'object' && !Array.isArray(x)) Object.keys(x).forEach(function (k) { if (cs[k] == null) cs[k] = x[k]; }); });
+      var ks = Object.keys(cs);
+      return '[' + o.length + ']' + (ks.length ? '{' + (nivel > 1 ? ks.join(', ') : ks.map(function (k) { return k + ':' + (cs[k] && typeof cs[k] === 'object' ? describir(cs[k], nivel + 1) : tipoDe(cs[k])); }).join(', ')) + '}' : '');
+    }
+    if (o && typeof o === 'object') return '{' + Object.keys(o).map(function (k) { return k + ':' + (o[k] && typeof o[k] === 'object' && nivel < 2 ? describir(o[k], nivel + 1) : tipoDe(o[k])); }).join(', ') + '}';
+    return tipoDe(o);
+  }
+  function pedirApi(ruta, params) {
+    var q = Object.keys(params).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k] == null ? '' : params[k]); }).join('&');
+    var x = diagApi.filter(function (y) { return y.ruta === ruta; })[0];
+    if (!x) { x = { ruta: ruta, n: 0 }; diagApi.push(x); }
+    x.n++; x.estado = '…';
+    return fetch(API + '/api/' + ruta + '?' + q, { credentials: 'include', headers: { Accept: 'application/json' } }).then(function (r) {
+      x.estado = r.status;
+      if (!r.ok) { var e = new Error('mensadefapi ' + ruta + ': HTTP ' + r.status + (r.status === 401 || r.status === 403 ? ' (no reconoce la sesión)' : '')); e.status = r.status; throw e; }
+      return r.json();
+    }).then(function (j) {
+      // Para el resumen se guarda la primera respuesta con elementos (las páginas vacías no dicen qué campos hay)
+      var a = primerArray(j);
+      if (!x.resp || (a && a.length && !x.conDatos)) { x.resp = describir(j, 0).slice(0, 1500); x.conDatos = !!(a && a.length); }
+      return j;
+    }, function (e) {
+      if (x.estado === '…') x.estado = 'sin respuesta (' + (e.message || e) + ')';
+      throw e;
+    });
+  }
+  // Busca en un objeto (hasta 3 niveles) el primer valor cuya clave cumpla la condición
+  function buscarClave(o, re, cond, nivel) {
+    if (!o || typeof o !== 'object' || (nivel || 0) > 3) return undefined;
+    if (Array.isArray(o)) { for (var i = 0; i < o.length && i < 5; i++) { var a = buscarClave(o[i], re, cond, (nivel || 0) + 1); if (a !== undefined) return a; } return undefined; }
+    var ks = Object.keys(o);
+    for (var j = 0; j < ks.length; j++) if (re.test(ks[j]) && o[ks[j]] != null && typeof o[ks[j]] !== 'object' && (!cond || cond(o[ks[j]]))) return o[ks[j]];
+    for (var k = 0; k < ks.length; k++) if (o[ks[k]] && typeof o[ks[k]] === 'object') { var b = buscarClave(o[ks[k]], re, cond, (nivel || 0) + 1); if (b !== undefined) return b; }
+    return undefined;
+  }
+  function primerArray(o, nivel) {
+    if (Array.isArray(o)) return o;
+    if (!o || typeof o !== 'object' || (nivel || 0) > 3) return null;
+    var ks = Object.keys(o);
+    for (var i = 0; i < ks.length; i++) if (Array.isArray(o[ks[i]]) && o[ks[i]].length && typeof o[ks[i]][0] === 'object') return o[ks[i]];
+    for (var j = 0; j < ks.length; j++) { var a = primerArray(o[ks[j]], (nivel || 0) + 1); if (a) return a; }
+    return null;
+  }
+  var esGuid = function (v) { return typeof v === 'string' && GUID.test(v); };
+  var noGuid = function (v) { return typeof v === 'string' && v.trim() && !GUID.test(v) && !/^\d+$/.test(v); };
+  function iniciarApi(w) {
+    var coleccion = location.origin + ((/^\/ambito\/[^/]+/i.exec(location.pathname) || [''])[0]);
+    return Promise.all([api('web/currentuser?$select=Email,Title', w.url), api('site?$select=Url', w.url).catch(function () { return { Url: coleccion }; })]).then(function (r) {
+      var ctx = { email: r[0].Email, url: r[1].Url || coleccion };
+      if (!ctx.email) throw new Error('tu usuario no tiene correo en MENSADEF');
+      return pedirApi('usuario/ConsultaUsuarioDicodefPorCorreo', { emailUsuario: ctx.email, urlColeccionSitio: ctx.url }).then(function (d) {
+        ctx.idUsuario = buscarClave(d, /^id_?usuario$/i);
+        if (ctx.idUsuario === undefined) ctx.idUsuario = buscarClave(d, /^id$/i);
+        if (ctx.idUsuario === undefined) throw new Error('no encuentro tu número de usuario en la respuesta de MENSADEF');
+        return pedirApi('ambito/UsuarioCelulas', { idUsuario: ctx.idUsuario, tipoCelula: -1, emailUsuario: ctx.email, urlColeccionSitio: ctx.url });
+      }).then(function (d) {
+        var vistos = {};
+        ctx.celulas = (primerArray(d) || []).map(function (c) {
+          var id = buscarClave(c, /celula/i, esGuid); if (id === undefined) id = buscarClave(c, /^id/i, esGuid); if (id === undefined) id = buscarClave(c, /^id_?celula$|^id$/i);
+          var nombre = buscarClave(c, /nombre|denominaci|descripci|titulo|title/i, noGuid) || buscarClave(c, /celula/i, noGuid) || String(id);
+          return { id: id, nombre: String(nombre).trim(), titulo: String(nombre).trim() };
+        }).filter(function (c) { if (c.id === undefined || vistos[c.id]) return false; vistos[c.id] = 1; return true; });
+        // La célula de la página, aunque no viniera en la lista
+        var hash = /#\/celula\/([^/]+)\/([0-9a-f-]{36})/i.exec(location.hash);
+        if (hash && !ctx.celulas.some(function (c) { return String(c.id).toLowerCase() === hash[2].toLowerCase(); })) ctx.celulas.push({ id: hash[2], nombre: decodeURIComponent(hash[1]), titulo: decodeURIComponent(hash[1]) });
+        if (!ctx.celulas.length) throw new Error('MENSADEF no devuelve ninguna célula para tu usuario');
+        apiCtx = ctx; sitios = ctx.celulas;
+        return ctx;
+      });
+    });
+  }
+  // Un mensaje de la bandeja: los campos se reconocen por su nombre
+  var CLAVES_API = { asunto: /^asunto$|asunto|^titulo$|^title$/i, fecha: /fecha.*(registro|recepci|entrada|env|alta|creaci)|^fecha$/i, fecha2: /fecha/i,
+    estado: /^estado$|estado/i, tipo: /^tipo(mensaje|documento)?$|clase|naturaleza|^tipo_?mensaje/i, remitente: /remitente|origen|emisor|autoridad|^de$/i,
+    referencia: /referencia/i, referencia2: /^n(u|ú)mero|^num_?|registro/i, expediente: /expediente/i, adjuntos: /adjunto/i, id: /^id_?mensaje$|^id$/i };
+  function deApi(e, celula, es) {
+    var x = {}, campo = function (re, cond) { return Object.keys(e).filter(function (k) { return re.test(k) && e[k] != null && e[k] !== '' && typeof e[k] !== 'object' && (!cond || cond(e[k])); })[0]; };
+    Object.keys(e).forEach(function (k) {
+      var v = e[k];
+      if (v == null || v === '' || esGuid(v) || /^id/i.test(k)) return;
+      // Listas (p. ej. etiquetas): sus nombres separados por comas; otros objetos no se muestran
+      if (Array.isArray(v)) v = v.map(function (y) { return y && typeof y === 'object' ? (y.Nombre || y.nombre || y.Descripcion || y.descripcion || y.Title || '') : y; }).filter(Boolean).join(', ');
+      else if (typeof v === 'object') return;
+      if (!EXTRA[k]) EXTRA[k] = { titulo: k.replace(/([a-z])([A-Z])/g, '$1 $2'), tipo: typeof e[k] === 'boolean' ? 'Boolean' : tipoDe(e[k]) === 'fecha' ? 'DateTime' : 'Text' };
+      var t = comoTexto(v, EXTRA[k].tipo); if (t) x[k] = t;
+    });
+    EXTRA.__es = EXTRA.__es || { titulo: 'Bandeja (tipoES)', tipo: 'Text' };
+    x.__es = 'tipoES ' + es;
+    var kf = campo(CLAVES_API.fecha) || campo(CLAVES_API.fecha2, function (v) { return tipoDe(v) === 'fecha'; });
+    var ms = kf && /^\/Date\((-?\d+)/.exec(e[kf]);
+    var fecha = kf ? (ms ? new Date(+ms[1]).toISOString() : e[kf]) : '';
+    var kid = campo(CLAVES_API.id);
+    var noFecha = function (v) { return tipoDe(v) !== 'fecha'; };
+    var val = function (re, re2) { var k = campo(re, noFecha) || (re2 && campo(re2, noFecha)); return k ? comoTexto(e[k]) : ''; };
+    var kadj = campo(CLAVES_API.adjuntos);
+    return { _api: true, _x: x, ID: kid ? e[kid] : '', MensajeId: kid ? String(e[kid]) : '', _asunto: val(CLAVES_API.asunto), MensajeFecha: fecha, MensajeEstado: val(CLAVES_API.estado),
+      MensajeTipo_es: val(CLAVES_API.tipo), MensajeNombre_Autoridad: val(CLAVES_API.remitente), MensajeNum_referencia: val(CLAVES_API.referencia, CLAVES_API.referencia2), MensajeNum_expediente: val(CLAVES_API.expediente),
+      Attachments: kadj ? !!e[kadj] && e[kadj] !== '0' : false,
+      _enlace: location.origin + location.pathname + '#/celula/' + encodeURIComponent(celula.nombre) + '/' + celula.id,
+      _lista: { id: 'api', sitio: celula, titulo: 'tipoES ' + es + ' de ' + celula.nombre } };
+  }
+  // Bandejas de todas las células del periodo: páginas de 100 hasta pasar de «Desde» (o 20 páginas por bandeja)
+  function cargarApi(desde, hasta) {
+    var ini = new Date(desde + 'T00:00:00'), fin = new Date(hasta + 'T23:59:59');
+    var tareas = [], res = [], errores = [];
+    apiCtx.celulas.forEach(function (c) { [1, 2].forEach(function (es) { tareas.push({ c: c, es: es }); }); });
+    var hechas = 0;
+    var avance = function () { $('progreso').style.width = Math.round(100 * hechas / tareas.length) + '%'; $('estado').textContent = 'Leyendo ' + hechas + ' de ' + tareas.length + ' bandejas…'; };
+    var bandeja = function (t, pag) {
+      return pedirApi('buzon/ObtenerBuzonCelula', { idCelula: t.c.id, emailUsuario: apiCtx.email, urlColeccionSitio: apiCtx.url, indicePagina: pag, tamanoPagina: 100, tipoES: t.es, criterioBusqueda: '', soloPendientes: false }).then(function (d) {
+        var els = (d && (d.ListaElementos || d.listaElementos)) || primerArray(d) || [];
+        var ms = els.map(function (e) { return deApi(e, t.c, t.es); });
+        var total = d && (d.TotalRegistros || d.totalRegistros);
+        res = res.concat(ms.filter(function (m) { var f = fechaDe(m); return !f || isNaN(f) || (f >= ini && f <= fin); }));
+        var todasAntiguas = ms.length && ms.every(function (m) { var f = fechaDe(m); return f && f < ini; });
+        if (!els.length || todasAntiguas || pag >= 20 || (total && pag * 100 >= total)) return;
+        return bandeja(t, pag + 1);
+      });
+    };
+    var cola = tareas.slice();
+    var trabajador = function () {
+      var t = cola.shift();
+      if (!t) return Promise.resolve();
+      return bandeja(t, 1).catch(function (e) { errores.push(t.c.nombre + ' tipoES ' + t.es + ' (' + (e.message || e) + ')'); }).then(function () { hechas++; avance(); return trabajador(); });
+    };
+    avance();
+    return Promise.all([trabajador(), trabajador(), trabajador()]).then(function () {
+      var vistos = {};
+      return { mensajes: res.filter(function (m) { if (!m.MensajeId) return true; var k = m.MensajeId + '|' + m._x.__es + '|' + m._lista.sitio.id; if (vistos[k]) return false; vistos[k] = 1; return true; }), errores: errores };
+    });
   }
 
   $('cargar').addEventListener('click', function () { cargar(); });
@@ -355,6 +515,16 @@
     var desde = $('desde').value, hasta = $('hasta').value;
     if (!desde || !hasta || desde > hasta) { $('estado').textContent = 'Revisa las fechas.'; return Promise.resolve(); }
     guardar('desde', desde); guardar('hasta', hasta); guardar('historicas', $('historicas').checked);
+    if (modoApi) {
+      $('cargar').disabled = true;
+      return cargarApi(desde, hasta).then(function (r) {
+        mensajes = r.mensajes; $('cargar').disabled = false;
+        $('estado').textContent = mensajes.length + ' mensajes del ' + desde.split('-').reverse().join('/') + ' al ' + hasta.split('-').reverse().join('/') + ' en ' + apiCtx.celulas.length + (apiCtx.celulas.length === 1 ? ' célula' : ' células') +
+          (r.errores.length ? ' · no se pudieron leer: ' + r.errores.join('; ') : '') + '.';
+        $('fSitio').previousSibling.textContent = 'Célula / negociado';
+        pintarTodo();
+      });
+    }
     var tareas = listasDia.filter(function (l) { return l.dia >= desde && l.dia <= hasta; }).map(function (l) { return function () { return leerLista(l); }; });
     if ($('historicas').checked) {
       var f = "MensajeFecha ge datetime'" + desde + "T00:00:00Z' and MensajeFecha le datetime'" + hasta + "T23:59:59Z'";
@@ -398,9 +568,10 @@
     opciones('fAutoridad', mensajes.map(autoridad), 'Todas');
     opciones('fSitio', mensajes.map(sitioDe), 'Todos');
     $('fSitio').parentNode.style.display = sitios.length < 2 ? 'none' : '';
-    // Un desplegable por cada columna de MENSADEF con pocos valores distintos (2 a 80) en lo cargado
+    // Un desplegable por cada columna de MENSADEF con pocos valores distintos en lo cargado
     var cols = Object.keys(EXTRA).filter(function (k) {
-      var v = {}; mensajes.forEach(function (m) { if (m._x[k]) v[m._x[k]] = 1; }); var n = Object.keys(v).length; return n >= 2 && n <= 80;
+      // Con 2 a 80 valores distintos, o con un solo valor que no tienen todos (p. ej. una etiqueta)
+      var v = {}, con = 0; mensajes.forEach(function (m) { if (m._x[k]) { v[m._x[k]] = 1; con++; } }); var n = Object.keys(v).length; return (n >= 2 || (n === 1 && con < mensajes.length)) && n <= 80;
     }).sort(function (a, b) { return EXTRA[a].titulo.localeCompare(EXTRA[b].titulo, 'es'); });
     $('masFiltros').innerHTML = cols.map(function (k) { return '<label>' + esc(EXTRA[k].titulo) + '<select data-x="' + esc(k) + '"></select></label>'; }).join('');
     cols.forEach(function (k) {
@@ -489,7 +660,7 @@
     abierto = m; pintarTabla();
     $('layout').classList.add('detalle-abierto'); $('detalle').hidden = false;
     var l = m._lista, base = "web/lists(guid'" + l.id + "')/items(" + m.ID + ')';
-    var disp = l.raiz ? location.origin + l.raiz + '/DispForm.aspx?ID=' + m.ID : '';
+    var disp = m._api ? m._enlace : l.raiz ? location.origin + l.raiz + '/DispForm.aspx?ID=' + m.ID : '';
     var datos = Object.keys(ETIQUETAS).filter(function (k) { return m[k]; }).map(function (k) {
       var v = k === 'MensajeFecha' ? verFecha(fechaDe(m)) : m[k];
       var u = k === 'MensajeUrlCarpeta' ? enlaceCarpeta(v) : '';
@@ -500,7 +671,7 @@
       '<button type="button" id="copiarTarea">Copiar para Gestor de Tareas</button></div><div id="colabora"></div>' +
       '<h2>' + esc(m._asunto || '(sin asunto)') + '</h2><dl>' + datos +
         Object.keys(m._x).sort(function (a, b) { return EXTRA[a].titulo.localeCompare(EXTRA[b].titulo, 'es'); }).map(function (k) { return '<dt>' + esc(EXTRA[k].titulo) + '</dt><dd>' + esc(m._x[k]) + '</dd>'; }).join('') +
-        (l.sitio ? '<dt>Sitio</dt><dd>' + esc(l.sitio.titulo) + '</dd>' : '') + '<dt>Lista</dt><dd>' + esc(l.titulo) + '</dd></dl>' +
+        (l.sitio ? '<dt>' + (m._api ? 'Célula' : 'Sitio') + '</dt><dd>' + esc(l.sitio.titulo) + '</dd>' : '') + '<dt>' + (m._api ? 'Bandeja' : 'Lista') + '</dt><dd>' + esc(l.titulo) + '</dd></dl>' +
       '<div id="adjuntos"></div><div id="docs"></div><div class="cuerpo" id="cuerpo">Cargando el texto del mensaje…</div>';
     $('cerrar').addEventListener('click', function () { abierto = null; $('detalle').hidden = true; $('layout').classList.remove('detalle-abierto'); pintarTabla(); });
     pintarColabora(m);
@@ -511,6 +682,13 @@
       var b = this;
       (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { b.textContent = 'Copiado ✓'; }, function () { window.prompt('Copia este texto:', t); });
     });
+    if (m._api) {
+      // El texto completo del mensaje se ve en MENSADEF (el servicio de la bandeja no lo trae)
+      m._cuerpo = Object.keys(m._x).filter(function (k) { return k !== '__es'; }).map(function (k) { return EXTRA[k].titulo + ': ' + m._x[k]; }).join('\n');
+      $('cuerpo').textContent = 'El texto completo del mensaje se abre en MENSADEF («Abrir en MENSADEF»). A la tarea se pasan los datos de la bandeja.';
+      $('aColabora').disabled = false;
+      return;
+    }
     api(base + '?$select=MensajeCuerpo', l.web).then(function (d) {
       if (abierto !== m) return;
       var c = texto(d.MensajeCuerpo);
@@ -585,7 +763,11 @@
       .concat(Object.keys(EXTRA).map(function (k) { return { n: k, t: EXTRA[k].titulo, tipo: EXTRA[k].tipo, f: function (m) { return m._x[k]; } }; }));
     var txt = ['ESTRUCTURA DEL VISOR DE MENSADEF (sin contenido) · ' + new Date().toLocaleDateString('es-ES'),
       'Página: ' + location.pathname + (celula ? ' · célula: ' + decodeURIComponent(celula) : ''),
-      'Periodo cargado: ' + $('desde').value + ' a ' + $('hasta').value + ' · mensajes: ' + mensajes.length, '', 'SITIOS REVISADOS:']
+      'Periodo cargado: ' + $('desde').value + ' a ' + $('hasta').value + ' · mensajes: ' + mensajes.length]
+      .concat(['', 'SERVICIO DE BANDEJAS (' + API.replace(/^https?:\/\//, '') + '): ' + (modoApi ? 'en uso' : 'no se ha podido usar' + (errorApi ? ' (' + (errorApi.message || errorApi) + ')' : ''))])
+      .concat(diagApi.map(function (x) { return '- ' + x.ruta + (x.n > 1 ? ' ×' + x.n : '') + ' → ' + x.estado + (x.resp ? '\n    recibe: ' + x.resp : ''); }))
+      .concat(modoApi ? ['- células: ' + apiCtx.celulas.length + ' · campos de los mensajes: ' + Object.keys(EXTRA).join(', ')] : [])
+      .concat(['', 'SITIOS REVISADOS:'])
       .concat(revisadosTodos.map(function (x) { return '- ' + x.ruta + ' · ' + (x.error ? x.error : x.listas + ' listas, ' + x.mensajes + ' de mensajes (' + x.total + ' elementos), cargados ' + mensajes.filter(function (m) { return m._lista.sitio === x; }).length); }))
       .concat(['', 'LISTAS DE CADA SITIO (nombre · ×nº de listas · (elementos)):'])
       .concat(revisadosTodos.filter(function (x) { return x.todas; }).map(function (x) { return '- ' + x.ruta + ': ' + x.todas.join('; '); }))

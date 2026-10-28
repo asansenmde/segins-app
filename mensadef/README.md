@@ -56,6 +56,12 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   → `{ ListaElementos, ListaAgrupaciones, IndicePagina, TamanoPagina, TotalRegistros }`, y
   `GET /api/usuariovista/UsuarioVistaObtener` (vista del usuario). La escucha ampliada da además los campos de cada
   mensaje, los valores de tipo/página, la consulta de células anterior a la escucha y cómo se identifica el usuario.
+  **Visor de pruebas con bandejas** (28/10/2026): si `mensadefapi` responde, el visor lee con la sesión del usuario
+  (`credentials: 'include'`, solo GET) `usuario/ConsultaUsuarioDicodefPorCorreo` (correo → idUsuario), `ambito/UsuarioCelulas`
+  (`tipoCelula=-1`, más la célula de la dirección) y `buzon/ObtenerBuzonCelula` de cada célula con `tipoES` 1 y 2, en páginas
+  de 100 hasta pasar de «Desde» (máx. 20). Los campos se reconocen por su nombre (asunto, fecha, remitente, estado, tipo,
+  referencia, adjuntos); el resto se muestran y filtran tal cual. Filtro «Célula / negociado». Si no responde, vuelve a las
+  listas. Prueba: `node pruebas/bandejas.mjs` (y `VERBOSE=1`).
 
 ## Estructura de MENSADEF (ámbito 2SUIGE)
 
