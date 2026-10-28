@@ -22,8 +22,12 @@ await p.route(O + '/**', r => {
   if (u.includes('/_api/search/postquery')) return r.fulfill({ json: { d: { postquery: { PrimaryQueryResult: pq } } } });
   if (u.includes('/_api/$batch')) return r.fulfill({ contentType: 'multipart/mixed; boundary=b', body: '--b\r\nContent-Type: application/http\r\n\r\nHTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{"d":{"results":[{"Id":5,"Title":"SECRETO 4","MensajeBandeja":"Entrada"}]}}\r\n--b--' });
   if (u.includes('/_vti_bin/SMDMD')) return r.fulfill({ contentType: 'text/xml', body: '<Mensajes><Mensaje><Asunto>SECRETO 5</Asunto><Celula>X</Celula></Mensaje><Mensaje><Asunto>SECRETO 6</Asunto></Mensaje></Mensajes>' });
+  // Código de la aplicación (simulado): llama al servicio con una clave en la cabecera y el token de la memoria
+  if (u.endsWith('mensadef-app.js')) return r.fulfill({ contentType: 'text/javascript', body: 'var cfg={api:"https://mensadefapi.mdef.es/api/",clave:"ABCDEF0123456789ABCDEF0123456789",soporte:"soporte@mde.es"};' +
+    'function llamar(r,p){return fetch(cfg.api+r+"?"+p,{headers:{"Ocp-Apim-Subscription-Key":cfg.clave,Authorization:"Bearer "+sessionStorage.getItem("tokenMensadef")}})}' + ' '.repeat(400) +
+    'function celulas(u){return llamar("ambito/UsuarioCelulas","idUsuario="+u+"&tipoCelula=-1")}' });
   if (u.endsWith('.js')) return r.fulfill({ contentType: 'text/javascript', body: '' });
-  return r.fulfill({ contentType: 'text/html', body: '<html><body><h1>Portada MENSADEF</h1></body></html>' });
+  return r.fulfill({ contentType: 'text/html', body: '<html><body><h1>Portada MENSADEF</h1><script src="/ambito/2SUIGE/ClientSideAssets/mensadef-app.js"></script></body></html>' });
 });
 await p.goto(O + '/ambito/2SUIGE/SitePages/ambito.aspx#/celula/SETEC%20SECRETARIA/8d714e44-b2b5-41a8-9780-2228204861b5');
 // Antes de escuchar, la aplicación ya pidió la lista de células (queda en el registro del navegador; aquí se simula)
@@ -48,6 +52,10 @@ await p.waitForTimeout(400);
 const t = await p.inputValue('div[style*="2147483647"] textarea');
 console.log(t);
 console.log('¿con contenido?', /SECRETO|eyJ|SETEC S|Entrada|asansen|persona@/.test(t.split('\n').slice(2).join('\n')), '| errores:', errs);
+await p.click('[data-a="codigo"]'); await p.waitForTimeout(800);
+const tc = await p.inputValue('div[style*="2147483647"] textarea'); const cod = tc.slice(tc.indexOf('CÓDIGO'));
+console.log(cod);
+console.log('¿código con clave, token o correo?', /ABCDEF0123|soporte@|eyJ/.test(cod));
 await p.click('[data-a="min"]'); console.log('minimizado:', (await p.textContent('div[style*="2147483647"]')).slice(0, 60));
 await p.evaluate(codigo); console.log('segunda pulsación lo vuelve a mostrar:', await p.isVisible('div[style*="2147483647"] textarea'));
 await b.close();

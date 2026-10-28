@@ -6,7 +6,7 @@
 (function () {
   'use strict';
   if (window.__escuchaMensadef) { window.__escuchaMensadef(); return; }
-  var VERSION = 3; // se ve en el recuadro y en el resumen, para saber qué favorito se ha pulsado
+  var VERSION = 4; // se ve en el recuadro y en el resumen, para saber qué favorito se ha pulsado
   var reg = [], indice = {};
   try { performance.setResourceTimingBufferSize(5000); } catch (e) { /* sin registro de recursos */ }
 
@@ -159,6 +159,62 @@
     return send0.apply(this, arguments);
   };
 
+  // Consultas que aparecen en el registro del navegador mientras se escucha (aunque la aplicación use su propia copia
+  // de fetch y no pasen por la escucha): solo la ruta
+  var nuevas = [], vistasRegistro = {};
+  try { performance.getEntriesByType('resource').forEach(function (e) { vistasRegistro[e.name + '|' + e.startTime] = 1; }); } catch (e) { /* sin registro */ }
+  try {
+    new PerformanceObserver(function (l) {
+      l.getEntries().forEach(function (e) {
+        if (vistasRegistro[e.name + '|' + e.startTime]) return;
+        var u = new URL(e.name, location.href);
+        if (ESTATICO.test(u.pathname) || !(u.host.toLowerCase().indexOf('mensadefapi.') === 0 || /\/api\/|\.svc|\.asmx/i.test(u.pathname))) return;
+        var k = limpiarUrl(e.name) + ' (' + e.initiatorType + ')';
+        if (nuevas.indexOf(k) < 0) { nuevas.push(k); pintar(); }
+      });
+    }).observe({ type: 'resource' });
+  } catch (e) { /* sin observador */ }
+
+  // Código de la aplicación: dónde llama al servicio y cómo pone cabeceras, claves o la sesión. Se leen los .js que ya
+  // ha descargado el navegador (del mismo servidor o de *.mdef.es) y se copian solo fragmentos de código, tapando los
+  // textos largos que puedan ser claves.
+  var codigo = [];
+  var tapar = function (t) {
+    return t.replace(/(["'`])([A-Za-z0-9+/=_\-.]{24,})\1/g, function (m, q, v) { return /^[A-Za-z]+(-[A-Za-z]+)+$/.test(v) ? m : q + '«texto de ' + v.length + ' caracteres»' + q; })
+      .replace(/eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+(\.[A-Za-z0-9_\-]*)?/g, '«token»').replace(/[^\s"'`@]+@[^\s"'`@]+\.[a-z]{2,}/gi, '«correo»');
+  };
+  var BUSCAR = [/UsuarioCelulas/g, /ObtenerBuzonCelula/g, /mensadefapi/gi, /Authorization/g, /setRequestHeader/g, /withCredentials/g, /credentials\s*:/g, /Bearer/g, /[Hh]eaders\s*[:=(]/g, /interceptors?/g, /Subscription-Key|apikey|api-key|x-api/gi];
+  function analizarCodigo(boton) {
+    boton.disabled = true; boton.textContent = 'Analizando…';
+    var urls = {};
+    try { performance.getEntriesByType('resource').forEach(function (e) { if (/\.js(\?|$)/i.test(e.name)) urls[e.name] = 1; }); } catch (e) { /* sin registro */ }
+    Array.prototype.forEach.call(document.scripts, function (sc) { if (sc.src) urls[sc.src] = 1; });
+    var lista = Object.keys(urls).filter(function (u) {
+      var h = new URL(u, location.href).hostname.toLowerCase();
+      return (h === location.hostname || /\.mdef\.es$/.test(h)) && !/\/_layouts\/[^/]+\/(init|sp\.|core|strings|blank|ms-?ajax|clienttemplates|clientforms|clientpeoplepicker|autofill|suitelinks|knockout|jquery)/i.test(u);
+    });
+    codigo = ['(' + lista.length + ' archivos de código revisados)'];
+    var uno = function (u) {
+      return fetch(u, { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
+        if (!t || !/mensadefapi|UsuarioCelulas|ObtenerBuzon/i.test(t)) return;
+        var nombre = new URL(u, location.href).pathname.split('/').slice(-2).join('/'), trozos = [];
+        BUSCAR.forEach(function (re) {
+          var m, n = 0; re.lastIndex = 0;
+          while ((m = re.exec(t)) && n < 3) { n++; trozos.push([m.index, re.source]); }
+        });
+        trozos.sort(function (a, b) { return a[0] - b[0]; });
+        var ult = -1e9, salida = [];
+        trozos.forEach(function (x) { if (x[0] - ult < 300) return; ult = x[0]; salida.push('  · [' + x[1] + '] …' + tapar(t.slice(Math.max(0, x[0] - 250), x[0] + 250)).replace(/\s+/g, ' ') + '…'); });
+        codigo.push('- ' + nombre + ' (' + Math.round(t.length / 1024) + ' KB):');
+        codigo = codigo.concat(salida.slice(0, 25));
+      }).catch(function () { codigo.push('- ' + new URL(u, location.href).pathname.split('/').pop() + ': no se pudo leer'); });
+    };
+    return lista.reduce(function (pr, u) { return pr.then(function () { return uno(u); }); }, Promise.resolve()).then(function () {
+      if (codigo.length === 1) codigo.push('- ninguno menciona mensadefapi ni UsuarioCelulas');
+      boton.disabled = false; boton.textContent = 'Analizar el código de MENSADEF ✓'; pintar();
+    });
+  }
+
   // Recuadro en la esquina (no tapa la aplicación)
   var caja = document.createElement('div');
   caja.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:2147483647;width:420px;max-width:calc(100vw - 24px);background:#fff;color:#1f261f;border:3px solid #b71c1c;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.3);font:13px/1.4 system-ui,"Segoe UI",sans-serif;padding:10px 12px';
@@ -167,18 +223,21 @@
   function texto() {
     return ['ESCUCHA DE MENSADEF v' + VERSION + ' (sin contenido) · ' + new Date().toLocaleString('es-ES'), 'Página: ' + location.pathname + ' ' + decodeURIComponent(location.hash).replace(/[0-9a-f]{8}-[0-9a-f-]{27}/gi, '{id}'), '']
       .concat(antes.length ? ['ANTES DE ESCUCHAR (solo rutas):'].concat(antes.map(function (x) { return '- ' + x; }), ['', 'MIENTRAS ESCUCHABA:']) : [])
-      .concat(reg.map(function (r) { return '- ' + r.k + (r.n > 1 ? ' ×' + r.n : '') + ' → ' + (r.estado || '?') + (r.cab ? ' (' + r.cab + ')' : '') + (r.cuerpo ? '\n    envía: ' + r.cuerpo : '') + (r.resp ? '\n    recibe: ' + r.resp : ''); })).join('\n');
+      .concat(reg.map(function (r) { return '- ' + r.k + (r.n > 1 ? ' ×' + r.n : '') + ' → ' + (r.estado || '?') + (r.cab ? ' (' + r.cab + ')' : '') + (r.cuerpo ? '\n    envía: ' + r.cuerpo : '') + (r.resp ? '\n    recibe: ' + r.resp : ''); }))
+      .concat(nuevas.length ? ['', 'EN EL REGISTRO MIENTRAS ESCUCHABA (no pasaron por la escucha; solo rutas):'].concat(nuevas.map(function (x) { return '- ' + x; })) : [])
+      .concat(codigo.length ? ['', 'CÓDIGO DE LA APLICACIÓN (fragmentos; textos largos tapados):'].concat(codigo) : []).join('\n');
   }
   function pintar() {
-    caja.innerHTML = '<b style="color:#b71c1c">● Escuchando MENSADEF · versión ' + VERSION + '</b> · ' + reg.length + ' consultas anotadas' +
+    caja.innerHTML = '<b style="color:#b71c1c">● Escuchando MENSADEF · versión ' + VERSION + '</b> · ' + reg.length + ' consultas anotadas' + (nuevas.length ? ', ' + nuevas.length + ' en el registro' : '') + (codigo.length ? ', código analizado' : '') +
       (minimizado ? ' <button type="button" data-a="ver">Ver</button>' :
         '<p style="margin:6px 0">1. Ve a tu célula y abre tu <b>bandeja de mensajes</b> (cambia de célula o de carpeta para que se vuelvan a cargar).<br>2. Cuando veas tus mensajes, pulsa <b>Copiar</b> y pégalo en la conversación. Solo lleva rutas y nombres de campos, sin valores.</p>' +
         '<textarea readonly style="width:100%;height:140px;font:11px monospace"></textarea>' +
-        '<div style="display:flex;gap:6px;margin-top:6px"><button type="button" data-a="copiar">Copiar</button><button type="button" data-a="min">Minimizar</button><button type="button" data-a="cerrar">Cerrar</button></div>');
+        '<div style="display:flex;gap:6px;margin-top:6px"><button type="button" data-a="codigo">Analizar el código de MENSADEF</button><button type="button" data-a="copiar">Copiar</button><button type="button" data-a="min">Minimizar</button><button type="button" data-a="cerrar">Cerrar</button></div>');
     var ta = caja.querySelector('textarea'); if (ta) ta.value = texto();
   }
   caja.addEventListener('click', function (e) {
     var a = e.target.getAttribute && e.target.getAttribute('data-a');
+    if (a === 'codigo') { analizarCodigo(e.target); return; }
     if (a === 'copiar') { var t = texto(); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { e.target.textContent = 'Copiado ✓'; }, function () { var ta = caja.querySelector('textarea'); ta.focus(); ta.select(); }); }
     else if (a === 'min') { minimizado = true; pintar(); }
     else if (a === 'ver') { minimizado = false; pintar(); }
