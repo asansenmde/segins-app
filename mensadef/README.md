@@ -88,6 +88,11 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   y leído (el resto de campos, en el detalle). Tabla por días (Hoy, Ayer…), 📥/📤 entrada y salida, punto y barra azul en los
   no leídos, prioridad urgente en rojo, remitente y nº de registro bajo el asunto, estado y tipo con colores, célula en
   etiqueta; cabecera de color en el detalle con bandeja, tipo, estado y prioridad.
+  **Versión 2026-10-29 · 2 (pruebas)**: «📄 Informe» con lo filtrado (periodo, filtros aplicados, resumen por célula, bandeja,
+  tipo, estado y prioridad, y relación), para imprimir/PDF, Word (.doc) o copiar como texto. Ficha del mensaje con
+  «⛶ Ampliar» (a toda la pantalla) y solo los campos pedidos: Fecha, Nombre autoridad, N.º referencia, Su referencia, Asunto,
+  Enviable a rúbrica, Fechas de registro de entrada y salida, Firma, Leído, Prioridad, Tipo de mensaje, Último comentario,
+  Usuario remitente y Célula; el resto, plegado en «Otros campos».
 
 ## Estructura de MENSADEF (ámbito 2SUIGE)
 

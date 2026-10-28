@@ -110,7 +110,18 @@ await p.click('#aColabora'); await p.fill('#urlColabora', 'https://colabora.mdef
 await ctx.route('https://colabora.mdef.es/**', r => r.fulfill({ contentType: 'text/html', body: 'ok' }));
 const [nueva] = await Promise.all([ctx.waitForEvent('page'), p.click('#guardarColabora')]); await nueva.waitForLoadState();
 console.log('a Colabora:', decodeURIComponent(nueva.url().split('#importar=')[1]).slice(0, 400));
-await p.bringToFront(); await p.click('#estructura'); const est = await p.inputValue('#cajaEstructura textarea');
+await p.bringToFront();
+// Ficha con los campos pedidos y ampliar
+console.log('ficha:', await p.$$eval('#detalle dl.ficha-campos dt', l => l.map(x => x.textContent).join(', ')), '| otros plegados:', await p.textContent('#detalle details.otros summary').catch(() => '-'));
+await p.click('#ampliar'); console.log('ampliada: tabla oculta', await p.isHidden('#lista'), '|', await p.textContent('#ampliar')); await p.click('#ampliar');
+// Informe con los filtros
+await p.selectOption('#fSitio', 'SETEC SEGURIDAD'); await p.click('#kpis [data-kpi="noleidos"]');
+await p.click('#informe'); await p.waitForTimeout(300);
+await p.setViewportSize({ width: 1300, height: 900 }); await p.screenshot({ path: new URL('informe.png', import.meta.url).pathname });
+console.log('informe:', (await p.textContent('#informeDoc')).replace(/\s+/g, ' ').slice(0, 420));
+const [w] = await Promise.all([p.waitForEvent('download'), p.click('[data-inf="word"]')]); console.log('word:', w.suggestedFilename(), require('fs').readFileSync(await w.path(), 'utf8').includes('Relación de mensajes'));
+await p.click('[data-inf="cerrar"]'); await p.click('#kpis [data-kpi="todos"]'); await p.selectOption('#fSitio', '');
+await p.click('#estructura'); const est = await p.inputValue('#cajaEstructura textarea');
 console.log(est.split('\n').slice(0, 12).join('\n'));
 console.log('¿estructura con contenido?', /Mensaje \d|MANDO|persona@|R-\d/.test(est), '| errores:', errs);
 // Clave caducada: el servicio contesta 406 a la clave guardada; el visor pide otra y sigue

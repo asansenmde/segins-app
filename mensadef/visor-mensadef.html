@@ -93,6 +93,27 @@
   .cab-msg h2 { color: #fff; font-size: 1.05rem; margin: 6px 0 4px !important; }
   .cab-msg .linea { font-size: .8rem; color: #e3ead9; }
   .cab-msg .tag, .cab-msg .prio { margin-right: 4px; }
+  .layout.max { grid-template-columns: minmax(0, 1fr) !important; }
+  .layout.max #lista { display: none; }
+  .layout.max #detalle { position: static; max-height: none; padding: 18px 24px; }
+  .layout.max #detalle dl { grid-template-columns: 220px 1fr; font-size: .95rem; }
+  .layout.max #detalle .cuerpo { font-size: .95rem; }
+  .ficha-campos { margin-top: 6px; }
+  details.otros { margin-top: 8px; font-size: .84rem; } details.otros summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+  #capaInforme { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.45); display: flex; align-items: flex-start; justify-content: center; overflow: auto; padding: 20px 12px; }
+  #capaInforme .hoja { background: #fff; border-radius: 12px; max-width: 1100px; width: 100%; padding: 18px 22px; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+  #informeDoc { font-size: .86rem; }
+  #informeDoc h1 { font-size: 1.25rem; margin: 0 0 4px; color: #26331d; }
+  #informeDoc h2 { font-size: 1rem; margin: 16px 0 6px; color: #3b4a2f; border-bottom: 2px solid #3b4a2f; padding-bottom: 3px; }
+  #informeDoc table { font-size: .8rem; }
+  #informeDoc .resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+  #informeDoc .resumen table td { padding: 3px 6px; }
+  @media print {
+    body.imprimiendo > *:not(#capaInforme) { display: none !important; }
+    body.imprimiendo #capaInforme { position: static; background: none; padding: 0; display: block; }
+    body.imprimiendo #capaInforme .hoja { box-shadow: none; max-width: none; padding: 0; }
+    body.imprimiendo #capaInforme .no-imprimir { display: none !important; }
+  }
   .autor { max-width: 1400px; margin: 0 auto; padding: 12px 16px 24px; text-align: center; font-size: .78rem; color: var(--muted); border-top: 1px solid var(--line); }
   @media print { .autor { display: none; } }
 </style>
@@ -136,6 +157,7 @@
       <label class="check"><input type="checkbox" id="fBorrador"> Ocultar borradores</label>
       <label class="check"><input type="checkbox" id="fVistos"> Ocultar vistos</label>
       <button type="button" id="limpiar">Quitar filtros</button>
+      <button type="button" id="informe" class="prim">📄 Informe</button>
       <button type="button" id="csv">Exportar CSV</button>
     </div>
     <div class="fila" id="masFiltros" style="margin-top:8px"></div>
@@ -167,7 +189,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-10-29 · 1';
+  var VERSION = '2026-10-29 · 2';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -996,18 +1018,38 @@
       var u = k === 'MensajeUrlCarpeta' ? enlaceCarpeta(v) : '';
       return '<dt>' + esc(ETIQUETAS[k]) + '</dt><dd>' + (u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(v) + '</a>' : esc(v)) + '</dd>';
     }).join('');
-    $('detalle').innerHTML = '<div class="acciones"><button type="button" id="cerrar">✕ Cerrar</button>' + (disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
+    // Ficha de un mensaje de la bandeja: solo los campos que interesan, en este orden; el resto, plegado
+    var fichaApi = '';
+    if (m._api) {
+      var x = m._x, usados = {};
+      var CAMPOS_FICHA = [['Fecha', verFecha(fechaDe(m))], ['Nombre autoridad', m.MensajeNombre_Autoridad], ['N.º referencia', m.MensajeNum_referencia], ['Su referencia', m.MensajeSu_referencia],
+        ['Asunto', m._asunto], ['Enviable a rúbrica', x.EnviableARubrica], ['Fecha registro de entrada', x.FechaRegistroEntrada], ['Fecha registro de salida', x.FechaRegistroSalida],
+        ['Firma', x.Firma], ['Leído', x.Leido], ['Prioridad', x.CodigoPrioridad], ['Tipo de mensaje', m.MensajeTipo_es], ['Último comentario', x.UltimoComentario],
+        ['Usuario remitente', x.UsuarioRemitente], ['Célula', sitioDe(m)]];
+      ['EnviableARubrica', 'FechaRegistroEntrada', 'FechaRegistroSalida', 'Firma', 'Leido', 'CodigoPrioridad', 'UltimoComentario', 'UsuarioRemitente', 'TipoMensaje', 'Sref', 'Fecha', 'Asunto', 'CelulaRemitente', 'NumeroRegistroEntrada', '__es']
+        .forEach(function (k) { usados[k] = 1; });
+      var otros = Object.keys(x).filter(function (k) { return !usados[k]; }).sort(function (a, b) { return EXTRA[a].titulo.localeCompare(EXTRA[b].titulo, 'es'); });
+      fichaApi = '<dl class="ficha-campos">' + CAMPOS_FICHA.filter(function (c) { return c[1]; }).map(function (c) { return '<dt>' + esc(c[0]) + '</dt><dd>' + esc(c[1]) + '</dd>'; }).join('') + '</dl>' +
+        (otros.length ? '<details class="otros"><summary>Otros campos (' + otros.length + ')</summary><dl>' + otros.map(function (k) { return '<dt>' + esc(EXTRA[k].titulo) + '</dt><dd>' + esc(x[k]) + '</dd>'; }).join('') + '</dl></details>' : '');
+    }
+    var maxi = $('layout').classList.contains('max');
+    $('detalle').innerHTML = '<div class="acciones"><button type="button" id="cerrar">✕ Cerrar</button><button type="button" id="ampliar" title="Ver la ficha a toda la pantalla">' + (maxi ? '⤡ Reducir' : '⛶ Ampliar') + '</button>' + (disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
       '<button type="button" class="prim" id="aColabora" disabled title="Abre Tareas Colabora con el alta rellena">➜ Crear tarea en Colabora</button>' +
       '<button type="button" id="copiarTarea">Copiar para Gestor de Tareas</button><button type="button" id="verDet">' + (vistos[claveMensaje(m)] ? '✓ Visto · quitar' : '✓ Marcar visto') + '</button></div><div id="colabora"></div>' +
       (m._api ? '<div class="cab-msg">' + (m._x.__es ? '<span class="tag st-azul">' + (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + esc(m._x.__es) + '</span>' : '') +
         (m.MensajeTipo_es ? '<span class="tag t-tipo">' + esc(m.MensajeTipo_es) + '</span>' : '') + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') +
         (m._x.CodigoPrioridad ? '<span class="prio' + (prioAlta(m._x.CodigoPrioridad) ? ' alta' : '') + '">' + esc(m._x.CodigoPrioridad) + '</span>' : '') +
-        '<h2>' + esc(m._asunto || '(sin asunto)') + '</h2><div class="linea">' + esc([sitioDe(m), verFecha(fechaDe(m)), m.MensajeNombre_Autoridad].filter(Boolean).join(' · ')) + '</div></div><dl>'
-        : '<h2>' + esc(m._asunto || '(sin asunto)') + '</h2><dl>') + datos +
+        '<h2>' + esc(m._asunto || '(sin asunto)') + '</h2><div class="linea">' + esc([sitioDe(m), verFecha(fechaDe(m)), m.MensajeNombre_Autoridad].filter(Boolean).join(' · ')) + '</div></div>' + fichaApi
+        : '<h2>' + esc(m._asunto || '(sin asunto)') + '</h2><dl>' + datos +
         Object.keys(m._x).sort(function (a, b) { return EXTRA[a].titulo.localeCompare(EXTRA[b].titulo, 'es'); }).map(function (k) { return '<dt>' + esc(EXTRA[k].titulo) + '</dt><dd>' + esc(m._x[k]) + '</dd>'; }).join('') +
-        (l.sitio ? '<dt>' + (m._api ? 'Célula' : 'Sitio') + '</dt><dd>' + esc(l.sitio.titulo) + '</dd>' : '') + '<dt>' + (m._api ? 'Bandeja' : 'Lista') + '</dt><dd>' + esc(l.titulo) + '</dd></dl>' +
+        (l.sitio ? '<dt>Sitio</dt><dd>' + esc(l.sitio.titulo) + '</dd>' : '') + '<dt>Lista</dt><dd>' + esc(l.titulo) + '</dd></dl>') +
       '<div id="adjuntos"></div><div id="docs"></div><div class="cuerpo" id="cuerpo">Cargando el texto del mensaje…</div>';
-    $('cerrar').addEventListener('click', function () { abierto = null; $('detalle').hidden = true; $('layout').classList.remove('detalle-abierto'); pintarTabla(); });
+    $('cerrar').addEventListener('click', function () { abierto = null; $('detalle').hidden = true; $('layout').classList.remove('detalle-abierto', 'max'); pintarTabla(); });
+    $('ampliar').addEventListener('click', function () {
+      var on = !$('layout').classList.contains('max');
+      $('layout').classList.toggle('max', on); this.textContent = on ? '⤡ Reducir' : '⛶ Ampliar';
+      $('detalle').scrollIntoView({ block: 'start' });
+    });
     pintarColabora(m);
     $('verDet').addEventListener('click', function () { var si = !vistos[claveMensaje(m)]; marcarVisto(m, si); this.textContent = si ? '✓ Visto · quitar' : '✓ Marcar visto'; pintarKpis(); pintarTabla(); });
     $('aColabora').addEventListener('click', function () { pasarAColabora(m, disp); });
@@ -1124,6 +1166,74 @@
     $('cajaEstructura').innerHTML = '<textarea readonly style="width:100%;height:220px;font:12px monospace;margin-top:6px"></textarea><p class="muted">Solo rutas, nombres de columnas y recuentos: no incluye asuntos, nombres ni textos. <button type="button" id="copiarEstructura">Copiar</button></p>';
     $('cajaEstructura').querySelector('textarea').value = txt;
     $('copiarEstructura').addEventListener('click', function () { var b = this; (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function () { b.textContent = 'Copiado ✓'; }, function () { $('cajaEstructura').querySelector('textarea').select(); }); });
+  });
+
+  // Informe de lo que se está viendo (los mismos filtros): encabezado, filtros, resumen y relación de mensajes.
+  // Imprimir o guardar en PDF, Word (.doc) o texto para pegar en un correo. Se genera en el navegador.
+  function filtrosAplicados() {
+    var f = [];
+    var sel = function (id, nom) { var e = $(id); if (e && e.value && e.parentNode.style.display !== 'none') f.push(nom + ': ' + e.value); };
+    if ($('buscar').value.trim()) f.push('Búsqueda: «' + $('buscar').value.trim() + '»');
+    sel('fSitio', modoApi ? 'Célula' : 'Sitio'); sel('fTipo', 'Tipo'); sel('fEstado', 'Estado'); sel('fCanal', 'Canal'); sel('fOrgano', 'Órgano'); sel('fAutoridad', modoApi ? 'Remitente' : 'Autoridad');
+    Object.keys(fx).forEach(function (k) { f.push(EXTRA[k].titulo + ': ' + fx[k]); });
+    if (kpiSel) f.push('Solo: ' + KPIS[kpiSel].t.toLowerCase());
+    if ($('fAdjuntos').checked) f.push('Con adjuntos');
+    if ($('fBorrador').checked) f.push('Sin borradores');
+    if ($('fVistos').checked) f.push('Sin los vistos');
+    return f;
+  }
+  var cuentaPor = function (ms, f) { var c = {}; ms.forEach(function (m) { var k = f(m) || '(sin dato)'; c[k] = (c[k] || 0) + 1; }); return Object.keys(c).sort(function (a, b) { return c[b] - c[a] || a.localeCompare(b, 'es'); }).map(function (k) { return [k, c[k]]; }); };
+  function datosInforme() {
+    var ms = filtrados.slice();
+    var bloques = [['Por célula', function (m) { return sitioDe(m); }], ['Por bandeja', function (m) { return m._x.__es; }], ['Por tipo', function (m) { return m.MensajeTipo_es; }],
+      ['Por estado', function (m) { return m.MensajeEstado; }], ['Por prioridad', function (m) { return m._x.CodigoPrioridad; }]]
+      .map(function (b) { return [b[0], cuentaPor(ms, b[1])]; }).filter(function (b) { return b[1].length && !(b[1].length === 1 && b[1][0][0] === '(sin dato)'); });
+    var cols = [['Fecha', function (m) { return verFecha(fechaDe(m)); }], ['Célula', function (m) { return sitioDe(m).replace(/^ET \w+ /, ''); }], ['E/S', function (m) { return m._x.__es === 'Entrada' ? 'E' : m._x.__es === 'Salida' ? 'S' : ''; }],
+      ['Tipo', function (m) { return m.MensajeTipo_es; }], ['Prio.', function (m) { return m._x.CodigoPrioridad; }], ['Asunto', function (m) { return m._asunto; }],
+      ['Remitente', function (m) { return autoridad(m); }], ['N.º registro', function (m) { return m.MensajeNum_referencia; }], ['Estado', function (m) { return m.MensajeEstado; }],
+      ['Leído', function (m) { return m._leido === true ? 'Sí' : m._leido === false ? 'No' : ''; }], ['Tarea', function (m) { return enviados[claveMensaje(m)] ? 'Sí' : ''; }]];
+    return { ms: ms, bloques: bloques, cols: cols, filtros: filtrosAplicados(), periodo: $('desde').value.split('-').reverse().join('/') + ' al ' + $('hasta').value.split('-').reverse().join('/'),
+      quien: ($('quien').textContent || '').split(' · ').pop(), noLeidos: ms.filter(function (m) { return m._leido === false; }).length };
+  }
+  function htmlInforme(d, paraWord) {
+    var td = paraWord ? 'style="border:1px solid #999;padding:3px 5px;vertical-align:top"' : '';
+    var th = paraWord ? 'style="border:1px solid #999;padding:3px 5px;background:#eef1ea;text-align:left"' : '';
+    return '<h1>Relación de mensajes de MENSADEF</h1>' +
+      '<p>Periodo: <b>' + esc(d.periodo) + '</b> · ' + d.ms.length + ' mensajes' + (d.noLeidos ? ' (' + d.noLeidos + ' sin leer)' : '') + (d.quien ? ' · Elaborado por: ' + esc(d.quien) : '') + ' · ' + esc(new Date().toLocaleString('es-ES')) + '</p>' +
+      '<p>Filtros: ' + esc(d.filtros.join(' · ') || 'ninguno') + '</p>' +
+      (d.bloques.length ? '<h2>Resumen</h2><div class="resumen">' + d.bloques.map(function (b) {
+        return '<table' + (paraWord ? ' style="border-collapse:collapse;margin:0 0 8px"' : '') + '><tr><th ' + th + ' colspan="2">' + esc(b[0]) + '</th></tr>' + b[1].map(function (x) { return '<tr><td ' + td + '>' + esc(x[0]) + '</td><td ' + td + ' align="right">' + x[1] + '</td></tr>'; }).join('') + '</table>';
+      }).join('') + '</div>' : '') +
+      '<h2>Relación</h2><table' + (paraWord ? ' style="border-collapse:collapse;width:100%"' : '') + '><thead><tr>' + d.cols.map(function (c) { return '<th ' + th + '>' + esc(c[0]) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      d.ms.map(function (m) { return '<tr>' + d.cols.map(function (c) { return '<td ' + td + '>' + esc(c[1](m)) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>' +
+      '<p style="margin-top:14px;font-size:.75rem;color:#5f685f">Visor de mensajes de MENSADEF · © 2026 Cte. Alfredo Sánchez Sender · versión ' + esc(VERSION) + '</p>';
+  }
+  function textoInforme(d) {
+    return ['RELACIÓN DE MENSAJES DE MENSADEF', 'Periodo: ' + d.periodo + ' · ' + d.ms.length + ' mensajes' + (d.noLeidos ? ' (' + d.noLeidos + ' sin leer)' : ''), 'Filtros: ' + (d.filtros.join(' · ') || 'ninguno'), '']
+      .concat(d.bloques.map(function (b) { return b[0].toUpperCase() + ': ' + b[1].map(function (x) { return x[0] + ' ' + x[1]; }).join(', '); }), [''])
+      .concat(d.ms.map(function (m) { return '- ' + verFecha(fechaDe(m)) + ' · ' + sitioDe(m).replace(/^ET \w+ /, '') + ' · ' + (m._asunto || '') + (autoridad(m) ? ' · ' + autoridad(m) : '') + (m.MensajeNum_referencia ? ' · ' + m.MensajeNum_referencia : ''); })).join('\n');
+  }
+  $('informe').addEventListener('click', function () {
+    if (!filtrados.length) { alert('No hay mensajes con los filtros elegidos.'); return; }
+    var d = datosInforme(), capa = document.createElement('div');
+    capa.id = 'capaInforme';
+    capa.innerHTML = '<div class="hoja"><div class="acciones no-imprimir"><button type="button" class="prim" data-inf="imprimir">🖨 Imprimir / PDF</button><button type="button" data-inf="word">Word</button>' +
+      '<button type="button" data-inf="texto">Copiar texto</button><button type="button" data-inf="cerrar">✕ Cerrar</button></div><div id="informeDoc">' + htmlInforme(d) + '</div></div>';
+    document.body.appendChild(capa);
+    capa.addEventListener('click', function (e) {
+      var a = e.target.getAttribute && e.target.getAttribute('data-inf');
+      if (e.target === capa || a === 'cerrar') { capa.remove(); return; }
+      if (a === 'imprimir') { document.body.classList.add('imprimiendo'); window.print(); setTimeout(function () { document.body.classList.remove('imprimiendo'); }, 800); }
+      if (a === 'word') {
+        var doc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>Relación de mensajes</title>' +
+          '<style>body{font-family:Calibri,Arial,sans-serif;font-size:10pt}h1{font-size:14pt}h2{font-size:11pt;border-bottom:1px solid #3b4a2f}@page{size:landscape;margin:1.5cm}</style></head><body>' + htmlInforme(d, true) + '</body></html>';
+        var w = document.createElement('a');
+        w.href = URL.createObjectURL(new Blob(['﻿' + doc], { type: 'application/msword' }));
+        w.download = 'mensajes-mensadef-' + $('desde').value + '_' + $('hasta').value + '.doc';
+        document.body.appendChild(w); w.click(); setTimeout(function () { URL.revokeObjectURL(w.href); w.remove(); }, 1000);
+      }
+      if (a === 'texto') { var t = textoInforme(d), b = e.target; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { b.textContent = 'Copiado ✓'; }, function () { window.prompt('Copia este texto:', t); }); }
+    });
   });
 
   // Exporta lo filtrado a CSV (se guarda en tu ordenador; no sale de él)
