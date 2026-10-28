@@ -21,7 +21,7 @@ const bandeja = (cel, es, pag, tam) => {
     Cuerpo: '<p>Texto del mensaje ' + i + '</p><script>alert(1)</script>', Fecha: hace(i < 130 ? i * 0.3 : 24 * 40 + i), FechaRegistroEntrada: hace(i), IdEstadoMensaje: 3,
     EstadoMensaje: i % 3 ? 'Pendiente' : 'Leído', EstadoParaUsuario: i % 2 ? 'No leído' : 'Leído', TipoES: es === '1' ? 'E' : 'S', TipoMensaje: i % 4 ? 'Informe' : 'Orden', CodigoPrioridad: i % 9 ? 'R' : 'U',
     CelulaRemitente: i % 2 ? 'ET 2SUIGE JEFATURA' : 'ET 2SUIGE REGISTRO', CelulaDestinataria: 'ET 2SUIGE SETEC SEGURIDAD', NumeroRegistroEntrada: 'RE-' + i, Sref: 'SREF-' + i,
-    ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 7 ? '' : 'URGENTE', IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
+    ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 7 ? '' : 'URGENTE', Firma: i % 2 ? 'GENERAL JEFE <b>A</b>' : '', MotivoDistribucion: i % 3 ? 'Para conocimiento' : 'Para actuación', IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
   return { ListaElementos: els, ListaAgrupaciones: [], IndicePagina: pag, TamanoPagina: tam, TotalRegistros: total };
 };
 const b = await chromium.launch();
@@ -122,6 +122,7 @@ await p.bringToFront();
 // Ficha con los campos pedidos y ampliar
 console.log('ficha:', await p.$$eval('#detalle dl.ficha-campos dt', l => l.map(x => x.textContent).join(', ')), '| otros plegados:', await p.textContent('#detalle details.otros summary').catch(() => '-'));
 await p.click('#ampliar'); console.log('ampliada: tabla oculta', await p.isHidden('#lista'), '|', await p.textContent('#ampliar')); await p.click('#ampliar');
+console.log('firma y motivo en la ficha:', (await p.textContent('#detalle .firmamot')).replace(/\s+/g, ' '), '| en la tabla:', await p.$$eval('#lista .sub', l => l.some(x => /✍ GENERAL JEFE <b>A<\/b> · Motivo: Para/.test(x.textContent))));
 // Banderas: en la tabla con su color, en la ficha y con filtro
 console.log('banderas en la tabla:', await p.$$eval('#lista .bandera', l => [...new Set(l.map(x => x.textContent + ' ' + x.style.getPropertyValue('--cb')))].join(', ')),
   '| filtro:', await p.$$eval('[data-x="Bandera"] option', l => l.map(x => x.textContent).join(', ')).catch(() => 'no hay'));

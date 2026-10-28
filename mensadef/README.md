@@ -106,6 +106,9 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   que la aplicación pinte la bandeja, busca la fila por su n.º de registro (o el asunto), y si no está a la vista pasa a
   «Salida» si hace falta y usa el buscador de la bandeja; al encontrarla la resalta y la abre. Si no la encuentra, avisa
   con lo que hay que buscar (copiado al portapapeles). Probado con una bandeja simulada; la de verdad puede necesitar ajuste.
+  **Versión 2026-10-29 · 6 (pruebas)**: quién firma (`Firma`) y el motivo (`MotivoDistribucion`), las columnas «Firma» y
+  «Motivo» de la bandeja de MENSADEF: destacados en la cabecera de la ficha, bajo el asunto en la tabla, en la búsqueda y
+  en el informe (columnas, detalle, resumen y agrupar por firma o motivo).
 
 ## Estructura de MENSADEF (ámbito 2SUIGE)
 
