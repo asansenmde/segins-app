@@ -6,7 +6,7 @@
 (function () {
   'use strict';
   if (window.__escuchaMensadef) { window.__escuchaMensadef(); return; }
-  var VERSION = 2; // se ve en el recuadro y en el resumen, para saber qué favorito se ha pulsado
+  var VERSION = 3; // se ve en el recuadro y en el resumen, para saber qué favorito se ha pulsado
   var reg = [], indice = {};
   try { performance.setResourceTimingBufferSize(5000); } catch (e) { /* sin registro de recursos */ }
 
@@ -119,11 +119,27 @@
     pintar();
   }
 
+  // Cabeceras: se anota el NOMBRE; el valor solo si no es secreto (formato pedido o enviado) y, si no, DE DÓNDE sale
+  // (una clave de la memoria de la página o una cookie), nunca el valor
+  var VISIBLES = /^(accept|content-type|x-requested-with|odata-version|odata-maxversion|cache-control|pragma|if-match)$/i;
+  function origenValor(v) {
+    v = String(v || ''); if (v.length < 8) return 'corto (' + v.length + ' caracteres)';
+    var limpio = v.replace(/^(Bearer|Basic|Token)\s+/i, ''), pref = limpio !== v ? v.split(/\s/)[0] + ' + ' : '';
+    var buscar = function (alm, nombre) {
+      try { for (var i = 0; i < alm.length; i++) { var k = alm.key(i), x = alm.getItem(k) || ''; if (x === limpio || x === v) return nombre + ' «' + k + '»'; if (x.indexOf(limpio) >= 0) return 'dentro de ' + nombre + ' «' + k + '»'; } } catch (e) { /* sin acceso */ }
+      return '';
+    };
+    var de = buscar(window.sessionStorage, 'sessionStorage') || buscar(window.localStorage, 'localStorage');
+    if (!de) document.cookie.split(';').forEach(function (c) { var i = c.indexOf('='), k = c.slice(0, i).trim(), x = decodeURIComponent(c.slice(i + 1)); if (!de && x && (x === limpio || x.indexOf(limpio) >= 0)) de = 'cookie «' + k + '»'; });
+    return pref + (de || 'no está en la memoria de la página') + ' (' + v.length + ' caracteres' + (/^eyJ/.test(limpio) ? ', parece un token JWT' : '') + ')';
+  }
+  var descCab = function (k, v) { return k + (VISIBLES.test(k) ? '=' + String(v).slice(0, 80) : ' [' + origenValor(v) + ']'); };
+
   var f0 = window.fetch;
   if (f0) window.fetch = function (input, init) {
     var url = typeof input === 'string' ? input : input && input.url, met = (init && init.method) || (input && input.method) || 'GET', body = init && init.body;
     // Solo los NOMBRES de las cabeceras (p. ej. si lleva Authorization) y si envía la sesión
-    var nombres = []; try { new Headers((init && init.headers) || (input && input.headers) || {}).forEach(function (v, k) { nombres.push(k); }); } catch (e) { /* sin cabeceras */ }
+    var nombres = []; try { new Headers((init && init.headers) || (input && input.headers) || {}).forEach(function (v, k) { nombres.push(descCab(k, v)); }); } catch (e) { /* sin cabeceras */ }
     var cab = 'fetch' + ((init && init.credentials) || (input && input.credentials) ? ', credentials=' + ((init && init.credentials) || input.credentials) : '') + (nombres.length ? ', cabeceras: ' + nombres.join(', ') : '');
     return f0.apply(this, arguments).then(function (r) {
       try { r.clone().text().then(function (t) { anotar(met, url, body, r.status, t, r.headers.get('content-type'), cab); }, function () { anotar(met, url, body, r.status, '', '', cab); }); } catch (e) { /* sin copia */ }
@@ -133,7 +149,7 @@
   var open0 = XMLHttpRequest.prototype.open, send0 = XMLHttpRequest.prototype.send;
   var cab0 = XMLHttpRequest.prototype.setRequestHeader;
   XMLHttpRequest.prototype.open = function (m, u) { this.__esc = { m: m, u: u, cab: [] }; return open0.apply(this, arguments); };
-  XMLHttpRequest.prototype.setRequestHeader = function (k) { if (this.__esc) this.__esc.cab.push(k); return cab0.apply(this, arguments); };
+  XMLHttpRequest.prototype.setRequestHeader = function (k, v) { if (this.__esc) this.__esc.cab.push(descCab(k, v)); return cab0.apply(this, arguments); };
   XMLHttpRequest.prototype.send = function (b) {
     var x = this, e = x.__esc;
     if (e) x.addEventListener('loadend', function () {

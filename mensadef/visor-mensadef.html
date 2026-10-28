@@ -317,7 +317,7 @@
   // → sus células (ambito/UsuarioCelulas, tipoCelula=-1) → bandeja de cada célula (buzon/ObtenerBuzonCelula, tipoES 1 y 2, por
   // páginas). Los nombres de los campos no se conocen de antemano: se reconocen por su nombre (asunto, fecha, remitente…).
   var API = location.protocol + '//' + location.hostname.replace(/^mensadef\./i, 'mensadefapi.');
-  var modoApi = false, apiCtx = null, errorApi = null, diagApi = [], origenCorreo = '', diagCelulas = '', modoApi_fetch = '', intentosApi = [];
+  var modoApi = false, apiCtx = null, errorApi = null, diagApi = [], origenCorreo = '', diagCelulas = '', modoApi_fetch = '', intentosApi = [], aceptarApi = '';
   // Células que se cargan: las elegidas (se recuerdan); si no se ha elegido nunca, la de la página, si no las de tipo 4,
   // y si no todas
   // Grupos del perfil de MENSADEF: las de registro y las de revisión (portafirmas) se reconocen por el nombre; el resto, OAM
@@ -390,7 +390,15 @@
     // Como la aplicación: primero sin cookies (petición simple); si el navegador la bloquea, con la sesión. La que
     // funcione se recuerda para las siguientes.
     var url = (datosApp.origen || API) + '/api/' + ruta + '?' + q;
-    var intento = function (modo) { return fetch(url, { credentials: modo }).then(function (r) { modoApi_fetch = modo; return r; }); };
+    // Si contesta 406 (no acepta la petición), se repite pidiendo JSON como las aplicaciones web (Accept de axios)
+    var intento = function (modo) {
+      return fetch(url, { credentials: modo, headers: aceptarApi ? { Accept: aceptarApi } : {} }).then(function (r) {
+        if (r.status !== 406 || aceptarApi) { modoApi_fetch = modo; return r; }
+        intentosApi.push('sin cabecera Accept: HTTP 406');
+        aceptarApi = 'application/json, text/plain, */*';
+        return fetch(url, { credentials: modo, headers: { Accept: aceptarApi } }).then(function (r2) { modoApi_fetch = modo; if (r2.status === 406) intentosApi.push('con Accept JSON: HTTP 406'); return r2; });
+      });
+    };
     var pet = modoApi_fetch ? intento(modoApi_fetch) : intento('omit').catch(function (e1) {
       intentosApi.push('sin cookies: ' + (e1.message || e1));
       return intento('include').catch(function (e2) { intentosApi.push('con la sesión: ' + (e2.message || e2)); throw e2; });

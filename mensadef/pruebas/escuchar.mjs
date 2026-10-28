@@ -39,13 +39,15 @@ await p.evaluate(async () => {
   await fetch('/ambito/2SUIGE/_api/$batch', { method: 'POST', body: "--b\r\nGET https://mensadef.mdef.es/ambito/2SUIGE/_api/web/lists/getbytitle('Bandeja%20SETEC')/items?$filter=Asunto eq 'SECRETO 7' HTTP/1.1\r\n--b--" });
   await new Promise(res => { const x = new XMLHttpRequest(); x.open('GET', '/ambito/2SUIGE/_vti_bin/SMDMD/Mensajes.svc/Bandeja?celula=SECRETO8'); x.onloadend = res; x.send(); });
   await fetch('/ambito/2SUIGE/SiteAssets/app.js');
+  sessionStorage.setItem('tokenMensadef', 'eyJhbGciOiJSUzI1NiJ9.SECRETO14.firma');
+  await fetch('https://mensadefapi.mdef.es/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1', { headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiJ9.SECRETO14.firma', Accept: 'application/json, text/plain, */*', 'X-Clave': 'SECRETO15-larguisimo' } });
   await fetch('https://mensadefapi.mdef.es/api/buzon/ObtenerBuzonCelula?idCelula=8d714e44-b2b5-41a8-9780-2228204861b5&emailUsuario=persona@et.mde.es&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE&indicePagina=0&tamanoPagina=50&tipoES=E&criterioBusqueda=SECRETO&soloPendientes=false',
     { credentials: 'include', headers: { Authorization: 'Bearer SECRETO13' } });
 });
 await p.waitForTimeout(400);
 const t = await p.inputValue('div[style*="2147483647"] textarea');
 console.log(t);
-console.log('¿con contenido?', /SECRETO|SETEC S|Entrada|asansen|persona@/.test(t.split('\n').slice(2).join('\n')), '| errores:', errs);
+console.log('¿con contenido?', /SECRETO|eyJ|SETEC S|Entrada|asansen|persona@/.test(t.split('\n').slice(2).join('\n')), '| errores:', errs);
 await p.click('[data-a="min"]'); console.log('minimizado:', (await p.textContent('div[style*="2147483647"]')).slice(0, 60));
 await p.evaluate(codigo); console.log('segunda pulsación lo vuelve a mostrar:', await p.isVisible('div[style*="2147483647"] textarea'));
 await b.close();

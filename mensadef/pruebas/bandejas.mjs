@@ -28,6 +28,8 @@ await ctx.route(API + '/**', r => {
   const u = new URL(r.request().url()), q = Object.fromEntries(u.searchParams), ruta = u.pathname.replace('/api/', '');
   llamadas.push(ruta + (q.idCelula ? ' ' + q.idCelula.slice(0, 4) + ' es' + q.tipoES + ' p' + q.indicePagina : ''));
   const H = { 'Access-Control-Allow-Origin': O, 'Access-Control-Allow-Credentials': 'true' };
+  // ACCEPT406=1: el servicio contesta 406 si no se pide JSON en la cabecera Accept
+  if (process.env.ACCEPT406 && !/application\/json/.test(r.request().headers().accept || '')) return r.fulfill({ status: 406, headers: H, body: '' });
   if (q.emailUsuario !== 'persona@et.mde.es' || q.urlColeccionSitio !== O + WEB) return r.fulfill({ status: 400, headers: H, json: { error: 'parámetros' } });
   if (ruta === 'usuario/ConsultaUsuarioDicodefPorCorreo') return r.fulfill({ headers: H, json: { Datos: { IdUsuario: 77, Nombre: 'PERSONA', Correo: q.emailUsuario } } });
   if (ruta === 'ambito/UsuarioCelulas') return r.fulfill({ headers: H, json: q.idUsuario !== '77' ? [] : q.tipoCelula === '4' ? [{ IdCelula: G1, NombreCelula: 'SETEC SEGURIDAD', TipoCelula: 4 }, { IdCelula: G2, NombreCelula: 'SETEC SECRETARIA', TipoCelula: 4 }]
