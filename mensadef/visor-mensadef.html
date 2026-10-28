@@ -281,8 +281,16 @@
       return cargar();
     }, function (e) {
       errorApi = e;
-      $('estado').textContent = 'Buscando las listas de mensajes…';
-      return buscarListas(w).then(seguirConListas);
+      var verListas = function () { $('aviso').hidden = true; $('estado').textContent = 'Buscando las listas de mensajes…'; return buscarListas(w).then(seguirConListas); };
+      if (e.status !== 406) return verListas();
+      // Falta la clave de MENSADEF (o ha caducado): no se enseñan los borradores del sitio como si fueran la bandeja
+      $('estado').textContent = '';
+      $('aviso').hidden = false;
+      $('aviso').innerHTML = '<div class="bad">No he podido tomar la clave con la que MENSADEF consulta tus bandejas.</div>' +
+        '<p>1. Pulsa <b>Volver a MENSADEF</b> y entra en tu célula.<br>2. Pulsa otra vez el favorito: se toma la clave solo (si no, cambia de célula cuando lo pida).</p>' +
+        '<div class="acciones"><button type="button" class="prim" id="volverMensadef">Volver a MENSADEF</button><button type="button" id="verListas">Ver las listas del sitio (solo borradores)</button></div>';
+      $('volverMensadef').addEventListener('click', function () { location.reload(); });
+      $('verListas').addEventListener('click', verListas);
     });
   }).catch(function (e) {
     $('aviso').hidden = false; $('aviso').innerHTML = '<div class="bad">' + esc(e.message || e) + '</div>' + (e.ayuda ? '<p class="muted">' + esc(e.ayuda) + '</p>' : ''); $('estado').textContent = '';
@@ -298,7 +306,7 @@
     }
     $('estado').textContent = listasDia.length + ' listas diarias de mensajes' + (listasDia.length ? ' (del ' + listasDia[0].dia.split('-').reverse().join('/') + ' al ' + listasDia[listasDia.length - 1].dia.split('-').reverse().join('/') + ')' : '') +
       ' en ' + sitios.length + (sitios.length === 1 ? ' sitio' : ' sitios') + ': ' + sitios.map(function (x) { return x.titulo; }).join(', ') + '.';
-    if (errorApi) { $('aviso').hidden = false; $('aviso').innerHTML = '<p class="muted">No se ha podido usar el servicio de bandejas de MENSADEF (' + esc(errorApi.message || errorApi) + '): se muestran las listas del sitio, que solo tienen parte de los mensajes. «Ver estructura» da el detalle.</p>'; }
+    if (errorApi && errorApi.status !== 406) { $('aviso').hidden = false; $('aviso').innerHTML = '<p class="muted">No se ha podido usar el servicio de bandejas de MENSADEF (' + esc(errorApi.message || errorApi) + '): se muestran las listas del sitio, que solo tienen parte de los mensajes. «Ver estructura» da el detalle.</p>'; }
     return cargar();
   }
 
@@ -749,7 +757,7 @@
     opciones('fAutoridad', mensajes.map(autoridad), 'Todas');
     opciones('fSitio', mensajes.map(sitioDe), 'Todos');
     // Fuera los filtros sin datos (p. ej. canal u órgano en las bandejas)
-    ['fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad'].forEach(function (id) { $(id).parentNode.style.display = $(id).options.length > 1 ? '' : 'none'; });
+    ['fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad'].forEach(function (id) { $(id).parentNode.style.display = !modoApi || $(id).options.length > 1 ? '' : 'none'; });
     $('fSitio').parentNode.style.display = sitios.length < 2 ? 'none' : '';
     // Un desplegable por cada columna de MENSADEF con pocos valores distintos en lo cargado
     var cols = Object.keys(EXTRA).filter(function (k) {

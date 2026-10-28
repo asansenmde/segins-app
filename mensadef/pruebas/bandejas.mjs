@@ -51,7 +51,8 @@ await ctx.route(O + '/**', r => {
   const u = decodeURIComponent(r.request().url()), acc = r.request().headers().accept || '';
   if (verbose && acc.includes('nometadata') && u.includes('/_api/')) return r.fulfill({ status: 406, body: '' });
   const J = o => r.fulfill({ contentType: 'application/json', body: JSON.stringify(verbose ? { d: o } : o) });
-  if (!u.includes('/_api/')) return r.fulfill({ contentType: 'text/html', body: '<html><body>MENSADEF</body></html>' });
+  // Página de MENSADEF simulada: al entrar en la ruta de una célula, la aplicación consulta su servicio con sus cabeceras
+  if (!u.includes('/_api/')) return r.fulfill({ contentType: 'text/html', body: '<html><body>MENSADEF<script>addEventListener("hashchange", function () { if (/^#\\/celula\\//.test(location.hash)) fetch("' + API + '/api/usuariovista/UsuarioVistaObtener?x=1", { headers: { "Content-Type": "application/json", passcode: "' + PASS + '", user: "' + UID + '" } }); });</script></body></html>' });
   if (u.startsWith(O + WEB + '/_api/web?')) return J({ Url: O + WEB, Title: 'Segunda SUIGE' });
   if (u.includes('/_api/web?')) return r.fulfill({ status: 404, body: '' });
   if (u.includes('currentuser')) return J(process.env.SINCORREO ? { Title: 'PERSONA', Email: '', UserPrincipalName: '', LoginName: 'i:0#.w|et\\persona' } : { Title: 'PERSONA', Email: 'persona@et.mde.es' });
@@ -106,6 +107,16 @@ console.log('a Colabora:', decodeURIComponent(nueva.url().split('#importar=')[1]
 await p.bringToFront(); await p.click('#estructura'); const est = await p.inputValue('#cajaEstructura textarea');
 console.log(est.split('\n').slice(0, 12).join('\n'));
 console.log('¿estructura con contenido?', /Mensaje \d|MANDO|persona@|R-\d/.test(est), '| errores:', errs);
+// Desde la célula, sin cambiar de célula a mano: el favorito hace que MENSADEF la recargue y toma la clave
+const p3 = await ctx.newPage(); await p3.goto(O + WEB + '/SitePages/ambito.aspx#/celula/SETEC%20SEGURIDAD/' + G1); await consultasApp(p3);
+await p3.evaluate(codigo); await p3.waitForTimeout(4500);
+console.log('sin cambiar de célula se abre el visor:', await p3.$('#estado') !== null, '|', await p3.$eval('#estado', e => e.textContent).catch(() => '-'));
+await p3.close();
+// «Abrir sin bandejas»: aviso claro, sin enseñar los borradores del sitio como si fueran la bandeja
+const p4 = await ctx.newPage(); await p4.goto(O + WEB + '/SitePages/ambito.aspx'); await consultasApp(p4);
+await p4.evaluate(() => sessionStorage.clear()); await p4.evaluate(codigo); await p4.click('[data-a="sin"]'); await p4.waitForTimeout(1500);
+console.log('sin clave:', (await p4.textContent('#aviso')).slice(0, 90), '| tabla oculta:', await p4.isHidden('#lista'), '| botón volver:', await p4.isVisible('#volverMensadef'));
+await p4.close();
 await p.setViewportSize({ width: 1300, height: 900 }); await p.evaluate(() => scrollTo(0, 0)); await p.screenshot({ path: new URL('bandejas.png', import.meta.url).pathname });
 await p.setViewportSize({ width: 390, height: 800 }); await p.screenshot({ path: new URL('bandejas-movil.png', import.meta.url).pathname });
 await b.close();

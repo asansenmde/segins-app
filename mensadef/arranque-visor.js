@@ -40,4 +40,12 @@
     else if (a === 'cancelar') { abierto = true; aviso.remove(); }
   });
   document.body.appendChild(aviso);
+  // Si la aplicación no consulta sola, se le hace recargar la célula abierta (se sale de la ruta y se vuelve a ella)
+  var ruta = location.hash;
+  setTimeout(function () {
+    if (abierto || !/^#\/celula\//i.test(ruta)) return;
+    aviso.querySelector('p').innerHTML = 'Tomando la clave de MENSADEF… Si no se abre en unos segundos, <b>cambia de célula</b> aquí en MENSADEF.';
+    location.hash = '#/';
+    setTimeout(function () { if (!abierto) location.hash = ruta; }, 600);
+  }, 1500);
 })(h);
