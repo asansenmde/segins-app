@@ -51,6 +51,11 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   propiedades, nº de elementos. Nunca guarda valores. Prueba: `node pruebas/escuchar.mjs`.
   (28/10/2026: las listas diarias `SMDMDMensajes_AAAAMMDD` del ámbito solo devuelven borradores con las columnas habituales
   vacías; hay que averiguar de dónde saca la aplicación los mensajes de cada célula.)
+  **Hallazgo (28/10/2026):** la bandeja de cada célula la sirve un servicio propio, **`mensadefapi.mdef.es`**:
+  `GET /api/buzon/ObtenerBuzonCelula?idCelula&emailUsuario&urlColeccionSitio&indicePagina&tamanoPagina&tipoES&criterioBusqueda&soloPendientes[&filtroEtiquetas]`
+  → `{ ListaElementos, ListaAgrupaciones, IndicePagina, TamanoPagina, TotalRegistros }`, y
+  `GET /api/usuariovista/UsuarioVistaObtener` (vista del usuario). La escucha ampliada da además los campos de cada
+  mensaje, los valores de tipo/página, la consulta de células anterior a la escucha y cómo se identifica el usuario.
 
 ## Estructura de MENSADEF (ámbito 2SUIGE)
 

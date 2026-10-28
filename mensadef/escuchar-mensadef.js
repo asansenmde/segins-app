@@ -16,18 +16,44 @@
     var ps = {}; String(v).replace(/([A-Za-z_][\w/]*)\s*(?::|=|<>|>=|<=|<|>|\s+(?:eq|ne|gt|ge|lt|le)\s)/g, function (m, p) { if (!/^(and|or|not|eq|ne|gt|ge|lt|le|https?)$/i.test(p)) ps[p] = 1; });
     var l = Object.keys(ps); return l.length ? '[propiedades: ' + l.join(', ') + ']' : '…';
   };
+  // Valores que sí se muestran: los de tipo, página, tamaño, «solo…» y orden (cortos, sin @: categorías y números), y los
+  // identificadores, como {id} (o {id de la célula} si es el de la dirección de la página)
+  var GUID = /^\{?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}?$/i;
+  var idPagina = ((/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.exec(location.hash) || [])[0] || '').toLowerCase();
+  var valorParam = function (k, v) {
+    if (GUID.test(v)) return v.toLowerCase().replace(/[{}]/g, '') === idPagina ? '{id de la célula de la página}' : '{id}';
+    if (/^(tipo\w*|tamano\w*|tamaño\w*|indice\w*|índice\w*|solo\w*|pagina\w*|página\w*|orden\w*|top|skip)$/i.test(k) && v.length <= 20 && !/@/.test(v)) return v;
+    return v === '' ? '(vacío)' : '…';
+  };
   var limpiarUrl = function (u) {
     var x; try { x = new URL(u, location.href); } catch (e) { return '(dirección no válida)'; }
     // Los nombres de lista (getbytitle) y las rutas de carpeta son estructura; los literales largos o raros, no
     var ruta = decodeURIComponent(x.pathname).replace(/\((@?\w+=)?'([^']*)'\)/g, function (m, a, v) { return '(' + (a || '') + "'" + (/^[\w .\-\/áéíóúñÁÉÍÓÚÑ]+$/.test(v) && v.length < 120 ? v : '…') + "')"; });
     var qs = [];
     x.searchParams.forEach(function (v, k) {
-      qs.push(k + '=' + (ESTRUCTURA.test(k) ? v.slice(0, 300) : /filter|query|querytext|querytemplate|refinementfilters/i.test(k) ? propiedades(v) : '…'));
+      qs.push(k + '=' + (ESTRUCTURA.test(k) ? v.slice(0, 300) : /filter|query|querytext|querytemplate|refinementfilters/i.test(k) ? propiedades(v) : valorParam(k, v)));
     });
     return (x.origin !== location.origin ? x.host : '') + ruta + (qs.length ? ' ?' + qs.join('&') : '');
   };
   // Estructura de una respuesta JSON: nº de elementos y nombres de sus campos (sin valores)
   var camposDe = function (o) { return Object.keys(o || {}).filter(function (k) { return k !== '__metadata' && k.indexOf('@odata') !== 0 && k.indexOf('odata.') !== 0; }); };
+  // Estructura anidada (2 niveles) con el tipo de cada campo: texto, número, sí/no, fecha, id, lista[n]{…}
+  var tipoDe = function (v) {
+    if (v === null || v === undefined) return 'vacío';
+    if (typeof v === 'number') return 'número';
+    if (typeof v === 'boolean') return 'sí/no';
+    if (typeof v === 'string') return GUID.test(v) ? 'id' : /^\d{4}-\d{2}-\d{2}T|^\/Date\(/.test(v) ? 'fecha' : 'texto';
+    return 'objeto';
+  };
+  function describir(o, nivel) {
+    if (Array.isArray(o)) {
+      var cs = {}; o.slice(0, 20).forEach(function (x) { if (x && typeof x === 'object' && !Array.isArray(x)) camposDe(x).forEach(function (k) { if (!cs[k] || cs[k] === 'vacío') cs[k] = x[k]; }); });
+      var ks = Object.keys(cs);
+      return '[' + o.length + ']' + (ks.length ? '{' + (nivel > 1 ? ks.join(', ') : ks.map(function (k) { return k + ':' + (cs[k] && typeof cs[k] === 'object' ? describir(cs[k], nivel + 1) : tipoDe(cs[k])); }).join(', ')) + '}' : '');
+    }
+    if (o && typeof o === 'object') return '{' + camposDe(o).map(function (k) { return k + ':' + (o[k] && typeof o[k] === 'object' && nivel < 2 ? describir(o[k], nivel + 1) : tipoDe(o[k])); }).join(', ') + '}';
+    return tipoDe(o);
+  }
   function resumirJson(j) {
     var d = j && j.d ? j.d : j, out = [];
     if (!d || typeof d !== 'object') return '';
@@ -40,11 +66,10 @@
       return 'búsqueda: ' + (rows ? rows.length : 0) + ' resultados (total ' + (pq.RelevantResults && pq.RelevantResults.TotalRows) + '); propiedades: ' + (celdas || []).map(function (c) { return c.Key; }).join(', ');
     }
     if (filas) {
-      var cs = {}; filas.slice(0, 20).forEach(function (f) { camposDe(f).forEach(function (k) { cs[k] = 1; }); });
-      return filas.length + ' elementos; campos: ' + Object.keys(cs).join(', ');
+      return 'lista ' + describir(filas, 0);
     }
     out = camposDe(d);
-    return out.length ? 'objeto; campos: ' + out.slice(0, 80).join(', ') : '';
+    return out.length ? 'objeto ' + describir(d, 0) : '';
   }
   function resumirRespuesta(txt, tipo) {
     if (!txt) return '';
@@ -71,12 +96,23 @@
       return 'cuerpo; campos: ' + camposDe(q).join(', ');
     } catch (e) { return 'cuerpo de ' + b.length + ' caracteres'; }
   }
+ // Lo que ya había consultado la aplicación antes de pulsar el favorito (p. ej. la lista de células al entrar)
+  var antes = [];
+  try {
+    var va = {};
+    performance.getEntriesByType('resource').forEach(function (e) {
+      var u = new URL(e.name, location.href);
+      if (/\.(js|css|png|gif|jpe?g|svg|woff2?|ttf|ico|map|axd)$/i.test(u.pathname) || !(u.origin !== location.origin || /\/api\/|\.svc|\.asmx/i.test(u.pathname))) return;
+      var k = limpiarUrl(e.name); va[k] = (va[k] || 0) + 1;
+    });
+    antes = Object.keys(va).map(function (k) { return k + (va[k] > 1 ? ' ×' + va[k] : ''); });
+  } catch (e) { /* sin registro */ }
   var ESTATICO = /\.(js|css|png|gif|jpe?g|svg|woff2?|ttf|ico|map|axd)(\?|$)/i;
-  function anotar(metodo, url, cuerpo, estado, txt, tipo) {
+  function anotar(metodo, url, cuerpo, estado, txt, tipo, cab) {
     if (ESTATICO.test(String(url).split('#')[0])) return;
     var k = String(metodo || 'GET').toUpperCase() + ' ' + limpiarUrl(url);
     var r = indice[k];
-    if (!r) { r = indice[k] = { k: k, n: 0, cuerpo: resumirCuerpo(cuerpo), resp: '' }; reg.push(r); }
+    if (!r) { r = indice[k] = { k: k, n: 0, cuerpo: resumirCuerpo(cuerpo), resp: '', cab: cab || '' }; reg.push(r); }
     r.n++; r.estado = estado;
     var s = resumirRespuesta(txt, tipo); if (s) r.resp = s;
     pintar();
@@ -85,18 +121,23 @@
   var f0 = window.fetch;
   if (f0) window.fetch = function (input, init) {
     var url = typeof input === 'string' ? input : input && input.url, met = (init && init.method) || (input && input.method) || 'GET', body = init && init.body;
+    // Solo los NOMBRES de las cabeceras (p. ej. si lleva Authorization) y si envía la sesión
+    var nombres = []; try { new Headers((init && init.headers) || (input && input.headers) || {}).forEach(function (v, k) { nombres.push(k); }); } catch (e) { /* sin cabeceras */ }
+    var cab = 'fetch' + ((init && init.credentials) || (input && input.credentials) ? ', credentials=' + ((init && init.credentials) || input.credentials) : '') + (nombres.length ? ', cabeceras: ' + nombres.join(', ') : '');
     return f0.apply(this, arguments).then(function (r) {
-      try { r.clone().text().then(function (t) { anotar(met, url, body, r.status, t, r.headers.get('content-type')); }, function () { anotar(met, url, body, r.status, ''); }); } catch (e) { /* sin copia */ }
+      try { r.clone().text().then(function (t) { anotar(met, url, body, r.status, t, r.headers.get('content-type'), cab); }, function () { anotar(met, url, body, r.status, '', '', cab); }); } catch (e) { /* sin copia */ }
       return r;
     });
   };
   var open0 = XMLHttpRequest.prototype.open, send0 = XMLHttpRequest.prototype.send;
-  XMLHttpRequest.prototype.open = function (m, u) { this.__esc = { m: m, u: u }; return open0.apply(this, arguments); };
+  var cab0 = XMLHttpRequest.prototype.setRequestHeader;
+  XMLHttpRequest.prototype.open = function (m, u) { this.__esc = { m: m, u: u, cab: [] }; return open0.apply(this, arguments); };
+  XMLHttpRequest.prototype.setRequestHeader = function (k) { if (this.__esc) this.__esc.cab.push(k); return cab0.apply(this, arguments); };
   XMLHttpRequest.prototype.send = function (b) {
     var x = this, e = x.__esc;
     if (e) x.addEventListener('loadend', function () {
       var t = ''; try { t = !x.responseType || x.responseType === 'text' ? x.responseText : x.responseType === 'json' ? JSON.stringify(x.response) : ''; } catch (er) { /* sin texto */ }
-      anotar(e.m, e.u, b, x.status, t, x.getResponseHeader && x.getResponseHeader('content-type'));
+      anotar(e.m, e.u, b, x.status, t, x.getResponseHeader && x.getResponseHeader('content-type'), 'XMLHttpRequest' + (x.withCredentials ? ', withCredentials' : '') + (e.cab.length ? ', cabeceras: ' + e.cab.join(', ') : ''));
     });
     return send0.apply(this, arguments);
   };
@@ -108,7 +149,8 @@
   var minimizado = false;
   function texto() {
     return ['ESCUCHA DE MENSADEF (sin contenido) · ' + new Date().toLocaleString('es-ES'), 'Página: ' + location.pathname + ' ' + decodeURIComponent(location.hash).replace(/[0-9a-f]{8}-[0-9a-f-]{27}/gi, '{id}'), '']
-      .concat(reg.map(function (r) { return '- ' + r.k + (r.n > 1 ? ' ×' + r.n : '') + ' → ' + (r.estado || '?') + (r.cuerpo ? '\n    envía: ' + r.cuerpo : '') + (r.resp ? '\n    recibe: ' + r.resp : ''); })).join('\n');
+      .concat(antes.length ? ['ANTES DE ESCUCHAR (solo rutas):'].concat(antes.map(function (x) { return '- ' + x; }), ['', 'MIENTRAS ESCUCHABA:']) : [])
+      .concat(reg.map(function (r) { return '- ' + r.k + (r.n > 1 ? ' ×' + r.n : '') + ' → ' + (r.estado || '?') + (r.cab ? ' (' + r.cab + ')' : '') + (r.cuerpo ? '\n    envía: ' + r.cuerpo : '') + (r.resp ? '\n    recibe: ' + r.resp : ''); })).join('\n');
   }
   function pintar() {
     caja.innerHTML = '<b style="color:#b71c1c">● Escuchando MENSADEF</b> · ' + reg.length + ' consultas anotadas' +
