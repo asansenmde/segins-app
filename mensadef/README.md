@@ -31,6 +31,10 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   **De momento solo en la copia de pruebas**: `marcador-visor-mensadef-pruebas.html` (favorito «Mensajes MENSADEF
   (pruebas)», `python3 generar-marcador.py --pruebas`), con banda roja, memoria aparte y que solo admite la página de
   Tareas de pruebas. El favorito bueno (`marcador-visor-mensadef.html`) no cambia hasta que se dé por buena.
+  La copia de pruebas también **busca las listas de mensajes fuera de la página** desde la que se pulsa (p. ej.
+  `SitePages/ambito.aspx#/celula/…`): en el sitio (incluidas las listas ocultas) y, si no hay, en el del ámbito, el raíz y
+  sus subsitios (2 niveles, hasta 60). Si no las encuentra, dice qué sitios ha revisado (rutas y nº de listas).
+  Pruebas: `CELULA=1` (mensajes en un subsitio) y `NADA=1` (sin mensajes) en `pruebas/visor.mjs`.
 - `prueba-mensadef.html` (marcador: `marcador-mensadef.html`, favorito «Prueba MENSADEF»): diagnóstico. Indica
   dónde se ejecuta, lista las listas y bibliotecas del sitio (nombre, tipo, recuento) y analiza la que se elija:
   columnas, tipos de contenido, archivos por tipo, meses y columnas rellenas. El resumen para copiar no incluye

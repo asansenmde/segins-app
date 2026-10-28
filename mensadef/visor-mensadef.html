@@ -201,34 +201,84 @@
     web = w;
     api('web/currentuser?$select=Title', w.url).then(function (u) { $('quien').textContent = (w.titulo || '') + ' · ' + u.Title; }).catch(function () { $('quien').textContent = w.titulo || ''; });
     $('estado').textContent = 'Buscando las listas de mensajes…';
-    return todas(w.url + '/_api/web/lists?$select=Id,Title,ItemCount,RootFolder/ServerRelativeUrl&$expand=RootFolder&$filter=Hidden eq false&$top=5000');
-  }).then(function (ls) {
-    ls.forEach(function (l) {
-      var m = /^SMDMDMensajes_(\d{4})(\d{2})(\d{2})$/.exec(l.Title);
-      if (m) listasDia.push({ id: l.Id, titulo: l.Title, dia: m[1] + '-' + m[2] + '-' + m[3], total: l.ItemCount, raiz: l.RootFolder && l.RootFolder.ServerRelativeUrl });
-      else if (/^SMDMDMensajes\d{5}(_\d+)?$/.test(l.Title)) listasHist.push({ id: l.Id, titulo: l.Title, total: l.ItemCount, raiz: l.RootFolder && l.RootFolder.ServerRelativeUrl });
-    });
+    return buscarListas(w);
+  }).then(function (r) {
     listasDia.sort(function (a, b) { return a.dia < b.dia ? -1 : 1; });
-    if (!listasDia.length && !listasHist.length) throw new Error('No hay listas «SMDMDMensajes…» en este sitio. Abre la portada de tu ámbito de MENSADEF y vuelve a pulsar el marcador.');
-    $('estado').textContent = listasDia.length + ' días con lista de mensajes (del ' + listasDia[0].dia.split('-').reverse().join('/') + ' al ' + listasDia[listasDia.length - 1].dia.split('-').reverse().join('/') + ').';
+    if (!listasDia.length && !listasHist.length) {
+      var e = new Error('No encuentro listas «SMDMDMensajes…». He revisado ' + r.revisados.length + ' sitio' + (r.revisados.length === 1 ? '' : 's') + ' de MENSADEF (con sus listas ocultas y subsitios): ' +
+        r.revisados.map(function (x) { return x.ruta + ' (' + (x.error ? x.error : x.listas + ' listas') + ')'; }).join(', ') + '.');
+      e.ayuda = 'Pulsa el favorito «Prueba MENSADEF» en esta misma página y dime lo que resume (solo nombres de listas y recuentos, sin contenido) para localizar dónde guarda los mensajes tu célula.';
+      throw e;
+    }
+    var sitios = r.revisados.filter(function (x) { return x.conMensajes; }).map(function (x) { return x.ruta; });
+    $('estado').textContent = listasDia.length + ' días con lista de mensajes' + (listasDia.length ? ' (del ' + listasDia[0].dia.split('-').reverse().join('/') + ' al ' + listasDia[listasDia.length - 1].dia.split('-').reverse().join('/') + ')' : '') +
+      (sitios.length && sitios[0] !== new URL(web.url).pathname.replace(/\/$/, '') ? ' en ' + sitios.join(', ') : '') + '.';
     return cargar();
   }).catch(function (e) {
-    $('aviso').hidden = false; $('aviso').innerHTML = '<div class="bad">' + esc(e.message || e) + '</div>'; $('estado').textContent = '';
+    $('aviso').hidden = false; $('aviso').innerHTML = '<div class="bad">' + esc(e.message || e) + '</div>' + (e.ayuda ? '<p class="muted">' + esc(e.ayuda) + '</p>' : ''); $('estado').textContent = '';
   });
+
+  // Busca las listas de mensajes: primero en el sitio de la página (también las ocultas); si no hay, en el sitio raíz,
+  // en el del ámbito (/ambito/XXX) y en sus subsitios (hasta 2 niveles y 60 sitios). Cada lista recuerda su sitio.
+  function buscarListas(w) {
+    var revisados = [], vistos = {};
+    var ruta = function (u) { return new URL(u, location.origin).pathname.replace(/\/$/, '') || '/'; };
+    var revisar = function (url) {
+      var k = ruta(url);
+      if (vistos[k]) return Promise.resolve(0);
+      vistos[k] = 1;
+      var x = { ruta: k, listas: 0 }; revisados.push(x);
+      return todas(url + '/_api/web/lists?$select=Id,Title,ItemCount,RootFolder/ServerRelativeUrl&$expand=RootFolder&$top=5000').then(function (ls) {
+        var n = 0; x.listas = ls.length;
+        ls.forEach(function (l) {
+          var m = /^SMDMDMensajes_(\d{4})(\d{2})(\d{2})$/.exec(l.Title), raiz = l.RootFolder && l.RootFolder.ServerRelativeUrl;
+          if (m) { listasDia.push({ id: l.Id, web: url, titulo: l.Title, dia: m[1] + '-' + m[2] + '-' + m[3], total: l.ItemCount, raiz: raiz }); n++; }
+          else if (/^SMDMDMensajes\d{5}(_\d+)?$/.test(l.Title)) { listasHist.push({ id: l.Id, web: url, titulo: l.Title, total: l.ItemCount, raiz: raiz }); n++; }
+        });
+        x.conMensajes = n > 0;
+        return n;
+      }, function (e) { x.error = e.status === 403 ? 'sin permiso' : (e.message || 'error'); return 0; });
+    };
+    var subsitios = function (url) {
+      return todas(url + '/_api/web/webs?$select=Title,ServerRelativeUrl').then(function (ws) { return ws.map(function (s) { return location.origin + s.ServerRelativeUrl; }); }, function () { return []; });
+    };
+    // Recorrido por niveles desde unos sitios de partida; se para en cuanto un nivel tiene mensajes
+    var porNiveles = function (inicio, nivel) {
+      if (!inicio.length || nivel > 2 || revisados.length >= 60) return Promise.resolve(0);
+      return Promise.all(inicio.map(revisar)).then(function (ns) {
+        if (ns.some(Boolean)) return 1;
+        return Promise.all(inicio.map(subsitios)).then(function (wss) {
+          var sig = [].concat.apply([], wss).filter(function (u) { return !vistos[ruta(u)]; }).slice(0, 60 - revisados.length);
+          return porNiveles(sig, nivel + 1);
+        });
+      });
+    };
+    var ambito = /^\/ambito\/[^/]+/i.exec(location.pathname);
+    return revisar(w.url).then(function (n) {
+      if (n) return;
+      return api('site/rootweb?$select=Url', w.url).then(function (r) { return r.Url; }, function () { return ''; }).then(function (raizSitio) {
+        var inicio = [w.url];
+        if (ambito) inicio.push(location.origin + ambito[0]);
+        if (raizSitio) inicio.push(raizSitio);
+        vistos = {}; revisados = [];
+        return porNiveles(inicio.filter(function (u, i, a) { return a.map(ruta).indexOf(ruta(u)) === i; }), 0);
+      });
+    }).then(function () { return { revisados: revisados }; });
+  }
 
   $('cargar').addEventListener('click', function () { cargar(); });
 
   // Lee los mensajes de las listas del periodo, de 4 en 4
   function leerLista(l, filtro) {
     var sel = '$select=' + CAMPOS.join(',') + '&$top=2000' + (filtro ? '&$filter=' + encodeURIComponent(filtro) : '');
-    var url = web.url + "/_api/web/lists(guid'" + l.id + "')/items?" + sel;
+    var url = l.web + "/_api/web/lists(guid'" + l.id + "')/items?" + sel;
     return todas(url).catch(function (e) {
       if (e.status !== 400) throw e;
       // Alguna columna no existe en esta lista: se piden solo las que tiene
-      return api("web/lists(guid'" + l.id + "')/fields?$select=InternalName", web.url).then(function (d) {
+      return api("web/lists(guid'" + l.id + "')/fields?$select=InternalName", l.web).then(function (d) {
         var hay = {}; lista(d.value).forEach(function (f) { hay[f.InternalName] = 1; });
         var campos = CAMPOS.filter(function (c) { return hay[c] || c === 'ID' || c === 'FileSystemObjectType'; });
-        return todas(web.url + "/_api/web/lists(guid'" + l.id + "')/items?$select=" + campos.join(',') + '&$top=2000' + (filtro && hay.MensajeFecha ? '&$filter=' + encodeURIComponent(filtro) : ''));
+        return todas(l.web + "/_api/web/lists(guid'" + l.id + "')/items?$select=" + campos.join(',') + '&$top=2000' + (filtro && hay.MensajeFecha ? '&$filter=' + encodeURIComponent(filtro) : ''));
       });
     }).then(function (items) {
       // El asunto es un campo de texto largo que puede traer HTML: se guarda ya como texto
@@ -370,7 +420,7 @@
       var b = this;
       (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { b.textContent = 'Copiado ✓'; }, function () { window.prompt('Copia este texto:', t); });
     });
-    api(base + '?$select=MensajeCuerpo', web.url).then(function (d) {
+    api(base + '?$select=MensajeCuerpo', l.web).then(function (d) {
       if (abierto !== m) return;
       var c = texto(d.MensajeCuerpo);
       m._cuerpo = c;
@@ -378,7 +428,7 @@
     }).catch(function (e) { if (abierto === m) $('cuerpo').textContent = 'No se pudo leer el texto (' + (e.message || e) + ').'; })
       .then(function () { if (abierto === m && $('aColabora')) $('aColabora').disabled = false; });
     if (m.Attachments) {
-      api(base + '/AttachmentFiles', web.url).then(function (d) {
+      api(base + '/AttachmentFiles', l.web).then(function (d) {
         if (abierto !== m) return;
         var fs = lista(d.value);
         $('adjuntos').innerHTML = fs.length ? '<p style="margin:10px 0 4px"><b>Adjuntos</b></p>' + fs.map(function (f) { return '<div>📎 <a href="' + esc(location.origin + f.ServerRelativeUrl) + '" target="_blank" rel="noopener">' + esc(f.FileName) + '</a></div>'; }).join('') : '';
@@ -387,7 +437,7 @@
     var carpeta = m.MensajeUrlCarpeta && m.MensajeUrlCarpeta.charAt(0) === '/' ? m.MensajeUrlCarpeta : /^https?:/i.test(m.MensajeUrlCarpeta || '') ? new URL(m.MensajeUrlCarpeta).pathname : '';
     if (carpeta) {
       var q = encodeURIComponent("'" + decodeURIComponent(carpeta).replace(/'/g, "''") + "'");
-      api('web/GetFolderByServerRelativeUrl(@f)/Files?@f=' + q + '&$select=Name,ServerRelativeUrl,Length', web.url).then(function (d) {
+      api('web/GetFolderByServerRelativeUrl(@f)/Files?@f=' + q + '&$select=Name,ServerRelativeUrl,Length', l.web).then(function (d) {
         if (abierto !== m) return;
         var fs = lista(d.value);
         $('docs').innerHTML = fs.length ? '<p style="margin:10px 0 4px"><b>Documentos</b></p>' + fs.map(function (f) { return '<div>📄 <a href="' + esc(location.origin + f.ServerRelativeUrl) + '" target="_blank" rel="noopener">' + esc(f.Name) + '</a> <span class="muted">' + Math.max(1, Math.round((f.Length || 0) / 1024)) + ' KB</span></div>'; }).join('') : '';

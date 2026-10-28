@@ -27,6 +27,23 @@ await p.route(O + '/**', async r => {
   if (verbose && acc.includes('nometadata') && u.includes('/_api/')) return r.fulfill({ status: 406, body: '' });
   const J = (o, next) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(verbose ? { d: Array.isArray(o.value) ? { results: o.value, __next: next } : o } : Object.assign(o, next ? { 'odata.nextLink': next } : {})) });
   if (!u.includes('/_api/')) return r.fulfill({ contentType: 'text/html', body: '<html><body>Portada</body></html>' });
+  // CELULA=1: las listas de mensajes no están en el ámbito sino en un subsitio (y ocultas); otro subsitio sin permiso
+  // NADA=1: no hay listas de mensajes en ningún sitio (debe decir dónde ha buscado)
+  if (process.env.NADA) {
+    if (u.includes('/_api/web/lists?')) return J({ value: [lists[lists.length - 1]] });
+    if (u.startsWith(O + WEB + '/_api/web/webs')) return J({ value: [{ Title: 'SETEC', ServerRelativeUrl: WEB + '/SETEC' }] });
+    if (u.includes('/_api/web/webs')) return J({ value: [] });
+    if (u.includes('/_api/site/rootweb')) return J({ Url: O });
+  }
+  if (process.env.CELULA) {
+    const SUB = O + WEB + '/SETEC';
+    if (u.startsWith(O + WEB + '/_api/web/lists?')) return J({ value: [lists[lists.length - 1]] });
+    if (u.startsWith(O + WEB + '/_api/web/webs')) return J({ value: [{ Title: 'Otra', ServerRelativeUrl: WEB + '/OTRA' }, { Title: 'SETEC', ServerRelativeUrl: WEB + '/SETEC' }] });
+    if (u.startsWith(O + WEB + '/OTRA/_api/')) return r.fulfill({ status: 403, body: '' });
+    if (u.startsWith(SUB + '/_api/web/webs') || u.includes('/_api/site/rootweb')) return J(u.includes('rootweb') ? { Url: O + WEB } : { value: [] });
+    if (u.includes('/_api/web/lists?') && !u.startsWith(SUB)) return J({ value: [] });
+    if (u.includes("/_api/web/lists(guid") && !u.startsWith(SUB)) return r.fulfill({ status: 404, body: '' });
+  }
   if (u.startsWith(O + WEB + '/_api/web?')) return J({ Url: O + WEB, Title: 'Segunda SUIGE' });
   if (u.includes('/_api/web?')) return r.fulfill({ status: 404, body: '' });
   if (u.includes('currentuser')) return J({ Title: 'usuario' });
@@ -44,7 +61,7 @@ await p.route(O + '/**', async r => {
     if (id === 'dia2' && q.includes('MensajeCSV')) return r.fulfill({ status: 400, body: '' }); // lista sin alguna columna
     if (id === 'dia2') return J({ value: [{ ID: 1, FileSystemObjectType: 0, Title: 'Sin columnas', MensajeAsunto: 'Mensaje antiguo', MensajeFecha: '2026-09-26T08:00:00Z', MensajeId: 'viejo' }] });
     if (id === 'hist') return J({ value: [item('H', 0), Object.assign(item('dia0', 0), {})] }); // uno duplicado por MensajeId
-    if (id === 'dia0' && !q.includes('skiptoken')) return J({ value: [item('dia0', 0), item('dia0', 1), { ID: 9, FileSystemObjectType: 1, Title: 'carpeta' }] }, O + WEB + "/_api/web/lists(guid'dia0')/items?skiptoken=1");
+    if (id === 'dia0' && !q.includes('skiptoken')) return J({ value: [item('dia0', 0), item('dia0', 1), { ID: 9, FileSystemObjectType: 1, Title: 'carpeta' }] }, u.split('/_api/')[0] + "/_api/web/lists(guid'dia0')/items?skiptoken=1");
     if (id === 'dia0') return J({ value: [item('dia0', 2)] });
     return J({ value: [item(id, 0), item(id, 1), item(id, 2)] });
   }
@@ -53,6 +70,7 @@ await p.route(O + '/**', async r => {
 await p.goto(process.env.INICIO || O + WEB + '/SitePages/Inicio.aspx'); // INICIO=… para arrancar desde otra página de MENSADEF
 await p.evaluate(codigo); await p.waitForTimeout(1200);
 console.log('quién:', await p.textContent('#quien'), '| estado:', await p.textContent('#estado'));
+if (process.env.NADA) { console.log('aviso:', await p.textContent('#aviso')); await b.close(); process.exit(); }
 const filas = () => p.$$eval('#lista tbody tr', t => t.length);
 console.log('filas (3 días: dia0 3 + dia1 3 + dia2 1):', await filas(), '| chips:', await p.textContent('#chips'));
 await p.fill('#buscar', 'extintores'); await p.waitForTimeout(400); console.log('buscar extintores:', await filas());
