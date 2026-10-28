@@ -62,6 +62,10 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   de 100 hasta pasar de «Desde» (máx. 20). Los campos se reconocen por su nombre (asunto, fecha, remitente, estado, tipo,
   referencia, adjuntos); el resto se muestran y filtran tal cual. Filtro «Célula / negociado». Si no responde, vuelve a las
   listas. Prueba: `node pruebas/bandejas.mjs` (y `VERBOSE=1`).
+  **Células que se cargan**: se piden `tipoCelula=-1` (todas a las que tiene acceso) y `tipoCelula=4` (marcadas ★). Por
+  defecto se cargan la célula de la página (`#/celula/…/{id}`), si no las ★, si no todas; el selector «Células que se
+  cargan…» permite elegir y se recuerda. El correo y el número de usuario se toman de las consultas que ya hizo la
+  aplicación en la página (SharePoint no tiene el correo del usuario), o del contexto, la ficha o el perfil.
 
 ## Estructura de MENSADEF (ámbito 2SUIGE)
 

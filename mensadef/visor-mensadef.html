@@ -68,6 +68,8 @@
       <label class="check"><input type="checkbox" id="historicas"> Incluir listas históricas (SMDMDMensajes2026…)</label>
       <button type="button" class="prim" id="cargar">Cargar</button>
     </div>
+    <div class="fila" id="filaCelulas" style="display:none;margin-top:8px"><button type="button" id="elegirCelulas">Células que se cargan…</button><span class="muted" id="resumenCelulas"></span></div>
+    <div class="card" id="cajaCelulas" hidden style="margin:8px 0"></div>
     <div class="muted" id="estado">Preparando…</div>
     <div class="barra"><div id="progreso"></div></div>
   </div>
@@ -227,8 +229,9 @@
     $('estado').textContent = 'Buscando tus células y bandejas en MENSADEF…';
     return iniciarApi(w).then(function () {
       modoApi = true;
+      pintarResumenCelulas();
       $('historicas').parentNode.style.display = 'none';
-      $('estado').textContent = apiCtx.celulas.length + (apiCtx.celulas.length === 1 ? ' célula' : ' células') + ': ' + apiCtx.celulas.map(function (c) { return c.nombre; }).join(', ') + '.';
+      $('estado').textContent = 'Leyendo las bandejas…';
       return cargar();
     }, function (e) {
       errorApi = e;
@@ -314,7 +317,43 @@
   // → sus células (ambito/UsuarioCelulas, tipoCelula=-1) → bandeja de cada célula (buzon/ObtenerBuzonCelula, tipoES 1 y 2, por
   // páginas). Los nombres de los campos no se conocen de antemano: se reconocen por su nombre (asunto, fecha, remitente…).
   var API = location.protocol + '//' + location.hostname.replace(/^mensadef\./i, 'mensadefapi.');
-  var modoApi = false, apiCtx = null, errorApi = null, diagApi = [], origenCorreo = '';
+  var modoApi = false, apiCtx = null, errorApi = null, diagApi = [], origenCorreo = '', diagCelulas = '';
+  // Células que se cargan: las elegidas (se recuerdan); si no se ha elegido nunca, la de la página, si no las de tipo 4,
+  // y si no todas
+  function celulasElegidas() {
+    var cs = apiCtx.celulas, g = leer('celulasElegidas', null);
+    if (g && g.length) { var e = cs.filter(function (c) { return g.indexOf(String(c.id).toLowerCase()) >= 0; }); if (e.length) return e; }
+    var pag = cs.filter(function (c) { return String(c.id).toLowerCase() === apiCtx.dePagina; });
+    if (pag.length) return pag;
+    var t4 = cs.filter(function (c) { return c.en4; });
+    return t4.length ? t4 : cs;
+  }
+  function pintarResumenCelulas() {
+    var e = celulasElegidas();
+    $('filaCelulas').style.display = '';
+    $('resumenCelulas').textContent = ' Se cargan ' + e.length + ' de ' + apiCtx.celulas.length + ': ' + e.map(function (c) { return c.nombre; }).join(', ');
+  }
+  $('elegirCelulas').addEventListener('click', function () {
+    var caja = $('cajaCelulas'), e = celulasElegidas().map(function (c) { return String(c.id).toLowerCase(); });
+    if (!caja.hidden) { caja.hidden = true; return; }
+    caja.hidden = false;
+    caja.innerHTML = '<p style="margin:0 0 6px"><b>Células o negociados cuyas bandejas se cargan</b> <span class="muted">(se recuerda en este navegador)</span></p>' +
+      '<div class="fila" style="margin-bottom:6px"><button type="button" data-cel="todas">Todas</button><button type="button" data-cel="ninguna">Ninguna</button>' +
+      (apiCtx.celulas.some(function (c) { return c.en4; }) ? '<button type="button" data-cel="t4">Solo las marcadas ★</button>' : '') + '</div>' +
+      '<div style="columns:3 220px;max-height:260px;overflow:auto">' + apiCtx.celulas.map(function (c, i) {
+        return '<label class="check" style="display:flex;gap:6px;padding:2px 0"><input type="checkbox" data-i="' + i + '"' + (e.indexOf(String(c.id).toLowerCase()) >= 0 ? ' checked' : '') + '> ' + (c.en4 ? '★ ' : '') + esc(c.nombre) + '</label>';
+      }).join('') + '</div><p class="muted" style="margin:6px 0">★ = las que MENSADEF devuelve como tipo 4 (probablemente las tuyas o de las que eres propietario).</p>' +
+      '<button type="button" class="prim" id="aplicarCelulas">Cargar estas células</button>';
+    var marcar = function (f) { Array.prototype.forEach.call(caja.querySelectorAll('[data-i]'), function (x) { x.checked = f(apiCtx.celulas[+x.getAttribute('data-i')]); }); };
+    Array.prototype.forEach.call(caja.querySelectorAll('[data-cel]'), function (bt) {
+      bt.addEventListener('click', function () { var k = bt.getAttribute('data-cel'); marcar(function (c) { return k === 'todas' || (k === 't4' && c.en4); }); });
+    });
+    $('aplicarCelulas').addEventListener('click', function () {
+      var ids = Array.prototype.filter.call(caja.querySelectorAll('[data-i]'), function (x) { return x.checked; }).map(function (x) { return String(apiCtx.celulas[+x.getAttribute('data-i')].id).toLowerCase(); });
+      if (!ids.length) { alert('Marca al menos una célula.'); return; }
+      guardar('celulasElegidas', ids); caja.hidden = true; pintarResumenCelulas(); cargar();
+    });
+  });
   var GUID = /^\{?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}?$/i;
   var tipoDe = function (v) {
     if (v === null || v === undefined) return 'vacío';
@@ -413,17 +452,26 @@
         ctx.idUsuario = d ? buscarClave(d, /^id_?usuario$/i) : datosApp.idUsuario;
         if (ctx.idUsuario === undefined) ctx.idUsuario = buscarClave(d, /^id$/i);
         if (ctx.idUsuario === undefined) throw new Error('no encuentro tu número de usuario en la respuesta de MENSADEF');
-        return pedirApi('ambito/UsuarioCelulas', { idUsuario: ctx.idUsuario, tipoCelula: -1, emailUsuario: ctx.email, urlColeccionSitio: ctx.url });
-      }).then(function (d) {
+        // Como la aplicación: tipoCelula=-1 (todas a las que tiene acceso) y tipoCelula=4 (las que marca aparte; se
+        // proponen por defecto). Se recuerda en qué consulta sale cada una.
+        var pide = function (tipo) { return pedirApi('ambito/UsuarioCelulas', { idUsuario: ctx.idUsuario, tipoCelula: tipo, emailUsuario: ctx.email, urlColeccionSitio: ctx.url }).then(function (r) { return primerArray(r) || []; }, function (e) { if (tipo === -1) throw e; return []; }); };
+        return Promise.all([pide(-1), pide(4)]);
+      }).then(function (rs) {
         var vistos = {};
-        ctx.celulas = (primerArray(d) || []).map(function (c) {
+        var aCelula = function (c) {
           var id = buscarClave(c, /celula/i, esGuid); if (id === undefined) id = buscarClave(c, /^id/i, esGuid); if (id === undefined) id = buscarClave(c, /^id_?celula$|^id$/i);
           var nombre = buscarClave(c, /nombre|denominaci|descripci|titulo|title/i, noGuid) || buscarClave(c, /celula/i, noGuid) || String(id);
-          return { id: id, nombre: String(nombre).trim(), titulo: String(nombre).trim() };
-        }).filter(function (c) { if (c.id === undefined || vistos[c.id]) return false; vistos[c.id] = 1; return true; });
+          return { id: id, nombre: String(nombre).trim(), titulo: String(nombre).trim(), tipo: buscarClave(c, /^tipo/i, function (v) { return typeof v === 'number' || /^\d+$/.test(v); }) };
+        };
+        var ids4 = rs[1].map(function (c) { return String(aCelula(c).id).toLowerCase(); });
+        diagCelulas = 'tipoCelula=-1: ' + rs[0].length + ' · tipoCelula=4: ' + rs[1].length;
+        ctx.celulas = rs[0].concat(rs[1]).map(aCelula).filter(function (c) { if (c.id === undefined || vistos[c.id]) return false; vistos[c.id] = 1; return true; })
+          .map(function (c) { c.en4 = ids4.indexOf(String(c.id).toLowerCase()) >= 0; return c; })
+          .sort(function (a, b) { return (b.en4 - a.en4) || a.nombre.localeCompare(b.nombre, 'es'); });
         // La célula de la página, aunque no viniera en la lista
         var hash = /#\/celula\/([^/]+)\/([0-9a-f-]{36})/i.exec(location.hash);
         if (hash && !ctx.celulas.some(function (c) { return String(c.id).toLowerCase() === hash[2].toLowerCase(); })) ctx.celulas.push({ id: hash[2], nombre: decodeURIComponent(hash[1]), titulo: decodeURIComponent(hash[1]) });
+        ctx.dePagina = hash ? hash[2].toLowerCase() : '';
         if (!ctx.celulas.length) throw new Error('MENSADEF no devuelve ninguna célula para tu usuario');
         apiCtx = ctx; sitios = ctx.celulas;
         return ctx;
@@ -464,7 +512,7 @@
   function cargarApi(desde, hasta) {
     var ini = new Date(desde + 'T00:00:00'), fin = new Date(hasta + 'T23:59:59');
     var tareas = [], res = [], errores = [];
-    apiCtx.celulas.forEach(function (c) { [1, 2].forEach(function (es) { tareas.push({ c: c, es: es }); }); });
+    celulasElegidas().forEach(function (c) { [1, 2].forEach(function (es) { tareas.push({ c: c, es: es }); }); });
     var hechas = 0;
     var avance = function () { $('progreso').style.width = Math.round(100 * hechas / tareas.length) + '%'; $('estado').textContent = 'Leyendo ' + hechas + ' de ' + tareas.length + ' bandejas…'; };
     var bandeja = function (t, pag) {
@@ -553,9 +601,10 @@
     guardar('desde', desde); guardar('hasta', hasta); guardar('historicas', $('historicas').checked);
     if (modoApi) {
       $('cargar').disabled = true;
+      sitios = celulasElegidas();
       return cargarApi(desde, hasta).then(function (r) {
         mensajes = r.mensajes; $('cargar').disabled = false;
-        $('estado').textContent = mensajes.length + ' mensajes del ' + desde.split('-').reverse().join('/') + ' al ' + hasta.split('-').reverse().join('/') + ' en ' + apiCtx.celulas.length + (apiCtx.celulas.length === 1 ? ' célula' : ' células') +
+        $('estado').textContent = mensajes.length + ' mensajes del ' + desde.split('-').reverse().join('/') + ' al ' + hasta.split('-').reverse().join('/') + ' en ' + sitios.length + (sitios.length === 1 ? ' célula' : ' células') +
           (r.errores.length ? ' · no se pudieron leer: ' + r.errores.join('; ') : '') + '.';
         $('fSitio').previousSibling.textContent = 'Célula / negociado';
         pintarTodo();
@@ -803,7 +852,7 @@
       .concat(['', 'SERVICIO DE BANDEJAS (' + API.replace(/^https?:\/\//, '') + '): ' + (modoApi ? 'en uso' : 'no se ha podido usar' + (errorApi ? ' (' + (errorApi.message || errorApi) + ')' : '')),
         '- correo tomado de: ' + (origenCorreo || '—') + ' · datos de la aplicación en esta página: ' + (Object.keys(datosApp).join(', ') || 'ninguno')])
       .concat(diagApi.map(function (x) { return '- ' + x.ruta + (x.n > 1 ? ' ×' + x.n : '') + ' → ' + x.estado + (x.resp ? '\n    recibe: ' + x.resp : ''); }))
-      .concat(modoApi ? ['- células: ' + apiCtx.celulas.length + ' · campos de los mensajes: ' + Object.keys(EXTRA).join(', ')] : [])
+      .concat(modoApi ? ['- células: ' + apiCtx.celulas.length + ' (' + diagCelulas + '; se cargan ' + celulasElegidas().length + ', de la página: ' + (apiCtx.dePagina ? 'sí' : 'no') + ') · campos de los mensajes: ' + Object.keys(EXTRA).join(', ')] : [])
       .concat(['', 'SITIOS REVISADOS:'])
       .concat(revisadosTodos.map(function (x) { return '- ' + x.ruta + ' · ' + (x.error ? x.error : x.listas + ' listas, ' + x.mensajes + ' de mensajes (' + x.total + ' elementos), cargados ' + mensajes.filter(function (m) { return m._lista.sitio === x; }).length); }))
       .concat(['', 'LISTAS DE CADA SITIO (nombre · ×nº de listas · (elementos)):'])
