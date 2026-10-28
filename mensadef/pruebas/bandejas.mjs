@@ -1,6 +1,7 @@
 // Prueba del visor (copia de pruebas) leyendo las bandejas de las células con el servicio de MENSADEF (mensadefapi), con
 // datos simulados: usuario → células → bandejas tipoES 1 y 2 paginadas. VERBOSE=1 para SharePoint 2013 (odata=verbose).
 // SINCORREO=1: SharePoint no tiene el correo del usuario; se toma de las consultas que ya hizo la aplicación en la página.
+// (Playwright no aplica CORS a las respuestas simuladas: el «primero sin cookies, luego con la sesión» no se puede comprobar aquí.)
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
@@ -48,9 +49,11 @@ await ctx.route(O + '/**', r => {
 });
 // Se pulsa desde una tercera célula que no viene en la lista (se añade por la dirección)
 await p.goto(O + WEB + '/SitePages/ambito.aspx');
-if (process.env.SINCORREO) await p.evaluate(() => { const o = performance.getEntriesByType.bind(performance); performance.getEntriesByType = t => t !== 'resource' ? o(t) : [
+// Lo que la aplicación de MENSADEF ya consultó en la página (en la realidad lo vuelve a hacer al recargar)
+const consultasApp = pg => !process.env.SINCORREO ? null : pg.evaluate(() => { const o = performance.getEntriesByType.bind(performance); performance.getEntriesByType = t => t !== 'resource' ? o(t) : [
   { name: 'https://mensadefapi.mdef.es/api/usuario/ValidateUser?idUsuario=persona&useUid=true' },
   { name: 'https://mensadefapi.mdef.es/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40et.mde.es&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE' }]; });
+await consultasApp(p);
 await p.evaluate(codigo); await p.waitForTimeout(2500);
 const filas = () => p.$$eval('#lista tbody tr', t => t.length);
 console.log('estado:', await p.textContent('#estado'), '| células:', await p.textContent('#resumenCelulas'));
@@ -64,14 +67,14 @@ await p.selectOption('#fx_Etiquetas', 'URGENTE'); console.log('etiqueta URGENTE:
 await p.click('#elegirCelulas'); console.log('selector:', (await p.textContent('#cajaCelulas')).replace(/\s+/g, ' ').slice(0, 220));
 await p.click('[data-cel="ninguna"]'); await p.check('#cajaCelulas label:has-text("SETEC SECRETARIA") input'); await p.click('#aplicarCelulas'); await p.waitForTimeout(800);
 console.log('solo SECRETARIA elegida:', await p.textContent('#resumenCelulas'), '|', await p.textContent('#estado'));
-await p.reload(); await p.evaluate(codigo); await p.waitForTimeout(1500); console.log('recordado:', await p.textContent('#resumenCelulas'));
+await p.reload(); await consultasApp(p); await p.evaluate(codigo); await p.waitForTimeout(1500); console.log('recordado:', await p.textContent('#resumenCelulas'));
 await p.click('#elegirCelulas'); console.log('grupos:', await p.$$eval('#cajaCelulas p b, #cajaCelulas [data-cel]', l => l.map(x => x.textContent)));
 await p.click('[data-cel="g:registro"]'); console.log('solo Registro marca:', await p.$$eval('#cajaCelulas input:checked', l => l.length));
 await p.click('[data-cel="t4"]'); await p.click('#aplicarCelulas'); await p.waitForTimeout(1500);
 // Desde la página de una célula (sin elección guardada) se carga esa
 const p2 = await ctx.newPage(); await p2.goto(O + WEB + '/SitePages/ambito.aspx#/celula/SETEC%20SECRETARIA/' + G2);
 await p2.evaluate(() => { try { localStorage.removeItem('visorMensadefPruebas.celulasElegidas'); } catch (e) {} });
-await p2.evaluate(codigo); await p2.waitForTimeout(1500); console.log('desde la célula SECRETARIA:', await p2.textContent('#resumenCelulas')); await p2.close();
+await consultasApp(p2); await p2.evaluate(codigo); await p2.waitForTimeout(1500); console.log('desde la célula SECRETARIA:', await p2.textContent('#resumenCelulas')); await p2.close();
 await p.click('#lista tbody tr >> nth=0'); await p.waitForTimeout(300);
 console.log('detalle:', (await p.textContent('#detalle')).replace(/\s+/g, ' ').slice(0, 420));
 console.log('abrir en MENSADEF:', await p.$eval('#detalle a', a => a.href));

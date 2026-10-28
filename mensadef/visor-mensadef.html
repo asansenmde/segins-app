@@ -317,7 +317,7 @@
   // → sus células (ambito/UsuarioCelulas, tipoCelula=-1) → bandeja de cada célula (buzon/ObtenerBuzonCelula, tipoES 1 y 2, por
   // páginas). Los nombres de los campos no se conocen de antemano: se reconocen por su nombre (asunto, fecha, remitente…).
   var API = location.protocol + '//' + location.hostname.replace(/^mensadef\./i, 'mensadefapi.');
-  var modoApi = false, apiCtx = null, errorApi = null, diagApi = [], origenCorreo = '', diagCelulas = '';
+  var modoApi = false, apiCtx = null, errorApi = null, diagApi = [], origenCorreo = '', diagCelulas = '', modoApi_fetch = '', intentosApi = [];
   // Células que se cargan: las elegidas (se recuerdan); si no se ha elegido nunca, la de la página, si no las de tipo 4,
   // y si no todas
   // Grupos del perfil de MENSADEF: las de registro y las de revisión (portafirmas) se reconocen por el nombre; el resto, OAM
@@ -387,7 +387,15 @@
     var x = diagApi.filter(function (y) { return y.ruta === ruta; })[0];
     if (!x) { x = { ruta: ruta, n: 0 }; diagApi.push(x); }
     x.n++; x.estado = '…';
-    return fetch(API + '/api/' + ruta + '?' + q, { credentials: 'include', headers: { Accept: 'application/json' } }).then(function (r) {
+    // Como la aplicación: primero sin cookies (petición simple); si el navegador la bloquea, con la sesión. La que
+    // funcione se recuerda para las siguientes.
+    var url = (datosApp.origen || API) + '/api/' + ruta + '?' + q;
+    var intento = function (modo) { return fetch(url, { credentials: modo }).then(function (r) { modoApi_fetch = modo; return r; }); };
+    var pet = modoApi_fetch ? intento(modoApi_fetch) : intento('omit').catch(function (e1) {
+      intentosApi.push('sin cookies: ' + (e1.message || e1));
+      return intento('include').catch(function (e2) { intentosApi.push('con la sesión: ' + (e2.message || e2)); throw e2; });
+    });
+    return pet.then(function (r) {
       x.estado = r.status;
       if (!r.ok) { var e = new Error('mensadefapi ' + ruta + ': HTTP ' + r.status + (r.status === 401 || r.status === 403 ? ' (no reconoce la sesión)' : '')); e.status = r.status; throw e; }
       return r.json();
@@ -428,6 +436,7 @@
       performance.getEntriesByType('resource').forEach(function (e) {
         var u = new URL(e.name, location.href);
         if (u.host.toLowerCase().indexOf('mensadefapi.') !== 0) return;
+        if (!r.origen) r.origen = u.origin;
         ['emailUsuario', 'urlColeccionSitio'].forEach(function (k) { var v = u.searchParams.get(k); if (v && !r[k]) r[k] = v; });
         // El número de usuario, solo de las consultas de células, bandejas y vistas (ValidateUser usa otro identificador)
         if (/UsuarioCelulas|ObtenerBuzonUsuario|UsuarioVista|PortafirmasUsuario/i.test(u.pathname) && u.searchParams.get('idUsuario') && !r.idUsuario) r.idUsuario = u.searchParams.get('idUsuario');
@@ -860,7 +869,9 @@
       'Página: ' + location.pathname + (celula ? ' · célula: ' + decodeURIComponent(celula) : ''),
       'Periodo cargado: ' + $('desde').value + ' a ' + $('hasta').value + ' · mensajes: ' + mensajes.length]
       .concat(['', 'SERVICIO DE BANDEJAS (' + API.replace(/^https?:\/\//, '') + '): ' + (modoApi ? 'en uso' : 'no se ha podido usar' + (errorApi ? ' (' + (errorApi.message || errorApi) + ')' : '')),
-        '- correo tomado de: ' + (origenCorreo || '—') + ' · datos de la aplicación en esta página: ' + (Object.keys(datosApp).join(', ') || 'ninguno')])
+        '- correo tomado de: ' + (origenCorreo || '—') + ' · datos de la aplicación en esta página: ' + (Object.keys(datosApp).join(', ') || 'ninguno') +
+          ' · servicio: ' + (datosApp.origen || API).replace(/^(https?):\/\//, '$1 ') + ' · forma que funciona: ' + ({ omit: 'sin cookies', include: 'con la sesión' }[modoApi_fetch] || 'ninguna'),
+        '- intentos fallidos: ' + (intentosApi.slice(0, 6).join(' | ') || 'ninguno')])
       .concat(diagApi.map(function (x) { return '- ' + x.ruta + (x.n > 1 ? ' ×' + x.n : '') + ' → ' + x.estado + (x.resp ? '\n    recibe: ' + x.resp : ''); }))
       .concat(modoApi ? ['- células: ' + apiCtx.celulas.length + ' (' + diagCelulas + '; se cargan ' + celulasElegidas().length + ', de la página: ' + (apiCtx.dePagina ? 'sí' : 'no') + ') · campos de los mensajes: ' + Object.keys(EXTRA).join(', ')] : [])
       .concat(['', 'SITIOS REVISADOS:'])
