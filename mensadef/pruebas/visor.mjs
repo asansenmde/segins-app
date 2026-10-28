@@ -11,7 +11,8 @@ const lists = dias.map((s, i) => ({ Id: 'dia' + i, Title: 'SMDMDMensajes_' + s, 
            { Id: 'pag', Title: 'Páginas del sitio', ItemCount: 2, RootFolder: { ServerRelativeUrl: WEB + '/SitePages' } }]);
 const item = (l, i) => ({ ID: i + 1, FileSystemObjectType: 0, Title: 'T' + i, Created: '2026-09-27T10:00:00Z', Attachments: i === 0,
   MensajeId: l + '-' + i, MensajeAsunto: (i === 1 ? 'Revista <b>extintores</b> ' : 'Asunto ') + l + ' ' + i, MensajeFecha: new Date(hoy.getTime() - (i + 1) * 3600e3).toISOString(),
-  MensajeAutoridad: 'AUT' + (i % 2), MensajeNombre_Autoridad: i % 2 ? 'Jefe B' : 'Jefe A', MensajeCanal: 'Canal ' + (i % 2), MensajeEstado: i === 2 ? 'Leído' : 'Pendiente',
+  MensajeAutoridad: 'AUT' + (i % 2), MensajeNombre_Autoridad: i % 2 ? 'Jefe B' : 'Jefe A', MensajeCanal: 'Canal ' + (i % 2), MensajeEstado: i === 2 ? 'Leído' : l === 'dia0' && i === 1 ? 'Borrador' : 'Pendiente',
+  MensajeNegociadoDestino: ['Seguridad', 'Personal'][i % 2], MensajeDestinatario: { Title: 'Usuario ' + i }, Oculto: 'no debe leerse',
   MensajeTipo_es: i === 0 ? 'Orden' : 'Informe', MensajeNivel_1_Organico: 'SUIGE', MensajeNivel_2_Organico: 'Sección ' + i, MensajeNum_referencia: 'REF-' + l + '-' + i,
   MensajeUrlCarpeta: WEB + '/SMDMDMensajesDocumentos_' + dias[0] + '/' + l + '-' + i });
 const b = await chromium.launch();
@@ -36,13 +37,22 @@ await p.route(O + '/**', async r => {
     if (u.includes('/_api/site/rootweb')) return J({ Url: O });
   }
   if (process.env.CELULA) {
-    const SUB = O + WEB + '/SETEC';
+    const SUB = O + WEB + '/SETEC', OTRO = O + '/ambito/OTRO';
+    // Otro ámbito (otra colección de sitios) que solo se encuentra con la búsqueda de SharePoint
+    if (u.includes('/_api/search/query')) return J({ PrimaryQueryResult: { RelevantResults: { Table: { Rows: [{ Cells: [{ Key: 'SPWebUrl', Value: OTRO }] }, { Cells: [{ Key: 'SPWebUrl', Value: SUB }] }] } } } });
+    if (u.startsWith(OTRO + '/_api/web/lists?')) return J({ value: [Object.assign({}, lists[0], { Id: 'otro0' })] });
+    if (u.startsWith(OTRO + '/_api/web/webs')) return J({ value: [] });
+    if (u.startsWith(OTRO + '/_api/web?')) return J({ Title: 'Otro negociado' });
+    if (u.startsWith(SUB + '/_api/web?')) return J({ Title: 'SETEC SEGURIDAD' });
+    if (u.startsWith(OTRO + '/_api/web/lists(guid')) { /* sigue abajo */ }
+    else {
     if (u.startsWith(O + WEB + '/_api/web/lists?')) return J({ value: [lists[lists.length - 1]] });
     if (u.startsWith(O + WEB + '/_api/web/webs')) return J({ value: [{ Title: 'Otra', ServerRelativeUrl: WEB + '/OTRA' }, { Title: 'SETEC', ServerRelativeUrl: WEB + '/SETEC' }] });
     if (u.startsWith(O + WEB + '/OTRA/_api/')) return r.fulfill({ status: 403, body: '' });
     if (u.startsWith(SUB + '/_api/web/webs') || u.includes('/_api/site/rootweb')) return J(u.includes('rootweb') ? { Url: O + WEB } : { value: [] });
     if (u.includes('/_api/web/lists?') && !u.startsWith(SUB)) return J({ value: [] });
     if (u.includes("/_api/web/lists(guid") && !u.startsWith(SUB)) return r.fulfill({ status: 404, body: '' });
+    }
   }
   if (u.startsWith(O + WEB + '/_api/web?')) return J({ Url: O + WEB, Title: 'Segunda SUIGE' });
   if (u.includes('/_api/web?')) return r.fulfill({ status: 404, body: '' });
@@ -54,7 +64,13 @@ await p.route(O + '/**', async r => {
   if (m) return J({ value: [{ FileName: 'adjunto.pdf', ServerRelativeUrl: WEB + '/Lists/x/Attachments/1/adjunto.pdf' }] });
   if (u.includes('GetFolderByServerRelativeUrl')) return J({ value: [{ Name: 'mensaje.pdf', ServerRelativeUrl: WEB + '/docs/mensaje.pdf', Length: 20480 }] });
   m = /lists\(guid'(\w+)'\)\/fields/.exec(u);
-  if (m) return J({ value: ['ID', 'Title', 'MensajeAsunto', 'MensajeFecha', 'MensajeId'].map(n => ({ InternalName: n })) });
+  // Columnas: la lista dia2 es antigua (le faltan); el resto tiene las de MENSADEF y dos propias (negociado destino, destinatario)
+  if (m && m[1] === 'dia2') return J({ value: ['ID', 'Title', 'MensajeAsunto', 'MensajeFecha', 'MensajeId'].map(n => ({ InternalName: n })) });
+  if (m) return J({ value: ['ID', 'Title', 'Created', 'Attachments', 'MensajeId', 'MensajeAsunto', 'MensajeFecha', 'MensajeAutoridad', 'MensajeNombre_Autoridad', 'MensajeCanal', 'MensajeEstado', 'MensajeTipo_es',
+    'MensajeNivel_1_Organico', 'MensajeNivel_2_Organico', 'MensajeNum_referencia', 'MensajeUrlCarpeta'].map(n => ({ InternalName: n, TypeAsString: 'Text' }))
+    .concat([{ InternalName: 'MensajeNegociadoDestino', Title: 'Negociado destino', TypeAsString: 'Choice' }, { InternalName: 'MensajeDestinatario', Title: 'Destinatario', TypeAsString: 'User' },
+      { InternalName: 'Oculto', Title: 'Oculto', Hidden: true, TypeAsString: 'Text' }, { InternalName: 'Modified', Title: 'Modificado', FromBaseType: true, TypeAsString: 'DateTime' },
+      { InternalName: 'MensajeCuerpo', Title: 'Cuerpo', TypeAsString: 'Note' }]) });
   m = /lists\(guid'(\w+)'\)\/items\?(.*)/.exec(u);
   if (m) {
     const id = m[1], q = m[2];
@@ -71,6 +87,15 @@ await p.goto(process.env.INICIO || O + WEB + '/SitePages/Inicio.aspx'); // INICI
 await p.evaluate(codigo); await p.waitForTimeout(1200);
 console.log('quién:', await p.textContent('#quien'), '| estado:', await p.textContent('#estado'));
 if (process.env.NADA) { console.log('aviso:', await p.textContent('#aviso')); await b.close(); process.exit(); }
+// Columnas propias de MENSADEF, negociados (sitios) y borradores
+console.log('columnas:', await p.textContent('#nColumnas'), '| filtros extra:', await p.$$eval('#masFiltros label', l => l.map(x => x.firstChild.textContent)), '| negociado/sitio visible:', await p.isVisible('#fSitio'));
+const nfil = () => p.$$eval('#lista tbody tr', t => t.length);
+const antesB = await nfil(); await p.uncheck('#fBorrador'); console.log('borradores ocultos por defecto: con =', await nfil(), 'sin =', antesB); await p.check('#fBorrador');
+await p.selectOption('#fx_MensajeNegociadoDestino', 'Personal'); console.log('Negociado destino = Personal:', await nfil()); await p.selectOption('#fx_MensajeNegociadoDestino', '');
+await p.fill('#buscar', 'Usuario 2'); await p.waitForTimeout(400); console.log('buscar por destinatario:', await nfil()); await p.fill('#buscar', ''); await p.waitForTimeout(300);
+if (process.env.CELULA) { const ops = await p.$$eval('#fSitio option', o => o.map(x => x.textContent)); console.log('sitios:', ops); await p.selectOption('#fSitio', { index: 1 }); console.log('solo ' + ops[1] + ':', await nfil()); await p.selectOption('#fSitio', ''); }
+await p.click('#estructura'); const est = await p.inputValue('#cajaEstructura textarea'); console.log('estructura:\n' + est);
+console.log('¿estructura con contenido?', /Asunto |Jefe A|Usuario 2|REF-/.test(est), '| pidió la columna oculta o el cuerpo en masa?', pedidas.some(x => x.includes('items?') && (x.includes('Oculto') || x.includes('MensajeCuerpo'))));
 const filas = () => p.$$eval('#lista tbody tr', t => t.length);
 console.log('filas (3 días: dia0 3 + dia1 3 + dia2 1):', await filas(), '| chips:', await p.textContent('#chips'));
 await p.fill('#buscar', 'extintores'); await p.waitForTimeout(400); console.log('buscar extintores:', await filas());

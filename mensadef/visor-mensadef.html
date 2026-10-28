@@ -80,11 +80,16 @@
       <label>Canal<select id="fCanal"></select></label>
       <label>Órgano<select id="fOrgano"></select></label>
       <label>Autoridad<select id="fAutoridad"></select></label>
+      <label>Negociado / sitio<select id="fSitio"></select></label>
       <label class="check"><input type="checkbox" id="fAdjuntos"> Con adjuntos</label>
+      <label class="check"><input type="checkbox" id="fBorrador"> Ocultar borradores</label>
       <button type="button" id="limpiar">Quitar filtros</button>
       <button type="button" id="csv">Exportar CSV</button>
     </div>
+    <div class="fila" id="masFiltros" style="margin-top:8px"></div>
     <div class="chips" id="chips"></div>
+    <p class="muted" style="margin:6px 0 0">Columnas de MENSADEF: <span id="nColumnas">—</span> · <a href="#" id="estructura">Ver estructura (sin contenido) para enviársela a quien te ayuda</a></p>
+    <div id="cajaEstructura" hidden></div>
   </div>
 
   <div class="layout" id="layout">
@@ -204,85 +209,123 @@
     return buscarListas(w);
   }).then(function (r) {
     listasDia.sort(function (a, b) { return a.dia < b.dia ? -1 : 1; });
+    revisadosTodos = r.revisados;
     if (!listasDia.length && !listasHist.length) {
       var e = new Error('No encuentro listas «SMDMDMensajes…». He revisado ' + r.revisados.length + ' sitio' + (r.revisados.length === 1 ? '' : 's') + ' de MENSADEF (con sus listas ocultas y subsitios): ' +
         r.revisados.map(function (x) { return x.ruta + ' (' + (x.error ? x.error : x.listas + ' listas') + ')'; }).join(', ') + '.');
       e.ayuda = 'Pulsa el favorito «Prueba MENSADEF» en esta misma página y dime lo que resume (solo nombres de listas y recuentos, sin contenido) para localizar dónde guarda los mensajes tu célula.';
       throw e;
     }
-    var sitios = r.revisados.filter(function (x) { return x.conMensajes; }).map(function (x) { return x.ruta; });
-    $('estado').textContent = listasDia.length + ' días con lista de mensajes' + (listasDia.length ? ' (del ' + listasDia[0].dia.split('-').reverse().join('/') + ' al ' + listasDia[listasDia.length - 1].dia.split('-').reverse().join('/') + ')' : '') +
-      (sitios.length && sitios[0] !== new URL(web.url).pathname.replace(/\/$/, '') ? ' en ' + sitios.join(', ') : '') + '.';
+    $('estado').textContent = listasDia.length + ' listas diarias de mensajes' + (listasDia.length ? ' (del ' + listasDia[0].dia.split('-').reverse().join('/') + ' al ' + listasDia[listasDia.length - 1].dia.split('-').reverse().join('/') + ')' : '') +
+      ' en ' + sitios.length + (sitios.length === 1 ? ' sitio' : ' sitios') + ': ' + sitios.map(function (x) { return x.titulo; }).join(', ') + '.';
     return cargar();
   }).catch(function (e) {
     $('aviso').hidden = false; $('aviso').innerHTML = '<div class="bad">' + esc(e.message || e) + '</div>' + (e.ayuda ? '<p class="muted">' + esc(e.ayuda) + '</p>' : ''); $('estado').textContent = '';
   });
 
-  // Busca las listas de mensajes: primero en el sitio de la página (también las ocultas); si no hay, en el sitio raíz,
-  // en el del ámbito (/ambito/XXX) y en sus subsitios (hasta 2 niveles y 60 sitios). Cada lista recuerda su sitio.
+  // Busca TODAS las listas de mensajes a las que tiene acceso el usuario (cada negociado o célula puede tener las suyas):
+  // el sitio de la página (también las listas ocultas), el del ámbito (/ambito/XXX), el raíz y sus subsitios (hasta 3
+  // niveles y 100 sitios) y, con la búsqueda de SharePoint, los sitios de otras colecciones. Cada lista recuerda su sitio.
+  var sitios = [], revisadosTodos = [];
   function buscarListas(w) {
     var revisados = [], vistos = {};
     var ruta = function (u) { return new URL(u, location.origin).pathname.replace(/\/$/, '') || '/'; };
     var revisar = function (url) {
       var k = ruta(url);
-      if (vistos[k]) return Promise.resolve(0);
+      if (vistos[k] || revisados.length >= 100) return Promise.resolve([]);
       vistos[k] = 1;
-      var x = { ruta: k, listas: 0 }; revisados.push(x);
-      return todas(url + '/_api/web/lists?$select=Id,Title,ItemCount,RootFolder/ServerRelativeUrl&$expand=RootFolder&$top=5000').then(function (ls) {
-        var n = 0; x.listas = ls.length;
-        ls.forEach(function (l) {
+      var x = { ruta: k, url: url, titulo: '', listas: 0, mensajes: 0, total: 0 }; revisados.push(x);
+      return Promise.all([
+        todas(url + '/_api/web/lists?$select=Id,Title,ItemCount,RootFolder/ServerRelativeUrl&$expand=RootFolder&$top=5000'),
+        api('web?$select=Title', url).catch(function () { return {}; })
+      ]).then(function (r) {
+        x.listas = r[0].length; x.titulo = r[1].Title || k;
+        r[0].forEach(function (l) {
           var m = /^SMDMDMensajes_(\d{4})(\d{2})(\d{2})$/.exec(l.Title), raiz = l.RootFolder && l.RootFolder.ServerRelativeUrl;
-          if (m) { listasDia.push({ id: l.Id, web: url, titulo: l.Title, dia: m[1] + '-' + m[2] + '-' + m[3], total: l.ItemCount, raiz: raiz }); n++; }
-          else if (/^SMDMDMensajes\d{5}(_\d+)?$/.test(l.Title)) { listasHist.push({ id: l.Id, web: url, titulo: l.Title, total: l.ItemCount, raiz: raiz }); n++; }
+          var base = { id: l.Id, web: url, sitio: x, titulo: l.Title, total: l.ItemCount, raiz: raiz };
+          if (m) { listasDia.push(Object.assign(base, { dia: m[1] + '-' + m[2] + '-' + m[3] })); x.mensajes++; x.total += l.ItemCount; }
+          else if (/^SMDMDMensajes\d{5}(_\d+)?$/.test(l.Title)) { listasHist.push(base); x.mensajes++; x.total += l.ItemCount; }
         });
-        x.conMensajes = n > 0;
-        return n;
-      }, function (e) { x.error = e.status === 403 ? 'sin permiso' : (e.message || 'error'); return 0; });
+        return todas(url + '/_api/web/webs?$select=ServerRelativeUrl').then(function (ws) { return ws.map(function (s) { return location.origin + s.ServerRelativeUrl; }); }, function () { return []; });
+      }, function (e) { x.error = e.status === 403 ? 'sin permiso' : (e.message || 'error'); return []; });
     };
-    var subsitios = function (url) {
-      return todas(url + '/_api/web/webs?$select=Title,ServerRelativeUrl').then(function (ws) { return ws.map(function (s) { return location.origin + s.ServerRelativeUrl; }); }, function () { return []; });
-    };
-    // Recorrido por niveles desde unos sitios de partida; se para en cuanto un nivel tiene mensajes
     var porNiveles = function (inicio, nivel) {
-      if (!inicio.length || nivel > 2 || revisados.length >= 60) return Promise.resolve(0);
-      return Promise.all(inicio.map(revisar)).then(function (ns) {
-        if (ns.some(Boolean)) return 1;
-        return Promise.all(inicio.map(subsitios)).then(function (wss) {
-          var sig = [].concat.apply([], wss).filter(function (u) { return !vistos[ruta(u)]; }).slice(0, 60 - revisados.length);
-          return porNiveles(sig, nivel + 1);
-        });
+      if (!inicio.length || nivel > 3) return Promise.resolve();
+      return Promise.all(inicio.map(revisar)).then(function (subs) {
+        return porNiveles([].concat.apply([], subs).filter(function (u) { return !vistos[ruta(u)]; }), nivel + 1);
       });
+    };
+    // Búsqueda de SharePoint: listas «SMDMDMensajes…» en cualquier sitio que el usuario pueda ver (si está activada)
+    var buscador = function () {
+      return pedir(w.url + "/_api/search/query?querytext='" + encodeURIComponent('SMDMDMensajes* contentclass:STS_List') + "'&selectproperties='SPWebUrl'&rowlimit=500&trimduplicates=false").then(function (d) {
+        var q = d.query || d, filas = lista(q.PrimaryQueryResult && q.PrimaryQueryResult.RelevantResults && q.PrimaryQueryResult.RelevantResults.Table && q.PrimaryQueryResult.RelevantResults.Table.Rows);
+        var webs = {};
+        filas.forEach(function (f) { lista(f.Cells).forEach(function (c) { if (c.Key === 'SPWebUrl' && c.Value && c.Value.indexOf(location.origin) === 0) webs[c.Value] = 1; }); });
+        return Object.keys(webs);
+      }).catch(function () { return []; });
     };
     var ambito = /^\/ambito\/[^/]+/i.exec(location.pathname);
-    return revisar(w.url).then(function (n) {
-      if (n) return;
-      return api('site/rootweb?$select=Url', w.url).then(function (r) { return r.Url; }, function () { return ''; }).then(function (raizSitio) {
-        var inicio = [w.url];
-        if (ambito) inicio.push(location.origin + ambito[0]);
-        if (raizSitio) inicio.push(raizSitio);
-        vistos = {}; revisados = [];
-        return porNiveles(inicio.filter(function (u, i, a) { return a.map(ruta).indexOf(ruta(u)) === i; }), 0);
-      });
-    }).then(function () { return { revisados: revisados }; });
+    return api('site/rootweb?$select=Url', w.url).then(function (r) { return r.Url; }, function () { return ''; }).then(function (raizSitio) {
+      var inicio = [w.url];
+      if (ambito) inicio.push(location.origin + ambito[0]);
+      if (raizSitio) inicio.push(raizSitio);
+      return porNiveles(inicio, 0);
+    }).then(buscador).then(function (webs) {
+      return porNiveles(webs.filter(function (u) { return !vistos[ruta(u)]; }), 3);
+    }).then(function () { sitios = revisados.filter(function (x) { return x.mensajes; }); return { revisados: revisados }; });
   }
 
   $('cargar').addEventListener('click', function () { cargar(); });
 
+  // Columnas de MENSADEF: además de las conocidas (CAMPOS) se leen todas las propias de cada lista de mensajes (las de
+  // MENSADEF, no las de SharePoint), con su nombre visible; las de persona o búsqueda se leen por su nombre (Title).
+  // El cuerpo y los textos largos no se piden en la carga masiva.
+  var EXTRA = {}, TIPOS_EXTRA = /^(Text|Choice|MultiChoice|Number|Integer|Boolean|DateTime|User|UserMulti|Lookup|LookupMulti|Currency)$/;
+  var NO_LEER = { MensajeCuerpo: 1, ContentType: 1, Attachments: 1, _UIVersionString: 1 };
+  function camposDe(l) {
+    if (l.campos) return Promise.resolve(l.campos);
+    return api("web/lists(guid'" + l.id + "')/fields?$select=InternalName,Title,TypeAsString,Hidden,FromBaseType,Sealed", l.web).then(function (d) {
+      var hay = {}, select = [], expand = [];
+      lista(d.value).forEach(function (f) {
+        hay[f.InternalName] = 1;
+        if (CAMPOS.indexOf(f.InternalName) >= 0 || NO_LEER[f.InternalName] || f.Hidden || f.FromBaseType || !TIPOS_EXTRA.test(f.TypeAsString || '')) return;
+        if (Object.keys(EXTRA).length >= 60 && !EXTRA[f.InternalName]) return;
+        EXTRA[f.InternalName] = EXTRA[f.InternalName] || { titulo: f.Title || f.InternalName, tipo: f.TypeAsString };
+        if (/^(User|UserMulti|Lookup|LookupMulti)$/.test(f.TypeAsString)) { select.push(f.InternalName + '/Title'); expand.push(f.InternalName); } else select.push(f.InternalName);
+      });
+      CAMPOS.forEach(function (c) { if (hay[c] || c === 'ID' || c === 'FileSystemObjectType') select.unshift(c); });
+      l.campos = { hay: hay, select: select, expand: expand };
+      return l.campos;
+    }, function () { l.campos = { hay: { MensajeFecha: 1 }, select: CAMPOS.slice(), expand: [] }; return l.campos; });
+  }
+  // Valor de una columna como texto (persona, búsqueda, elección múltiple, fecha, sí/no)
+  var comoTexto = function (v, tipo) {
+    if (v == null || v === '') return '';
+    if (Array.isArray(v) || v.results) return lista(v).map(function (x) { return comoTexto(x); }).filter(Boolean).join(', ');
+    if (typeof v === 'object') return v.Title || '';
+    if (tipo === 'Boolean') return v ? 'Sí' : 'No';
+    if (tipo === 'DateTime') return verFecha(new Date(v));
+    return String(v);
+  };
+
   // Lee los mensajes de las listas del periodo, de 4 en 4
   function leerLista(l, filtro) {
-    var sel = '$select=' + CAMPOS.join(',') + '&$top=2000' + (filtro ? '&$filter=' + encodeURIComponent(filtro) : '');
-    var url = l.web + "/_api/web/lists(guid'" + l.id + "')/items?" + sel;
-    return todas(url).catch(function (e) {
-      if (e.status !== 400) throw e;
-      // Alguna columna no existe en esta lista: se piden solo las que tiene
-      return api("web/lists(guid'" + l.id + "')/fields?$select=InternalName", l.web).then(function (d) {
-        var hay = {}; lista(d.value).forEach(function (f) { hay[f.InternalName] = 1; });
-        var campos = CAMPOS.filter(function (c) { return hay[c] || c === 'ID' || c === 'FileSystemObjectType'; });
-        return todas(l.web + "/_api/web/lists(guid'" + l.id + "')/items?$select=" + campos.join(',') + '&$top=2000' + (filtro && hay.MensajeFecha ? '&$filter=' + encodeURIComponent(filtro) : ''));
+    return camposDe(l).then(function (cf) {
+      var fil = filtro && cf.hay.MensajeFecha ? '&$filter=' + encodeURIComponent(filtro) : '';
+      var url = l.web + "/_api/web/lists(guid'" + l.id + "')/items?$select=" + cf.select.join(',') + (cf.expand.length ? '&$expand=' + cf.expand.join(',') : '') + '&$top=2000' + fil;
+      return todas(url).catch(function (e) {
+        if (e.status !== 400) throw e;
+        // Alguna columna no se deja leer: solo las conocidas
+        var campos = CAMPOS.filter(function (c) { return cf.hay[c] || c === 'ID' || c === 'FileSystemObjectType'; });
+        return todas(l.web + "/_api/web/lists(guid'" + l.id + "')/items?$select=" + campos.join(',') + '&$top=2000' + fil);
       });
     }).then(function (items) {
       // El asunto es un campo de texto largo que puede traer HTML: se guarda ya como texto
-      return items.filter(function (i) { return i.FileSystemObjectType !== 1; }).map(function (i) { i._lista = l; i._asunto = texto(i.MensajeAsunto) || i.Title || ''; return i; });
+      return items.filter(function (i) { return i.FileSystemObjectType !== 1; }).map(function (i) {
+        i._lista = l; i._asunto = texto(i.MensajeAsunto) || i.Title || ''; i._x = {};
+        Object.keys(EXTRA).forEach(function (k) { var v = comoTexto(i[k], EXTRA[k].tipo); if (v) i._x[k] = v; });
+        return i;
+      });
     });
   }
 
@@ -332,17 +375,40 @@
     opciones('fCanal', mensajes.map(function (m) { return m.MensajeCanal; }), 'Todos');
     opciones('fOrgano', mensajes.map(organo), 'Todos');
     opciones('fAutoridad', mensajes.map(autoridad), 'Todas');
+    opciones('fSitio', mensajes.map(sitioDe), 'Todos');
+    $('fSitio').parentNode.style.display = sitios.length < 2 ? 'none' : '';
+    // Un desplegable por cada columna de MENSADEF con pocos valores distintos (2 a 80) en lo cargado
+    var cols = Object.keys(EXTRA).filter(function (k) {
+      var v = {}; mensajes.forEach(function (m) { if (m._x[k]) v[m._x[k]] = 1; }); var n = Object.keys(v).length; return n >= 2 && n <= 80;
+    }).sort(function (a, b) { return EXTRA[a].titulo.localeCompare(EXTRA[b].titulo, 'es'); });
+    $('masFiltros').innerHTML = cols.map(function (k) { return '<label>' + esc(EXTRA[k].titulo) + '<select data-x="' + esc(k) + '"></select></label>'; }).join('');
+    cols.forEach(function (k) {
+      var sel = $('masFiltros').querySelector('[data-x="' + k + '"]');
+      sel.id = 'fx_' + k; opciones(sel.id, mensajes.map(function (m) { return m._x[k]; }), 'Todos');
+      if (fx[k]) { sel.value = fx[k]; if (sel.value !== fx[k]) delete fx[k]; }
+      sel.addEventListener('change', function () { if (sel.value) fx[k] = sel.value; else delete fx[k]; mostrar = 300; filtrar(); });
+    });
+    Object.keys(fx).forEach(function (k) { if (cols.indexOf(k) < 0) delete fx[k]; });
+    $('nColumnas').textContent = (CAMPOS.length + Object.keys(EXTRA).length) + ' leídas (' + Object.keys(EXTRA).length + ' propias de MENSADEF además de las habituales; ' + cols.length + ' con filtro)';
     filtrar();
   }
-  ['fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad', 'fAdjuntos'].forEach(function (id) { $(id).addEventListener('change', function () { mostrar = 300; filtrar(); }); });
+  var fx = {};
+  var sitioDe = function (m) { return m._lista.sitio ? m._lista.sitio.titulo : ''; };
+  $('fBorrador').checked = leer('ocultarBorradores', true);
+  $('fBorrador').addEventListener('change', function () { guardar('ocultarBorradores', $('fBorrador').checked); });
+  ['fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad', 'fSitio', 'fAdjuntos', 'fBorrador'].forEach(function (id) { $(id).addEventListener('change', function () { mostrar = 300; filtrar(); }); });
   var espera; $('buscar').addEventListener('input', function () { clearTimeout(espera); espera = setTimeout(function () { mostrar = 300; filtrar(); }, 200); });
-  $('limpiar').addEventListener('click', function () { ['buscar', 'fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad'].forEach(function (id) { $(id).value = ''; }); $('fAdjuntos').checked = false; filtrar(); });
+  $('limpiar').addEventListener('click', function () { ['buscar', 'fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad', 'fSitio'].forEach(function (id) { $(id).value = ''; }); $('fAdjuntos').checked = false; fx = {}; pintarTodo(); });
 
   var normal = function (s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
   function filtrar() {
     var q = normal($('buscar').value).split(/\s+/).filter(Boolean);
     var t = $('fTipo').value, e = $('fEstado').value, c = $('fCanal').value, o = $('fOrgano').value, a = $('fAutoridad').value, adj = $('fAdjuntos').checked;
+    var st = $('fSitio').value, sinBorr = $('fBorrador').checked, xs = Object.keys(fx);
     filtrados = mensajes.filter(function (m) {
+      if (st && sitioDe(m) !== st) return false;
+      if (sinBorr && !e && /borrador/i.test(m.MensajeEstado || '')) return false;
+      for (var j = 0; j < xs.length; j++) if (m._x[xs[j]] !== fx[xs[j]]) return false;
       if (t && m.MensajeTipo_es !== t) return false;
       if (e && m.MensajeEstado !== e) return false;
       if (c && m.MensajeCanal !== c) return false;
@@ -350,7 +416,7 @@
       if (a && autoridad(m) !== a) return false;
       if (adj && !m.Attachments) return false;
       if (q.length) {
-        var h = normal([m.Title, m._asunto, autoridad(m), m.MensajeAutoridad, m.MensajeNum_referencia, m.MensajeSu_referencia, m.MensajeNum_expediente, organo(m), m.MensajeTipo_es, m.MensajeId].join(' '));
+        var h = normal([m.Title, m._asunto, autoridad(m), m.MensajeAutoridad, m.MensajeNum_referencia, m.MensajeSu_referencia, m.MensajeNum_expediente, organo(m), m.MensajeTipo_es, m.MensajeId, sitioDe(m)].concat(Object.keys(m._x).map(function (k) { return m._x[k]; })).join(' '));
         for (var i = 0; i < q.length; i++) if (h.indexOf(q[i]) < 0) return false;
       }
       return true;
@@ -409,7 +475,9 @@
     $('detalle').innerHTML = '<div class="acciones"><button type="button" id="cerrar">✕ Cerrar</button>' + (disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
       '<button type="button" class="prim" id="aColabora" disabled title="Abre Tareas Colabora con el alta rellena">➜ Crear tarea en Colabora</button>' +
       '<button type="button" id="copiarTarea">Copiar para Gestor de Tareas</button></div><div id="colabora"></div>' +
-      '<h2>' + esc(m._asunto || '(sin asunto)') + '</h2><dl>' + datos + '<dt>Lista</dt><dd>' + esc(l.titulo) + '</dd></dl>' +
+      '<h2>' + esc(m._asunto || '(sin asunto)') + '</h2><dl>' + datos +
+        Object.keys(m._x).sort(function (a, b) { return EXTRA[a].titulo.localeCompare(EXTRA[b].titulo, 'es'); }).map(function (k) { return '<dt>' + esc(EXTRA[k].titulo) + '</dt><dd>' + esc(m._x[k]) + '</dd>'; }).join('') +
+        (l.sitio ? '<dt>Sitio</dt><dd>' + esc(l.sitio.titulo) + '</dd>' : '') + '<dt>Lista</dt><dd>' + esc(l.titulo) + '</dd></dl>' +
       '<div id="adjuntos"></div><div id="docs"></div><div class="cuerpo" id="cuerpo">Cargando el texto del mensaje…</div>';
     $('cerrar').addEventListener('click', function () { abierto = null; $('detalle').hidden = true; $('layout').classList.remove('detalle-abierto'); pintarTabla(); });
     pintarColabora(m);
@@ -486,11 +554,31 @@
     pintarColabora(m); pintarTabla();
   }
 
+  // Estructura sin contenido (sitios, listas, columnas y nº de valores distintos) para enviarla a quien ayuda a ajustar el visor
+  $('estructura').addEventListener('click', function (e) {
+    e.preventDefault();
+    var celula = (/#\/celula\/([^/]+)/.exec(location.hash) || [])[1];
+    var cols = [['MensajeEstado', 'Estado'], ['MensajeTipo_es', 'Tipo'], ['MensajeCanal', 'Canal']].map(function (c) { return { n: c[0], t: c[1], tipo: '', f: function (m) { return m[c[0]]; } }; })
+      .concat(Object.keys(EXTRA).map(function (k) { return { n: k, t: EXTRA[k].titulo, tipo: EXTRA[k].tipo, f: function (m) { return m._x[k]; } }; }));
+    var txt = ['ESTRUCTURA DEL VISOR DE MENSADEF (sin contenido) · ' + new Date().toLocaleDateString('es-ES'),
+      'Página: ' + location.pathname + (celula ? ' · célula: ' + decodeURIComponent(celula) : ''),
+      'Periodo cargado: ' + $('desde').value + ' a ' + $('hasta').value + ' · mensajes: ' + mensajes.length, '', 'SITIOS REVISADOS:']
+      .concat(revisadosTodos.map(function (x) { return '- ' + x.ruta + ' · ' + (x.error ? x.error : x.listas + ' listas, ' + x.mensajes + ' de mensajes (' + x.total + ' elementos), cargados ' + mensajes.filter(function (m) { return m._lista.sitio === x; }).length); }))
+      .concat(['', 'COLUMNAS (nombre interno · nombre visible · tipo · valores distintos · mensajes con valor):'])
+      .concat(cols.map(function (c) { var v = {}, n = 0; mensajes.forEach(function (m) { var x = c.f(m); if (x) { v[x] = 1; n++; } }); return '- ' + c.n + ' · ' + c.t + (c.tipo ? ' · ' + c.tipo : '') + ' · ' + Object.keys(v).length + ' · ' + n; }))
+      .join('\n');
+    $('cajaEstructura').hidden = false;
+    $('cajaEstructura').innerHTML = '<textarea readonly style="width:100%;height:220px;font:12px monospace;margin-top:6px"></textarea><p class="muted">Solo rutas, nombres de columnas y recuentos: no incluye asuntos, nombres ni textos. <button type="button" id="copiarEstructura">Copiar</button></p>';
+    $('cajaEstructura').querySelector('textarea').value = txt;
+    $('copiarEstructura').addEventListener('click', function () { var b = this; (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function () { b.textContent = 'Copiado ✓'; }, function () { $('cajaEstructura').querySelector('textarea').select(); }); });
+  });
+
   // Exporta lo filtrado a CSV (se guarda en tu ordenador; no sale de él)
   $('csv').addEventListener('click', function () {
     var cols = [['Fecha', function (m) { return verFecha(fechaDe(m)); }], ['Tipo', 'MensajeTipo_es'], ['Estado', 'MensajeEstado'], ['Canal', 'MensajeCanal'], ['Autoridad', autoridad],
       ['Asunto', function (m) { return m._asunto; }], ['Referencia', 'MensajeNum_referencia'], ['Su referencia', 'MensajeSu_referencia'], ['Expediente', 'MensajeNum_expediente'], ['Órgano', organo], ['Adjuntos', function (m) { return m.Attachments ? 'sí' : ''; }],
-      ['Pasado a Colabora', function (m) { return enviados[claveMensaje(m)] ? verFecha(new Date(enviados[claveMensaje(m)])) : ''; }]];
+      ['Pasado a Colabora', function (m) { return enviados[claveMensaje(m)] ? verFecha(new Date(enviados[claveMensaje(m)])) : ''; }], ['Sitio', sitioDe]]
+      .concat(Object.keys(EXTRA).map(function (k) { return [EXTRA[k].titulo, function (m) { return m._x[k]; }]; }));
     var celda = function (v) { v = String(v == null ? '' : v); return /[";\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
     var csv = '﻿' + cols.map(function (c) { return c[0]; }).join(';') + '\r\n' + filtrados.map(function (m) {
       return cols.map(function (c) { return celda(typeof c[1] === 'function' ? c[1](m) : m[c[1]]); }).join(';');

@@ -35,6 +35,11 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   `SitePages/ambito.aspx#/celula/…`): en el sitio (incluidas las listas ocultas) y, si no hay, en el del ámbito, el raíz y
   sus subsitios (2 niveles, hasta 60). Si no las encuentra, dice qué sitios ha revisado (rutas y nº de listas).
   Pruebas: `CELULA=1` (mensajes en un subsitio) y `NADA=1` (sin mensajes) en `pruebas/visor.mjs`.
+  Además (28/10/2026, solo pruebas): lee **todos los sitios con mensajes a los que tiene acceso el usuario** (no se para en
+  el primero; también los de otras colecciones con la búsqueda de SharePoint), con filtro «Negociado / sitio»; lee **todas
+  las columnas propias de MENSADEF** de cada lista (no solo las conocidas), las muestra en el detalle y el CSV y pone un
+  filtro por cada una con 2 a 80 valores; «Ocultar borradores» (marcado por defecto); y «Ver estructura» da un resumen sin
+  contenido (sitios, listas, columnas y nº de valores distintos) para ajustar el visor.
 - `prueba-mensadef.html` (marcador: `marcador-mensadef.html`, favorito «Prueba MENSADEF»): diagnóstico. Indica
   dónde se ejecuta, lista las listas y bibliotecas del sitio (nombre, tipo, recuento) y analiza la que se elija:
   columnas, tipos de contenido, archivos por tipo, meses y columnas rellenas. El resumen para copiar no incluye
