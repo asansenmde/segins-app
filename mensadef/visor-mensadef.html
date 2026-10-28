@@ -133,9 +133,12 @@
       var vistas = {};
       performance.getEntriesByType('resource').forEach(function (e) {
         var u = new URL(e.name, location.origin);
-        if (u.origin !== location.origin || !/\/_api\/|\/_vti_bin\/|\.svc|\.asmx|\/api\//i.test(u.pathname)) return;
-        var q = decodeURIComponent(u.search).replace(/'[^']*'/g, "'…'").replace(/=([^&]*)/g, function (m, v) { return /^\$(select|expand|filter|orderby|top)$/i.test(m) ? m : '=' + (v.length > 80 ? v.slice(0, 80) + '…' : v); });
-        var k = decodeURIComponent(u.pathname) + (q ? ' ' + q : '');
+        var propio = u.origin === location.origin || u.host.toLowerCase().indexOf('mensadefapi.') === 0;
+        if (!propio || !/\/_api\/|\/_vti_bin\/|\.svc|\.asmx|\/api\//i.test(u.pathname)) return;
+        // Solo se ven los parámetros que son estructura ($select, $orderby…, tamaño y tipo); el resto, «…»
+        var qs = [];
+        u.searchParams.forEach(function (v, k) { qs.push(k + '=' + (/^\$(select|expand|orderby|top)$|^(tipo\w*|tamano\w*|indice\w*|solo\w*)$/i.test(k) && !/@/.test(v) ? v.slice(0, 120) : '…')); });
+        var k = (u.origin !== location.origin ? u.host : '') + decodeURIComponent(u.pathname).replace(/'[^']*'/g, function (m) { return /^'\/|^'[\w .áéíóúñ]+'$/i.test(m) && !/@/.test(m) ? m : "'…'"; }) + (qs.length ? ' ?' + qs.join('&') : '');
         vistas[k] = (vistas[k] || 0) + 1;
       });
       return Object.keys(vistas).map(function (k) { return k + (vistas[k] > 1 ? ' ×' + vistas[k] : ''); });
@@ -311,7 +314,7 @@
   // → sus células (ambito/UsuarioCelulas, tipoCelula=-1) → bandeja de cada célula (buzon/ObtenerBuzonCelula, tipoES 1 y 2, por
   // páginas). Los nombres de los campos no se conocen de antemano: se reconocen por su nombre (asunto, fecha, remitente…).
   var API = location.protocol + '//' + location.hostname.replace(/^mensadef\./i, 'mensadefapi.');
-  var modoApi = false, apiCtx = null, errorApi = null, diagApi = [];
+  var modoApi = false, apiCtx = null, errorApi = null, diagApi = [], origenCorreo = '';
   var GUID = /^\{?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}?$/i;
   var tipoDe = function (v) {
     if (v === null || v === undefined) return 'vacío';
@@ -368,13 +371,46 @@
   }
   var esGuid = function (v) { return typeof v === 'string' && GUID.test(v); };
   var noGuid = function (v) { return typeof v === 'string' && v.trim() && !GUID.test(v) && !/^\d+$/.test(v); };
+  // Los mismos datos con los que la aplicación de MENSADEF llamó al servicio en esta página (su correo, su número de
+  // usuario y la dirección del sitio), sacados del registro del navegador. Se usan solo aquí: no se muestran ni se guardan.
+  var datosApp = (function () {
+    var r = {};
+    try {
+      performance.getEntriesByType('resource').forEach(function (e) {
+        var u = new URL(e.name, location.href);
+        if (u.host.toLowerCase().indexOf('mensadefapi.') !== 0) return;
+        ['emailUsuario', 'urlColeccionSitio'].forEach(function (k) { var v = u.searchParams.get(k); if (v && !r[k]) r[k] = v; });
+        // El número de usuario, solo de las consultas de células, bandejas y vistas (ValidateUser usa otro identificador)
+        if (/UsuarioCelulas|ObtenerBuzonUsuario|UsuarioVista|PortafirmasUsuario/i.test(u.pathname) && u.searchParams.get('idUsuario') && !r.idUsuario) r.idUsuario = u.searchParams.get('idUsuario');
+      });
+    } catch (e) { /* sin registro */ }
+    return r;
+  })();
+  var esCorreo = function (v) { return typeof v === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v); };
+  // Correo del usuario: lo que usó la aplicación, el contexto de la página de SharePoint, su ficha o su perfil
+  function correoUsuario(w) {
+    if (esCorreo(datosApp.emailUsuario)) return Promise.resolve({ email: datosApp.emailUsuario, de: 'consultas de la aplicación' });
+    var ctxPag = window._spPageContextInfo || {};
+    if (esCorreo(ctxPag.userEmail)) return Promise.resolve({ email: ctxPag.userEmail, de: 'contexto de la página' });
+    return api('web/currentuser?$select=Email,UserPrincipalName,LoginName', w.url).catch(function () { return {}; }).then(function (u) {
+      if (esCorreo(u.Email)) return { email: u.Email, de: 'ficha del usuario (Email)' };
+      if (esCorreo(u.UserPrincipalName)) return { email: u.UserPrincipalName, de: 'ficha del usuario (UserPrincipalName)' };
+      return api('SP.UserProfiles.PeopleManager/GetMyProperties?$select=Email,UserProfileProperties', w.url).then(function (pr) {
+        if (esCorreo(pr.Email)) return { email: pr.Email, de: 'perfil (Email)' };
+        var wm = lista(pr.UserProfileProperties).filter(function (x) { return /^(WorkEmail|SPS-SipAddress)$/i.test(x.Key) && esCorreo(x.Value); })[0];
+        return wm ? { email: wm.Value, de: 'perfil (' + wm.Key + ')' } : {};
+      }, function () { return {}; });
+    });
+  }
   function iniciarApi(w) {
     var coleccion = location.origin + ((/^\/ambito\/[^/]+/i.exec(location.pathname) || [''])[0]);
-    return Promise.all([api('web/currentuser?$select=Email,Title', w.url), api('site?$select=Url', w.url).catch(function () { return { Url: coleccion }; })]).then(function (r) {
-      var ctx = { email: r[0].Email, url: r[1].Url || coleccion };
-      if (!ctx.email) throw new Error('tu usuario no tiene correo en MENSADEF');
-      return pedirApi('usuario/ConsultaUsuarioDicodefPorCorreo', { emailUsuario: ctx.email, urlColeccionSitio: ctx.url }).then(function (d) {
-        ctx.idUsuario = buscarClave(d, /^id_?usuario$/i);
+    return Promise.all([correoUsuario(w), datosApp.urlColeccionSitio ? { Url: datosApp.urlColeccionSitio } : api('site?$select=Url', w.url).catch(function () { return { Url: coleccion }; })]).then(function (r) {
+      var ctx = { email: r[0].email, url: r[1].Url || coleccion };
+      origenCorreo = r[0].de || 'no encontrado';
+      if (!ctx.email) throw new Error('no encuentro tu correo (ni en las consultas de MENSADEF ni en SharePoint): abre la portada o tu célula en MENSADEF, espera a que carguen tus mensajes y pulsa el favorito sin recargar');
+      var usuario = datosApp.idUsuario ? Promise.resolve(null) : pedirApi('usuario/ConsultaUsuarioDicodefPorCorreo', { emailUsuario: ctx.email, urlColeccionSitio: ctx.url });
+      return usuario.then(function (d) {
+        ctx.idUsuario = d ? buscarClave(d, /^id_?usuario$/i) : datosApp.idUsuario;
         if (ctx.idUsuario === undefined) ctx.idUsuario = buscarClave(d, /^id$/i);
         if (ctx.idUsuario === undefined) throw new Error('no encuentro tu número de usuario en la respuesta de MENSADEF');
         return pedirApi('ambito/UsuarioCelulas', { idUsuario: ctx.idUsuario, tipoCelula: -1, emailUsuario: ctx.email, urlColeccionSitio: ctx.url });
@@ -764,7 +800,8 @@
     var txt = ['ESTRUCTURA DEL VISOR DE MENSADEF (sin contenido) · ' + new Date().toLocaleDateString('es-ES'),
       'Página: ' + location.pathname + (celula ? ' · célula: ' + decodeURIComponent(celula) : ''),
       'Periodo cargado: ' + $('desde').value + ' a ' + $('hasta').value + ' · mensajes: ' + mensajes.length]
-      .concat(['', 'SERVICIO DE BANDEJAS (' + API.replace(/^https?:\/\//, '') + '): ' + (modoApi ? 'en uso' : 'no se ha podido usar' + (errorApi ? ' (' + (errorApi.message || errorApi) + ')' : ''))])
+      .concat(['', 'SERVICIO DE BANDEJAS (' + API.replace(/^https?:\/\//, '') + '): ' + (modoApi ? 'en uso' : 'no se ha podido usar' + (errorApi ? ' (' + (errorApi.message || errorApi) + ')' : '')),
+        '- correo tomado de: ' + (origenCorreo || '—') + ' · datos de la aplicación en esta página: ' + (Object.keys(datosApp).join(', ') || 'ninguno')])
       .concat(diagApi.map(function (x) { return '- ' + x.ruta + (x.n > 1 ? ' ×' + x.n : '') + ' → ' + x.estado + (x.resp ? '\n    recibe: ' + x.resp : ''); }))
       .concat(modoApi ? ['- células: ' + apiCtx.celulas.length + ' · campos de los mensajes: ' + Object.keys(EXTRA).join(', ')] : [])
       .concat(['', 'SITIOS REVISADOS:'])

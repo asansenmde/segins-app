@@ -1,5 +1,6 @@
 // Prueba del visor (copia de pruebas) leyendo las bandejas de las células con el servicio de MENSADEF (mensadefapi), con
 // datos simulados: usuario → células → bandejas tipoES 1 y 2 paginadas. VERBOSE=1 para SharePoint 2013 (odata=verbose).
+// SINCORREO=1: SharePoint no tiene el correo del usuario; se toma de las consultas que ya hizo la aplicación en la página.
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
@@ -39,12 +40,16 @@ await ctx.route(O + '/**', r => {
   if (!u.includes('/_api/')) return r.fulfill({ contentType: 'text/html', body: '<html><body>MENSADEF</body></html>' });
   if (u.startsWith(O + WEB + '/_api/web?')) return J({ Url: O + WEB, Title: 'Segunda SUIGE' });
   if (u.includes('/_api/web?')) return r.fulfill({ status: 404, body: '' });
-  if (u.includes('currentuser')) return J({ Title: 'PERSONA', Email: 'persona@et.mde.es' });
+  if (u.includes('currentuser')) return J(process.env.SINCORREO ? { Title: 'PERSONA', Email: '', UserPrincipalName: '', LoginName: 'i:0#.w|et\\persona' } : { Title: 'PERSONA', Email: 'persona@et.mde.es' });
+  if (u.includes('GetMyProperties')) return J({ Email: '', UserProfileProperties: [] });
   if (u.includes('/_api/site?')) return J({ Url: O + WEB });
   r.fulfill({ status: 404, body: '' });
 });
 // Se pulsa desde una tercera célula que no viene en la lista (se añade por la dirección)
 await p.goto(O + WEB + '/SitePages/ambito.aspx#/celula/SETEC%20OTRA/' + G3);
+if (process.env.SINCORREO) await p.evaluate(() => { const o = performance.getEntriesByType.bind(performance); performance.getEntriesByType = t => t !== 'resource' ? o(t) : [
+  { name: 'https://mensadefapi.mdef.es/api/usuario/ValidateUser?idUsuario=persona&useUid=true' },
+  { name: 'https://mensadefapi.mdef.es/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40et.mde.es&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE' }]; });
 await p.evaluate(codigo); await p.waitForTimeout(2500);
 const filas = () => p.$$eval('#lista tbody tr', t => t.length);
 console.log('estado:', await p.textContent('#estado'));
