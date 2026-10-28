@@ -75,7 +75,7 @@ await consultasApp(p);
 await p.evaluate(codigo); await p.waitForTimeout(2500);
 console.log('clave pedida al servicio:', nClaves, 'vez/veces');
 if (process.env.NOCLAVE) { console.log('sin clave del servicio:', (await p.textContent('#aviso')).replace(/\s+/g, ' ').slice(0, 260)); await b.close(); process.exit(); }
-const filas = () => p.$$eval('#lista tbody tr', t => t.length);
+const filas = () => p.$$eval('#lista tbody tr[data-i]', t => t.length);
 console.log('estado:', await p.textContent('#estado'), '| células:', await p.textContent('#resumenCelulas'));
 console.log('llamadas:', llamadas.join(' | '));
 console.log('filas (130 recientes + 3, sin borradores):', await filas(), '| chips:', await p.textContent('#chips'));
@@ -84,12 +84,13 @@ await p.selectOption('#fSitio', 'SETEC SECRETARIA'); console.log('solo SECRETARI
 console.log('tarjetas:', await p.$$eval('#kpis .kpi', l => l.map(k => k.textContent)), '| píldoras:', await p.$$eval('#pildoras .pildora', l => l.map(k => k.textContent)));
 await p.click('#pildoras .pildora:has-text("SECRETARIA")'); console.log('píldora SECRETARIA:', await filas()); await p.click('#pildoras .pildora >> nth=0');
 await p.click('#kpis [data-kpi="noleidos"]'); console.log('tarjeta No leídos:', await filas()); await p.click('#kpis [data-kpi="todos"]');
-await p.click('#lista tbody tr >> nth=0 >> [data-visto]'); await p.click('#lista tbody tr >> nth=1 >> [data-visto]');
+await p.click('#lista tbody tr[data-i] >> nth=0 >> [data-visto]'); await p.click('#lista tbody tr[data-i] >> nth=1 >> [data-visto]');
 console.log('2 vistos → Sin revisar:', await p.textContent('#kpis [data-kpi="sinver"] b'), '| detalle abierto al marcar?', !(await p.isHidden('#detalle')));
 await p.check('#fVistos'); console.log('ocultar vistos:', await filas()); await p.uncheck('#fVistos');
 await p.selectOption('#fTipo', 'Orden'); console.log('tipo Orden:', await filas()); await p.selectOption('#fTipo', '');
-await p.selectOption('#fx_Actuacion', 'URGENTE'); console.log('actuación URGENTE:', await filas()); await p.selectOption('#fx_Actuacion', '');
-await p.selectOption('#fx___es', 'Salida'); console.log('bandeja Salida:', await filas()); await p.selectOption('#fx___es', '');
+await p.selectOption('#fx_CodigoPrioridad', 'U'); console.log('prioridad U:', await filas()); await p.selectOption('#fx_CodigoPrioridad', '');
+await p.click('#kpis [data-kpi="salida"]'); console.log('tarjeta Salida:', await filas()); await p.click('#kpis [data-kpi="todos"]');
+console.log('cabeceras de día:', await p.$$eval('#lista tr.dia-cab', l => l.map(x => x.textContent)));
 // Elegir solo SECRETARIA y recargar; se recuerda
 await p.click('#elegirCelulas'); console.log('selector:', (await p.textContent('#cajaCelulas')).replace(/\s+/g, ' ').slice(0, 220));
 await p.click('[data-cel="ninguna"]'); await p.check('#cajaCelulas label:has-text("SETEC SECRETARIA") input'); await p.click('#aplicarCelulas'); await p.waitForTimeout(800);
@@ -102,7 +103,7 @@ await p.click('[data-cel="t4"]'); await p.click('#aplicarCelulas'); await p.wait
 const p2 = await ctx.newPage(); await p2.goto(O + WEB + '/SitePages/ambito.aspx#/celula/SETEC%20SECRETARIA/' + G2);
 await p2.evaluate(() => { try { localStorage.removeItem('visorMensadefPruebas.celulasElegidas'); } catch (e) {} });
 await consultasApp(p2); await p2.evaluate(codigo); await p2.waitForTimeout(1500); console.log('desde la célula SECRETARIA:', await p2.textContent('#resumenCelulas')); await p2.close();
-await p.click('#lista tbody tr >> nth=0'); await p.waitForTimeout(300);
+await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(300);
 console.log('detalle:', (await p.textContent('#detalle')).replace(/\s+/g, ' ').slice(0, 420));
 console.log('abrir en MENSADEF:', await p.$eval('#detalle a', a => a.href));
 await p.click('#aColabora'); await p.fill('#urlColabora', 'https://colabora.mdef.es/x/tareas-nlt-colabora-pruebas.html');
@@ -118,6 +119,6 @@ await p3.evaluate(() => sessionStorage.setItem('visorMensadefPruebas.cabecerasAp
 const antes = nClaves; await p3.evaluate(codigo); await p3.waitForTimeout(2500);
 console.log('clave caducada → pide otra:', nClaves - antes, '|', await p3.$eval('#estado', e => e.textContent).catch(() => '-'));
 await p3.close();
-await p.setViewportSize({ width: 1300, height: 900 }); await p.evaluate(() => scrollTo(0, 0)); await p.screenshot({ path: new URL('bandejas.png', import.meta.url).pathname });
+await p.setViewportSize({ width: 1400, height: 1000 }); await p.click('#lista tbody tr[data-i] >> nth=2'); await p.waitForTimeout(300); await p.evaluate(() => document.querySelector('#kpis').scrollIntoView()); await p.screenshot({ path: new URL('bandejas.png', import.meta.url).pathname });
 await p.setViewportSize({ width: 390, height: 800 }); await p.screenshot({ path: new URL('bandejas-movil.png', import.meta.url).pathname });
 await b.close();

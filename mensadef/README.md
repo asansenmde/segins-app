@@ -84,6 +84,10 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   negrita. Cada usuario ve **sus** células (el servicio las da según su sesión); por defecto se cargan todas las suyas (★,
   si no OAM) y se elige en «Células que se cargan…». **✓ Visto** por mensaje (casilla en la tabla y botón en el detalle),
   «Ocultar vistos», y la marca «➜ Tarea» de lo pasado a Tareas Colabora; ambas se guardan en el navegador de cada uno.
+  **Versión 2026-10-29 · 1 (pruebas)**: con las bandejas solo hay filtros de búsqueda, célula, tipo, estado, remitente, prioridad
+  y leído (el resto de campos, en el detalle). Tabla por días (Hoy, Ayer…), 📥/📤 entrada y salida, punto y barra azul en los
+  no leídos, prioridad urgente en rojo, remitente y nº de registro bajo el asunto, estado y tipo con colores, célula en
+  etiqueta; cabecera de color en el detalle con bandeja, tipo, estado y prioridad.
 
 ## Estructura de MENSADEF (ámbito 2SUIGE)
 
