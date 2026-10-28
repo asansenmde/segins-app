@@ -71,9 +71,10 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   Ejemplo de célula: `…/SitePages/ambito.aspx#/celula/SETEC%20SEGURIDAD/{id}`.
   **Cabeceras del servicio** (escucha del 28/10/2026): la aplicación llama a `mensadefapi` con `Content-Type: application/json`,
   `passcode` (32 caracteres, no está en la memoria de la página) y `user` (36, dentro de sessionStorage
-  `rolesUsuario<ámbito>`); sin ellas, 406. El favorito de pruebas lleva delante `arranque-visor.js`: espera la siguiente
-  consulta de la aplicación (se pide al usuario que cambie de célula), toma esas dos cabeceras, las guarda solo en la
-  pestaña (sessionStorage, 8 horas) y abre el visor, que las usa. Campos reales de la bandeja: `Asunto`, `Cuerpo`, `Fecha`,
+  `rolesUsuario<ámbito>`); sin ellas, 406. **La clave la da el propio servicio** (análisis del código de la aplicación,
+  28/10/2026): una consulta sin clave (`ambitocomun/MensadefActivo`) devuelve en las cabeceras de la respuesta
+  `IdUsuario` (el passcode) y `User`. El visor la pide igual al empezar, la guarda solo en la pestaña (sessionStorage) y,
+  si el servicio contesta 406 (caducada), pide otra y repite. Ya no hay que tomarla de la página ni cambiar de célula. Campos reales de la bandeja: `Asunto`, `Cuerpo`, `Fecha`,
   `EstadoMensaje`, `EstadoParaUsuario`, `TipoES` (E/S → Entrada/Salida), `TipoMensaje`, `CodigoPrioridad`, `CelulaRemitente`,
   `CelulaDestinataria`, `NumeroRegistroEntrada/Salida`, `Sref`, `ContieneAnexos`, `Leido`, `Actuacion`…
   **Versión 2026-10-28 · 1 (pruebas)**: autoría (© 2026 Cte. Alfredo Sánchez Sender: aviso en el HTML, meta y pie con la

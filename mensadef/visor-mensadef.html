@@ -151,7 +151,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-10-28 · 2';
+  var VERSION = '2026-10-28 · 3';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -287,9 +287,9 @@
       $('estado').textContent = '';
       $('aviso').hidden = false;
       $('aviso').innerHTML = '<div class="bad">No he podido tomar la clave con la que MENSADEF consulta tus bandejas.</div>' +
-        '<p>1. Pulsa <b>Volver a MENSADEF</b> y entra en tu célula.<br>2. Pulsa otra vez el favorito: se toma la clave solo (si no, cambia de célula cuando lo pida).</p>' +
+        '<p>1. Pulsa <b>Volver a MENSADEF</b> y espera a que salgan tus mensajes.<br>2. Pulsa otra vez el favorito. Si sigue fallando, mándame la línea «Detalle».</p>' +
         '<p class="muted">Detalle (sin valores): ' + (claveUsada ? 'clave tomada de «' + esc(claveUsada.de) + '» hace ' + claveUsada.edad + ' s (' + claveUsada.largo + ' caracteres' + (claveUsada.user ? ', con user' : ', sin user') + ')' : 'no se llegó a tomar ninguna clave') +
-          ' · respuestas: ' + esc(diagApi.map(function (x) { return x.ruta + ' → ' + x.estado; }).join(', ')) + ' · versión ' + esc(VERSION) + '</p>' +
+          ' · respuestas: ' + esc(diagApi.map(function (x) { return x.ruta + ' → ' + x.estado; }).join(', ')) + ' · ' + esc(intentosApi.join(' | ')) + ' · versión ' + esc(VERSION) + '</p>' +
         '<div class="acciones"><button type="button" class="prim" id="volverMensadef">Volver a MENSADEF</button><button type="button" id="verListas">Ver las listas del sitio (solo borradores)</button></div>';
       $('volverMensadef').addEventListener('click', function () { location.reload(); });
       $('verListas').addEventListener('click', verListas);
@@ -443,7 +443,30 @@
     if (o && typeof o === 'object') return '{' + Object.keys(o).map(function (k) { return k + ':' + (o[k] && typeof o[k] === 'object' && nivel < 2 ? describir(o[k], nivel + 1) : tipoDe(o[k])); }).join(', ') + '}';
     return tipoDe(o);
   }
-  function pedirApi(ruta, params) {
+  // La clave del servicio la da el propio servicio, como hace la aplicación de MENSADEF: una consulta sin clave
+  // (MensadefActivo o ConsultaUsuarioDicodefPorCorreo) devuelve en las cabeceras de la respuesta «IdUsuario» (el passcode)
+  // y «User». Se guarda solo en esta pestaña y se vuelve a pedir si el servicio contesta 406 (caducada).
+  var pidiendoClave = null;
+  function pedirClave(email, url) {
+    if (pidiendoClave) return pidiendoClave;
+    var base = (datosApp.origen || API) + '/api/';
+    var candidatas = [['ambitocomun/MensadefActivo', { emailUsuario: email }], ['usuario/ConsultaUsuarioDicodefPorCorreo', { emailUsuario: email, urlColeccionSitio: url }]];
+    var probar = function (i) {
+      if (i >= candidatas.length) return Promise.reject(new Error('el servicio no ha dado la clave'));
+      var c = candidatas[i], q = Object.keys(c[1]).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(c[1][k] || ''); }).join('&');
+      return fetch(base + c[0] + '?' + q, { credentials: 'omit', headers: { 'Content-Type': 'application/json' } }).then(function (r) {
+        var pc = r.headers.get('IdUsuario'), us = r.headers.get('User');
+        intentosApi.push('clave pedida a ' + c[0] + ': HTTP ' + r.status + (pc ? ', recibida (' + pc.length + ' caracteres' + (us ? ', con User' : '') + ')' : ', sin clave en la respuesta'));
+        if (!pc) return probar(i + 1);
+        try { sessionStorage.setItem(MEMORIA + 'cabecerasApi', JSON.stringify({ passcode: pc, user: us || '', momento: Date.now(), de: c[0], largo: pc.length, propia: true })); } catch (e) { /* sin memoria */ }
+        claveUsada = null;
+        return true;
+      }, function (e) { intentosApi.push('clave pedida a ' + c[0] + ': ' + (e.message || e)); return probar(i + 1); });
+    };
+    pidiendoClave = probar(0).then(function (x) { pidiendoClave = null; return x; }, function (e) { pidiendoClave = null; throw e; });
+    return pidiendoClave;
+  }
+  function pedirApi(ruta, params, reintento) {
     var q = Object.keys(params).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k] == null ? '' : params[k]); }).join('&');
     var x = diagApi.filter(function (y) { return y.ruta === ruta; })[0];
     if (!x) { x = { ruta: ruta, n: 0 }; diagApi.push(x); }
@@ -463,14 +486,21 @@
     });
     return pet.then(function (r) {
       x.estado = r.status;
+      if (r.status === 406 && !reintento && params.emailUsuario) {
+        // Clave caducada o sin clave: se pide otra al servicio y se repite una vez
+        try { sessionStorage.removeItem(MEMORIA + 'cabecerasApi'); } catch (er) { /* sin memoria */ }
+        return pedirClave(params.emailUsuario, params.urlColeccionSitio || (apiCtx && apiCtx.url) || '').then(function () { x.n--; return pedirApi(ruta, params, true); }, function () { var e7 = new Error('mensadefapi ' + ruta + ': HTTP 406 y el servicio no ha dado una clave nueva'); e7.status = 406; throw e7; })
+          .then(function (j) { return { __yaLeido: true, j: j }; });
+      }
       if (r.status === 406) {
         try { localStorage.removeItem(MEMORIA + 'cabecerasApi'); sessionStorage.removeItem(MEMORIA + 'cabecerasApi'); } catch (er) { /* sin memoria */ }
-        var e6 = new Error('mensadefapi ' + ruta + ': HTTP 406 (' + (cab && cab.passcode ? 'la clave tomada de MENSADEF ya no vale' : 'falta la clave de MENSADEF') + '): recarga MENSADEF (F5), pulsa el favorito y, cuando lo pida, cambia de célula');
+        var e6 = new Error('mensadefapi ' + ruta + ': HTTP 406 (' + (cab && cab.passcode ? 'la clave no vale' : 'falta la clave de MENSADEF') + ')');
         e6.status = 406; throw e6;
       }
       if (!r.ok) { var e = new Error('mensadefapi ' + ruta + ': HTTP ' + r.status + (r.status === 401 || r.status === 403 ? ' (no reconoce la sesión)' : '')); e.status = r.status; throw e; }
       return r.json();
     }).then(function (j) {
+      if (j && j.__yaLeido) return j.j;
       // Para el resumen se guarda la primera respuesta con elementos (las páginas vacías no dicen qué campos hay)
       var a = primerArray(j);
       if (!x.resp || (a && a.length && !x.conDatos)) { x.resp = describir(j, 0).slice(0, 1500); x.conDatos = !!(a && a.length); }
@@ -537,7 +567,9 @@
       var ctx = { email: r[0].email, url: r[1].Url || coleccion };
       origenCorreo = r[0].de || 'no encontrado';
       if (!ctx.email) throw new Error('no encuentro tu correo (ni en las consultas de MENSADEF ni en SharePoint): abre la portada o tu célula en MENSADEF, espera a que carguen tus mensajes y pulsa el favorito sin recargar');
-      var usuario = datosApp.idUsuario ? Promise.resolve(null) : pedirApi('usuario/ConsultaUsuarioDicodefPorCorreo', { emailUsuario: ctx.email, urlColeccionSitio: ctx.url });
+      var hayClave = leer('cabecerasApi', null);
+      var clave = hayClave && hayClave.passcode ? Promise.resolve() : pedirClave(ctx.email, ctx.url).catch(function () { /* se intentará con la tomada de la página, si la hay */ });
+      var usuario = clave.then(function () { return datosApp.idUsuario ? null : pedirApi('usuario/ConsultaUsuarioDicodefPorCorreo', { emailUsuario: ctx.email, urlColeccionSitio: ctx.url }); });
       return usuario.then(function (d) {
         ctx.idUsuario = d ? buscarClave(d, /^id_?usuario$/i) : datosApp.idUsuario;
         if (ctx.idUsuario === undefined) ctx.idUsuario = buscarClave(d, /^id$/i);

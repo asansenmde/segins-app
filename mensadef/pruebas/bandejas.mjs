@@ -8,6 +8,7 @@ const { chromium } = require(require('child_process').execSync('npm root -g').to
 const O = 'https://mensadef.mdef.es', API = 'https://mensadefapi.mdef.es', WEB = '/ambito/2SUIGE';
 const verbose = !!process.env.VERBOSE;
 const G4 = '44444444-4444-4444-4444-444444444444', G1 = '8d714e44-b2b5-41a8-9780-2228204861b5', G2 = '11111111-2222-3333-4444-555555555555', G3 = '99999999-8888-7777-6666-555555555555';
+let nClaves = 0;
 const PASS = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6', UID = 'abcdef01-2345-6789-abcd-ef0123456789';
 // Consulta que hace la aplicación de MENSADEF al cambiar de célula (de ahí el favorito toma las cabeceras)
 const consultaApp = pg => pg.evaluate(([P, U]) => fetch('https://mensadefapi.mdef.es/api/usuariovista/UsuarioVistaObtener?emailUsuario=persona%40et.mde.es', { headers: { 'Content-Type': 'application/json', passcode: P, user: U } }).catch(() => 0), [PASS, UID]);
@@ -39,6 +40,8 @@ await ctx.route(API + '/**', r => {
   const hd = r.request().headers();
   if (r.request().method() === 'OPTIONS') return r.fulfill({ headers: Object.assign({ 'Access-Control-Allow-Headers': 'content-type, passcode, user' }, H), body: '' });
   if (ruta === 'usuariovista/UsuarioVistaObtener') return r.fulfill({ headers: H, json: {} });
+  // Como el real: la consulta sin clave devuelve la clave en las cabeceras de la respuesta (IdUsuario = passcode, User)
+  if (ruta === 'ambitocomun/MensadefActivo') { nClaves++; return r.fulfill({ headers: Object.assign({ 'Access-Control-Expose-Headers': 'IdUsuario, User' }, H, process.env.NOCLAVE ? {} : { IdUsuario: PASS, User: UID }), json: true }); }
   if (hd.passcode !== PASS || hd.user !== UID) return r.fulfill({ status: 406, headers: H, body: '' });
   if (q.emailUsuario !== 'persona@et.mde.es' || q.urlColeccionSitio !== O + WEB) return r.fulfill({ status: 400, headers: H, json: { error: 'parámetros' } });
   if (ruta === 'usuario/ConsultaUsuarioDicodefPorCorreo') return r.fulfill({ headers: H, json: { Datos: { IdUsuario: 77, Nombre: 'PERSONA', Correo: q.emailUsuario } } });
@@ -67,9 +70,9 @@ const consultasApp = pg => !process.env.SINCORREO ? null : pg.evaluate(() => { c
   { name: 'https://mensadefapi.mdef.es/api/usuario/ValidateUser?idUsuario=persona&useUid=true' },
   { name: 'https://mensadefapi.mdef.es/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40et.mde.es&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE' }]; });
 await consultasApp(p);
-await p.evaluate(codigo); await p.waitForTimeout(300);
-console.log('pide cambiar de célula:', (await p.textContent('body')).includes('Cambia de célula'));
-await consultaApp(p); await p.waitForTimeout(2500);
+await p.evaluate(codigo); await p.waitForTimeout(2500);
+console.log('clave pedida al servicio:', nClaves, 'vez/veces');
+if (process.env.NOCLAVE) { console.log('sin clave del servicio:', (await p.textContent('#aviso')).replace(/\s+/g, ' ').slice(0, 260)); await b.close(); process.exit(); }
 const filas = () => p.$$eval('#lista tbody tr', t => t.length);
 console.log('estado:', await p.textContent('#estado'), '| células:', await p.textContent('#resumenCelulas'));
 console.log('llamadas:', llamadas.join(' | '));
@@ -96,7 +99,7 @@ await p.click('[data-cel="t4"]'); await p.click('#aplicarCelulas'); await p.wait
 // Desde la página de una célula (sin elección guardada) se carga esa
 const p2 = await ctx.newPage(); await p2.goto(O + WEB + '/SitePages/ambito.aspx#/celula/SETEC%20SECRETARIA/' + G2);
 await p2.evaluate(() => { try { localStorage.removeItem('visorMensadefPruebas.celulasElegidas'); } catch (e) {} });
-await consultasApp(p2); await p2.evaluate(codigo); await consultaApp(p2); await p2.waitForTimeout(1500); console.log('desde la célula SECRETARIA:', await p2.textContent('#resumenCelulas')); await p2.close();
+await consultasApp(p2); await p2.evaluate(codigo); await p2.waitForTimeout(1500); console.log('desde la célula SECRETARIA:', await p2.textContent('#resumenCelulas')); await p2.close();
 await p.click('#lista tbody tr >> nth=0'); await p.waitForTimeout(300);
 console.log('detalle:', (await p.textContent('#detalle')).replace(/\s+/g, ' ').slice(0, 420));
 console.log('abrir en MENSADEF:', await p.$eval('#detalle a', a => a.href));
@@ -107,16 +110,12 @@ console.log('a Colabora:', decodeURIComponent(nueva.url().split('#importar=')[1]
 await p.bringToFront(); await p.click('#estructura'); const est = await p.inputValue('#cajaEstructura textarea');
 console.log(est.split('\n').slice(0, 12).join('\n'));
 console.log('¿estructura con contenido?', /Mensaje \d|MANDO|persona@|R-\d/.test(est), '| errores:', errs);
-// Desde la célula, sin cambiar de célula a mano: el favorito hace que MENSADEF la recargue y toma la clave
+// Clave caducada: el servicio contesta 406 a la clave guardada; el visor pide otra y sigue
 const p3 = await ctx.newPage(); await p3.goto(O + WEB + '/SitePages/ambito.aspx#/celula/SETEC%20SEGURIDAD/' + G1); await consultasApp(p3);
-await p3.evaluate(codigo); await p3.waitForTimeout(4500);
-console.log('sin cambiar de célula se abre el visor:', await p3.$('#estado') !== null, '|', await p3.$eval('#estado', e => e.textContent).catch(() => '-'));
+await p3.evaluate(() => sessionStorage.setItem('visorMensadefPruebas.cabecerasApi', JSON.stringify({ passcode: 'caducada', user: 'x', momento: Date.now() })));
+const antes = nClaves; await p3.evaluate(codigo); await p3.waitForTimeout(2500);
+console.log('clave caducada → pide otra:', nClaves - antes, '|', await p3.$eval('#estado', e => e.textContent).catch(() => '-'));
 await p3.close();
-// «Abrir sin bandejas»: aviso claro, sin enseñar los borradores del sitio como si fueran la bandeja
-const p4 = await ctx.newPage(); await p4.goto(O + WEB + '/SitePages/ambito.aspx'); await consultasApp(p4);
-await p4.evaluate(() => sessionStorage.clear()); await p4.evaluate(codigo); await p4.click('[data-a="sin"]'); await p4.waitForTimeout(1500);
-console.log('sin clave:', (await p4.textContent('#aviso')).slice(0, 90), '| tabla oculta:', await p4.isHidden('#lista'), '| botón volver:', await p4.isVisible('#volverMensadef'));
-await p4.close();
 await p.setViewportSize({ width: 1300, height: 900 }); await p.evaluate(() => scrollTo(0, 0)); await p.screenshot({ path: new URL('bandejas.png', import.meta.url).pathname });
 await p.setViewportSize({ width: 390, height: 800 }); await p.screenshot({ path: new URL('bandejas-movil.png', import.meta.url).pathname });
 await b.close();

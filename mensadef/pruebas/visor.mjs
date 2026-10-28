@@ -92,8 +92,6 @@ await p.evaluate(() => { const o = performance.getEntriesByType.bind(performance
   { name: location.origin + "/ambito/2SUIGE/_api/web/lists/getbytitle('SMDMDMensajes_20261028')/items?$filter=MensajeCelula eq 'OTRA'&$top=50" },
   { name: 'https://otro.servidor.es/_api/x' }, { name: location.origin + '/ambito/2SUIGE/SiteAssets/app.js' }]; });
 await p.evaluate(codigo);
-// La copia de pruebas espera a que la aplicación consulte su servicio; aquí no hay servicio: «Abrir sin bandejas»
-if (PRUEBAS) await p.click('[data-a="sin"]');
 await p.waitForTimeout(1200);
 console.log('quién:', await p.textContent('#quien'), '| estado:', await p.textContent('#estado'));
 if (process.env.NADA) { console.log('aviso:', await p.textContent('#aviso')); await b.close(); process.exit(); }

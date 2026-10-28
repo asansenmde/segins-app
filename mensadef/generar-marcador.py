@@ -88,9 +88,6 @@ def generar(fuente, salida, nombre, titulo, intro, pasos, pruebas=False):
         assert 'var PRUEBAS = false;' in pagina, 'No encuentro «var PRUEBAS = false;» en ' + fuente
         pagina = pagina.replace('var PRUEBAS = false;', 'var PRUEBAS = true;')
     codigo = '(function(){var h=' + json.dumps(pagina) + ';document.open();document.write(h);document.close();})()'
-    if pruebas and fuente == 'visor-mensadef.html':
-        # La copia de pruebas toma antes las cabeceras con las que la aplicación llama a su servicio (arranque-visor.js)
-        codigo = '(function(){var h=' + json.dumps(pagina) + ';\n' + (aqui / 'arranque-visor.js').read_text(encoding='utf-8') + '})()'
     marcador = 'javascript:' + urllib.parse.quote(codigo, safe='')
     uso = '\n'.join('      <li>' + p + '</li>' for p in pasos)
     (aqui / salida).write_text(PLANTILLA.format(nombre=nombre, titulo=titulo, intro=intro, uso=uso,
