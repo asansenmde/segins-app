@@ -25,7 +25,8 @@ await p.route(O + '/**', r => {
   // Código de la aplicación (simulado): llama al servicio con una clave en la cabecera y el token de la memoria
   if (u.endsWith('mensadef-app.js')) return r.fulfill({ contentType: 'text/javascript', body: 'var cfg={api:"https://mensadefapi.mdef.es/api/",clave:"ABCDEF0123456789ABCDEF0123456789",soporte:"soporte@mde.es"};' +
     'function llamar(r,p){return fetch(cfg.api+r+"?"+p,{headers:{"Ocp-Apim-Subscription-Key":cfg.clave,Authorization:"Bearer "+sessionStorage.getItem("tokenMensadef")}})}' + ' '.repeat(400) +
-    'function celulas(u){return llamar("ambito/UsuarioCelulas","idUsuario="+u+"&tipoCelula=-1")}' });
+    'function celulas(u){return llamar("ambito/UsuarioCelulas","idUsuario="+u+"&tipoCelula=-1")}' + ' '.repeat(400) +
+    'function cab(){var d=new Date();return {"Content-Type":"application/json",passcode:md5(cfg.semilla+d.toISOString().slice(0,10)),user:JSON.parse(sessionStorage.getItem("rolesUsuario2SUIGE")).idUsuario}}' });
   if (u.endsWith('.js')) return r.fulfill({ contentType: 'text/javascript', body: '' });
   return r.fulfill({ contentType: 'text/html', body: '<html><body><h1>Portada MENSADEF</h1><script src="/ambito/2SUIGE/ClientSideAssets/mensadef-app.js"></script></body></html>' });
 });

@@ -14,7 +14,8 @@
 
   var guardar = function (url, cab) {
     if (abierto || !/mensadefapi\./i.test(String(url || '')) || !cab.passcode) return;
-    try { sessionStorage.setItem(CLAVE, JSON.stringify({ passcode: cab.passcode, user: cab.user || '', momento: Date.now() })); } catch (e) { /* sin memoria */ }
+    var de = ''; try { de = new URL(url, location.href).pathname.replace(/^\/api\//, ''); } catch (e) { /* sin ruta */ }
+    try { sessionStorage.setItem(CLAVE, JSON.stringify({ passcode: cab.passcode, user: cab.user || '', momento: Date.now(), de: de, largo: String(cab.passcode).length })); } catch (e) { /* sin memoria */ }
     aviso.querySelector('p').textContent = 'Listo. Abriendo el visor…';
     setTimeout(abrir, 400);
   };

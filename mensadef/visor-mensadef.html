@@ -151,7 +151,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-10-28 · 1';
+  var VERSION = '2026-10-28 · 2';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -288,6 +288,8 @@
       $('aviso').hidden = false;
       $('aviso').innerHTML = '<div class="bad">No he podido tomar la clave con la que MENSADEF consulta tus bandejas.</div>' +
         '<p>1. Pulsa <b>Volver a MENSADEF</b> y entra en tu célula.<br>2. Pulsa otra vez el favorito: se toma la clave solo (si no, cambia de célula cuando lo pida).</p>' +
+        '<p class="muted">Detalle (sin valores): ' + (claveUsada ? 'clave tomada de «' + esc(claveUsada.de) + '» hace ' + claveUsada.edad + ' s (' + claveUsada.largo + ' caracteres' + (claveUsada.user ? ', con user' : ', sin user') + ')' : 'no se llegó a tomar ninguna clave') +
+          ' · respuestas: ' + esc(diagApi.map(function (x) { return x.ruta + ' → ' + x.estado; }).join(', ')) + ' · versión ' + esc(VERSION) + '</p>' +
         '<div class="acciones"><button type="button" class="prim" id="volverMensadef">Volver a MENSADEF</button><button type="button" id="verListas">Ver las listas del sitio (solo borradores)</button></div>';
       $('volverMensadef').addEventListener('click', function () { location.reload(); });
       $('verListas').addEventListener('click', verListas);
@@ -371,7 +373,7 @@
   // → sus células (ambito/UsuarioCelulas, tipoCelula=-1) → bandeja de cada célula (buzon/ObtenerBuzonCelula, tipoES 1 y 2, por
   // páginas). Los nombres de los campos no se conocen de antemano: se reconocen por su nombre (asunto, fecha, remitente…).
   var API = location.protocol + '//' + location.hostname.replace(/^mensadef\./i, 'mensadefapi.');
-  var modoApi = false, apiCtx = null, errorApi = null, diagApi = [], origenCorreo = '', diagCelulas = '', modoApi_fetch = '', intentosApi = [];
+  var modoApi = false, apiCtx = null, errorApi = null, diagApi = [], origenCorreo = '', diagCelulas = '', modoApi_fetch = '', intentosApi = [], claveUsada = null;
   // Células que se cargan: las elegidas (se recuerdan); si no se ha elegido nunca, la de la página, si no las de tipo 4,
   // y si no todas
   // Grupos del perfil de MENSADEF: las de registro y las de revisión (portafirmas) se reconocen por el nombre; el resto, OAM
@@ -452,6 +454,7 @@
     // Cabeceras de la aplicación: «passcode» y «user», tomadas por el arranque del favorito de su siguiente consulta
     // (solo en esta pestaña); sin ellas el servicio contesta 406
     var cab = leer('cabecerasApi', null), hs = { 'Content-Type': 'application/json' };
+    if (cab && !claveUsada) claveUsada = { edad: Math.round((Date.now() - cab.momento) / 1000), de: cab.de || '?', largo: cab.largo || String(cab.passcode || '').length, user: !!cab.user };
     if (cab && cab.passcode) { hs.passcode = cab.passcode; if (cab.user) hs.user = cab.user; }
     var intento = function (modo) { return fetch(url, { credentials: modo, headers: hs }).then(function (r) { modoApi_fetch = modo; return r; }); };
     var pet = modoApi_fetch ? intento(modoApi_fetch) : intento('omit').catch(function (e1) {

@@ -6,7 +6,7 @@
 (function () {
   'use strict';
   if (window.__escuchaMensadef) { window.__escuchaMensadef(); return; }
-  var VERSION = 4; // se ve en el recuadro y en el resumen, para saber qué favorito se ha pulsado
+  var VERSION = 5; // se ve en el recuadro y en el resumen, para saber qué favorito se ha pulsado
   var reg = [], indice = {};
   try { performance.setResourceTimingBufferSize(5000); } catch (e) { /* sin registro de recursos */ }
 
@@ -183,7 +183,7 @@
     return t.replace(/(["'`])([A-Za-z0-9+/=_\-.]{24,})\1/g, function (m, q, v) { return /^[A-Za-z]+(-[A-Za-z]+)+$/.test(v) ? m : q + '«texto de ' + v.length + ' caracteres»' + q; })
       .replace(/eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+(\.[A-Za-z0-9_\-]*)?/g, '«token»').replace(/[^\s"'`@]+@[^\s"'`@]+\.[a-z]{2,}/gi, '«correo»');
   };
-  var BUSCAR = [/UsuarioCelulas/g, /ObtenerBuzonCelula/g, /mensadefapi/gi, /Authorization/g, /setRequestHeader/g, /withCredentials/g, /credentials\s*:/g, /Bearer/g, /[Hh]eaders\s*[:=(]/g, /interceptors?/g, /Subscription-Key|apikey|api-key|x-api/gi];
+  var BUSCAR = [/passcode/gi, /["']user["']\s*[:,]|\buser\s*:/g, /md5|sha-?1|sha-?256|crypto|createHash|hmac/gi, /UsuarioCelulas/g, /ObtenerBuzonCelula/g, /mensadefapi/gi, /Authorization/g, /setRequestHeader/g, /withCredentials/g, /credentials\s*:/g, /Bearer/g, /[Hh]eaders\s*[:=(]/g, /interceptors?/g, /Subscription-Key|apikey|api-key|x-api/gi];
   function analizarCodigo(boton) {
     boton.disabled = true; boton.textContent = 'Analizando…';
     var urls = {};
@@ -196,17 +196,17 @@
     codigo = ['(' + lista.length + ' archivos de código revisados)'];
     var uno = function (u) {
       return fetch(u, { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
-        if (!t || !/mensadefapi|UsuarioCelulas|ObtenerBuzon/i.test(t)) return;
+        if (!t || !/mensadefapi|UsuarioCelulas|ObtenerBuzon|passcode/i.test(t)) return;
         var nombre = new URL(u, location.href).pathname.split('/').slice(-2).join('/'), trozos = [];
         BUSCAR.forEach(function (re) {
           var m, n = 0; re.lastIndex = 0;
-          while ((m = re.exec(t)) && n < 3) { n++; trozos.push([m.index, re.source]); }
+          while ((m = re.exec(t)) && n < (/passcode/.test(re.source) ? 8 : 3)) { n++; trozos.push([m.index, re.source]); }
         });
         trozos.sort(function (a, b) { return a[0] - b[0]; });
         var ult = -1e9, salida = [];
         trozos.forEach(function (x) { if (x[0] - ult < 300) return; ult = x[0]; salida.push('  · [' + x[1] + '] …' + tapar(t.slice(Math.max(0, x[0] - 250), x[0] + 250)).replace(/\s+/g, ' ') + '…'); });
         codigo.push('- ' + nombre + ' (' + Math.round(t.length / 1024) + ' KB):');
-        codigo = codigo.concat(salida.slice(0, 25));
+        codigo = codigo.concat(salida.slice(0, 40));
       }).catch(function () { codigo.push('- ' + new URL(u, location.href).pathname.split('/').pop() + ': no se pudo leer'); });
     };
     return lista.reduce(function (pr, u) { return pr.then(function () { return uno(u); }); }, Promise.resolve()).then(function () {
