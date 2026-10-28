@@ -83,5 +83,5 @@ autoría.
 14. **Visor de MENSADEF con bandejas** (copia de pruebas, 28/10/2026): lee las bandejas de las células del usuario con el
     servicio `mensadefapi` (cabeceras `passcode` y `user` tomadas de la propia aplicación), por defecto todas las suyas,
     con «✓ Visto», «➜ Tarea», tarjetas, píldoras de célula, autoría y diseño. **Confirmado por el usuario** que ya lee su
-    célula. Pendiente: que lo use unos días; decidir si «visto» debe ser compartido por el grupo (ahora es de cada
+    célula y (versión 2026-10-28 · 4) que el visor obtiene solo la clave del servicio con `ValidateUser`, como la aplicación. Pendiente: que lo use unos días; decidir si «visto» debe ser compartido por el grupo (ahora es de cada
     navegador) y, cuando lo dé por bueno, regenerar el favorito bueno.
