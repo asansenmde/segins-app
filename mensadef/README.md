@@ -45,6 +45,13 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   columnas, tipos de contenido, archivos por tipo, meses y columnas rellenas. El resumen para copiar no incluye
   asuntos, nombres de archivo ni contenido. `prueba-mensadef.aspx` es la misma página con otra extensión.
 
+- `escuchar-mensadef.js` (marcador: `marcador-escuchar-mensadef.html`, favorito «Escuchar MENSADEF»): diagnóstico que **no
+  sustituye la página**. Anota las consultas que hace la aplicación de MENSADEF (fetch, XMLHttpRequest, `$batch`, búsqueda)
+  mientras el usuario abre su célula y su bandeja, y resume su estructura: ruta, nombres de parámetros, campos y
+  propiedades, nº de elementos. Nunca guarda valores. Prueba: `node pruebas/escuchar.mjs`.
+  (28/10/2026: las listas diarias `SMDMDMensajes_AAAAMMDD` del ámbito solo devuelven borradores con las columnas habituales
+  vacías; hay que averiguar de dónde saca la aplicación los mensajes de cada célula.)
+
 ## Estructura de MENSADEF (ámbito 2SUIGE)
 
 | Qué | Dónde |

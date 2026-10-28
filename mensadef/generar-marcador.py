@@ -75,6 +75,15 @@ PLANTILLA = '''<!doctype html>
 
 def generar(fuente, salida, nombre, titulo, intro, pasos, pruebas=False):
     pagina = (aqui / fuente).read_text(encoding='utf-8')
+    if fuente.endswith('.js'):
+        # Marcador que actúa sobre la página abierta sin sustituirla (p. ej. escuchar-mensadef.js)
+        codigo = pagina
+        marcador = 'javascript:' + urllib.parse.quote(codigo, safe='')
+        uso = '\n'.join('      <li>' + p + '</li>' for p in pasos)
+        (aqui / salida).write_text(PLANTILLA.format(nombre=nombre, titulo=titulo, intro=intro, uso=uso,
+                                                    marcador=html.escape(marcador, quote=True)), encoding='utf-8')
+        print(salida + ':', len(marcador), 'caracteres de marcador')
+        return
     if pruebas:
         assert 'var PRUEBAS = false;' in pagina, 'No encuentro «var PRUEBAS = false;» en ' + fuente
         pagina = pagina.replace('var PRUEBAS = false;', 'var PRUEBAS = true;')
@@ -86,7 +95,19 @@ def generar(fuente, salida, nombre, titulo, intro, pasos, pruebas=False):
     print(salida + ':', len(marcador), 'caracteres de marcador')
 
 
+ESCUCHAR = ('escuchar-mensadef.js', 'marcador-escuchar-mensadef.html', 'Escuchar MENSADEF', 'Escuchar MENSADEF (diagnóstico)',
+            'Un <b>favorito de diagnóstico</b> que, sin cambiar la página de MENSADEF, anota qué consultas hace la aplicación al '
+            'enseñarte tu célula y tu bandeja: rutas, nombres de campos y número de elementos, <b>nunca sus valores</b>. Sirve '
+            'para saber de dónde saca MENSADEF tus mensajes y adaptar el visor. No envía nada a ningún sitio.',
+            ['Abre MENSADEF (la portada de tu ámbito) y espera a que cargue.',
+             'Pulsa el favorito <b>Escuchar MENSADEF</b>: sale un recuadro con borde rojo abajo a la derecha.',
+             'Ahora, sin recargar, entra en tu célula y abre tu <b>bandeja de mensajes</b>; cambia de célula o de carpeta para '
+             'que se vuelvan a cargar.',
+             'Cuando veas tus mensajes, pulsa <b>Copiar</b> en el recuadro y pégalo en la conversación.',
+             'Para quitarlo, recarga la página (F5).'])
+
 if '--pruebas' in sys.argv:
+    generar(*ESCUCHAR)
     generar('visor-mensadef.html', 'marcador-visor-mensadef-pruebas.html', 'Mensajes MENSADEF (pruebas)',
             'Visor de mensajes de MENSADEF · VERSIÓN DE PRUEBAS',
             'Copia de pruebas del visor, para probar <b>«➜ Crear tarea en Colabora»</b> sin tocar el favorito bueno. Lleva '
@@ -115,3 +136,5 @@ generar('visor-mensadef.html', 'marcador-visor-mensadef.html', 'Mensajes MENSADE
          'Pulsa el favorito <b>Mensajes MENSADEF</b>.',
          'Elige el periodo (por defecto, los últimos 3 días) y usa la búsqueda y los filtros. Pulsa un mensaje para ver el detalle.',
          'Para volver a MENSADEF normal, recarga (F5).'])
+
+generar(*ESCUCHAR)
