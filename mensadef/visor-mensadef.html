@@ -117,7 +117,7 @@
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
-  var leer = function (k, d) { try { var v = localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
+  var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
 
   if (!window.fetch || !window.Promise || document.documentMode) {
     $('aviso').hidden = false; $('aviso').innerHTML = '<div class="bad">Ábrelo en Microsoft Edge o Chrome normal (no en modo Internet Explorer).</div>'; return;
@@ -317,7 +317,7 @@
   // → sus células (ambito/UsuarioCelulas, tipoCelula=-1) → bandeja de cada célula (buzon/ObtenerBuzonCelula, tipoES 1 y 2, por
   // páginas). Los nombres de los campos no se conocen de antemano: se reconocen por su nombre (asunto, fecha, remitente…).
   var API = location.protocol + '//' + location.hostname.replace(/^mensadef\./i, 'mensadefapi.');
-  var modoApi = false, apiCtx = null, errorApi = null, diagApi = [], origenCorreo = '', diagCelulas = '', modoApi_fetch = '', intentosApi = [], aceptarApi = '';
+  var modoApi = false, apiCtx = null, errorApi = null, diagApi = [], origenCorreo = '', diagCelulas = '', modoApi_fetch = '', intentosApi = [];
   // Células que se cargan: las elegidas (se recuerdan); si no se ha elegido nunca, la de la página, si no las de tipo 4,
   // y si no todas
   // Grupos del perfil de MENSADEF: las de registro y las de revisión (portafirmas) se reconocen por el nombre; el resto, OAM
@@ -390,21 +390,22 @@
     // Como la aplicación: primero sin cookies (petición simple); si el navegador la bloquea, con la sesión. La que
     // funcione se recuerda para las siguientes.
     var url = (datosApp.origen || API) + '/api/' + ruta + '?' + q;
-    // Si contesta 406 (no acepta la petición), se repite pidiendo JSON como las aplicaciones web (Accept de axios)
-    var intento = function (modo) {
-      return fetch(url, { credentials: modo, headers: aceptarApi ? { Accept: aceptarApi } : {} }).then(function (r) {
-        if (r.status !== 406 || aceptarApi) { modoApi_fetch = modo; return r; }
-        intentosApi.push('sin cabecera Accept: HTTP 406');
-        aceptarApi = 'application/json, text/plain, */*';
-        return fetch(url, { credentials: modo, headers: { Accept: aceptarApi } }).then(function (r2) { modoApi_fetch = modo; if (r2.status === 406) intentosApi.push('con Accept JSON: HTTP 406'); return r2; });
-      });
-    };
+    // Cabeceras de la aplicación: «passcode» y «user», tomadas por el arranque del favorito de su siguiente consulta
+    // (solo en esta pestaña); sin ellas el servicio contesta 406
+    var cab = leer('cabecerasApi', null), hs = { 'Content-Type': 'application/json' };
+    if (cab && cab.passcode) { hs.passcode = cab.passcode; if (cab.user) hs.user = cab.user; }
+    var intento = function (modo) { return fetch(url, { credentials: modo, headers: hs }).then(function (r) { modoApi_fetch = modo; return r; }); };
     var pet = modoApi_fetch ? intento(modoApi_fetch) : intento('omit').catch(function (e1) {
       intentosApi.push('sin cookies: ' + (e1.message || e1));
       return intento('include').catch(function (e2) { intentosApi.push('con la sesión: ' + (e2.message || e2)); throw e2; });
     });
     return pet.then(function (r) {
       x.estado = r.status;
+      if (r.status === 406) {
+        try { localStorage.removeItem(MEMORIA + 'cabecerasApi'); sessionStorage.removeItem(MEMORIA + 'cabecerasApi'); } catch (er) { /* sin memoria */ }
+        var e6 = new Error('mensadefapi ' + ruta + ': HTTP 406 (' + (cab && cab.passcode ? 'la clave tomada de MENSADEF ya no vale' : 'falta la clave de MENSADEF') + '): recarga MENSADEF (F5), pulsa el favorito y, cuando lo pida, cambia de célula');
+        e6.status = 406; throw e6;
+      }
       if (!r.ok) { var e = new Error('mensadefapi ' + ruta + ': HTTP ' + r.status + (r.status === 401 || r.status === 403 ? ' (no reconoce la sesión)' : '')); e.status = r.status; throw e; }
       return r.json();
     }).then(function (j) {
@@ -509,29 +510,38 @@
   var CLAVES_API = { asunto: /^asunto$|asunto|^titulo$|^title$/i, fecha: /fecha.*(registro|recepci|entrada|env|alta|creaci)|^fecha$/i, fecha2: /fecha/i,
     estado: /^estado$|estado/i, tipo: /^tipo(mensaje|documento)?$|clase|naturaleza|^tipo_?mensaje/i, remitente: /remitente|origen|emisor|autoridad|^de$/i,
     referencia: /referencia/i, referencia2: /^n(u|ú)mero|^num_?|registro/i, expediente: /expediente/i, adjuntos: /adjunto/i, id: /^id_?mensaje$|^id$/i };
+  // Nombres reales de la bandeja (ObtenerBuzonCelula, escucha del 28/10/2026); si faltan, se reconocen por el nombre
+  var NOMBRES_API = { asunto: ['Asunto'], fecha: ['Fecha', 'FechaRegistroEntrada', 'FechaRegistroSalida'], estado: ['EstadoMensaje', 'EstadoParaUsuario'], tipo: ['TipoMensaje'],
+    remitente: ['CelulaRemitente', 'UsuarioRemitente'], referencia: ['NumeroRegistroEntrada', 'NumeroRegistroSalida', 'Nref'], suReferencia: ['Sref'], adjuntos: ['ContieneAnexos'], id: ['IdMensaje'], cuerpo: ['Cuerpo'] };
+  var NO_MOSTRAR_API = { Cuerpo: 1, Distribuciones: 1 };
+  var siNo = function (v) { return v === true || /^(s[ií]|si|true|1|s)$/i.test(String(v == null ? '' : v).trim()); };
   function deApi(e, celula, es) {
     var x = {}, campo = function (re, cond) { return Object.keys(e).filter(function (k) { return re.test(k) && e[k] != null && e[k] !== '' && typeof e[k] !== 'object' && (!cond || cond(e[k])); })[0]; };
+    var nombre = function (cl) { return (NOMBRES_API[cl] || []).filter(function (k) { return e[k] != null && e[k] !== ''; })[0]; };
     Object.keys(e).forEach(function (k) {
       var v = e[k];
-      if (v == null || v === '' || esGuid(v) || /^id/i.test(k)) return;
+      if (v == null || v === '' || esGuid(v) || /^id/i.test(k) || NO_MOSTRAR_API[k]) return;
       // Listas (p. ej. etiquetas): sus nombres separados por comas; otros objetos no se muestran
       if (Array.isArray(v)) v = v.map(function (y) { return y && typeof y === 'object' ? (y.Nombre || y.nombre || y.Descripcion || y.descripcion || y.Title || '') : y; }).filter(Boolean).join(', ');
       else if (typeof v === 'object') return;
       if (!EXTRA[k]) EXTRA[k] = { titulo: k.replace(/([a-z])([A-Z])/g, '$1 $2'), tipo: typeof e[k] === 'boolean' ? 'Boolean' : tipoDe(e[k]) === 'fecha' ? 'DateTime' : 'Text' };
       var t = comoTexto(v, EXTRA[k].tipo); if (t) x[k] = t;
     });
-    EXTRA.__es = EXTRA.__es || { titulo: 'Bandeja (tipoES)', tipo: 'Text' };
-    x.__es = 'tipoES ' + es;
-    var kf = campo(CLAVES_API.fecha) || campo(CLAVES_API.fecha2, function (v) { return tipoDe(v) === 'fecha'; });
+    EXTRA.__es = EXTRA.__es || { titulo: 'Bandeja', tipo: 'Text' };
+    // TipoES del mensaje (E/S) si viene; si no, el de la consulta
+    var tes = String(e.TipoES || '').trim();
+    x.__es = /^e/i.test(tes) ? 'Entrada' : /^s/i.test(tes) ? 'Salida' : 'tipoES ' + es;
+    var kf = nombre('fecha') || campo(CLAVES_API.fecha) || campo(CLAVES_API.fecha2, function (v) { return tipoDe(v) === 'fecha'; });
     var ms = kf && /^\/Date\((-?\d+)/.exec(e[kf]);
     var fecha = kf ? (ms ? new Date(+ms[1]).toISOString() : e[kf]) : '';
-    var kid = campo(CLAVES_API.id);
+    var kid = nombre('id') || campo(CLAVES_API.id);
     var noFecha = function (v) { return tipoDe(v) !== 'fecha'; };
-    var val = function (re, re2) { var k = campo(re, noFecha) || (re2 && campo(re2, noFecha)); return k ? comoTexto(e[k]) : ''; };
-    var kadj = campo(CLAVES_API.adjuntos);
-    return { _api: true, _x: x, ID: kid ? e[kid] : '', MensajeId: kid ? String(e[kid]) : '', _asunto: val(CLAVES_API.asunto), MensajeFecha: fecha, MensajeEstado: val(CLAVES_API.estado),
-      MensajeTipo_es: val(CLAVES_API.tipo), MensajeNombre_Autoridad: val(CLAVES_API.remitente), MensajeNum_referencia: val(CLAVES_API.referencia, CLAVES_API.referencia2), MensajeNum_expediente: val(CLAVES_API.expediente),
-      Attachments: kadj ? !!e[kadj] && e[kadj] !== '0' : false,
+    var val = function (cl, re, re2) { var k = nombre(cl) || campo(re, noFecha) || (re2 && campo(re2, noFecha)); return k ? comoTexto(e[k]) : ''; };
+    var kadj = nombre('adjuntos') || campo(CLAVES_API.adjuntos), kc = nombre('cuerpo');
+    return { _api: true, _x: x, ID: kid ? e[kid] : '', MensajeId: kid ? String(e[kid]) : '', _asunto: val('asunto', CLAVES_API.asunto), MensajeFecha: fecha, MensajeEstado: val('estado', CLAVES_API.estado),
+      MensajeTipo_es: val('tipo', CLAVES_API.tipo), MensajeNombre_Autoridad: val('remitente', CLAVES_API.remitente), MensajeNum_referencia: val('referencia', CLAVES_API.referencia, CLAVES_API.referencia2),
+      MensajeSu_referencia: val('suReferencia', /^sref$|su_?ref/i), MensajeNum_expediente: val('', CLAVES_API.expediente),
+      Attachments: kadj ? siNo(e[kadj]) : false, _cuerpoApi: kc ? texto(String(e[kc])) : '',
       _enlace: location.origin + location.pathname + '#/celula/' + encodeURIComponent(celula.nombre) + '/' + celula.id,
       _lista: { id: 'api', sitio: celula, titulo: 'tipoES ' + es + ' de ' + celula.nombre } };
   }
@@ -796,8 +806,8 @@
     });
     if (m._api) {
       // El texto completo del mensaje se ve en MENSADEF (el servicio de la bandeja no lo trae)
-      m._cuerpo = Object.keys(m._x).filter(function (k) { return k !== '__es'; }).map(function (k) { return EXTRA[k].titulo + ': ' + m._x[k]; }).join('\n');
-      $('cuerpo').textContent = 'El texto completo del mensaje se abre en MENSADEF («Abrir en MENSADEF»). A la tarea se pasan los datos de la bandeja.';
+      m._cuerpo = m._cuerpoApi || Object.keys(m._x).filter(function (k) { return k !== '__es'; }).map(function (k) { return EXTRA[k].titulo + ': ' + m._x[k]; }).join('\n');
+      $('cuerpo').textContent = m._cuerpoApi || '(La bandeja no trae el texto: ábrelo en MENSADEF.)';
       $('aColabora').disabled = false;
       return;
     }
@@ -878,7 +888,8 @@
       'Periodo cargado: ' + $('desde').value + ' a ' + $('hasta').value + ' · mensajes: ' + mensajes.length]
       .concat(['', 'SERVICIO DE BANDEJAS (' + API.replace(/^https?:\/\//, '') + '): ' + (modoApi ? 'en uso' : 'no se ha podido usar' + (errorApi ? ' (' + (errorApi.message || errorApi) + ')' : '')),
         '- correo tomado de: ' + (origenCorreo || '—') + ' · datos de la aplicación en esta página: ' + (Object.keys(datosApp).join(', ') || 'ninguno') +
-          ' · servicio: ' + (datosApp.origen || API).replace(/^(https?):\/\//, '$1 ') + ' · forma que funciona: ' + ({ omit: 'sin cookies', include: 'con la sesión' }[modoApi_fetch] || 'ninguna'),
+          ' · servicio: ' + (datosApp.origen || API).replace(/^(https?):\/\//, '$1 ') + ' · forma que funciona: ' + ({ omit: 'sin cookies', include: 'con la sesión' }[modoApi_fetch] || 'ninguna') +
+          ' · clave de MENSADEF: ' + (function () { var c = leer('cabecerasApi', null); return c && c.passcode ? 'tomada (' + Math.round((Date.now() - c.momento) / 60000) + ' min)' + (c.user ? ' con user' : '') : 'no'; })(),
         '- intentos fallidos: ' + (intentosApi.slice(0, 6).join(' | ') || 'ninguno')])
       .concat(diagApi.map(function (x) { return '- ' + x.ruta + (x.n > 1 ? ' ×' + x.n : '') + ' → ' + x.estado + (x.resp ? '\n    recibe: ' + x.resp : ''); }))
       .concat(modoApi ? ['- células: ' + apiCtx.celulas.length + ' (' + diagCelulas + '; se cargan ' + celulasElegidas().length + ', de la página: ' + (apiCtx.dePagina ? 'sí' : 'no') + ') · campos de los mensajes: ' + Object.keys(EXTRA).join(', ')] : [])
