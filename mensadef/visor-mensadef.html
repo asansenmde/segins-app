@@ -95,6 +95,7 @@
   .tag.st-azul { background: #dde8f7; color: #1d4f91; } .tag.t-tipo { background: #efe3fb; color: #6b3fa0; }
   .prio { display: inline-block; min-width: 22px; text-align: center; font-size: .72rem; font-weight: 800; padding: 1px 7px; border-radius: 6px; background: #e7e7e7; color: #555; }
   .prio.alta { background: var(--bad); color: #fff; }
+  .bandera { --cb: #6b3fa0; display: inline-block; font-size: .72rem; font-weight: 800; padding: 1px 8px; border-radius: 6px; color: #fff; background: var(--cb); white-space: nowrap; margin-right: 4px; vertical-align: middle; text-shadow: 0 1px 1px rgba(0,0,0,.25); }
   .celtag { font-size: .74rem; font-weight: 700; color: #3b4a2f; background: #eef1ea; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
   tbody tr.noleido { box-shadow: inset 4px 0 0 #1d4f91; }
   .cab-msg { background: linear-gradient(120deg, #26331d 0%, #3b4a2f 60%, #56693f 100%); color: #fff; border-radius: 12px; padding: 12px 14px; margin: 6px 0 10px; }
@@ -228,7 +229,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-10-29 · 3';
+  var VERSION = '2026-10-29 · 4';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -666,7 +667,11 @@
         // Como la aplicación: tipoCelula=-1 (todas a las que tiene acceso) y tipoCelula=4 (las que marca aparte; se
         // proponen por defecto). Se recuerda en qué consulta sale cada una.
         var pide = function (tipo) { return pedirApi('ambito/UsuarioCelulas', { idUsuario: ctx.idUsuario, tipoCelula: tipo, emailUsuario: ctx.email, urlColeccionSitio: ctx.url }).then(function (r) { return primerArray(r) || []; }, function (e) { if (tipo === -1) throw e; return []; }); };
-        return Promise.all([pide(-1), pide(4)]);
+        // Banderas de MENSADEF (Urgente, Finalizado…): su nombre y color; si falla, se ve solo el número
+        var banderas = pedirApi('etiqueta/EtiquetasObtener', { emailUsuario: ctx.email, urlColeccionSitio: ctx.url }).then(function (r) {
+          (primerArray(r) || []).forEach(function (b) { var id = b.IdEtiqueta != null ? b.IdEtiqueta : b.idEtiqueta; if (id != null) BANDERAS[String(id)] = { nombre: String(b.Nombre || b.nombre || 'Bandera ' + id).trim(), color: b.Color || b.color || '' }; });
+        }, function () { /* sin catálogo */ });
+        return Promise.all([pide(-1), pide(4), banderas]);
       }).then(function (rs) {
         var vistos = {};
         var aCelula = function (c) {
@@ -700,11 +705,25 @@
   // Ya tienen su filtro (Estado, Tipo, Bandeja): no se repiten
   var SIN_FILTRO = { EstadoMensaje: 1, TipoMensaje: 1, TipoES: 1 };
   // Con las bandejas, además de buscar, célula, tipo y estado, solo estos filtros (el resto de campos, en el detalle)
-  var FILTROS_API = { CodigoPrioridad: 1, Leido: 1 };
+  var FILTROS_API = { CodigoPrioridad: 1, Leido: 1, Bandera: 1 };
   var ETIQUETAS_API = { Actuacion: 'Actuación', CelulaRemitente: 'Célula remitente', CelulaDestinataria: 'Célula destinataria', CodigoPrioridad: 'Prioridad', ContieneAnexos: 'Anexos',
     EstadoMensaje: 'Estado del mensaje', EstadoParaUsuario: 'Estado para mí', Leido: 'Leído', TipoES: 'Entrada/Salida', TipoMensaje: 'Tipo de mensaje', NumeroRegistroEntrada: 'N.º registro de entrada',
     NumeroRegistroSalida: 'N.º registro de salida', FechaRegistroEntrada: 'Fecha registro de entrada', FechaRegistroSalida: 'Fecha registro de salida', UsuarioRemitente: 'Usuario remitente',
     MotivoDistribucion: 'Motivo de distribución', UltimoComentario: 'Último comentario', Sref: 'Su referencia', Nref: 'Nuestra referencia', Destinatarios: 'Destinatarios', Firma: 'Firma' };
+  // Banderas: id → { nombre, color }. El color viene del catálogo (#rrggbb o nombre); si no vale, por el nombre.
+  var BANDERAS = {};
+  var COLORES_ES = { rojo: '#c62828', roja: '#c62828', verde: '#2e7d32', azul: '#1d4f91', amarillo: '#d4a106', amarilla: '#d4a106', naranja: '#e06c00', morado: '#6b3fa0', morada: '#6b3fa0', violeta: '#6b3fa0', gris: '#6b6b6b', negro: '#222', negra: '#222', rosa: '#c2185b' };
+  function colorBandera(b) {
+    var c = String(b.color || '').trim().toLowerCase();
+    if (/^#[0-9a-f]{3,8}$/.test(c) || /^rgba?\([\d\s.,%]+\)$/.test(c)) return c;
+    if (/^[0-9a-f]{6}$/.test(c)) return '#' + c;
+    if (COLORES_ES[c]) return COLORES_ES[c];
+    if (/^[a-z]{3,20}$/.test(c) && window.CSS && CSS.supports && CSS.supports('color', c)) return c;
+    var n = normal(b.nombre);
+    return /urgent|inmediat|importan/.test(n) ? '#c62828' : /finaliz|termin|hecho|resuelt|complet/.test(n) ? '#2e7d32' : /pend|espera|seguim/.test(n) ? '#e06c00' : /revis|consult/.test(n) ? '#1d4f91' : '#6b3fa0';
+  }
+  var banderaDe = function (m) { return m._bandera || null; };
+  var htmlBandera = function (b) { return b ? '<span class="bandera" style="--cb:' + esc(colorBandera(b)) + '" title="Bandera de MENSADEF">⚑ ' + esc(b.nombre) + '</span>' : ''; };
   var siNo = function (v) { return v === true || /^(s[ií]|si|true|1|s)$/i.test(String(v == null ? '' : v).trim()); };
   function deApi(e, celula, es) {
     var x = {}, campo = function (re, cond) { return Object.keys(e).filter(function (k) { return re.test(k) && e[k] != null && e[k] !== '' && typeof e[k] !== 'object' && (!cond || cond(e[k])); })[0]; };
@@ -719,6 +738,13 @@
       var t = comoTexto(v, EXTRA[k].tipo); if (t) x[k] = t;
     });
     EXTRA.__es = EXTRA.__es || { titulo: 'Bandeja', tipo: 'Text' };
+    // Bandera (IdEtiqueta): 0 o vacío = sin bandera, salvo que el catálogo tenga ese número
+    var idb = e.IdEtiqueta != null ? e.IdEtiqueta : e.idEtiqueta, bandera = null;
+    if (idb != null && idb !== '' && (BANDERAS[String(idb)] || +idb !== 0)) {
+      bandera = BANDERAS[String(idb)] || { nombre: 'Bandera ' + idb, color: '' };
+      EXTRA.Bandera = EXTRA.Bandera || { titulo: 'Bandera', tipo: 'Text' };
+      x.Bandera = bandera.nombre;
+    }
     // TipoES del mensaje (E/S) si viene; si no, el de la consulta
     var tes = String(e.TipoES || '').trim();
     x.__es = /^e/i.test(tes) ? 'Entrada' : /^s/i.test(tes) ? 'Salida' : 'tipoES ' + es;
@@ -732,7 +758,7 @@
     return { _api: true, _x: x, ID: kid ? e[kid] : '', MensajeId: kid ? String(e[kid]) : '', _asunto: val('asunto', CLAVES_API.asunto), MensajeFecha: fecha, MensajeEstado: val('estado', CLAVES_API.estado),
       MensajeTipo_es: val('tipo', CLAVES_API.tipo), MensajeNombre_Autoridad: val('remitente', CLAVES_API.remitente), MensajeNum_referencia: val('referencia', CLAVES_API.referencia, CLAVES_API.referencia2),
       MensajeSu_referencia: val('suReferencia', /^sref$|su_?ref/i), MensajeNum_expediente: val('', CLAVES_API.expediente),
-      _leido: typeof e.Leido === 'boolean' ? e.Leido : undefined,
+      _leido: typeof e.Leido === 'boolean' ? e.Leido : undefined, _bandera: bandera,
       Attachments: kadj ? siNo(e[kadj]) : false, _cuerpoApi: kc ? texto(String(e[kc])) : '',
       _enlace: location.origin + location.pathname + '#/celula/' + encodeURIComponent(celula.nombre) + '/' + celula.id,
       _lista: { id: 'api', sitio: celula, titulo: 'tipoES ' + es + ' de ' + celula.nombre } };
@@ -1012,7 +1038,7 @@
         var pr = m._x.CodigoPrioridad, sub = [m.MensajeNombre_Autoridad, m.MensajeNum_referencia].filter(Boolean).join(' · ');
         return cabDia + '<tr data-i="' + i + '"' + (cls ? ' class="' + cls + '"' : '') + '><td class="ver"><input type="checkbox" data-visto="' + i + '" title="Marcar como visto"' + (vis ? ' checked' : '') + '></td>' +
           '<td class="hora">' + (f ? (porDia ? '' : esc(verFecha(f).slice(0, 10)) + ' ') + esc(verFecha(f).slice(11)) : '') + '</td><td class="es">' + es + '</td>' +
-          '<td class="asunto">' + (m._leido === false ? '<span class="punto" title="No leído"></span>' : '') + esc(m._asunto || '(sin asunto)') + (sub ? '<span class="sub">' + esc(sub) + '</span>' : '') + '</td>' +
+          '<td class="asunto">' + (m._leido === false ? '<span class="punto" title="No leído"></span>' : '') + htmlBandera(m._bandera) + esc(m._asunto || '(sin asunto)') + (sub ? '<span class="sub">' + esc(sub) + '</span>' : '') + '</td>' +
           '<td>' + (m.MensajeTipo_es ? '<span class="tag t-tipo">' + esc(m.MensajeTipo_es) + '</span>' : '') + '</td>' +
           '<td>' + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') + '</td>' +
           '<td>' + (pr ? '<span class="prio' + (prioAlta(pr) ? ' alta' : '') + '">' + esc(pr) + '</span>' : '') + '</td>' +
@@ -1065,8 +1091,8 @@
       var CAMPOS_FICHA = [['Fecha', verFecha(fechaDe(m))], ['Nombre autoridad', m.MensajeNombre_Autoridad], ['N.º referencia', m.MensajeNum_referencia], ['Su referencia', m.MensajeSu_referencia],
         ['Asunto', m._asunto], ['Enviable a rúbrica', x.EnviableARubrica], ['Fecha registro de entrada', x.FechaRegistroEntrada], ['Fecha registro de salida', x.FechaRegistroSalida],
         ['Firma', x.Firma], ['Leído', x.Leido], ['Prioridad', x.CodigoPrioridad], ['Tipo de mensaje', m.MensajeTipo_es], ['Último comentario', x.UltimoComentario],
-        ['Usuario remitente', x.UsuarioRemitente], ['Célula', sitioDe(m)]];
-      ['EnviableARubrica', 'FechaRegistroEntrada', 'FechaRegistroSalida', 'Firma', 'Leido', 'CodigoPrioridad', 'UltimoComentario', 'UsuarioRemitente', 'TipoMensaje', 'Sref', 'Fecha', 'Asunto', 'CelulaRemitente', 'NumeroRegistroEntrada', '__es']
+        ['Usuario remitente', x.UsuarioRemitente], ['Célula', sitioDe(m)], ['Bandera', x.Bandera]];
+      ['Bandera', 'EnviableARubrica', 'FechaRegistroEntrada', 'FechaRegistroSalida', 'Firma', 'Leido', 'CodigoPrioridad', 'UltimoComentario', 'UsuarioRemitente', 'TipoMensaje', 'Sref', 'Fecha', 'Asunto', 'CelulaRemitente', 'NumeroRegistroEntrada', '__es']
         .forEach(function (k) { usados[k] = 1; });
       var otros = Object.keys(x).filter(function (k) { return !usados[k]; }).sort(function (a, b) { return EXTRA[a].titulo.localeCompare(EXTRA[b].titulo, 'es'); });
       fichaApi = '<dl class="ficha-campos">' + CAMPOS_FICHA.filter(function (c) { return c[1]; }).map(function (c) { return '<dt>' + esc(c[0]) + '</dt><dd>' + esc(c[1]) + '</dd>'; }).join('') + '</dl>' +
@@ -1078,7 +1104,7 @@
       '<button type="button" id="copiarTarea">Copiar para Gestor de Tareas</button><button type="button" id="verDet">' + (vistos[claveMensaje(m)] ? '✓ Visto · quitar' : '✓ Marcar visto') + '</button></div><div id="colabora"></div>' +
       (m._api ? '<div class="cab-msg">' + (m._x.__es ? '<span class="tag st-azul">' + (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + esc(m._x.__es) + '</span>' : '') +
         (m.MensajeTipo_es ? '<span class="tag t-tipo">' + esc(m.MensajeTipo_es) + '</span>' : '') + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') +
-        (m._x.CodigoPrioridad ? '<span class="prio' + (prioAlta(m._x.CodigoPrioridad) ? ' alta' : '') + '">' + esc(m._x.CodigoPrioridad) + '</span>' : '') +
+        (m._x.CodigoPrioridad ? '<span class="prio' + (prioAlta(m._x.CodigoPrioridad) ? ' alta' : '') + '">' + esc(m._x.CodigoPrioridad) + '</span>' : '') + htmlBandera(m._bandera) +
         '<h2>' + esc(m._asunto || '(sin asunto)') + '</h2><div class="linea">' + esc([sitioDe(m), verFecha(fechaDe(m)), m.MensajeNombre_Autoridad].filter(Boolean).join(' · ')) + '</div></div>' + fichaApi
         : '<h2>' + esc(m._asunto || '(sin asunto)') + '</h2><dl>' + datos +
         Object.keys(m._x).sort(function (a, b) { return EXTRA[a].titulo.localeCompare(EXTRA[b].titulo, 'es'); }).map(function (k) { return '<dt>' + esc(EXTRA[k].titulo) + '</dt><dd>' + esc(m._x[k]) + '</dd>'; }).join('') +
@@ -1232,14 +1258,14 @@
   // Agrupaciones del informe
   var AGRUPAR = { '': ['Sin agrupar'], celula: ['Célula', function (m) { return sitioDe(m); }], bandeja: ['Bandeja (entrada/salida)', function (m) { return xDe(m).__es; }],
     tipo: ['Tipo de mensaje', function (m) { return m.MensajeTipo_es; }], estado: ['Estado', function (m) { return m.MensajeEstado; }],
-    prioridad: ['Prioridad', function (m) { return xDe(m).CodigoPrioridad; }], remitente: ['Remitente / autoridad', function (m) { return autoridad(m); }],
+    prioridad: ['Prioridad', function (m) { return xDe(m).CodigoPrioridad; }], bandera: ['Bandera', function (m) { return xDe(m).Bandera; }], remitente: ['Remitente / autoridad', function (m) { return autoridad(m); }],
     dia: ['Día', function (m) { var f = fechaDe(m); return f ? f.toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; }] };
   // Datos de cada mensaje en el detalle: los de la ficha (bandejas) o los de la lista
   function camposMensaje(m) {
     var x = xDe(m);
     var c = m._api ? [['Fecha', verFecha(fechaDe(m))], ['Bandeja', x.__es], ['Nombre autoridad', m.MensajeNombre_Autoridad], ['N.º referencia', m.MensajeNum_referencia], ['Su referencia', m.MensajeSu_referencia],
       ['Enviable a rúbrica', x.EnviableARubrica], ['Fecha registro de entrada', x.FechaRegistroEntrada], ['Fecha registro de salida', x.FechaRegistroSalida], ['Firma', x.Firma], ['Leído', x.Leido],
-      ['Prioridad', x.CodigoPrioridad], ['Tipo de mensaje', m.MensajeTipo_es], ['Estado', m.MensajeEstado], ['Último comentario', x.UltimoComentario], ['Usuario remitente', x.UsuarioRemitente], ['Célula', sitioDe(m)]]
+      ['Prioridad', x.CodigoPrioridad], ['Bandera', x.Bandera], ['Tipo de mensaje', m.MensajeTipo_es], ['Estado', m.MensajeEstado], ['Último comentario', x.UltimoComentario], ['Usuario remitente', x.UsuarioRemitente], ['Célula', sitioDe(m)]]
       : [['Fecha', verFecha(fechaDe(m))], ['Autoridad', autoridad(m)], ['Referencia', m.MensajeNum_referencia], ['Su referencia', m.MensajeSu_referencia], ['Expediente', m.MensajeNum_expediente],
       ['Tipo', m.MensajeTipo_es], ['Estado', m.MensajeEstado], ['Canal', m.MensajeCanal], ['Órgano', organo(m)], ['Sitio', sitioDe(m)]];
     c.push(['Adjuntos', m.Attachments ? 'Sí' : ''], ['Visto', vistos[claveMensaje(m)] ? verFecha(new Date(vistos[claveMensaje(m)])) : ''], ['Pasado a tarea', enviados[claveMensaje(m)] ? verFecha(new Date(enviados[claveMensaje(m)])) : '']);
@@ -1249,11 +1275,11 @@
   function opcionesInforme() { var g = leer('informeOpc', {}), o = {}; Object.keys(OPC_INF).forEach(function (k) { o[k] = g[k] == null ? OPC_INF[k] : g[k]; }); return o; }
   function datosInforme(o) {
     var ms = filtrados.slice();
-    var bloques = [['Por célula', AGRUPAR.celula[1]], ['Por bandeja', AGRUPAR.bandeja[1]], ['Por tipo', AGRUPAR.tipo[1]], ['Por estado', AGRUPAR.estado[1]], ['Por prioridad', AGRUPAR.prioridad[1]], ['Por remitente', AGRUPAR.remitente[1]]]
+    var bloques = [['Por célula', AGRUPAR.celula[1]], ['Por bandeja', AGRUPAR.bandeja[1]], ['Por tipo', AGRUPAR.tipo[1]], ['Por estado', AGRUPAR.estado[1]], ['Por prioridad', AGRUPAR.prioridad[1]], ['Por bandera', AGRUPAR.bandera[1]], ['Por remitente', AGRUPAR.remitente[1]]]
       .map(function (b) { var c = cuentaPor(ms, b[1]); if (b[0] === 'Por remitente' && c.length > 10) c = c.slice(0, 10); return [b[0], c]; })
       .filter(function (b) { return b[1].length && !(b[1].length === 1 && b[1][0][0] === '(sin dato)'); });
     var cols = [['Fecha', function (m) { return verFecha(fechaDe(m)); }], ['Célula', celCorta], ['E/S', function (m) { return xDe(m).__es === 'Entrada' ? 'E' : xDe(m).__es === 'Salida' ? 'S' : ''; }],
-      ['Tipo', function (m) { return m.MensajeTipo_es; }], ['Prio.', function (m) { return xDe(m).CodigoPrioridad; }], ['Asunto', function (m) { return m._asunto; }],
+      ['Tipo', function (m) { return m.MensajeTipo_es; }], ['Prio.', function (m) { return xDe(m).CodigoPrioridad; }], ['Bandera', function (m) { return xDe(m).Bandera; }], ['Asunto', function (m) { return m._asunto; }],
       ['Remitente', function (m) { return autoridad(m); }], ['N.º ref.', function (m) { return m.MensajeNum_referencia; }], ['Estado', function (m) { return m.MensajeEstado; }],
       ['Leído', function (m) { return m._leido === true ? 'Sí' : m._leido === false ? 'No' : ''; }], ['Tarea', function (m) { return enviados[claveMensaje(m)] ? 'Sí' : ''; }]];
     // Columnas sin ningún dato fuera
@@ -1301,6 +1327,7 @@
           var ex = o.extracto ? extractoDe(m) : '';
           h += '<tr><td' + td + '>' + n + '</td>' + d.cols.map(function (c) {
             var v = esc(c[1](m));
+            if (c[0] === 'Bandera' && !W && m._bandera) v = htmlBandera(m._bandera);
             if (c[0] === 'Asunto') v = '<b>' + (v || '(sin asunto)') + '</b>' + (ex ? '<div class="extracto"' + (W ? ' style="color:#555;font-size:8pt"' : '') + '>' + esc(ex) + '</div>' : '');
             return '<td' + td + '>' + v + '</td>';
           }).join('') + '</tr>';

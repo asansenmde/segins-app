@@ -99,6 +99,9 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   prioridad, remitente o día; vista previa al momento y salida a PDF, Word, texto o CSV. Autoría bien visible: cabecera
   con franja dorada y «Desarrollado por el Cte. Alfredo Sánchez Sender», panel de bienvenida, pie, cada informe (también
   el pie del Word) y la página de instalación del favorito.
+  **Versión 2026-10-29 · 4 (pruebas)**: banderas de MENSADEF (Urgente, Finalizado…). Cada mensaje trae `IdEtiqueta` y el
+  catálogo sale de `GET api/etiqueta/EtiquetasObtener?emailUsuario&urlColeccionSitio` (`[{IdEtiqueta, Nombre, Color}]`).
+  Se ven con su color delante del asunto y en la ficha, con filtro «Bandera», y en el informe (columna, resumen y agrupar).
 
 ## Estructura de MENSADEF (ámbito 2SUIGE)
 
