@@ -109,6 +109,8 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   **Versión 2026-10-29 · 6 (pruebas)**: quién firma (`Firma`) y el motivo (`MotivoDistribucion`), las columnas «Firma» y
   «Motivo» de la bandeja de MENSADEF: destacados en la cabecera de la ficha, bajo el asunto en la tabla, en la búsqueda y
   en el informe (columnas, detalle, resumen y agrupar por firma o motivo).
+  **Versión 2026-10-29 · 7 (pruebas)**: el informe se imprime en A4 apaisado, a todo el ancho, con letra ajustada, la
+  cabecera de la tabla repetida en cada hoja y sin partir filas entre hojas (la prueba deja `pruebas/informe.pdf`).
 
 ## Estructura de MENSADEF (ámbito 2SUIGE)
 

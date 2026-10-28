@@ -146,13 +146,36 @@
   #informeDoc .msg dt { color: #5f685f; font-weight: 600; } #informeDoc .msg dd { margin: 0; }
   #informeDoc .msg .texto { white-space: pre-wrap; font-size: .82rem; background: #fafaf7; border: 1px solid #eee; border-radius: 6px; padding: 6px 8px; }
   #informeDoc .firma-inf { margin-top: 18px; border-top: 3px solid #c9a84c; padding-top: 6px; font-size: .74rem; color: #5f685f; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  @page { size: A4 landscape; margin: 10mm 10mm 12mm; }
   @media print {
     body.imprimiendo > *:not(#capaInforme) { display: none !important; }
     body.imprimiendo #capaInforme { position: static; background: none; padding: 0; display: block; }
     body.imprimiendo #capaInforme .hoja { box-shadow: none; max-width: none; padding: 0; }
     body.imprimiendo #capaInforme .no-imprimir { display: none !important; }
     body.imprimiendo #capaInforme .inf-rejilla { display: block; }
-    body.imprimiendo #capaInforme .vista { border: 0; padding: 0; }
+    body.imprimiendo #capaInforme .vista { border: 0; padding: 0; min-height: 0; }
+    /* Informe impreso: A4 apaisado, a todo el ancho, letra pequeña y tablas que caben */
+    html, body.imprimiendo { background: #fff !important; }
+    body.imprimiendo #capaInforme { overflow: visible; inset: auto; }
+    body.imprimiendo #capaInforme .hoja { border-radius: 0; width: auto; }
+    body.imprimiendo #informeDoc { font-size: 8.5pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body.imprimiendo #informeDoc h1 { font-size: 14pt; }
+    body.imprimiendo #informeDoc h2 { font-size: 10.5pt; margin-top: 10pt; page-break-after: avoid; }
+    body.imprimiendo #informeDoc p { margin: 3pt 0; }
+    body.imprimiendo #informeDoc table { width: 100%; font-size: 7.8pt; table-layout: auto; }
+    body.imprimiendo #informeDoc thead { display: table-header-group; }
+    body.imprimiendo #informeDoc th { position: static; white-space: nowrap; padding: 3pt 4pt; border-bottom: 1.5pt solid #3b4a2f; }
+    body.imprimiendo #informeDoc td { padding: 2.5pt 4pt; }
+    body.imprimiendo #informeDoc tr { page-break-inside: avoid; break-inside: avoid; }
+    body.imprimiendo #informeDoc .c-asunto { width: 30%; }
+    body.imprimiendo #informeDoc .extracto { font-size: 7pt; }
+    body.imprimiendo #informeDoc .msg .texto { font-size: 8pt; }
+    body.imprimiendo #informeDoc .c-corta { white-space: nowrap; }
+    body.imprimiendo #informeDoc .resumen { grid-template-columns: repeat(4, 1fr); gap: 6pt; }
+    body.imprimiendo #informeDoc .resumen table { font-size: 7.5pt; }
+    body.imprimiendo #informeDoc .cifras div { padding: 3pt 8pt; }
+    body.imprimiendo #informeDoc .msg dl { grid-template-columns: 150px 1fr 150px 1fr; }
+    body.imprimiendo #informeDoc .firma-inf { page-break-inside: avoid; }
   }
   .autor .sello { display: inline-block; margin-bottom: 6px; padding: 4px 14px; border: 1px solid #c9a84c; border-radius: 999px; background: #fbf6e6; color: #5a4a14; font-size: .82rem; }
   .hero .autoria { position: absolute; right: 16px; bottom: 10px; z-index: 1; font-size: .72rem; color: #e6d9a8; letter-spacing: .5px; }
@@ -233,7 +256,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-10-29 · 6';
+  var VERSION = '2026-10-29 · 7';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1380,6 +1403,7 @@
         .filter(function (c, i) { return i === 0 || c[1]; }),
       sinTexto: ms.filter(function (m) { return !textoDe(m); }).length };
   }
+  var claseCol = function (n) { return n === 'Asunto' ? ' class="c-asunto"' : /^(Fecha|E\/S|Prio\.|N\.º ref\.|Leído|Tarea)$/.test(n) ? ' class="c-corta"' : ''; };
   var AUTORIA = 'Visor de mensajes MENSADEF · Diseñado y desarrollado por el Cte. Alfredo Sánchez Sender · © 2026';
   function htmlInforme(d, paraWord) {
     var o = d.o, W = !!paraWord;
@@ -1398,18 +1422,18 @@
       return '<table' + (W ? ' style="border-collapse:collapse;margin:0 0 8px"' : '') + '><tr><th' + th + ' colspan="2">' + esc(b[0]) + '</th></tr>' + b[1].map(function (x) { return '<tr><td' + td + '>' + esc(x[0]) + '</td><td' + td + ' align="right">' + x[1] + '</td></tr>'; }).join('') + '</table>';
     }).join('') + '</div>';
     if (o.relacion) {
-      h += '<h2>Relación de mensajes</h2><table' + tabla + '><thead><tr><th' + th + '>N.º</th>' + d.cols.map(function (c) { return '<th' + th + '>' + esc(c[0]) + '</th>'; }).join('') + '</tr></thead><tbody>';
+      h += '<h2>Relación de mensajes</h2><table' + tabla + '><thead><tr><th' + th + ' class="c-corta">N.º</th>' + d.cols.map(function (c) { return '<th' + th + claseCol(c[0]) + '>' + esc(c[0]) + '</th>'; }).join('') + '</tr></thead><tbody>';
       var n = 0;
       d.grupos.forEach(function (g) {
         if (g[0]) h += '<tr class="grupo"><td' + (W ? ' style="border:1px solid #999;padding:4px 5px;background:#dfe5d6;font-weight:bold"' : '') + ' colspan="' + (d.cols.length + 1) + '">' + esc(g[0]) + ' (' + g[1].length + ')</td></tr>';
         g[1].forEach(function (m) {
           n++;
           var ex = o.extracto ? extractoDe(m) : '';
-          h += '<tr><td' + td + '>' + n + '</td>' + d.cols.map(function (c) {
+          h += '<tr><td' + td + ' class="c-corta">' + n + '</td>' + d.cols.map(function (c) {
             var v = esc(c[1](m));
             if (c[0] === 'Bandera' && !W && m._bandera) v = htmlBandera(m._bandera);
             if (c[0] === 'Asunto') v = '<b>' + (v || '(sin asunto)') + '</b>' + (ex ? '<div class="extracto"' + (W ? ' style="color:#555;font-size:8pt"' : '') + '>' + esc(ex) + '</div>' : '');
-            return '<td' + td + '>' + v + '</td>';
+            return '<td' + td + claseCol(c[0]) + '>' + v + '</td>';
           }).join('') + '</tr>';
         });
       });

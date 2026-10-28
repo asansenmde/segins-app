@@ -153,6 +153,10 @@ console.log('informe con opciones: marca', doc.includes('USO OFICIAL'), '| unida
   '| fichas', await p.$$eval('#informeDoc .msg', l => l.length), '| texto completo', await p.$$eval('#informeDoc .msg .texto', l => l.length), '| extractos', await p.$$eval('#informeDoc .extracto', l => l.length),
   '| autoría', doc.includes('Cte. Alfredo Sánchez Sender'), '| ¿escapa?', !(await p.$('#informeDoc script')));
 await p.screenshot({ path: new URL('informe-detalle.png', import.meta.url).pathname, fullPage: false });
+// Impresión: PDF como lo sacaría el navegador al pulsar «Imprimir»
+await p.evaluate(() => document.body.classList.add('imprimiendo')); await p.emulateMedia({ media: 'print' });
+await p.pdf({ path: new URL('informe.pdf', import.meta.url).pathname, preferCSSPageSize: true, printBackground: true });
+await p.emulateMedia({ media: 'screen' }); await p.evaluate(() => document.body.classList.remove('imprimiendo'));
 const txtInf = await p.evaluate(() => { let t = ''; navigator.clipboard.writeText = x => { t = x; return Promise.resolve(); }; document.querySelector('[data-inf="texto"]').click(); return new Promise(r => setTimeout(() => r(t), 100)); });
 console.log('texto:', txtInf.split('\n').slice(0, 9).join(' ⏎ ').slice(0, 400));
 const [w] = await Promise.all([p.waitForEvent('download'), p.click('[data-inf="word"]')]); console.log('word:', w.suggestedFilename(), require('fs').readFileSync(await w.path(), 'utf8').includes('Relación de mensajes'));
