@@ -151,7 +151,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-10-28 · 3';
+  var VERSION = '2026-10-28 · 4';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -446,24 +446,33 @@
   // La clave del servicio la da el propio servicio, como hace la aplicación de MENSADEF: una consulta sin clave
   // (MensadefActivo o ConsultaUsuarioDicodefPorCorreo) devuelve en las cabeceras de la respuesta «IdUsuario» (el passcode)
   // y «User». Se guarda solo en esta pestaña y se vuelve a pedir si el servicio contesta 406 (caducada).
-  var pidiendoClave = null;
+  var pidiendoClave = null, cuentaUsuario = '';
   function pedirClave(email, url) {
     if (pidiendoClave) return pidiendoClave;
     var base = (datosApp.origen || API) + '/api/';
-    var candidatas = [['ambitocomun/MensadefActivo', { emailUsuario: email }], ['usuario/ConsultaUsuarioDicodefPorCorreo', { emailUsuario: email, urlColeccionSitio: url }]];
+    // 1.º la consulta ValidateUser tal como la hizo la aplicación en esta página; 2.º la misma con la cuenta del usuario
+    var preparar = datosApp.validar || cuentaUsuario || !web ? Promise.resolve() :
+      api('web/currentuser?$select=LoginName', web.url).then(function (u) { cuentaUsuario = u.LoginName || ''; }, function () { /* sin cuenta */ });
+    var cuenta, candidatas = [];
+    var montar = function () {
+    cuenta = String(cuentaUsuario || '').split(/[|\\]/).pop();
+    candidatas = (datosApp.validar ? [['usuario/ValidateUser', null, datosApp.validar]] : [])
+      .concat(cuenta ? [['usuario/ValidateUser', { idUsuario: cuenta, useUid: 'true' }], ['usuario/ValidateUser', { idUsuario: cuenta, useUid: 'false' }]] : [])
+      .concat([['ambitocomun/MensadefActivo', { emailUsuario: email }]]);
+    };
     var probar = function (i) {
       if (i >= candidatas.length) return Promise.reject(new Error('el servicio no ha dado la clave'));
-      var c = candidatas[i], q = Object.keys(c[1]).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(c[1][k] || ''); }).join('&');
-      return fetch(base + c[0] + '?' + q, { credentials: 'omit', headers: { 'Content-Type': 'application/json' } }).then(function (r) {
+      var c = candidatas[i], q = c[1] ? Object.keys(c[1]).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(c[1][k] || ''); }).join('&') : '';
+      return fetch(c[2] || base + c[0] + '?' + q, { credentials: 'omit', headers: { 'Content-Type': 'application/json' } }).then(function (r) {
         var pc = r.headers.get('IdUsuario'), us = r.headers.get('User');
-        intentosApi.push('clave pedida a ' + c[0] + ': HTTP ' + r.status + (pc ? ', recibida (' + pc.length + ' caracteres' + (us ? ', con User' : '') + ')' : ', sin clave en la respuesta'));
+        intentosApi.push('clave pedida a ' + c[0] + (c[2] ? ' (la de la aplicación)' : c[1] && c[1].useUid ? ' (cuenta, useUid=' + c[1].useUid + ')' : '') + ': HTTP ' + r.status + (pc ? ', recibida (' + pc.length + ' caracteres' + (us ? ', con User' : '') + ')' : ', sin clave en la respuesta'));
         if (!pc) return probar(i + 1);
         try { sessionStorage.setItem(MEMORIA + 'cabecerasApi', JSON.stringify({ passcode: pc, user: us || '', momento: Date.now(), de: c[0], largo: pc.length, propia: true })); } catch (e) { /* sin memoria */ }
         claveUsada = null;
         return true;
       }, function (e) { intentosApi.push('clave pedida a ' + c[0] + ': ' + (e.message || e)); return probar(i + 1); });
     };
-    pidiendoClave = probar(0).then(function (x) { pidiendoClave = null; return x; }, function (e) { pidiendoClave = null; throw e; });
+    pidiendoClave = preparar.then(function () { montar(); return probar(0); }).then(function (x) { pidiendoClave = null; return x; }, function (e) { pidiendoClave = null; throw e; });
     return pidiendoClave;
   }
   function pedirApi(ruta, params, reintento) {
@@ -538,6 +547,8 @@
         var u = new URL(e.name, location.href);
         if (u.host.toLowerCase().indexOf('mensadefapi.') !== 0) return;
         if (!r.origen) r.origen = u.origin;
+        // La consulta con la que la aplicación obtiene la clave (no se muestra; se repite igual)
+        if (/\/usuario\/ValidateUser$/i.test(u.pathname) && !r.validar) r.validar = u.href;
         ['emailUsuario', 'urlColeccionSitio'].forEach(function (k) { var v = u.searchParams.get(k); if (v && !r[k]) r[k] = v; });
         // El número de usuario, solo de las consultas de células, bandejas y vistas (ValidateUser usa otro identificador)
         if (/UsuarioCelulas|ObtenerBuzonUsuario|UsuarioVista|PortafirmasUsuario/i.test(u.pathname) && u.searchParams.get('idUsuario') && !r.idUsuario) r.idUsuario = u.searchParams.get('idUsuario');

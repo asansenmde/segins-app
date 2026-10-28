@@ -41,7 +41,9 @@ await ctx.route(API + '/**', r => {
   if (r.request().method() === 'OPTIONS') return r.fulfill({ headers: Object.assign({ 'Access-Control-Allow-Headers': 'content-type, passcode, user' }, H), body: '' });
   if (ruta === 'usuariovista/UsuarioVistaObtener') return r.fulfill({ headers: H, json: {} });
   // Como el real: la consulta sin clave devuelve la clave en las cabeceras de la respuesta (IdUsuario = passcode, User)
-  if (ruta === 'ambitocomun/MensadefActivo') { nClaves++; return r.fulfill({ headers: Object.assign({ 'Access-Control-Expose-Headers': 'IdUsuario, User' }, H, process.env.NOCLAVE ? {} : { IdUsuario: PASS, User: UID }), json: true }); }
+  // (como en el real, MensadefActivo responde pero sin clave; la da ValidateUser con la cuenta del usuario)
+  if (ruta === 'ambitocomun/MensadefActivo') return r.fulfill({ headers: H, json: true });
+  if (ruta === 'usuario/ValidateUser') { nClaves++; const ok = !process.env.NOCLAVE && q.idUsuario === 'persona'; return r.fulfill({ headers: Object.assign({ 'Access-Control-Expose-Headers': 'IdUsuario, User' }, H, ok ? { IdUsuario: PASS, User: UID } : {}), json: true }); }
   if (hd.passcode !== PASS || hd.user !== UID) return r.fulfill({ status: 406, headers: H, body: '' });
   if (q.emailUsuario !== 'persona@et.mde.es' || q.urlColeccionSitio !== O + WEB) return r.fulfill({ status: 400, headers: H, json: { error: 'parámetros' } });
   if (ruta === 'usuario/ConsultaUsuarioDicodefPorCorreo') return r.fulfill({ headers: H, json: { Datos: { IdUsuario: 77, Nombre: 'PERSONA', Correo: q.emailUsuario } } });
@@ -58,7 +60,7 @@ await ctx.route(O + '/**', r => {
   if (!u.includes('/_api/')) return r.fulfill({ contentType: 'text/html', body: '<html><body>MENSADEF<script>addEventListener("hashchange", function () { if (/^#\\/celula\\//.test(location.hash)) fetch("' + API + '/api/usuariovista/UsuarioVistaObtener?x=1", { headers: { "Content-Type": "application/json", passcode: "' + PASS + '", user: "' + UID + '" } }); });</script></body></html>' });
   if (u.startsWith(O + WEB + '/_api/web?')) return J({ Url: O + WEB, Title: 'Segunda SUIGE' });
   if (u.includes('/_api/web?')) return r.fulfill({ status: 404, body: '' });
-  if (u.includes('currentuser')) return J(process.env.SINCORREO ? { Title: 'PERSONA', Email: '', UserPrincipalName: '', LoginName: 'i:0#.w|et\\persona' } : { Title: 'PERSONA', Email: 'persona@et.mde.es' });
+  if (u.includes('currentuser')) return J(process.env.SINCORREO ? { Title: 'PERSONA', Email: '', UserPrincipalName: '', LoginName: 'i:0#.w|et\\persona' } : { Title: 'PERSONA', Email: 'persona@et.mde.es', LoginName: 'i:0#.w|et\\persona' });
   if (u.includes('GetMyProperties')) return J({ Email: '', UserProfileProperties: [] });
   if (u.includes('/_api/site?')) return J({ Url: O + WEB });
   r.fulfill({ status: 404, body: '' });
