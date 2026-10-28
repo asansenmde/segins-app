@@ -84,4 +84,6 @@ autoría.
     servicio `mensadefapi` (cabeceras `passcode` y `user` tomadas de la propia aplicación), por defecto todas las suyas,
     con «✓ Visto», «➜ Tarea», tarjetas, píldoras de célula, autoría y diseño. **Confirmado por el usuario** que ya lee su
     célula y (versión 2026-10-28 · 4) que el visor obtiene solo la clave del servicio con `ValidateUser`, como la aplicación. Pendiente: que lo use unos días; decidir si «visto» debe ser compartido por el grupo (ahora es de cada
-    navegador) y, cuando lo dé por bueno, regenerar el favorito bueno.
+    navegador) y, cuando lo dé por bueno, regenerar el favorito bueno. Versión 2026-10-29 · 3: informes como los de Permisos
+    (encabezado, extracto y detalle con el texto completo, agrupados; PDF, Word, texto, CSV) y autoría más visible:
+    pendiente de que el usuario los revise.

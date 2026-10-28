@@ -15,9 +15,17 @@
   :root { --bg: #f4f5f0; --card: #fff; --text: #1f261f; --muted: #5f685f; --line: #d9ddd3; --brand: #3b4a2f; --soft: #eef1ea; --ok: #2e7d32; --okbg: #dcefdc; --bad: #b71c1c; --badbg: #fbdada; --sel: #fff8e1; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { background: var(--brand); color: #fff; padding: 10px 16px; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
-  header h1 { font-size: 1.15rem; margin: 0; }
-  header .muted { color: #d6dccf; }
+  header { position: sticky; top: 0; z-index: 20; background: linear-gradient(90deg, #1c2615, var(--brand) 55%, #56693f); color: #fff; border-bottom: 4px solid #c9a84c; box-shadow: 0 2px 6px rgba(0,0,0,.25); }
+  header > div { max-width: 1400px; margin: 0 auto; padding: 8px 16px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  header .escudo { font-size: 1.7rem; line-height: 1; }
+  header .tit { flex: 1; min-width: 220px; }
+  header h1 { font-size: 1.25rem; margin: 0; letter-spacing: .05em; font-weight: 800; }
+  header .subt { display: block; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: #e6d9a8; }
+  header .muted { color: #e3ead9; font-size: .82rem; }
+  header .firma { font-size: .74rem; color: #e6d9a8; text-align: right; line-height: 1.25; }
+  header .firma b { color: #fff; font-size: .82rem; }
+  @media (max-width: 700px) { header { position: static; } header .firma { display: none; } header h1 { font-size: 1.05rem; } }
+  @media print { header { position: static; } }
   main { max-width: 1400px; margin: 0 auto; padding: 12px 16px 40px; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 10px 0; }
   .muted { color: var(--muted); font-size: .88rem; }
@@ -101,25 +109,56 @@
   .ficha-campos { margin-top: 6px; }
   details.otros { margin-top: 8px; font-size: .84rem; } details.otros summary { cursor: pointer; color: var(--muted); font-weight: 600; }
   #capaInforme { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.45); display: flex; align-items: flex-start; justify-content: center; overflow: auto; padding: 20px 12px; }
-  #capaInforme .hoja { background: #fff; border-radius: 12px; max-width: 1100px; width: 100%; padding: 18px 22px; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+  #capaInforme .hoja { background: #fff; border-radius: 12px; max-width: 1300px; width: 100%; padding: 18px 22px; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+  #capaInforme .inf-cab { background: linear-gradient(90deg, #1c2615, #3b4a2f 60%, #56693f); color: #fff; border-bottom: 3px solid #c9a84c; border-radius: 10px; padding: 10px 14px; margin: -4px 0 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #capaInforme .inf-cab b { font-size: 1.05rem; flex: 1; } #capaInforme .inf-cab span { font-size: .74rem; color: #e6d9a8; }
+  #capaInforme .inf-rejilla { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 860px) { #capaInforme .inf-rejilla { grid-template-columns: 1fr; } }
+  #capaInforme .inf-opc { background: #f6f7f2; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: .84rem; position: sticky; top: 0; }
+  #capaInforme .inf-opc h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: #3b4a2f; margin: 10px 0 4px; }
+  #capaInforme .inf-opc h3:first-child { margin-top: 0; }
+  #capaInforme .inf-opc label { display: block; margin: 4px 0; }
+  #capaInforme .inf-opc input[type=text], #capaInforme .inf-opc select { width: 100%; box-sizing: border-box; }
+  #capaInforme .inf-opc .acciones { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  #capaInforme .vista { border: 1px solid var(--line); border-radius: 10px; padding: 18px 22px; background: #fff; min-height: 300px; }
   #informeDoc { font-size: .86rem; }
   #informeDoc h1 { font-size: 1.25rem; margin: 0 0 4px; color: #26331d; }
   #informeDoc h2 { font-size: 1rem; margin: 16px 0 6px; color: #3b4a2f; border-bottom: 2px solid #3b4a2f; padding-bottom: 3px; }
   #informeDoc table { font-size: .8rem; }
   #informeDoc .resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
   #informeDoc .resumen table td { padding: 3px 6px; }
+  #informeDoc .marca { text-align: center; font-weight: 800; letter-spacing: .2em; color: #8a1c1c; font-size: .8rem; margin: 0 0 6px; }
+  #informeDoc .membrete { display: flex; justify-content: space-between; gap: 10px; border-bottom: 3px solid #c9a84c; padding-bottom: 6px; margin-bottom: 10px; font-size: .8rem; color: #3b4a2f; }
+  #informeDoc .membrete b { font-size: .9rem; }
+  #informeDoc .cifras { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+  #informeDoc .cifras div { border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; background: #f6f7f2; font-size: .78rem; color: #5f685f; }
+  #informeDoc .cifras b { display: block; font-size: 1.2rem; color: #26331d; }
+  #informeDoc .grupo { background: #eef1ea; font-weight: 800; color: #26331d; }
+  #informeDoc .extracto { color: #5f685f; font-size: .76rem; margin-top: 2px; }
+  #informeDoc .msg { border: 1px solid var(--line); border-left: 4px solid #3b4a2f; border-radius: 8px; padding: 8px 12px; margin: 10px 0; page-break-inside: avoid; }
+  #informeDoc .msg h3 { font-size: .95rem; margin: 0 0 6px; color: #26331d; }
+  #informeDoc .msg dl { display: grid; grid-template-columns: 170px 1fr; gap: 2px 10px; margin: 0 0 6px; font-size: .8rem; }
+  #informeDoc .msg dt { color: #5f685f; font-weight: 600; } #informeDoc .msg dd { margin: 0; }
+  #informeDoc .msg .texto { white-space: pre-wrap; font-size: .82rem; background: #fafaf7; border: 1px solid #eee; border-radius: 6px; padding: 6px 8px; }
+  #informeDoc .firma-inf { margin-top: 18px; border-top: 3px solid #c9a84c; padding-top: 6px; font-size: .74rem; color: #5f685f; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
   @media print {
     body.imprimiendo > *:not(#capaInforme) { display: none !important; }
     body.imprimiendo #capaInforme { position: static; background: none; padding: 0; display: block; }
     body.imprimiendo #capaInforme .hoja { box-shadow: none; max-width: none; padding: 0; }
     body.imprimiendo #capaInforme .no-imprimir { display: none !important; }
+    body.imprimiendo #capaInforme .inf-rejilla { display: block; }
+    body.imprimiendo #capaInforme .vista { border: 0; padding: 0; }
   }
+  .autor .sello { display: inline-block; margin-bottom: 6px; padding: 4px 14px; border: 1px solid #c9a84c; border-radius: 999px; background: #fbf6e6; color: #5a4a14; font-size: .82rem; }
+  .hero .autoria { position: absolute; right: 16px; bottom: 10px; z-index: 1; font-size: .72rem; color: #e6d9a8; letter-spacing: .5px; }
+  @media (max-width: 700px) { .hero .autoria { position: static; display: block; margin-top: 6px; } }
   .autor { max-width: 1400px; margin: 0 auto; padding: 12px 16px 24px; text-align: center; font-size: .78rem; color: var(--muted); border-top: 1px solid var(--line); }
   @media print { .autor { display: none; } }
 </style>
 </head>
 <body>
-<header><h1>Mensajes MENSADEF</h1><span class="muted" id="quien"></span></header>
+<header><div><span class="escudo" aria-hidden="true">✉</span><div class="tit"><h1>VISOR DE MENSAJES MENSADEF</h1><span class="subt">Bandejas, informes y paso a Tareas · Desarrollado por el Cte. Alfredo Sánchez Sender</span></div>
+  <span class="muted" id="quien"></span><div class="firma">© 2026<br><b>Cte. Alfredo Sánchez Sender</b><br><span id="verCab"></span></div></div></header>
 <main>
   <noscript><div class="card bad">El navegador no ejecuta el código de esta página.</div></noscript>
   <div class="card" id="aviso" hidden></div>
@@ -171,7 +210,7 @@
     <div class="card" id="detalle" hidden></div>
   </div>
 </main>
-<footer class="autor">© 2026 · Aplicación desarrollada por el <b>Cte. Alfredo Sánchez Sender</b> · Todos los derechos reservados · <span id="verPie"></span></footer>
+<footer class="autor"><div class="sello">Diseño, desarrollo y propiedad intelectual: <b>Cte. Alfredo Sánchez Sender</b></div>© 2026 · Visor de mensajes MENSADEF · Todos los derechos reservados · Prohibida su copia o modificación sin autorización del autor · <span id="verPie"></span></footer>
 <script>
 (function () {
   'use strict';
@@ -189,8 +228,8 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-10-29 · 2';
-  try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); } catch (e) { /* sin pie */ }
+  var VERSION = '2026-10-29 · 3';
+  try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
 
@@ -430,7 +469,8 @@
     $('hero').hidden = false;
     $('hero').innerHTML = '<div class="hola">Mensajes MENSADEF' + (nombre ? ' · Hola' : '') + '</div><div class="nom">' + esc(nombre || 'Tus bandejas') + '</div>' +
       e.map(function (c) { return '<span class="rolh">' + (c.en4 ? '★ ' : '') + esc(c.nombre) + '</span>'; }).join('') +
-      '<p>Tus bandejas de entrada y salida de las células que elijas. Marca ✓ lo revisado y pasa a tarea lo que haya que hacer. Lo que marcas se guarda en este navegador.</p>';
+      '<p>Tus bandejas de entrada y salida de las células que elijas. Marca ✓ lo revisado, pasa a tarea lo que haya que hacer y saca informes de lo filtrado (📄 Informe). Lo que marcas se guarda en este navegador.</p>' +
+      '<span class="autoria">Desarrollado por el Cte. Alfredo Sánchez Sender · © 2026</span>';
   }
   function pintarResumenCelulas() {
     var e = celulasElegidas();
@@ -1168,8 +1208,10 @@
     $('copiarEstructura').addEventListener('click', function () { var b = this; (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function () { b.textContent = 'Copiado ✓'; }, function () { $('cajaEstructura').querySelector('textarea').select(); }); });
   });
 
-  // Informe de lo que se está viendo (los mismos filtros): encabezado, filtros, resumen y relación de mensajes.
-  // Imprimir o guardar en PDF, Word (.doc) o texto para pegar en un correo. Se genera en el navegador.
+  // Informe de lo que se está viendo (los mismos filtros), como los de Permisos y el Gestor de Tareas:
+  // encabezado configurable (título, unidad, a la atención de, marca), cifras, resumen, relación con un extracto
+  // de cada mensaje y, si se pide, el detalle de cada uno con sus datos y el texto completo. Agrupado si se quiere.
+  // Imprimir o PDF, Word (.doc), texto para un correo o CSV. Se genera en el navegador: nada sale de él.
   function filtrosAplicados() {
     var f = [];
     var sel = function (id, nom) { var e = $(id); if (e && e.value && e.parentNode.style.display !== 'none') f.push(nom + ': ' + e.value); };
@@ -1183,53 +1225,167 @@
     return f;
   }
   var cuentaPor = function (ms, f) { var c = {}; ms.forEach(function (m) { var k = f(m) || '(sin dato)'; c[k] = (c[k] || 0) + 1; }); return Object.keys(c).sort(function (a, b) { return c[b] - c[a] || a.localeCompare(b, 'es'); }).map(function (k) { return [k, c[k]]; }); };
-  function datosInforme() {
-    var ms = filtrados.slice();
-    var bloques = [['Por célula', function (m) { return sitioDe(m); }], ['Por bandeja', function (m) { return m._x.__es; }], ['Por tipo', function (m) { return m.MensajeTipo_es; }],
-      ['Por estado', function (m) { return m.MensajeEstado; }], ['Por prioridad', function (m) { return m._x.CodigoPrioridad; }]]
-      .map(function (b) { return [b[0], cuentaPor(ms, b[1])]; }).filter(function (b) { return b[1].length && !(b[1].length === 1 && b[1][0][0] === '(sin dato)'); });
-    var cols = [['Fecha', function (m) { return verFecha(fechaDe(m)); }], ['Célula', function (m) { return sitioDe(m).replace(/^ET \w+ /, ''); }], ['E/S', function (m) { return m._x.__es === 'Entrada' ? 'E' : m._x.__es === 'Salida' ? 'S' : ''; }],
-      ['Tipo', function (m) { return m.MensajeTipo_es; }], ['Prio.', function (m) { return m._x.CodigoPrioridad; }], ['Asunto', function (m) { return m._asunto; }],
-      ['Remitente', function (m) { return autoridad(m); }], ['N.º registro', function (m) { return m.MensajeNum_referencia; }], ['Estado', function (m) { return m.MensajeEstado; }],
-      ['Leído', function (m) { return m._leido === true ? 'Sí' : m._leido === false ? 'No' : ''; }], ['Tarea', function (m) { return enviados[claveMensaje(m)] ? 'Sí' : ''; }]];
-    return { ms: ms, bloques: bloques, cols: cols, filtros: filtrosAplicados(), periodo: $('desde').value.split('-').reverse().join('/') + ' al ' + $('hasta').value.split('-').reverse().join('/'),
-      quien: ($('quien').textContent || '').split(' · ').pop(), noLeidos: ms.filter(function (m) { return m._leido === false; }).length };
+  var xDe = function (m) { return m._x || {}; };
+  var celCorta = function (m) { return sitioDe(m).replace(/^ET \w+ /, ''); };
+  var textoDe = function (m) { return String(m._cuerpoApi || m._cuerpo || '').replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').trim(); };
+  var extractoDe = function (m) { var t = textoDe(m).replace(/\s+/g, ' '); return t.length > 260 ? t.slice(0, 257).replace(/\s\S*$/, '') + '…' : t; };
+  // Agrupaciones del informe
+  var AGRUPAR = { '': ['Sin agrupar'], celula: ['Célula', function (m) { return sitioDe(m); }], bandeja: ['Bandeja (entrada/salida)', function (m) { return xDe(m).__es; }],
+    tipo: ['Tipo de mensaje', function (m) { return m.MensajeTipo_es; }], estado: ['Estado', function (m) { return m.MensajeEstado; }],
+    prioridad: ['Prioridad', function (m) { return xDe(m).CodigoPrioridad; }], remitente: ['Remitente / autoridad', function (m) { return autoridad(m); }],
+    dia: ['Día', function (m) { var f = fechaDe(m); return f ? f.toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; }] };
+  // Datos de cada mensaje en el detalle: los de la ficha (bandejas) o los de la lista
+  function camposMensaje(m) {
+    var x = xDe(m);
+    var c = m._api ? [['Fecha', verFecha(fechaDe(m))], ['Bandeja', x.__es], ['Nombre autoridad', m.MensajeNombre_Autoridad], ['N.º referencia', m.MensajeNum_referencia], ['Su referencia', m.MensajeSu_referencia],
+      ['Enviable a rúbrica', x.EnviableARubrica], ['Fecha registro de entrada', x.FechaRegistroEntrada], ['Fecha registro de salida', x.FechaRegistroSalida], ['Firma', x.Firma], ['Leído', x.Leido],
+      ['Prioridad', x.CodigoPrioridad], ['Tipo de mensaje', m.MensajeTipo_es], ['Estado', m.MensajeEstado], ['Último comentario', x.UltimoComentario], ['Usuario remitente', x.UsuarioRemitente], ['Célula', sitioDe(m)]]
+      : [['Fecha', verFecha(fechaDe(m))], ['Autoridad', autoridad(m)], ['Referencia', m.MensajeNum_referencia], ['Su referencia', m.MensajeSu_referencia], ['Expediente', m.MensajeNum_expediente],
+      ['Tipo', m.MensajeTipo_es], ['Estado', m.MensajeEstado], ['Canal', m.MensajeCanal], ['Órgano', organo(m)], ['Sitio', sitioDe(m)]];
+    c.push(['Adjuntos', m.Attachments ? 'Sí' : ''], ['Visto', vistos[claveMensaje(m)] ? verFecha(new Date(vistos[claveMensaje(m)])) : ''], ['Pasado a tarea', enviados[claveMensaje(m)] ? verFecha(new Date(enviados[claveMensaje(m)])) : '']);
+    return c.filter(function (v) { return v[1] != null && String(v[1]).trim() !== ''; }).map(function (v) { return [v[0], String(v[1])]; });
   }
+  var OPC_INF = { titulo: 'Relación de mensajes de MENSADEF', unidad: '', destinatario: '', marca: '', agrupar: '', resumen: true, relacion: true, extracto: true, detalle: false };
+  function opcionesInforme() { var g = leer('informeOpc', {}), o = {}; Object.keys(OPC_INF).forEach(function (k) { o[k] = g[k] == null ? OPC_INF[k] : g[k]; }); return o; }
+  function datosInforme(o) {
+    var ms = filtrados.slice();
+    var bloques = [['Por célula', AGRUPAR.celula[1]], ['Por bandeja', AGRUPAR.bandeja[1]], ['Por tipo', AGRUPAR.tipo[1]], ['Por estado', AGRUPAR.estado[1]], ['Por prioridad', AGRUPAR.prioridad[1]], ['Por remitente', AGRUPAR.remitente[1]]]
+      .map(function (b) { var c = cuentaPor(ms, b[1]); if (b[0] === 'Por remitente' && c.length > 10) c = c.slice(0, 10); return [b[0], c]; })
+      .filter(function (b) { return b[1].length && !(b[1].length === 1 && b[1][0][0] === '(sin dato)'); });
+    var cols = [['Fecha', function (m) { return verFecha(fechaDe(m)); }], ['Célula', celCorta], ['E/S', function (m) { return xDe(m).__es === 'Entrada' ? 'E' : xDe(m).__es === 'Salida' ? 'S' : ''; }],
+      ['Tipo', function (m) { return m.MensajeTipo_es; }], ['Prio.', function (m) { return xDe(m).CodigoPrioridad; }], ['Asunto', function (m) { return m._asunto; }],
+      ['Remitente', function (m) { return autoridad(m); }], ['N.º ref.', function (m) { return m.MensajeNum_referencia; }], ['Estado', function (m) { return m.MensajeEstado; }],
+      ['Leído', function (m) { return m._leido === true ? 'Sí' : m._leido === false ? 'No' : ''; }], ['Tarea', function (m) { return enviados[claveMensaje(m)] ? 'Sí' : ''; }]];
+    // Columnas sin ningún dato fuera
+    cols = cols.filter(function (c) { return ms.some(function (m) { var v = c[1](m); return v != null && String(v) !== ''; }); });
+    var grupos = [['', ms]];
+    if (o.agrupar && AGRUPAR[o.agrupar]) {
+      var g = {}, orden = [];
+      ms.forEach(function (m) { var k = AGRUPAR[o.agrupar][1](m) || '(sin dato)'; if (!g[k]) { g[k] = []; orden.push(k); } g[k].push(m); });
+      if (o.agrupar !== 'dia') orden.sort(function (a, b) { return g[b].length - g[a].length || a.localeCompare(b, 'es'); });
+      grupos = orden.map(function (k) { return [k, g[k]]; });
+    }
+    var cuenta = function (f) { return ms.filter(f).length; };
+    return { ms: ms, bloques: bloques, cols: cols, grupos: grupos, filtros: filtrosAplicados(), o: o,
+      periodo: $('desde').value.split('-').reverse().join('/') + ' al ' + $('hasta').value.split('-').reverse().join('/'),
+      quien: ($('quien').textContent || '').split(' · ').pop(),
+      cifras: [['Mensajes', ms.length], ['Sin leer', cuenta(function (m) { return m._leido === false; })], ['Entrada', cuenta(function (m) { return xDe(m).__es === 'Entrada'; })],
+        ['Salida', cuenta(function (m) { return xDe(m).__es === 'Salida'; })], ['Vistos', cuenta(function (m) { return !!vistos[claveMensaje(m)]; })], ['Pasados a tarea', cuenta(function (m) { return !!enviados[claveMensaje(m)]; })]]
+        .filter(function (c, i) { return i === 0 || c[1]; }),
+      sinTexto: ms.filter(function (m) { return !textoDe(m); }).length };
+  }
+  var AUTORIA = 'Visor de mensajes MENSADEF · Diseñado y desarrollado por el Cte. Alfredo Sánchez Sender · © 2026';
   function htmlInforme(d, paraWord) {
-    var td = paraWord ? 'style="border:1px solid #999;padding:3px 5px;vertical-align:top"' : '';
-    var th = paraWord ? 'style="border:1px solid #999;padding:3px 5px;background:#eef1ea;text-align:left"' : '';
-    return '<h1>Relación de mensajes de MENSADEF</h1>' +
-      '<p>Periodo: <b>' + esc(d.periodo) + '</b> · ' + d.ms.length + ' mensajes' + (d.noLeidos ? ' (' + d.noLeidos + ' sin leer)' : '') + (d.quien ? ' · Elaborado por: ' + esc(d.quien) : '') + ' · ' + esc(new Date().toLocaleString('es-ES')) + '</p>' +
-      '<p>Filtros: ' + esc(d.filtros.join(' · ') || 'ninguno') + '</p>' +
-      (d.bloques.length ? '<h2>Resumen</h2><div class="resumen">' + d.bloques.map(function (b) {
-        return '<table' + (paraWord ? ' style="border-collapse:collapse;margin:0 0 8px"' : '') + '><tr><th ' + th + ' colspan="2">' + esc(b[0]) + '</th></tr>' + b[1].map(function (x) { return '<tr><td ' + td + '>' + esc(x[0]) + '</td><td ' + td + ' align="right">' + x[1] + '</td></tr>'; }).join('') + '</table>';
-      }).join('') + '</div>' : '') +
-      '<h2>Relación</h2><table' + (paraWord ? ' style="border-collapse:collapse;width:100%"' : '') + '><thead><tr>' + d.cols.map(function (c) { return '<th ' + th + '>' + esc(c[0]) + '</th>'; }).join('') + '</tr></thead><tbody>' +
-      d.ms.map(function (m) { return '<tr>' + d.cols.map(function (c) { return '<td ' + td + '>' + esc(c[1](m)) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>' +
-      '<p style="margin-top:14px;font-size:.75rem;color:#5f685f">Visor de mensajes de MENSADEF · © 2026 Cte. Alfredo Sánchez Sender · versión ' + esc(VERSION) + '</p>';
+    var o = d.o, W = !!paraWord;
+    var td = W ? ' style="border:1px solid #999;padding:3px 5px;vertical-align:top"' : '';
+    var th = W ? ' style="border:1px solid #999;padding:3px 5px;background:#eef1ea;text-align:left"' : '';
+    var tabla = W ? ' style="border-collapse:collapse;width:100%"' : '';
+    var h = (o.marca ? '<p class="marca"' + (W ? ' style="text-align:center;font-weight:bold;color:#8a1c1c;letter-spacing:3pt"' : '') + '>' + esc(o.marca.toUpperCase()) + '</p>' : '') +
+      '<div class="membrete"' + (W ? ' style="border-bottom:2pt solid #c9a84c;padding-bottom:4pt"' : '') + '><div><b>' + esc(o.unidad || 'Visor de mensajes MENSADEF') + '</b></div><div>' + esc(new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })) + '</div></div>' +
+      '<h1>' + esc(o.titulo || OPC_INF.titulo) + '</h1>' +
+      (o.destinatario ? '<p><b>A la atención de:</b> ' + esc(o.destinatario) + '</p>' : '') +
+      '<p>Periodo: <b>' + esc(d.periodo) + '</b>' + (d.quien ? ' · Elaborado por: ' + esc(d.quien) : '') + ' · Generado el ' + esc(new Date().toLocaleString('es-ES')) + '</p>' +
+      '<p>Filtros aplicados: ' + esc(d.filtros.join(' · ') || 'ninguno') + (o.agrupar ? ' · Agrupado por ' + esc(AGRUPAR[o.agrupar][0].toLowerCase()) : '') + '</p>' +
+      (W ? '<p>' + d.cifras.map(function (c) { return esc(c[0]) + ': <b>' + c[1] + '</b>'; }).join(' · ') + '</p>'
+        : '<div class="cifras">' + d.cifras.map(function (c) { return '<div><b>' + c[1] + '</b>' + esc(c[0]) + '</div>'; }).join('') + '</div>');
+    if (o.resumen && d.bloques.length) h += '<h2>Resumen</h2><div class="resumen">' + d.bloques.map(function (b) {
+      return '<table' + (W ? ' style="border-collapse:collapse;margin:0 0 8px"' : '') + '><tr><th' + th + ' colspan="2">' + esc(b[0]) + '</th></tr>' + b[1].map(function (x) { return '<tr><td' + td + '>' + esc(x[0]) + '</td><td' + td + ' align="right">' + x[1] + '</td></tr>'; }).join('') + '</table>';
+    }).join('') + '</div>';
+    if (o.relacion) {
+      h += '<h2>Relación de mensajes</h2><table' + tabla + '><thead><tr><th' + th + '>N.º</th>' + d.cols.map(function (c) { return '<th' + th + '>' + esc(c[0]) + '</th>'; }).join('') + '</tr></thead><tbody>';
+      var n = 0;
+      d.grupos.forEach(function (g) {
+        if (g[0]) h += '<tr class="grupo"><td' + (W ? ' style="border:1px solid #999;padding:4px 5px;background:#dfe5d6;font-weight:bold"' : '') + ' colspan="' + (d.cols.length + 1) + '">' + esc(g[0]) + ' (' + g[1].length + ')</td></tr>';
+        g[1].forEach(function (m) {
+          n++;
+          var ex = o.extracto ? extractoDe(m) : '';
+          h += '<tr><td' + td + '>' + n + '</td>' + d.cols.map(function (c) {
+            var v = esc(c[1](m));
+            if (c[0] === 'Asunto') v = '<b>' + (v || '(sin asunto)') + '</b>' + (ex ? '<div class="extracto"' + (W ? ' style="color:#555;font-size:8pt"' : '') + '>' + esc(ex) + '</div>' : '');
+            return '<td' + td + '>' + v + '</td>';
+          }).join('') + '</tr>';
+        });
+      });
+      h += '</tbody></table>';
+    }
+    if (o.detalle) {
+      h += '<h2>Detalle de cada mensaje</h2>' + (d.sinTexto ? '<p class="muted">' + d.sinTexto + ' mensaje(s) sin texto en la bandeja: se ve abriéndolos en MENSADEF.</p>' : '');
+      var k = 0;
+      d.grupos.forEach(function (g) {
+        if (g[0]) h += '<h3' + (W ? ' style="font-size:11pt;color:#3b4a2f"' : ' style="margin:14px 0 4px;color:#3b4a2f"') + '>' + esc(g[0]) + ' (' + g[1].length + ')</h3>';
+        g[1].forEach(function (m) {
+          k++;
+          var t = textoDe(m);
+          h += '<div class="msg"' + (W ? ' style="border:1px solid #999;border-left:4pt solid #3b4a2f;padding:6pt;margin:8pt 0"' : '') + '><h3>' + k + '. ' + esc(m._asunto || '(sin asunto)') + '</h3>' +
+            (W ? '<table style="border-collapse:collapse;width:100%;margin-bottom:4pt">' + camposMensaje(m).map(function (c) { return '<tr><td style="width:35%;color:#555;padding:1px 4px">' + esc(c[0]) + '</td><td style="padding:1px 4px">' + esc(c[1]) + '</td></tr>'; }).join('') + '</table>'
+              : '<dl>' + camposMensaje(m).map(function (c) { return '<dt>' + esc(c[0]) + '</dt><dd>' + esc(c[1]) + '</dd>'; }).join('') + '</dl>') +
+            (t ? '<div class="texto"' + (W ? ' style="white-space:pre-wrap;border:1px solid #ddd;padding:4pt;font-size:9pt"' : '') + '>' + esc(t) + '</div>' : '<p class="muted">(Sin texto en la bandeja)</p>') + '</div>';
+        });
+      });
+    }
+    return h + '<div class="firma-inf"' + (W ? ' style="border-top:2pt solid #c9a84c;margin-top:14pt;font-size:8pt;color:#555"' : '') + '><span>' + esc(AUTORIA) + '</span><span>versión ' + esc(VERSION) + '</span></div>';
   }
   function textoInforme(d) {
-    return ['RELACIÓN DE MENSAJES DE MENSADEF', 'Periodo: ' + d.periodo + ' · ' + d.ms.length + ' mensajes' + (d.noLeidos ? ' (' + d.noLeidos + ' sin leer)' : ''), 'Filtros: ' + (d.filtros.join(' · ') || 'ninguno'), '']
-      .concat(d.bloques.map(function (b) { return b[0].toUpperCase() + ': ' + b[1].map(function (x) { return x[0] + ' ' + x[1]; }).join(', '); }), [''])
-      .concat(d.ms.map(function (m) { return '- ' + verFecha(fechaDe(m)) + ' · ' + sitioDe(m).replace(/^ET \w+ /, '') + ' · ' + (m._asunto || '') + (autoridad(m) ? ' · ' + autoridad(m) : '') + (m.MensajeNum_referencia ? ' · ' + m.MensajeNum_referencia : ''); })).join('\n');
+    var o = d.o, L = [];
+    if (o.marca) L.push(o.marca.toUpperCase(), '');
+    if (o.unidad) L.push(o.unidad);
+    L.push((o.titulo || OPC_INF.titulo).toUpperCase());
+    if (o.destinatario) L.push('A la atención de: ' + o.destinatario);
+    L.push('Periodo: ' + d.periodo + (d.quien ? ' · Elaborado por: ' + d.quien : ''), 'Filtros: ' + (d.filtros.join(' · ') || 'ninguno'), d.cifras.map(function (c) { return c[0] + ': ' + c[1]; }).join(' · '), '');
+    if (o.resumen) L = L.concat(d.bloques.map(function (b) { return b[0].toUpperCase() + ': ' + b[1].map(function (x) { return x[0] + ' (' + x[1] + ')'; }).join(', '); }), ['']);
+    var n = 0;
+    d.grupos.forEach(function (g) {
+      if (g[0]) L.push('== ' + g[0] + ' (' + g[1].length + ') ==');
+      g[1].forEach(function (m) {
+        n++;
+        L.push(n + '. ' + verFecha(fechaDe(m)) + ' · ' + celCorta(m) + ' · ' + (m._asunto || '(sin asunto)') + (autoridad(m) ? ' · ' + autoridad(m) : '') + (m.MensajeNum_referencia ? ' · ' + m.MensajeNum_referencia : ''));
+        if (o.detalle) { camposMensaje(m).forEach(function (c) { L.push('   ' + c[0] + ': ' + c[1]); }); if (textoDe(m)) L.push('   Texto:', textoDe(m).replace(/^/gm, '   ')); L.push(''); }
+        else if (o.extracto && extractoDe(m)) L.push('   ' + extractoDe(m));
+      });
+    });
+    return L.concat(['', AUTORIA + ' · versión ' + VERSION]).join('\n');
   }
   $('informe').addEventListener('click', function () {
     if (!filtrados.length) { alert('No hay mensajes con los filtros elegidos.'); return; }
-    var d = datosInforme(), capa = document.createElement('div');
+    var o = opcionesInforme(), capa = document.createElement('div');
+    var txt = function (id, et, ph) { return '<label>' + et + '<input type="text" data-o="' + id + '" value="' + esc(o[id]) + '" placeholder="' + esc(ph) + '"></label>'; };
+    var chk = function (id, et) { return '<label class="check"><input type="checkbox" data-o="' + id + '"' + (o[id] ? ' checked' : '') + '> ' + et + '</label>'; };
     capa.id = 'capaInforme';
-    capa.innerHTML = '<div class="hoja"><div class="acciones no-imprimir"><button type="button" class="prim" data-inf="imprimir">🖨 Imprimir / PDF</button><button type="button" data-inf="word">Word</button>' +
-      '<button type="button" data-inf="texto">Copiar texto</button><button type="button" data-inf="cerrar">✕ Cerrar</button></div><div id="informeDoc">' + htmlInforme(d) + '</div></div>';
+    capa.innerHTML = '<div class="hoja"><div class="inf-cab no-imprimir"><b>📄 Informe de mensajes · ' + filtrados.length + ' con los filtros actuales</b><span>Desarrollado por el Cte. Alfredo Sánchez Sender</span><button type="button" data-inf="cerrar">✕ Cerrar</button></div>' +
+      '<div class="inf-rejilla"><div class="inf-opc no-imprimir">' +
+      '<h3>Encabezado</h3>' + txt('titulo', 'Título', OPC_INF.titulo) + txt('unidad', 'Unidad / organismo', 'p. ej. Jefatura de SUIGESUR') + txt('destinatario', 'A la atención de', 'p. ej. Sr. Jefe') + txt('marca', 'Marca', 'p. ej. USO OFICIAL') +
+      '<h3>Contenido</h3><label>Agrupar por<select data-o="agrupar">' + Object.keys(AGRUPAR).map(function (k) { return '<option value="' + k + '"' + (o.agrupar === k ? ' selected' : '') + '>' + esc(AGRUPAR[k][0]) + '</option>'; }).join('') + '</select></label>' +
+      chk('resumen', 'Resumen con recuentos') + chk('relacion', 'Relación de mensajes') + chk('extracto', 'De qué trata cada uno (extracto del texto)') + chk('detalle', 'Detalle de cada mensaje (datos y texto completo)') +
+      '<div class="acciones"><button type="button" class="prim" data-inf="imprimir">🖨 Imprimir / PDF</button><button type="button" data-inf="word">Word</button><button type="button" data-inf="texto">Copiar texto</button><button type="button" data-inf="csv">CSV</button></div>' +
+      '<p class="muted" style="font-size:.74rem;margin:8px 0 0">Se genera en tu navegador; no se envía a ningún sitio. Las opciones del encabezado se recuerdan.</p></div>' +
+      '<div class="vista"><div id="informeDoc"></div></div></div></div>';
     document.body.appendChild(capa);
+    var d;
+    var pintar = function () { d = datosInforme(o); $('informeDoc').innerHTML = htmlInforme(d); };
+    pintar();
+    var cambio = function (e) {
+      var k = e.target.getAttribute && e.target.getAttribute('data-o');
+      if (!k) return;
+      o[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+      guardar('informeOpc', o);
+      pintar();
+    };
+    capa.addEventListener('input', cambio);
+    capa.addEventListener('change', cambio);
     capa.addEventListener('click', function (e) {
       var a = e.target.getAttribute && e.target.getAttribute('data-inf');
       if (e.target === capa || a === 'cerrar') { capa.remove(); return; }
       if (a === 'imprimir') { document.body.classList.add('imprimiendo'); window.print(); setTimeout(function () { document.body.classList.remove('imprimiendo'); }, 800); }
+      if (a === 'csv') $('csv').click();
       if (a === 'word') {
-        var doc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>Relación de mensajes</title>' +
-          '<style>body{font-family:Calibri,Arial,sans-serif;font-size:10pt}h1{font-size:14pt}h2{font-size:11pt;border-bottom:1px solid #3b4a2f}@page{size:landscape;margin:1.5cm}</style></head><body>' + htmlInforme(d, true) + '</body></html>';
+        var doc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>' + esc(o.titulo || OPC_INF.titulo) + '</title>' +
+          '<meta name="author" content="Cte. Alfredo Sánchez Sender">' +
+          '<style>body{font-family:Calibri,Arial,sans-serif;font-size:10pt}h1{font-size:14pt;color:#26331d}h2{font-size:11pt;color:#3b4a2f;border-bottom:1px solid #3b4a2f}h3{font-size:10pt;margin:0 0 4pt}' +
+          '@page{size:landscape;margin:1.5cm;mso-footer:pie}div.pie{mso-element:footer}p.pie{font-size:8pt;color:#555}</style></head><body>' + htmlInforme(d, true) +
+          '<div style="mso-element:footer" id="pie"><p class="pie">' + esc(AUTORIA) + '</p></div></body></html>';
         var w = document.createElement('a');
         w.href = URL.createObjectURL(new Blob(['﻿' + doc], { type: 'application/msword' }));
-        w.download = 'mensajes-mensadef-' + $('desde').value + '_' + $('hasta').value + '.doc';
+        w.download = 'informe-mensadef-' + $('desde').value + '_' + $('hasta').value + '.doc';
         document.body.appendChild(w); w.click(); setTimeout(function () { URL.revokeObjectURL(w.href); w.remove(); }, 1000);
       }
       if (a === 'texto') { var t = textoInforme(d), b = e.target; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { b.textContent = 'Copiado ✓'; }, function () { window.prompt('Copia este texto:', t); }); }

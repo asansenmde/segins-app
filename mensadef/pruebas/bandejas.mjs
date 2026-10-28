@@ -119,6 +119,16 @@ await p.selectOption('#fSitio', 'SETEC SEGURIDAD'); await p.click('#kpis [data-k
 await p.click('#informe'); await p.waitForTimeout(300);
 await p.setViewportSize({ width: 1300, height: 900 }); await p.screenshot({ path: new URL('informe.png', import.meta.url).pathname });
 console.log('informe:', (await p.textContent('#informeDoc')).replace(/\s+/g, ' ').slice(0, 420));
+// Opciones: encabezado, agrupado por célula y detalle con el texto completo
+await p.fill('[data-o="unidad"]', 'Jefatura de pruebas'); await p.fill('[data-o="marca"]', 'uso oficial');
+await p.selectOption('[data-o="agrupar"]', 'tipo'); await p.check('[data-o="detalle"]'); await p.waitForTimeout(200);
+const doc = await p.textContent('#informeDoc');
+console.log('informe con opciones: marca', doc.includes('USO OFICIAL'), '| unidad', doc.includes('Jefatura de pruebas'), '| grupos', await p.$$eval('#informeDoc tr.grupo', l => l.length),
+  '| fichas', await p.$$eval('#informeDoc .msg', l => l.length), '| texto completo', await p.$$eval('#informeDoc .msg .texto', l => l.length), '| extractos', await p.$$eval('#informeDoc .extracto', l => l.length),
+  '| autoría', doc.includes('Cte. Alfredo Sánchez Sender'), '| ¿escapa?', !(await p.$('#informeDoc script')));
+await p.screenshot({ path: new URL('informe-detalle.png', import.meta.url).pathname, fullPage: false });
+const txtInf = await p.evaluate(() => { let t = ''; navigator.clipboard.writeText = x => { t = x; return Promise.resolve(); }; document.querySelector('[data-inf="texto"]').click(); return new Promise(r => setTimeout(() => r(t), 100)); });
+console.log('texto:', txtInf.split('\n').slice(0, 9).join(' ⏎ ').slice(0, 400));
 const [w] = await Promise.all([p.waitForEvent('download'), p.click('[data-inf="word"]')]); console.log('word:', w.suggestedFilename(), require('fs').readFileSync(await w.path(), 'utf8').includes('Relación de mensajes'));
 await p.click('[data-inf="cerrar"]'); await p.click('#kpis [data-kpi="todos"]'); await p.selectOption('#fSitio', '');
 await p.click('#estructura'); const est = await p.inputValue('#cajaEstructura textarea');

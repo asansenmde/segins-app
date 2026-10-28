@@ -24,6 +24,8 @@ PLANTILLA = '''<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Cte. Alfredo Sánchez Sender">
+<meta name="copyright" content="© 2026 Cte. Alfredo Sánchez Sender. Todos los derechos reservados.">
 <title>Marcador {nombre}</title>
 <style>
   body {{ font-family: system-ui, "Segoe UI", sans-serif; background: #f5f6f2; color: #1f2a1c; margin: 0; }}
@@ -33,9 +35,15 @@ PLANTILLA = '''<!doctype html>
   button {{ font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid #3a4a2c; background: #fff; cursor: pointer; }}
   ol li {{ margin: 6px 0; }}
   .muted {{ color: #5b6655; font-size: .92em; }}
+  .cab {{ background: linear-gradient(90deg, #1c2615, #3a4a2c 55%, #56693f); color: #fff; border-bottom: 4px solid #c9a84c; padding: 12px 16px; }}
+  .cab div {{ max-width: 720px; margin: 0 auto; }}
+  .cab b {{ font-size: 1.1rem; letter-spacing: .05em; }}
+  .cab span {{ display: block; font-size: .74rem; letter-spacing: .12em; text-transform: uppercase; color: #e6d9a8; }}
+  .autor {{ text-align: center; font-size: .8rem; color: #5b6655; border-top: 1px solid #d9ddd2; padding: 12px 16px 24px; }}
 </style>
 </head>
 <body>
+<div class="cab"><div><b>{nombre}</b><span>Desarrollado por el Cte. Alfredo Sánchez Sender</span></div></div>
 <main>
   <h1>{titulo}</h1>
   <p>{intro}</p>
@@ -58,6 +66,7 @@ PLANTILLA = '''<!doctype html>
     </ol>
   </div>
 </main>
+<footer class="autor">© 2026 · Diseñado y desarrollado por el <b>Cte. Alfredo Sánchez Sender</b> · Todos los derechos reservados</footer>
 <script>
   document.getElementById('marcador').addEventListener('click', function (e) {{
     if (location.hostname !== 'mensadef.mdef.es') {{ e.preventDefault(); alert('Arrástralo a la barra de favoritos y púlsalo estando en MENSADEF.'); }}

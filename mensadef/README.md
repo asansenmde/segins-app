@@ -93,6 +93,12 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   «⛶ Ampliar» (a toda la pantalla) y solo los campos pedidos: Fecha, Nombre autoridad, N.º referencia, Su referencia, Asunto,
   Enviable a rúbrica, Fechas de registro de entrada y salida, Firma, Leído, Prioridad, Tipo de mensaje, Último comentario,
   Usuario remitente y Célula; el resto, plegado en «Otros campos».
+  **Versión 2026-10-29 · 3 (pruebas)**: informe como los de Permisos y el Gestor de Tareas: encabezado configurable (título,
+  unidad, a la atención de y marca, p. ej. USO OFICIAL; se recuerda), cifras, resumen, relación con un extracto de qué trata
+  cada mensaje, detalle de cada uno con sus datos y el texto completo, agrupado por célula, bandeja, tipo, estado,
+  prioridad, remitente o día; vista previa al momento y salida a PDF, Word, texto o CSV. Autoría bien visible: cabecera
+  con franja dorada y «Desarrollado por el Cte. Alfredo Sánchez Sender», panel de bienvenida, pie, cada informe (también
+  el pie del Word) y la página de instalación del favorito.
 
 ## Estructura de MENSADEF (ámbito 2SUIGE)
 
