@@ -86,4 +86,5 @@ autoría.
     célula y (versión 2026-10-28 · 4) que el visor obtiene solo la clave del servicio con `ValidateUser`, como la aplicación. Pendiente: que lo use unos días; decidir si «visto» debe ser compartido por el grupo (ahora es de cada
     navegador) y, cuando lo dé por bueno, regenerar el favorito bueno. Versión 2026-10-29 · 3: informes como los de Permisos
     (encabezado, extracto y detalle con el texto completo, agrupados; PDF, Word, texto, CSV) y autoría más visible:
-    pendiente de que el usuario los revise.
+    el usuario lo da por bueno (29/10/2026). **Se queda en versión de pruebas** para presentarlo al jefe; no regenerar el
+    favorito bueno hasta que el usuario lo pida.
