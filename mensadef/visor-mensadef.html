@@ -320,13 +320,18 @@
   var modoApi = false, apiCtx = null, errorApi = null, diagApi = [], origenCorreo = '', diagCelulas = '';
   // Células que se cargan: las elegidas (se recuerdan); si no se ha elegido nunca, la de la página, si no las de tipo 4,
   // y si no todas
+  // Grupos del perfil de MENSADEF: las de registro y las de revisión (portafirmas) se reconocen por el nombre; el resto, OAM
+  var GRUPOS = [['oam', 'OAM'], ['registro', 'Registro'], ['revision', 'En revisión (portafirmas)']];
+  var grupoDe = function (c) { return /portafirmas/i.test(c.nombre) ? 'revision' : /registro/i.test(c.nombre) ? 'registro' : 'oam'; };
   function celulasElegidas() {
     var cs = apiCtx.celulas, g = leer('celulasElegidas', null);
     if (g && g.length) { var e = cs.filter(function (c) { return g.indexOf(String(c.id).toLowerCase()) >= 0; }); if (e.length) return e; }
     var pag = cs.filter(function (c) { return String(c.id).toLowerCase() === apiCtx.dePagina; });
     if (pag.length) return pag;
     var t4 = cs.filter(function (c) { return c.en4; });
-    return t4.length ? t4 : cs;
+    if (t4.length) return t4;
+    var oam = cs.filter(function (c) { return grupoDe(c) === 'oam'; });
+    return oam.length ? oam : cs;
   }
   function pintarResumenCelulas() {
     var e = celulasElegidas();
@@ -339,14 +344,19 @@
     caja.hidden = false;
     caja.innerHTML = '<p style="margin:0 0 6px"><b>Células o negociados cuyas bandejas se cargan</b> <span class="muted">(se recuerda en este navegador)</span></p>' +
       '<div class="fila" style="margin-bottom:6px"><button type="button" data-cel="todas">Todas</button><button type="button" data-cel="ninguna">Ninguna</button>' +
+      GRUPOS.filter(function (g) { return apiCtx.celulas.some(function (c) { return grupoDe(c) === g[0]; }); }).map(function (g) { return '<button type="button" data-cel="g:' + g[0] + '">Solo ' + g[1] + '</button>'; }).join('') +
       (apiCtx.celulas.some(function (c) { return c.en4; }) ? '<button type="button" data-cel="t4">Solo las marcadas ★</button>' : '') + '</div>' +
-      '<div style="columns:3 220px;max-height:260px;overflow:auto">' + apiCtx.celulas.map(function (c, i) {
-        return '<label class="check" style="display:flex;gap:6px;padding:2px 0"><input type="checkbox" data-i="' + i + '"' + (e.indexOf(String(c.id).toLowerCase()) >= 0 ? ' checked' : '') + '> ' + (c.en4 ? '★ ' : '') + esc(c.nombre) + '</label>';
-      }).join('') + '</div><p class="muted" style="margin:6px 0">★ = las que MENSADEF devuelve como tipo 4 (probablemente las tuyas o de las que eres propietario).</p>' +
+      '<div style="max-height:300px;overflow:auto">' + GRUPOS.map(function (g) {
+        var del = apiCtx.celulas.map(function (c, i) { return [c, i]; }).filter(function (x) { return grupoDe(x[0]) === g[0]; });
+        return !del.length ? '' : '<p style="margin:8px 0 2px"><b>' + g[1] + '</b> <span class="muted">(' + del.length + ')</span></p><div style="columns:3 240px">' + del.map(function (x) {
+          var c = x[0];
+          return '<label class="check" style="display:flex;gap:6px;padding:2px 0"><input type="checkbox" data-i="' + x[1] + '"' + (e.indexOf(String(c.id).toLowerCase()) >= 0 ? ' checked' : '') + '> ' + (c.en4 ? '★ ' : '') + esc(c.nombre) + (String(c.id).toLowerCase() === apiCtx.dePagina ? ' <span class="muted">(la de la página)</span>' : '') + '</label>';
+        }).join('') + '</div>';
+      }).join('') + '</div><p class="muted" style="margin:6px 0">★ = las que MENSADEF devuelve como tipo 4. Registro y revisión se reconocen por el nombre.</p>' +
       '<button type="button" class="prim" id="aplicarCelulas">Cargar estas células</button>';
     var marcar = function (f) { Array.prototype.forEach.call(caja.querySelectorAll('[data-i]'), function (x) { x.checked = f(apiCtx.celulas[+x.getAttribute('data-i')]); }); };
     Array.prototype.forEach.call(caja.querySelectorAll('[data-cel]'), function (bt) {
-      bt.addEventListener('click', function () { var k = bt.getAttribute('data-cel'); marcar(function (c) { return k === 'todas' || (k === 't4' && c.en4); }); });
+      bt.addEventListener('click', function () { var k = bt.getAttribute('data-cel'); marcar(function (c) { return k === 'todas' || (k === 't4' && c.en4) || k === 'g:' + grupoDe(c); }); });
     });
     $('aplicarCelulas').addEventListener('click', function () {
       var ids = Array.prototype.filter.call(caja.querySelectorAll('[data-i]'), function (x) { return x.checked; }).map(function (x) { return String(apiCtx.celulas[+x.getAttribute('data-i')].id).toLowerCase(); });

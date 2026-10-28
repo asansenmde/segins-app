@@ -66,6 +66,9 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   defecto se cargan la célula de la página (`#/celula/…/{id}`), si no las ★, si no todas; el selector «Células que se
   cargan…» permite elegir y se recuerda. El correo y el número de usuario se toman de las consultas que ya hizo la
   aplicación en la página (SharePoint no tiene el correo del usuario), o del contexto, la ficha o el perfil.
+  El selector agrupa las células como el perfil de MENSADEF: **OAM**, **Registro** (nombre con «REGISTRO») y **En revisión**
+  (nombre con «PORTAFIRMAS»), con un botón por grupo; sin célula en la dirección ni elección guardada se cargan las OAM.
+  Ejemplo de célula: `…/SitePages/ambito.aspx#/celula/SETEC%20SEGURIDAD/{id}`.
 
 ## Estructura de MENSADEF (ámbito 2SUIGE)
 
