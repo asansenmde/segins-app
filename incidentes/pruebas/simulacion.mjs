@@ -29,6 +29,9 @@ const AUXL = {
   PROVINCIAS: [{ Id: 1, Title: 'SEVILLA' }, { Id: 2, Title: 'LEÓN' }, { Id: 3, Title: 'BURGOS' }],
   empleos: [{ Id: 1, Title: 'CORONEL' }, { Id: 2, Title: 'COMANDANTE' }, { Id: 3, Title: 'SARGENTO' }]
 };
+// Permisos de la lista de incidentes: los grupos SEGURIDAD_* con Colaborar; INCIDENTES_UNIDADES solo con Leer (como en
+// Colabora el 01/11/2026: las unidades acreditadas entraban pero Colabora les rechazaba el borrador con «Acceso denegado»)
+let soloLectura = false, rolesInc = { SEGURIDAD_SUIGESUR: 3, SEGURIDAD_IGE: 3, INCIDENTES_UNIDADES: 2 }, permisosDados = [];
 let sols = [], unidades = [], anadidos = [], sinEmpleos = false, rechazaFrom = false, grupoUnico = false;
 const sur = { MANDO2N: '1', MANDO3N: '1', OData__x004d_N2: 'SUIGESUR', OData__x004d_N3: 'ACUARTELAMIENTO X' };
 const nor = { MANDO2N: '2', MANDO3N: '2', OData__x004d_N2: 'SUIGENOR', OData__x004d_N3: 'BASE NORTE' };
@@ -114,6 +117,10 @@ async function prueba(verbose, escenario) {
         if (resto.endsWith('/items')) { const it = { Id: sols.length + 1, ...c, Solicitante: quien(c.SolicitanteId), Created: new Date().toISOString() }; sols.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } }); }
         return r.fulfill({ status: 204, body: '' });
       }
+      if (resto.includes("getbytitle('INCIDENTES DE SEGURIDAD')/breakroleinheritance")) return r.fulfill({ status: 200, json: { d: {} } });
+      const ra = resto.match(/getbytitle\('INCIDENTES DE SEGURIDAD'\)\/roleassignments\/addroleassignment\(principalid=(\d+),roledefid=(\d+)\)/);
+      if (ra) { const nom = Object.keys(GRUPOS).concat(['INCIDENTES_UNIDADES', 'Propietarios Colaborativo'])[+ra[1] - 1]; rolesInc[nom] = 3; permisosDados.push(nom + ':' + ra[2]); return r.fulfill({ status: 200, json: { d: {} } }); }
+      if (soloLectura && resto.includes("getbytitle('INCIDENTES DE SEGURIDAD')/items")) return r.fulfill({ status: 401, json: { error: { message: { value: 'Acceso denegado. No tiene el permiso necesario para realizar esta acción o tener acceso a este recurso.' } } } });
       const gu = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users(\/removebyid\((\d+)\))?/);
       if (gu) { if (gu[3]) unidades = unidades.filter(x => x.Id !== +gu[3]); else anadidos.push({ grupo: gu[1], login: JSON.parse(req.postData()).LoginName }); return r.fulfill({ status: 200, json: { d: {} } }); }
       const ad = resto.match(/items\((\d+)\)\/AttachmentFiles\/add\(FileName='([^']+)'\)/);
@@ -144,6 +151,9 @@ async function prueba(verbose, escenario) {
     const gid = resto.match(/web\/getuserbyid\((\d+)\)/);
     if (gid) return J({ LoginName: 'i:0#.w|et\\usuario' + gid[1] });
     if (resto.startsWith('web/sitegroups?')) return J({ value: Object.keys(GRUPOS).concat(['INCIDENTES_UNIDADES', 'Propietarios Colaborativo']).map((t, i) => ({ Id: i + 1, Title: t })) });
+    { const gi = resto.match(/^web\/sitegroups\/getbyname\('([^']+)'\)\?/); if (gi) return J({ Id: Object.keys(GRUPOS).concat(['INCIDENTES_UNIDADES', 'Propietarios Colaborativo']).indexOf(decodeURIComponent(gi[1])) + 1 }); }
+    if (resto.startsWith('web/roledefinitions/getbytype(3)')) return J({ Id: 1073741827 });
+    if (resto.includes("getbytitle('INCIDENTES DE SEGURIDAD')/roleassignments")) return J({ value: Object.keys(rolesInc).map((g, i) => ({ PrincipalId: 500 + i, Member: { Id: 500 + i, Title: g, LoginName: g }, RoleDefinitionBindings: verbose ? { results: [{ RoleTypeKind: rolesInc[g] }] } : [{ RoleTypeKind: rolesInc[g] }] })) });
     if (resto.startsWith("web/sitegroups/getbyname('INCIDENTES_UNIDADES')/users")) return J({ value: unidades });
     if (resto.startsWith("web/lists/getbytitle('SOLICITUDES ACCESO APLICACIONES')")) {
       if (resto.includes('/roleassignments')) return J({ value: [{ PrincipalId: 7, Member: { Id: 7, Title: 'MDEF\\usuarios del dominio', LoginName: 'c:0+.w|s-1-5-21-513' }, RoleDefinitionBindings: verbose ? { results: [{ RoleTypeKind: 3 }] } : [{ RoleTypeKind: 3 }] }] });
@@ -186,7 +196,7 @@ async function prueba(verbose, escenario) {
       return J({ value: verbose ? lista.map(it => ({ ...it, grupo: { results: it.grupo } })) : lista });
     }
     if (resto.includes("getbytitle('INCIDENTES DE SEGURIDAD')")) return J({ Id: 'g', Title: 'INCIDENTES DE SEGURIDAD', ListItemEntityTypeFullName: 'SP.Data.INTRUSIONESListItem',
-      EffectiveBasePermissions: { High: '0', Low: String(admin ? 0x2000BFF : 0x7) }, DefaultNewFormUrl: WEB + '/Lists/INTRUSIONES/NewForm.aspx', DefaultEditFormUrl: WEB + '/Lists/INTRUSIONES/EditForm.aspx', DefaultDisplayFormUrl: WEB + '/Lists/INTRUSIONES/DispForm.aspx' });
+      EffectiveBasePermissions: { High: '0', Low: String(admin ? 0x2000BFF : soloLectura ? 0x21 : 0x7) }, DefaultNewFormUrl: WEB + '/Lists/INTRUSIONES/NewForm.aspx', DefaultEditFormUrl: WEB + '/Lists/INTRUSIONES/EditForm.aspx', DefaultDisplayFormUrl: WEB + '/Lists/INTRUSIONES/DispForm.aspx' });
     return r.fulfill({ status: 404, body: '' });
   });
   const tag = (verbose ? '[verbose] ' : '[ligero] ') + escenario;
@@ -215,6 +225,14 @@ async function prueba(verbose, escenario) {
     console.log(tag, '| después:', (await p.$$eval('#vista .okmsg, #vista .aviso', n => n.map(x => x.textContent).join(' / '))).replace(/\s+/g, ' ').slice(0, 330), '| errores:', errs);
     await b.close(); return;
   }
+  if (escenario === 'unidad sin permiso') {
+    await p.click('#nuevo'); await p.waitForTimeout(900);
+    console.log(tag, '| aviso en el formulario:', (await p.textContent('#fSinPermiso').catch(() => 'SIN AVISO')).replace(/\s+/g, ' ').slice(0, 160));
+    await p.fill('#fParte [name=fecha]', new Date(Date.now() - 864e5).toISOString().slice(0, 10));
+    await p.click('#fBorrador'); await p.waitForTimeout(1200);
+    console.log(tag, '| al guardar:', (await p.textContent('#fError')).replace(/\s+/g, ' ').slice(0, 200), '| errores:', errs);
+    await b.close(); return;
+  }
   if (escenario === 'portal') {
     await p.goto(O + '/et/jige/colaborativo/SitePages/Incidentes.aspx?id=7'); await p.waitForTimeout(2500);
     const fr = p.frames().find(x => x.url().includes('incidentes.html'));
@@ -234,6 +252,10 @@ async function prueba(verbose, escenario) {
     const m = correos().pop(); console.log(tag, '| aprobar:', JSON.stringify(anadidos), '| correo:', m && m.To.results, m && m.Subject, '| errores:', errs);
     biblioOculta = false; await p.click('#tabs a[data-v=panel]'); await p.click('#tabs a[data-v=accesos]'); await p.waitForTimeout(800);
     let dlgTxt = ''; p.once('dialog', dd => { dlgTxt = dd.message(); dd.accept().catch(() => {}); }); await p.click('[data-accbiblio="1"]'); await p.waitForTimeout(1200);
+    console.log(tag, '| permiso para guardar partes:', (await p.textContent('#vista p:has([data-accescritura])').catch(() => 'SIN LÍNEA')).replace(/\s+/g, ' ').slice(0, 220));
+    p.once('dialog', dd => dd.accept().catch(() => {})); posts.length = 0; await p.click('[data-accescritura]'); await p.waitForTimeout(1500);
+    console.log(tag, '| dado:', permisosDados.join(', '), '| herencia rota:', posts.some(x => x.ruta.includes('breakroleinheritance')), '| línea después:', (await p.$$eval('#vista p.small', n => (n.find(x => /Permiso para guardar partes/.test(x.textContent)) || { textContent: '-' }).textContent)).replace(/\s+/g, ' ').slice(0, 160));
+    rolesInc.INCIDENTES_UNIDADES = 2; permisosDados = [];
     console.log(tag, '| ocultar biblioteca:', biblioOculta, '| aviso:', dlgTxt.slice(0, 60), '|', (await p.textContent('[data-accbiblio]').catch(() => '')));
     await b.close(); return;
   }
@@ -470,5 +492,6 @@ misGrupos = TODOS; admin = true; await prueba(false, 'correo rechazado'); await 
 misGrupos = []; buzonMal = ['admin1@et.mde.es', 'asansen@et.mde.es', 'i:0#.w|et\\usuario206']; enviados = []; await prueba(false, 'sin acceso'); buzonMal = [];
 misGrupos = TODOS; admin = true; await prueba(false, 'portal'); await prueba(false, 'accesos'); await prueba(true, 'accesos'); admin = false;
 misGrupos = TODOS; admin = true; await prueba(false, 'enlace');
+misGrupos = ['INCIDENTES_UNIDADES']; soloLectura = true; await prueba(false, 'unidad sin permiso'); await prueba(true, 'unidad sin permiso'); soloLectura = false;
 faltaCampo = 'ResponsableDelParte'; await prueba(true, 'columna inexistente'); faltaCampo = null;
 expandRoto = true; await prueba(false, 'columna inexistente'); expandRoto = false;

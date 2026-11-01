@@ -225,7 +225,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-27 · 1';
+  var VERSION = '2026-11-01 · 1';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -282,7 +282,7 @@
   };
 
   // ---------- SharePoint ----------
-  var web = null, yo = null, misGrupos = [], esGestor = false, esAdmin = false, listaInfo = null, items = [], cargadoEn = null;
+  var web = null, yo = null, misGrupos = [], esGestor = false, esAdmin = false, puedeAlta = true, puedeEditar = true, listaInfo = null, items = [], cargadoEn = null;
   var misSuiges = [], esDiacu = false, esIge = false;
   function api(url) {
     var pedir = function (accept) {
@@ -319,6 +319,9 @@
       .then(function (r) { if (!r.ok) throw new Error('Colabora no da permiso de escritura (HTTP ' + r.status + ')'); return r.json(); })
       .then(function (d) { var i = d.d ? d.d.GetContextWebInformation : d; digest = i.FormDigestValue; digestHasta = Date.now() + ((i.FormDigestTimeoutSeconds || 1800) - 60) * 1000; return digest; });
   }
+  // Sin el permiso «Colaborar» en la lista de incidentes (Colabora contesta 401/403 «Acceso denegado»)
+  var SIN_PERMISO_LISTA = 'Tu acceso a la aplicación está concedido, pero en Colabora tu cuenta no tiene el permiso «Colaborar» en la lista de incidentes, que hace falta para guardar. ' +
+    'Pide al administrador de la aplicación que lo revise (en Ajustes › Accesos, «Permiso para guardar partes»).';
   var CONFLICTO = 'Otra persona ha cambiado este incidente mientras lo tenías abierto. Pulsa Actualizar, revísalo y repite la acción.';
   function enviarSP(url, cuerpo, sinPermiso, extra) {
     return obtenerDigest().then(function (dg) {
@@ -329,7 +332,8 @@
         var j = null; try { j = JSON.parse(txt); } catch (e) { /* sin JSON */ }
         if (!r.ok) {
           var m = j && ((j.error && j.error.message && (j.error.message.value || j.error.message)) || (j['odata.error'] && j['odata.error'].message && j['odata.error'].message.value));
-          throw new Error(r.status === 403 ? sinPermiso : r.status === 412 ? CONFLICTO : (m || 'HTTP ' + r.status));
+          var denegado = r.status === 403 || r.status === 401 || /acceso denegado|access denied|unauthorizedaccess/i.test(String(m || ''));
+          throw new Error(denegado ? sinPermiso : r.status === 412 ? CONFLICTO : (m || 'HTTP ' + r.status));
         }
         return j && (j.d || j);
       });
@@ -390,6 +394,8 @@
         var low = Number(l.EffectiveBasePermissions && l.EffectiveBasePermissions.Low) || 0;
         esGestor = (low & 0x800) !== 0;      // Administrar listas
         esAdmin = (low & 0x2000000) !== 0;   // Administrar permisos (Control total)
+        // Agregar y modificar elementos (permiso «Colaborar» en la lista). Solo si Colabora dice los permisos.
+        if (l.EffectiveBasePermissions) { puedeAlta = (low & 0x2) !== 0; puedeEditar = (low & 0x4) !== 0; }
         if (!esAdmin) pref.correo = true;
       }, function (e) { listaInfo = null; errLista = e; })
     ]).then(function () {
@@ -1196,6 +1202,7 @@
         '<div class="acepto"><label><input type="checkbox" name="aceptacion"' + (t && t.aceptacion === true ? ' checked' : '') + '><span>' + esc(TXT_ACEPTO) + '</span></label></div>' +
         '<label class="lbl">Documentos que se adjuntan de interés: fotos, etc. (evitar datos de carácter personal, LOPD)</label><input type="file" name="adjuntos" multiple>' +
         (t && t.adjuntos ? '<p class="small muted">Este parte ya tiene adjuntos en Colabora; los que elijas se añaden a ellos.</p>' : '')) +
+      ((t ? !puedeEditar : !puedeAlta) ? '<div class="error" id="fSinPermiso"><b>Colabora no te deja guardar partes todavía.</b> ' + SIN_PERMISO_LISTA + '</div>' : '') +
       '<div class="nota">Podrá <b>guardar y modificar el BORRADOR</b> del formulario cuantas veces lo necesite, <b>pero no se enviará hasta que pulse el botón azul</b>. Por favor, compruebe los datos antes de enviarlo a SUIGE. <b>Una vez enviado NO PODRÁ MODIFICARSE.</b></div>' +
       '<div id="fError"></div><div class="acciones"><button type="button" class="ambar" id="fBorrador">Guardar borrador</button><span style="align-self:center;font-weight:700">ó</span>' +
       '<button type="button" class="suige" id="fRemitir">Informar a SUIGE</button><button type="button" class="rojo" data-cerrar>Salir</button></div><p class="small muted" id="fSoloResp"></p></div>';
@@ -1272,7 +1279,7 @@
       var nota = remitir ? 'INFORMADO A SUIGE (' + suige + ')' : (t ? 'Borrador guardado' : 'Parte dado de alta (borrador)');
       var escribir = function (cuerpo) {
         return t ? guardarCambios(t, cuerpo, nota).then(function () { return t.id; }) :
-          enviarSP(urlLista() + '/items', Object.assign({ __metadata: { type: listaInfo.ListItemEntityTypeFullName }, ObservacionesDelExpediente: anotacion(nota), ModificadoPorTEXTO: yo.Title }, cuerpo), 'No tienes permiso para dar de alta partes en esta lista').then(function (n) { return n && (n.Id || n.ID); });
+          enviarSP(urlLista() + '/items', Object.assign({ __metadata: { type: listaInfo.ListItemEntityTypeFullName }, ObservacionesDelExpediente: anotacion(nota), ModificadoPorTEXTO: yo.Title }, cuerpo), 'No se pudo guardar: ' + SIN_PERMISO_LISTA).then(function (n) { return n && (n.Id || n.ID); });
       };
       // Si SharePoint rechaza la forma de «grupo» (una persona / varias), se cambia y se repite una vez.
       // Error típico: «Se encontró un nodo 'StartObject' inesperado… Se esperaba un nodo 'PrimitiveValue'».
@@ -1656,7 +1663,7 @@
   // Quien tiene Control total aprueba en la pestaña «Accesos»: la página añade a la persona al grupo y le avisa.
   var tieneAcceso = function () { return esAdmin || esGestor || misSuiges.length > 0 || esDiacu || esIge || misGrupos.some(function (g) { return ACCESO.grupos.indexOf(String(g).trim()) >= 0; }); };
   var urlAcc = function () { return web + "/_api/web/lists/getbytitle('" + encodeURIComponent(ACCESO.lista.replace(/'/g, "''")) + "')"; };
-  var accInfo = null, accFaltan = [], accAbierta = null, accSols = null, accEstado = '', accMiembros = null, accGrupos = null, perfil = null;
+  var accEscritura = null, accInfo = null, accFaltan = [], accAbierta = null, accSols = null, accEstado = '', accMiembros = null, accGrupos = null, perfil = null;
   var CAMPOS_ACC = [
     '<Field Type="User" Name="Solicitante" StaticName="Solicitante" DisplayName="Solicitante" UserSelectionMode="PeopleOnly" />',
     '<Field Type="Text" Name="Correo" StaticName="Correo" DisplayName="Correo" />',
@@ -1832,6 +1839,8 @@
       return leerColumnas().then(leerApertura).then(function () { if (accFaltan.length) { accSols = []; return; } return todas(urlAcc() + '/items?$top=500&$select=' + SEL_ACC.join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent("Aplicacion eq '" + ACCESO.app + "'"))
         .then(function (l) { accSols = l.map(aSol).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); }); }); });
     }).then(function () {
+      return leerEscritura();
+    }).then(function () {
       if (accGrupos.indexOf(ACCESO.grupoBae) < 0) { accMiembros = null; return; }
       return todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(ACCESO.grupoBae) + "')/users?$select=Id,Title,Email,LoginName").then(function (l) { accMiembros = l; }, function () { accMiembros = []; });
     }).then(function () { accEstado = 'ok'; if (pref.vista === 'accesos') render(); }, function (e) { accEstado = 'error: ' + (e.message || e); if (pref.vista === 'accesos') render(); });
@@ -1860,6 +1869,7 @@
       (accInfo ? '<p class="small">📋 ' + (accInfo.RootFolder && accInfo.RootFolder.ServerRelativeUrl ? '<a href="' + esc(location.origin + accInfo.RootFolder.ServerRelativeUrl) + '" target="_blank" rel="noopener">Abrir la lista «' + esc(ACCESO.lista) + '»</a> · ' : '') +
         '<a href="' + esc(web + '/_layouts/15/SubNew.aspx?List=' + encodeURIComponent('{' + String(accInfo.Id).replace(/[{}]/g, '') + '}') + '&Source=' + encodeURIComponent(location.href)) + '" target="_blank" rel="noopener">🔔 Avisarme por correo de cada solicitud nueva (alerta de SharePoint)</a>' +
         '<br><span class="muted">El aviso de la página lo envía Colabora con la cuenta de quien solicita, que aún no tiene permisos y a veces se rechaza. La alerta la envía SharePoint y llega siempre: créala con «Se agregan nuevos elementos» y «Enviar notificación inmediatamente».</span></p>' : '') +
+      lineaEscritura() +
       '<p class="small">✉ Cada solicitud nueva se avisa por correo a <b>' + esc((ACCESO.avisarCorreos || []).concat(ACCESO.avisar).join(', ') || 'los propietarios del sitio') + '</b>. ' +
         '<button data-accprueba="1">Probar el aviso</button></p><div id="accPrueba"></div>' +
       (accBiblio ? '<p class="small">' + (accBiblio.Hidden ? '✔ La biblioteca «' + esc(accBiblio.Title) + '», donde está esta página, está oculta en «Contenido del sitio». <button data-accbiblio="0">Volver a mostrarla</button>' :
@@ -1967,6 +1977,45 @@
         return enviarSP(urlAcc() + '/roleassignments/addroleassignment(principalid=' + Number(r[0]) + ',roledefid=' + Number(r[1].Id) + ')', {}, 'No tienes permiso para cambiar los permisos de la lista');
       });
   }
+  // Permiso para guardar partes: los grupos de la aplicación (y «Usuarios del dominio»/«Todos») con Colaborar o más en la
+  // lista de incidentes. Sin él, las unidades acreditadas entran pero Colabora les rechaza el borrador («Acceso denegado»).
+  function leerEscritura() {
+    return Promise.all([api(urlLista() + '?$select=HasUniqueRoleAssignments').catch(function () { return {}; }), asignaciones(urlLista())]).then(function (r) {
+      var puede = function (x) { return lista(x.RoleDefinitionBindings).some(function (b) { return PUEDE_ESCRIBIR.indexOf(Number(b.RoleTypeKind)) >= 0; }); };
+      var conPermiso = r[1].filter(puede).map(function (x) { return x.Member.Title || x.Member.LoginName; });
+      var todos = r[1].some(function (x) { return esTodos(x.Member) && puede(x); });
+      var grupos = [ACCESO.grupoBae].concat(accGrupos.filter(function (g) { return /^SEGURIDAD_/i.test(g); })).filter(function (g, i, a) { return a.indexOf(g) === i && accGrupos.indexOf(g) >= 0; });
+      accEscritura = { todos: todos, propios: !!r[0].HasUniqueRoleAssignments, grupos: grupos.map(function (g) { return { g: g, ok: todos || conPermiso.indexOf(g) >= 0 }; }) };
+    }, function (e) { accEscritura = { error: e.message || String(e) }; });
+  }
+  function lineaEscritura() {
+    var e = accEscritura;
+    if (!e) return '';
+    if (e.error) return '<p class="small">✕ No se pudo comprobar quién puede guardar partes en la lista de incidentes (' + esc(e.error) + ').</p>';
+    var faltan = e.grupos.filter(function (x) { return !x.ok; });
+    return '<p class="small"><b>Permiso para guardar partes</b> (Colaborar en la lista «' + esc(pref.lista) + '»): ' +
+      (e.todos ? 'lo tienen todos los usuarios del dominio. ' : '') +
+      e.grupos.map(function (x) { return (x.ok ? '✔ ' : '<span class="txt-bad">✕ ') + esc(x.g) + (x.ok ? '' : '</span>'); }).join(' · ') +
+      (faltan.length ? '. <span class="txt-bad">Quien esté solo en ' + esc(faltan.map(function (x) { return x.g; }).join(', ')) + ' entra en la aplicación pero Colabora le rechaza el borrador («Acceso denegado»).</span> ' +
+        '<button class="prim" data-accescritura="1">Dar «Colaborar» a ' + (faltan.length === 1 ? 'ese grupo' : 'esos grupos') + ' en la lista</button>' : '') + '</p>';
+  }
+  function darEscritura(boton) {
+    var faltan = ((accEscritura && accEscritura.grupos) || []).filter(function (x) { return !x.ok; }).map(function (x) { return x.g; });
+    if (!faltan.length) return;
+    if (!window.confirm('Se dará el permiso «Colaborar» en la lista «' + pref.lista + '» a: ' + faltan.join(', ') + '. ¿Seguir?')) return;
+    boton.disabled = true; toast('Dando permiso para guardar partes…');
+    (accEscritura.propios ? Promise.resolve() : enviarSP(urlLista() + '/breakroleinheritance(copyRoleAssignments=true,clearSubscopes=false)', {}, 'No tienes permiso para cambiar los permisos de la lista'))
+      .then(function () { return api(web + '/_api/web/roledefinitions/getbytype(3)?$select=Id'); })
+      .then(function (rd) {
+        return faltan.reduce(function (pr, g) {
+          return pr.then(function () { return api(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(g) + "')?$select=Id"); })
+            .then(function (gr) { return enviarSP(urlLista() + '/roleassignments/addroleassignment(principalid=' + Number(gr.Id) + ',roledefid=' + Number(rd.Id) + ')', {}, 'No tienes permiso para cambiar los permisos de la lista'); });
+        }, Promise.resolve());
+      })
+      .then(function () { return cargarAccesos(); })
+      .then(function () { toast('Listo: ' + faltan.join(', ') + ' ya pueden guardar partes'); })
+      .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
+  }
   function abrirListaAcceso(boton) {
     boton.disabled = true; toast('Dando permiso para solicitar acceso…');
     abrirLista().then(function () { return cargarAccesos(); }).then(function () { toast(accAbierta && accAbierta.abierta ? 'Listo: cualquiera puede solicitar acceso' : 'Permiso dado; si sigue en ✕, revisa los permisos de la lista a mano'); })
@@ -2043,6 +2092,7 @@
     if (el.closest('[data-acccolumnas]')) { crearColumnas(el.closest('[data-acccolumnas]')); return; }
     if (el.closest('[data-accseguridad]')) { ajustarSeguridad(el.closest('[data-accseguridad]')); return; }
     if (el.closest('[data-accabrir]')) { abrirListaAcceso(el.closest('[data-accabrir]')); return; }
+    if (el.closest('[data-accescritura]')) { darEscritura(el.closest('[data-accescritura]')); return; }
     if (el.closest('[data-acccreargrupo]')) { crearGrupoBae(el.closest('[data-acccreargrupo]')); return; }
     if (el.closest('#nuevo')) { if (!cargadoEn) return; if (FORM_PROPIO) formulario(null); else window.open(urlFormulario('nuevo'), '_blank'); return; }
     var edp = el.closest('[data-editar]');

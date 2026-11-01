@@ -8,6 +8,14 @@ Página para la lista de incidentes de seguridad que usa la página del sitio
   si tiene una cuenta antigua sin buzón, a su otra cuenta con su mismo nombre. Quien tramita ve a quién llegó y a quién
   no, y cada aviso queda anotado en «Observaciones del expediente». La solicitud de acceso avisa si el correo a los responsables no ha salido. En *Ajustes*, «Correo de prueba».
 
+- **Permiso para guardar partes** (versión 2026-11-01 · 1): aprobar una solicitud mete a la persona en el grupo
+  `INCIDENTES_UNIDADES`, pero eso solo da acceso a la página. Para guardar el borrador hace falta además el permiso
+  **«Colaborar» en la lista** de incidentes. Si el grupo no lo tiene, Colabora contesta «Acceso denegado» al guardar.
+  Ahora el formulario avisa antes de rellenarlo si la cuenta no puede guardar, el error se explica, y en *Ajustes ›
+  Accesos* la línea «Permiso para guardar partes» dice qué grupos (`INCIDENTES_UNIDADES` y `SEGURIDAD_*`) lo tienen.
+  El botón «Dar «Colaborar»…» se lo da en la lista; si la lista hereda los permisos del sitio, antes los independiza
+  copiando los que ya tiene.
+
 ## Estado
 
 1. Diagnóstico (`prueba-incidentes.html`): hecho. Lista «INCIDENTES DE SEGURIDAD» (URL `Lists/INTRUSIONES`).
