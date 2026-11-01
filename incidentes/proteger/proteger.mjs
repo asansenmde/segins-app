@@ -28,6 +28,9 @@ const ofuscado = JavaScriptObfuscator.obfuscate(codigo, {
   deadCodeInjection: false,
   selfDefending: true,            // deja de funcionar si alguien lo reformatea para leerlo
   domainLock: ['.mdef.es'],       // solo funciona dentro de los dominios de Defensa (colabora.mdef.es…)
+  // Semilla fija (como Pérdidas): con la elegida al azar, la copia 2026-11-01 · 1 llegaba a Edge con el programa anulado y
+  // salía el código como texto (también la 26/10 · 1). Si vuelve a pasar: SEMILLA=otro número node proteger.mjs.
+  seed: Number(process.env.SEMILLA || 20261027),
   unicodeEscapeSequence: false
 }).getObfuscatedCode();
 
