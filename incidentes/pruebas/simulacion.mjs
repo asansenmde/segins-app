@@ -70,6 +70,7 @@ const cumple = (it, filtro) => filtro.split(' or ').some(c => {
   return false;
 });
 async function prueba(verbose, escenario) {
+  if (process.env.SOLO && escenario !== process.env.SOLO) return;
   nuevoStore();
   biblioOculta = false;
   sols = [{ Id: 1, Title: 'JEFE UNIDAD B', Solicitante: P[62], Correo: P[62].EMail, Empleo: 'CAPITAN', MandoSegundo: 'SUIGENOR', Unidad: 'BASE NORTE', Telefono: '600', Papel: 'Unidad: notificar incidentes de seguridad', Motivo: 'Jefe de seguridad', Aplicacion: 'INCIDENTES', EstadoSolicitud: 'PENDIENTE', Created: d(-1), Modified: d(-1) },
@@ -226,6 +227,7 @@ async function prueba(verbose, escenario) {
     await b.close(); return;
   }
   if (escenario === 'unidad sin permiso') {
+    console.log(tag, '| nuevo visible:', await p.$eval('#nuevo', b => !b.hidden), '| vista:', (await p.textContent('#vista')).replace(/\s+/g, ' ').slice(0, 120));
     await p.click('#nuevo'); await p.waitForTimeout(900);
     console.log(tag, '| aviso en el formulario:', (await p.textContent('#fSinPermiso').catch(() => 'SIN AVISO')).replace(/\s+/g, ' ').slice(0, 160));
     await p.fill('#fParte [name=fecha]', new Date(Date.now() - 864e5).toISOString().slice(0, 10));
@@ -492,6 +494,6 @@ misGrupos = TODOS; admin = true; await prueba(false, 'correo rechazado'); await 
 misGrupos = []; buzonMal = ['admin1@et.mde.es', 'asansen@et.mde.es', 'i:0#.w|et\\usuario206']; enviados = []; await prueba(false, 'sin acceso'); buzonMal = [];
 misGrupos = TODOS; admin = true; await prueba(false, 'portal'); await prueba(false, 'accesos'); await prueba(true, 'accesos'); admin = false;
 misGrupos = TODOS; admin = true; await prueba(false, 'enlace');
-misGrupos = ['INCIDENTES_UNIDADES']; soloLectura = true; await prueba(false, 'unidad sin permiso'); await prueba(true, 'unidad sin permiso'); soloLectura = false;
+misGrupos = ['INCIDENTES_UNIDADES']; admin = false; soloLectura = true; await prueba(false, 'unidad sin permiso'); await prueba(true, 'unidad sin permiso'); soloLectura = false;
 faltaCampo = 'ResponsableDelParte'; await prueba(true, 'columna inexistente'); faltaCampo = null;
 expandRoto = true; await prueba(false, 'columna inexistente'); expandRoto = false;

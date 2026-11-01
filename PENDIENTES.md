@@ -66,6 +66,9 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
     Hecho (27/10/2026, confirmado en Preparación): lista creada, solo sus elementos, abierta a «usuarios del dominio» y
     grupo INCIDENTES_UNIDADES (8 personas). Queda confirmar la alerta «Avisarme» con una solicitud de prueba. **VSA tiene el mismo fallo** (sigue con «SOLICITUDES DE
     ACCESO»): corregirlo cuando el usuario diga.
+    **01/11/2026**: una unidad acreditada no podía guardar el borrador («Acceso denegado»): `INCIDENTES_UNIDADES` sin
+    «Colaborar» en la lista de incidentes. Incidentes 2026-11-01 · 1 lo avisa y en Ajustes › Accesos lo da con un botón.
+    Pendiente: que el usuario suba la copia protegida, pulse el botón y confirme con la unidad. Revisar Pérdidas y VSA igual.
 
 Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar por la que diga).
 

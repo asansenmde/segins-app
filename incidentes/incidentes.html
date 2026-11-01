@@ -1173,6 +1173,7 @@
     var deUsuarios = function (p) { var u = (usuariosSitio || []).find(function (x) { return x.Id === p.Id; }); return { Id: p.Id, Title: p.Title || (u && u.Title) || '', Email: p.Email || (u && u.Email) || '' }; };
     var caja = function (tit, cuerpo) { return '<div class="fsec">' + esc(tit) + '</div><div class="fcaja">' + cuerpo + '</div>'; };
     $('#dlg .db').innerHTML = '<div id="fParte">' +
+      ((t ? !puedeEditar : !puedeAlta) ? '<div class="error" id="fSinPermiso"><b>Colabora no te deja guardar partes todavía.</b> ' + SIN_PERMISO_LISTA + ' No rellenes el formulario hasta que lo tengas.</div>' : '') +
       '<div class="panel"><b>FORMULARIO NOTIFICACIÓN · INCIDENTES DE SEGURIDAD EN INSTALACIONES</b><br><span class="small">Ejército de Tierra · IGE · Jefatura IGE · Área de Seguridad</span>' +
       '<div class="meta">Estado del formulario: <span class="badge f0">' + esc(t ? t.estadoRaw || ES.BO : 'NUEVO') + '</span></div></div>' +
       (A.faltan.length ? '<div class="aviso">No se pudieron leer estas listas del formulario: ' + esc(A.faltan.join(', ')) + '. Avisa al administrador.</div>' : '') +
@@ -1202,7 +1203,7 @@
         '<div class="acepto"><label><input type="checkbox" name="aceptacion"' + (t && t.aceptacion === true ? ' checked' : '') + '><span>' + esc(TXT_ACEPTO) + '</span></label></div>' +
         '<label class="lbl">Documentos que se adjuntan de interés: fotos, etc. (evitar datos de carácter personal, LOPD)</label><input type="file" name="adjuntos" multiple>' +
         (t && t.adjuntos ? '<p class="small muted">Este parte ya tiene adjuntos en Colabora; los que elijas se añaden a ellos.</p>' : '')) +
-      ((t ? !puedeEditar : !puedeAlta) ? '<div class="error" id="fSinPermiso"><b>Colabora no te deja guardar partes todavía.</b> ' + SIN_PERMISO_LISTA + '</div>' : '') +
+      ((t ? !puedeEditar : !puedeAlta) ? '<div class="error">Colabora no te deja guardar partes todavía (falta el permiso «Colaborar»): lo que rellenes no se podrá guardar.</div>' : '') +
       '<div class="nota">Podrá <b>guardar y modificar el BORRADOR</b> del formulario cuantas veces lo necesite, <b>pero no se enviará hasta que pulse el botón azul</b>. Por favor, compruebe los datos antes de enviarlo a SUIGE. <b>Una vez enviado NO PODRÁ MODIFICARSE.</b></div>' +
       '<div id="fError"></div><div class="acciones"><button type="button" class="ambar" id="fBorrador">Guardar borrador</button><span style="align-self:center;font-weight:700">ó</span>' +
       '<button type="button" class="suige" id="fRemitir">Informar a SUIGE</button><button type="button" class="rojo" data-cerrar>Salir</button></div><p class="small muted" id="fSoloResp"></p></div>';
@@ -1279,7 +1280,7 @@
       var nota = remitir ? 'INFORMADO A SUIGE (' + suige + ')' : (t ? 'Borrador guardado' : 'Parte dado de alta (borrador)');
       var escribir = function (cuerpo) {
         return t ? guardarCambios(t, cuerpo, nota).then(function () { return t.id; }) :
-          enviarSP(urlLista() + '/items', Object.assign({ __metadata: { type: listaInfo.ListItemEntityTypeFullName }, ObservacionesDelExpediente: anotacion(nota), ModificadoPorTEXTO: yo.Title }, cuerpo), 'No se pudo guardar: ' + SIN_PERMISO_LISTA).then(function (n) { return n && (n.Id || n.ID); });
+          enviarSP(urlLista() + '/items', Object.assign({ __metadata: { type: listaInfo.ListItemEntityTypeFullName }, ObservacionesDelExpediente: anotacion(nota), ModificadoPorTEXTO: yo.Title }, cuerpo), SIN_PERMISO_LISTA).then(function (n) { return n && (n.Id || n.ID); });
       };
       // Si SharePoint rechaza la forma de «grupo» (una persona / varias), se cambia y se repite una vez.
       // Error típico: «Se encontró un nodo 'StartObject' inesperado… Se esperaba un nodo 'PrimitiveValue'».
