@@ -68,7 +68,8 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
     ACCESO»): corregirlo cuando el usuario diga.
     **01/11/2026**: una unidad acreditada no podía guardar el borrador («Acceso denegado»): `INCIDENTES_UNIDADES` sin
     «Colaborar» en la lista de incidentes. Incidentes 2026-11-01 · 1 lo avisa y en Ajustes › Accesos lo da con un botón.
-    Pendiente: que el usuario suba la copia protegida, pulse el botón y confirme con la unidad. Revisar Pérdidas y VSA igual.
+    Copia protegida (semilla fija 20261027) subida y funcionando (01/11/2026). Pendiente: pulsar «Dar «Colaborar»…» en
+    Ajustes › Accesos y confirmar con la unidad. Revisar Pérdidas y VSA igual.
 
 Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar por la que diga).
 

@@ -167,7 +167,7 @@ queda el aviso de autoría). Aviso de autoría «© 2026 Cte. Alfredo Sánchez S
 del pie y la página se queda en «Cargando…»): a algunas copias, según cómo salgan al azar, algo entre Colabora y Edge
 (antivirus o filtro de red) les anula el programa; el original y la simulación funcionan. Pasó con Incidentes 26/10 · 1
 y Pérdidas 27/10 · 2, y otra vez con Incidentes 01/11 · 1. Arreglo: generar otra copia con otra `seed` del ofuscador y probarla con otro nombre; en
-`perdidas/proteger` e `incidentes/proteger` la semilla ya es fija (20261027) (`SEMILLA=n` para cambiarla). La variante sin cifrar los textos
+`perdidas/proteger` e `incidentes/proteger` la semilla ya es fija (20261027); en Incidentes, confirmado por el usuario el 01/11/2026 (`SEMILLA=n` para cambiarla). La variante sin cifrar los textos
 (`stringArrayEncoding: []`) tampoco pasó.
 
 ## Ocultar la ruleta y la cinta en el portal (Editor de scripts) · 20/10/2026
