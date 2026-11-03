@@ -16,6 +16,9 @@ Página para la lista de incidentes de seguridad que usa la página del sitio
   El botón «Dar «Colaborar»…» se lo da en la lista; si la lista hereda los permisos del sitio, antes los independiza
   copiando los que ya tiene.
 
+- **Sin «Abrir en Colabora» ni «Formulario InfoPath»** (versión 2026-11-03 · 1, a petición del usuario: daban problemas y
+  todo el circuito se hace en la página). Los adjuntos del parte se ven y descargan en la ficha («📎 Adjuntos»).
+
 ## Estado
 
 1. Diagnóstico (`prueba-incidentes.html`): hecho. Lista «INCIDENTES DE SEGURIDAD» (URL `Lists/INTRUSIONES`).

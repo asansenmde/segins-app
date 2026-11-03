@@ -50,7 +50,7 @@ const nuevoStore = () => {
     { Id: 9, ESTADO: 'REMITIDO A SUIGE', TipoDeIncidente: 'Pintadas', ...nor, grupo: [P[62], YO], PROBABILIDADES: 'BAJO', FechaNotificacion: d(-4), Created: d(-4), Author: P[62] },
     // MADOC: el InfoPath lo envía a la SUIGESUR
     { Id: 10, ESTADO: 'REMITIDO A SUIGE', TipoDeIncidente: 'Otro', MANDO2N: '9', OData__x004d_N2: 'MADOC', OData__x004d_N3: 'ACADEMIA', PROBABILIDADES: 'MEDIO', FechaNotificacion: d(-5), Created: d(-5), Author: P[62] },
-  ].map(x => ({ ...base, Title: '2026-01-01', Modified: d(-1), Editor: { Id: 61, Title: 'JEFE UNIDAD A' }, Attachments: x.Id === 1, ...x }));
+  ].map(x => ({ ...base, Title: '2026-01-01', Modified: d(-1), Editor: { Id: 61, Title: 'JEFE UNIDAD A' }, Attachments: x.Id === 1 || x.Id === 3, ...x }));
 };
 // Evalúa el $filter de alcance (or de igualdades de persona, SUIGES y substringof)
 // Al escribir, las personas llegan por su número (XId); se guardan como objetos para leerlas después
@@ -166,6 +166,8 @@ async function prueba(verbose, escenario) {
     }
     const g = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users/);
     if (g) return MIEMBROS[g[1]] ? J({ value: MIEMBROS[g[1]].map(e => ({ Id: 200 + Object.keys(NOMBRE_DE).indexOf(e), Title: NOMBRE_DE[e] || e, Email: e })) }) : r.fulfill({ status: 404, body: '' });
+    const af = resto.match(/items\((\d+)\)\/AttachmentFiles$/);
+    if (af) return J({ value: [{ FileName: 'foto <1>.jpg', ServerRelativeUrl: WEB + '/Lists/INTRUSIONES/Attachments/' + af[1] + '/foto <1>.jpg' }, { FileName: 'informe.pdf', ServerRelativeUrl: WEB + '/Lists/INTRUSIONES/Attachments/' + af[1] + '/informe.pdf' }] });
     const mi = resto.match(/items\((\d+)\)/);
     if (mi) { const it = items.find(x => x.Id === +mi[1]); return r.fulfill({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, ...it } } }); }
     const aux = resto.match(/getbytitle\('(PROVINCIAS|M1N|M2N|M3N|empleos)'\)\/items/);
@@ -294,7 +296,8 @@ async function prueba(verbose, escenario) {
     await b.close(); return;
   }
   if (escenario === 'columna inexistente') { console.log(tag, '| carga:', await p.textContent('#estadoCarga'), '| aviso:', await p.textContent('#vista .aviso').catch(() => 'ninguno'), '| errores:', errs); await b.close(); return; }
-  if (escenario === 'enlace') { console.log(tag, '| ficha abierta:', await p.textContent('#dlg h2').catch(() => 'nada'), '| URL limpia:', p.url().endsWith('incidentes.html')); await b.close(); return; }
+  if (escenario === 'enlace') { await p.waitForTimeout(500); console.log(tag, '| adjuntos en la ficha:', await p.$$eval('#detAdj a', n => n.map(a => a.textContent + ' → ' + a.getAttribute('href').replace(/^https:\/\/colabora\.mdef\.es/, '')).join(' · ')), '| botones de Colabora:', await p.$$eval('#dlg a.btn', n => n.map(a => a.textContent).join(',') || 'ninguno'), '| errores:', errs);
+    console.log(tag, '| ficha abierta:', await p.textContent('#dlg h2').catch(() => 'nada'), '| URL limpia:', p.url().endsWith('incidentes.html')); await b.close(); return; }
   console.log(tag, '| pestañas:', pestañas, '| filtro:', ultimoFiltro ? (ultimoFiltro.includes('substringof') ? 'con cadena de mando' : 'sin cadena de mando') : 'ninguno (ve todo)');
   console.log(tag, '| panel:', (await p.$$eval('.mini > div', k => k.map(x => x.textContent.replace(/^\D*?(\d+)/, '$1 ')))).join(' · '), '| circuito:', (await p.$$eval('.flujo .fp', k => k.map(x => x.textContent.replace(/^\S+/, '').replace(/(\d+)$/, ':$1')))).join(' › '));
   if (!verbose && escenario === 'control total') await p.screenshot({ path: new URL('panel.png', import.meta.url).pathname, fullPage: true });

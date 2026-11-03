@@ -225,7 +225,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-01 · 1';
+  var VERSION = '2026-11-03 · 1';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -1353,10 +1353,16 @@
       datos.filter(function (x) { return x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       '<div class="sec"><span>Descripción</span></div><div id="detTextos"><p class="muted small">Cargando…</p></div>' +
       '<div class="acciones"><button data-fichaimp="' + t.id + '">🖨 Imprimir ficha / PDF</button>' +
-      (listaInfo.DefaultDisplayFormUrl ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(location.origin + listaInfo.DefaultDisplayFormUrl + '?ID=' + t.id) + '">Abrir en Colabora' + (t.adjuntos ? ' (adjuntos)' : '') + '</a>' : '') +
-      (listaInfo.DefaultEditFormUrl && esGestor ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(location.origin + listaInfo.DefaultEditFormUrl + '?ID=' + t.id) + '">✎ Formulario InfoPath</a>' : '') + '</div>' +
+      '</div>' +
+      // Sin «Abrir en Colabora» ni «Formulario InfoPath» (03/11/2026: daban problemas; todo se hace en esta página). Los adjuntos, aquí.
+      (t.adjuntos ? '<div class="sec"><span>📎 Adjuntos</span></div><div id="detAdj"><p class="muted small">Cargando…</p></div>' : '') +
       '</div><div><div class="sec" style="margin-top:0"><span>Valoraciones y seguimiento</span></div><div id="detVal"><p class="muted small">Cargando…</p></div><div id="detAcc">' + panelAcciones(t) + '</div></div></div></div>';
     dlg.showModal(); dlg.scrollTop = 0;
+    if (t.adjuntos) api(urlLista() + '/items(' + t.id + ')/AttachmentFiles').then(function (r) {
+      var el = $('#detAdj'); if (!el || dlgId !== t.id) return;
+      var fs = lista(r.value !== undefined ? r.value : r);
+      el.innerHTML = fs.length ? '<ul class="adjuntos">' + fs.map(function (f) { return '<li><a target="_blank" rel="noopener" href="' + esc(location.origin + encodeURI(f.ServerRelativeUrl)) + '">' + esc(f.FileName) + '</a></li>'; }).join('') + '</ul>' : '<p class="muted small">Sin adjuntos.</p>';
+    }).catch(function () { var el = $('#detAdj'); if (el) el.innerHTML = '<p class="muted small">No se pudieron leer los adjuntos.</p>'; });
     leerElemento(t.id, CAMPOS_TEXTO).then(function (x) {
       var d = x.datos; detalle[t.id] = d;
       var el = $('#detTextos'); if (!el || dlgId !== t.id) return;
