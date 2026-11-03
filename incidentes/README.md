@@ -28,6 +28,9 @@ Página para la lista de incidentes de seguridad que usa la página del sitio
 - **Motivo del rechazo** en las solicitudes de acceso: campo propio, obligatorio para denegar. Va en el correo
   («Motivo del rechazo») y el solicitante lo ve al entrar.
 
+- **Copia protegida sin las marcas del ofuscador** (03/11/2026): ver `SHAREPOINT.md`, «Si la copia protegida sale como
+  código». Compactada como un minificado normal, con bloqueo propio a `*.mdef.es`; `FUERTE=1` para la ofuscación anterior.
+
 ## Estado
 
 1. Diagnóstico (`prueba-incidentes.html`): hecho. Lista «INCIDENTES DE SEGURIDAD» (URL `Lists/INTRUSIONES`).

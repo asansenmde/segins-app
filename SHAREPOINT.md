@@ -169,6 +169,12 @@ del pie y la página se queda en «Cargando…»): a algunas copias, según cóm
 y Pérdidas 27/10 · 2, y otra vez con Incidentes 01/11 · 1. Arreglo: generar otra copia con otra `seed` del ofuscador y probarla con otro nombre; en
 `perdidas/proteger` e `incidentes/proteger` la semilla ya es fija (20261027); en Incidentes, confirmado por el usuario el 01/11/2026 (`SEMILLA=n` para cambiarla). La variante sin cifrar los textos
 (`stringArrayEncoding: []`) tampoco pasó.
+**Arreglo de fondo (Incidentes, 03/11/2026):** la semilla fija solo vale mientras el código no cambie (la 03/11 · 2 volvió
+a fallar). El original legible no falla nunca, así que la copia de Incidentes ya no usa la ofuscación fuerte: se compacta
+como un programa minificado normal (nombres internos cambiados, sin espacios ni comentarios, textos sin códigos `\x20`),
+sin tabla de textos cifrada, sin *self-defending* y sin el bloqueo de dominio del ofuscador, que son las marcas que
+reconocen los filtros. El bloqueo a `*.mdef.es` es una comprobación propia al principio del código. `FUERTE=1 node
+proteger.mjs` vuelve a la anterior. Si Incidentes va bien así, aplicar lo mismo a Permisos, VSA, Pérdidas y Tareas Colabora.
 
 ## Ocultar la ruleta y la cinta en el portal (Editor de scripts) · 20/10/2026
 
