@@ -225,7 +225,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-03 · 2';
+  var VERSION = '2026-11-03 · 3';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -848,6 +848,8 @@
       valIge: { a: dest.suige, cc: [], asunto: 'INCIDENTE DE SEGURIDAD EN INSTALACIONES ACTUALIZADO · Nº ' + t.id, intro: 'SE HA REALIZADO UNA ACTUALIZACIÓN DEL INCIDENTE DE SEGURIDAD EN INSTALACIONES: VALORACIÓN DE IGE.', personas: 'cc' },
       cerrar: { a: dest.suige, cc: [], asunto: 'INCIDENTE DE SEGURIDAD EN INSTALACIONES Nº ' + t.id + ': EXPEDIENTE CERRADO', intro: 'EL EXPEDIENTE DEL INCIDENTE HA QUEDADO CERRADO.', personas: 'cc', resp: true },
       reabrir: { a: dest.suige, cc: dest.diacu, asunto: 'INCIDENTE DE SEGURIDAD EN INSTALACIONES Nº ' + t.id + ': EXPEDIENTE REABIERTO', intro: 'EL EXPEDIENTE DEL INCIDENTE SE HA REABIERTO Y VUELVE A SEGUIMIENTO.' },
+      devuelto: { a: [], cc: [], asunto: 'INCIDENTE DE SEGURIDAD EN INSTALACIONES Nº ' + t.id + ' DEVUELTO POR ' + arg + ' PARA CORREGIR', intro: 'LA SUIGE HA DEVUELTO EL PARTE A LA UNIDAD. CORRÍJALO SEGÚN EL MOTIVO INDICADO Y VUELVA A INFORMAR A SUIGE.', personas: 'cc', resp: true },
+      noProcede: { a: [], cc: dest.ige, asunto: 'INCIDENTE DE SEGURIDAD EN INSTALACIONES Nº ' + t.id + ': NO PROCEDE (' + arg + ')', intro: 'LA SUIGE HA RESUELTO QUE EL PARTE NO PROCEDE. EL EXPEDIENTE QUEDA CERRADO.', personas: 'cc', resp: true },
       recordar: { a: [], cc: [], asunto: 'RECORDATORIO: incidente de seguridad en instalaciones Nº ' + t.id + ' pendiente: ' + faseTxt(t), intro: 'RECORDATORIO: ESTE INCIDENTE SIGUE PENDIENTE (' + faseTxt(t).toUpperCase() + ').' }
     }[tipo];
     if (tipo === 'recordar') { var f = fase(t); P.a = f === 1 ? dest.suige : f === 2 ? dest.diacu : dest.ige; }
@@ -859,7 +861,7 @@
       var bcc = limpia(P.personas === 'bcc' ? gente : []).filter(function (x) { return to.indexOf(x) < 0 && cc.indexOf(x) < 0; });
       if (!to.length) { to = cc; cc = []; }
       var filas = [['Nº de incidente', String(t.id)], ['Tipo de incidente', t.tipo], ['Fecha del incidente', fCorta(t.fecha)], ['Provincia', t.provincia], ['Unidad', (t.cadena || []).join(' - ') || t.lugar],
-        ['SUIGE', t.suige], ['Probabilidad', t.prob], ['Situación', faseTxt(t)], ['Tramitado por', yo.Title], ['Comentario', txt ? (txt.length > 800 ? txt.slice(0, 800) + '…' : txt) : '']].filter(function (x) { return x[1]; });
+        ['SUIGE', t.suige], ['Probabilidad', t.prob], ['Situación', faseTxt(t)], ['Tramitado por', yo.Title], [tipo === 'devuelto' || tipo === 'noProcede' ? 'Motivo' : 'Comentario', txt ? (txt.length > 800 ? txt.slice(0, 800) + '…' : txt) : '']].filter(function (x) { return x[1]; });
       return { to: to, cc: cc, bcc: bcc, sinVer: sinVer, asunto: P.asunto, html: htmlCorreo(P.intro, filas, enlaceInc(t)), texto: 'USO OFICIAL\n\n' + P.intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\nAbrir el incidente: ' + enlaceInc(t) };
     });
   }
@@ -1415,6 +1417,8 @@
       var vals = [['Valoración del jefe de negociado de seguridad de la SUIGE' + (t.suige ? ' (' + t.suige + ')' : ''), texto(d.VALORACIONSUIGES), est(t.valSuige, 1), f >= 1],
         ['Valoración de los analistas de DIACU', texto(d.VALORACIONDIACU), est(t.valDiacu, 2), f >= 2],
         ['Valoración de seguridad de IGE', texto(d.valoracionIGE), est(t.valIge, 3), f >= 2]].filter(function (v) { return v[3]; });
+      var dev = fase(t) === 0 && (texto(d.ObservacionesDelExpediente).match(/[^\n]*DEVUELTO A LA UNIDAD[^\n]*/g) || []).pop();
+      if (dev && $('#detAcc')) $('#detAcc').insertAdjacentHTML('afterbegin', '<div class="aviso">↩ <b>Devuelto por la SUIGE para corregir.</b> ' + esc(dev) + '</div>');
       $('#detVal').innerHTML = (vals.length ? '' : '<p class="small muted">Las valoraciones aparecen cuando el parte se envía a SUIGE.</p>') +
         vals.map(function (v) { return '<b class="small muted">' + esc(v[0]) + (v[2] ? ' · ' + esc(v[2]) : '') + '</b><div class="texto">' + (v[1] ? esc(v[1]) : '<span class="muted">—</span>') + '</div>'; }).join('') +
         '<b class="small muted">Observaciones e historial del expediente</b><div class="texto">' + (d.ObservacionesDelExpediente ? esc(texto(d.ObservacionesDelExpediente)) : '<span class="muted">—</span>') + '</div>';
@@ -1434,6 +1438,10 @@
       h += '<div class="panel turno"><h3>Valoración del jefe de negociado de seguridad de las SUIGE (' + esc(t.suige) + ')</h3>' + txt('vSuige', 'VALORACIONSUIGES', 'Valoración (obligatoria)') +
         '<p class="small muted">Se informa primero a DIACU. Si DIACU no lo eleva a IGE en ' + PLAZO_DIACU + ' días hábiles, podrás elevarlo tú a IGE por falta de valoración de DIACU.</p>' +
         '<div class="acciones"><button class="diacu" data-acc="suigeDiacu">Informar a DIACU</button></div></div>';
+      // Devolver a la unidad (vuelve a borrador para corregirlo) o «No procede» (se archiva cerrado). Nunca se borra el parte.
+      h += '<div class="panel"><h3>¿Hay que corregirlo o no procede?</h3><label class="lbl">Motivo (obligatorio; se envía a la unidad y queda en el historial)</label><textarea id="vRechazo"></textarea>' +
+        '<p class="small muted"><b>Devolver</b>: vuelve a BORRADOR para que la unidad lo corrija y lo envíe de nuevo. <b>No procede</b>: se archiva como expediente cerrado, con el motivo como valoración de la SUIGE (no se borra: queda constancia).</p>' +
+        '<div class="acciones"><button class="ambar" data-acc="suigeDevolver">↩ Devolver a la unidad para corregir</button><button class="rojo" data-acc="suigeNoProcede">✕ No procede · archivar</button></div></div>';
     }
     if (fase(t) === 2 && esMiSuige(t)) {
       var fp = plazoDiacu(t);
@@ -1461,7 +1469,7 @@
     var v = function (id) { var el = $('#' + id); return el ? el.value.trim() : ''; };
     var c = {}, nota = null, correo = null, txt = '', ok = '';
     var exige = function (x, m) { if (!x) { msgAcc('error', m); throw 0; } };
-    var PERMITIDO = { suigeDiacu: pSuige, suigeIgeSD: pSuigeIge, diacuGuardar: pDiacu, diacuIge: pDiacu, valIge: pIge, cerrar: pCierre,
+    var PERMITIDO = { suigeDiacu: pSuige, suigeDevolver: pSuige, suigeNoProcede: pSuige, suigeIgeSD: pSuigeIge, diacuGuardar: pDiacu, diacuIge: pDiacu, valIge: pIge, cerrar: pCierre,
       reabrir: function (x) { return fase(x) === 5 && (esIge || esGestor); }, anotar: puedeAnotar, recordar: puedeAnotar };
     if (!PERMITIDO[a] || !PERMITIDO[a](t)) { msgAcc('error', 'No te corresponde esta acción en la fase actual del incidente.'); return; }
     try {
@@ -1471,6 +1479,14 @@
         correo = a === 'suigeDiacu' ? 'diacu' : 'ige';
         nota = 'Valoración ' + t.suige + ' · ' + (a === 'suigeDiacu' ? 'INFORMADO A DIACU' : 'INFORMADO A IGE');
         ok = a === 'suigeDiacu' ? 'Valoración guardada: REMITIDO A DIACU.' : 'Valoración guardada: REMITIDO A IGE.';
+      } else if (a === 'suigeDevolver') {
+        txt = v('vRechazo'); exige(txt, 'Escribe el motivo por el que lo devuelves a la unidad.');
+        c.ESTADO = ES.BO; correo = 'devuelto';
+        nota = 'DEVUELTO A LA UNIDAD POR ' + t.suige + ' PARA CORREGIR: ' + txt; ok = 'Devuelto a la unidad: vuelve a BORRADOR para que lo corrija y lo envíe de nuevo.';
+      } else if (a === 'suigeNoProcede') {
+        txt = v('vRechazo'); exige(txt, 'Escribe el motivo por el que no procede.');
+        Object.assign(c, { ESTADO: ES.CE, VALORACIONSUIGES: aHtml('NO PROCEDE: ' + txt), ValoradoPorSUIGE: true }); correo = 'noProcede';
+        nota = 'NO PROCEDE (' + t.suige + '): ' + txt + ' · EXPEDIENTE CERRADO'; ok = 'Archivado como «No procede»: expediente cerrado.';
       } else if (a === 'suigeIgeSD') {
         txt = v('vSuigeIge');
         c.ESTADO = ES.RM; correo = 'igeSinDiacu';
@@ -1499,7 +1515,7 @@
       }
     } catch (e) { if (e === 0) return; throw e; }
     // Los trámites que cambian la fase se confirman antes; después se guarda, se avisa y se cierra la ficha
-    var CONFIRMA = { suigeDiacu: 'informar a DIACU', suigeIgeSD: 'elevar a IGE sin valoración de DIACU', diacuIge: 'informar a IGE', valIge: 'guardar la valoración de IGE', cerrar: 'cerrar el expediente', reabrir: 'reabrir el expediente' };
+    var CONFIRMA = { suigeDevolver: 'devolverlo a la unidad para que lo corrija', suigeNoProcede: 'archivarlo como «No procede» (se cierra el expediente)', suigeDiacu: 'informar a DIACU', suigeIgeSD: 'elevar a IGE sin valoración de DIACU', diacuIge: 'informar a IGE', valIge: 'guardar la valoración de IGE', cerrar: 'cerrar el expediente', reabrir: 'reabrir el expediente' };
     var cierra = !!CONFIRMA[a];
     resultadoTramite = null;
     // Confirmación dentro de la ficha (no con window.confirm: en la página del portal o con los diálogos bloqueados no sale)
@@ -2192,7 +2208,9 @@
     var pos = e.target.selectionStart; render();
     var i = $('#fq'); if (i) { i.focus(); i.setSelectionRange(pos, pos); }
   });
-  $('#dlg').addEventListener('close', function () { dlgId = null; });
+  // El aviso «close» llega un instante después de cerrar: si para entonces ya se ha abierto otra ficha (p. ej. la que se abre
+  // sola tras guardar un borrador), no hay que olvidarla, o sus botones dejan de responder.
+  $('#dlg').addEventListener('close', function () { if (!$('#dlg').open) dlgId = null; });
 
   render();
   cargar().then(function () { if (esAdmin && cargadoEn) cargarAccesos().then(render); });

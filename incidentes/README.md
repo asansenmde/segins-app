@@ -31,6 +31,15 @@ Página para la lista de incidentes de seguridad que usa la página del sitio
 - **Copia protegida sin las marcas del ofuscador** (03/11/2026): ver `SHAREPOINT.md`, «Si la copia protegida sale como
   código». Compactada como un minificado normal, con bloqueo propio a `*.mdef.es`; `FUERTE=1` para la ofuscación anterior.
 
+- **La SUIGE puede devolver o descartar un parte** (versión 2026-11-03 · 3), en la fase REMITIDO A SUIGE y siempre con
+  motivo:
+  - **↩ Devolver a la unidad para corregir**: vuelve a BORRADOR. Se avisa al responsable, al autor y al personal que puede
+    visualizarlo, y la ficha muestra «Devuelto por la SUIGE para corregir» con el motivo.
+  - **✕ No procede · archivar**: EXP CERRADO, con «NO PROCEDE: motivo» como valoración de la SUIGE. Se avisa a la unidad
+    con copia a IGE.
+
+  En los dos casos queda anotado en el historial. No se borra ningún parte, para que quede constancia.
+
 ## Estado
 
 1. Diagnóstico (`prueba-incidentes.html`): hecho. Lista «INCIDENTES DE SEGURIDAD» (URL `Lists/INTRUSIONES`).

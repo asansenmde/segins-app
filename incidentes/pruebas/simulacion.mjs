@@ -256,6 +256,8 @@ async function prueba(verbose, escenario) {
     await rellenar('08:10'); posts.length = 0; const n0 = items.length;
     await p.evaluate(() => { const b = document.querySelector('#fBorrador'); b.click(); b.click(); b.click(); }); await p.waitForTimeout(2000);
     console.log(tag, '| triple clic: altas', altas(), '| partes nuevos', items.length - n0, '| ficha:', await p.textContent('#dlg h2').catch(() => '-'));
+    await p.click('[data-acc=anotar]').catch(() => {}); await p.waitForTimeout(200);
+    console.log(tag, '| ficha tras guardar responde:', (await p.textContent('#accMsg').catch(() => '')).trim() || 'NO RESPONDE');
     await p.click('#dlg [data-cerrar]').catch(() => {});
     // 2) Respuesta cortada: el parte se crea pero la página no lo sabe; al repetir, se reutiliza (no se duplica)
     await rellenar('09:20'); posts.length = 0; const n1 = items.length; cortarAlta = true;
@@ -269,6 +271,26 @@ async function prueba(verbose, escenario) {
     await p.click('#fBorrador'); await p.waitForTimeout(2000);
     const tx = (await p.textContent('#dlg').catch(() => '')) + ' ' + (await p.textContent('#estadoCarga').catch(() => ''));
     console.log(tag, '| fallo tras guardar: partes nuevos', items.length - n2, '| «No se pudo guardar»:', /No se pudo guardar/.test(tx), '| dice guardado:', /guardado|Borrador nº/.test(tx), '| errores:', errs);
+    await b.close(); return;
+  }
+  if (escenario === 'suige rechaza') {
+    const abrir = async id => { await p.evaluate(i => { const a = document.createElement('a'); a.className = 'inc'; a.dataset.id = String(i); document.body.append(a); a.click(); a.remove(); }, id); await p.waitForTimeout(800); };
+    // 1) Devolver el nº 1 a la unidad
+    await abrir(1);
+    console.log(tag, '| botones de la SUIGE:', await p.$$eval('#detAcc button[data-acc]', b => b.map(x => x.textContent).join(' | ')));
+    await p.click('[data-acc=suigeDevolver]'); await p.waitForTimeout(200);
+    console.log(tag, '| devolver sin motivo:', (await p.textContent('#accMsg')).trim());
+    await p.fill('#vRechazo', 'Falta la hora y la unidad exacta'); posts.length = 0; await p.click('[data-acc=suigeDevolver]'); await p.waitForTimeout(200);
+    await p.click('[data-accok]'); await p.waitForTimeout(2500);
+    const c1 = merge(1), m1 = correos().pop();
+    console.log(tag, '| devuelto:', JSON.stringify(c1 && { ESTADO: c1.ESTADO }), '| historial:', anotacion(1) || (items.find(x => x.Id === 1).ObservacionesDelExpediente || '').split('\n').filter(l => /DEVUELTO/.test(l)).pop(), '| correo:', m1 && m1.Subject, '→', m1 && m1.To.results.join(','), '| motivo en el correo:', !!(m1 && /Falta la hora/.test(m1.Body)));
+    await abrir(1); await p.waitForTimeout(500); console.log(tag, '| ficha del devuelto:', (await p.textContent('#detAcc .aviso').catch(() => 'SIN AVISO')).replace(/\s+/g, ' ').slice(0, 160));
+    await p.click('#dlg [data-cerrar]').catch(() => {});
+    // 2) «No procede» el nº 8
+    await abrir(8); await p.fill('#vRechazo', 'No es un incidente de seguridad: obra autorizada'); posts.length = 0;
+    await p.click('[data-acc=suigeNoProcede]'); await p.waitForTimeout(300); await p.click('[data-accok]'); await p.waitForTimeout(2500);
+    const c8 = merge(8), m8 = correos().pop();
+    console.log(tag, '| no procede:', JSON.stringify(c8 && { ESTADO: c8.ESTADO, ValoradoPorSUIGE: c8.ValoradoPorSUIGE, val: String(c8.VALORACIONSUIGES || '').replace(/<[^>]+>/g, '').slice(0, 60) }), '| correo:', m8 && m8.Subject, '→', m8 && m8.To.results.length, 'destinatarios', '| errores:', errs);
     await b.close(); return;
   }
   if (escenario === 'portal') {
@@ -529,7 +551,7 @@ async function prueba(verbose, escenario) {
 }
 const TODOS = ['SEGURIDAD_SUIGESUR', 'SEGURIDAD_SUIGENOR', 'SEGURIDAD_SUIGECAN', 'SEGURIDAD_DIAPER', 'SEGURIDAD_IGE', 'Integrantes de la Colaborativo'];
 misGrupos = TODOS; admin = true; await prueba(false, 'control total'); sinEmpleos = true; rechazaFrom = true; grupoUnico = true; await prueba(true, 'control total'); sinEmpleos = false; rechazaFrom = false; grupoUnico = false;
-misGrupos = ['SEGURIDAD_SUIGESUR', 'Integrantes de la Colaborativo']; admin = false; await prueba(false, 'solo SUIGESUR'); await prueba(true, 'plazo DIACU');
+misGrupos = ['SEGURIDAD_SUIGESUR', 'Integrantes de la Colaborativo']; admin = false; await prueba(false, 'suige rechaza'); await prueba(true, 'suige rechaza'); await prueba(false, 'solo SUIGESUR'); await prueba(true, 'plazo DIACU');
 sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstringof = false;
 misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'IGE valora'); await prueba(true, 'IGE valora'); if (process.env.SOLO_IGE) process.exit(0); await prueba(false, 'solo SEGURIDAD_IGE'); await prueba(false, 'informe'); await prueba(true, 'informe');
 misGrupos = ['SEGURIDAD_SUIGESUR']; admin = true; await prueba(false, 'Control total y solo SUIGESUR'); admin = false;
