@@ -19,6 +19,15 @@ Página para la lista de incidentes de seguridad que usa la página del sitio
 - **Sin «Abrir en Colabora» ni «Formulario InfoPath»** (versión 2026-11-03 · 1, a petición del usuario: daban problemas y
   todo el circuito se hace en la página). Los adjuntos del parte se ven y descargan en la ficha («📎 Adjuntos»).
 
+- **Guardado robusto** (versión 2026-11-03 · 2). Un solo guardado a la vez: «Guardar borrador» e «Informar a SUIGE»
+  se bloquean mientras dura. Si algo falla *después* de escribir en la lista (adjuntos, correo, recarga), dice que está
+  guardado y que no hace falta repetir. Si se repite tras un fallo, se actualiza el parte ya creado. Antes de crear uno
+  nuevo, mira si diste de alta el mismo parte (fecha y hora, unidad y tipo) en los últimos 30 minutos; así no se duplica
+  si se cortó la respuesta de Colabora. El formulario vuelve a leer el permiso al abrirse y, si falta, dice con qué
+  cuenta se ha entrado. Pruebas: escenario «ciclo» (triple clic, respuesta cortada, fallo tras guardar).
+- **Motivo del rechazo** en las solicitudes de acceso: campo propio, obligatorio para denegar. Va en el correo
+  («Motivo del rechazo») y el solicitante lo ve al entrar.
+
 ## Estado
 
 1. Diagnóstico (`prueba-incidentes.html`): hecho. Lista «INCIDENTES DE SEGURIDAD» (URL `Lists/INTRUSIONES`).

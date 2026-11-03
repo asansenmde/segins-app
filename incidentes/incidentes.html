@@ -225,7 +225,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-03 · 1';
+  var VERSION = '2026-11-03 · 2';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -1161,8 +1161,13 @@
     var dlg = $('#dlg');
     dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Parte Nº ' + t.id + ' · borrador' : 'Formulario de notificación · Incidentes de seguridad en instalaciones') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.4rem">✕</button></div><div class="db"><p class="muted">Cargando…</p></div>';
     dlg.showModal(); dlg.scrollTop = 0; dlgId = null;
-    Promise.all([cargarAux(), cargarUsuarios(), leerTipos(), t ? leerElemento(t.id, TEXTOS.map(function (x) { return x[0]; })).then(function (x) { return x.datos; }) : Promise.resolve({})])
-      .then(function (r) { pintarFormulario(t, r[0], r[3]); })
+    // El permiso se vuelve a leer al abrir (por si se dio después de cargar la página)
+    var permisos = api(urlLista() + '?$select=EffectiveBasePermissions').then(function (l) {
+      var b = l.EffectiveBasePermissions, low = Number(b && b.Low) || 0;
+      if (b) { puedeAlta = (low & 0x2) !== 0; puedeEditar = (low & 0x4) !== 0; }
+    }, function () { /* se queda lo leído al cargar */ });
+    Promise.all([cargarAux(), cargarUsuarios(), leerTipos(), permisos, t ? leerElemento(t.id, TEXTOS.map(function (x) { return x[0]; })).then(function (x) { return x.datos; }) : Promise.resolve({})])
+      .then(function (r) { pintarFormulario(t, r[0], r[4]); })
       .catch(function (e) { $('#dlg .db').innerHTML = '<div class="error">No se pudo preparar el formulario: ' + esc(e.message || e) + '</div>'; });
   }
   function pintarFormulario(t, A, d) {
@@ -1173,7 +1178,7 @@
     var deUsuarios = function (p) { var u = (usuariosSitio || []).find(function (x) { return x.Id === p.Id; }); return { Id: p.Id, Title: p.Title || (u && u.Title) || '', Email: p.Email || (u && u.Email) || '' }; };
     var caja = function (tit, cuerpo) { return '<div class="fsec">' + esc(tit) + '</div><div class="fcaja">' + cuerpo + '</div>'; };
     $('#dlg .db').innerHTML = '<div id="fParte">' +
-      ((t ? !puedeEditar : !puedeAlta) ? '<div class="error" id="fSinPermiso"><b>Colabora no te deja guardar partes todavía.</b> ' + SIN_PERMISO_LISTA + ' No rellenes el formulario hasta que lo tengas.</div>' : '') +
+      ((t ? !puedeEditar : !puedeAlta) ? '<div class="error" id="fSinPermiso"><b>Colabora no te deja guardar partes todavía.</b> ' + SIN_PERMISO_LISTA + ' No rellenes el formulario hasta que lo tengas.<br><span class="small">Has entrado con la cuenta <b>' + esc((yo && (yo.Title + (yo.Email ? ' · ' + yo.Email : ''))) || '') + '</b>: el administrador debe comprobar que es esa la que está en el grupo.</span></div>' : '') +
       '<div class="panel"><b>FORMULARIO NOTIFICACIÓN · INCIDENTES DE SEGURIDAD EN INSTALACIONES</b><br><span class="small">Ejército de Tierra · IGE · Jefatura IGE · Área de Seguridad</span>' +
       '<div class="meta">Estado del formulario: <span class="badge f0">' + esc(t ? t.estadoRaw || ES.BO : 'NUEVO') + '</span></div></div>' +
       (A.faltan.length ? '<div class="aviso">No se pudieron leer estas listas del formulario: ' + esc(A.faltan.join(', ')) + '. Avisa al administrador.</div>' : '') +
@@ -1244,7 +1249,15 @@
     var verDen = function () { $('#cajaDen').hidden = val('denuncia') !== 'true'; };
     campo('denuncia').onchange = verDen; verDen();
     var err = function (m) { $('#fError').innerHTML = '<div class="error">' + esc(m) + '</div>'; $('#fError').scrollIntoView({ block: 'center' }); };
+    // Ciclo robusto (03/11/2026): un solo guardado a la vez (los dos botones se bloquean); lo que falle DESPUÉS de escribir
+    // en la lista (adjuntos, correo, recarga) ya no dice «No se pudo guardar» ni invita a repetir; si se repite tras un
+    // fallo, se actualiza el parte ya creado (no se crea otro), y antes de crear uno nuevo se busca si ya lo diste de alta
+    // hace un momento (p. ej. si se cortó la respuesta de Colabora).
+    var enCurso = false, guardado = null;
+    var botones = function (off) { $('#fBorrador').disabled = off; if (off) $('#fRemitir').disabled = true; else pintarGestor(pResp.valor()); };
     var guardar = function (remitir, boton) {
+      if (enCurso) return;
+      var tAct = guardado || t;   // tras un guardado, el estado y la fecha buenos son los de ese guardado
       var resp = pResp.valor(), grupo = pGrupo.valor().filter(function (u) { return !resp || u.Id !== resp.Id; });
       var mn = [nombre(A.m1, sM1.value), nombre(A.m2, sM2.value), nombre(A.m3, sM3.value)], suige = normSuige(mn[1]);
       if (!remitir && !val('fecha')) return err('La fecha del incidente es obligatoria (también para guardar el borrador).');
@@ -1274,13 +1287,18 @@
         ACEPTACION: val('aceptacion'), ESTADO: remitir ? ES.RS : ES.BO };
       TEXTOS.forEach(function (x) { c[x[0]] = val(x[0]) ? aHtml(val(x[0])) : ''; });
       if (remitir && (opciones.SUIGES || []).indexOf(suige) >= 0) c.SUIGES = suige;
-      if (!t) { c.Title = hoy(); var an = String(fecha.getFullYear()); if ((opciones.A_x00f1_o || []).indexOf(an) >= 0) c.A_x00f1_o = an; }
+      if (!tAct) { c.Title = hoy(); var an = String(fecha.getFullYear()); if ((opciones.A_x00f1_o || []).indexOf(an) >= 0) c.A_x00f1_o = an; }
       var archivos = Array.prototype.slice.call(campo('adjuntos').files || []);
-      boton.disabled = true;
-      var nota = remitir ? 'INFORMADO A SUIGE (' + suige + ')' : (t ? 'Borrador guardado' : 'Parte dado de alta (borrador)');
+      enCurso = true; botones(true);
+      $('#fError').innerHTML = '<div class="aviso">' + (remitir ? 'Enviando a SUIGE…' : 'Guardando el borrador…') + ' No cierres ni vuelvas a pulsar.</div>';
+      var nota = remitir ? 'INFORMADO A SUIGE (' + suige + ')' : (tAct ? 'Borrador guardado' : 'Parte dado de alta (borrador)');
       var escribir = function (cuerpo) {
-        return t ? guardarCambios(t, cuerpo, nota).then(function () { return t.id; }) :
-          enviarSP(urlLista() + '/items', Object.assign({ __metadata: { type: listaInfo.ListItemEntityTypeFullName }, ObservacionesDelExpediente: anotacion(nota), ModificadoPorTEXTO: yo.Title }, cuerpo), SIN_PERMISO_LISTA).then(function (n) { return n && (n.Id || n.ID); });
+        if (tAct) return guardarCambios(tAct, cuerpo, nota).then(function () { return tAct.id; });
+        return buscarRepetido(c).then(function (dup) {
+          if (dup && dup.estadoRaw !== ES.BO) throw new Error('Este parte ya lo diste de alta y se envió hace un momento (nº ' + dup.id + '). No se ha creado otro: búscalo en la lista.');
+          if (dup) { tAct = dup; return guardarCambios(dup, cuerpo, nota).then(function () { return dup.id; }); }
+          return enviarSP(urlLista() + '/items', Object.assign({ __metadata: { type: listaInfo.ListItemEntityTypeFullName }, ObservacionesDelExpediente: anotacion(nota), ModificadoPorTEXTO: yo.Title }, cuerpo), SIN_PERMISO_LISTA).then(function (n) { return n && (n.Id || n.ID); });
+        });
       };
       // Si SharePoint rechaza la forma de «grupo» (una persona / varias), se cambia y se repite una vez.
       // Error típico: «Se encontró un nodo 'StartObject' inesperado… Se esperaba un nodo 'PrimitiveValue'».
@@ -1300,6 +1318,9 @@
         });
       });
       hecho.then(function (id) {
+        // Ya está escrito: desde aquí, nada vuelve a crear el parte
+        guardado = { id: Number(id), modificado: null, estadoRaw: c.ESTADO };
+        var hechoTxt = remitir ? 'Parte nº ' + id + ' enviado: REMITIDO A ' + esc(suige) + '.' : 'Borrador nº ' + id + ' guardado.';
         return subirAdjuntos(id, archivos).then(function (fallos) {
           var nuevo = { id: id, tipo: c.TipoDeIncidente, fecha: val('fecha'), provincia: c.Provincia, cadena: mn.filter(Boolean), lugar: mn[2], suige: suige, prob: c.PROBABILIDADES || '',
             estado: c.ESTADO, correos: correos, resp: resp, autor: yo };
@@ -1307,16 +1328,38 @@
             return anotarAviso(id, r).then(cargar).then(function () {
               var m = '<div class="' + (claseCorreo(r) === 'aviso' || fallos.length ? 'aviso' : 'okmsg') + '">✓ ' + (remitir ? 'Parte enviado: REMITIDO A ' + esc(suige) + ', pendiente de su valoración.' : 'Borrador guardado.') + msgCorreo(r) +
                 (fallos.length ? ' No se pudieron subir estos adjuntos: ' + esc(fallos.join(', ')) + '.' : archivos.length ? ' Adjuntos subidos: ' + archivos.length + '.' : '') + '</div>';
-              if (id) abrir(id, m); else $('#dlg').close();
+              enCurso = false;
+              if (id && items.some(function (x) { return x.id === Number(id); })) abrir(id, m); else { $('#dlg').close(); aviso('✓ ' + (remitir ? 'Parte enviado' : 'Borrador guardado') + (id ? ' (nº ' + id + ')' : '')); }
             });
           });
+        }).catch(function (e) {
+          // Fallo DESPUÉS de guardar: se dice que está guardado y no se invita a repetir
+          enCurso = false;
+          var m = '<div class="aviso">✓ ' + hechoTxt + ' Después falló un paso (' + esc(e.message || e) + '); no hace falta volver a guardarlo. Pulsa Actualizar si no lo ves al día.</div>';
+          cargar().catch(function () { /* se ve al actualizar */ }).then(function () { if (items.some(function (x) { return x.id === Number(id); })) abrir(id, m); else $('#fError').innerHTML = m; });
         });
-      }).catch(function (e) { boton.disabled = false; if (remitir) pintarGestor(pResp.valor()); err('No se pudo guardar: ' + (e.message || e) + (/versión/.test(e.message || '') ? '' : ' [versión ' + VERSION + ']')); });
+      }, function (e) {
+        enCurso = false; botones(false);
+        err('No se pudo guardar: ' + (e.message || e) + (/versión/.test(e.message || '') ? '' : ' [versión ' + VERSION + ']') + (guardado ? ' (el parte nº ' + guardado.id + ' ya existe: al repetir se actualiza ese, no se crea otro)' : /HTTP 5|fetch|network|red/i.test(e.message || '') ? '. Puede que Colabora sí lo guardara: vuelve a pulsar; si ya existe, se actualiza ese mismo parte y no se crea otro.' : ''));
+      });
     };
     $('#fBorrador').onclick = function () { guardar(false, this); };
     $('#fRemitir').onclick = function () { guardar(true, this); };
   }
   // Adjuntos del parte (AttachmentFiles). Devuelve los nombres que no se pudieron subir.
+  // ¿Diste de alta este mismo parte (misma fecha y hora, unidad y tipo) en los últimos 30 minutos? Evita duplicados si se
+  // repite el alta tras un corte. Si no se puede comprobar, se sigue (null).
+  function buscarRepetido(c) {
+    var desde = new Date(Date.now() - 30 * 60000);
+    return api(urlLista() + '/items?$top=20&$orderby=Id desc&$select=Id,Created,Modified,ESTADO,FechaNotificacion,MANDO3N,TipoDeIncidente&$filter=' +
+      encodeURIComponent('(AuthorId eq ' + yo.Id + ") and (Created ge datetime'" + desde.toISOString() + "')")).then(function (r) {
+      var x = lista(r.value !== undefined ? r.value : r).filter(function (it) {
+        return (!it.Created || new Date(it.Created) >= desde) && it.FechaNotificacion && mismaFecha(it.FechaNotificacion, c.FechaNotificacion) &&
+          String(it.MANDO3N || '') === String(c.MANDO3N || '') && String(it.TipoDeIncidente || '') === String(c.TipoDeIncidente || '');
+      })[0];
+      return x ? { id: x.Id, modificado: x.Modified, estadoRaw: x.ESTADO || '' } : null;
+    }, function () { return null; });
+  }
   function subirAdjuntos(id, archivos) {
     var fallos = [];
     return archivos.reduce(function (p, f) {
@@ -1731,7 +1774,7 @@
       var pend = sols.filter(function (s) { return s.estado === 'PENDIENTE'; })[0], ult = sols[0];
       var hist = sols.length ? '<div class="card"><h3 style="margin-top:0">Tus solicitudes</h3>' + sols.map(function (s) {
         return '<div class="campo"><b>' + esc(fHora(s.creado)) + ' · ' + esc(s.papel) + '</b><div><span class="badge ' + (s.estado === 'APROBADA' ? 'f4' : s.estado === 'DENEGADA' ? 'f6' : 'f1') + '">' + esc(s.estado) + '</span> ' +
-          esc([s.unidad, s.mando].filter(Boolean).join(' · ')) + (s.resolucion ? '<br><span class="small">' + esc(s.resolucion) + '</span>' : '') + '</div></div>';
+          esc([s.unidad, s.mando].filter(Boolean).join(' · ')) + (s.resolucion ? '<br><span class="small">' + (s.estado === 'DENEGADA' ? '<b>Motivo del rechazo:</b> ' : '') + esc(s.resolucion) + '</span>' : '') + '</div></div>';
       }).join('') + '</div>' : '';
       if (pend) {
         $('#vista').innerHTML = cab + '<div class="okmsg">Tu solicitud del ' + esc(fHora(pend.creado)) + ' está <b>PENDIENTE</b> de revisión. Recibirás un correo cuando se resuelva.</div>' + msgSolAcc + hist;
@@ -1806,7 +1849,7 @@
   }
   function correoAcceso(tipo, s, txt) {
     var filas = [['Solicitante', s.nombre], ['Correo', s.correo], ['Empleo', s.empleo], ['Unidad', [s.unidad, s.mando].filter(Boolean).join(' · ')], ['Teléfono', s.tel], ['Papel solicitado', s.papel],
-      ['Motivo', s.motivo], ['Grupo asignado', s.grupo], ['Resolución', txt]].filter(function (x) { return x[1]; });
+      ['Motivo', s.motivo], ['Grupo asignado', s.grupo], [tipo === 'denegada' ? 'Motivo del rechazo' : 'Observación', txt]].filter(function (x) { return x[1]; });
     var P = { nueva: ['SOLICITUD DE ACCESO · INCIDENTES DE SEGURIDAD EN INSTALACIONES · ' + s.nombre, 'NUEVA SOLICITUD DE ACCESO A LA APLICACIÓN INCIDENTES DE SEGURIDAD EN INSTALACIONES. REVÍSELA EN LA PESTAÑA «ACCESOS».'],
       aprobada: ['ACCESO CONCEDIDO · INCIDENTES DE SEGURIDAD EN INSTALACIONES', 'SU SOLICITUD DE ACCESO HA SIDO APROBADA. YA PUEDE UTILIZAR LA APLICACIÓN (SI NO LE RECONOCE, CIERRE EL NAVEGADOR Y VUELVA A ENTRAR).'],
       denegada: ['ACCESO DENEGADO · INCIDENTES DE SEGURIDAD EN INSTALACIONES', 'SU SOLICITUD DE ACCESO NO HA SIDO APROBADA.'],
@@ -1894,7 +1937,8 @@
       var sug = grupoSugerido(s);
       return '<div class="card turno" data-sol="' + s.id + '">' + ficha(s) +
         '<div class="grid" style="margin-top:8px"><div><label class="lbl">Dar acceso en el grupo</label><select class="accGrupo">' + grupos.map(function (g) { return '<option' + (g === sug ? ' selected' : '') + '>' + esc(g) + '</option>'; }).join('') + '</select></div>' +
-        '<div><label class="lbl">Observación (opcional, se le envía)</label><input class="accTxt"></div></div>' +
+        '<div><label class="lbl">Observación al aprobar (opcional, se le envía)</label><input class="accTxt"></div></div>' +
+        '<label class="lbl">Motivo del rechazo <span class="muted">(obligatorio para denegar; se le envía por correo y lo verá al entrar)</span></label><textarea class="accMotivo" rows="2"></textarea>' +
         '<div class="acciones"><button class="verde" data-accaprobar="' + s.id + '">✔ Aprobar y dar acceso</button><button class="peligro" data-accdenegar="' + s.id + '">✕ Denegar</button></div><div class="accMsg"></div></div>';
     }).join('');
     var lMiem = accMiembros ? accMiembros.map(function (u) {
@@ -1909,9 +1953,9 @@
   }
   function resolverSolicitud(id, aprobar, boton) {
     var caja = boton.closest('[data-sol]'), s = accSols.find(function (x) { return x.id === id; });
-    var grupo = caja.querySelector('.accGrupo').value, txt = caja.querySelector('.accTxt').value.trim();
+    var grupo = caja.querySelector('.accGrupo').value, txt = (aprobar ? caja.querySelector('.accTxt') : caja.querySelector('.accMotivo')).value.trim();
     var msg = function (cls, t) { caja.querySelector('.accMsg').innerHTML = '<div class="' + cls + '">' + t + '</div>'; };
-    if (!aprobar && !txt) return msg('error', 'Indica el motivo de la denegación (se le envía).');
+    if (!aprobar && !txt) { caja.querySelector('.accMotivo').focus(); return msg('error', 'Escribe el motivo del rechazo: se le envía y lo verá al entrar.'); }
     boton.disabled = true;
     var alta = aprobar ? api(web + '/_api/web/getuserbyid(' + s.sol.Id + ')?$select=LoginName').then(function (u) {
       return enviarSP(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(grupo.replace(/'/g, "''")) + "')/users", { __metadata: { type: 'SP.User' }, LoginName: u.LoginName }, 'No tienes permiso para añadir personas al grupo ' + grupo);

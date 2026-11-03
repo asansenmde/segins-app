@@ -31,7 +31,7 @@ const AUXL = {
 };
 // Permisos de la lista de incidentes: los grupos SEGURIDAD_* con Colaborar; INCIDENTES_UNIDADES solo con Leer (como en
 // Colabora el 01/11/2026: las unidades acreditadas entraban pero Colabora les rechazaba el borrador con «Acceso denegado»)
-let soloLectura = false, rolesInc = { SEGURIDAD_SUIGESUR: 3, SEGURIDAD_IGE: 3, INCIDENTES_UNIDADES: 2 }, permisosDados = [];
+let cortarAlta = false, fallaRecarga = false, soloLectura = false, rolesInc = { SEGURIDAD_SUIGESUR: 3, SEGURIDAD_IGE: 3, INCIDENTES_UNIDADES: 2 }, permisosDados = [];
 let sols = [], unidades = [], anadidos = [], sinEmpleos = false, rechazaFrom = false, grupoUnico = false;
 const sur = { MANDO2N: '1', MANDO3N: '1', OData__x004d_N2: 'SUIGESUR', OData__x004d_N3: 'ACUARTELAMIENTO X' };
 const nor = { MANDO2N: '2', MANDO3N: '2', OData__x004d_N2: 'SUIGENOR', OData__x004d_N3: 'BASE NORTE' };
@@ -74,6 +74,7 @@ async function prueba(verbose, escenario) {
   nuevoStore();
   biblioOculta = false;
   sols = [{ Id: 1, Title: 'JEFE UNIDAD B', Solicitante: P[62], Correo: P[62].EMail, Empleo: 'CAPITAN', MandoSegundo: 'SUIGENOR', Unidad: 'BASE NORTE', Telefono: '600', Papel: 'Unidad: notificar incidentes de seguridad', Motivo: 'Jefe de seguridad', Aplicacion: 'INCIDENTES', EstadoSolicitud: 'PENDIENTE', Created: d(-1), Modified: d(-1) },
+    { Id: 3, Title: 'JEFE UNIDAD A', Solicitante: P[61], Correo: P[61].EMail, Empleo: 'TENIENTE', MandoSegundo: 'SUIGESUR', Unidad: 'ACUARTELAMIENTO X', Telefono: '601', Papel: 'Unidad: notificar incidentes de seguridad', Motivo: 'Curiosidad', Aplicacion: 'INCIDENTES', EstadoSolicitud: 'PENDIENTE', Created: d(-2), Modified: d(-2) },
     { Id: 2, Title: 'OTRO', Solicitante: P[61], Correo: P[61].EMail, Papel: 'x', Aplicacion: 'VSA', EstadoSolicitud: 'PENDIENTE', Created: d(-1), Modified: d(-1) }];
   unidades = [{ Id: 61, Title: P[61].Title, Email: P[61].EMail, LoginName: 'i:0#.w|et\\jefea' }]; anadidos = [];
   if (escenario === 'sin acceso' || escenario === 'solo información') items = items.filter(x => !(x.Author && x.Author.Id === YO.Id) && !(x.ResponsableDeLaInformacion && x.ResponsableDeLaInformacion.Id === YO.Id));
@@ -139,7 +140,10 @@ async function prueba(verbose, escenario) {
       if (resto.endsWith('/items')) {
         const c = personasDe(JSON.parse(req.postData())); delete c.__metadata;
         const it = { ...base, Id: Math.max(...items.map(x => x.Id)) + 1, Created: new Date().toISOString(), Modified: new Date().toISOString(), Author: { Id: YO.Id, Title: YO.Title, EMail: YO.EMail }, Editor: { Id: YO.Id, Title: YO.Title }, Attachments: false, ...c };
-        items.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } });
+        items.push(it);
+        // Respuesta cortada: Colabora crea el parte pero la página no recibe la respuesta
+        if (cortarAlta) { cortarAlta = false; return r.fulfill({ status: 500, body: '' }); }
+        return r.fulfill({ status: 201, json: { d: { Id: it.Id } } });
       }
       return r.fulfill({ status: 400, body: '' });
     }
@@ -181,6 +185,7 @@ async function prueba(verbose, escenario) {
       { InternalName: 'PROBABILIDADES', Choices: ch(['MUY BAJO', 'BAJO', 'MEDIO', 'ALTO', 'MUY ALTO']) }, { InternalName: 'SUIGES', Choices: ch(['JEFATURA DE IGE', 'SECOORCEN', 'SUIGESUR', 'SUIGEPIR', 'SUIGENOR', 'SUIGECAN', 'DIIN']) },
       { InternalName: 'A_x00f1_o', Choices: ch(['2025', '2026', '2027']) }].concat(grupoUnico ? [] : [{ InternalName: 'grupo', TypeAsString: 'UserMulti' }], [{ InternalName: 'DIACU', TypeAsString: 'MultiChoice' }]) }); }
     if (resto.includes('/items') && expandRoto && u.includes('$expand')) return r.fulfill({ status: 400, body: '' });
+    if (resto.includes('/items') && fallaRecarga && u.includes('Title')) { fallaRecarga = false; return r.fulfill({ status: 500, body: '' }); }
     if (resto.includes('/items')) {
       const selRaw = ((u.match(/\$select=([^&]*)/) || [])[1] || '').split(',').filter(Boolean);
       const exp = ((u.match(/\$expand=([^&]*)/) || [])[1] || '').split(',');
@@ -237,6 +242,33 @@ async function prueba(verbose, escenario) {
     console.log(tag, '| al guardar:', (await p.textContent('#fError')).replace(/\s+/g, ' ').slice(0, 200), '| errores:', errs);
     await b.close(); return;
   }
+  if (escenario === 'ciclo') {
+    const rellenar = async (hora) => {
+      await p.click('#nuevo'); await p.waitForTimeout(900);
+      await p.fill('#fParte [name=fecha]', new Date(Date.now() - 864e5).toISOString().slice(0, 10)); await p.fill('#fParte [name=hora]', hora);
+      await p.selectOption('#fParte [name=m2]', '1'); await p.selectOption('#fParte [name=m3]', '1'); await p.selectOption('#fParte [name=tipo]', 'Pintadas');
+    };
+    const altas = () => posts.filter(x => x.ruta.endsWith("getbytitle('INCIDENTES DE SEGURIDAD')/items")).length;
+    const merges = () => posts.filter(x => /items\(\d+\)$/.test(x.ruta) && x.cab['x-http-method'] === 'MERGE').length;
+    // 1) Doble clic en «Guardar borrador»: un solo alta
+    await rellenar('08:10'); posts.length = 0; const n0 = items.length;
+    await p.evaluate(() => { const b = document.querySelector('#fBorrador'); b.click(); b.click(); b.click(); }); await p.waitForTimeout(2000);
+    console.log(tag, '| triple clic: altas', altas(), '| partes nuevos', items.length - n0, '| ficha:', await p.textContent('#dlg h2').catch(() => '-'));
+    await p.click('#dlg [data-cerrar]').catch(() => {});
+    // 2) Respuesta cortada: el parte se crea pero la página no lo sabe; al repetir, se reutiliza (no se duplica)
+    await rellenar('09:20'); posts.length = 0; const n1 = items.length; cortarAlta = true;
+    await p.click('#fBorrador'); await p.waitForTimeout(1500);
+    console.log(tag, '| corte: mensaje', (await p.textContent('#fError')).replace(/\s+/g, ' ').slice(0, 110), '| botones activos:', !(await p.$eval('#fBorrador', b => b.disabled)));
+    await p.click('#fBorrador'); await p.waitForTimeout(2000);
+    console.log(tag, '| corte y repetir: altas', altas(), '| actualizaciones', merges(), '| partes nuevos', items.length - n1, '| ficha:', await p.textContent('#dlg h2').catch(() => '-'));
+    await p.click('#dlg [data-cerrar]').catch(() => {});
+    // 3) Falla un paso DESPUÉS de guardar (la recarga): no dice «No se pudo guardar»
+    await rellenar('10:30'); posts.length = 0; const n2 = items.length; fallaRecarga = true;
+    await p.click('#fBorrador'); await p.waitForTimeout(2000);
+    const tx = (await p.textContent('#dlg').catch(() => '')) + ' ' + (await p.textContent('#estadoCarga').catch(() => ''));
+    console.log(tag, '| fallo tras guardar: partes nuevos', items.length - n2, '| «No se pudo guardar»:', /No se pudo guardar/.test(tx), '| dice guardado:', /guardado|Borrador nº/.test(tx), '| errores:', errs);
+    await b.close(); return;
+  }
   if (escenario === 'portal') {
     await p.goto(O + '/et/jige/colaborativo/SitePages/Incidentes.aspx?id=7'); await p.waitForTimeout(2500);
     const fr = p.frames().find(x => x.url().includes('incidentes.html'));
@@ -254,6 +286,13 @@ async function prueba(verbose, escenario) {
     { const m = correos().pop(); console.log(tag, '| prueba del aviso:', m && m.To.results, '|', m && m.Subject, '|', (await p.textContent('#accPrueba')).replace(/\s+/g, ' ').slice(0, 110)); }
     posts.length = 0; await p.click('[data-accaprobar]'); await p.waitForTimeout(1500);
     const m = correos().pop(); console.log(tag, '| aprobar:', JSON.stringify(anadidos), '| correo:', m && m.To.results, m && m.Subject, '| errores:', errs);
+    if (await p.$('[data-accdenegar]')) {
+      await p.click('[data-accdenegar]'); await p.waitForTimeout(300);
+      console.log(tag, '| denegar sin motivo:', (await p.textContent('[data-sol] .accMsg')).trim());
+      await p.fill('[data-sol] .accMotivo', 'No pertenece a una unidad de la cadena IGE'); posts.length = 0; await p.click('[data-accdenegar]'); await p.waitForTimeout(1500);
+      const den = sols.find(x => x.EstadoSolicitud === 'DENEGADA'), md = correos().pop();
+      console.log(tag, '| denegada con motivo:', den && den.Resolucion, '| correo:', md && md.Subject, '| motivo en el correo:', !!(md && /Motivo del rechazo/.test(md.Body) && /cadena IGE/.test(md.Body)));
+    } else console.log(tag, '| (no queda otra solicitud pendiente para denegar)');
     biblioOculta = false; await p.click('#tabs a[data-v=panel]'); await p.click('#tabs a[data-v=accesos]'); await p.waitForTimeout(800);
     let dlgTxt = ''; p.once('dialog', dd => { dlgTxt = dd.message(); dd.accept().catch(() => {}); }); await p.click('[data-accbiblio="1"]'); await p.waitForTimeout(1200);
     console.log(tag, '| permiso para guardar partes:', (await p.textContent('#vista p:has([data-accescritura])').catch(() => 'SIN LÍNEA')).replace(/\s+/g, ' ').slice(0, 220));
@@ -496,7 +535,7 @@ misGrupos = []; await prueba(false, 'solo información'); await prueba(true, 'so
 misGrupos = TODOS; admin = true; await prueba(false, 'correo rechazado'); await prueba(true, 'correo rechazado'); admin = false;
 misGrupos = []; buzonMal = ['admin1@et.mde.es', 'asansen@et.mde.es', 'i:0#.w|et\\usuario206']; enviados = []; await prueba(false, 'sin acceso'); buzonMal = [];
 misGrupos = TODOS; admin = true; await prueba(false, 'portal'); await prueba(false, 'accesos'); await prueba(true, 'accesos'); admin = false;
-misGrupos = TODOS; admin = true; await prueba(false, 'enlace');
+misGrupos = TODOS; admin = true; await prueba(false, 'enlace'); await prueba(false, 'ciclo'); await prueba(true, 'ciclo');
 misGrupos = ['INCIDENTES_UNIDADES']; admin = false; soloLectura = true; await prueba(false, 'unidad sin permiso'); await prueba(true, 'unidad sin permiso'); soloLectura = false;
 faltaCampo = 'ResponsableDelParte'; await prueba(true, 'columna inexistente'); faltaCampo = null;
 expandRoto = true; await prueba(false, 'columna inexistente'); expandRoto = false;
