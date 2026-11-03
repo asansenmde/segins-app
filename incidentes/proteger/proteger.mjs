@@ -57,9 +57,15 @@ const ofuscado = JavaScriptObfuscator.obfuscate(fuerte ? codigo : guardia + codi
 }).getObfuscatedCode();
 // En el modo normal, los espacios y comillas dobles de los textos vuelven a escribirse tal cual (el generador los pone como
 // \x20 y \x22, y tantos códigos hexadecimales también parecen código camuflado). Solo si la barra no está a su vez escapada.
-const codigoFinal = fuerte ? ofuscado : ofuscado.replace(/(^|[^\\])((?:\\\\)*)\\x20/g, '$1$2 ').replace(/(^|[^\\])((?:\\\\)*)\\x20/g, '$1$2 ')
+const codigoCompacto = fuerte ? ofuscado : ofuscado.replace(/(^|[^\\])((?:\\\\)*)\\x20/g, '$1$2 ').replace(/(^|[^\\])((?:\\\\)*)\\x20/g, '$1$2 ')
   .replace(/(^|[^\\])((?:\\\\)*)\\x22/g, '$1$2"').replace(/(^|[^\\])((?:\\\\)*)\\x22/g, '$1$2"');
-if (/<\/script|<!--/i.test(codigoFinal)) throw new Error('El código protegido contiene «</script» o «<!--»: no se puede pegar en la página');
+// CAUSA REAL de «sale el código como texto» (03/11/2026): algo en la red de Defensa mete su propio código en las páginas
+// buscando etiquetas como </head> o <body>, y las encontraba también DENTRO del programa (la plantilla de la ventana de
+// impresión), partiéndolo en dos. Con la ofuscación fuerte, esos textos unas veces salían cifrados y otras no: por eso
+// fallaba «al azar». Ahora el «<» de esas etiquetas se escribe \x3c dentro del código (el navegador lo lee igual).
+const ETIQUETAS = /<(?=\/?(?:!doctype|html|head|body|meta|title|style|link|base|script)\b)/gi;
+const codigoFinal = codigoCompacto.replace(ETIQUETAS, '\\x3c');
+if (/<\/script|<!--|<\/?(?:!doctype|html|head|body)\b/i.test(codigoFinal)) throw new Error('El código protegido contiene etiquetas de página («</head>», «<body>»…): no se puede pegar en la página');
 
 const aviso = '<!--\n  Incidentes de seguridad en instalaciones · Inspección General del Ejército · versión ' + version + ' (protegida)\n' +
   '  © 2026 Cte. Alfredo Sánchez Sender. Desarrollador y autor de esta aplicación. Todos los derechos reservados.\n' +

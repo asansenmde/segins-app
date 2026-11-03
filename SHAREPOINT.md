@@ -169,6 +169,17 @@ del pie y la página se queda en «Cargando…»): a algunas copias, según cóm
 y Pérdidas 27/10 · 2, y otra vez con Incidentes 01/11 · 1. Arreglo: generar otra copia con otra `seed` del ofuscador y probarla con otro nombre; en
 `perdidas/proteger` e `incidentes/proteger` la semilla ya es fija (20261027); en Incidentes, confirmado por el usuario el 01/11/2026 (`SEMILLA=n` para cambiarla). La variante sin cifrar los textos
 (`stringArrayEncoding: []`) tampoco pasó.
+**CAUSA REAL, encontrada el 03/11/2026:** algo en la red de Defensa mete su propio código en las páginas buscando
+etiquetas como `</head>`, y las encontraba también **dentro del programa** (la plantilla HTML de la ventana de imprimir:
+`'…</style></head><body>…'`). El programa se partía en dos y el resto salía como texto. Con la ofuscación fuerte, ese texto
+unas veces salía cifrado y otras no: por eso fallaba «al azar» y una semilla «buena» dejaba de servir al cambiar el código.
+**Regla:** el código de una página NUNCA debe llevar literal `</head>`, `<body>`, `<html>`, `<!doctype` ni `</script>`; en la
+copia protegida, `proteger.mjs` de Incidentes escribe el `<` de esas etiquetas como `\x3c` y se niega a generar la copia si
+queda alguna. Prueba: `PROXY=1 node incidentes/pruebas/simulacion.mjs` imita el filtro (inserta un `<script>` delante de
+cada `</head>`): las copias que fallaron en Colabora fallan ahí igual, y las buenas no.
+**Pendiente:** aplicar lo mismo a Tareas Colabora, Pérdidas y la copia de pruebas de Permisos, que llevan esas etiquetas
+dentro del código.
+
 **Arreglo de fondo (Incidentes, 03/11/2026):** la semilla fija solo vale mientras el código no cambie (la 03/11 · 2 volvió
 a fallar). El original legible no falla nunca, así que la copia de Incidentes ya no usa la ofuscación fuerte: se compacta
 como un programa minificado normal (nombres internos cambiados, sin espacios ni comentarios, textos sin códigos `\x20`),

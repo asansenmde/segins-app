@@ -96,7 +96,9 @@ async function prueba(verbose, escenario) {
     if (u.includes('/SitePages/Incidentes.aspx')) return r.fulfill({ contentType: 'text/html', body: '<!doctype html><html><body><iframe id="app" style="width:100%;height:800px;border:0"></iframe><script>var m=(location.search+location.hash).match(/[?&]id=(\\d+)/);document.getElementById("app").src="/et/jige/colaborativo/Documentos%20compartidos/incidentes.html"+(m?"?id="+m[1]:"");</script></body></html>' });
     if (!u.includes('/_api/')) {
       if (/\.png$/.test(u)) return r.fulfill({ status: 404, body: '' });
-      return r.fulfill({ body: html, contentType: 'text/html' });
+      // PROXY=1: imita el filtro de la red de Defensa (03/11/2026), que mete su código delante de cada «</head>» que encuentra,
+      // también dentro del programa; si el programa contiene «</head>» literal, se parte y sale como texto
+      return r.fulfill({ body: process.env.PROXY ? html.replace(/<\/head>/gi, '<script>/*filtro*/</script></head>') : html, contentType: 'text/html' });
     }
     if (verbose && req.method() === 'GET' && (req.headers()['accept'] || '').includes('nometadata')) return r.fulfill({ status: 415, body: '' });
     const J = x => r.fulfill({ json: verbose ? { d: Array.isArray(x.value) ? { results: x.value, __next: x['odata.nextLink'] } : x } : x });
