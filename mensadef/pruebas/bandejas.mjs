@@ -26,7 +26,9 @@ const bandeja = (cel, es, pag, tam) => {
 };
 const b = await chromium.launch();
 const mp = await b.newPage();
-await mp.goto(new URL('../marcador-visor-mensadef-pruebas.html', import.meta.url).href);
+// FINAL=1: prueba el favorito definitivo (marcador-visor-mensadef.html) en lugar del de pruebas
+const FINAL = !!process.env.FINAL, MEM = FINAL ? 'visorMensadef.' : 'visorMensadefPruebas.';
+await mp.goto(new URL(FINAL ? '../marcador-visor-mensadef.html' : '../marcador-visor-mensadef-pruebas.html', import.meta.url).href);
 const codigo = decodeURIComponent((await mp.getAttribute('#marcador', 'href')).slice(11));
 const ctx = await b.newContext({ acceptDownloads: true }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
 const llamadas = [];
@@ -109,16 +111,26 @@ await p.click('[data-cel="g:registro"]'); console.log('solo Registro marca:', aw
 await p.click('[data-cel="t4"]'); await p.click('#aplicarCelulas'); await p.waitForTimeout(1500);
 // Desde la página de una célula (sin elección guardada) se carga esa
 const p2 = await ctx.newPage(); await p2.goto(O + WEB + '/SitePages/ambito.aspx#/celula/SETEC%20SECRETARIA/' + G2);
-await p2.evaluate(() => { try { localStorage.removeItem('visorMensadefPruebas.celulasElegidas'); } catch (e) {} });
+await p2.evaluate(M => { try { localStorage.removeItem(M + 'celulasElegidas'); } catch (e) {} }, MEM);
 await consultasApp(p2); await p2.evaluate(codigo); await p2.waitForTimeout(1500); console.log('desde la célula SECRETARIA:', await p2.textContent('#resumenCelulas')); await p2.close();
 await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(300);
 console.log('detalle:', (await p.textContent('#detalle')).replace(/\s+/g, ' ').slice(0, 420));
 console.log('abrir en MENSADEF: botón', !!(await p.$('#abrirMensadef')));
-await p.click('#aColabora'); await p.fill('#urlColabora', 'https://colabora.mdef.es/x/tareas-nlt-colabora-pruebas.html');
+await p.click('#aColabora'); await p.fill('#nomGestor', 'Mi gestor de pruebas'); await p.fill('#urlColabora', 'https://colabora.mdef.es/x/tareas-nlt-colabora-pruebas.html');
 await ctx.route('https://colabora.mdef.es/**', r => r.fulfill({ contentType: 'text/html', body: 'ok' }));
 const [nueva] = await Promise.all([ctx.waitForEvent('page'), p.click('#guardarColabora')]); await nueva.waitForLoadState();
 console.log('a Colabora:', decodeURIComponent(nueva.url().split('#importar=')[1]).slice(0, 400));
 await p.bringToFront();
+// Segundo gestor (el común) y elegir a cuál va: en la versión definitiva se admite cualquier dirección de Colabora
+if (FINAL) {
+  await nueva.close(); await p.click('#cambiarColabora'); await p.fill('#nomGestor', 'Gestor común SUIGESUR'); await p.fill('#urlColabora', 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/Documentos/tareas-nlt-colabora.html');
+  await p.click('#guardarColabora'); await p.waitForTimeout(200);
+  console.log('gestores:', await p.$$eval('#gestorSel option', o => o.map(x => x.textContent + (x.selected ? ' (elegido)' : '')).join(' | ')));
+  const [n2] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n2.waitForLoadState();
+  console.log('va al común:', n2.url().split('#')[0]); await n2.close();
+  await p.selectOption('#gestorSel', '0'); const [n3] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n3.waitForLoadState();
+  console.log('va al mío:', n3.url().split('#')[0], '| aviso:', (await p.textContent('#colabora p.muted')).trim()); await n3.close(); await p.bringToFront();
+}
 // Ficha con los campos pedidos y ampliar
 console.log('ficha:', await p.$$eval('#detalle dl.ficha-campos dt', l => l.map(x => x.textContent).join(', ')), '| otros plegados:', await p.textContent('#detalle details.otros summary').catch(() => '-'));
 await p.click('#ampliar'); console.log('ampliada: tabla oculta', await p.isHidden('#lista'), '|', await p.textContent('#ampliar')); await p.click('#ampliar');
@@ -166,7 +178,7 @@ console.log(est.split('\n').slice(0, 12).join('\n'));
 console.log('¿estructura con contenido?', /Mensaje \d|MANDO|persona@|R-\d/.test(est), '| errores:', errs);
 // Clave caducada: el servicio contesta 406 a la clave guardada; el visor pide otra y sigue
 const p3 = await ctx.newPage(); await p3.goto(O + WEB + '/SitePages/ambito.aspx#/celula/SETEC%20SEGURIDAD/' + G1); await consultasApp(p3);
-await p3.evaluate(() => sessionStorage.setItem('visorMensadefPruebas.cabecerasApi', JSON.stringify({ passcode: 'caducada', user: 'x', momento: Date.now() })));
+await p3.evaluate(M => sessionStorage.setItem(M + 'cabecerasApi', JSON.stringify({ passcode: 'caducada', user: 'x', momento: Date.now() })), MEM);
 const antes = nClaves; await p3.evaluate(codigo); await p3.waitForTimeout(2500);
 console.log('clave caducada → pide otra:', nClaves - antes, '|', await p3.$eval('#estado', e => e.textContent).catch(() => '-'));
 await p3.close();

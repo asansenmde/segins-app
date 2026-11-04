@@ -138,12 +138,16 @@ generar('prueba-mensadef.html', 'marcador-mensadef.html', 'Prueba MENSADEF', 'Pr
          'La página se sustituye por la de diagnóstico. Para volver, recarga (F5).'])
 
 generar('visor-mensadef.html', 'marcador-visor-mensadef.html', 'Mensajes MENSADEF', 'Visor de mensajes de MENSADEF',
-        'Un <b>favorito especial</b> que convierte la página de MENSADEF en un visor de tus mensajes: búsqueda, filtros por '
-        'tipo, estado, canal, órgano y autoridad, detalle con texto, adjuntos y documentos, y exportación a CSV. Solo '
-        '<b>lee</b>, con tu sesión y tus permisos; no modifica nada ni envía nada fuera de MENSADEF.',
-        ['Abre la portada de tu ámbito de MENSADEF (por ejemplo, Segunda SUIGE).',
-         'Pulsa el favorito <b>Mensajes MENSADEF</b>.',
-         'Elige el periodo (por defecto, los últimos 3 días) y usa la búsqueda y los filtros. Pulsa un mensaje para ver el detalle.',
-         'Para volver a MENSADEF normal, recarga (F5).'])
+        'Un <b>favorito</b> que convierte la página de MENSADEF en un visor de los mensajes de <b>tus células</b> (cada uno ve '
+        'las suyas, con su propia sesión): bandejas de entrada y salida, búsqueda y filtros, ficha con todos los datos y el '
+        'texto, banderas, marcas de «visto», informes para imprimir, PDF o Word, y <b>➜ Crear tarea</b> en el Gestor de Tareas '
+        'de Colabora que elijas. Solo <b>lee</b> MENSADEF; los datos no salen de los servidores de Defensa.',
+        ['Abre MENSADEF y entra en tu célula; espera a que salgan tus mensajes.',
+         'Pulsa el favorito <b>Mensajes MENSADEF</b>. La primera vez puedes elegir qué células se cargan '
+         '(<b>Células que se cargan…</b>).',
+         'Pulsa un mensaje para ver su ficha. Con <b>➜ Crear tarea en Colabora</b> se abre el Gestor de Tareas con el alta '
+         'rellena: la primera vez te pide la dirección del Gestor (el común de tu unidad o el tuyo) y un nombre; puedes '
+         'guardar varios y elegir en cada mensaje.',
+         'Para volver a MENSADEF normal, recarga la página (F5).'])
 
 generar(*ESCUCHAR)

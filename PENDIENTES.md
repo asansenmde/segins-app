@@ -92,3 +92,10 @@ autoría.
     (encabezado, extracto y detalle con el texto completo, agrupados; PDF, Word, texto, CSV) y autoría más visible:
     el usuario lo da por bueno (29/10/2026). **Se queda en versión de pruebas** para presentarlo al jefe; no regenerar el
     favorito bueno hasta que el usuario lo pida.
+
+15. **MENSADEF versión para instalar** (04/11/2026): el usuario dio por buena la de pruebas. Entregados el favorito
+    definitivo (`mensadef/marcador-visor-mensadef.html`, para toda la estructura SUIGE, con varios Gestores de Tareas a
+    elegir) y el Gestor de Tareas bueno 2026-11-04 · 1 con importación (`colabora/colabora/tareas-nlt-colabora.html`).
+    Su gestor propio será la copia de pruebas (lista «Gestor de Tareas PRUEBAS»). Pendiente: que suba el Gestor bueno,
+    reparta el favorito y lo confirme. Aparcado a petición del usuario: la protección nueva para Permisos, VSA y Pérdidas
+    (en `git stash`, «Protección nueva para Permisos, VSA, Pérdidas y Tareas (a medias, 04/11)»).

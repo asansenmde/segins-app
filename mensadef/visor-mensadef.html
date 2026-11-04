@@ -256,7 +256,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-10-29 · 7';
+  var VERSION = '2026-11-04 · 1';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1263,25 +1263,47 @@
   // Pasar un mensaje a Tareas Colabora: se abre la página de Colabora con los datos en el fragmento de la
   // dirección («#importar=…»), que no se envía a ningún servidor; allí se revisa el alta y se pulsa «Crear».
   // MENSADEF no puede escribir en Colabora (es otro servidor): el alta la hace Colabora con tu sesión.
-  var urlColabora = function () { return leer('colabora', ''); };
+  // Varios Gestores de Tareas, cada uno con su nombre (el común de la unidad, el propio…): se elige a cuál va cada mensaje.
+  // Se guardan en este navegador. La dirección antigua (una sola) pasa a ser el primero.
+  var gestores = function () {
+    var g = leer('gestores', null);
+    if (!g) { var viejo = leer('colabora', ''); g = viejo ? [{ nombre: 'Mi Gestor de Tareas', url: viejo }] : []; if (g.length) guardar('gestores', g); }
+    return g;
+  };
+  var gestorElegido = function () { var g = gestores(), i = Number(leer('gestorSel', 0)) || 0; return g[i] || g[0] || null; };
+  var urlColabora = function () { var x = gestorElegido(); return x ? x.url : ''; };
+  var enviadosA = leer('enviadosA', {});
   function pintarColabora(m) {
-    var caja = $('colabora'), u = urlColabora(), env = enviados[claveMensaje(m)];
-    caja.innerHTML = (env ? '<p class="muted">➜ Pasado a Tareas Colabora el ' + esc(verFecha(new Date(env))) + ' desde este navegador.</p>' : '') +
-      (u ? '<p class="muted">Tareas Colabora: <a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(u.replace(/^https?:\/\//, '').slice(0, 70)) + '</a> · <a href="#" id="cambiarColabora">cambiar</a></p>' : '');
+    var caja = $('colabora'), g = gestores(), sel = Number(leer('gestorSel', 0)) || 0, env = enviados[claveMensaje(m)];
+    caja.innerHTML = (env ? '<p class="muted">➜ Pasado a ' + esc(enviadosA[claveMensaje(m)] || 'Tareas Colabora') + ' el ' + esc(verFecha(new Date(env))) + ' desde este navegador.</p>' : '') +
+      (g.length ? '<div class="fila" style="margin:4px 0"><label style="flex:1;min-width:220px">Crear la tarea en<select id="gestorSel">' +
+        g.map(function (x, i) { return '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + esc(x.nombre) + '</option>'; }).join('') + '</select></label>' +
+        '<a href="#" id="cambiarColabora" class="muted">gestionar gestores</a></div>' : '');
+    if ($('gestorSel')) $('gestorSel').addEventListener('change', function () { guardar('gestorSel', Number(this.value)); });
     if ($('cambiarColabora')) $('cambiarColabora').addEventListener('click', function (e) { e.preventDefault(); configurarColabora(m); });
   }
   function configurarColabora(m, despues) {
-    var caja = $('colabora');
-    caja.innerHTML = '<div class="card" style="margin:6px 0"><b>¿Dónde está tu página de Tareas Colabora?</b>' +
-      '<p class="muted">Ábrela en Colabora (el archivo <i>tareas-nlt-colabora' + (PRUEBAS ? '-pruebas' : '') + '.html</i> de la biblioteca donde la subiste), copia la dirección de la barra del navegador y pégala aquí. Solo se pide una vez.</p>' +
-      '<div class="fila"><input id="urlColabora" style="flex:1;min-width:240px" placeholder="https://colabora.mdef.es/…/tareas-nlt-colabora' + (PRUEBAS ? '-pruebas' : '') + '.html" value="' + esc(urlColabora()) + '">' +
-      '<button type="button" class="prim" id="guardarColabora">Guardar</button></div><div class="muted" id="errColabora"></div></div>';
+    var caja = $('colabora'), g = gestores();
+    caja.innerHTML = '<div class="card" style="margin:6px 0"><b>¿A qué Gestor de Tareas quieres llevar los mensajes?</b>' +
+      '<p class="muted">Abre en Colabora la página del Gestor de Tareas (el común de tu unidad, el tuyo…), copia la dirección de la barra del navegador y pégala aquí con un nombre. Puedes guardar varios y elegir en cada mensaje.</p>' +
+      (g.length ? '<table style="margin:6px 0">' + g.map(function (x, i) { return '<tr><td><b>' + esc(x.nombre) + '</b></td><td class="muted" style="word-break:break-all">' + esc(x.url.replace(/^https?:\/\//, '').slice(0, 80)) + '</td><td><button type="button" data-quitargestor="' + i + '">Quitar</button></td></tr>'; }).join('') + '</table>' : '') +
+      '<div class="fila"><input id="nomGestor" style="min-width:180px" placeholder="Nombre (p. ej. Gestor común SUIGESUR)">' +
+      '<input id="urlColabora" style="flex:1;min-width:240px" placeholder="https://colabora.mdef.es/…/tareas-nlt-colabora' + (PRUEBAS ? '-pruebas' : '') + '.html">' +
+      '<button type="button" class="prim" id="guardarColabora">Añadir</button>' + (g.length ? '<button type="button" id="hechoGestores">Hecho</button>' : '') + '</div><div class="muted" id="errColabora"></div></div>';
+    Array.prototype.forEach.call(caja.querySelectorAll('[data-quitargestor]'), function (b) {
+      b.addEventListener('click', function () { var l = gestores(); l.splice(Number(b.dataset.quitargestor), 1); guardar('gestores', l); guardar('gestorSel', 0); configurarColabora(m, despues); });
+    });
+    if ($('hechoGestores')) $('hechoGestores').addEventListener('click', function () { pintarColabora(m); if (despues && gestores().length) despues(); });
     $('guardarColabora').addEventListener('click', function () {
-      var v = $('urlColabora').value.trim().replace(/#.*$/, '');
+      var v = $('urlColabora').value.trim().replace(/#.*$/, ''), n = $('nomGestor').value.trim();
       if (!/^https?:\/\/[^/]+\/./i.test(v)) { $('errColabora').textContent = 'Pega la dirección completa, empezando por https://'; return; }
       if (v.indexOf(location.origin + '/') === 0) { $('errColabora').textContent = 'Esa dirección es de MENSADEF; tiene que ser la de la página en Colabora.'; return; }
       if (PRUEBAS && !/pruebas/i.test(v)) { $('errColabora').textContent = 'Esta es la versión de pruebas: pon la dirección de tareas-nlt-colabora-pruebas.html, no la de la buena.'; return; }
-      guardar('colabora', v); pintarColabora(m);
+      var l = gestores();
+      if (l.some(function (x) { return x.url === v; })) { $('errColabora').textContent = 'Esa dirección ya está guardada.'; return; }
+      l.push({ nombre: n || (/pruebas/i.test(v) ? 'Gestor de Tareas (pruebas)' : 'Gestor de Tareas ' + (l.length + 1)), url: v });
+      guardar('gestores', l); guardar('gestorSel', l.length - 1);
+      pintarColabora(m);
       if (despues) despues();
     });
   }
@@ -1294,6 +1316,8 @@
       enlace: disp || '', texto: cuerpo.length > 6000 ? cuerpo.slice(0, 6000) + '…' : cuerpo };
     window.open(u + '#importar=' + encodeURIComponent(JSON.stringify(datos)), '_blank', 'noopener');
     enviados[claveMensaje(m)] = new Date().toISOString();
+    enviadosA[claveMensaje(m)] = (gestorElegido() || {}).nombre || 'Tareas Colabora';
+    Object.keys(enviadosA).forEach(function (k) { if (!enviados[k]) delete enviadosA[k]; }); guardar('enviadosA', enviadosA);
     // Se guardan como mucho los 2000 últimos
     var ks = Object.keys(enviados).sort(function (a, b) { return enviados[a] < enviados[b] ? 1 : -1; });
     ks.slice(2000).forEach(function (k) { delete enviados[k]; });

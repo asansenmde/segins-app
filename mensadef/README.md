@@ -128,3 +128,17 @@ Columnas de los mensajes: `MensajeId`, `MensajeFecha`, `MensajeAsunto`, `Mensaje
 
 Requiere Edge o Chrome (no modo Internet Explorer). Funciona con JSON ligero y, si el servidor no lo admite,
 con el formato *verbose* de SharePoint 2013.
+
+## Versión para instalar (2026-11-04 · 1)
+
+- **Favorito definitivo:** `marcador-visor-mensadef.html` («Mensajes MENSADEF»). Es la página que se reparte a toda la
+  estructura SUIGE: cada uno arrastra el botón a su barra de favoritos. Cada persona ve las células de su propia sesión de
+  MENSADEF; no hay nada fijo de ningún usuario. La copia de pruebas (`marcador-visor-mensadef-pruebas.html`) sigue aparte.
+- **Varios Gestores de Tareas:** la primera vez que se pulsa «➜ Crear tarea en Colabora», el visor pide la dirección y un
+  nombre del Gestor: el común de la unidad (`tareas-nlt-colabora.html`, lista «Gestor de Tareas»), el propio (por ejemplo
+  `tareas-nlt-colabora-pruebas.html`, lista «Gestor de Tareas PRUEBAS») o el de cualquier unidad. Se guardan varios y se
+  elige en cada mensaje («Crear la tarea en…»). Con «gestionar gestores» se añaden o se quitan. La ficha dice a cuál se
+  pasó. Todo se guarda en ese navegador.
+- Pruebas: `FINAL=1 node mensadef/pruebas/bandejas.mjs` (favorito definitivo, dos gestores) y
+  `node mensadef/pruebas/bandejas.mjs` (favorito de pruebas).
+
