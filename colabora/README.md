@@ -35,6 +35,11 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-04 · 2:** en la pantalla inicial se ven todos los terminados (antes solo los 200 últimos), de 200 en 200
+  con «Mostrar más», y hay filtro «Terminados desde / hasta» (por la fecha de fin). Nueva copia **Gestor propio de
+  MENSADEF** (`node proteger.mjs --propio` → `colabora/tareas-nlt-colabora-mensadef.html`): lista «Gestor de Tareas
+  MENSADEF», sin banda roja ni [PRUEBAS]; si falta la lista, ofrece usar la de pruebas cambiándole el nombre (conserva sus
+  tareas) o crear una vacía.
 - **Versión 2026-11-04 · 1 (buena):** pasan a la copia buena las novedades que estaban solo en la de pruebas (recibir
   mensajes de MENSADEF con «#importar», alta desde correos .msg/.eml, avisos de duplicados, actualización automática), para
   que el visor de MENSADEF pueda crear tareas en el Gestor común. La copia protegida se genera con la protección nueva

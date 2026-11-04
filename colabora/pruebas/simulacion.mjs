@@ -12,7 +12,8 @@ const PRIOS = ['Alta', 'Media', 'Baja', 'Urgente'];
 const NEGS = ['Seguridad', 'Personal', 'Logística'];
 const hoy = new Date(); const d = n => { const x = new Date(hoy); x.setDate(x.getDate() + n); x.setHours(0, 0, 0, 0); return x.toISOString(); };
 const items = Array.from({ length: 706 }, (_, i) => {
-  const est = i % 13 === 5 ? 'FINALIZADO' : ESTADOS[i % 4];
+  // MUCHAS=1: la mitad terminados (más de 200), para probar «Mostrar más» y «Terminados desde / hasta»
+  const est = (process.env.MUCHAS ? i % 2 === 1 : i % 13 === 5) ? 'FINALIZADO' : ESTADOS[i % 4];
   return { Id: i + 1, Title: `Asunto ${i + 1}`, ESTADO: est, Prioridad: PRIOS[i % 4], FechaDeInicio: d(-30), FechaVencimiento: i % 9 === 0 ? null : d((i % 40) - 10),
     fECHAFINALIZACION: est === 'FINALIZADO' ? d(-(i % 20)) : null, NegociadoAsignado: NEGS[i % 3], NegociadosImplicados: [NEGS[(i + 1) % 3]],
     Descripcion: 'Resumen ' + i, DescripcionDelAsunto: `<div><p>Descripción <b>detallada</b> ${i}</p><p>Segunda línea</p></div>`, Comentarios: i % 5 ? '' : 'Obs <br>línea 2',
@@ -129,6 +130,15 @@ async function prueba() {
   console.log('filtro responsable:', await p.textContent('.fpie'), '| responsables distintos:', await p.$$eval('details.grupo .tarea', ts => new Set(ts.map(t => (t.innerText.match(/👤 (.+)/) || [])[1])).size));
   await p.click('[data-limpiar]');
   console.log('tras limpiar:', await p.inputValue('#fresp') === '', '| quien sigue en', await p.inputValue('#fquien'));
+  // Terminados: todos, de 200 en 200, y por fechas
+  { const nTer = () => p.$$eval('details[data-grupo=hechas] .tarea', x => x.length);
+    console.log('terminados en pantalla:', await nTer(), '| botón más:', (await p.textContent('[data-mashechas]').catch(() => 'no hay')).trim());
+    if (await p.$('[data-mashechas]')) { await p.click('[data-mashechas]'); console.log('tras «mostrar más»:', await nTer()); }
+    const f = n => { const x = new Date(); x.setDate(x.getDate() - n); return x.toISOString().slice(0, 10); };
+    await p.fill('#fterd', f(5)); await p.dispatchEvent('#fterd', 'change'); await p.fill('#fterh', f(2)); await p.dispatchEvent('#fterh', 'change'); await p.waitForTimeout(200);
+    console.log('terminados del', f(5), 'al', f(2) + ':', await nTer(), '|', (await p.textContent('details[data-grupo=hechas] summary')).replace(/\s+/g, ' '), '| fuera de rango:',
+      await p.$$eval('details[data-grupo=hechas] .tarea', x => x.length) && 'ver arriba');
+    await p.click('[data-limpiar]'); console.log('tras limpiar, fechas vacías:', !(await p.inputValue('#fterd')) && !(await p.inputValue('#fterh'))); }
   await p.click('[data-modo=tabla]');
   console.log('tabla filas:', await p.$$eval('table.tt tr.tarea', x => x.length));
   await p.setViewportSize({ width: 1280, height: 900 });

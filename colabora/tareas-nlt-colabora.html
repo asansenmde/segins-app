@@ -244,7 +244,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-04 · 1';
+  var VERSION = '2026-11-04 · 2';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -254,9 +254,12 @@
   // sobre la lista «Gestor de Tareas PRUEBAS» (nunca sobre la real), guarda sus preferencias aparte, lleva una banda roja
   // y marca los correos.
   var PRUEBAS = false;
-  var LISTA = 'Gestor de Tareas' + (PRUEBAS ? ' PRUEBAS' : '');
-  var listaPermitida = function (n) { n = String(n || '').trim(); return !n ? LISTA : PRUEBAS && !/PRUEBAS$/i.test(n) ? LISTA : n; };
-  var CLAVE = 'tareas-nlt-colabora' + (PRUEBAS ? '-pruebas' : '');
+  // Gestor propio de MENSADEF («node proteger.mjs --propio» genera tareas-nlt-colabora-mensadef.html con PROPIO = true): las
+  // tareas de trabajo que llegan de MENSADEF, en la lista «Gestor de Tareas MENSADEF», nunca en la común. Sin banda roja.
+  var PROPIO = false;
+  var LISTA = 'Gestor de Tareas' + (PRUEBAS ? ' PRUEBAS' : PROPIO ? ' MENSADEF' : '');
+  var listaPermitida = function (n) { n = String(n || '').trim(); return !n ? LISTA : PRUEBAS && !/PRUEBAS$/i.test(n) ? LISTA : PROPIO && /^gestor de tareas$/i.test(n) ? LISTA : n; };
+  var CLAVE = 'tareas-nlt-colabora' + (PRUEBAS ? '-pruebas' : PROPIO ? '-mensadef' : '');
   var pref = { lista: LISTA, vista: 'nlt', quien: 'mias', q: '', negociado: '', estado: '', prio: '', resp: '', mapaEstados: {}, avisoDias: 3, informe: null,
     modo: 'tarjetas', grupos: { vencidas: true, hoy: true } };
   try { Object.assign(pref, JSON.parse(localStorage.getItem(CLAVE)) || {}); } catch (e) { /* sin memoria local */ }
@@ -268,6 +271,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · trabaja sobre la lista «' + pref.lista + '», no sobre la real · los correos llevan [PRUEBAS] en el asunto';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
+  if (PROPIO) document.title = 'MIS TAREAS DE MENSADEF · ' + document.title;
   var guardarPref = function () { try { localStorage.setItem(CLAVE, JSON.stringify(pref)); } catch (e) { /* sin memoria local */ } };
 
   // ---------- SharePoint (REST, solo lectura) ----------
@@ -431,7 +435,10 @@
       $('#vista').innerHTML = '<div class="error">No se pudo leer la lista «' + esc(pref.lista) + '»: ' + esc(e.message || e) +
         '.<br><small>Versión de la página: ' + esc(VERSION) + '</small></div><p class="muted">Comprueba en Ajustes el nombre de la lista y que tienes permiso para verla.</p>' +
         (PRUEBAS && e.status === 404 ? '<div class="card"><h3 style="margin-top:0">Preparar la versión de pruebas</h3><p class="small">Crea la lista «' + esc(pref.lista) + '» como copia <b>vacía</b> de «Gestor de Tareas» (mismas columnas, sin ningún asunto). Necesitas permiso para crear listas en el sitio.</p>' +
-          '<div class="acciones"><button class="btn prim" data-crearpruebas="1">Crear la lista de pruebas</button></div><div id="prMsg"></div></div>' : '');
+          '<div class="acciones"><button class="btn prim" data-crearpruebas="1">Crear la lista de pruebas</button></div><div id="prMsg"></div></div>' : '') +
+        (PROPIO && e.status === 404 ? '<div class="card"><h3 style="margin-top:0">Preparar tu Gestor de MENSADEF</h3><p class="small">Falta la lista «' + esc(pref.lista) + '». Puedes ' +
+          '<b>usar la de pruebas</b> que ya tienes («Gestor de Tareas PRUEBAS»): se le cambia el nombre y <b>se conservan sus tareas</b> (la página de pruebas dejará de verlas), o crear una lista nueva vacía con las mismas columnas que «Gestor de Tareas». Necesitas poder administrar listas en el sitio.</p>' +
+          '<div class="acciones"><button class="btn prim" data-renombrarpruebas="1">Usar la lista de pruebas (conserva sus tareas)</button><button class="btn" data-crearpruebas="1">Crear una lista nueva vacía</button></div><div id="prMsg"></div></div>' : '');
       if (pref.vista === 'ajustes') render();
     }).then(function () { cargando = null; });
     return cargando;
@@ -441,12 +448,12 @@
   // con su mismo nombre interno; se quitan los identificadores para que no choquen con los de la real
   function crearListaPruebas(boton) {
     var real = web.url + "/_api/web/lists/getbytitle('Gestor%20de%20Tareas')", msg = function (t) { var el = $('#prMsg'); if (el) el.innerHTML = t; };
-    if (!PRUEBAS) return;
+    if (!PRUEBAS && !PROPIO) return;
     boton.disabled = true; msg('<p class="small muted">Leyendo las columnas de la lista real…</p>');
     var fallos = [];
     api(real + '/fields?$select=InternalName,SchemaXml,Hidden,ReadOnlyField,FromBaseType&$top=500').then(function (d) {
       var propias = lista(d.value).filter(function (f) { return !f.Hidden && !f.ReadOnlyField && !f.FromBaseType && f.InternalName !== 'Title' && f.SchemaXml; });
-      return enviarSP(web.url + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: pref.lista, Description: 'Copia de pruebas de «Gestor de Tareas» (página tareas-nlt-colabora-pruebas.html)' }, 'No tienes permiso para crear listas en el sitio')
+      return enviarSP(web.url + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: pref.lista, Description: PROPIO ? 'Tareas de MENSADEF (página tareas-nlt-colabora-mensadef.html)' : 'Copia de pruebas de «Gestor de Tareas» (página tareas-nlt-colabora-pruebas.html)' }, 'No tienes permiso para crear listas en el sitio')
         .then(function () {
           return propias.reduce(function (p, f, i) {
             return p.then(function () {
@@ -458,9 +465,20 @@
           }, Promise.resolve()).then(function () { return propias.length; });
         });
     }).then(function (n) {
-      msg('<div class="' + (fallos.length ? 'error' : 'small') + '">✓ Lista de pruebas creada con ' + (n - fallos.length) + ' de ' + n + ' columnas.' + (fallos.length ? ' No se pudieron copiar: ' + esc(fallos.join('; ')) + '.' : '') + ' Cargando…</div>');
+      msg('<div class="' + (fallos.length ? 'error' : 'small') + '">✓ Lista ' + (PROPIO ? 'de MENSADEF' : 'de pruebas') + ' creada con ' + (n - fallos.length) + ' de ' + n + ' columnas.' + (fallos.length ? ' No se pudieron copiar: ' + esc(fallos.join('; ')) + '.' : '') + ' Cargando…</div>');
       setTimeout(cargar, 800);
     }).catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo crear: ' + esc(e.message || e) + '</div>'); });
+  }
+
+  // Gestor propio: la lista de pruebas pasa a ser la de MENSADEF cambiándole el nombre (se conservan las tareas y columnas)
+  function renombrarListaPruebas(boton) {
+    var msg = function (t) { var el = $('#prMsg'); if (el) el.innerHTML = t; };
+    if (!PROPIO) return;
+    boton.disabled = true; msg('<p class="small muted">Cambiando el nombre de la lista…</p>');
+    enviarSP(web.url + "/_api/web/lists/getbytitle('Gestor%20de%20Tareas%20PRUEBAS')", { __metadata: { type: 'SP.List' }, Title: pref.lista, Description: 'Tareas de MENSADEF (página tareas-nlt-colabora-mensadef.html)' },
+      'No tienes permiso para cambiar la lista', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
+      .then(function () { msg('<div class="small">✓ La lista «Gestor de Tareas PRUEBAS» ahora es «' + esc(pref.lista) + '», con todas sus tareas. Cargando…</div>'); setTimeout(cargar, 800); })
+      .catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo: ' + esc(/404|no existe|does not exist/i.test(e.message || '') ? 'no existe la lista «Gestor de Tareas PRUEBAS» en este sitio' : (e.message || e)) + '</div>'); });
   }
 
   // ---------- Reglas de NLT ----------
@@ -504,7 +522,10 @@
     return '<option value="">' + esc(vacio) + '</option>' + lista.map(function (v) { return '<option' + (v === sel ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
   };
 
-  var hayFiltros = function () { return !!(pref.q || pref.negociado || pref.estado || pref.prio || pref.resp); };
+  var hayFiltros = function () { return !!(pref.q || pref.negociado || pref.estado || pref.prio || pref.resp || pref.terDesde || pref.terHasta); };
+  // Terminados: por la fecha en que se terminaron (fecha de fin o, si no hay, la de la última modificación)
+  var enRangoTer = function (t) { var f = String(terminadaEn(t) || '').slice(0, 10); return (!pref.terDesde || (f && f >= pref.terDesde)) && (!pref.terHasta || (f && f <= pref.terHasta)); };
+  var verHechas = 200;
   function barraFiltros(pie) {
     var negs = valores('NegociadoAsignado', 'negociado');
     tareas.forEach(function (t) { t.negociados.forEach(function (n) { if (negs.indexOf(n) < 0) negs.push(n); }); });
@@ -517,6 +538,8 @@
       '<div><label class="lbl">Responsable</label><select id="fresp">' + opciones(resps, pref.resp, 'Todos') + '</select></div>' +
       '<div><label class="lbl">Estado</label><select id="fest">' + opciones(valores('ESTADO', 'estado'), pref.estado, 'Todos') + '</select></div>' +
       '<div><label class="lbl">Prioridad</label><select id="fprio">' + opciones(valores('Prioridad', 'prioridad'), pref.prio, 'Todas') + '</select></div>' +
+      '<div><label class="lbl">Terminados desde</label><input type="date" id="fterd" value="' + esc(pref.terDesde || '') + '"></div>' +
+      '<div><label class="lbl">Terminados hasta</label><input type="date" id="fterh" value="' + esc(pref.terHasta || '') + '"></div>' +
       '</div>' + (pie || hayFiltros() ? '<div class="fpie">' + (pie || '') + (hayFiltros() ? '<button data-limpiar="1">✕ Limpiar filtros</button>' : '') + '</div>' : '') + '</div>';
   }
 
@@ -548,17 +571,17 @@
       }).join('') + '</table></div>';
   }
   var TOPE = 300;
-  function listaTareas(ts) {
-    var vis = ts.slice(0, TOPE);
+  function listaTareas(ts, sinTope) {
+    var vis = sinTope ? ts : ts.slice(0, TOPE);
     return (pref.modo === 'tabla' ? tablaTareas(vis) : vis.map(tarjeta).join('')) +
-      (ts.length > TOPE ? '<div class="mas">Se muestran ' + TOPE + ' de ' + ts.length + '. Afina con la búsqueda o los filtros.</div>' : '');
+      (!sinTope && ts.length > TOPE ? '<div class="mas">Se muestran ' + TOPE + ' de ' + ts.length + '. Afina con la búsqueda o los filtros.</div>' : '');
   }
   // Grupo plegable; lo que se abre o cierra se recuerda en este navegador
-  function grupo(clave, titulo, ts, forzar) {
+  function grupo(clave, titulo, ts, forzar, sinTope) {
     if (!ts.length) return '';
     var abierto = forzar || !!(pref.grupos || {})[clave];
     return '<details class="grupo g-' + clave + '" data-grupo="' + clave + '"' + (abierto ? ' open' : '') + '><summary><span class="fl">▶</span><span>' + titulo + '</span><span class="n">' + ts.length + '</span></summary>' +
-      '<div class="cuerpo">' + listaTareas(ts) + '</div></details>';
+      '<div class="cuerpo">' + listaTareas(ts, sinTope) + '</div></details>';
   }
 
   // ---------- Vistas ----------
@@ -573,7 +596,7 @@
     var ab = tareas.filter(function (t) { return t.clase !== 'hecha'; });
     var mias = ab.filter(esMia).length, impl = ab.filter(function (t) { return meImplica(t) && !esMia(t); }).length;
     var fecha = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    return '<div class="hero"><div class="hola">Gestor de tareas · Jefatura de SUIGESUR</div><div class="nom">👤 ' + esc(yo.Title) + '</div>' +
+    return '<div class="hero"><div class="hola">' + (PROPIO ? 'Mis tareas de MENSADEF' : 'Gestor de tareas · Jefatura de SUIGESUR') + '</div><div class="nom">👤 ' + esc(yo.Title) + '</div>' +
       '<span class="rolh">Responsable de ' + mias + ' asunto' + (mias === 1 ? '' : 's') + ' abierto' + (mias === 1 ? '' : 's') + '</span>' +
       (impl ? '<span class="rolh">Implicado en ' + impl + ' más</span>' : '') +
       '<span class="rolh">Viendo: ' + { mias: 'mis asuntos', implicado: 'míos y en los que intervengo', todos: 'todos los asuntos' }[pref.quien] + '</span>' +
@@ -586,7 +609,7 @@
     abiertas.forEach(function (t) { grupoDe[t.id] = urgencia(t).grupo; });
     var cuenta = function (g) { return abiertas.filter(function (t) { return grupoDe[t.id] === g; }).length; };
     var iniMes = hoy().slice(0, 8) + '01';
-    var hechas = ts.filter(function (t) { return t.clase === 'hecha'; }).sort(function (a, b) { return terminadaEn(b).localeCompare(terminadaEn(a)); });
+    var hechas = ts.filter(function (t) { return t.clase === 'hecha' && enRangoTer(t); }).sort(function (a, b) { return terminadaEn(b).localeCompare(terminadaEn(a)); });
     var hechasMes = hechas.filter(function (t) { return terminadaEn(t) >= iniMes; });
     var n = { vencidas: cuenta('vencidas'), hoy: cuenta('hoy'), semana: cuenta('semana'), hechasMes: hechasMes.length };
     FASES.forEach(function (f) { n['c:' + f[0]] = f[0] === 'hecha' ? hechas.length : abiertas.filter(function (t) { return t.clase === f[0]; }).length; });
@@ -601,7 +624,10 @@
       html = GRUPOS.filter(function (g) { return !kpiSel || cSel || kpiSel === g[0]; }).map(function (g) {
         return grupo(g[0], g[1], base.filter(function (t) { return grupoDe[t.id] === g[0]; }).sort(ordenar), !!kpiSel);
       }).join('') || '<div class="card muted">No hay asuntos abiertos con estos filtros.</div>';
-      if (!kpiSel && hechas.length) html += grupo('hechas', '✅ Terminados', hechas.slice(0, 200), false);
+      // Todos los terminados (antes solo los 200 últimos): de 200 en 200, con «Mostrar más»
+      if (!kpiSel && hechas.length) html += grupo('hechas', '✅ Terminados' + (pref.terDesde || pref.terHasta ? ' (' + (pref.terDesde ? 'desde ' + fCorta(pref.terDesde) : '') + (pref.terHasta ? ' hasta ' + fCorta(pref.terHasta) : '') + ')' : '') +
+        (hechas.length > verHechas ? ' · los ' + verHechas + ' más recientes' : ''), hechas.slice(0, verHechas), !!(pref.terDesde || pref.terHasta), true) +
+        (hechas.length > verHechas ? '<div class="card" style="text-align:center"><button class="btn" data-mashechas="1">Mostrar ' + Math.min(200, hechas.length - verHechas) + ' terminados más (quedan ' + (hechas.length - verHechas) + ')</button> <span class="small muted">o acota con «Terminados desde / hasta»</span></div>' : '');
     }
     var aviso = !yo || pref.quien === 'todos' ? '' : !ts.length && tareas.length ? '<div class="aviso">No hay asuntos en los que figures como responsable. Cambia «Qué asuntos» a «Todos».</div>' : '';
     var modo = '<span class="modo" title="Cómo se ven los asuntos"><button data-modo="tarjetas" class="' + (pref.modo !== 'tabla' ? 'on' : '') + '">▤ Tarjetas</button><button data-modo="tabla" class="' + (pref.modo === 'tabla' ? 'on' : '') + '">☰ Tabla</button></span>';
@@ -2052,13 +2078,15 @@
     if (tab) { pref.vista = tab.dataset.v; kpiSel = ''; guardarPref(); render(); return; }
     if (el.closest('#recargar')) { cargar(); return; }
     if (el.closest('[data-crearpruebas]')) { crearListaPruebas(el.closest('[data-crearpruebas]')); return; }
+    if (el.closest('[data-renombrarpruebas]')) { renombrarListaPruebas(el.closest('[data-renombrarpruebas]')); return; }
     if (el.closest('[data-pruebacorreo]')) { correoPrueba(el.closest('[data-pruebacorreo]')); return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); return; }
     var k = el.closest('[data-kpi]');
     if (k) { kpiSel = kpiSel === k.dataset.kpi ? '' : k.dataset.kpi; render(); return; }
     var md = el.closest('[data-modo]');
     if (md) { pref.modo = md.dataset.modo; guardarPref(); render(); return; }
-    if (el.closest('[data-limpiar]')) { pref.q = pref.negociado = pref.estado = pref.prio = pref.resp = ''; kpiSel = ''; guardarPref(); render(); return; }
+    if (el.closest('[data-limpiar]')) { pref.q = pref.negociado = pref.estado = pref.prio = pref.resp = pref.terDesde = pref.terHasta = ''; kpiSel = ''; verHechas = 200; guardarPref(); render(); return; }
+    if (el.closest('[data-mashechas]')) { verHechas += 200; render(); return; }
     var d = el.closest('[data-dia]');
     if (d) { diaSel = d.dataset.dia; render(); return; }
     var m = el.closest('[data-mes]');
@@ -2118,6 +2146,8 @@
     else if (el.id === 'fest') pref.estado = el.value;
     else if (el.id === 'fprio') pref.prio = el.value;
     else if (el.id === 'fresp') pref.resp = el.value;
+    else if (el.id === 'fterd') { pref.terDesde = el.value; verHechas = 200; }
+    else if (el.id === 'fterh') { pref.terHasta = el.value; verHechas = 200; }
     else if (el.id === 'aDias') pref.avisoDias = Math.max(1, Number(el.value) || 3);
     else if (el.id === 'aCom') pref.campoComentarios = el.value;
     else if (el.id === 'aAuto') pref.autoMin = Math.max(0, Math.min(60, Number(el.value) || 0));
