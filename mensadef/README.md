@@ -143,3 +143,7 @@ con el formato *verbose* de SharePoint 2013.
   `node mensadef/pruebas/bandejas.mjs` (favorito de pruebas).
 - **2026-11-04 · 2:** con la ficha ampliada («⛶ Ampliar»), los botones «◀ Anterior» y «Siguiente ▶» y las teclas ← y →
   pasan al mensaje anterior o siguiente de la lista, en el orden y con los filtros de la tabla («n de N»).
+- **2026-11-05 · 1 (diseño):** tema verde bosque, azul marino y oro. Cabecera con franja institucional (Ministerio de
+  Defensa · Ejército de Tierra · IGE), emblema con aro dorado y fichas de usuario y versión. Tarjetas con sombra suave,
+  recuadros con su color a la izquierda, pestañas de célula en azul, tabla con cabecera azul, fila elegida con barra
+  dorada, y ficha e informe en los mismos colores. En el móvil se quita la franja.

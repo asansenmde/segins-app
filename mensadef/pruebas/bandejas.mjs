@@ -187,6 +187,6 @@ await p3.evaluate(M => sessionStorage.setItem(M + 'cabecerasApi', JSON.stringify
 const antes = nClaves; await p3.evaluate(codigo); await p3.waitForTimeout(2500);
 console.log('clave caducada → pide otra:', nClaves - antes, '|', await p3.$eval('#estado', e => e.textContent).catch(() => '-'));
 await p3.close();
-await p.setViewportSize({ width: 1400, height: 1000 }); await p.click('#lista tbody tr[data-i] >> nth=2'); await p.waitForTimeout(300); await p.evaluate(() => document.querySelector('#kpis').scrollIntoView()); await p.screenshot({ path: new URL('bandejas.png', import.meta.url).pathname });
+await p.setViewportSize({ width: 1400, height: 1000 }); await p.click('#lista tbody tr[data-i] >> nth=2'); await p.waitForTimeout(300); await p.evaluate(() => document.querySelector('#kpis').scrollIntoView()); await p.screenshot({ path: new URL('bandejas.png', import.meta.url).pathname }); await p.evaluate(() => scrollTo(0, 0)); await p.screenshot({ path: new URL('bandejas-arriba.png', import.meta.url).pathname });
 await p.setViewportSize({ width: 390, height: 800 }); await p.screenshot({ path: new URL('bandejas-movil.png', import.meta.url).pathname });
 await b.close();

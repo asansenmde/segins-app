@@ -184,10 +184,74 @@
   @media (max-width: 700px) { .hero .autoria { position: static; display: block; margin-top: 6px; } }
   .autor { max-width: 1400px; margin: 0 auto; padding: 12px 16px 24px; text-align: center; font-size: .78rem; color: var(--muted); border-top: 1px solid var(--line); }
   @media print { .autor { display: none; } }
+
+  /* ===== Tema 2026-11-05: verde bosque, azul marino y oro, con sombras suaves ===== */
+  :root { --bg: #edf1ee; --card: #fff; --text: #17241c; --muted: #5a6a60; --line: #d7dfd9; --brand: #1f4a34; --brand2: #2e6b4a; --navy: #12315a; --azul: #1d5fa8;
+    --oro: #c9a84c; --soft: #eef3f0; --sel: #fff7df; --sombra: 0 1px 2px rgba(18,49,90,.06), 0 4px 14px rgba(18,49,90,.07); }
+  body { background: radial-gradient(1200px 400px at 0% 0%, #e3ece6 0%, transparent 60%), radial-gradient(1000px 380px at 100% 0%, #e2e9f3 0%, transparent 55%), var(--bg); }
+  header { background: linear-gradient(100deg, #0b2340 0%, var(--navy) 38%, var(--brand) 78%, #2b5e44 100%); border-bottom: 3px solid var(--oro); box-shadow: 0 4px 18px rgba(11,35,64,.35); }
+  header .franja { background: rgba(0,0,0,.22); border-bottom: 1px solid rgba(201,168,76,.35); }
+  header .franja > div { max-width: 1400px; margin: 0 auto; padding: 3px 16px; display: flex; justify-content: space-between; gap: 10px; font-size: .64rem; letter-spacing: .18em; color: #d9e3ec; font-weight: 700; }
+  header .franja span { color: var(--oro); }
+  header > div:not(.franja) { padding: 10px 16px 11px; }
+  header .escudo { width: 46px; height: 46px; display: inline-grid; place-items: center; border-radius: 50%; font-size: 1.35rem; color: #fff;
+    background: radial-gradient(circle at 30% 30%, #2f7a54, var(--brand) 70%); border: 2px solid var(--oro); box-shadow: 0 0 0 3px rgba(201,168,76,.18), inset 0 1px 3px rgba(255,255,255,.25); }
+  header h1 { font-size: 1.32rem; letter-spacing: .09em; text-shadow: 0 1px 2px rgba(0,0,0,.35); }
+  header h1 em { font-style: normal; color: #f2dc96; }
+  header .subt { color: #cfe0d6; letter-spacing: .1em; margin-top: 2px; }
+  header .muted { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.22); border-radius: 999px; padding: 4px 12px; color: #fff; font-weight: 600; }
+  header .muted:empty { display: none; }
+  header .firma { border-left: 1px solid rgba(201,168,76,.45); padding-left: 12px; }
+  .card { border-color: var(--line); border-radius: 14px; box-shadow: var(--sombra); }
+  input, select { border-color: #cfd8d2; border-radius: 9px; transition: border-color .15s, box-shadow .15s; }
+  input:focus, select:focus { outline: none; border-color: var(--azul); box-shadow: 0 0 0 3px rgba(29,95,168,.15); }
+  button { border-radius: 9px; transition: background .15s, box-shadow .15s, transform .05s; }
+  button:hover:not(:disabled) { background: #f3f7f4; box-shadow: 0 1px 4px rgba(18,49,90,.12); }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button.prim { background: linear-gradient(180deg, var(--brand2), var(--brand)); border-color: var(--brand); box-shadow: 0 2px 6px rgba(31,74,52,.25); }
+  button.prim:hover:not(:disabled) { background: linear-gradient(180deg, #357a55, #1b412e); }
+  a { color: var(--azul); }
+  .hero { background: linear-gradient(115deg, #0e2a4b 0%, var(--navy) 35%, var(--brand) 80%, #2f6a4b 100%); border: 1px solid rgba(201,168,76,.4); box-shadow: 0 8px 24px rgba(11,35,64,.22); }
+  .hero::after { background: radial-gradient(circle, rgba(201,168,76,.45), transparent 70%); }
+  .hero .hola { color: #f2dc96; }
+  .hero .rolh { background: rgba(255,255,255,.12); border-color: rgba(242,220,150,.45); }
+  .kpis { gap: 10px; }
+  .kpi { border: 1px solid var(--line); border-top: 0; border-left: 5px solid var(--line); text-align: left; padding: 12px 14px; background: linear-gradient(180deg, #fff, #fafcfb); box-shadow: var(--sombra); transition: transform .12s, box-shadow .12s; }
+  .kpi:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(18,49,90,.12); }
+  .kpi b { font-size: 1.7rem; }
+  .kpi.on { outline: 2px solid var(--azul); outline-offset: 1px; }
+  .kpi.k-azul { border-left-color: var(--azul); background: linear-gradient(180deg, #fff, #f2f7fd); } .kpi.k-azul b { color: var(--azul); }
+  .kpi.k-verde { border-left-color: #2e7d4f; background: linear-gradient(180deg, #fff, #f1f8f3); } .kpi.k-verde b { color: #2e7d4f; }
+  .kpi.k-rojo { border-left-color: #b3261e; background: linear-gradient(180deg, #fff, #fdf3f2); } .kpi.k-rojo b { color: #b3261e; }
+  .kpi.k-ambar { border-left-color: #d99a00; background: linear-gradient(180deg, #fff, #fdf8ec); }
+  .kpi.k-morado { border-left-color: #6b3fa0; background: linear-gradient(180deg, #fff, #f7f2fc); }
+  .pildora { border-color: #c9d6e6; color: var(--navy); }
+  .pildora:hover { background: #f1f6fc; }
+  .pildora.on { background: linear-gradient(180deg, #1f5c99, var(--navy)); border-color: var(--navy); box-shadow: 0 2px 6px rgba(18,49,90,.25); }
+  .chip.on { background: var(--navy); border-color: var(--navy); }
+  .tabla { padding: 0; overflow: hidden; }
+  .tabla > table, #lista table { border-radius: 14px; overflow: hidden; }
+  #lista th { background: linear-gradient(180deg, #f3f6fa, #e8eef5); color: var(--navy); font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; border-bottom: 2px solid #cfd9e6; }
+  #capaInforme .inf-cab { background: linear-gradient(100deg, #0b2340, var(--navy) 40%, var(--brand) 100%); border-bottom-color: var(--oro); }
+  #informeDoc h2 { color: var(--navy); border-bottom-color: var(--navy); } #informeDoc h1 { color: var(--navy); }
+  tbody tr:hover { background: #f2f8f4; }
+  tbody tr.sel { background: var(--sel); box-shadow: inset 4px 0 0 var(--oro); }
+  tr.dia-cab td { background: linear-gradient(90deg, #e4eee8, #f3f7f4 60%, transparent); color: var(--brand); border-bottom: 1px solid #cfe0d6; }
+  tbody tr.noleido { box-shadow: inset 4px 0 0 var(--azul); }
+  .punto { background: var(--azul); box-shadow: 0 0 0 3px rgba(29,95,168,.15); }
+  .celtag { color: var(--brand); background: #e9f2ec; border-color: #cfe0d6; }
+  .cab-msg { background: linear-gradient(115deg, #0e2a4b 0%, var(--navy) 40%, var(--brand) 100%); border: 1px solid rgba(201,168,76,.45); box-shadow: 0 6px 18px rgba(11,35,64,.2); }
+  .firmamot div { background: rgba(255,255,255,.1); border-color: rgba(242,220,150,.5); }
+  .cuerpo { background: #f6f9f7; border: 1px solid var(--line); border-left: 4px solid var(--brand2); }
+  .barra div { background: linear-gradient(90deg, var(--azul), var(--brand2)); }
+  .autor { border-top: 2px solid var(--oro); color: var(--muted); }
+  .hero .autoria { position: static; display: block; text-align: right; margin-top: 8px; position: relative; z-index: 1; }
+  @media (max-width: 700px) { header .franja { display: none; } header .escudo { width: 38px; height: 38px; font-size: 1.1rem; } .hero .autoria { text-align: left; } }
 </style>
 </head>
 <body>
-<header><div><span class="escudo" aria-hidden="true">✉</span><div class="tit"><h1>VISOR DE MENSAJES MENSADEF</h1><span class="subt">Bandejas, informes y paso a Tareas · Desarrollado por el Cte. Alfredo Sánchez Sender</span></div>
+<header><div class="franja"><div>MINISTERIO DE DEFENSA · EJÉRCITO DE TIERRA · INSPECCIÓN GENERAL DEL EJÉRCITO<span>MENSAJERÍA OFICIAL</span></div></div>
+  <div><span class="escudo" aria-hidden="true">✉</span><div class="tit"><h1>VISOR DE MENSAJES <em>MENSADEF</em></h1><span class="subt">Bandejas · informes · paso a Tareas — desarrollado por el Cte. Alfredo Sánchez Sender</span></div>
   <span class="muted" id="quien"></span><div class="firma">© 2026<br><b>Cte. Alfredo Sánchez Sender</b><br><span id="verCab"></span></div></div></header>
 <main>
   <noscript><div class="card bad">El navegador no ejecuta el código de esta página.</div></noscript>
@@ -258,7 +322,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-04 · 2';
+  var VERSION = '2026-11-05 · 1';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
