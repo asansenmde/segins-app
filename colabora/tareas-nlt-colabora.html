@@ -61,6 +61,8 @@
   .mini .r b { color: var(--bad); } .mini .n b { color: var(--hoy); } .mini .cero b { color: var(--muted); }
   /* Barra de filtros */
   .filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+  .badge.tr-ps, .btn.on.tr-ps { background: #dde8f7; color: #1d4f91; border-color: #1d4f91; } .badge.tr-gen, .btn.on.tr-gen { background: #fdebc8; color: #8a4b00; border-color: #c9a84c; }
+  .tratar { margin: 8px 0; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .filtros > div { flex: 1 1 120px; min-width: 0; } .filtros > .q { flex: 2 1 200px; }
   .filtros label.lbl { margin-top: 0; }
   .modo { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; flex: none; }
@@ -244,7 +246,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-04 · 2';
+  var VERSION = '2026-11-04 · 3';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -313,6 +315,12 @@
     'correoResponsable', 'correoimplicados', 'ResponsableDeLaInformacion/EMail', 'PersonalImplicado0/EMail'];
   var EXPANDIR = 'ResponsableDeLaInformacion,PersonalImplicado0,Author,Editor';
 
+  // Marcas para tratar en reuniones (04/11/2026): columna de opción múltiple «TratarEn» de la lista. Se ven en la tarjeta, se
+  // marcan en la ficha, tienen su recuadro en la pantalla inicial y su relación imprimible. Si falta la columna, Ajustes la crea.
+  var TRATAR = [['ps', 'PUNTO DE SITUACIÓN', '📋', 'Punto de situación'], ['gen', 'TRATAR CON EL GENERAL', '⭐', 'Tratar con el General']];
+  var hayTratar = function () { return !!(infoCampo.TratarEn && infoCampo.TratarEn.existe); };
+  var tieneTratar = function (t, k) { var x = TRATAR.filter(function (y) { return y[0] === k; })[0]; return !!x && t.tratar.indexOf(x[1]) >= 0; };
+  var chipTratar = function (t) { return TRATAR.filter(function (x) { return t.tratar.indexOf(x[1]) >= 0; }).map(function (x) { return '<span class="badge tr-' + x[0] + '" title="Para tratar: ' + x[3] + '">' + x[2] + ' ' + x[3] + '</span>'; }).join(''); };
   var urlLista = function () { return web.url + "/_api/web/lists/getbytitle('" + encodeURIComponent(pref.lista.replace(/'/g, "''")) + "')"; };
 
   // Texto sin formato de un campo enriquecido (DOMParser no ejecuta nada)
@@ -366,6 +374,7 @@
       usuarios: (resp && resp.Id ? [resp] : []).concat(lista(it.PersonalImplicado0)).map(function (u) { return { Id: u.Id, Title: u.Title, Email: u.EMail || '' }; }),
       implicados: implicados.length ? implicados : String(it.NombreImplicados || '').split(/[;,]/).map(function (s) { return s.trim(); }).filter(Boolean),
       creada: it.Created, modificada: it.Modified, autor: it.Author && it.Author.Title, editor: it.Editor && it.Editor.Title,
+      tratar: lista(it.TratarEn).length ? lista(it.TratarEn) : (Array.isArray(it.TratarEn) ? it.TratarEn : []),
     };
     t.clase = claseEstado(t.estado);
     t.incoh = incoherencia(t);
@@ -385,10 +394,10 @@
         yo ? yo : api(web.url + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) { yo = u; return u; }),
         api(urlLista() + '?$select=Id,Title,ItemCount,ListItemEntityTypeFullName,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { listaInfo = l; }),
         api(urlLista() + "/fields?$select=InternalName,Title,Choices,RichText,Required,TypeAsString&$filter=(InternalName eq 'ESTADO') or (InternalName eq 'PersonalImplicado0') or (InternalName eq 'Prioridad') or (InternalName eq 'NegociadoAsignado')" +
-          " or (InternalName eq 'NegociadosImplicados') or (InternalName eq 'DescripcionDelAsunto') or (InternalName eq 'Comentarios') or (InternalName eq 'ControlExpediente') or (InternalName eq 'FechaVencimiento')")
+          " or (InternalName eq 'NegociadosImplicados') or (InternalName eq 'DescripcionDelAsunto') or (InternalName eq 'Comentarios') or (InternalName eq 'ControlExpediente') or (InternalName eq 'FechaVencimiento') or (InternalName eq 'TratarEn')")
           .then(function (d) { lista(d.value).forEach(function (f) {
             campos[f.InternalName] = lista(f.Choices).length ? lista(f.Choices) : (f.Choices || []);
-            infoCampo[f.InternalName] = Object.assign(infoCampo[f.InternalName] || {}, { rico: !!f.RichText, obligatorio: !!f.Required, tipo: f.TypeAsString || '' });
+            infoCampo[f.InternalName] = Object.assign(infoCampo[f.InternalName] || {}, { rico: !!f.RichText, obligatorio: !!f.Required, tipo: f.TypeAsString || '', existe: true });
           }); })
           .catch(function () { /* las opciones se deducen de los datos */ }),
       ].concat(['Comentarios', 'REGISTRODEACTIVIDAD'].map(function (k) {
@@ -406,7 +415,7 @@
           return sig ? pagina(sig) : todos;
         });
       };
-      return pagina(urlLista() + '/items?$top=500&$select=' + CAMPOS_SEL.join(',') + '&$expand=' + EXPANDIR);
+      return pagina(urlLista() + '/items?$top=500&$select=' + CAMPOS_SEL.concat(hayTratar() ? ['TratarEn'] : []).join(',') + '&$expand=' + EXPANDIR);
     }).then(function (items) {
       var antes = cargadoEn ? new Map(tareas.map(function (t) { return [t.id, t.modificada]; })) : null;
       tareas = items.map(aTarea);
@@ -556,7 +565,7 @@
     return '<div class="card tarea ' + colorU(t, u) + '" data-id="' + t.id + '">' +
       '<div class="t-top"><div><div class="exp">Exp. ' + esc(t.expediente) + '</div>' +
       '<div class="tit">' + chipNovedad(t) + esc(t.asunto) + '</div></div>' + chipPlazo(t, u) + '</div><div class="meta">' +
-      chipEstado(t) + chipPrio(t) + chipIncoh(t) +
+      chipEstado(t) + chipPrio(t) + chipIncoh(t) + chipTratar(t) +
       (t.nlt ? '<span class="muted">📅 NLT ' + esc(fMedia(t.nlt)) + '</span>' : '') +
       (t.responsable ? '<span class="muted">👤 ' + esc(t.responsable) + '</span>' : '') +
       (t.negociado ? '<span class="chip">' + esc(t.negociado) + '</span>' : '') + '</div></div>';
@@ -566,7 +575,7 @@
       ts.map(function (t) {
         var u = urgencia(t);
         return '<tr class="tarea ' + colorU(t, u) + '" data-id="' + t.id + '"><td class="nw">' + chipPlazo(t, u) + (t.nlt ? '<div class="small muted">' + esc(fCorta(t.nlt)) + '</div>' : '') + '</td>' +
-          '<td><div class="exp">Exp. ' + esc(t.expediente) + '</div>' + chipNovedad(t) + '<b>' + esc(t.asunto) + '</b>' + (t.incoh ? '<div>' + chipIncoh(t) + '</div>' : '') + '</td>' +
+          '<td><div class="exp">Exp. ' + esc(t.expediente) + '</div>' + chipNovedad(t) + '<b>' + esc(t.asunto) + '</b>' + (t.incoh ? '<div>' + chipIncoh(t) + '</div>' : '') + (t.tratar.length ? '<div>' + chipTratar(t) + '</div>' : '') + '</td>' +
           '<td>' + chipEstado(t) + '</td><td class="opc">' + chipPrio(t) + '</td><td class="opc">' + esc(t.responsable) + '</td><td class="opc">' + esc(t.negociado) + '</td></tr>';
       }).join('') + '</table></div>';
   }
@@ -612,13 +621,19 @@
     var hechas = ts.filter(function (t) { return t.clase === 'hecha' && enRangoTer(t); }).sort(function (a, b) { return terminadaEn(b).localeCompare(terminadaEn(a)); });
     var hechasMes = hechas.filter(function (t) { return terminadaEn(t) >= iniMes; });
     var n = { vencidas: cuenta('vencidas'), hoy: cuenta('hoy'), semana: cuenta('semana'), hechasMes: hechasMes.length };
+    TRATAR.forEach(function (x) { n['tr:' + x[0]] = abiertas.filter(function (t) { return tieneTratar(t, x[0]); }).length; });
     FASES.forEach(function (f) { n['c:' + f[0]] = f[0] === 'hecha' ? hechas.length : abiertas.filter(function (t) { return t.clase === f[0]; }).length; });
     var cSel = kpiSel.indexOf('c:') === 0 ? kpiSel.slice(2) : '';
     var mini = function (k, ic, cls, txt) {
       return '<button class="' + cls + (n[k] ? '' : ' cero') + (kpiSel === k ? ' on' : '') + '" data-kpi="' + k + '" title="Pulsa para ver solo estos; otra vez para verlos todos"><span class="ic ' + cls + '">' + ic + '</span><div><b>' + n[k] + '</b><span>' + txt + '</span></div></button>';
     };
     var html;
-    if (kpiSel === 'hechasMes' || cSel === 'hecha') html = grupo('hechas', cSel ? '✅ Terminados' : '✅ Terminados este mes', cSel ? hechas : hechasMes, true) || '<div class="card muted">Ningún asunto terminado con estos filtros.</div>';
+    var trSel = kpiSel.indexOf('tr:') === 0 ? kpiSel.slice(3) : '';
+    if (trSel) {
+      var xt = TRATAR.filter(function (x) { return x[0] === trSel; })[0], lt = abiertas.filter(function (t) { return tieneTratar(t, trSel); }).sort(ordenar);
+      html = (lt.length ? '<div class="card" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="flex:1">' + xt[2] + ' ' + lt.length + ' asunto' + (lt.length === 1 ? '' : 's') + ' para «' + esc(xt[3]) + '»</b>' +
+        '<button class="btn prim" data-imptratar="' + trSel + '">🖨 Imprimir relación</button></div>' + grupo('tratar', xt[2] + ' Para tratar: ' + esc(xt[3]), lt, true) : '<div class="card muted">Ningún asunto abierto marcado para «' + esc(xt[3]) + '». Márcalo en su ficha.</div>');
+    } else if (kpiSel === 'hechasMes' || cSel === 'hecha') html = grupo('hechas', cSel ? '✅ Terminados' : '✅ Terminados este mes', cSel ? hechas : hechasMes, true) || '<div class="card muted">Ningún asunto terminado con estos filtros.</div>';
     else {
       var base = cSel ? abiertas.filter(function (t) { return t.clase === cSel; }) : abiertas;
       html = GRUPOS.filter(function (g) { return !kpiSel || cSel || kpiSel === g[0]; }).map(function (g) {
@@ -635,7 +650,8 @@
       (kpiSel ? ' · <b>mostrando solo una tarjeta del resumen</b> <button data-kpi="' + kpiSel + '">Ver todo</button>' : '') + '</span>';
     return heroTareas() +
       '<div class="mini">' + mini('vencidas', '🔴', 'r', 'Fuera de plazo') + mini('hoy', '⏰', 'n', 'Vencen hoy') + mini('semana', '📅', 'a', 'Próximos 7 días') +
-      mini('c:curso', '⚙️', 'az', 'En curso') + mini('hechasMes', '✅', 'v', 'Terminados este mes') + '</div>' +
+      mini('c:curso', '⚙️', 'az', 'En curso') + mini('hechasMes', '✅', 'v', 'Terminados este mes') +
+      (hayTratar() ? TRATAR.map(function (x) { return mini('tr:' + x[0], x[2], x[0] === 'gen' ? 'r' : 'az', 'Para ' + x[3].charAt(0).toLowerCase() + x[3].slice(1)); }).join('') : '') + '</div>' +
       '<div class="sec"><span>Recorrido de los asuntos</span><span>pendiente › en curso › en espera › terminado</span></div><div class="flujo">' +
       FASES.map(function (f, k) {
         var ests = estadosDe(f[0]);
@@ -1020,6 +1036,37 @@
     if (w && w.document) { w.document.open(); w.document.write(doc); w.document.close(); return; }
     descargar(nombre + '.html', doc, 'text/html;charset=utf-8');
     aviso('Descargado: ábrelo y elige Imprimir → Guardar como PDF');
+  }
+  // Marcar o quitar «para tratar» (se guarda en Colabora y lo ven todos)
+  function cambiarTratar(id, k, boton) {
+    var t = tareas.find(function (x) { return x.id === id; }), x = TRATAR.filter(function (y) { return y[0] === k; })[0];
+    if (!t || !x || !hayTratar()) return;
+    var vals = t.tratar.indexOf(x[1]) >= 0 ? t.tratar.filter(function (v) { return v !== x[1]; }) : t.tratar.concat([x[1]]);
+    boton.disabled = true;
+    leerElemento(id).then(function (e) {
+      return enviarSP(urlLista() + '/items(' + id + ')', { __metadata: { type: listaInfo.ListItemEntityTypeFullName }, TratarEn: { __metadata: { type: 'Collection(Edm.String)' }, results: vals } },
+        'No tienes permiso para modificar este asunto', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': e.etag });
+    }).then(function () { return cargar(); }).then(function () { abrir(id); aviso(vals.indexOf(x[1]) >= 0 ? 'Marcado para tratar: ' + x[3] : 'Quitada la marca: ' + x[3]); })
+      .catch(function (e) { boton.disabled = false; var m = $('#trMsg'); if (m) m.innerHTML = ' <span class="error">' + esc(e.message || e) + '</span>'; });
+  }
+  // Relación imprimible de lo marcado para una reunión
+  function imprimirTratar(k) {
+    var x = TRATAR.filter(function (y) { return y[0] === k; })[0];
+    var ts = filtrar(tareas).filter(function (t) { return t.clase !== 'hecha' && tieneTratar(t, k); }).sort(ordenar);
+    var cuerpo = '<h2>' + x[2] + ' ASUNTOS PARA TRATAR: ' + esc(x[1]) + '</h2><p>' + esc(new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) + ' · ' + ts.length + ' asunto' + (ts.length === 1 ? '' : 's') + '</p>' +
+      '<table class="cal" style="table-layout:auto"><tr><th>Nº</th><th>Exp.</th><th>Asunto</th><th>Estado</th><th>Prioridad</th><th>NLT</th><th>Responsable</th><th>Último comentario / situación</th></tr>' +
+      ts.map(function (t, i) { var ult = String(t.observaciones || t.resumenDesc || '').split('\n').filter(Boolean).pop() || '';
+        return '<tr><td>' + (i + 1) + '</td><td>' + esc(t.expediente) + '</td><td><b>' + esc(t.asunto) + '</b></td><td>' + esc(t.estado) + '</td><td>' + esc(t.prioridad) + '</td><td>' + esc(fCorta(t.nlt)) + '</td><td>' + esc(t.responsable) + '</td><td>' + esc(ult.slice(0, 300)) + '</td></tr>'; }).join('') +
+      '</table><p style="font-size:8pt;color:#555;margin-top:12px">' + esc(listaInfo ? listaInfo.Title : pref.lista) + ' · Gestor de tareas · © 2026 Cte. Alfredo Sánchez Sender</p>';
+    imprimirHtml('Para tratar: ' + x[3], cuerpo.replace(/<td>/g, '<td style="border:1px solid #bbb;padding:3px 5px;vertical-align:top;font-size:9pt">'), 'para-tratar-' + k);
+  }
+  // Crear la columna «Tratar en» (Ajustes)
+  function crearColumnaTratar(boton) {
+    boton.disabled = true;
+    var xml = '<Field Type="MultiChoice" Name="TratarEn" StaticName="TratarEn" DisplayName="Tratar en" FillInChoice="FALSE"><CHOICES>' + TRATAR.map(function (x) { return '<CHOICE>' + x[1] + '</CHOICE>'; }).join('') + '</CHOICES></Field>';
+    enviarSP(urlLista() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas en la lista')
+      .then(function () { return cargar(); }).then(function () { aviso('Columna «Tratar en» creada'); render(); })
+      .catch(function (e) { boton.disabled = false; aviso('No se pudo crear la columna: ' + (e.message || e)); });
   }
   function imprimirCalendario() {
     var y = mes.getFullYear(), m = mes.getMonth(), ini = iso(mes), fin = iso(new Date(y, m + 1, 0));
@@ -2013,6 +2060,7 @@
       '<p class="small muted">Sitio: ' + esc(web ? (web.titulo || '') + ' (' + web.url + ')' : '—') + '<br>Usuario: ' + esc(yo ? yo.Title : '—') +
       (listaInfo ? '<br>Lista: «' + esc(listaInfo.Title) + '», ' + listaInfo.ItemCount + ' elementos' : '') + (cargadoEn ? '<br>Leída a las ' + cargadoEn.toLocaleTimeString('es-ES') : '') + '<br>Versión de la página: ' + esc(VERSION) + '</p>' +
       '<label class="lbl">Nombre de la lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
+      '<p class="small">' + (hayTratar() ? '✔ Columna «Tratar en» (marcas «Punto de situación» y «Tratar con el General»).' : '✕ Falta la columna «Tratar en» para marcar asuntos para el punto de situación o para tratar con el General. <button type="button" class="btn prim" data-creartratar="1">Crear la columna</button> <span class="muted">(hace falta poder administrar la lista)</span>') + '</p>' +
       '<label class="lbl">Actualizar la lista automáticamente cada (minutos; 0 = no)</label><input id="aAuto" type="number" min="0" max="60" value="' + minutosAuto() + '">' +
       '<label class="lbl">Marcar en naranja cuando queden (días)</label><input id="aDias" type="number" min="1" max="30" value="' + pref.avisoDias + '">' +
       '<label class="lbl">Estado con el que se crean los asuntos</label><select id="aEstAlta">' +
@@ -2049,6 +2097,9 @@
     dlg.innerHTML = '<div class="dh"><h2>' + esc(t.asunto) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db ficha"><div class="ficha-datos">' +
       '<div class="pasos" title="Fase del asunto (se ajusta en Ajustes)">' + FASES.map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<span class="c-' + f[0] + (t.clase === f[0] ? ' on' : '') + '">' + f[1] + ' ' + CLASES[f[0]] + '</span>'; }).join('') + '</div>' +
       c.filter(function (x) { return x[0] && x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
+      '<div class="tratar"><b class="small">Para tratar en:</b> ' + (hayTratar() ? TRATAR.map(function (x) { var on = tieneTratar(t, x[0]);
+        return '<button type="button" class="btn' + (on ? ' on tr-' + x[0] : '') + '" data-tratar="' + x[0] + '" data-id="' + t.id + '" title="' + (on ? 'Quitar la marca' : 'Marcar para tratar') + '">' + (on ? '✓ ' : '') + x[2] + ' ' + x[3] + '</button>'; }).join(' ') :
+        '<span class="small muted">falta la columna «Tratar en» en la lista; la crea quien administre la lista en Ajustes.</span>') + '<span id="trMsg" class="small"></span></div>' +
       '<div class="acciones"><button type="button" class="btn prim" data-modificar="' + t.id + '">✎ Modificar</button>' +
         (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
         (base ? '<a class="btn" target="_top" href="' + esc(base + '/DispForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Ver en Colabora</a>' : '') + '</div>' +
@@ -2078,6 +2129,11 @@
     if (tab) { pref.vista = tab.dataset.v; kpiSel = ''; guardarPref(); render(); return; }
     if (el.closest('#recargar')) { cargar(); return; }
     if (el.closest('[data-crearpruebas]')) { crearListaPruebas(el.closest('[data-crearpruebas]')); return; }
+    var trb = el.closest('[data-tratar]');
+    if (trb) { cambiarTratar(Number(trb.dataset.id), trb.dataset.tratar, trb); return; }
+    var trp = el.closest('[data-imptratar]');
+    if (trp) { imprimirTratar(trp.dataset.imptratar); return; }
+    if (el.closest('[data-creartratar]')) { crearColumnaTratar(el.closest('[data-creartratar]')); return; }
     if (el.closest('[data-renombrarpruebas]')) { renombrarListaPruebas(el.closest('[data-renombrarpruebas]')); return; }
     if (el.closest('[data-pruebacorreo]')) { correoPrueba(el.closest('[data-pruebacorreo]')); return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); return; }

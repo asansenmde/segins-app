@@ -27,6 +27,7 @@ const items = Array.from({ length: 706 }, (_, i) => {
 items[2].fECHAFINALIZACION = d(-3); items[18].fECHAFINALIZACION = null;
 // Colabora que rechaza direcciones («destinatario válido»): buzonMal = direcciones rechazadas; enviados = las que acepta
 let buzonMal = [], enviados = [];
+let conTratar = false;   // columna «TratarEn» (se crea desde Ajustes)
 let denegar = false, correoFalla = false, anexar = true, versiones = {};
 async function prueba() {
   const b = await chromium.launch();
@@ -70,6 +71,7 @@ async function prueba() {
     }
     if (req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
+      if (resto.includes('/fields/createfieldasxml')) { if (/TratarEn/.test(req.postData())) conTratar = true; return r.fulfill({ json: { d: {} } }); }
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DIGEST-123', FormDigestTimeoutSeconds: 1800 } } } });
       if (resto.startsWith('SP.UI.ApplicationPages.ClientPeoplePickerWebServiceInterface')) {
         const q = JSON.parse(req.postData()).queryParams.QueryString.toUpperCase();
@@ -101,7 +103,7 @@ async function prueba() {
     if (resto.startsWith('web/currentuser')) return r.fulfill({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' } });
     if (resto.startsWith('web/siteusers')) return r.fulfill({ json: { value: [{ Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' }, { Id: 31, Title: 'GARCIA LOPEZ ANA', Email: 'agarcia@et.mde.es' }, { Id: 32, Title: 'PEREZ RUIZ LUIS', Email: 'lperez@et.mde.es' }, { Id: 41, Title: 'Garcia Lopez, Ana', Email: 'agarcia2@et.mde.es' }] } });
     if (resto.includes("/fields")) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'Prioridad', Choices: PRIOS }, { InternalName: 'NegociadoAsignado', Choices: NEGS },
-      { InternalName: 'NegociadosImplicados', Choices: NEGS }, { InternalName: 'DescripcionDelAsunto', RichText: true }, { InternalName: 'Comentarios', RichText: false }, { InternalName: 'FechaVencimiento', Required: false }] } });
+      { InternalName: 'NegociadosImplicados', Choices: NEGS }, { InternalName: 'DescripcionDelAsunto', RichText: true }, { InternalName: 'Comentarios', RichText: false }, { InternalName: 'FechaVencimiento', Required: false }].concat(conTratar ? [{ InternalName: 'TratarEn', Choices: ['PUNTO DE SITUACIÓN', 'TRATAR CON EL GENERAL'], TypeAsString: 'MultiChoice' }] : []) } });
     if (resto.includes("/items")) {
       const skip = Number((u.match(/skip=(\d+)/) || [0, 0])[1]);
       const next = skip + 500 < items.length ? `https://colabora.mdef.es${WEB}/_api/web/lists/getbytitle('Gestor de Tareas')/items?skip=${skip + 500}` : undefined;
@@ -138,6 +140,23 @@ async function prueba() {
     await p.fill('#fterd', f(5)); await p.dispatchEvent('#fterd', 'change'); await p.fill('#fterh', f(2)); await p.dispatchEvent('#fterh', 'change'); await p.waitForTimeout(200);
     console.log('terminados del', f(5), 'al', f(2) + ':', await nTer(), '|', (await p.textContent('details[data-grupo=hechas] summary')).replace(/\s+/g, ' '), '| fuera de rango:',
       await p.$$eval('details[data-grupo=hechas] .tarea', x => x.length) && 'ver arriba');
+    // Marcas «para tratar»: crear la columna en Ajustes, marcar en la ficha, recuadro e impresión
+    await p.click('#tabs [data-v=ajustes]'); await p.waitForTimeout(200);
+    console.log('ajustes, columna:', (await p.textContent('p:has([data-creartratar])').catch(() => 'sin botón')).slice(0, 60));
+    await p.click('[data-creartratar]'); await p.waitForTimeout(1500);
+    console.log('tras crear:', (await p.$$eval('p.small', n => (n.find(x => /Tratar en/.test(x.textContent)) || { textContent: '-' }).textContent)).slice(0, 60));
+    await p.click('#tabs [data-v=nlt]'); await p.waitForTimeout(300);
+    await p.click('details.grupo .tarea >> nth=0'); await p.waitForTimeout(300); const idT = await p.$eval('[data-tratar=gen]', b => b.dataset.id);
+    await p.click('[data-tratar=gen]'); await p.waitForTimeout(1500);
+    const itT = items.find(x => x.Id === Number(idT));
+    console.log('marcado nº', idT, ':', JSON.stringify(itT.TratarEn && itT.TratarEn.results), '| botón:', (await p.textContent('[data-tratar=gen]')).trim());
+    await p.click('[data-tratar=ps]'); await p.waitForTimeout(1500); await p.click('#dlg [data-cerrar]');
+    console.log('recuadros:', (await p.$$eval('[data-kpi^="tr:"]', b => b.map(x => x.innerText.replace(/\s+/g, ' ')))).join(' | '));
+    await p.click('[data-kpi="tr:gen"]'); await p.waitForTimeout(200);
+    console.log('lista para el General:', await p.$$eval('details[data-grupo=tratar] .tarea', x => x.length), '| chip en tarjeta:', await p.$$eval('details[data-grupo=tratar] .badge.tr-gen', x => x.length));
+    const [imp] = await Promise.all([p.context().waitForEvent('page'), p.click('[data-imptratar]')]); await imp.waitForLoadState();
+    console.log('impresión:', (await imp.textContent('h2')).trim(), '|', await imp.$$eval('table tr', x => x.length - 1), 'filas'); await imp.close();
+    await p.click('[data-kpi="tr:gen"]');
     await p.click('[data-limpiar]'); console.log('tras limpiar, fechas vacías:', !(await p.inputValue('#fterd')) && !(await p.inputValue('#fterh'))); }
   await p.click('[data-modo=tabla]');
   console.log('tabla filas:', await p.$$eval('table.tt tr.tarea', x => x.length));
