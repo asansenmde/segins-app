@@ -1,0 +1,7 @@
+{
+  "name": "mensadef-proteger",
+  "private": true,
+  "description": "Protege (compacta) el código del visor de MENSADEF antes de meterlo en el favorito",
+  "type": "module",
+  "dependencies": { "javascript-obfuscator": "5.9.0" }
+}

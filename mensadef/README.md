@@ -149,3 +149,7 @@ con el formato *verbose* de SharePoint 2013.
   dorada, y ficha e informe en los mismos colores. En el móvil se quita la franja.
 - **2026-11-05 · 2:** fuera «Ver estructura (para soporte)» de la versión definitiva; sigue en la de pruebas y, si hace
   falta para soporte, en la definitiva se saca con **Ctrl + Alt + E**.
+- **Favorito protegido (05/11/2026):** `generar-marcador.py` protege el visor con `proteger/proteger.mjs` antes de meterlo
+  en el favorito. Lo compacta (nombres internos cambiados, sin espacios ni comentarios), lo bloquea a `*.mdef.es` y no
+  deja etiquetas de página dentro del código. La primera vez hace falta `cd mensadef/proteger && npm install`. El
+  original legible es `visor-mensadef.html`.

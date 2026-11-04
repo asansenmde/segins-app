@@ -96,6 +96,16 @@ def generar(fuente, salida, nombre, titulo, intro, pasos, pruebas=False):
     if pruebas:
         assert 'var PRUEBAS = false;' in pagina, 'No encuentro «var PRUEBAS = false;» en ' + fuente
         pagina = pagina.replace('var PRUEBAS = false;', 'var PRUEBAS = true;')
+    if fuente == 'visor-mensadef.html':
+        # El visor va protegido (compactado, con bloqueo a *.mdef.es): proteger/proteger.mjs (npm install la primera vez)
+        import subprocess, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            ent, sal = pathlib.Path(d) / 'entrada.html', pathlib.Path(d) / 'salida.html'
+            ent.write_text(pagina, encoding='utf-8')
+            r = subprocess.run(['node', str(aqui / 'proteger' / 'proteger.mjs'), str(ent), str(sal)], capture_output=True, text=True)
+            if r.returncode:
+                sys.exit('No se pudo proteger el visor (¿falta «cd mensadef/proteger && npm install»?):\n' + r.stderr[-800:])
+            pagina = sal.read_text(encoding='utf-8')
     codigo = '(function(){var h=' + json.dumps(pagina) + ';document.open();document.write(h);document.close();})()'
     marcador = 'javascript:' + urllib.parse.quote(codigo, safe='')
     uso = '\n'.join('      <li>' + p + '</li>' for p in pasos)
