@@ -63,7 +63,7 @@ const codigoCompacto = fuerte ? ofuscado : ofuscado.replace(/(^|[^\\])((?:\\\\)*
 // buscando etiquetas como </head> o <body>, y las encontraba también DENTRO del programa (la plantilla de la ventana de
 // impresión), partiéndolo en dos. Con la ofuscación fuerte, esos textos unas veces salían cifrados y otras no: por eso
 // fallaba «al azar». Ahora el «<» de esas etiquetas se escribe \x3c dentro del código (el navegador lo lee igual).
-const ETIQUETAS = /<(?=\/?(?:!doctype|html|head|body|meta|title|style|link|base|script)\b)/gi;
+const ETIQUETAS = /<(?=\/?(?:!doctype|html|head|body|meta|title|style|link|base|script)\b|!--)/gi;   // también «<!--» (comentarios de Word)
 const codigoFinal = codigoCompacto.replace(ETIQUETAS, '\\x3c');
 if (/<\/script|<!--|<\/?(?:!doctype|html|head|body)\b/i.test(codigoFinal)) throw new Error('El código protegido contiene etiquetas de página («</head>», «<body>»…): no se puede pegar en la página');
 

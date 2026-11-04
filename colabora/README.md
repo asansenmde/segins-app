@@ -35,6 +35,10 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-04 · 1 (buena):** pasan a la copia buena las novedades que estaban solo en la de pruebas (recibir
+  mensajes de MENSADEF con «#importar», alta desde correos .msg/.eml, avisos de duplicados, actualización automática), para
+  que el visor de MENSADEF pueda crear tareas en el Gestor común. La copia protegida se genera con la protección nueva
+  (compactada, sin `</head>`, `<body>` ni `<!--` literales dentro del código; ver `SHAREPOINT.md`).
 - **Copia de pruebas** `colabora/tareas-nlt-colabora-pruebas.html` (se genera con `node proteger.mjs --pruebas`): se sube
   junto a la buena sin sustituirla. Trabaja sobre la lista **«Gestor de Tareas PRUEBAS»** y nunca sobre la real (no deja
   cambiarla a otra que no acabe en PRUEBAS); guarda sus preferencias aparte; banda roja «VERSIÓN DE PRUEBAS»; los correos

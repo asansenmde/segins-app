@@ -41,7 +41,7 @@ const ofuscado = JavaScriptObfuscator.obfuscate(fuerte ? codigo : guardia + codi
 // Espacios y comillas dobles de los textos tal cual (el generador los pone como \x20 y \x22), si la barra no está escapada
 const codigoCompacto = fuerte ? ofuscado : ofuscado.replace(/(^|[^\\])((?:\\\\)*)\\x20/g, '$1$2 ').replace(/(^|[^\\])((?:\\\\)*)\\x20/g, '$1$2 ')
   .replace(/(^|[^\\])((?:\\\\)*)\\x22/g, '$1$2"').replace(/(^|[^\\])((?:\\\\)*)\\x22/g, '$1$2"');
-const ETIQUETAS = /<(?=\/?(?:!doctype|html|head|body|meta|title|style|link|base|script)\b)/gi;
+const ETIQUETAS = /<(?=\/?(?:!doctype|html|head|body|meta|title|style|link|base|script)\b|!--)/gi;   // también «<!--» (comentarios de Word)
 const codigoFinal = codigoCompacto.replace(ETIQUETAS, '\\x3c');
 if (/<\/script|<!--|<\/?(?:!doctype|html|head|body)\b/i.test(codigoFinal)) throw new Error('El código protegido contiene etiquetas de página («</head>», «<body>»…): no se puede pegar en la página');
 
