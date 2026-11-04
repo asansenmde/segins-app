@@ -147,3 +147,5 @@ con el formato *verbose* de SharePoint 2013.
   Defensa · Ejército de Tierra · IGE), emblema con aro dorado y fichas de usuario y versión. Tarjetas con sombra suave,
   recuadros con su color a la izquierda, pestañas de célula en azul, tabla con cabecera azul, fila elegida con barra
   dorada, y ficha e informe en los mismos colores. En el móvil se quita la franja.
+- **2026-11-05 · 2:** fuera «Ver estructura (para soporte)» de la versión definitiva; sigue en la de pruebas y, si hace
+  falta para soporte, en la definitiva se saca con **Ctrl + Alt + E**.

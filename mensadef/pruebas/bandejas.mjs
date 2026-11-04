@@ -178,6 +178,7 @@ const txtInf = await p.evaluate(() => { let t = ''; navigator.clipboard.writeTex
 console.log('texto:', txtInf.split('\n').slice(0, 9).join(' ⏎ ').slice(0, 400));
 const [w] = await Promise.all([p.waitForEvent('download'), p.click('[data-inf="word"]')]); console.log('word:', w.suggestedFilename(), require('fs').readFileSync(await w.path(), 'utf8').includes('Relación de mensajes'));
 await p.click('[data-inf="cerrar"]'); await p.click('#kpis [data-kpi="todos"]'); await p.selectOption('#fSitio', '');
+if (await p.isHidden('#estructura')) { console.log('«Ver estructura» oculto: sí'); await p.keyboard.press('Control+Alt+KeyE'); }
 await p.click('#estructura'); const est = await p.inputValue('#cajaEstructura textarea');
 console.log(est.split('\n').slice(0, 12).join('\n'));
 console.log('¿estructura con contenido?', /Mensaje \d|MANDO|persona@|R-\d/.test(est), '| errores:', errs);

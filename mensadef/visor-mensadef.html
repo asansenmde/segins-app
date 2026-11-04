@@ -295,7 +295,7 @@
     </div>
     <div class="fila" id="masFiltros" style="margin-top:8px"></div>
     <div class="chips" id="chips"></div>
-    <p class="muted" style="margin:6px 0 0;font-size:.76rem"><span id="lineaColumnas">Columnas de MENSADEF: <span id="nColumnas">—</span> · </span><a href="#" id="estructura">Ver estructura (para soporte, sin contenido)</a></p>
+    <p class="muted" id="lineaSoporte" style="margin:6px 0 0;font-size:.76rem"><span id="lineaColumnas">Columnas de MENSADEF: <span id="nColumnas">—</span> · </span><a href="#" id="estructura">Ver estructura (para soporte, sin contenido)</a></p>
     <div id="cajaEstructura" hidden></div>
   </div>
 
@@ -322,7 +322,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-05 · 1';
+  var VERSION = '2026-11-05 · 2';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1408,6 +1408,9 @@
   }
 
   // Estructura sin contenido (sitios, listas, columnas y nº de valores distintos) para enviarla a quien ayuda a ajustar el visor
+  // «Ver estructura» solo en la copia de pruebas; en la definitiva se puede sacar para soporte con Ctrl + Alt + E
+  if (!PRUEBAS) $('lineaSoporte').hidden = true;
+  document.addEventListener('keydown', function (e) { if (e.ctrlKey && e.altKey && (e.key === 'e' || e.key === 'E')) { $('lineaSoporte').hidden = false; e.preventDefault(); } });
   $('estructura').addEventListener('click', function (e) {
     e.preventDefault();
     var celula = (/#\/celula\/([^/]+)/.exec(location.hash) || [])[1];

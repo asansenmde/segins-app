@@ -102,6 +102,7 @@ const antesB = await nfil(); await p.uncheck('#fBorrador'); console.log('borrado
 await p.selectOption('#fx_MensajeNegociadoDestino', 'Personal'); console.log('Negociado destino = Personal:', await nfil()); await p.selectOption('#fx_MensajeNegociadoDestino', '');
 await p.fill('#buscar', 'Usuario 2'); await p.waitForTimeout(400); console.log('buscar por destinatario:', await nfil()); await p.fill('#buscar', ''); await p.waitForTimeout(300);
 if (process.env.CELULA) { const ops = await p.$$eval('#fSitio option', o => o.map(x => x.textContent)); console.log('sitios:', ops); await p.selectOption('#fSitio', { index: 1 }); console.log('solo ' + ops[1] + ':', await nfil()); await p.selectOption('#fSitio', ''); }
+if (await p.isHidden('#estructura')) { console.log('«Ver estructura» oculto: sí'); await p.keyboard.press('Control+Alt+KeyE'); }
 await p.click('#estructura'); const est = await p.inputValue('#cajaEstructura textarea'); console.log('estructura:\n' + est);
 console.log('¿estructura con contenido?', /Asunto |Jefe A|Usuario 2|REF-/.test(est), '| pidió el cuerpo en masa?', pedidas.some(x => x.includes('items?') && x.includes('MensajeCuerpo')));
 const filas = () => p.$$eval('#lista tbody tr', t => t.length);
