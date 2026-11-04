@@ -35,6 +35,14 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-05 · 1: estado del asunto.**
+  - **En la ficha:** «✅ Finalizar» (o «↺ Reabrir» si ya está terminado), «Cambiar estado» a cualquiera de los de la
+    lista y «🗑 Eliminar».
+  - **Finalizar** pone el primer estado de terminado (FINALIZADO) y, si no la tenía, la fecha de fin de hoy.
+  - **Reabrir** pone el primer estado «en curso» y quita la fecha de fin. Al cambiar a mano, la fecha se ajusta igual.
+  - **Eliminar** pide un segundo clic y manda el asunto a la papelera de reciclaje de Colabora (`recycle()`), de donde se
+    puede recuperar.
+  - **En la pantalla principal**, cada asunto abierto tiene «✔ Finalizar», que pide un segundo clic para confirmar.
 - **Versión 2026-11-04 · 3: marcas «para tratar».** En la ficha, «📋 Punto de situación» y «⭐ Tratar con el General»
   marcan o quitan la marca, y se guarda en Colabora: lo ve todo el que use la lista. La tarjeta lleva la marca, y la pantalla
   inicial tiene un recuadro para cada una, con su lista y «🖨 Imprimir relación» (asunto, estado, prioridad, NLT,

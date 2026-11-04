@@ -62,6 +62,12 @@
   /* Barra de filtros */
   .filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
   .badge.tr-ps, .btn.on.tr-ps { background: #dde8f7; color: #1d4f91; border-color: #1d4f91; } .badge.tr-gen, .btn.on.tr-gen { background: #fdebc8; color: #8a4b00; border-color: #c9a84c; }
+  .estadoacc { margin: 8px 0; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 8px; background: var(--soft, #f3f5f1); border-radius: 10px; }
+  .estadoacc select { max-width: 220px; } .estadoacc .sep { flex: 1; }
+  .btn.verde { background: #2e7d32; color: #fff; border-color: #2e7d32; } .btn.rojo { background: #fff; color: #b71c1c; border-color: #e3a5a5; }
+  .t-der { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .finrap { font-size: .72rem; padding: 2px 8px; border-radius: 8px; border: 1px solid #a5d6a7; background: #eef8ef; color: #2e7d32; font-weight: 700; white-space: nowrap; }
+  .finrap.seguro { background: #2e7d32; color: #fff; }
   .tratar { margin: 8px 0; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .filtros > div { flex: 1 1 120px; min-width: 0; } .filtros > .q { flex: 2 1 200px; }
   .filtros label.lbl { margin-top: 0; }
@@ -246,7 +252,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-04 · 3';
+  var VERSION = '2026-11-05 · 1';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -560,11 +566,13 @@
 
   // Asuntos nuevos o cambiados por otras personas desde la última lectura (hasta que se abren)
   var chipNovedad = function (t) { return novedades[t.id] ? '<span class="badge warn">' + esc(novedades[t.id]) + '</span> ' : ''; };
+  // Botón rápido «✔ Finalizar» en la pantalla principal (pide confirmar con un segundo clic)
+  var botonFin = function (t) { return t.clase === 'hecha' ? '' : '<button type="button" class="finrap" data-finrapido="' + t.id + '" title="Finalizar este asunto">✔ Finalizar</button>'; };
   function tarjeta(t) {
     var u = urgencia(t);
     return '<div class="card tarea ' + colorU(t, u) + '" data-id="' + t.id + '">' +
       '<div class="t-top"><div><div class="exp">Exp. ' + esc(t.expediente) + '</div>' +
-      '<div class="tit">' + chipNovedad(t) + esc(t.asunto) + '</div></div>' + chipPlazo(t, u) + '</div><div class="meta">' +
+      '<div class="tit">' + chipNovedad(t) + esc(t.asunto) + '</div></div><div class="t-der">' + chipPlazo(t, u) + botonFin(t) + '</div></div><div class="meta">' +
       chipEstado(t) + chipPrio(t) + chipIncoh(t) + chipTratar(t) +
       (t.nlt ? '<span class="muted">📅 NLT ' + esc(fMedia(t.nlt)) + '</span>' : '') +
       (t.responsable ? '<span class="muted">👤 ' + esc(t.responsable) + '</span>' : '') +
@@ -574,7 +582,7 @@
     return '<div class="tabla-wrap"><table class="tt"><tr><th>Plazo</th><th>Asunto</th><th>Estado</th><th class="opc">Prioridad</th><th class="opc">Responsable</th><th class="opc">Negociado</th></tr>' +
       ts.map(function (t) {
         var u = urgencia(t);
-        return '<tr class="tarea ' + colorU(t, u) + '" data-id="' + t.id + '"><td class="nw">' + chipPlazo(t, u) + (t.nlt ? '<div class="small muted">' + esc(fCorta(t.nlt)) + '</div>' : '') + '</td>' +
+        return '<tr class="tarea ' + colorU(t, u) + '" data-id="' + t.id + '"><td class="nw">' + chipPlazo(t, u) + botonFin(t) + (t.nlt ? '<div class="small muted">' + esc(fCorta(t.nlt)) + '</div>' : '') + '</td>' +
           '<td><div class="exp">Exp. ' + esc(t.expediente) + '</div>' + chipNovedad(t) + '<b>' + esc(t.asunto) + '</b>' + (t.incoh ? '<div>' + chipIncoh(t) + '</div>' : '') + (t.tratar.length ? '<div>' + chipTratar(t) + '</div>' : '') + '</td>' +
           '<td>' + chipEstado(t) + '</td><td class="opc">' + chipPrio(t) + '</td><td class="opc">' + esc(t.responsable) + '</td><td class="opc">' + esc(t.negociado) + '</td></tr>';
       }).join('') + '</table></div>';
@@ -1378,6 +1386,39 @@
     });
   }
 
+  // ---------- Cambios de estado y eliminar (desde la ficha o la pantalla principal) ----------
+  // Finalizar: el primer estado «terminado» de la lista (FINALIZADO…) y la fecha de fin de hoy si no la tenía.
+  // Reabrir: el primer estado «en curso» (o pendiente) y sin fecha de fin. Cambiar: cualquier estado, con la fecha coherente.
+  var estadoDe = function (clase) { var es = valores('ESTADO', 'estado'); return es.filter(function (e) { return claseEstado(e) === clase; }).sort(function (a, b) { return (/finaliz/i.test(b) ? 1 : 0) - (/finaliz/i.test(a) ? 1 : 0); })[0] || ''; };
+  function ponerEstado(id, nuevo, boton) {
+    var t = tareas.find(function (x) { return x.id === id; });
+    if (!t || !nuevo) return Promise.resolve();
+    var cuerpo = { __metadata: { type: listaInfo.ListItemEntityTypeFullName }, ESTADO: nuevo };
+    if (claseEstado(nuevo) === 'hecha') { if (!t.fin) cuerpo.fECHAFINALIZACION = aFecha(hoy()).toISOString(); }
+    else if (t.fin) cuerpo.fECHAFINALIZACION = null;
+    if (boton) boton.disabled = true;
+    return modificarElemento(t, cuerpo).then(function () { return cargar(); }).then(function () {
+      aviso('Nº ' + id + ': ' + (claseEstado(nuevo) === 'hecha' ? 'finalizado' : 'estado «' + nuevo + '»'));
+      if ($('#dlg').open) abrir(id);
+    }, function (e) {
+      if (boton) boton.disabled = false;
+      var m = $('#estMsg'); if (m && $('#dlg').open) m.innerHTML = ' <span class="error">' + esc(e.message || e) + '</span>'; else aviso('No se pudo cambiar el nº ' + id + ': ' + (e.message || e));
+    });
+  }
+  // Eliminar: va a la papelera de reciclaje de Colabora (se puede recuperar desde allí)
+  function eliminarAsunto(id, boton) {
+    if (!boton.dataset.seguro) {
+      boton.dataset.seguro = '1'; boton.textContent = '¿Seguro? Pulsa otra vez para eliminar';
+      setTimeout(function () { if (boton.isConnected) { delete boton.dataset.seguro; boton.textContent = '🗑 Eliminar'; } }, 5000);
+      return;
+    }
+    boton.disabled = true;
+    enviarSP(urlLista() + '/items(' + id + ')/recycle()', {}, 'No tienes permiso para eliminar asuntos en esta lista')
+      .then(function () { $('#dlg').close(); return cargar(); })
+      .then(function () { aviso('Nº ' + id + ' eliminado: está en la papelera de reciclaje de Colabora, de donde se puede recuperar'); })
+      .catch(function (e) { boton.disabled = false; var m = $('#estMsg'); if (m) m.innerHTML = ' <span class="error">' + esc(e.message || e) + '</span>'; });
+  }
+
   // ---------- Comentarios ----------
   // Se guardan en la columna de comentarios de la lista (Observaciones o Registro de actividad, se elige en Ajustes).
   // Si la columna «añade cambios al texto existente» (como en el formulario de Colabora), cada comentario es una
@@ -2100,6 +2141,11 @@
       '<div class="tratar"><b class="small">Para tratar en:</b> ' + (hayTratar() ? TRATAR.map(function (x) { var on = tieneTratar(t, x[0]);
         return '<button type="button" class="btn' + (on ? ' on tr-' + x[0] : '') + '" data-tratar="' + x[0] + '" data-id="' + t.id + '" title="' + (on ? 'Quitar la marca' : 'Marcar para tratar') + '">' + (on ? '✓ ' : '') + x[2] + ' ' + x[3] + '</button>'; }).join(' ') :
         '<span class="small muted">falta la columna «Tratar en» en la lista; la crea quien administre la lista en Ajustes.</span>') + '<span id="trMsg" class="small"></span></div>' +
+      '<div class="estadoacc"><b class="small">Estado:</b> ' +
+        (t.clase !== 'hecha' ? '<button type="button" class="btn verde" data-finalizar="' + t.id + '">✅ Finalizar</button>' : '<button type="button" class="btn" data-reabrir="' + t.id + '">↺ Reabrir</button>') +
+        '<select id="selEstado">' + valores('ESTADO', 'estado').map(function (e) { return '<option' + (e === t.estado ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select>' +
+        '<button type="button" class="btn" data-cambiarestado="' + t.id + '">Cambiar estado</button>' +
+        '<span class="sep"></span><button type="button" class="btn rojo" data-eliminar="' + t.id + '">🗑 Eliminar</button><span id="estMsg" class="small"></span></div>' +
       '<div class="acciones"><button type="button" class="btn prim" data-modificar="' + t.id + '">✎ Modificar</button>' +
         (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
         (base ? '<a class="btn" target="_top" href="' + esc(base + '/DispForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Ver en Colabora</a>' : '') + '</div>' +
@@ -2190,6 +2236,16 @@
     if (el.closest('#nuevo')) { if (cargadoEn) formularioNuevo(''); return; }
     if (el.closest('#desdeCorreo')) { $('#ficheroCorreo').click(); return; }
     if (el.closest('#altaRapidaBtn')) { formularioNuevo($('#altaRapida').value.trim()); return; }
+    var fr = el.closest('[data-finrapido]');
+    if (fr) {
+      if (!fr.dataset.seguro) { fr.dataset.seguro = '1'; fr.textContent = '¿Finalizar? Pulsa otra vez'; fr.classList.add('seguro'); setTimeout(function () { if (fr.isConnected) { delete fr.dataset.seguro; fr.textContent = '✔ Finalizar'; fr.classList.remove('seguro'); } }, 4000); return; }
+      ponerEstado(Number(fr.dataset.finrapido), estadoDe('hecha'), fr); return;
+    }
+    var bf = el.closest('[data-finalizar]'), br = el.closest('[data-reabrir]'), bc = el.closest('[data-cambiarestado]'), be = el.closest('[data-eliminar]');
+    if (bf) { ponerEstado(Number(bf.dataset.finalizar), estadoDe('hecha'), bf); return; }
+    if (br) { ponerEstado(Number(br.dataset.reabrir), estadoDe('curso') || estadoDe('pendiente'), br); return; }
+    if (bc) { ponerEstado(Number(bc.dataset.cambiarestado), $('#selEstado').value, bc); return; }
+    if (be) { eliminarAsunto(Number(be.dataset.eliminar), be); return; }
     var t = el.closest('.tarea');
     if (t) abrir(Number(t.dataset.id));
   });

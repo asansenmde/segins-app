@@ -27,7 +27,7 @@ const items = Array.from({ length: 706 }, (_, i) => {
 items[2].fECHAFINALIZACION = d(-3); items[18].fECHAFINALIZACION = null;
 // Colabora que rechaza direcciones («destinatario válido»): buzonMal = direcciones rechazadas; enviados = las que acepta
 let buzonMal = [], enviados = [];
-let conTratar = false;   // columna «TratarEn» (se crea desde Ajustes)
+let conTratar = false, papelera = [];   // asuntos «eliminados» (se restauran tras comprobarlo)   // columna «TratarEn» (se crea desde Ajustes)
 let denegar = false, correoFalla = false, anexar = true, versiones = {};
 async function prueba() {
   const b = await chromium.launch();
@@ -49,6 +49,7 @@ async function prueba() {
     const [base, resto] = u.split('/_api/');
     if (base.replace('https://colabora.mdef.es', '') !== WEB) return r.fulfill({ status: 404, body: '' });
     const mItem = resto.match(/\/items\((\d+)\)/);
+    if (mItem && req.method() === 'POST' && resto.endsWith('/recycle()')) { posts.push({ ruta: resto, cab: req.headers(), cuerpo: '' }); const i = items.findIndex(x => x.Id === Number(mItem[1])); if (i >= 0) papelera.push([i, items.splice(i, 1)[0]]); return r.fulfill({ json: { d: { Recycle: '00000000-0000-0000-0000-000000000001' } } }); }
     if (mItem && req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
       const it = items.find(x => x.Id === Number(mItem[1]));
@@ -157,6 +158,19 @@ async function prueba() {
     const [imp] = await Promise.all([p.context().waitForEvent('page'), p.click('[data-imptratar]')]); await imp.waitForLoadState();
     console.log('impresión:', (await imp.textContent('h2')).trim(), '|', await imp.$$eval('table tr', x => x.length - 1), 'filas'); await imp.close();
     await p.click('[data-kpi="tr:gen"]');
+    // Estado desde la ficha: finalizar, reabrir, cambiar a cualquiera y eliminar (a la papelera)
+    { const est = id => { const x = items.find(y => y.Id === id); return x ? x.ESTADO + (x.fECHAFINALIZACION ? ' (fin ' + String(x.fECHAFINALIZACION).slice(0, 10) + ')' : ' (sin fin)') : 'ELIMINADO'; };
+      await p.click('details.grupo .tarea >> nth=0'); await p.waitForTimeout(300); const id = Number(await p.$eval('[data-finalizar]', b => b.dataset.finalizar));
+      await p.click('[data-finalizar]'); await p.waitForTimeout(1500); const e1 = est(id);
+      await p.click('[data-reabrir]'); await p.waitForTimeout(1500); const e2 = est(id);
+      await p.selectOption('#selEstado', 'EN ESPERA DE RESPUESTA'); await p.click('[data-cambiarestado]'); await p.waitForTimeout(1500); const e3 = est(id);
+      await p.click('[data-eliminar]'); const txt = (await p.textContent('[data-eliminar]')).trim(); await p.click('[data-eliminar]'); await p.waitForTimeout(1500);
+      const elim = est(id); papelera.forEach(([i, x]) => items.splice(i, 0, x)); papelera = []; await p.click('#recargar'); await p.waitForTimeout(1200);
+      console.log('estados nº', id, ':', e1, '→ reabrir:', e2, '→ cambiar:', e3, '| eliminar pide confirmar:', txt, '→', elim, '| ficha cerrada:', !(await p.evaluate(() => document.querySelector('#dlg').open)));
+      // Finalizar desde la pantalla principal (dos clics)
+      const b0 = p.locator('[data-finrapido]').first(); const id2 = Number(await b0.getAttribute('data-finrapido'));
+      await b0.click(); const t1 = (await b0.textContent()).trim(); await b0.click(); await p.waitForTimeout(1500);
+      console.log('finalizar rápido nº', id2, ':', t1, '→', est(id2), '| ficha abierta:', await p.evaluate(() => document.querySelector('#dlg').open)); }
     await p.click('[data-limpiar]'); console.log('tras limpiar, fechas vacías:', !(await p.inputValue('#fterd')) && !(await p.inputValue('#fterh'))); }
   await p.click('[data-modo=tabla]');
   console.log('tabla filas:', await p.$$eval('table.tt tr.tarea', x => x.length));
