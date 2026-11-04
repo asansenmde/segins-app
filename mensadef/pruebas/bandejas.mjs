@@ -133,7 +133,12 @@ if (FINAL) {
 }
 // Ficha con los campos pedidos y ampliar
 console.log('ficha:', await p.$$eval('#detalle dl.ficha-campos dt', l => l.map(x => x.textContent).join(', ')), '| otros plegados:', await p.textContent('#detalle details.otros summary').catch(() => '-'));
-await p.click('#ampliar'); console.log('ampliada: tabla oculta', await p.isHidden('#lista'), '|', await p.textContent('#ampliar')); await p.click('#ampliar');
+await p.click('#ampliar'); console.log('ampliada: tabla oculta', await p.isHidden('#lista'), '|', await p.textContent('#ampliar'));
+{ const tit = () => p.textContent('#detalle .cab-msg h2'), pos = () => p.textContent('.navmax .muted');
+  const t0 = await tit(), p0 = await pos(); await p.click('#msgSig'); await p.waitForTimeout(300); const t1 = await tit(), p1 = await pos();
+  await p.keyboard.press('ArrowRight'); await p.waitForTimeout(300); const p2 = await pos(); await p.keyboard.press('ArrowLeft'); await p.waitForTimeout(300); await p.click('#msgAnt'); await p.waitForTimeout(300);
+  console.log('navegar ampliado:', p0, '→', p1, '→ (tecla →)', p2, '→ (← y ◀)', await pos(), '| cambia el mensaje:', t0 !== t1, '| vuelve al primero:', (await tit()) === t0, '| sigue ampliada:', await p.isHidden('#lista')); }
+await p.click('#ampliar'); console.log('reducida: botones ocultos', !(await p.isVisible('#msgSig')));
 console.log('firma y motivo en la ficha:', (await p.textContent('#detalle .firmamot')).replace(/\s+/g, ' '), '| en la tabla:', await p.$$eval('#lista .sub', l => l.some(x => /✍ GENERAL JEFE <b>A<\/b> · Motivo: Para/.test(x.textContent))));
 // Banderas: en la tabla con su color, en la ficha y con filtro
 console.log('banderas en la tabla:', await p.$$eval('#lista .bandera', l => [...new Set(l.map(x => x.textContent + ' ' + x.style.getPropertyValue('--cb')))].join(', ')),

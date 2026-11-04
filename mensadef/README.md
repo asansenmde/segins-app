@@ -141,4 +141,5 @@ con el formato *verbose* de SharePoint 2013.
   pasó. Todo se guarda en ese navegador.
 - Pruebas: `FINAL=1 node mensadef/pruebas/bandejas.mjs` (favorito definitivo, dos gestores) y
   `node mensadef/pruebas/bandejas.mjs` (favorito de pruebas).
-
+- **2026-11-04 · 2:** con la ficha ampliada («⛶ Ampliar»), los botones «◀ Anterior» y «Siguiente ▶» y las teclas ← y →
+  pasan al mensaje anterior o siguiente de la lista, en el orden y con los filtros de la tabla («n de N»).

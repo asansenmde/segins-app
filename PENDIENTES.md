@@ -99,3 +99,7 @@ autoría.
     Su gestor propio será la copia de pruebas (lista «Gestor de Tareas PRUEBAS»). Pendiente: que suba el Gestor bueno,
     reparta el favorito y lo confirme. Aparcado a petición del usuario: la protección nueva para Permisos, VSA y Pérdidas
     (en `git stash`, «Protección nueva para Permisos, VSA, Pérdidas y Tareas (a medias, 04/11)»).
+    04/11/2026 (tarde): el Gestor propio pasa a ser `colabora/colabora/tareas-nlt-colabora-mensadef.html` (lista «Gestor de
+    Tareas MENSADEF»; al abrirla ofrece usar la de pruebas cambiándole el nombre). Gestor 2026-11-04 · 3: terminados por
+    fechas, sin tope de 200, y marcas «Punto de situación» / «Tratar con el General» (columna `TratarEn`, se crea en
+    Ajustes). Visor 2026-11-04 · 2: ◀ ▶ con la ficha ampliada.
