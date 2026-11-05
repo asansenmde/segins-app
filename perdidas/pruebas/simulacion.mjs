@@ -28,6 +28,7 @@ const CHOICES = { Tipo_Documento: ['TIM', 'DNI', 'TARETA APARCAMIENTO', 'CONTROL
 const sur = { MANDO1N: '1', MANDO2N: '1', MANDO3N: '1', OData__x004d_N1: 'FUTER', OData__x004d_N2: 'SUIGESUR', OData__x004d_N3: 'ACUARTELAMIENTO X' };
 const nor = { MANDO1N: '1', MANDO2N: '2', MANDO3N: '2', OData__x004d_N1: 'FUTER', OData__x004d_N2: 'SUIGENOR', OData__x004d_N3: 'BASE NORTE' };
 const priv = { DNI: '12345678Z', Denunciante: 'PEREZ GOMEZ JUAN', UsuarioId: 70 };
+let reciclados = [];
 let items, segCols, misGrupos = [], admin = false, correoDenegado = false;
 const nuevoStore = () => {
   items = [
@@ -54,6 +55,7 @@ async function prueba(verbose, esc) {
     const LISTA = "web/lists/getbytitle('PERDIDA DOCUMENTACION')";
     if (req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
+      { const rc = resto.match(/items\((\d+)\)\/recycle\(\)/); if (rc) { if (!admin) return r.fulfill({ status: 403, json: { error: { message: { value: 'Acceso denegado.' } } } }); items = items.filter(x => x.Id !== +rc[1]); reciclados.push(+rc[1]); return r.fulfill({ json: { d: { Recycle: 'guid' } } }); } }
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = JSON.parse(req.postData()).properties;
@@ -221,6 +223,19 @@ async function prueba(verbose, esc) {
     await p.click('#tabs a[data-v=panel]'); await p.waitForTimeout(300);
     if (!verbose) await p.screenshot({ path: new URL('panel.png', import.meta.url).pathname, fullPage: true });
   }
+  if (esc === 'eliminar') {
+    await abrirN(2);
+    const nb = await p.$$eval('[data-borrar]', n => n.length);
+    console.log(tag, '| botón eliminar (admin=' + admin + '):', nb);
+    if (nb) {
+      await p.click('[data-borrar]'); await p.waitForTimeout(200);
+      console.log(tag, '| confirmación:', (await p.textContent('#borrarPanel')).replace(/\s+/g, ' ').slice(0, 90));
+      await p.click('[data-borrarno]'); await p.waitForTimeout(200);
+      console.log(tag, '| cancelar deja el botón:', await p.$$eval('[data-borrar]', n => n.length));
+      reciclados = []; await p.click('[data-borrar]'); await p.waitForTimeout(200); await p.click('[data-borrarok]'); await p.waitForTimeout(1200);
+      console.log(tag, '| eliminado:', reciclados.join(','), '| ficha cerrada:', !(await p.isVisible('#dlg').catch(() => false)) || !(await p.$('#borrarPanel')), '| resultado:', (await p.textContent('#vista .resultado').catch(() => '')).replace(/\s+/g, ' ').slice(0, 120), '| sigue en la lista:', await p.$$eval('#vista .inc', n => n.some(x => x.dataset.id === '2')));
+    }
+  }
   console.log(tag, '| fichas: datos personales pedidos:', getsItem.filter(x => x.sel.includes('DNI')).map(x => x.id).join(',') || 'ninguna', '| en listados:', privEnLista(), '| errores:', errs);
   await b.close();
 }
@@ -232,4 +247,5 @@ for (const v of [false, true]) {
   misGrupos = []; await prueba(v, 'sin acceso');
 }
 segCols = SEG.slice(); misGrupos = ['SEGURIDAD_SUIGESUR']; correoDenegado = true; await prueba(false, 'suige'); correoDenegado = false;
+segCols = SEG.slice(); misGrupos = ['SEGURIDAD_SUIGESUR']; admin = false; await prueba(false, 'eliminar'); admin = true; await prueba(false, 'eliminar'); await prueba(true, 'eliminar'); admin = false;
 segCols = []; misGrupos = ['SEGURIDAD_IGE']; admin = true; await prueba(false, 'sin columnas'); admin = false;

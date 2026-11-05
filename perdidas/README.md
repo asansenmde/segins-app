@@ -67,6 +67,14 @@ En la ficha, apartado **«Documentos adjuntos»** (versión 2026-11-05 · 2) con
 (`items(n)/AttachmentFiles`). Como pueden llevar la denuncia o datos personales, solo los ve quien tramita (como el NIF);
 la ficha impresa lleva sus nombres. Se añaden desde el formulario (borrador o «Actualizar información»).
 
+## Eliminar un registro (05/11/2026)
+
+En la ficha, panel rojo **«Eliminar el registro»**, solo para quien tiene permiso de eliminar elementos en la lista
+(`EffectiveBasePermissions`, bit `DeleteListItems`); a los demás no les sale. Pide confirmación dentro de la ficha y
+lo manda a la **papelera de reciclaje** de Colabora (`items(n)/recycle()`), desde donde se puede restaurar. Ojo: con el
+nivel «Colaborar» Colabora deja eliminar a todos los miembros; para que solo eliminen algunos, darles a los demás un
+nivel de permiso sin «Eliminar elementos». Prueba: escenario «eliminar» de la simulación.
+
 ## Pestañas
 
 Pérdidas notificadas (panel y circuito), Pendiente de revisión y tramitación, Búsqueda y consulta (filtros por fase,

@@ -181,6 +181,7 @@
   .marcas { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 4px 0; } .marcas .check { white-space: nowrap; }
   .confirma { background: #fff4d6; border: 2px solid #c8961e; border-radius: 10px; padding: 10px 12px; margin: 8px 0; color: #3d2a00; }
   ul.adjs { list-style: none; padding: 0; margin: 4px 0; } ul.adjs li { padding: 4px 0; border-bottom: 1px solid var(--line); } ul.adjs a { text-decoration: none; font-weight: 600; overflow-wrap: anywhere; }
+  .panel.borrar { border: 2px dashed var(--bad); }
 </style>
 </head>
 <body>
@@ -226,7 +227,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-05 · 2';
+  var VERSION = '2026-11-05 · 3';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Pérdida de documentación · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -1356,9 +1357,30 @@
   var CAMPOS_TEXTO = ['Comentario', 'VALORACIONSUIGES', HIST];
   // Campos de texto que existen en la lista (las columnas de seguimiento pueden faltar)
   var camposTexto = function () { return CAMPOS_TEXTO.filter(function (k) { return k === 'Comentario' || !tiposCol || tiposCol[k]; }); };
+  // ---------- Eliminar un registro (solo quien tiene permiso para eliminar elementos de la lista en Colabora) ----------
+  // Va a la papelera de reciclaje de Colabora (se puede restaurar desde allí). Quien no puede eliminar no ve el botón.
+  var puedeBorrar = function () { var p = listaInfo && listaInfo.EffectiveBasePermissions; return !!p && ((Number(p.Low) || 0) & 0x8) !== 0; };
+  var borrando = null;
+  function panelBorrar(t) {
+    if (!puedeBorrar()) return '<div id="borrarPanel"></div>';
+    return '<div id="borrarPanel" class="panel borrar"><h3>Eliminar el registro</h3><p class="small muted">Lo ves porque tienes permiso para eliminar elementos de esta lista en Colabora. Va a la papelera de reciclaje de Colabora, desde donde se puede restaurar.</p>' +
+      (borrando === t.id ? '<div class="confirma"><b>Nº ' + t.id + ': ¿seguro que quieres eliminarlo?</b><br>Desaparecerá de la página para todos.<div class="acciones"><button class="peligro" data-borrarok="' + t.id + '">🗑 Sí, eliminarlo</button><button data-borrarno="1">Cancelar</button></div></div>' :
+        '<div class="acciones"><button class="peligro" data-borrar="' + t.id + '">🗑 Eliminar este registro</button></div>') + '<div id="borrarMsg"></div></div>';
+  }
+  function eliminarRegistro(t, boton) {
+    if (!puedeBorrar()) return;
+    boton.disabled = true;
+    enviarSP(urlLista() + '/items(' + t.id + ')/recycle()', {}, 'No tienes permiso para eliminar este registro').then(function () {
+      items = items.filter(function (x) { return x.id !== t.id; }); borrando = null;
+      $('#dlg').close(); dlgId = null;
+      resultadoTramite = { cls: 'okmsg', html: '✓ Nº ' + t.id + ' eliminado: está en la papelera de reciclaje de Colabora, desde donde se puede restaurar.' };
+      render(); aviso('Nº ' + t.id + ' eliminado'); window.scrollTo(0, 0);
+    }).catch(function (e) { boton.disabled = false; var m = $('#borrarMsg'); if (m) m.innerHTML = '<div class="error">No se pudo eliminar: ' + esc(e.message || String(e)) + '</div>'; });
+  }
   function abrir(id, msg) {
     var t = items.find(function (x) { return x.id === id; });
     if (!t) return;
+    if (dlgId !== id) borrando = null;
     dlgId = id;
     var datos = [['Fase', faseTxt(t)], ['Estado en la lista', t.estadoRaw], ['Documentación perdida', t.docsTxt], ['Modo del extravío', t.modo], ['Fecha de la pérdida', fCorta(t.fecha)],
       ['Lugar donde se extravió (provincia)', t.provincia], ['Unidad', t.cadena.join(' - ') || t.lugar], ['SUIGE', t.suige || '(sin determinar)'], ['Empleo del usuario', t.empleo],
@@ -1379,7 +1401,7 @@
       '<div class="acciones"><button data-fichaimp="' + t.id + '">🖨 Imprimir ficha / PDF</button>' +
       (listaInfo.DefaultDisplayFormUrl ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(location.origin + listaInfo.DefaultDisplayFormUrl + '?ID=' + t.id) + '">Abrir en Colabora' + (t.adjuntos ? ' (adjuntos)' : '') + '</a>' : '') +
       (listaInfo.DefaultEditFormUrl && esGestor ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(location.origin + listaInfo.DefaultEditFormUrl + '?ID=' + t.id) + '">✎ Formulario InfoPath</a>' : '') + '</div>' +
-      '</div><div><div class="sec" style="margin-top:0"><span>Revisión y seguimiento</span></div><div id="detVal"><p class="muted small">Cargando…</p></div><div id="detAcc">' + panelAcciones(t) + '</div></div></div></div>';
+      '</div><div><div class="sec" style="margin-top:0"><span>Revisión y seguimiento</span></div><div id="detVal"><p class="muted small">Cargando…</p></div><div id="detAcc">' + panelAcciones(t) + '</div>' + panelBorrar(t) + '</div></div></div>';
     dlg.showModal(); dlg.scrollTop = 0;
     leerTipos().then(function () { return leerElemento(t.id, camposTexto().concat(ve ? PRIVADOS : [])); }).then(function (x) {
       var d = x.datos;
@@ -2108,6 +2130,9 @@
     if (el.closest('[data-limpiar]')) { pref.f = FILTRO_VACIO(); guardarPref(); render(); return; }
     var fi = el.closest('[data-fichaimp]');
     if (fi) { var tf = items.find(function (x) { return x.id === Number(fi.dataset.fichaimp); }); if (tf) imprimirFicha(tf); return; }
+    var bo = el.closest('[data-borrar]'), bk = el.closest('[data-borrarok]');
+    if (bo || el.closest('[data-borrarno]')) { var tb = items.find(function (x) { return x.id === dlgId; }); borrando = bo ? Number(bo.dataset.borrar) : null; if (tb && $('#borrarPanel')) $('#borrarPanel').outerHTML = panelBorrar(tb); return; }
+    if (bk) { var tb2 = items.find(function (x) { return x.id === Number(bk.dataset.borrarok); }); if (tb2) eliminarRegistro(tb2, bk); return; }
     var ak = el.closest('[data-accok]');
     if (ak) { var tk = items.find(function (x) { return x.id === dlgId; }); if (tk) accion(tk, ak.dataset.accok, ak, true); return; }
     if (el.closest('[data-acccancel]')) { var cc = el.closest('.confirma'); if (cc) cc.remove(); Array.prototype.forEach.call(document.querySelectorAll('#detAcc .acciones'), function (x) { x.hidden = false; }); return; }

@@ -69,6 +69,10 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
 14. **Buscar en todos los campos** (regla del usuario, 05/11/2026, ya en `CLAUDE.md`): revisar los campos «Buscar» de
     cada aplicación (Tareas Colabora, Permisos, Incidentes, VSA, Pérdidas…) para que busquen en todos los campos. Pendiente
     de que el usuario diga si se hace ya en todas o al tocar cada una.
+15. **Eliminar registros y adjuntos** (05/11/2026, hecho en Incidentes 2026-11-05 · 1 y Pérdidas 2026-11-05 · 3): botón
+    rojo «Eliminar» en la ficha solo para quien tiene permiso de eliminar en la lista (va a la papelera). Falta que el
+    usuario decida si quita «Eliminar elementos» a unidades y SUIGE (con «Colaborar» pueden todos) con un nivel de permiso
+    propio en Colabora.
 
 Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar por la que diga).
 
