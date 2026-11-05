@@ -144,6 +144,9 @@ console.log('anexos:', (await p.textContent('#adjuntos').catch(() => '-')).repla
 { const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#adjuntos [data-anexo="1"][data-modo="bajar"]')]); console.log('descargar cifrado →', dl.suggestedFilename(), '| botón abrir en el cifrado:', !!(await p.$('#adjuntos [data-anexo="1"][data-modo="abrir"]'))); }
 console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0);
 console.log('sin botón de correo:', !(await p.$('#porCorreo')));
+console.log('botón derecho bloqueado:', await p.evaluate(() => { const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true }); document.querySelector('#lista').dispatchEvent(e); return e.defaultPrevented; }),
+  '| en un campo de texto se permite:', await p.evaluate(() => { const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true }); document.querySelector('#buscar').dispatchEvent(e); return !e.defaultPrevented; }),
+  '| Ctrl+U bloqueado:', await p.evaluate(() => { const e = new KeyboardEvent('keydown', { key: 'u', ctrlKey: true, bubbles: true, cancelable: true }); document.body.dispatchEvent(e); return e.defaultPrevented; }));
 await p.fill('#buscar', ''); await p.waitForTimeout(300); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(300);
 // Ficha con los campos pedidos y ampliar
 console.log('ficha:', await p.$$eval('#detalle dl.ficha-campos dt', l => l.map(x => x.textContent).join(', ')), '| otros plegados:', await p.textContent('#detalle details.otros summary').catch(() => '-'));

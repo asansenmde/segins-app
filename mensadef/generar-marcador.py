@@ -9,7 +9,7 @@ página correspondiente, en el mismo servidor y con la misma sesión, así que n
 MENSADEF ejecute archivos subidos. Volver a ejecutar este script cada vez que cambie una página.
 
 Con --pruebas solo genera la copia de pruebas del visor (marcador-visor-mensadef-pruebas.html, favorito
-«Mensajes MENSADEF (pruebas)», con PRUEBAS = true) y no toca los marcadores buenos.
+«SENDERO (pruebas)», con PRUEBAS = true) y no toca los marcadores buenos.
 """
 import html
 import json
@@ -130,13 +130,13 @@ ESCUCHAR = ('escuchar-mensadef.js', 'marcador-escuchar-mensadef.html', 'Escuchar
 
 if '--pruebas' in sys.argv:
     generar(*ESCUCHAR)
-    generar('visor-mensadef.html', 'marcador-visor-mensadef-pruebas.html', 'Mensajes MENSADEF (pruebas)',
-            'Visor de mensajes de MENSADEF · VERSIÓN DE PRUEBAS',
+    generar('visor-mensadef.html', 'marcador-visor-mensadef-pruebas.html', 'SENDERO (pruebas)',
+            'SENDERO · Visor de mensajes de MENSADEF · VERSIÓN DE PRUEBAS',
             'Copia de pruebas del visor, para probar <b>«➜ Crear tarea en Colabora»</b> sin tocar el favorito bueno. Lleva '
             'una banda roja, guarda su memoria aparte y solo admite la página de Tareas de pruebas '
             '(<i>tareas-nlt-colabora-pruebas.html</i>). Solo <b>lee</b> MENSADEF, con tu sesión.',
             ['Abre MENSADEF en tu célula (por ejemplo SETEC SEGURIDAD).',
-             'Pulsa el favorito <b>Mensajes MENSADEF (pruebas)</b>.',
+             'Pulsa el favorito <b>SENDERO (pruebas)</b>.',
              'Abre un mensaje y pulsa <b>➜ Crear tarea en Colabora</b>. La primera vez pega la dirección de '
              '<i>tareas-nlt-colabora-pruebas.html</i> en Colabora.',
              'Para volver a MENSADEF normal, recarga (F5).'], pruebas=True)
@@ -150,13 +150,13 @@ generar('prueba-mensadef.html', 'marcador-mensadef.html', 'Prueba MENSADEF', 'Pr
          'Pulsa el favorito <b>Prueba MENSADEF</b>.',
          'La página se sustituye por la de diagnóstico. Para volver, recarga (F5).'])
 
-generar('visor-mensadef.html', 'marcador-visor-mensadef.html', 'Mensajes MENSADEF', 'Visor de mensajes de MENSADEF',
+generar('visor-mensadef.html', 'marcador-visor-mensadef.html', 'SENDERO', 'SENDERO · Visor de mensajes de MENSADEF',
         'Un <b>favorito</b> que convierte la página de MENSADEF en un visor de los mensajes de <b>tus células</b> (cada uno ve '
         'las suyas, con su propia sesión): bandejas de entrada y salida, búsqueda y filtros, ficha con todos los datos y el '
         'texto, banderas, marcas de «visto», informes para imprimir, PDF o Word, y <b>➜ Crear tarea</b> en el Gestor de Tareas '
         'de Colabora que elijas. Solo <b>lee</b> MENSADEF; los datos no salen de los servidores de Defensa.',
         ['Abre MENSADEF y entra en tu célula; espera a que salgan tus mensajes.',
-         'Pulsa el favorito <b>Mensajes MENSADEF</b>. La primera vez puedes elegir qué células se cargan '
+         'Pulsa el favorito <b>SENDERO</b>. La primera vez puedes elegir qué células se cargan '
          '(<b>Células que se cargan…</b>).',
          'Pulsa un mensaje para ver su ficha. Con <b>➜ Crear tarea en Colabora</b> se abre el Gestor de Tareas con el alta '
          'rellena: la primera vez te pide la dirección del Gestor (el común de tu unidad o el tuyo) y un nombre; puedes '

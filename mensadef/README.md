@@ -185,3 +185,15 @@ con el formato *verbose* de SharePoint 2013.
   - **Versión sin formato:** el `.eml` lleva también el texto plano, y se mantiene «Correo sencillo» (`mailto:`).
 - **2026-11-07 · 2:** se quita «✉ Enviar por correo» a petición del usuario. Se queda todo lo demás, también los anexos.
   El código del correo sigue en el historial de git (versiones 2026-11-06 · 3 y 2026-11-07 · 1) por si se recupera.
+- **2026-11-07 · 3: SENDERO.** La aplicación pasa a llamarse **SENDERO** («El camino de cada mensaje»).
+  - **Cabecera:** emblema con la «S» dorada, «SENDERO» en letra clásica espaciada, el lema en dorado y el subtítulo
+    «Visor de mensajes MENSADEF … desarrollado por el Cte. Alfredo Sánchez Sender».
+  - **Otros sitios con el nombre:** la bienvenida, la pestaña, el pie, los informes y los favoritos («SENDERO» y
+    «SENDERO (pruebas)»).
+  - **Autoría:** sin cambios.
+- **Cifrado fuerte del favorito.** Textos cifrados en base64, nombres cambiados, *self-defending* y bloqueo a `*.mdef.es`.
+  Aquí sí se puede usar: el favorito no pasa por el filtro de la red que partía las páginas de Colabora, y las etiquetas
+  de página se escriben igualmente con `\x3c`. `LIGERO=1` vuelve al compactado. El favorito pasa a unos 314 000
+  caracteres.
+- **Disuasorio:** sin menú del botón derecho (salvo en los campos de texto o con texto seleccionado) y sin F12, Ctrl+U ni
+  Ctrl+Mayús+I/J/C. «Ver código fuente» enseña la página de MENSADEF, no la de SENDERO.

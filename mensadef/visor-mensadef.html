@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  Visor de mensajes de MENSADEF (Jefatura de SUIGESUR)
+  SENDERO · Visor de mensajes de MENSADEF (Jefatura de SUIGESUR) · «El camino de cada mensaje»
   © 2026 Cte. Alfredo Sánchez Sender. Desarrollador y autor de esta aplicación. Todos los derechos reservados.
   Prohibida su copia, modificación o redistribución sin autorización del autor.
 -->
@@ -10,7 +10,7 @@
 <meta name="author" content="Cte. Alfredo Sánchez Sender">
 <meta name="copyright" content="© 2026 Cte. Alfredo Sánchez Sender">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mensajes MENSADEF</title>
+<title>SENDERO · Mensajes MENSADEF</title>
 <style>
   :root { --bg: #f4f5f0; --card: #fff; --text: #1f261f; --muted: #5f685f; --line: #d9ddd3; --brand: #3b4a2f; --soft: #eef1ea; --ok: #2e7d32; --okbg: #dcefdc; --bad: #b71c1c; --badbg: #fbdada; --sel: #fff8e1; }
   * { box-sizing: border-box; }
@@ -248,13 +248,18 @@
   .cuerpo { background: #f6f9f7; border: 1px solid var(--line); border-left: 4px solid var(--brand2); }
   .barra div { background: linear-gradient(90deg, var(--azul), var(--brand2)); }
   .autor { border-top: 2px solid var(--oro); color: var(--muted); }
+  header .escudo.marca { font: 800 1.55rem/1 Georgia, 'Times New Roman', serif; color: #f2dc96; letter-spacing: 0; }
+  header h1.sendero { font: 800 1.75rem/1 Georgia, 'Times New Roman', serif; letter-spacing: .28em; color: #fff; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  header h1.sendero .lema { font: italic 600 .78rem/1.2 system-ui, 'Segoe UI', sans-serif; letter-spacing: .06em; color: #f2dc96; text-transform: none; }
+  header .subt b { color: #fff; }
+  @media (max-width: 700px) { header h1.sendero { font-size: 1.35rem; letter-spacing: .2em; } }
   .hero .autoria { position: static; display: block; text-align: right; margin-top: 8px; position: relative; z-index: 1; }
   @media (max-width: 700px) { header .franja { display: none; } header .escudo { width: 38px; height: 38px; font-size: 1.1rem; } .hero .autoria { text-align: left; } }
 </style>
 </head>
 <body>
 <header><div class="franja"><div>MINISTERIO DE DEFENSA · EJÉRCITO DE TIERRA · INSPECCIÓN GENERAL DEL EJÉRCITO<span>MENSAJERÍA OFICIAL</span></div></div>
-  <div><span class="escudo" aria-hidden="true">✉</span><div class="tit"><h1>VISOR DE MENSAJES <em>MENSADEF</em></h1><span class="subt">Bandejas · informes · paso a Tareas — desarrollado por el Cte. Alfredo Sánchez Sender</span></div>
+  <div><span class="escudo marca" aria-hidden="true">S</span><div class="tit"><h1 class="sendero">SENDERO<span class="lema">El camino de cada mensaje</span></h1><span class="subt">Visor de mensajes <b>MENSADEF</b> · bandejas · informes · tareas — desarrollado por el Cte. Alfredo Sánchez Sender</span></div>
   <span class="muted" id="quien"></span><div class="firma">© 2026<br><b>Cte. Alfredo Sánchez Sender</b><br><span id="verCab"></span></div></div></header>
 <main>
   <noscript><div class="card bad">El navegador no ejecuta el código de esta página.</div></noscript>
@@ -307,11 +312,22 @@
     <div class="card" id="detalle" hidden></div>
   </div>
 </main>
-<footer class="autor"><div class="sello">Diseño, desarrollo y propiedad intelectual: <b>Cte. Alfredo Sánchez Sender</b></div>© 2026 · Visor de mensajes MENSADEF · Todos los derechos reservados · Prohibida su copia o modificación sin autorización del autor · <span id="verPie"></span></footer>
+<footer class="autor"><div class="sello">Diseño, desarrollo y propiedad intelectual: <b>Cte. Alfredo Sánchez Sender</b></div>© 2026 · SENDERO · Visor de mensajes MENSADEF · Todos los derechos reservados · Prohibida su copia o modificación sin autorización del autor · <span id="verPie"></span></footer>
 <script>
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
+  // Disuasorio (07/11/2026): sin menú del botón derecho (salvo en campos de texto o con texto seleccionado, para copiar) ni
+  // F12, Ctrl+U o Ctrl+Mayús+I/J/C. No impide del todo ver el código (nada lo impide en un navegador): eso lo hace el cifrado.
+  document.addEventListener('contextmenu', function (e) {
+    var t = e.target; if (t && t.closest && t.closest('input,textarea,select,[contenteditable]')) return;
+    if (String(window.getSelection ? window.getSelection() : '')) return;
+    e.preventDefault();
+  }, true);
+  document.addEventListener('keydown', function (e) {
+    var k = String(e.key || '').toLowerCase();
+    if (k === 'f12' || (e.ctrlKey && !e.altKey && k === 'u') || (e.ctrlKey && e.shiftKey && /^[ijc]$/.test(k))) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var lista = function (x) { return !x ? [] : Array.isArray(x) ? x : (x.results || x.value || []); };
   // Copia de pruebas (marcador «Mensajes MENSADEF (pruebas)», generado con PRUEBAS = true): guarda aparte su memoria
@@ -325,7 +341,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-07 · 2';
+  var VERSION = '2026-11-07 · 3';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -564,7 +580,7 @@
   function pintarHero() {
     var e = celulasElegidas(), nombre = ($('quien').textContent || '').split(' · ').pop();
     $('hero').hidden = false;
-    $('hero').innerHTML = '<div class="hola">Mensajes MENSADEF' + (nombre ? ' · Hola' : '') + '</div><div class="nom">' + esc(nombre || 'Tus bandejas') + '</div>' +
+    $('hero').innerHTML = '<div class="hola">SENDERO · Mensajes MENSADEF' + (nombre ? ' · Hola' : '') + '</div><div class="nom">' + esc(nombre || 'Tus bandejas') + '</div>' +
       e.map(function (c) { return '<span class="rolh">' + (c.en4 ? '★ ' : '') + esc(c.nombre) + '</span>'; }).join('') +
       '<p>Tus bandejas de entrada y salida de las células que elijas. Marca ✓ lo revisado, pasa a tarea lo que haya que hacer y saca informes de lo filtrado (📄 Informe). Lo que marcas se guarda en este navegador.</p>' +
       '<span class="autoria">Desarrollado por el Cte. Alfredo Sánchez Sender · © 2026</span>';
@@ -1577,14 +1593,14 @@
       sinTexto: ms.filter(function (m) { return !textoDe(m); }).length };
   }
   var claseCol = function (n) { return n === 'Asunto' ? ' class="c-asunto"' : /^(Fecha|E\/S|Prio\.|N\.º ref\.|Leído|Tarea)$/.test(n) ? ' class="c-corta"' : ''; };
-  var AUTORIA = 'Visor de mensajes MENSADEF · Diseñado y desarrollado por el Cte. Alfredo Sánchez Sender · © 2026';
+  var AUTORIA = 'SENDERO · Visor de mensajes MENSADEF · Diseñado y desarrollado por el Cte. Alfredo Sánchez Sender · © 2026';
   function htmlInforme(d, paraWord) {
     var o = d.o, W = !!paraWord;
     var td = W ? ' style="border:1px solid #999;padding:3px 5px;vertical-align:top"' : '';
     var th = W ? ' style="border:1px solid #999;padding:3px 5px;background:#eef1ea;text-align:left"' : '';
     var tabla = W ? ' style="border-collapse:collapse;width:100%"' : '';
     var h = (o.marca ? '<p class="marca"' + (W ? ' style="text-align:center;font-weight:bold;color:#8a1c1c;letter-spacing:3pt"' : '') + '>' + esc(o.marca.toUpperCase()) + '</p>' : '') +
-      '<div class="membrete"' + (W ? ' style="border-bottom:2pt solid #c9a84c;padding-bottom:4pt"' : '') + '><div><b>' + esc(o.unidad || 'Visor de mensajes MENSADEF') + '</b></div><div>' + esc(new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })) + '</div></div>' +
+      '<div class="membrete"' + (W ? ' style="border-bottom:2pt solid #c9a84c;padding-bottom:4pt"' : '') + '><div><b>' + esc(o.unidad || 'SENDERO · Visor de mensajes MENSADEF') + '</b></div><div>' + esc(new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })) + '</div></div>' +
       '<h1>' + esc(o.titulo || OPC_INF.titulo) + '</h1>' +
       (o.destinatario ? '<p><b>A la atención de:</b> ' + esc(o.destinatario) + '</p>' : '') +
       '<p>Periodo: <b>' + esc(d.periodo) + '</b>' + (d.quien ? ' · Elaborado por: ' + esc(d.quien) : '') + ' · Generado el ' + esc(new Date().toLocaleString('es-ES')) + '</p>' +

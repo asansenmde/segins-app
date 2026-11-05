@@ -14,10 +14,19 @@ const ini = html.lastIndexOf('<script>'), fin = html.lastIndexOf('</script>');
 if (ini < 0 || fin < ini) throw new Error('No encuentro el <script> del visor');
 const codigo = html.slice(ini + 8, fin);
 const guardia = "if (!/(^|\\.)mdef\\.es$/i.test(location.hostname)) { document.documentElement.innerHTML = '<p style=\"font:16px sans-serif;margin:40px\">Este visor solo funciona en MENSADEF (mdef.es). © 2026 Cte. Alfredo Sánchez Sender.</p>'; throw new Error('dominio'); }\n";
-const ofuscado = JavaScriptObfuscator.obfuscate(guardia + codigo, {
-  compact: true, identifierNamesGenerator: 'mangled', renameGlobals: false, stringArray: false, selfDefending: false, debugProtection: false,
-  disableConsoleOutput: false, controlFlowFlattening: false, deadCodeInjection: false, numbersToExpressions: false, simplify: true,
-  splitStrings: false, transformObjectKeys: false, unicodeEscapeSequence: false, seed: 20261105
+// Cifrado fuerte (07/11/2026): el favorito no pasa por el filtro de la red que partía las páginas de Colabora (y además se
+// escriben con \x3c las etiquetas de página), así que aquí sí va la ofuscación fuerte: textos cifrados en base64, nombres
+// cambiados, «self-defending» (deja de funcionar si se reformatea para leerlo) y bloqueo a *.mdef.es. LIGERO=1: compactado.
+const ligero = !!process.env.LIGERO;
+const ofuscado = JavaScriptObfuscator.obfuscate(guardia + codigo, ligero ? {
+  compact: true, identifierNamesGenerator: 'mangled', renameGlobals: false, stringArray: false, selfDefending: false,
+  simplify: true, unicodeEscapeSequence: false, seed: 20261105
+} : {
+  compact: true, identifierNamesGenerator: 'hexadecimal', renameGlobals: false,
+  stringArray: true, stringArrayEncoding: ['base64'], stringArrayThreshold: 0.9, stringArrayRotate: true, stringArrayShuffle: true,
+  stringArrayWrappersCount: 1, stringArrayWrappersType: 'variable', splitStrings: false,
+  controlFlowFlattening: false, deadCodeInjection: false, selfDefending: true, domainLock: ['.mdef.es'],
+  numbersToExpressions: false, simplify: true, transformObjectKeys: false, unicodeEscapeSequence: false, seed: 20261107
 }).getObfuscatedCode();
 // Espacios y comillas dobles tal cual (el generador los pone como \x20 y \x22), si la barra no está escapada
 const compacto = ofuscado.replace(/(^|[^\\])((?:\\\\)*)\\x20/g, '$1$2 ').replace(/(^|[^\\])((?:\\\\)*)\\x20/g, '$1$2 ')
