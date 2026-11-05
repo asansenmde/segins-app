@@ -215,7 +215,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-10-26 · 1';
+  var VERSION = '2026-11-05 · 1';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
   // Copia de pruebas («node proteger.mjs --pruebas» genera permisos-pruebas.html con PRUEBAS = true): trabaja sobre
@@ -1880,12 +1880,16 @@
   function correoDe(tipo, t, obs) {
     var rep = t.rep ? t.rep.Title : '';
     var C = {
-      solicitud: { to: [t.correoSol], cc: [t.correoApr], asunto: 'Pendiente de APROBAR un Permiso solicitado por: ' + t.nombre + ' Representado por: ' + rep + ' de tipo: ' + t.tipo,
+      solicitud: { to: [t.correoApr], cc: [t.correoSol], asunto: 'Pendiente de APROBAR un Permiso solicitado por: ' + t.nombre + ' Representado por: ' + rep + ' de tipo: ' + t.tipo,
         intro: 'PENDIENTE DE APROBAR POR SU AUTORIDAD UNA SOLICITUD DE PERMISO. Para tramitarla, pulse «Abrir la solicitud» al final de este aviso.' },
-      aprobado: t.directo ? { to: [t.correoSol], cc: [t.correoAut], bcc: [], asunto: 'Pendiente de AUTORIZAR un Permiso solicitado por: ' + t.nombre + ' (sin mando intermedio) de tipo: ' + t.tipo,
+      aprobado: t.directo ? { to: [t.correoAut], cc: [t.correoSol], bcc: [], asunto: 'Pendiente de AUTORIZAR un Permiso solicitado por: ' + t.nombre + ' (sin mando intermedio) de tipo: ' + t.tipo,
         intro: 'SOLICITUD DE PERMISO PENDIENTE DE AUTORIZAR (sin mando intermedio). EL PERMISO AÚN NO ESTÁ CONCEDIDO: lo estará cuando lo AUTORICE el autorizador. Para tramitarla, pulse «Abrir la solicitud» al final de este aviso.' } :
-        { to: [t.correoSol], cc: [t.correoAut], bcc: [t.correoApr], asunto: 'El usuario: ' + t.aprTexto + ' Ha APROBADO su Solicitud de permiso: ' + t.asunto + ', siendo trasladada para AUTORIZACIÓN al usuario: ' + t.autTexto + ' (AÚN NO CONCEDIDO)',
+        { to: [t.correoSol], cc: [], bcc: [t.correoApr], asunto: 'El usuario: ' + t.aprTexto + ' Ha APROBADO su Solicitud de permiso: ' + t.asunto + ', siendo trasladada para AUTORIZACIÓN al usuario: ' + t.autTexto + ' (AÚN NO CONCEDIDO)',
         intro: 'LA SOLICITUD DE PERMISO ha sido APROBADA por el jefe inmediato y remitida al AUTORIZADOR. ATENCIÓN: EL PERMISO AÚN NO ESTÁ CONCEDIDO; lo estará cuando lo AUTORICE el autorizador. Para tramitarla, pulse «Abrir la solicitud» al final de este aviso.' },
+      // Aviso propio al AUTORIZADOR cuando el aprobador la eleva (02/11/2026: antes solo iba en copia del correo al
+      // solicitante, con un asunto dirigido a este, y al autorizador no le llegaba o no lo veía)
+      pendienteAut: { to: [t.correoAut], cc: [], asunto: 'Pendiente de AUTORIZAR un Permiso solicitado por: ' + t.nombre + ' (APROBADO por ' + t.aprTexto + ') de tipo: ' + t.tipo,
+        intro: 'PENDIENTE DE AUTORIZAR POR SU AUTORIDAD UNA SOLICITUD DE PERMISO, YA APROBADA POR EL JEFE INMEDIATO. EL PERMISO AÚN NO ESTÁ CONCEDIDO: lo estará cuando usted lo AUTORICE. Para tramitarla, pulse «Abrir la solicitud» al final de este aviso.' },
       devueltaAprob: { to: [t.correoSol], cc: [t.correoApr], asunto: 'El Aprobador: ' + t.aprTexto + ' Ha DEVUELTO su Solicitud de permiso: ' + t.asunto + '. Consulte las Observaciones y tramítela nuevamente.',
         intro: 'LA SOLICITUD de Permiso ha sido DEVUELTA por el APROBADOR con las observaciones que se indican. Por favor, resuélvalas y vuelva a tramitarla.' },
       rechazoAprob: { to: [t.correoSol], cc: [], asunto: 'El Aprobador: ' + t.aprTexto + ' Ha rechazado su Solicitud de permiso: ' + t.asunto,
@@ -1984,6 +1988,47 @@
           });
         });
       }, Promise.resolve()).then(function () { return res(aceptados > 0, aceptados, aceptados ? '' : m, rech); });
+    });
+  }
+  // Direcciones de una persona del sitio: la guardada en la solicitud, la de su cuenta (por su Id) y la de su perfil de
+  // usuario (la del buzón que usa de verdad). Si la guardada es de una cuenta antigua, el aviso llega igualmente.
+  function direccionesDe(persona, guardada) {
+    var l = [guardada, persona && persona.Email].filter(function (x) { return x && /@/.test(x); });
+    if (!persona || !persona.Id) return Promise.resolve(l);
+    return api(web + '/_api/web/getuserbyid(' + Number(persona.Id) + ')?$select=Email,LoginName').then(function (u) {
+      if (u && u.Email) l.push(u.Email);
+      if (!u || !u.LoginName) return;
+      return api(web + "/_api/SP.UserProfiles.PeopleManager/GetPropertiesFor(accountName=@v)?@v='" + encodeURIComponent(u.LoginName.replace(/'/g, "''")) + "'&$select=Email,UserProfileProperties").then(function (pp) {
+        if (pp && pp.Email) l.push(pp.Email);
+        lista(pp && pp.UserProfileProperties).forEach(function (x) { if (/^(WorkEmail|SPS-SipAddress)$/.test(x.Key) && /@/.test(x.Value || '')) l.push(x.Value); });
+      }, function () { /* sin perfil */ });
+    }, function () { /* cuenta no encontrada */ }).then(function () {
+      var vistos = {};
+      return l.filter(function (x) { var k = String(x).toLowerCase().trim(); if (vistos[k]) return false; vistos[k] = 1; return true; });
+    });
+  }
+  // Pone en «Para» todas las direcciones de quien tiene que actuar (aprobador o autorizador)
+  function ampliarPara(c, persona, guardada) {
+    if (!c) return Promise.resolve(c);
+    return direccionesDe(persona, guardada).then(function (ds) {
+      ds.forEach(function (d) {
+        if (c.to.map(function (x) { return x.toLowerCase(); }).indexOf(d.toLowerCase()) < 0) c.to.push(d);
+        if (persona && persona.Id) c.cuentas[d.toLowerCase()] = persona.Id;
+        if (persona && persona.Title) c.nombres[d.toLowerCase()] = persona.Title;
+      });
+      c.cc = c.cc.filter(function (x) { return c.to.map(function (y) { return y.toLowerCase(); }).indexOf(x.toLowerCase()) < 0; });
+      return c;
+    });
+  }
+  // Envía varios avisos seguidos y junta el resultado (para el mensaje y el historial)
+  function enviarVarios(cs) {
+    var rs = [];
+    return cs.filter(Boolean).reduce(function (p, c) { return p.then(function () { return enviarCorreo(c).then(function (r) { rs.push(r); }); }); }, Promise.resolve()).then(function () {
+      if (!rs.length) return null;
+      if (rs.length === 1) return rs[0];
+      return { ok: rs.every(function (r) { return r.ok; }), n: rs.reduce(function (a, r) { return a + r.n; }, 0), motivo: rs.map(function (r) { return r.motivo; }).filter(Boolean).join('; '),
+        rechazados: [].concat.apply([], rs.map(function (r) { return r.rechazados || []; })), llegaron: [].concat.apply([], rs.map(function (r) { return r.llegaron || []; })),
+        desvios: [].concat.apply([], rs.map(function (r) { return r.desvios || []; })), mailto: (rs.find(function (r) { return !r.ok; }) || rs[0]).mailto };
     });
   }
   // El resultado del aviso queda en el historial de la solicitud («Registro de Borrador»), para saber después si salió y a quién
@@ -2134,8 +2179,8 @@
           ' · <b class="rojo">te nombra con OTRA cuenta tuya de Colabora (has entrado con la n.º ' + (yo ? yo.Id : '?') + '): el aviso va al correo de esa otra cuenta</b>') : '');
       var sinDir = function (c) { return c ? esc(c) : '<b class="rojo">sin correo: el aviso no le pudo llegar</b>'; };
       var otraDir = pend.soyYo && pend.c && yo && yo.Email && pend.c.toLowerCase() !== yo.Email.toLowerCase();
-      h += '<div class="panel"><h3>✉ Aviso por correo</h3><p class="small">Al enviarla, el aviso va <b>para</b> el solicitante (' + sinDir(t.correoSol) + ') <b>con copia</b> al ' + pend.papel +
-        ' (' + sinDir(pend.c) + ').' + (otraDir ? ' <b class="rojo">⚠ Esa no es tu dirección en esta sesión (' + esc(yo.Email) + '): el aviso iba a otra cuenta tuya.</b>' : '') + '<br>' + pend.papel[0].toUpperCase() + pend.papel.slice(1) + ' en la solicitud: ' + cuenta + '.</p>' +
+      h += '<div class="panel"><h3>✉ Aviso por correo</h3><p class="small">El aviso va <b>para</b> el ' + pend.papel + ' (' + sinDir(pend.c) + ' y, además, a la dirección de su cuenta y de su perfil de Colabora si son otras)' +
+        (t.estado === E.PA ? ' <b>con copia</b> al solicitante (' + sinDir(t.correoSol) + ')' : '; el solicitante recibe aparte el aviso de que está aprobada') + '.' + (otraDir ? ' <b class="rojo">⚠ Esa no es tu dirección en esta sesión (' + esc(yo.Email) + '): el aviso iba a otra cuenta tuya.</b>' : '') + '<br>' + pend.papel[0].toUpperCase() + pend.papel.slice(1) + ' en la solicitud: ' + cuenta + '.</p>' +
         '<div class="acciones"><button data-reaviso="' + t.id + '">✉ Reenviar el aviso ahora</button>' + (pend.soyYo ? '<button data-reaviso="' + t.id + '" data-ami="1">✉ Enviármelo solo a mí</button>' : '') + '</div><div id="reavisoMsg"></div></div>';
     }
     var dest = destRecordatorio(t);
@@ -2147,10 +2192,11 @@
     return h + '<div id="accMsg"></div>';
   }
   function reenviarAviso(t, boton, aMi) {
-    var c = correoDe(t.estado === E.PA ? 'solicitud' : 'aprobado', t, '');
+    var c = correoDe(t.estado === E.PA ? 'solicitud' : t.directo ? 'aprobado' : 'pendienteAut', t, '');
     if (aMi) { c.to = [yo.Email || yo.LoginName].filter(Boolean); c.cc = []; c.bcc = []; c.cuentas = {}; if (yo.Email) c.cuentas[yo.Email.toLowerCase()] = yo.Id; }
     boton.disabled = true; $('#reavisoMsg').innerHTML = '<p class="muted small">Enviando…</p>';
-    enviarCorreo(c).then(function (r) { return (aMi ? Promise.resolve() : anotarAviso(t.id, r)).then(function () { return r; }); }).then(function (r) {
+    (aMi ? Promise.resolve(c) : ampliarPara(c, t.estado === E.PA ? t.apr : t.aut, t.estado === E.PA ? t.correoApr : t.correoAut)).then(enviarCorreo)
+      .then(function (r) { return (aMi ? Promise.resolve() : anotarAviso(t.id, r)).then(function () { return r; }); }).then(function (r) {
       boton.disabled = false;
       $('#reavisoMsg').innerHTML = '<div class="' + claseCorreo(r) + '">' + (r.ok ? '✓ Colabora ha aceptado el aviso para: ' + esc(r.llegaron.join(', ')) + '.' : '✕') + msgCorreo(r) +
         ' Si Colabora lo acepta y aun así no llega, revisa «Correo no deseado» o que esa dirección sea la de tu buzón.</div>';
@@ -2165,7 +2211,7 @@
   function recordar(t, boton) {
     var dest = destRecordatorio(t), c = correoDe('recordatorio', Object.assign({}, t, { correoApr: t.estado === E.PA ? dest.correo : t.correoApr, correoAut: t.estado === E.AP ? dest.correo : t.correoAut }), '');
     boton.disabled = true;
-    enviarCorreo(c).then(function (r) {
+    ampliarPara(c, t.estado === E.PA ? t.apr : t.aut, dest.correo).then(enviarCorreo).then(function (r) {
       if (r.ok) { pref.recordados = pref.recordados || {}; pref.recordados[t.id] = hoy(); guardarPref(); msgAcc(claseCorreo(r), '✓ Recordatorio a ' + esc(dest.nombre) + '.' + msgCorreo(r)); return; }
       boton.disabled = false;
       msgAcc('aviso', msgCorreo(r).trim());
@@ -2254,7 +2300,10 @@
     var conInt = esJefe(t), msgInt = '';
     previo.then(function () { return guardarCambios(t, c, anotarRegistro(HIST[a]) + '. En Estado: ' + c.Estado); }).then(function () {
       var cr = pref.correo && correo ? correoDe(correo, nuevo, obsTxt) : null;
-      return (cr ? enviarCorreo(cr) : Promise.resolve(null)).then(function (r) {
+      var envio = !cr ? Promise.resolve(null) : correo === 'aprobado'
+        ? ampliarPara(correoDe('pendienteAut', nuevo, obsTxt), nuevo.aut, nuevo.correoAut).then(function (ca) { return enviarVarios([ca, cr]); })
+        : enviarCorreo(cr);
+      return envio.then(function (r) {
         return anotarAviso(t.id, r).then(function () {
           if (!conInt || !estInt) return null;
           return marcarSustituciones(t.id, estInt).then(function () { return a === 'autorizar' ? avisarSustitutos(t, false) : null; })
@@ -2393,7 +2442,7 @@
           sol: sol, apr: !directo ? apr : null, aut: directo ? aut : null,
           directo: directo, correoSol: sol.Email || '', correoApr: c.CorreoDeAPROBADOR, correoAut: c.CorreoDeAUTORIZADOR, aprTexto: c.AprobadorTexto, autTexto: c.AutorizadorTexto };
         var cr = enviar && pref.correo ? correoDe(directo ? 'aprobado' : 'solicitud', nuevo, v('obs')) : null;
-        return (cr ? enviarCorreo(cr) : Promise.resolve(null)).then(function (r) {
+        return (cr ? ampliarPara(cr, directo ? aut : apr, directo ? nuevo.correoAut : nuevo.correoApr).then(enviarCorreo) : Promise.resolve(null)).then(function (r) {
           return anotarAviso(id, r).then(cargar).then(function () {
             var txt = enviar ? '✓ Solicitud enviada a ' + (directo ? 'autorización' : 'aprobación') + '.' : '✓ Borrador guardado.';
             var m = '<div class="' + claseCorreo(r) + '">' + txt + msgCorreo(r) + '</div>';

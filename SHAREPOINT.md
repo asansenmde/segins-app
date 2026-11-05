@@ -177,7 +177,7 @@ unas veces salía cifrado y otras no: por eso fallaba «al azar» y una semilla 
 copia protegida, `proteger.mjs` de Incidentes escribe el `<` de esas etiquetas como `\x3c` y se niega a generar la copia si
 queda alguna. Prueba: `PROXY=1 node incidentes/pruebas/simulacion.mjs` imita el filtro (inserta un `<script>` delante de
 cada `</head>`): las copias que fallaron en Colabora fallan ahí igual, y las buenas no.
-**Pendiente:** aplicar lo mismo a Tareas Colabora, Pérdidas y la copia de pruebas de Permisos, que llevan esas etiquetas
+**Hecho:** Incidentes, Tareas Colabora, Permisos y el visor de MENSADEF. **Pendiente:** aplicar lo mismo a Pérdidas y VSA, que llevan esas etiquetas
 dentro del código.
 
 **Arreglo de fondo (Incidentes, 03/11/2026):** la semilla fija solo vale mientras el código no cambie (la 03/11 · 2 volvió

@@ -6,6 +6,24 @@ Objetivo: una página en Colabora para **solicitar permisos** y, según el privi
 autorizarlos o elevarlos**, sobre la lista **«Solicitud de Permisos»** del sitio
 `/et/SUIGESUR/colaborativo/CALIDAD-VIDA` (hoy con formulario InfoPath, `newifs.aspx`).
 
+## Avisos por correo a quien tiene que actuar (versión 2026-11-05 · 1)
+
+El autorizador decía que no le llegaban los avisos. Antes, al aprobar, solo iba **en copia** del correo al solicitante, con
+un asunto dirigido a este («Ha APROBADO su Solicitud…»), y solo a la dirección guardada en la solicitud al elegirle, que
+puede ser de una cuenta antigua.
+
+Ahora:
+- **Al aprobar** salen dos avisos:
+  - uno propio **para el autorizador**: «Pendiente de AUTORIZAR un Permiso solicitado por … (APROBADO por …)»;
+  - otro informativo para el solicitante, con copia oculta al aprobador.
+- **Al enviar una solicitud**, el aviso va **para** el aprobador (o para el autorizador si no hay mando intermedio), con
+  copia al solicitante.
+- **El que tiene que actuar** (aprobador o autorizador) lo recibe en todas sus direcciones: la guardada, la de su cuenta
+  del sitio (`getuserbyid`) y la de su perfil (`PeopleManager/GetPropertiesFor`: `Email`, `WorkEmail`). Si una no vale,
+  el envío robusto la descarta y lo anota.
+- Igual en «Reenviar el aviso» y en «Recordatorio».
+- **Copia protegida** con la protección nueva (compactada, sin etiquetas de página dentro del código; ver `SHAREPOINT.md`).
+
 ## Estado
 
 Primera versión (8 oct 2026), probada con datos simulados; pendiente de prueba en Colabora. Estructura conocida (resumen del diagnóstico general, sin datos):

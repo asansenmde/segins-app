@@ -119,6 +119,7 @@ async function prueba(verbose, soloAlcance) {
     }
     if (resto.startsWith("web/sitegroups/getbyname('PERMISOS - MANDO')/users")) return grupoMando ? J({ value: grupoMando }) : r.fulfill({ status: 404, body: '' });
     if (resto.startsWith('web/currentuser/groups')) return J({ value: (registro ? [{ Title: 'Personal de Registro' }] : [{ Title: 'Integrantes cdv' }]).concat(mando ? [{ Title: 'PERMISOS - MANDO' }] : []) });
+    if (resto.startsWith('SP.UserProfiles.PeopleManager/GetPropertiesFor')) return J(/u12'/.test(decodeURIComponent(u)) ? { Email: 'autorizador.uno@et.mde.es', UserProfileProperties: [] } : { UserProfileProperties: [] });
     if (resto.startsWith('SP.UserProfiles.PeopleManager')) return J({ Title: 'COMANDANTE', UserProfileProperties: verbose ? { results: [{ Key: 'Department', Value: 'UNIDAD B' }] } : [{ Key: 'Department', Value: 'UNIDAD B' }] });
     { const gid = resto.match(/web\/getuserbyid\((\d+)\)/); if (gid) { cuentasPedidas.push(+gid[1]); return J({ LoginName: 'i:0#.w|et\\u' + gid[1] }); } }
     if (resto.startsWith("web/sitegroups/getbyname('Personal de Registro')/users")) return J({ value: grupoReg });
@@ -469,7 +470,9 @@ async function prueba(verbose, soloAlcance) {
   await p.click('[data-acc=aprobar]'); await p.waitForTimeout(1500);
   const ap = posts.find(x => /items\(1\)/.test(x.ruta)); const cAp = JSON.parse(ap.cuerpo);
   console.log(tag, 'aprobar:', ap.cab['x-http-method'], JSON.stringify({ Hist: (cAp.RegistroDeBorrador || '').slice(0, 70), Estado: cAp.Estado, EA: cAp.EstadoDeAprobacion, Aut: cAp.AutorizadorDelPermisoId, AutT: cAp.AutorizadorTexto, Cor: cAp.CorreoDeAUTORIZADOR }));
-  const m2 = JSON.parse(posts.find(x => x.ruta.startsWith('SP.Utilities')).cuerpo).properties;
+  const avisosAp = posts.filter(x => x.ruta.startsWith('SP.Utilities')).map(x => JSON.parse(x.cuerpo).properties);
+  console.log(tag, 'avisos al aprobar:', avisosAp.map(m => 'Para ' + m.To.results.join(',') + (m.CC.results.length ? ' CC ' + m.CC.results.join(',') : '') + (m.BCC ? ' CCO ' + m.BCC.results.join(',') : '') + ' · «' + m.Subject.slice(0, 60) + '»').join(' || '));
+  const m2 = avisosAp.find(m => m.BCC) || avisosAp[0];
   console.log(tag, 'aviso «aún no concedido» en el correo de aprobación:', m2.Body.includes('AÚN NO ESTÁ CONCEDIDO'));
   if (!verbose) fs.writeFileSync(new URL('correo.html', import.meta.url), m2.Body);
   console.log(tag, 'correo aprobado:', m2.To.results, m2.CC.results, m2.BCC.results, '|', m2.Subject);
