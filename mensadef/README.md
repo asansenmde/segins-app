@@ -169,3 +169,8 @@ con el formato *verbose* de SharePoint 2013.
   - Los anexos se piden siempre al abrir un mensaje, sin depender de la marca `ContieneAnexos` de la bandeja.
   - Si `ObtenerCuerpo` no da la lista, se prueba `ObtenerCuerpoValidadoCelula` (con `idBuzonCelula`).
   - Si nada funciona, el aviso dice qué respondió cada intento (ruta, `modoVer` y código o campos, sin contenido).
+- **2026-11-06 · 3: «✉ Enviar por correo».** Prepara en Outlook un correo nuevo con los datos del mensaje, su texto y sus
+  anexos. Es un `.eml` con `X-Unsent: 1`, que Outlook abre como borrador: se ponen los destinatarios y se envía. Se monta
+  en el navegador, con los anexos leídos con la sesión. Avisa si pasa de 15 MB. Hay también «Solo texto» (`mailto:`). No
+  usa ningún servidor ni cambia nada en MENSADEF. Pendiente, si el usuario lo pide: el envío propio de MENSADEF (hace
+  falta escucharlo antes).
