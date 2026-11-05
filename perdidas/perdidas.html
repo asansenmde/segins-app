@@ -225,7 +225,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-27 · 2';
+  var VERSION = '2026-11-05 · 1';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Pérdida de documentación · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -625,9 +625,36 @@
     return items.filter(function (t) { return yo && (sinTildes(t.editor) === sinTildes(yo.Title) || sinTildes(t.regAct).indexOf(sinTildes(yo.Title)) >= 0); })
       .sort(function (a, b) { return String(b.modificado).localeCompare(String(a.modificado)); });
   };
+  // Búsqueda por nombre o NIF del usuario sin descargar esos datos: se pregunta a Colabora qué notificaciones los contienen
+  // y solo vuelven sus números. Cuentan solo las que la persona ya ve y en las que tramita (veDatos).
+  var privBusca = { q: '', ids: null, pidiendo: '' }, privTimer = null;
+  var textoPriv = function (q) { return String(q || '').trim().replace(/'/g, "''"); };
+  var coincidePrivado = function (t) { return !!(privBusca.ids && privBusca.q === pref.f.q && privBusca.ids[t.id] && veDatos(t)); };
+  function buscarPrivados(q) {
+    var txt = textoPriv(q);
+    if (txt.length < 3) { privBusca = { q: q, ids: null, pidiendo: '' }; return; }
+    if (privBusca.q === q && (privBusca.ids || privBusca.pidiendo === q)) return;
+    privBusca.pidiendo = q;
+    clearTimeout(privTimer);
+    privTimer = setTimeout(function () {
+      var nif = txt.toUpperCase().replace(/[\s-]/g, '');
+      var c = ["substringof('" + txt.toUpperCase() + "',Denunciante)", "substringof('" + nif + "',DNI)"];
+      if (txt !== txt.toUpperCase()) c.push("substringof('" + txt + "',Denunciante)");
+      todas(urlLista() + '/items?$top=500&$select=Id&$filter=' + encodeURIComponent(c.join(' or '))).then(function (l) {
+        var ids = {}; l.forEach(function (x) { ids[x.Id] = 1; });
+        if (pref.f.q !== q) return;
+        privBusca = { q: q, ids: ids, pidiendo: '' };
+        // Se vuelve a pintar sin perder el sitio en el cuadro de búsqueda
+        var i = $('#fq'), pos = i && document.activeElement === i ? i.selectionStart : null;
+        render();
+        var j = $('#fq'); if (j && pos !== null) { j.focus(); j.setSelectionRange(pos, pos); }
+      }, function () { privBusca = { q: q, ids: {}, pidiendo: '' }; });
+    }, 350);
+  }
   var FILTRO_VACIO = function () { return { q: '', fase: '', doc: '', modo: '', suige: '', desde: '', hasta: '' }; };
   function filtrar() {
     var f = pref.f, q = sinTildes(f.q);
+    if (f.q) buscarPrivados(f.q);
     return items.filter(function (t) {
       if (f.fase === 'abiertos' ? !abierto(t) : f.fase !== '' && f.fase !== undefined && String(fase(t)) !== f.fase) return false;
       if (f.doc && t.docs.indexOf(f.doc) < 0) return false;
@@ -635,7 +662,7 @@
       if (f.suige && t.suige !== f.suige) return false;
       if (f.desde && (!t.fecha || t.fecha < f.desde)) return false;
       if (f.hasta && (!t.fecha || t.fecha > f.hasta)) return false;
-      if (q && sinTildes(['Nº ' + t.id, t.docsTxt, t.modo, t.provincia, t.lugar, t.suige, t.empleo, t.ndenuncia, t.resp && t.resp.Title, t.cadena.join(' ')].join(' ')).indexOf(q) < 0) return false;
+      if (q && !coincidePrivado(t) && sinTildes(['Nº ' + t.id, t.docsTxt, t.modo, t.provincia, t.lugar, t.suige, t.empleo, t.ndenuncia, t.resp && t.resp.Title, t.cadena.join(' ')].join(' ')).indexOf(q) < 0) return false;
       return true;
     }).sort(function (a, b) { return String(b.fecha).localeCompare(String(a.fecha)) || b.id - a.id; });
   }
@@ -645,7 +672,7 @@
   function filtrosHtml() {
     var f = pref.f;
     return '<div class="card"><div class="grid">' +
-      '<div><label class="lbl">Buscar</label><input id="fq" type="search" value="' + esc(f.q) + '" placeholder="Nº, documento, provincia, unidad…"></div>' +
+      '<div><label class="lbl">Buscar</label><input id="fq" type="search" value="' + esc(f.q) + '" placeholder="Nº, documento, unidad, nombre o NIF…"></div>' +
       '<div><label class="lbl">Fase</label>' + sel('fFase', [['abiertos', 'Expedientes abiertos']].concat(FASES.map(function (x, i) { return [String(i), x]; })), f.fase, 'Todas') + '</div>' +
       '<div><label class="lbl">Documento perdido</label>' + sel('fDoc', docsUsados(), f.doc, 'Todos') + '</div>' +
       '<div><label class="lbl">Modo</label>' + sel('fModo', [['robo', 'Sustracción o robo']].concat(valores('modo').filter(function (m) { return !/robo|sustr/i.test(m); })), f.modo, 'Todos') + '</div>' +

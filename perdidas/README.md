@@ -56,6 +56,10 @@ nota), `VALORACIONSUIGES` (nota) y `ValoradoPorSUIGE` (sí/no). Mientras falten,
   que es responsable.
 - **Datos personales** (persona, nombre y NIF del usuario): solo se leen al abrir la ficha, y solo para quien la dio de
   alta, el responsable, su SUIGE e IGE. No se piden en los listados ni salen en informes, estadísticas, CSV ni correos.
+- **Buscar por nombre o NIF** (versión 2026-11-05 · 1): al escribir en «Buscar» (3 letras o más) la página pregunta a
+  Colabora qué notificaciones tienen ese texto en `Denunciante` o `DNI` y solo recibe sus números; salen las que la persona
+  ya ve y en las que tramita. El NIF se puede escribir con guion o espacios y en minúscula. Las tildes cuentan: «PEREZ» no
+  encuentra «PÉREZ».
 
 ## Pestañas
 

@@ -172,6 +172,13 @@ async function prueba(verbose, esc) {
     console.log(tag, '| alta borrador:', JSON.stringify(ca && { ESTADO: ca.ESTADO, UsuarioId: ca.UsuarioId, Denunciante: ca.Denunciante, MN2: ca.OData__x004d_N2, Año: ca.A_x00f1_o, Hist: (ca.ObservacionesDelExpediente || '').slice(-40) }), '| ficha:', await p.textContent('#dlg h2').catch(() => ''));
     await p.click('#dlg [data-cerrar]').catch(() => {});
   }
+  // Búsqueda por nombre o NIF: Colabora devuelve solo los números; cuentan las que se ven y en las que se tramita
+  if (esc === 'suige' || esc === 'unidad') {
+    const buscar = async q => { await p.fill('#fq', q); await p.waitForTimeout(900); return p.$$eval('#vista .inc', n => n.map(x => x.dataset.id).sort().join(',') || '(ninguna)'); };
+    console.log(tag, '| buscar «perez»:', await buscar('perez'), '| «GOMEZ JUAN»:', await buscar('GOMEZ JUAN'), '| NIF «12345678-z»:', await buscar('12345678-z'), '| «zzz»:', await buscar('zzzzz'),
+      '| foco sigue:', await p.evaluate(() => document.activeElement && document.activeElement.id), '| datos personales pedidos en listados:', privEnLista());
+    await p.fill('#fq', ''); await p.waitForTimeout(300);
+  }
   if (esc === 'suige') {
     await abrirN(2);
     console.log(tag, '| ficha 2 (de mi SUIGE): datos personales:', (await p.textContent('#detPriv')).replace(/\s+/g, ' ').slice(0, 120), '| paneles:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
