@@ -50,6 +50,9 @@ de cada proyecto (`*/pruebas/`).
   permisos (403 = sin permiso).
 - Colabora ejecuta páginas `.html` subidas a una biblioteca. MENSADEF no (las descarga): allí se usan
   marcadores generados con `mensadef/generar-marcador.py`, que hay que regenerar si cambia la página.
+- **Los campos «Buscar» buscan en todos los campos** de cada elemento (los que se muestran y los de la ficha), sin
+  tildes ni mayúsculas. Los datos personales que no se descargan (NIF, nombres) se buscan preguntando al servidor solo
+  por los números de los elementos (`$select=Id&$filter=substringof(…)`), como en Pérdidas. Petición del usuario, 05/11/2026.
 - Escapar siempre lo que viene del servidor; los campos de texto enriquecido se muestran como texto.
 - Requiere Edge o Chrome; avisar si se abre en modo Internet Explorer.
 - Probar con Playwright contra un SharePoint simulado (formato ligero y *verbose*) antes de entregar.
