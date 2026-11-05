@@ -143,17 +143,7 @@ console.log('anexos:', (await p.textContent('#adjuntos').catch(() => '-')).repla
 { await p.evaluate(() => { const o = window.open; window.open = function (u) { window.__abierto = u; return o.apply(this, arguments); }; }); const [pop] = await Promise.all([ctx.waitForEvent('page'), p.click('#adjuntos [data-anexo="0"][data-modo="abrir"]')]); console.log('url pedida:', decodeURI(await p.evaluate(() => window.__abierto)).replace(O, '')); await pop.close().catch(() => {}); }
 { const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#adjuntos [data-anexo="1"][data-modo="bajar"]')]); console.log('descargar cifrado →', dl.suggestedFilename(), '| botón abrir en el cifrado:', !!(await p.$('#adjuntos [data-anexo="1"][data-modo="abrir"]'))); }
 console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0);
-// Enviar por correo: borrador de Outlook (.eml, X-Unsent) sin adjuntos, con lo relevante y los enlaces a MENSADEF
-await p.click('#porCorreo'); await p.waitForTimeout(200); await p.fill('#cNota', 'Para tu conocimiento <script>');
-{ const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#cPreparar')]); const eml = require('fs').readFileSync(await dl.path(), 'utf8');
-  const asunto = (eml.match(/^Subject: (.*)$/m) || [])[1] || '', dec = /=\?UTF-8\?B\?/.test(asunto) ? Buffer.from(asunto.replace(/^=\?UTF-8\?B\?|\?=$/g, ''), 'base64').toString() : asunto;
-  const parte = tipo => Buffer.from(eml.split('Content-Type: ' + tipo + '; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n')[1].split('\r\n--')[0].replace(/\r\n/g, ''), 'base64').toString();
-  const html = parte('text/html'), txt = parte('text/plain');
-  console.log('correo:', dl.suggestedFilename(), '| X-Unsent:', /^X-Unsent: 1/m.test(eml), '| asunto:', dec, '| adjuntos:', (eml.match(/Content-Disposition: attachment/g) || []).length,
-    '| enlace a documentos:', /SMDMDMensajesDocumentos_20261105\/[^"]+"[^>]*>📂 Abrir los documentos/.test(html), '| enlace a MENSADEF:', html.includes('#/celula/'), '| anexos nombrados:', (html.match(/📎 /g) || []).length,
-    '| nota escapada:', html.includes('&lt;script&gt;'), '| autoría:', html.includes('Alfredo Sánchez Sender'), '| texto plano:', txt.split('\n').slice(0, 3).join(' / '));
-  const pv = await ctx.newPage(); await pv.setViewportSize({ width: 720, height: 900 }); await pv.setContent(html); await pv.screenshot({ path: new URL('correo-mensadef.png', import.meta.url).pathname, fullPage: true }); await pv.close();
-  await p.bringToFront(); console.log('aviso:', (await p.textContent('#cMsg')).slice(0, 160)); }
+console.log('sin botón de correo:', !(await p.$('#porCorreo')));
 await p.fill('#buscar', ''); await p.waitForTimeout(300); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(300);
 // Ficha con los campos pedidos y ampliar
 console.log('ficha:', await p.$$eval('#detalle dl.ficha-campos dt', l => l.map(x => x.textContent).join(', ')), '| otros plegados:', await p.textContent('#detalle details.otros summary').catch(() => '-'));

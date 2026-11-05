@@ -183,3 +183,5 @@ con el formato *verbose* de SharePoint 2013.
     y «✉ Abrir MENSADEF» a la célula.
   - **Pie:** autoría y aviso de uso oficial.
   - **Versión sin formato:** el `.eml` lleva también el texto plano, y se mantiene «Correo sencillo» (`mailto:`).
+- **2026-11-07 · 2:** se quita «✉ Enviar por correo» a petición del usuario. Se queda todo lo demás, también los anexos.
+  El código del correo sigue en el historial de git (versiones 2026-11-06 · 3 y 2026-11-07 · 1) por si se recupera.
