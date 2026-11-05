@@ -103,3 +103,5 @@ autoría.
     Tareas MENSADEF»; al abrirla ofrece usar la de pruebas cambiándole el nombre). Gestor 2026-11-04 · 3: terminados por
     fechas, sin tope de 200, y marcas «Punto de situación» / «Tratar con el General» (columna `TratarEn`, se crea en
     Ajustes). Visor 2026-11-04 · 2: ◀ ▶ con la ficha ampliada.
+    07/11/2026: anexos en la ficha del visor (abrir y descargar, sin marcar como leído), dados por buenos y pasados al
+    favorito definitivo (2026-11-07 · 2). El envío por correo se probó y se quitó a petición del usuario.
