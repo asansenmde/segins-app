@@ -174,3 +174,12 @@ con el formato *verbose* de SharePoint 2013.
   en el navegador, con los anexos leídos con la sesión. Avisa si pasa de 15 MB. Hay también «Solo texto» (`mailto:`). No
   usa ningún servidor ni cambia nada en MENSADEF. Pendiente, si el usuario lo pide: el envío propio de MENSADEF (hace
   falta escucharlo antes).
+- **2026-11-07 · 1: correo rediseñado y sin adjuntos** (así lo quiere el usuario).
+  - **Diseño:** tablas y estilos en línea, para Outlook. Cabecera azul con «USO OFICIAL», asunto, fecha y bandeja, y una
+    nota opcional del remitente.
+  - **Contenido:** etiquetas de prioridad, tipo, bandera y nº de anexos; los datos clave (remitente, nº de registro, su
+    referencia, firma, motivo y célula); el texto (hasta 3000 caracteres) y solo los nombres de los anexos.
+  - **Botones:** «📂 Abrir los documentos en MENSADEF» lleva a la carpeta del mensaje (`UrlCarpeta` de `ObtenerCuerpo`),
+    y «✉ Abrir MENSADEF» a la célula.
+  - **Pie:** autoría y aviso de uso oficial.
+  - **Versión sin formato:** el `.eml` lleva también el texto plano, y se mantiene «Correo sencillo» (`mailto:`).

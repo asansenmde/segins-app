@@ -54,7 +54,7 @@ await ctx.route(API + '/**', r => {
   // Catálogo de banderas, como el real: [{IdEtiqueta, Nombre, Color}] (la 9 no está: se ve como «Bandera 9»)
   if (ruta === 'etiqueta/EtiquetasObtener') return r.fulfill({ headers: H, json: [{ IdEtiqueta: 1, Nombre: 'Urgente', Color: '#FF0000' }, { IdEtiqueta: 4, Nombre: 'Finalizado', Color: 'verde' }, { IdEtiqueta: 5, Nombre: 'Seguimiento', Color: 'x;}<b>' }] });
   // Cuerpo del mensaje con sus anexos (como el real: solo responde con el modoVer que usa la aplicación)
-  if (ruta === 'mensaje/ObtenerCuerpo') return q.modoVer !== 'true' ? r.fulfill({ status: 400, headers: H, body: '' }) : r.fulfill({ headers: H, json: { ID: q.id, Cuerpo: 'Texto completo', AnexosFisicos: [{}],
+  if (ruta === 'mensaje/ObtenerCuerpo') return q.modoVer !== 'true' ? r.fulfill({ status: 400, headers: H, body: '' }) : r.fulfill({ headers: H, json: { ID: q.id, Cuerpo: 'Texto completo', UrlCarpeta: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id, AnexosFisicos: [{}],
     AnexosDigitales: [{ Titulo: 'Informe <b>anexo</b>', Nombre: 'informe anexo.pdf', UrlFichero: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id + '/informe anexo.pdf', TipoDocumento: 'Informe', TamanoMB: '0,2', Firma: 'Firmado' },
       { Titulo: 'Datos', Nombre: 'datos.7z.cif', UrlFichero: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id + '/datos.7z.cif', TamanoMB: '0,1' }] } });
   if (ruta === 'buzon/BuzonCelulaMensajeLeido') { marcadoLeido++; return r.fulfill({ headers: H, json: {} }); }
@@ -143,14 +143,17 @@ console.log('anexos:', (await p.textContent('#adjuntos').catch(() => '-')).repla
 { await p.evaluate(() => { const o = window.open; window.open = function (u) { window.__abierto = u; return o.apply(this, arguments); }; }); const [pop] = await Promise.all([ctx.waitForEvent('page'), p.click('#adjuntos [data-anexo="0"][data-modo="abrir"]')]); console.log('url pedida:', decodeURI(await p.evaluate(() => window.__abierto)).replace(O, '')); await pop.close().catch(() => {}); }
 { const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#adjuntos [data-anexo="1"][data-modo="bajar"]')]); console.log('descargar cifrado →', dl.suggestedFilename(), '| botón abrir en el cifrado:', !!(await p.$('#adjuntos [data-anexo="1"][data-modo="abrir"]'))); }
 console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0);
-// Enviar por correo: .eml para Outlook (borrador con X-Unsent) con el texto y los anexos
-await p.click('#porCorreo'); await p.waitForTimeout(200);
+// Enviar por correo: borrador de Outlook (.eml, X-Unsent) sin adjuntos, con lo relevante y los enlaces a MENSADEF
+await p.click('#porCorreo'); await p.waitForTimeout(200); await p.fill('#cNota', 'Para tu conocimiento <script>');
 { const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#cPreparar')]); const eml = require('fs').readFileSync(await dl.path(), 'utf8');
   const asunto = (eml.match(/^Subject: (.*)$/m) || [])[1] || '', dec = /=\?UTF-8\?B\?/.test(asunto) ? Buffer.from(asunto.replace(/^=\?UTF-8\?B\?|\?=$/g, ''), 'base64').toString() : asunto;
-  const html = Buffer.from(eml.split('Content-Transfer-Encoding: base64\r\n\r\n')[1].split('\r\n--')[0].replace(/\r\n/g, ''), 'base64').toString();
-  console.log('correo:', dl.suggestedFilename(), '| X-Unsent:', /^X-Unsent: 1/m.test(eml), '| asunto:', dec, '| anexos:', (eml.match(/Content-Disposition: attachment/g) || []).length,
-    '| texto del mensaje:', html.includes('Texto del mensaje 5'), '| ¿HTML del servidor sin escapar?', html.includes('<b>anexo</b>'), '| autoría:', html.includes('Alfredo Sánchez Sender'));
-  await p.waitForTimeout(300); console.log('aviso:', (await p.textContent('#cMsg')).slice(0, 160)); }
+  const parte = tipo => Buffer.from(eml.split('Content-Type: ' + tipo + '; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n')[1].split('\r\n--')[0].replace(/\r\n/g, ''), 'base64').toString();
+  const html = parte('text/html'), txt = parte('text/plain');
+  console.log('correo:', dl.suggestedFilename(), '| X-Unsent:', /^X-Unsent: 1/m.test(eml), '| asunto:', dec, '| adjuntos:', (eml.match(/Content-Disposition: attachment/g) || []).length,
+    '| enlace a documentos:', /SMDMDMensajesDocumentos_20261105\/[^"]+"[^>]*>📂 Abrir los documentos/.test(html), '| enlace a MENSADEF:', html.includes('#/celula/'), '| anexos nombrados:', (html.match(/📎 /g) || []).length,
+    '| nota escapada:', html.includes('&lt;script&gt;'), '| autoría:', html.includes('Alfredo Sánchez Sender'), '| texto plano:', txt.split('\n').slice(0, 3).join(' / '));
+  const pv = await ctx.newPage(); await pv.setViewportSize({ width: 720, height: 900 }); await pv.setContent(html); await pv.screenshot({ path: new URL('correo-mensadef.png', import.meta.url).pathname, fullPage: true }); await pv.close();
+  await p.bringToFront(); console.log('aviso:', (await p.textContent('#cMsg')).slice(0, 160)); }
 await p.fill('#buscar', ''); await p.waitForTimeout(300); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(300);
 // Ficha con los campos pedidos y ampliar
 console.log('ficha:', await p.$$eval('#detalle dl.ficha-campos dt', l => l.map(x => x.textContent).join(', ')), '| otros plegados:', await p.textContent('#detalle details.otros summary').catch(() => '-'));
