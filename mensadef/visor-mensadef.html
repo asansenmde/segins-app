@@ -108,6 +108,9 @@
   @media (max-width: 600px) { .firmamot { grid-template-columns: 1fr; } }
   .layout.max { grid-template-columns: minmax(0, 1fr) !important; }
   .layout.max #lista { display: none; }
+  .anexos { margin: 10px 0; padding: 10px 12px; background: #f4f8fc; border: 1px solid #d3dfee; border-left: 4px solid #1d5fa8; border-radius: 10px; }
+  .anexo { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid #e3eaf3; } .anexo:first-of-type { border-top: 0; }
+  .anexo .ic { font-size: 1.3rem; } .anexo .nm { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; } .anexo button { padding: 4px 10px; font-size: .82rem; }
   .navmax { display: none; } .layout.max .navmax { display: inline-flex; gap: 6px; align-items: center; margin-right: 10px; padding-right: 10px; border-right: 1px solid var(--line); }
   .layout.max .navmax button { font-weight: 700; }
   .layout.max #detalle { position: static; max-height: none; padding: 18px 24px; }
@@ -322,7 +325,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-05 · 2';
+  var VERSION = '2026-11-06 · 1';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -930,6 +933,62 @@
     };
     setTimeout(paso, 800);
   }
+  // ---------- Anexos de un mensaje de la bandeja (05/11/2026) ----------
+  // Como MENSADEF al abrir un mensaje: GET mensaje/ObtenerCuerpo (id, modoVer) devuelve AnexosDigitales (Titulo, Nombre,
+  // UrlFichero, TipoDocumento, TamanoMB, Firma…) y AnexosFisicos. Solo se lee: el visor NO llama a la función que marca el
+  // mensaje como leído (buzon/BuzonCelulaMensajeLeido). Los archivos están en la biblioteca del ámbito en MENSADEF
+  // (SMDMDMensajesDocumentos_…): se abren en otra pestaña, como en MENSADEF, o se descargan con la sesión (los cifrados .cif).
+  var modoVerBueno = null;
+  function cuerpoCompleto(m) {
+    if (m._cuerpoCompleto) return Promise.resolve(m._cuerpoCompleto);
+    var cands = modoVerBueno ? [modoVerBueno] : ['true', '1', 'false', '0'];
+    var probar = function (i) {
+      if (i >= cands.length) return Promise.reject(new Error('MENSADEF no ha devuelto los anexos'));
+      return pedirApi('mensaje/ObtenerCuerpo', { emailUsuario: apiCtx.email, urlColeccionSitio: apiCtx.url, id: m.MensajeId, modoVer: cands[i] }).then(function (j) {
+        if (j && (Array.isArray(j.AnexosDigitales) || Array.isArray(j.AnexosFisicos))) { modoVerBueno = cands[i]; m._cuerpoCompleto = j; return j; }
+        return probar(i + 1);
+      }, function () { return probar(i + 1); });
+    };
+    return probar(0);
+  }
+  var urlAnexo = function (a) {
+    var u = String(a.UrlFichero || a.Localizacion || '').trim();
+    if (!u) return '';
+    if (!/^https?:\/\//i.test(u)) u = location.origin + (u.charAt(0) === '/' ? '' : '/') + u;
+    return /%[0-9a-f]{2}/i.test(u) ? u : encodeURI(u);
+  };
+  var iconoAnexo = function (n) { var e = (/\.([a-z0-9]+)$/i.exec(n || '') || [])[1] || ''; e = e.toLowerCase();
+    return e === 'pdf' ? '📕' : /^docx?$|^odt$|^rtf$/.test(e) ? '📘' : /^xlsx?$|^ods$|^csv$/.test(e) ? '📗' : /^pptx?$/.test(e) ? '📙' : /^(jpe?g|png|gif|tiff?)$/.test(e) ? '🖼' : e === 'cif' ? '🔒' : /^(zip|7z|rar)$/.test(e) ? '🗜' : '📄'; };
+  function pintarAnexos(m) {
+    var caja = $('adjuntos'); if (!caja) return;
+    caja.innerHTML = '<p class="muted small">📎 Cargando los anexos…</p>';
+    cuerpoCompleto(m).then(function (j) {
+      if (abierto !== m || !$('adjuntos')) return;
+      var ds = (j.AnexosDigitales || []).filter(function (a) { return a; }), fs = j.AnexosFisicos || [];
+      if (!m._cuerpoApi && j.Cuerpo) { m._cuerpo = texto(String(j.Cuerpo)); $('cuerpo').textContent = m._cuerpo; }
+      m._anexos = ds;
+      $('adjuntos').innerHTML = '<div class="anexos"><b>📎 Anexos (' + ds.length + (fs.length ? ' + ' + fs.length + ' en papel' : '') + ')</b>' +
+        ds.map(function (a, i) {
+          var nom = a.Titulo || a.Nombre || 'Anexo ' + (i + 1), arch = a.Nombre || a.Titulo || '', cif = /\.cif$/i.test(arch), u = urlAnexo(a);
+          var det = [a.TipoDocumento, a.TamanoMB ? a.TamanoMB + ' MB' : a.Tamano, a.Firma && !/^no$/i.test(a.Firma) ? '✍ ' + a.Firma : '', cif ? 'cifrado' : ''].filter(Boolean).join(' · ');
+          return '<div class="anexo"><span class="ic">' + iconoAnexo(arch) + '</span><div class="nm">' + esc(nom) + (arch && arch !== nom ? '<span class="sub">' + esc(arch) + '</span>' : '') + (det ? '<span class="sub">' + esc(det) + '</span>' : '') + '</div>' +
+            (u ? (cif ? '' : '<button type="button" data-anexo="' + i + '" data-modo="abrir">Abrir</button>') + '<button type="button" data-anexo="' + i + '" data-modo="bajar">⬇ Descargar</button>' : '<span class="muted small">sin dirección: ábrelo en MENSADEF</span>') + '</div>';
+        }).join('') + (fs.length ? '<p class="small muted">Además tiene ' + fs.length + ' anexo' + (fs.length === 1 ? '' : 's') + ' en papel (anexo físico).</p>' : '') + (ds.length ? '' : '<p class="small muted">MENSADEF no devuelve anexos digitales para este mensaje.</p>') + '</div>';
+      Array.prototype.forEach.call($('adjuntos').querySelectorAll('[data-anexo]'), function (b) { b.addEventListener('click', function () { usarAnexo(m, Number(b.dataset.anexo), b.dataset.modo, b); }); });
+    }, function (e) { if ($('adjuntos') && abierto === m) $('adjuntos').innerHTML = '<p class="small muted">📎 No se pudieron leer los anexos (' + esc(e.message || e) + '). Ábrelos en MENSADEF.</p>'; });
+  }
+  function usarAnexo(m, i, modo, boton) {
+    var a = (m._anexos || [])[i]; if (!a) return;
+    var u = urlAnexo(a), nom = a.Nombre || a.Titulo || 'anexo';
+    if (modo === 'abrir') { window.open(u, '_blank'); return; }
+    var txt = boton.textContent; boton.disabled = true; boton.textContent = 'Descargando…';
+    fetch(u, { credentials: 'include' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); }).then(function (bl) {
+      var el = document.createElement('a'); el.href = URL.createObjectURL(bl); el.download = nom; document.body.appendChild(el); el.click();
+      setTimeout(function () { URL.revokeObjectURL(el.href); el.remove(); }, 2000);
+      boton.disabled = false; boton.textContent = txt;
+    }).catch(function (e) { boton.disabled = false; boton.textContent = txt; alert('No se pudo descargar el anexo (' + (e.message || e) + '). Ábrelo en MENSADEF.'); });
+  }
+
   // Bandejas de todas las células del periodo: páginas de 100 hasta pasar de «Desde» (o 20 páginas por bandeja)
   function cargarApi(desde, hasta) {
     var ini = new Date(desde + 'T00:00:00'), fin = new Date(hasta + 'T23:59:59');
@@ -1315,6 +1374,7 @@
       m._cuerpo = m._cuerpoApi || Object.keys(m._x).filter(function (k) { return k !== '__es'; }).map(function (k) { return EXTRA[k].titulo + ': ' + m._x[k]; }).join('\n');
       $('cuerpo').textContent = m._cuerpoApi || '(La bandeja no trae el texto: ábrelo en MENSADEF.)';
       $('aColabora').disabled = false;
+      if (m.Attachments) pintarAnexos(m);
       return;
     }
     api(base + '?$select=MensajeCuerpo', l.web).then(function (d) {

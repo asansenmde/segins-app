@@ -64,11 +64,14 @@ await p.route(API + '/api/anexo/**', r => r.fulfill({ status: 200, headers: { 'A
 p.on('popup', pp => pp.close().catch(() => {}));
 await p.evaluate(A => {
   window.open(A + '/api/anexo/Descargar?idAnexo=777&nombre=INFORME-SECRETO.pdf', '_blank');
+  window.open('/ambito/2SUIGE/SMDMDMensajesDocumentos_20261104/8e017e51-bf16-4175-896d-b75f0752088f/SECRETO nombre del anexo.pdf');
+  fetch('/ambito/2SUIGE/SMDMDMensajesDocumentos_20261105/a0419464-3d49-4734-8989-ca852c609ab3/SECRETO_CONFIDENCIAL_anexo.7z.cif', { credentials: 'include' }).catch(() => 0);
+  fetch(A + '/api/mensaje/ObtenerCuerpo?id=8e017e51-bf16-4175-896d-b75f0752088f&modoVer=true').catch(() => 0);
   const a = document.createElement('a'); a.href = A + '/api/anexo/Descargar?idAnexo=778'; a.download = 'SECRETO.pdf'; a.textContent = 'x'; document.body.append(a);
   a.addEventListener('click', e => e.preventDefault()); a.click();
   URL.createObjectURL(new Blob(['%PDF SECRETO'], { type: 'application/pdf' }));
   return fetch(A + '/api/anexo/Obtener?idAnexo=779').then(r => r.text());
 }, API); await p.waitForTimeout(800);
 const txt6 = await p.inputValue('div[style*="2147483647"] textarea');
-console.log('v6:', txt6.split('VENTANAS, ENLACES Y ARCHIVOS')[1]?.replace(/\n/g, ' | ').slice(0, 400), '| PDF:', /anexo\/Obtener[^\n]*\n\s*recibe: archivo: application\/pdf/.test(txt6), '| ¿valores?', /777|778|779|SECRETO/.test(txt6));
+console.log('v6:', txt6.split('VENTANAS, ENLACES Y ARCHIVOS')[1]?.replace(/\n/g, ' | ').slice(0, 400), '| PDF:', /anexo\/Obtener[^\n]*\n\s*recibe: archivo: application\/pdf/.test(txt6), '| ¿valores?', /777|778|779|SECRETO|8e017e51|a0419464/.test(txt6), '| rutas:', (txt6.match(/SMDMDMensajesDocumentos_\d+\/[^\n]*/g) || []).join(' ; '), '| modoVer:', (txt6.match(/modoVer=\w+/) || [''])[0]);
 await b.close();

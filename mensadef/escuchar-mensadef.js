@@ -6,7 +6,7 @@
 (function () {
   'use strict';
   if (window.__escuchaMensadef) { window.__escuchaMensadef(); return; }
-  var VERSION = 6; // se ve en el recuadro y en el resumen, para saber qué favorito se ha pulsado
+  var VERSION = 7; // se ve en el recuadro y en el resumen, para saber qué favorito se ha pulsado
   var reg = [], indice = {};
   try { performance.setResourceTimingBufferSize(5000); } catch (e) { /* sin registro de recursos */ }
 
@@ -24,12 +24,20 @@
   var valorParam = function (k, v) {
     if (GUID.test(v)) return v.toLowerCase().replace(/[{}]/g, '') === idPagina ? '{id de la célula de la página}' : '{id}';
     if (/^(tipo\w*|tamano\w*|tamaño\w*|indice\w*|índice\w*|solo\w*|pagina\w*|página\w*|orden\w*|top|skip)$/i.test(k) && v.length <= 20 && !/@/.test(v)) return v;
+    // v7: modos y estados cortos (true/false o un número de 1 o 2 cifras) no son contenido: se enseñan
+    if (/^(true|false|\d{1,2})$/i.test(v)) return v;
     return v === '' ? '(vacío)' : '…';
   };
   var limpiarUrl = function (u) {
     var x; try { x = new URL(u, location.href); } catch (e) { return '(dirección no válida)'; }
     // Los nombres de lista (getbytitle) y las rutas de carpeta son estructura; los literales largos o raros, no
-    var ruta = decodeURIComponent(x.pathname).replace(/\((@?\w+=)?'([^']*)'\)/g, function (m, a, v) { return '(' + (a || '') + "'" + (/^[\w .\-\/áéíóúñÁÉÍÓÚÑ]+$/.test(v) && v.length < 120 ? v : '…') + "')"; });
+    // v7: en las rutas, los identificadores y los NOMBRES DE ARCHIVO se tapan (solo queda la extensión)
+    var ruta = decodeURIComponent(x.pathname).split('/').map(function (seg) {
+      if (GUID.test(seg)) return '{id}';
+      var ext = /\.([A-Za-z0-9]{1,5})$/.exec(seg);
+      if (ext && !/^(aspx|asmx|svc|ashx|axd|js|css|html?)$/i.test(ext[1])) return '{archivo}' + (/\.\w{1,5}\.\w{1,5}$/.test(seg) ? '.' + seg.split('.').slice(-2).join('.') : '.' + ext[1]);
+      return seg.length > 60 || /\s/.test(seg) && !/^SMDM/i.test(seg) ? '{texto}' : seg;
+    }).join('/').replace(/\((@?\w+=)?'([^']*)'\)/g, function (m, a, v) { return '(' + (a || '') + "'" + (/^[\w .\-\/áéíóúñÁÉÍÓÚÑ]+$/.test(v) && v.length < 120 ? v : '…') + "')"; });
     var qs = [];
     x.searchParams.forEach(function (v, k) {
       qs.push(k + '=' + (ESTRUCTURA.test(k) ? v.slice(0, 300) : /filter|query|querytext|querytemplate|refinementfilters/i.test(k) ? propiedades(v) : valorParam(k, v)));

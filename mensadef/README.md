@@ -157,3 +157,11 @@ con el formato *verbose* de SharePoint 2013.
   pulsados (o abiertos por código, con descarga o no), archivos creados en la página (`blob`, solo el tipo) y respuestas
   que son archivos (solo el tipo, p. ej. `application/pdf`). Siempre solo la ruta y los nombres de los parámetros, nunca
   los valores, nombres de archivo ni contenido. Es para el punto 1: ver los anexos en el visor.
+- **2026-11-06 · 1: anexos en el visor.** Si el mensaje tiene anexos, la ficha los lista: título, archivo, tipo, tamaño,
+  firma y si está cifrado. Hay «Abrir» (pestaña nueva, como MENSADEF) y «⬇ Descargar» (con la sesión; los cifrados `.cif`
+  solo se descargan), y se indica cuántos anexos hay en papel. Sale de `GET mensaje/ObtenerCuerpo?id&modoVer` (campos
+  `AnexosDigitales` y `AnexosFisicos`, vistos con la escucha v6). El valor de `modoVer` se prueba (`true`, `1`, `false`,
+  `0`) y se recuerda el que funciona. **Solo se lee:** el visor no llama a `buzon/BuzonCelulaMensajeLeido`, la función con
+  la que MENSADEF marca el mensaje como leído al abrirlo.
+- **Escucha v7:** tapa los nombres de archivo en las rutas (solo deja la extensión). La v6 los dejaba ver: corregido.
+  Enseña los valores cortos de modo o estado (`true`, `false` o un número de 1 o 2 cifras).

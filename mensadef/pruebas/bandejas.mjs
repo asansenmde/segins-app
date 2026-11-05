@@ -8,7 +8,7 @@ const { chromium } = require(require('child_process').execSync('npm root -g').to
 const O = 'https://mensadef.mdef.es', API = 'https://mensadefapi.mdef.es', WEB = '/ambito/2SUIGE';
 const verbose = !!process.env.VERBOSE;
 const G4 = '44444444-4444-4444-4444-444444444444', G1 = '8d714e44-b2b5-41a8-9780-2228204861b5', G2 = '11111111-2222-3333-4444-555555555555', G3 = '99999999-8888-7777-6666-555555555555';
-let nClaves = 0;
+let nClaves = 0, marcadoLeido = 0;
 const PASS = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6', UID = 'abcdef01-2345-6789-abcd-ef0123456789';
 // Consulta que hace la aplicación de MENSADEF al cambiar de célula (de ahí el favorito toma las cabeceras)
 const consultaApp = pg => pg.evaluate(([P, U]) => fetch('https://mensadefapi.mdef.es/api/usuariovista/UsuarioVistaObtener?emailUsuario=persona%40et.mde.es', { headers: { 'Content-Type': 'application/json', passcode: P, user: U } }).catch(() => 0), [PASS, UID]);
@@ -53,10 +53,16 @@ await ctx.route(API + '/**', r => {
     : [{ IdCelula: G1, NombreCelula: 'SETEC SEGURIDAD', TipoCelula: 4 }, { IdCelula: G2, NombreCelula: 'SETEC SECRETARIA', TipoCelula: 4 }, { IdCelula: G4, NombreCelula: 'ET 2SUIGE REGISTRO', TipoCelula: 1 }, { IdCelula: G3, NombreCelula: 'ET 2SUIGE JEFATURA PORTAFIRMAS', TipoCelula: 2 }] });
   // Catálogo de banderas, como el real: [{IdEtiqueta, Nombre, Color}] (la 9 no está: se ve como «Bandera 9»)
   if (ruta === 'etiqueta/EtiquetasObtener') return r.fulfill({ headers: H, json: [{ IdEtiqueta: 1, Nombre: 'Urgente', Color: '#FF0000' }, { IdEtiqueta: 4, Nombre: 'Finalizado', Color: 'verde' }, { IdEtiqueta: 5, Nombre: 'Seguimiento', Color: 'x;}<b>' }] });
+  // Cuerpo del mensaje con sus anexos (como el real: solo responde con el modoVer que usa la aplicación)
+  if (ruta === 'mensaje/ObtenerCuerpo') return q.modoVer !== 'true' ? r.fulfill({ status: 400, headers: H, body: '' }) : r.fulfill({ headers: H, json: { ID: q.id, Cuerpo: 'Texto completo', AnexosFisicos: [{}],
+    AnexosDigitales: [{ Titulo: 'Informe <b>anexo</b>', Nombre: 'informe anexo.pdf', UrlFichero: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id + '/informe anexo.pdf', TipoDocumento: 'Informe', TamanoMB: '0,2', Firma: 'Firmado' },
+      { Titulo: 'Datos', Nombre: 'datos.7z.cif', UrlFichero: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id + '/datos.7z.cif', TamanoMB: '0,1' }] } });
+  if (ruta === 'buzon/BuzonCelulaMensajeLeido') { marcadoLeido++; return r.fulfill({ headers: H, json: {} }); }
   if (ruta === 'buzon/ObtenerBuzonCelula') return r.fulfill({ headers: H, json: bandeja(q.idCelula, q.tipoES, +q.indicePagina, +q.tamanoPagina) });
   r.fulfill({ status: 404, headers: H, body: '' });
 });
 await ctx.route(O + '/**', r => {
+  if (r.request().url().includes('SMDMDMensajesDocumentos')) return r.fulfill({ contentType: /\.cif$/.test(r.request().url()) ? 'application/octet-stream' : 'application/pdf', body: '%PDF-1.4 simulado' });
   const u = decodeURIComponent(r.request().url()), acc = r.request().headers().accept || '';
   if (verbose && acc.includes('nometadata') && u.includes('/_api/')) return r.fulfill({ status: 406, body: '' });
   const J = o => r.fulfill({ contentType: 'application/json', body: JSON.stringify(verbose ? { d: o } : o) });
@@ -131,6 +137,13 @@ if (FINAL) {
   await p.selectOption('#gestorSel', '0'); const [n3] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n3.waitForLoadState();
   console.log('va al mío:', n3.url().split('#')[0], '| aviso:', (await p.textContent('#colabora p.muted')).trim()); await n3.close(); await p.bringToFront();
 }
+// Anexos: lista, abrir (pestaña nueva) y descargar con la sesión; el visor no marca el mensaje como leído
+await p.fill('#buscar', 'RE-5'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(1200);
+console.log('anexos:', (await p.textContent('#adjuntos').catch(() => '-')).replace(/\s+/g, ' ').slice(0, 220), '| ¿HTML del servidor?', !!(await p.$('#adjuntos b b')));
+{ await p.evaluate(() => { const o = window.open; window.open = function (u) { window.__abierto = u; return o.apply(this, arguments); }; }); const [pop] = await Promise.all([ctx.waitForEvent('page'), p.click('#adjuntos [data-anexo="0"][data-modo="abrir"]')]); console.log('url pedida:', decodeURI(await p.evaluate(() => window.__abierto)).replace(O, '')); await pop.close().catch(() => {}); }
+{ const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#adjuntos [data-anexo="1"][data-modo="bajar"]')]); console.log('descargar cifrado →', dl.suggestedFilename(), '| botón abrir en el cifrado:', !!(await p.$('#adjuntos [data-anexo="1"][data-modo="abrir"]'))); }
+console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0);
+await p.fill('#buscar', ''); await p.waitForTimeout(300); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(300);
 // Ficha con los campos pedidos y ampliar
 console.log('ficha:', await p.$$eval('#detalle dl.ficha-campos dt', l => l.map(x => x.textContent).join(', ')), '| otros plegados:', await p.textContent('#detalle details.otros summary').catch(() => '-'));
 await p.click('#ampliar'); console.log('ampliada: tabla oculta', await p.isHidden('#lista'), '|', await p.textContent('#ampliar'));
