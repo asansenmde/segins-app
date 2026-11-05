@@ -466,6 +466,7 @@ async function prueba(verbose, soloAlcance) {
   await p.click('[data-acc=devolverAprob]'); await p.waitForTimeout(200);
   console.log(tag, 'devolver sin obs:', await p.textContent('#accMsg'));
   await p.fill('#pAut input', 'autor'); await p.waitForTimeout(200); await p.click('#pAut [data-sug="0"]'); await p.waitForTimeout(300);
+  console.log(tag, 'autorizador elegido:', (await p.textContent('#pAut .elegido')).replace(/\s+/g, ' '));
   posts.length = 0;
   await p.click('[data-acc=aprobar]'); await p.waitForTimeout(1500);
   const ap = posts.find(x => /items\(1\)/.test(x.ruta)); const cAp = JSON.parse(ap.cuerpo);

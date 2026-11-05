@@ -215,7 +215,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-11-05 · 1';
+  var VERSION = '2026-11-05 · 2';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
   // Copia de pruebas («node proteger.mjs --pruebas» genera permisos-pruebas.html con PRUEBAS = true): trabaja sobre
@@ -1798,7 +1798,7 @@
   function asegurarUsuario(u) {
     if (u.Id) return Promise.resolve(u);
     return enviarSP(web + '/_api/web/ensureuser', { logonName: u.clave }, 'No tienes permiso para añadir a esa persona al sitio').then(function (r) {
-      var x = { Id: r.Id, Title: r.Title || u.Title, Email: r.Email || '' };
+      var x = { Id: r.Id, Title: r.Title || u.Title, Email: r.Email || u.Email || '' };   // si la cuenta no trae correo, el del directorio
       // Cuenta sin correo en Colabora: si la misma persona tiene otra cuenta del sitio con correo, se usa esa (si no, sus avisos no llegan)
       if (!x.Email) {
         var otra = (usuariosSitio || []).filter(function (y) { return y.Id !== x.Id && y.Email && mismasPalabras(y.Title, x.Title); });
@@ -1814,7 +1814,7 @@
     var elegido = inicial || null, espera = null, turno = 0;
     cont.innerHTML = '<input placeholder="Escribe nombre o apellido (3 letras) y elige" autocomplete="off"><div class="sugs" hidden></div><div class="elegido"></div>';
     var input = $('input', cont), caja = $('.sugs', cont), ver = $('.elegido', cont);
-    var pintarElegido = function () { ver.innerHTML = elegido ? '✓ ' + esc(elegido.Title) + ' <a href="#" data-quitar="1">quitar</a>' : '<span class="muted small">Nadie elegido</span>'; };
+    var pintarElegido = function () { ver.innerHTML = elegido ? '✓ ' + esc(elegido.Title) + (elegido.Email ? ' <span class="small muted">· avisos a ' + esc([elegido.Email].concat(elegido.otras || []).join(', ')) + '</span>' : ' <span class="small error">· sin correo en Colabora</span>') + ' <a href="#" data-quitar="1">quitar</a>' : '<span class="muted small">Nadie elegido</span>'; };
     var pintar = function (lst, buscando) {
       caja.lista = lst;
       caja.innerHTML = lst.map(function (u, i) { return '<button type="button" data-sug="' + i + '">' + esc(u.Title) + (u.Email ? ' <span class="small muted">' + esc(u.Email) + '</span>' : '') + '</button>'; }).join('') + (buscando ? '<div class="small muted" style="padding:8px">Buscando en el directorio…</div>' : '');
@@ -1841,7 +1841,10 @@
       var b = e.target.closest('[data-sug]');
       if (b) {
         var u = caja.lista[Number(b.dataset.sug)]; turno++; pintar([]); input.value = '';
-        asegurarUsuario(u).then(function (x) { elegido = x; pintarElegido(); if (alCambiar) alCambiar(x); })
+        asegurarUsuario(u).then(function (x) {
+          // Direcciones de su cuenta y de su perfil: si la cuenta no tiene correo, se usa la del perfil
+          return direccionesDe(x, x.Email).then(function (ds) { if (!x.Email && ds[0]) x.Email = ds[0]; x.otras = ds.filter(function (d) { return d.toLowerCase() !== String(x.Email || '').toLowerCase(); }); return x; }, function () { return x; });
+        }).then(function (x) { elegido = x; pintarElegido(); if (alCambiar) alCambiar(x); })
           .catch(function (er) { ver.innerHTML = '<span class="error">' + esc(er.message || er) + '</span>'; });
       }
       if (e.target.closest('[data-quitar]')) { e.preventDefault(); elegido = null; pintarElegido(); if (alCambiar) alCambiar(null); }
@@ -2301,8 +2304,9 @@
     previo.then(function () { return guardarCambios(t, c, anotarRegistro(HIST[a]) + '. En Estado: ' + c.Estado); }).then(function () {
       var cr = pref.correo && correo ? correoDe(correo, nuevo, obsTxt) : null;
       var envio = !cr ? Promise.resolve(null) : correo === 'aprobado'
-        ? ampliarPara(correoDe('pendienteAut', nuevo, obsTxt), nuevo.aut, nuevo.correoAut).then(function (ca) { return enviarVarios([ca, cr]); })
-        : enviarCorreo(cr);
+        ? ampliarPara(correoDe('pendienteAut', nuevo, obsTxt), nuevo.aut, nuevo.correoAut).then(function (ca) { return ampliarPara(cr, nuevo.sol, nuevo.correoSol).then(function (cs) { return enviarVarios([ca, cs]); }); })
+        : correo === 'devueltaAutor' ? ampliarPara(cr, nuevo.apr, nuevo.correoApr).then(enviarCorreo)
+        : ampliarPara(cr, nuevo.sol, nuevo.correoSol).then(enviarCorreo);
       return envio.then(function (r) {
         return anotarAviso(t.id, r).then(function () {
           if (!conInt || !estInt) return null;

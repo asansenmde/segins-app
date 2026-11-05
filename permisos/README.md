@@ -22,6 +22,12 @@ Ahora:
   del sitio (`getuserbyid`) y la de su perfil (`PeopleManager/GetPropertiesFor`: `Email`, `WorkEmail`). Si una no vale,
   el envío robusto la descarta y lo anota.
 - Igual en «Reenviar el aviso» y en «Recordatorio».
+- **2026-11-05 · 2:**
+  - Al elegir aprobador o autorizador en el buscador, la página busca ya todas sus direcciones y enseña a cuáles irán los
+    avisos («avisos a …»).
+  - Si la cuenta no tiene correo, toma el de su perfil o el del directorio.
+  - Las devoluciones, los rechazos y la autorización también van a todas las direcciones de quien los recibe: al
+    aprobador en «Devuelta al aprobador» y al solicitante en los demás.
 - **Copia protegida** con la protección nueva (compactada, sin etiquetas de página dentro del código; ver `SHAREPOINT.md`).
 
 ## Estado
