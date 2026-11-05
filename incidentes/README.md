@@ -179,3 +179,16 @@ lo envía la cuenta de quien solicita, que aún no tiene permisos, y Colabora pu
 Si se abre dentro de `SitePages/<App>.aspx` (iframe; receta en `SHAREPOINT.md`), los enlaces de los correos llevan
 a esa página con `?id=N`. En Accesos › Preparación, botón para ocultar (o volver a mostrar) la biblioteca donde está
 el `.html`. Prueba: escenario «portal» y «accesos» de la simulación.
+
+## Documentos adjuntos (05/11/2026)
+
+En la ficha, apartado **«Documentos adjuntos»** con cada archivo para abrirlo o descargarlo (`items(n)/AttachmentFiles`);
+la ficha impresa lleva sus nombres.
+
+## Eliminar un registro (05/11/2026)
+
+En la ficha, panel rojo **«Eliminar el registro»**, solo para quien tiene permiso de eliminar elementos en la lista
+(`EffectiveBasePermissions`, bit `DeleteListItems`); a los demás no les sale. Pide confirmación dentro de la ficha y
+lo manda a la **papelera de reciclaje** de Colabora (`items(n)/recycle()`), desde donde se puede restaurar. Ojo: con el
+nivel «Colaborar» Colabora deja eliminar a todos los miembros; para que solo eliminen algunos, darles a los demás un
+nivel de permiso sin «Eliminar elementos». Prueba: escenario «adjuntos y eliminar» de la simulación.

@@ -14,6 +14,7 @@ const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(9,
 let biblioOculta = false;
 // Colabora que rechaza direcciones («destinatario válido»): buzonMal = direcciones o cuentas rechazadas; enviados = las que acepta
 let buzonMal = [], enviados = [], correoDenegado = false;
+let reciclados = [];
 const NOMBRE_DE = { 'sur1@et.mde.es': 'SUR UNO', 'sur2@et.mde.es': 'SUR DOS', 'nor1@et.mde.es': 'NOR UNO', 'can1@et.mde.es': 'CAN UNO', 'diacu1@et.mde.es': 'DIACU UNO', 'ige1@et.mde.es': 'IGE UNO', 'admin1@et.mde.es': 'ADMIN UNO' };
 const CUENTAS_NUEVAS = [{ Id: 301, Title: 'Uno, Ige', Email: 'ige1b@et.mde.es' }];   // otra cuenta (con buzón) de IGE UNO
 let expandRoto = false, faltaCampo = null, items, misGrupos = [], admin = false, sinSubstringof = false, ultimoFiltro = '', lecturaMinima = '';
@@ -117,7 +118,9 @@ async function prueba(verbose, escenario) {
       const gu = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users(\/removebyid\((\d+)\))?/);
       if (gu) { if (gu[3]) unidades = unidades.filter(x => x.Id !== +gu[3]); else anadidos.push({ grupo: gu[1], login: JSON.parse(req.postData()).LoginName }); return r.fulfill({ status: 200, json: { d: {} } }); }
       const ad = resto.match(/items\((\d+)\)\/AttachmentFiles\/add\(FileName='([^']+)'\)/);
-      if (ad) { items.find(x => x.Id === +ad[1]).Attachments = true; return r.fulfill({ json: { d: { FileName: ad[2] } } }); }
+      if (ad) { const it = items.find(x => x.Id === +ad[1]); it.Attachments = true; (it.Adjuntos ||= []).push(ad[2]); return r.fulfill({ json: { d: { FileName: ad[2] } } }); }
+      const rc = resto.match(/items\((\d+)\)\/recycle\(\)/);
+      if (rc) { if (!admin) return r.fulfill({ status: 403, json: { error: { message: { value: 'Access denied' } } } }); items = items.filter(x => x.Id !== +rc[1]); reciclados.push(+rc[1]); return r.fulfill({ json: { d: { Recycle: 'guid' } } }); }
       const mi = resto.match(/items\((\d+)\)/);
       if (mi) {
         const it = items.find(x => x.Id === +mi[1]);
@@ -155,6 +158,7 @@ async function prueba(verbose, escenario) {
     }
     const g = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users/);
     if (g) return MIEMBROS[g[1]] ? J({ value: MIEMBROS[g[1]].map(e => ({ Id: 200 + Object.keys(NOMBRE_DE).indexOf(e), Title: NOMBRE_DE[e] || e, Email: e })) }) : r.fulfill({ status: 404, body: '' });
+    { const af = resto.match(/items\((\d+)\)\/AttachmentFiles/); if (af) { const it = items.find(x => x.Id === +af[1]); return J({ value: ((it && it.Adjuntos) || []).map(n => ({ FileName: n, ServerRelativeUrl: WEB + '/Lists/INTRUSIONES/Attachments/' + it.Id + '/' + n })) }); } }
     const mi = resto.match(/items\((\d+)\)/);
     if (mi) { const it = items.find(x => x.Id === +mi[1]); return r.fulfill({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, ...it } } }); }
     const aux = resto.match(/getbytitle\('(PROVINCIAS|M1N|M2N|M3N|empleos)'\)\/items/);
@@ -291,6 +295,20 @@ async function prueba(verbose, escenario) {
     }
     correoDenegado = false;
     await b.close(); return;
+  }
+  if (escenario === 'adjuntos y eliminar') {
+    items.find(x => x.Id === 3).Adjuntos = ['parte firmado.pdf', 'foto valla.jpg']; items.find(x => x.Id === 3).Attachments = true;
+    await p.evaluate(() => { const a = document.createElement('a'); a.className = 'inc'; a.dataset.id = '3'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(800);
+    console.log(tag, '| adjuntos de la 3:', await p.$$eval('#detAdj a', n => n.map(x => x.textContent.trim() + ' → ' + x.getAttribute('href').replace('https://colabora.mdef.es', '')).join(' · ')), '| botón eliminar (admin=' + admin + '):', await p.$$eval('#dlg [data-borrar]', n => n.length));
+    if (admin) {
+      await p.click('#dlg [data-borrar]'); await p.waitForTimeout(200);
+      console.log(tag, '| confirmación:', (await p.textContent('#borrarPanel .confirma')).replace(/\s+/g, ' ').slice(0, 90));
+      await p.click('#dlg [data-borrarno]'); await p.waitForTimeout(150);
+      console.log(tag, '| cancelar deja el botón:', await p.$$eval('#dlg [data-borrar]', n => n.length));
+      await p.click('#dlg [data-borrar]'); await p.waitForTimeout(150); await p.click('#dlg [data-borrarok]'); await p.waitForTimeout(1200);
+      console.log(tag, '| eliminado:', reciclados.join(','), '| ficha cerrada:', !(await p.evaluate(() => document.querySelector('#dlg').open)), '| resultado:', (await p.textContent('#vista .resultado').catch(() => '')).replace(/\s+/g, ' ').slice(0, 110));
+    }
+    console.log(tag, '| errores:', errs); await b.close(); return;
   }
   if (escenario === 'solo SEGURIDAD_IGE') { await p.click('#tabs a[data-v=panel]'); await p.waitForTimeout(200); }
   await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(200);
@@ -463,7 +481,7 @@ const TODOS = ['SEGURIDAD_SUIGESUR', 'SEGURIDAD_SUIGENOR', 'SEGURIDAD_SUIGECAN',
 misGrupos = TODOS; admin = true; await prueba(false, 'control total'); sinEmpleos = true; rechazaFrom = true; grupoUnico = true; await prueba(true, 'control total'); sinEmpleos = false; rechazaFrom = false; grupoUnico = false;
 misGrupos = ['SEGURIDAD_SUIGESUR', 'Integrantes de la Colaborativo']; admin = false; await prueba(false, 'solo SUIGESUR'); await prueba(true, 'plazo DIACU');
 sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstringof = false;
-misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'IGE valora'); await prueba(true, 'IGE valora'); if (process.env.SOLO_IGE) process.exit(0); await prueba(false, 'solo SEGURIDAD_IGE'); await prueba(false, 'informe'); await prueba(true, 'informe');
+misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'adjuntos y eliminar'); admin = true; await prueba(false, 'adjuntos y eliminar'); await prueba(true, 'adjuntos y eliminar'); admin = false; await prueba(false, 'IGE valora'); await prueba(true, 'IGE valora'); if (process.env.SOLO_IGE) process.exit(0); await prueba(false, 'solo SEGURIDAD_IGE'); await prueba(false, 'informe'); await prueba(true, 'informe');
 misGrupos = ['SEGURIDAD_SUIGESUR']; admin = true; await prueba(false, 'Control total y solo SUIGESUR'); admin = false;
 misGrupos = []; await prueba(false, 'solo información'); await prueba(true, 'solo información'); await prueba(false, 'sin acceso'); await prueba(true, 'sin acceso'); await prueba(false, 'provisional');
 misGrupos = TODOS; admin = true; await prueba(false, 'correo rechazado'); await prueba(true, 'correo rechazado'); admin = false;

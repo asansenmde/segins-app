@@ -180,6 +180,8 @@
   button.ige { background: #38761d; color: #fff; border-color: #38761d; }
   @media (max-width: 600px) { .barras { grid-template-columns: 40% 1fr auto; } }
   .confirma { background: #fff4d6; border: 2px solid #c8961e; border-radius: 10px; padding: 10px 12px; margin: 8px 0; color: #3d2a00; }
+  .panel.borrar { border: 2px dashed var(--bad); }
+  ul.adjs { list-style: none; padding: 0; margin: 4px 0; } ul.adjs li { padding: 4px 0; border-bottom: 1px solid var(--line); } ul.adjs a { text-decoration: none; font-weight: 600; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -225,7 +227,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-27 · 1';
+  var VERSION = '2026-11-05 · 1';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -1324,9 +1326,30 @@
   // ---------- Ficha ----------
   var dlgId = null, detalle = {};
   var CAMPOS_TEXTO = TEXTOS.map(function (x) { return x[0]; }).concat(['VALORACIONSUIGES', 'VALORACIONDIACU', 'valoracionIGE', 'ObservacionesDelExpediente']);
+  // ---------- Eliminar un registro (solo quien tiene permiso para eliminar elementos de la lista en Colabora) ----------
+  // Va a la papelera de reciclaje de Colabora (se puede restaurar desde allí). Quien no puede eliminar no ve el botón.
+  var puedeBorrar = function () { var p = listaInfo && listaInfo.EffectiveBasePermissions; return !!p && ((Number(p.Low) || 0) & 0x8) !== 0; };
+  var borrando = null;
+  function panelBorrar(t) {
+    if (!puedeBorrar()) return '<div id="borrarPanel"></div>';
+    return '<div id="borrarPanel" class="panel borrar"><h3>Eliminar el registro</h3><p class="small muted">Lo ves porque tienes permiso para eliminar elementos de esta lista en Colabora. Va a la papelera de reciclaje de Colabora, desde donde se puede restaurar.</p>' +
+      (borrando === t.id ? '<div class="confirma"><b>Nº ' + t.id + ': ¿seguro que quieres eliminarlo?</b><br>Desaparecerá de la página para todos.<div class="acciones"><button class="peligro" data-borrarok="' + t.id + '">🗑 Sí, eliminarlo</button><button data-borrarno="1">Cancelar</button></div></div>' :
+        '<div class="acciones"><button class="peligro" data-borrar="' + t.id + '">🗑 Eliminar este registro</button></div>') + '<div id="borrarMsg"></div></div>';
+  }
+  function eliminarRegistro(t, boton) {
+    if (!puedeBorrar()) return;
+    boton.disabled = true;
+    enviarSP(urlLista() + '/items(' + t.id + ')/recycle()', {}, 'No tienes permiso para eliminar este registro').then(function () {
+      items = items.filter(function (x) { return x.id !== t.id; }); borrando = null;
+      $('#dlg').close(); dlgId = null;
+      resultadoTramite = { cls: 'okmsg', html: '✓ Nº ' + t.id + ' eliminado: está en la papelera de reciclaje de Colabora, desde donde se puede restaurar.' };
+      render(); aviso('Nº ' + t.id + ' eliminado'); window.scrollTo(0, 0);
+    }).catch(function (e) { boton.disabled = false; var m = $('#borrarMsg'); if (m) m.innerHTML = '<div class="error">No se pudo eliminar: ' + esc(e.message || String(e)) + '</div>'; });
+  }
   function abrir(id, msg) {
     var t = items.find(function (x) { return x.id === id; });
     if (!t) return;
+    if (dlgId !== id) borrando = null;
     dlgId = id;
     var sn = function (v) { return v === true ? 'Sí' : v === false ? 'No' : ''; };
     var datos = [['Fase', faseTxt(t)], ['Estado en la lista', t.estadoRaw], ['Tipo de incidente', t.tipo], ['Fecha del incidente', fCorta(t.fecha)], ['Provincia', t.provincia],
@@ -1344,13 +1367,20 @@
       '<div class="sec" style="margin-top:0"><span>Datos del parte</span></div>' +
       datos.filter(function (x) { return x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       '<div class="sec"><span>Descripción</span></div><div id="detTextos"><p class="muted small">Cargando…</p></div>' +
+      '<div class="sec"><span>Documentos adjuntos</span></div><div id="detAdj"><p class="muted small">Cargando…</p></div>' +
       '<div class="acciones"><button data-fichaimp="' + t.id + '">🖨 Imprimir ficha / PDF</button>' +
       (listaInfo.DefaultDisplayFormUrl ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(location.origin + listaInfo.DefaultDisplayFormUrl + '?ID=' + t.id) + '">Abrir en Colabora' + (t.adjuntos ? ' (adjuntos)' : '') + '</a>' : '') +
       (listaInfo.DefaultEditFormUrl && esGestor ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(location.origin + listaInfo.DefaultEditFormUrl + '?ID=' + t.id) + '">✎ Formulario InfoPath</a>' : '') + '</div>' +
-      '</div><div><div class="sec" style="margin-top:0"><span>Valoraciones y seguimiento</span></div><div id="detVal"><p class="muted small">Cargando…</p></div><div id="detAcc">' + panelAcciones(t) + '</div></div></div></div>';
+      '</div><div><div class="sec" style="margin-top:0"><span>Valoraciones y seguimiento</span></div><div id="detVal"><p class="muted small">Cargando…</p></div><div id="detAcc">' + panelAcciones(t) + '</div>' + panelBorrar(t) + '</div></div></div>';
     dlg.showModal(); dlg.scrollTop = 0;
     leerElemento(t.id, CAMPOS_TEXTO).then(function (x) {
       var d = x.datos; detalle[t.id] = d;
+      leerAdjuntos(t.id).then(function (l) {
+        d.__adj = l;
+        var a = $('#detAdj'); if (!a || dlgId !== t.id) return;
+        a.innerHTML = l.length ? '<ul class="adjs">' + l.map(function (f) { return '<li><a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + iconoAdj(f.nombre) + ' ' + esc(f.nombre) + '</a></li>'; }).join('') +
+          '</ul><p class="small muted">Se abren en una pestaña nueva (o se descargan, según el tipo de archivo).</p>' : '<p class="small muted">Sin documentos adjuntos.</p>';
+      }, function () { var a = $('#detAdj'); if (a) a.innerHTML = '<p class="small muted">No se pudieron leer los adjuntos. Ábrelos con «Abrir en Colabora».</p>'; });
       var el = $('#detTextos'); if (!el || dlgId !== t.id) return;
       el.innerHTML = TEXTOS.map(function (k) { var v = texto(d[k[0]]); return '<b class="small muted">' + esc(k[1]) + '</b><div class="texto">' + (v ? esc(v) : '<span class="muted">—</span>') + '</div>'; }).join('');
       // Como en el InfoPath: la valoración SUIGE se ve fuera de BORRADOR; las de DIACU e IGE, a partir de REMITIDO A DIACU
@@ -1367,6 +1397,13 @@
       Array.prototype.forEach.call(document.querySelectorAll('#detAcc textarea[data-campo]'), function (ta) { if (!ta.value) ta.value = texto(d[ta.dataset.campo]); });
     }).catch(function () { var el = $('#detTextos'); if (el) el.innerHTML = '<p class="muted small">No se pudieron leer los textos.</p>'; });
   }
+  // Documentos adjuntos del elemento: nombre y dirección para abrirlos
+  function leerAdjuntos(id) {
+    return todas(urlLista() + '/items(' + id + ')/AttachmentFiles?$select=FileName,ServerRelativeUrl').then(function (l) {
+      return l.map(function (f) { return { nombre: f.FileName || '', url: location.origin + encodeURI(f.ServerRelativeUrl || '') }; }).filter(function (f) { return f.nombre; });
+    });
+  }
+  var iconoAdj = function (n) { var e = String(n).split('.').pop().toLowerCase(); return /^(jpe?g|png|gif|bmp|heic|webp)$/.test(e) ? '🖼️' : e === 'pdf' ? '📕' : /^(docx?|odt|rtf)$/.test(e) ? '📝' : /^(xlsx?|ods|csv)$/.test(e) ? '📊' : /^(msg|eml)$/.test(e) ? '✉️' : '📎'; };
   var soy = function (p) { return !!(p && yo && p.Id === yo.Id); };
   var puedeAnotar = function (t) { return esGestor || esDiacu || esIge || esMiSuige(t); };
   // Paneles de cada papel con los botones del InfoPath
@@ -1516,7 +1553,7 @@
     var cuerpo = '<h3>DATOS DEL PARTE</h3>' + tabla([['Nº de incidente', String(t.id)], ['Tipo de incidente', t.tipo], ['Fecha del incidente', fCorta(t.fecha)], ['Provincia', t.provincia],
         ['Unidad / lugar', t.lugar], ['SUIGE', t.suige], ['Cadena de mando', t.cadena.join(' - ')], ['Empleo', t.empleo], ['Responsable de la información', t.resp && t.resp.Title],
         ['Responsable del parte', t.respParte], ['Probabilidad', t.prob], ['¿Reiterada?', t.reiterada], ['Zona señalizada', sn(t.zona)], ['Denuncia', t.denuncia ? 'Sí' + (t.ndenuncia ? ' · Nº ' + t.ndenuncia : '') : 'No']]) +
-      '<h3>DESCRIPCIÓN</h3>' + tabla(TEXTOS.map(function (k) { return [k[1], texto(d[k[0]])]; })) +
+      '<h3>DESCRIPCIÓN</h3>' + tabla(TEXTOS.map(function (k) { return [k[1], texto(d[k[0]])]; }).concat([['Documentos adjuntos', d.__adj ? d.__adj.map(function (f) { return f.nombre; }).join('\n') : '']])) +
       '<h3>VALORACIONES Y SEGUIMIENTO</h3>' + tabla([['Situación', faseTxt(t)], ['Valoración SUIGE', texto(d.VALORACIONSUIGES)], ['Valoración DIACU', texto(d.VALORACIONDIACU)],
         ['Valoración IGE', texto(d.valoracionIGE)], ['Observaciones e historial', texto(d.ObservacionesDelExpediente)], ['Alta', fHora(t.creado) + (t.autor ? ' · ' + t.autor.Title : '')]]) +
       '<div class="firmas"><div>Responsable de la información</div><div>SUIGE</div><div>DIACU / IGE</div></div>';
@@ -2067,6 +2104,9 @@
     if (el.closest('[data-limpiar]')) { pref.f = { q: '', fase: '', tipo: '', suige: '', prob: '', desde: '', hasta: '' }; guardarPref(); render(); return; }
     var fi = el.closest('[data-fichaimp]');
     if (fi) { var tf = items.find(function (x) { return x.id === Number(fi.dataset.fichaimp); }); if (tf) imprimirFicha(tf); return; }
+    var bo = el.closest('[data-borrar]'), bk = el.closest('[data-borrarok]');
+    if (bo || el.closest('[data-borrarno]')) { var tb = items.find(function (x) { return x.id === dlgId; }); borrando = bo ? Number(bo.dataset.borrar) : null; if (tb && $('#borrarPanel')) $('#borrarPanel').outerHTML = panelBorrar(tb); return; }
+    if (bk) { var tb2 = items.find(function (x) { return x.id === Number(bk.dataset.borrarok); }); if (tb2) eliminarRegistro(tb2, bk); return; }
     var ak = el.closest('[data-accok]');
     if (ak) { var tk = items.find(function (x) { return x.id === dlgId; }); if (tk) accion(tk, ak.dataset.accok, ak, true); return; }
     if (el.closest('[data-acccancel]')) { var cc = el.closest('.confirma'); if (cc) cc.remove(); Array.prototype.forEach.call(document.querySelectorAll('#detAcc .acciones'), function (x) { x.hidden = false; }); return; }
