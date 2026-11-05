@@ -325,7 +325,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-06 · 1';
+  var VERSION = '2026-11-06 · 2';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -854,7 +854,7 @@
     return { _api: true, _x: x, ID: kid ? e[kid] : '', MensajeId: kid ? String(e[kid]) : '', _asunto: val('asunto', CLAVES_API.asunto), MensajeFecha: fecha, MensajeEstado: val('estado', CLAVES_API.estado),
       MensajeTipo_es: val('tipo', CLAVES_API.tipo), MensajeNombre_Autoridad: val('remitente', CLAVES_API.remitente), MensajeNum_referencia: val('referencia', CLAVES_API.referencia, CLAVES_API.referencia2),
       MensajeSu_referencia: val('suReferencia', /^sref$|su_?ref/i), MensajeNum_expediente: val('', CLAVES_API.expediente),
-      _leido: typeof e.Leido === 'boolean' ? e.Leido : undefined, _bandera: bandera,
+      _leido: typeof e.Leido === 'boolean' ? e.Leido : undefined, _bandera: bandera, _idBuzon: e.IdBuzonCelula || e.idBuzonCelula || '',
       Attachments: kadj ? siNo(e[kadj]) : false, _cuerpoApi: kc ? texto(String(e[kc])) : '',
       _enlace: location.origin + location.pathname + '#/celula/' + encodeURIComponent(celula.nombre) + '/' + celula.id,
       _lista: { id: 'api', sitio: celula, titulo: 'tipoES ' + es + ' de ' + celula.nombre } };
@@ -941,13 +941,17 @@
   var modoVerBueno = null;
   function cuerpoCompleto(m) {
     if (m._cuerpoCompleto) return Promise.resolve(m._cuerpoCompleto);
-    var cands = modoVerBueno ? [modoVerBueno] : ['true', '1', 'false', '0'];
+    var cands = modoVerBueno ? [modoVerBueno] : ['true', '1', 'false', '0', '2'], intentos = [];
+    // Primero ObtenerCuerpo; si no da anexos, ObtenerCuerpoValidadoCelula (la que usa MENSADEF desde la bandeja de la célula)
+    var rutas = [['mensaje/ObtenerCuerpo', {}]].concat(m._x && m._idBuzon ? [['mensaje/ObtenerCuerpoValidadoCelula', { idBuzonCelula: m._idBuzon }]] : []);
     var probar = function (i) {
-      if (i >= cands.length) return Promise.reject(new Error('MENSADEF no ha devuelto los anexos'));
-      return pedirApi('mensaje/ObtenerCuerpo', { emailUsuario: apiCtx.email, urlColeccionSitio: apiCtx.url, id: m.MensajeId, modoVer: cands[i] }).then(function (j) {
-        if (j && (Array.isArray(j.AnexosDigitales) || Array.isArray(j.AnexosFisicos))) { modoVerBueno = cands[i]; m._cuerpoCompleto = j; return j; }
+      var r = rutas[Math.floor(i / cands.length)], mv = cands[i % cands.length];
+      if (!r) { var e = new Error('MENSADEF no ha devuelto los anexos: ' + intentos.join('; ')); return Promise.reject(e); }
+      return pedirApi(r[0], Object.assign({ emailUsuario: apiCtx.email, urlColeccionSitio: apiCtx.url, id: m.MensajeId, modoVer: mv }, r[1])).then(function (j) {
+        if (j && (Array.isArray(j.AnexosDigitales) || Array.isArray(j.AnexosFisicos))) { modoVerBueno = mv; m._cuerpoCompleto = j; return j; }
+        intentos.push(r[0].split('/')[1] + ' modoVer=' + mv + ' → sin lista de anexos (' + (j && typeof j === 'object' ? Object.keys(j).slice(0, 6).join(',') : typeof j) + ')');
         return probar(i + 1);
-      }, function () { return probar(i + 1); });
+      }, function (e) { intentos.push(r[0].split('/')[1] + ' modoVer=' + mv + ' → ' + (e.status ? 'HTTP ' + e.status : (e.message || e))); return probar(i + 1); });
     };
     return probar(0);
   }
@@ -1374,7 +1378,7 @@
       m._cuerpo = m._cuerpoApi || Object.keys(m._x).filter(function (k) { return k !== '__es'; }).map(function (k) { return EXTRA[k].titulo + ': ' + m._x[k]; }).join('\n');
       $('cuerpo').textContent = m._cuerpoApi || '(La bandeja no trae el texto: ábrelo en MENSADEF.)';
       $('aColabora').disabled = false;
-      if (m.Attachments) pintarAnexos(m);
+      pintarAnexos(m);   // siempre: la marca de anexos de la bandeja puede venir con otro valor
       return;
     }
     api(base + '?$select=MensajeCuerpo', l.web).then(function (d) {

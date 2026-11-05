@@ -165,3 +165,7 @@ con el formato *verbose* de SharePoint 2013.
   la que MENSADEF marca el mensaje como leído al abrirlo.
 - **Escucha v7:** tapa los nombres de archivo en las rutas (solo deja la extensión). La v6 los dejaba ver: corregido.
   Enseña los valores cortos de modo o estado (`true`, `false` o un número de 1 o 2 cifras).
+- **2026-11-06 · 2:**
+  - Los anexos se piden siempre al abrir un mensaje, sin depender de la marca `ContieneAnexos` de la bandeja.
+  - Si `ObtenerCuerpo` no da la lista, se prueba `ObtenerCuerpoValidadoCelula` (con `idBuzonCelula`).
+  - Si nada funciona, el aviso dice qué respondió cada intento (ruta, `modoVer` y código o campos, sin contenido).
