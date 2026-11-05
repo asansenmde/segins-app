@@ -153,3 +153,7 @@ con el formato *verbose* de SharePoint 2013.
   en el favorito. Lo compacta (nombres internos cambiados, sin espacios ni comentarios), lo bloquea a `*.mdef.es` y no
   deja etiquetas de página dentro del código. La primera vez hace falta `cd mensadef/proteger && npm install`. El
   original legible es `visor-mensadef.html`.
+- **Escucha versión 6 (05/11/2026):** además de las consultas, anota cómo se abren los anexos: ventanas nuevas, enlaces
+  pulsados (o abiertos por código, con descarga o no), archivos creados en la página (`blob`, solo el tipo) y respuestas
+  que son archivos (solo el tipo, p. ej. `application/pdf`). Siempre solo la ruta y los nombres de los parámetros, nunca
+  los valores, nombres de archivo ni contenido. Es para el punto 1: ver los anexos en el visor.

@@ -6,7 +6,7 @@
 (function () {
   'use strict';
   if (window.__escuchaMensadef) { window.__escuchaMensadef(); return; }
-  var VERSION = 5; // se ve en el recuadro y en el resumen, para saber qué favorito se ha pulsado
+  var VERSION = 6; // se ve en el recuadro y en el resumen, para saber qué favorito se ha pulsado
   var reg = [], indice = {};
   try { performance.setResourceTimingBufferSize(5000); } catch (e) { /* sin registro de recursos */ }
 
@@ -73,6 +73,8 @@
     return out.length ? 'objeto ' + describir(d, 0) : '';
   }
   function resumirRespuesta(txt, tipo) {
+    // Archivos (anexos): solo el tipo, nunca el contenido
+    if (tipo && !/json|xml|text|html|javascript/i.test(tipo)) return 'archivo: ' + String(tipo).split(';')[0];
     if (!txt) return '';
     if (/xml/.test(tipo || '') || /^\s*</.test(txt)) {
       var et = {}; String(txt).replace(/<([A-Za-z][\w:]*)/g, function (m, n) { et[n] = (et[n] || 0) + 1; });
@@ -159,6 +161,22 @@
     return send0.apply(this, arguments);
   };
 
+  // v6: cómo abre la aplicación un anexo: ventanas nuevas, enlaces pulsados y archivos creados en la página (blob).
+  // Solo la ruta y los NOMBRES de los parámetros (limpiarUrl), el tipo de archivo y si es descarga; nunca nombres ni contenido.
+  var acciones = [];
+  var anotarAccion = function (t) { if (acciones.indexOf(t) < 0) { acciones.push(t); pintar(); } };
+  var rutaSegura = function (u) { u = String(u || ''); return /^blob:/i.test(u) ? 'blob (archivo creado en la página)' : /^data:/i.test(u) ? 'data: (' + u.slice(5, u.indexOf(';') > 0 ? u.indexOf(';') : 30) + ')' : /^javascript:/i.test(u) ? 'javascript:' : limpiarUrl(u); };
+  var wo0 = window.open;
+  window.open = function (u) { anotarAccion('VENTANA NUEVA → ' + rutaSegura(u)); return wo0.apply(this, arguments); };
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest && e.target.closest('a[href]');
+    if (a && !a.closest('#escuchaMensadef')) anotarAccion('ENLACE PULSADO → ' + rutaSegura(a.getAttribute('href')) + (a.hasAttribute('download') ? ' (descarga)' : '') + (a.target ? ' (target ' + a.target + ')' : ''));
+  }, true);
+  var cou0 = URL.createObjectURL;
+  URL.createObjectURL = function (b) { try { anotarAccion('ARCHIVO CREADO EN LA PÁGINA (blob) · tipo ' + ((b && b.type) || 'sin tipo') + (b && b.size ? ' · ' + (b.size > 1048576 ? 'más de 1 MB' : 'menos de 1 MB') : '')); } catch (er) { /* nada */ } return cou0.apply(this, arguments); };
+  var aclick0 = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function () { anotarAccion('ENLACE ABIERTO POR CÓDIGO → ' + rutaSegura(this.getAttribute('href')) + (this.hasAttribute('download') ? ' (descarga)' : '')); return aclick0.apply(this, arguments); };
+
   // Consultas que aparecen en el registro del navegador mientras se escucha (aunque la aplicación use su propia copia
   // de fetch y no pasen por la escucha): solo la ruta
   var nuevas = [], vistasRegistro = {};
@@ -217,6 +235,7 @@
 
   // Recuadro en la esquina (no tapa la aplicación)
   var caja = document.createElement('div');
+  caja.id = 'escuchaMensadef';
   caja.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:2147483647;width:420px;max-width:calc(100vw - 24px);background:#fff;color:#1f261f;border:3px solid #b71c1c;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.3);font:13px/1.4 system-ui,"Segoe UI",sans-serif;padding:10px 12px';
   document.body.appendChild(caja);
   var minimizado = false;
@@ -225,12 +244,13 @@
       .concat(antes.length ? ['ANTES DE ESCUCHAR (solo rutas):'].concat(antes.map(function (x) { return '- ' + x; }), ['', 'MIENTRAS ESCUCHABA:']) : [])
       .concat(reg.map(function (r) { return '- ' + r.k + (r.n > 1 ? ' ×' + r.n : '') + ' → ' + (r.estado || '?') + (r.cab ? ' (' + r.cab + ')' : '') + (r.cuerpo ? '\n    envía: ' + r.cuerpo : '') + (r.resp ? '\n    recibe: ' + r.resp : ''); }))
       .concat(nuevas.length ? ['', 'EN EL REGISTRO MIENTRAS ESCUCHABA (no pasaron por la escucha; solo rutas):'].concat(nuevas.map(function (x) { return '- ' + x; })) : [])
+      .concat(acciones.length ? ['', 'VENTANAS, ENLACES Y ARCHIVOS (solo rutas y tipos):'].concat(acciones.map(function (x) { return '- ' + x; })) : [])
       .concat(codigo.length ? ['', 'CÓDIGO DE LA APLICACIÓN (fragmentos; textos largos tapados):'].concat(codigo) : []).join('\n');
   }
   function pintar() {
     caja.innerHTML = '<b style="color:#b71c1c">● Escuchando MENSADEF · versión ' + VERSION + '</b> · ' + reg.length + ' consultas anotadas' + (nuevas.length ? ', ' + nuevas.length + ' en el registro' : '') + (codigo.length ? ', código analizado' : '') +
       (minimizado ? ' <button type="button" data-a="ver">Ver</button>' :
-        '<p style="margin:6px 0">1. Ve a tu célula y abre tu <b>bandeja de mensajes</b> (cambia de célula o de carpeta para que se vuelvan a cargar).<br>2. Cuando veas tus mensajes, pulsa <b>Copiar</b> y pégalo en la conversación. Solo lleva rutas y nombres de campos, sin valores.</p>' +
+        '<p style="margin:6px 0">1. Ve a tu célula y abre tu <b>bandeja de mensajes</b> (cambia de célula o de carpeta para que se vuelvan a cargar). Para los <b>anexos</b>: abre un mensaje que tenga anexo y pulsa el anexo para verlo o descargarlo.<br>2. Cuando veas tus mensajes, pulsa <b>Copiar</b> y pégalo en la conversación. Solo lleva rutas y nombres de campos, sin valores.</p>' +
         '<textarea readonly style="width:100%;height:140px;font:11px monospace"></textarea>' +
         '<div style="display:flex;gap:6px;margin-top:6px"><button type="button" data-a="codigo">Analizar el código de MENSADEF</button><button type="button" data-a="copiar">Copiar</button><button type="button" data-a="min">Minimizar</button><button type="button" data-a="cerrar">Cerrar</button></div>');
     var ta = caja.querySelector('textarea'); if (ta) ta.value = texto();

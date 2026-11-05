@@ -122,7 +122,10 @@ ESCUCHAR = ('escuchar-mensadef.js', 'marcador-escuchar-mensadef.html', 'Escuchar
              'Pulsa el favorito <b>Escuchar MENSADEF</b>: sale un recuadro con borde rojo abajo a la derecha.',
              'Ahora, sin recargar, entra en tu célula y abre tu <b>bandeja de mensajes</b>; cambia de célula o de carpeta para '
              'que se vuelvan a cargar.',
-             'Cuando veas tus mensajes, pulsa <b>Copiar</b> en el recuadro y pégalo en la conversación.',
+             'Para los <b>anexos</b> (versión 6): abre un mensaje que tenga anexo (📎) y pulsa el anexo para verlo o '
+             'descargarlo, como haces normalmente. Se anota solo cómo lo pide (ruta, nombres de los campos, tipo de archivo), nunca '
+             'el nombre ni el contenido del anexo.',
+             'Cuando hayas terminado, pulsa <b>Copiar</b> en el recuadro y pégalo en la conversación.',
              'Para quitarlo, recarga la página (F5).'])
 
 if '--pruebas' in sys.argv:

@@ -59,4 +59,16 @@ console.log(cod);
 console.log('¿código con clave, token o correo?', /ABCDEF0123|soporte@|eyJ/.test(cod));
 await p.click('[data-a="min"]'); console.log('minimizado:', (await p.textContent('div[style*="2147483647"]')).slice(0, 60));
 await p.evaluate(codigo); console.log('segunda pulsación lo vuelve a mostrar:', await p.isVisible('div[style*="2147483647"] textarea'));
+// v6: anexos por ventana nueva, enlace con descarga, archivo creado en la página y respuesta PDF (sin valores)
+await p.route(API + '/api/anexo/**', r => r.fulfill({ status: 200, headers: { 'Access-Control-Allow-Origin': O, 'Content-Type': 'application/pdf' }, body: '%PDF-1.4 SECRETO-ANEXO' }));
+p.on('popup', pp => pp.close().catch(() => {}));
+await p.evaluate(A => {
+  window.open(A + '/api/anexo/Descargar?idAnexo=777&nombre=INFORME-SECRETO.pdf', '_blank');
+  const a = document.createElement('a'); a.href = A + '/api/anexo/Descargar?idAnexo=778'; a.download = 'SECRETO.pdf'; a.textContent = 'x'; document.body.append(a);
+  a.addEventListener('click', e => e.preventDefault()); a.click();
+  URL.createObjectURL(new Blob(['%PDF SECRETO'], { type: 'application/pdf' }));
+  return fetch(A + '/api/anexo/Obtener?idAnexo=779').then(r => r.text());
+}, API); await p.waitForTimeout(800);
+const txt6 = await p.inputValue('div[style*="2147483647"] textarea');
+console.log('v6:', txt6.split('VENTANAS, ENLACES Y ARCHIVOS')[1]?.replace(/\n/g, ' | ').slice(0, 400), '| PDF:', /anexo\/Obtener[^\n]*\n\s*recibe: archivo: application\/pdf/.test(txt6), '| ¿valores?', /777|778|779|SECRETO/.test(txt6));
 await b.close();
