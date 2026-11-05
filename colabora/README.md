@@ -35,6 +35,9 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-05 · 2:** la copia `--propio` se presenta como **«GESTIÓN DE EXPEDIENTES MENSADEF»**, en azul marino y
+  oro (cabecera con emblema y subtítulo, bienvenida, pestañas y botones), para no confundirla con el Gestor común, que es
+  verde. Pendiente, aparcado por el usuario: control de acceso por perfil y negociado (análisis hecho el 05/11/2026).
 - **Versión 2026-11-05 · 1: estado del asunto.**
   - **En la ficha:** «✅ Finalizar» (o «↺ Reabrir» si ya está terminado), «Cambiar estado» a cualquiera de los de la
     lista y «🗑 Eliminar».

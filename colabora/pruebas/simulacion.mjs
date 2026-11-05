@@ -4,6 +4,7 @@ const { chromium } = require(require('child_process').execSync('npm root -g').to
 const fs = require('fs');
 // TAREAS_HTML=colabora/colabora/tareas-nlt-colabora.html para probar la versión protegida; VERBOSE=1 para SharePoint 2013 (odata=verbose)
 const html0 = fs.readFileSync(process.env.TAREAS_HTML ? process.env.TAREAS_HTML : new URL('../tareas-nlt-colabora.html', import.meta.url), 'utf8'); const html = html0;
+const CLAVE = /mensadef/.test(process.env.TAREAS_HTML || '') ? 'tareas-nlt-colabora-mensadef' : /pruebas/.test(process.env.TAREAS_HTML || '') ? 'tareas-nlt-colabora-pruebas' : 'tareas-nlt-colabora';
 const VERBOSE = !!process.env.VERBOSE, CAPTURAS = process.env.CAPTURAS || '';
 const aVerbose = j => j && !j.d && !j.error ? (Array.isArray(j.value) ? { d: { results: j.value, __next: j['odata.nextLink'] } } : { d: j }) : j;
 const WEB = '/et/SUIGESUR/JSUIGE';
@@ -110,7 +111,7 @@ async function prueba() {
       const next = skip + 500 < items.length ? `https://colabora.mdef.es${WEB}/_api/web/lists/getbytitle('Gestor de Tareas')/items?skip=${skip + 500}` : undefined;
       return r.fulfill({ json: { value: items.slice(skip, skip + 500), 'odata.nextLink': next } });
     }
-    if (resto.startsWith("web/lists/getbytitle('Gestor de Tareas')?")) return r.fulfill({ json: { Id: 'g', Title: 'Gestor de Tareas', ItemCount: items.length, ListItemEntityTypeFullName: 'SP.Data.Gestor_x0020_de_x0020_TareasListItem', RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor de Tareas' } } });
+    if (/^web\/lists\/getbytitle\('Gestor de Tareas[^']*'\)\?/.test(resto)) return r.fulfill({ json: { Id: 'g', Title: resto.match(/getbytitle\('([^']*)'/)[1], ItemCount: items.length, ListItemEntityTypeFullName: 'SP.Data.Gestor_x0020_de_x0020_TareasListItem', RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor de Tareas' } } });
     return r.fulfill({ status: 404, body: '' });
   });
   await p.goto('https://colabora.mdef.es' + WEB + '/seguridad/Documentos%20compartidos/tareas-nlt-colabora.html'); await p.waitForTimeout(1500);
@@ -121,7 +122,7 @@ async function prueba() {
   console.log('pie:', await p.textContent('.fpie'), '| autor:', await p.textContent('footer.autor'));
   if (CAPTURAS) await p.screenshot({ path: CAPTURAS + '/movil-tarjetas.png', fullPage: false });
   await p.click('details[data-grupo=semana] > summary');
-  console.log('semana abierta y recordada:', await p.evaluate(() => JSON.parse(localStorage.getItem('tareas-nlt-colabora')).grupos.semana));
+  console.log('semana abierta y recordada:', await p.evaluate(K => JSON.parse(localStorage.getItem(K)).grupos.semana, CLAVE));
   await p.click('[data-kpi=vencidas]');
   console.log('solo vencidas:', (await p.$$eval('details.grupo', ds => ds.map(d => d.dataset.grupo + (d.open ? '(abierto)' : '')))).join(' '));
   await p.click('.fpie [data-kpi]');
