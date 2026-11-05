@@ -14,14 +14,19 @@ const PASS = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6', UID = 'abcdef01-2345-6789-abcd-
 const consultaApp = pg => pg.evaluate(([P, U]) => fetch('https://mensadefapi.mdef.es/api/usuariovista/UsuarioVistaObtener?emailUsuario=persona%40et.mde.es', { headers: { 'Content-Type': 'application/json', passcode: P, user: U } }).catch(() => 0), [PASS, UID]);
 const hoy = new Date(); const hace = h => { const d = new Date(hoy.getTime() - h * 3600e3); return d.toISOString().slice(0, 19); };
 // Bandeja simulada: SEGURIDAD tiene 130 mensajes de entrada (2 páginas) en las últimas horas y otros antiguos; SECRETARIA 3
+// PRESENTA: datos ficticios pero verosímiles para las capturas de presentación (no son mensajes reales)
+const ASUNTOS = ['Revista anual de seguridad de instalaciones · calendario', 'Solicitud de visita a acuartelamiento durante festivos', 'Actualización del plan de seguridad de la base',
+  'Informe de incidencias del mes de octubre', 'Instrucciones para el control de accesos de personal civil', 'Remisión de normativa de protección de la información',
+  'Convocatoria de reunión de coordinación de seguridad', 'Petición de datos para el informe trimestral', 'Ejercicio de evacuación · resultados y lecciones aprendidas',
+  'Mantenimiento de sistemas de videovigilancia', 'Designación de responsables de seguridad por unidad', 'Comunicación de obras en el perímetro'];
 const bandeja = (cel, es, pag, tam) => {
   const total = cel === G1 && es === '1' ? 230 : cel === G2 ? 3 : cel === G4 ? 500 : 0;
   const els = [];
-  for (let i = (pag - 1) * tam; i < Math.min(total, pag * tam); i++) els.push({ IdMensaje: '0000' + cel.slice(0, 4) + '-' + es + '000-0000-0000-' + String(i).padStart(12, '0'), IdBuzonCelula: G3, Asunto: 'Mensaje ' + i + ' de ' + cel.slice(0, 4),
-    Cuerpo: '<p>Texto del mensaje ' + i + '</p><script>alert(1)</script>', Fecha: hace(i < 130 ? i * 0.3 : 24 * 40 + i), FechaRegistroEntrada: hace(i), IdEstadoMensaje: 3,
+  for (let i = (pag - 1) * tam; i < Math.min(total, pag * tam); i++) els.push({ IdMensaje: '0000' + cel.slice(0, 4) + '-' + es + '000-0000-0000-' + String(i).padStart(12, '0'), IdBuzonCelula: G3, Asunto: process.env.PRESENTA ? ASUNTOS[i % ASUNTOS.length] : 'Mensaje ' + i + ' de ' + cel.slice(0, 4),
+    Cuerpo: process.env.PRESENTA ? '<p>Se remite para su conocimiento y efectos la documentación adjunta. Se ruega acuse de recibo y, en su caso, la designación de un punto de contacto antes del próximo viernes.</p>' : '<p>Texto del mensaje ' + i + '</p><script>alert(1)</script>', Fecha: hace(i < 130 ? i * 0.3 : 24 * 40 + i), FechaRegistroEntrada: hace(i), IdEstadoMensaje: 3,
     EstadoMensaje: i % 3 ? 'Pendiente' : 'Leído', EstadoParaUsuario: i % 2 ? 'No leído' : 'Leído', TipoES: es === '1' ? 'E' : 'S', TipoMensaje: i % 4 ? 'Informe' : 'Orden', CodigoPrioridad: i % 9 ? 'R' : 'U',
     CelulaRemitente: i % 2 ? 'ET 2SUIGE JEFATURA' : 'ET 2SUIGE REGISTRO', CelulaDestinataria: 'ET 2SUIGE SETEC SEGURIDAD', NumeroRegistroEntrada: 'RE-' + i, Sref: 'SREF-' + i,
-    ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 7 ? '' : 'URGENTE', Firma: i % 2 ? 'GENERAL JEFE <b>A</b>' : '', MotivoDistribucion: i % 3 ? 'Para conocimiento' : 'Para actuación', IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
+    ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 7 ? '' : 'URGENTE', Firma: i % 2 ? (process.env.PRESENTA ? 'GENERAL JEFE DE LA SUIGE' : 'GENERAL JEFE <b>A</b>') : '', MotivoDistribucion: i % 3 ? 'Para conocimiento' : 'Para actuación', IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
   return { ListaElementos: els, ListaAgrupaciones: [], IndicePagina: pag, TamanoPagina: tam, TotalRegistros: total };
 };
 const b = await chromium.launch();
@@ -55,8 +60,8 @@ await ctx.route(API + '/**', r => {
   if (ruta === 'etiqueta/EtiquetasObtener') return r.fulfill({ headers: H, json: [{ IdEtiqueta: 1, Nombre: 'Urgente', Color: '#FF0000' }, { IdEtiqueta: 4, Nombre: 'Finalizado', Color: 'verde' }, { IdEtiqueta: 5, Nombre: 'Seguimiento', Color: 'x;}<b>' }] });
   // Cuerpo del mensaje con sus anexos (como el real: solo responde con el modoVer que usa la aplicación)
   if (ruta === 'mensaje/ObtenerCuerpo') return q.modoVer !== 'true' ? r.fulfill({ status: 400, headers: H, body: '' }) : r.fulfill({ headers: H, json: { ID: q.id, Cuerpo: 'Texto completo', UrlCarpeta: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id, AnexosFisicos: [{}],
-    AnexosDigitales: [{ Titulo: 'Informe <b>anexo</b>', Nombre: 'informe anexo.pdf', UrlFichero: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id + '/informe anexo.pdf', TipoDocumento: 'Informe', TamanoMB: '0,2', Firma: 'Firmado' },
-      { Titulo: 'Datos', Nombre: 'datos.7z.cif', UrlFichero: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id + '/datos.7z.cif', TamanoMB: '0,1' }] } });
+    AnexosDigitales: [{ Titulo: process.env.PRESENTA ? 'Calendario de revistas 2027' : 'Informe <b>anexo</b>', Nombre: process.env.PRESENTA ? 'calendario revistas 2027.pdf' : 'informe anexo.pdf', UrlFichero: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id + '/informe anexo.pdf', TipoDocumento: 'Informe', TamanoMB: '0,2', Firma: 'Firmado' },
+      { Titulo: process.env.PRESENTA ? 'Relación de instalaciones' : 'Datos', Nombre: process.env.PRESENTA ? 'relacion instalaciones.7z.cif' : 'datos.7z.cif', UrlFichero: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id + '/datos.7z.cif', TamanoMB: '0,1' }] } });
   if (ruta === 'buzon/BuzonCelulaMensajeLeido') { marcadoLeido++; return r.fulfill({ headers: H, json: {} }); }
   if (ruta === 'buzon/ObtenerBuzonCelula') return r.fulfill({ headers: H, json: bandeja(q.idCelula, q.tipoES, +q.indicePagina, +q.tamanoPagina) });
   r.fulfill({ status: 404, headers: H, body: '' });
@@ -143,6 +148,13 @@ console.log('anexos:', (await p.textContent('#adjuntos').catch(() => '-')).repla
 { await p.evaluate(() => { const o = window.open; window.open = function (u) { window.__abierto = u; return o.apply(this, arguments); }; }); const [pop] = await Promise.all([ctx.waitForEvent('page'), p.click('#adjuntos [data-anexo="0"][data-modo="abrir"]')]); console.log('url pedida:', decodeURI(await p.evaluate(() => window.__abierto)).replace(O, '')); await pop.close().catch(() => {}); }
 { const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#adjuntos [data-anexo="1"][data-modo="bajar"]')]); console.log('descargar cifrado →', dl.suggestedFilename(), '| botón abrir en el cifrado:', !!(await p.$('#adjuntos [data-anexo="1"][data-modo="abrir"]'))); }
 console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0);
+// PRESENTA=carpeta: capturas para presentar SENDERO (datos simulados)
+if (process.env.PRESENTA) {
+  const dir = process.env.PRESENTA; await p.setViewportSize({ width: 1400, height: 900 });
+  await p.fill('#buscar', ''); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=2'); await p.waitForTimeout(1500);
+  await p.evaluate(() => scrollTo(0, 0)); await p.screenshot({ path: dir + '/p1.png' });
+  await p.evaluate(() => { const l = document.querySelector('#layout'); scrollTo(0, l.getBoundingClientRect().top + scrollY - 70); }); await p.waitForTimeout(300); await p.screenshot({ path: dir + '/p2.png' });
+}
 console.log('sin botón de correo:', !(await p.$('#porCorreo')));
 console.log('botón derecho bloqueado:', await p.evaluate(() => { const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true }); document.querySelector('#lista').dispatchEvent(e); return e.defaultPrevented; }),
   '| en un campo de texto se permite:', await p.evaluate(() => { const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true }); document.querySelector('#buscar').dispatchEvent(e); return !e.defaultPrevented; }),
