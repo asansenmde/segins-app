@@ -32,7 +32,7 @@ let items, segCols, misGrupos = [], admin = false, correoDenegado = false;
 const nuevoStore = () => {
   items = [
     { Id: 1, ESTADO: 'BORRADOR', ...sur, Tipo_Documento: ['TIM'], Modo: 'Pérdida', FechaDeLaPerdia: d(-2), Provincia: 'SEVILLA', Empleo: 'Sargento', Author: YO, ResponsableDeLaInformacion: YO, Denuncia_Tramitada: 'SI', Testigos: 'No', ...priv },
-    { Id: 2, ESTADO: 'REMITIDO A M1', ...sur, Tipo_Documento: ['TIM', 'PMC'], Modo: 'Sustración o Robo', FechaDeLaPerdia: d(-10), FechaNotificacion: d(-9), Provincia: 'SEVILLA', Empleo: 'Cabo', Author: P[62], ResponsableDeLaInformacion: P[62], Denuncia_Tramitada: 'SI', NDenuncia: '45/26', Testigos: 'Si', NT08_22: true, ...priv },
+    { Id: 2, ESTADO: 'REMITIDO A M1', ...sur, Tipo_Documento: ['TIM', 'PMC'], Modo: 'Sustración o Robo', FechaDeLaPerdia: d(-10), FechaNotificacion: d(-9), Provincia: 'SEVILLA', Empleo: 'Cabo', Author: P[62], ResponsableDeLaInformacion: P[62], Denuncia_Tramitada: 'SI', NDenuncia: '45/26', Testigos: 'Si', NT08_22: true, Attachments: true, Adjuntos: ['denuncia 45-26.pdf', 'foto cartera.jpg'], ...priv },
     { Id: 3, ESTADO: 'EN SEGUIMIENTO', ...nor, Tipo_Documento: ['TEMD'], Modo: 'Extravío', FechaDeLaPerdia: d(-30), Provincia: 'LEÓN', Empleo: 'Soldado', Author: P[62], ResponsableDeLaInformacion: P[62], Denuncia_Tramitada: 'NO', Testigos: 'No', NT08_22: false, ValoradoPorSUIGE: true, ...priv },
     { Id: 4, ESTADO: 'EXP CERRADO', ...sur, Tipo_Documento: ['OTRA DOCUMENTACIÓN'], OTRO: 'Pasaporte', Modo: 'Pérdida', FechaDeLaPerdia: d(-90), Provincia: 'SEVILLA', Author: P[62], ResponsableDeLaInformacion: P[62], Denuncia_Tramitada: 'SI', NT08_22: true, Acciones: ['Tarjetas bloqueadas'], ...priv },
     { Id: 5, ESTADO: 'REMITIDO A M1', ...nor, Tipo_Documento: ['DNI'], Modo: 'Pérdida', FechaDeLaPerdia: d(-5), Provincia: 'LEÓN', Author: P[62], ResponsableDeLaInformacion: P[62], Denuncia_Tramitada: 'SI', NT08_22: true, ...priv },
@@ -67,7 +67,7 @@ async function prueba(verbose, esc) {
       if (resto === 'web/ensureuser') { const k = JSON.parse(req.postData()).logonName; const id = Number(k.replace(/\D/g, '')); return r.fulfill({ json: { d: P[id] ? { Id: id, Title: P[id].Title, Email: P[id].EMail } : { Id: 99 } } }); }
       if (resto.startsWith(LISTA + '/fields/createfieldasxml')) { const n = /Name="([^"]+)"/.exec(JSON.parse(req.postData()).parameters.SchemaXml)[1]; segCols.push(n); return r.fulfill({ json: { d: {} } }); }
       const ad = resto.match(/items\((\d+)\)\/AttachmentFiles\/add/);
-      if (ad) { items.find(x => x.Id === +ad[1]).Attachments = true; return r.fulfill({ json: { d: {} } }); }
+      if (ad) { const it = items.find(x => x.Id === +ad[1]); it.Attachments = true; (it.Adjuntos ||= []).push(decodeURIComponent(resto.match(/FileName='([^']+)'/)[1])); return r.fulfill({ json: { d: {} } }); }
       const c = JSON.parse(req.postData() || '{}'); delete c.__metadata;
       for (const k of Object.keys(c)) if (k.endsWith('Id') && k !== 'Id' && typeof c[k] === 'number') c[k.slice(0, -2)] = P[c[k]] || { Id: c[k] };
       for (const k of Object.keys(c)) if (c[k] && Array.isArray(c[k].results)) c[k] = c[k].results;
@@ -95,6 +95,7 @@ async function prueba(verbose, esc) {
       if (resto.includes('Choices')) return J({ value: Object.keys(CHOICES).map(k => ({ InternalName: k, Choices: verbose ? { results: CHOICES[k] } : CHOICES[k], TypeAsString: COLS[k] })) });
       return J({ value: hay.map(k => ({ InternalName: k, EntityPropertyName: k.startsWith('_') ? 'OData_' + k : k, TypeAsString: COLS[k] })) });
     }
+    { const af = resto.match(/items\((\d+)\)\/AttachmentFiles/); if (af) { const it = items.find(x => x.Id === +af[1]); return J({ value: (it.Adjuntos || []).map(n => ({ FileName: n, ServerRelativeUrl: WEB + '/Lists/PERDIDA DOCUMENTACION/Attachments/' + it.Id + '/' + n })) }); } }
     const mi = resto.match(/items\((\d+)\)\?/);
     if (mi) {
       const sel = ((u.match(/\$select=([^&]*)/) || [])[1] || '').split(','); getsItem.push({ id: +mi[1], sel });
@@ -181,6 +182,7 @@ async function prueba(verbose, esc) {
   }
   if (esc === 'suige') {
     await abrirN(2);
+    console.log(tag, '| adjuntos de la 2:', await p.$$eval('#detAdj a', n => n.map(x => x.textContent.trim() + ' → ' + x.getAttribute('href').replace('https://colabora.mdef.es', '')).join(' · ')));
     console.log(tag, '| ficha 2 (de mi SUIGE): datos personales:', (await p.textContent('#detPriv')).replace(/\s+/g, ' ').slice(0, 120), '| paneles:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
     await p.click('[data-acc=seguimiento]'); await p.waitForTimeout(200);
     console.log(tag, '| sin revisión:', await p.textContent('#accMsg'));
@@ -198,6 +200,7 @@ async function prueba(verbose, esc) {
   }
   if (esc === 'ige') {
     await abrirN(3);
+    console.log(tag, '| adjuntos de la 3:', (await p.textContent('#detAdj')).trim());
     console.log(tag, '| ficha 3: datos personales:', (await p.textContent('#detPriv')).replace(/\s+/g, ' ').slice(0, 100), '| paneles:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
     await p.fill('#vCierre', 'Documentación anulada.'); posts.length = 0; correos.length = 0; await p.click('[data-acc=cerrar]'); await ok();
     console.log(tag, '| cerrar:', JSON.stringify(merge(3) && { ESTADO: merge(3).ESTADO, Hist: (merge(3).ObservacionesDelExpediente || '').slice(-40) }), '| correo:', correos.map(x => x.to.join() + ' cc ' + x.cc.join() + ' «' + x.asunto + '»').join(' / '));
@@ -212,7 +215,7 @@ async function prueba(verbose, esc) {
     console.log(tag, '| informe:', await p.$$eval('#vista .inf h3', h => h.map(x => x.textContent).join(' | ')), '| sin datos personales:', !/12345678Z|PEREZ GOMEZ/.test(await p.textContent('#vista')));
     await abrirN(2);
     const [imp] = await Promise.all([ctx.waitForEvent('page'), p.click('[data-fichaimp]')]); await imp.waitForLoadState();
-    console.log(tag, '| ficha impresa (IGE ve el NIF):', (await imp.content()).includes('12345678Z'), '|', await imp.title());
+    console.log(tag, '| ficha impresa (IGE ve el NIF):', (await imp.content()).includes('12345678Z'), '| con los adjuntos:', (await imp.content()).includes('foto cartera.jpg'), '|', await imp.title());
     if (!verbose) await p.screenshot({ path: new URL('ficha.png', import.meta.url).pathname });
     await imp.close(); await p.click('#dlg [data-cerrar]');
     await p.click('#tabs a[data-v=panel]'); await p.waitForTimeout(300);

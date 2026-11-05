@@ -180,6 +180,7 @@
   @media (max-width: 600px) { .barras { grid-template-columns: 40% 1fr auto; } }
   .marcas { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 4px 0; } .marcas .check { white-space: nowrap; }
   .confirma { background: #fff4d6; border: 2px solid #c8961e; border-radius: 10px; padding: 10px 12px; margin: 8px 0; color: #3d2a00; }
+  ul.adjs { list-style: none; padding: 0; margin: 4px 0; } ul.adjs li { padding: 4px 0; border-bottom: 1px solid var(--line); } ul.adjs a { text-decoration: none; font-weight: 600; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -225,7 +226,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-05 · 1';
+  var VERSION = '2026-11-05 · 2';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Pérdida de documentación · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -1374,6 +1375,7 @@
       '<div class="sec"><span>Datos de la pérdida</span></div>' +
       datos.filter(function (x) { return x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       '<div class="sec"><span>Circunstancias y detalles</span></div><div id="detTextos"><p class="muted small">Cargando…</p></div>' +
+      '<div class="sec"><span>Documentos adjuntos</span></div><div id="detAdj">' + (ve ? '<p class="muted small">Cargando…</p>' : '<p class="small muted">🔒 Solo los ven la unidad, su SUIGE e IGE.</p>') + '</div>' +
       '<div class="acciones"><button data-fichaimp="' + t.id + '">🖨 Imprimir ficha / PDF</button>' +
       (listaInfo.DefaultDisplayFormUrl ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(location.origin + listaInfo.DefaultDisplayFormUrl + '?ID=' + t.id) + '">Abrir en Colabora' + (t.adjuntos ? ' (adjuntos)' : '') + '</a>' : '') +
       (listaInfo.DefaultEditFormUrl && esGestor ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(location.origin + listaInfo.DefaultEditFormUrl + '?ID=' + t.id) + '">✎ Formulario InfoPath</a>' : '') + '</div>' +
@@ -1384,6 +1386,13 @@
       if (!ve) PRIVADOS.forEach(function (k) { delete d[k]; });
       detalle[t.id] = d;
       if (dlgId !== t.id) return;
+      if (ve) leerAdjuntos(t.id).then(function (l) {
+        d.__adj = l;
+        var a = $('#detAdj'); if (!a || dlgId !== t.id) return;
+        a.innerHTML = l.length ? '<ul class="adjs">' + l.map(function (f) {
+          return '<li><a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + iconoAdj(f.nombre) + ' ' + esc(f.nombre) + '</a></li>';
+        }).join('') + '</ul><p class="small muted">Se abren en una pestaña nueva (o se descargan, según el tipo de archivo).</p>' : '<p class="small muted">Sin documentos adjuntos.</p>';
+      }, function () { var a = $('#detAdj'); if (a) a.innerHTML = '<p class="small muted">No se pudieron leer los adjuntos.' + (listaInfo.DefaultDisplayFormUrl ? ' Ábrelos con «Abrir en Colabora».' : '') + '</p>'; });
       var el = $('#detTextos'); if (el) el.innerHTML = '<div class="texto">' + (texto(d.Comentario) ? esc(texto(d.Comentario)) : '<span class="muted">—</span>') + '</div>';
       if (ve) {
         var u = d.UsuarioId ? (usuariosSitio || []).find(function (y) { return y.Id === d.UsuarioId; }) : null;
@@ -1400,6 +1409,13 @@
       Array.prototype.forEach.call(document.querySelectorAll('#detAcc textarea[data-campo]'), function (ta) { if (!ta.value) ta.value = texto(d[ta.dataset.campo]); });
     }).catch(function () { var el = $('#detTextos'); if (el) el.innerHTML = '<p class="muted small">No se pudieron leer los textos.</p>'; });
   }
+  // Documentos adjuntos del elemento (fotografía, denuncia…): nombre y dirección para abrirlos
+  function leerAdjuntos(id) {
+    return todas(urlLista() + '/items(' + id + ')/AttachmentFiles?$select=FileName,ServerRelativeUrl').then(function (l) {
+      return l.map(function (f) { return { nombre: f.FileName || '', url: location.origin + encodeURI(f.ServerRelativeUrl || '') }; }).filter(function (f) { return f.nombre; });
+    });
+  }
+  var iconoAdj = function (n) { var e = String(n).split('.').pop().toLowerCase(); return /^(jpe?g|png|gif|bmp|heic|webp)$/.test(e) ? '🖼️' : e === 'pdf' ? '📕' : /^(docx?|odt|rtf)$/.test(e) ? '📝' : /^(xlsx?|ods|csv)$/.test(e) ? '📊' : /^(msg|eml)$/.test(e) ? '✉️' : '📎'; };
   var soy = function (p) { return !!(p && yo && p.Id === yo.Id); };
   var puedeAnotar = function (t) { return esGestor || esIge || esMiSuige(t) || esMio(t); };
   // Paneles de cada papel
@@ -1536,7 +1552,7 @@
       '<h3>DATOS DE LA PÉRDIDA</h3>' + tabla([['Nº de notificación', String(t.id)], ['Documentación perdida', t.docsTxt], ['Modo del extravío', t.modo], ['Fecha de la pérdida', fCorta(t.fecha)],
         ['Lugar donde se extravió (provincia)', t.provincia], ['Unidad', t.cadena.join(' - ') || t.lugar], ['SUIGE', t.suige], ['Denuncia tramitada en FCS', t.denuncia + (t.ndenuncia ? ' · Nº ' + t.ndenuncia : '')],
         ['Fecha y hora de la denuncia', fHora(t.fechaDen)], ['¿Hubo testigos?', t.testigos], ['¿Incluida en la BD NT 08_22?', siNo(t.nt)], ['Responsable que valida', t.resp && t.resp.Title]]) +
-      '<h3>CIRCUNSTANCIAS Y DETALLES</h3>' + tabla([['Circunstancias', texto(d.Comentario)]]) +
+      '<h3>CIRCUNSTANCIAS Y DETALLES</h3>' + tabla([['Circunstancias', texto(d.Comentario)], ['Documentos adjuntos', ve && d.__adj ? d.__adj.map(function (f) { return f.nombre; }).join('\n') : '']]) +
       '<h3>REVISIÓN Y SEGUIMIENTO</h3>' + tabla([['Situación', faseTxt(t)], ['Acciones adoptadas', t.acciones.join(', ')], ['Revisión de la SUIGE', texto(d.VALORACIONSUIGES)],
         ['Observaciones e historial', texto(d[HIST])], ['Alta', fHora(t.creado) + (t.autor ? ' · ' + t.autor.Title : '')]]) +
       '<div class="firmas"><div>Responsable de la unidad</div><div>SUIGE</div><div>IGE</div></div>';

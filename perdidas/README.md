@@ -61,6 +61,12 @@ nota), `VALORACIONSUIGES` (nota) y `ValoradoPorSUIGE` (sí/no). Mientras falten,
   ya ve y en las que tramita. El NIF se puede escribir con guion o espacios y en minúscula. Las tildes cuentan: «PEREZ» no
   encuentra «PÉREZ».
 
+## Documentos adjuntos
+
+En la ficha, apartado **«Documentos adjuntos»** (versión 2026-11-05 · 2) con cada archivo para abrirlo o descargarlo
+(`items(n)/AttachmentFiles`). Como pueden llevar la denuncia o datos personales, solo los ve quien tramita (como el NIF);
+la ficha impresa lleva sus nombres. Se añaden desde el formulario (borrador o «Actualizar información»).
+
 ## Pestañas
 
 Pérdidas notificadas (panel y circuito), Pendiente de revisión y tramitación, Búsqueda y consulta (filtros por fase,
