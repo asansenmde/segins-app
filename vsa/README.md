@@ -62,8 +62,15 @@ crearon, de los que son responsables, los que valoraron o en los que figuran com
 quien no pueda leer la lista (403/404), ve en vez de la aplicación «🔒 No tienes acceso» y el formulario
 **«Solicitar acceso»**: nombre y correo de su cuenta (no se escriben), empleo y unidad (propuestos con el cargo y el
 departamento del directorio, si el servidor los da), mando de 2.º nivel y BAE en cascada o unidad en texto, teléfono,
-para qué lo necesita y motivo. Se guarda en la lista **«SOLICITUDES DE ACCESO»** y se avisa por correo al grupo
-«Propietarios Colaborativo». Mientras está pendiente, la persona ve su estado.
+para qué lo necesita y motivo. Se guarda en la lista **«SOLICITUDES ACCESO APLICACIONES»** (la misma de Incidentes y
+Pérdidas) y se avisa por correo a la dirección fija de `ACCESO.avisarCorreos` (asansen@et.mde.es). Mientras está
+pendiente, la persona ve su estado.
+
+Hasta la versión 2026-10-22 · 1 se usaba «SOLICITUDES DE ACCESO», que coincide con la lista interna oculta de SharePoint,
+y se avisaba al grupo «Propietarios Colaborativo», cuyos miembros no puede ver quien aún no tiene acceso: por eso no
+llegaban los correos. Desde la 2026-11-06 · 1, la pestaña «Accesos» lee también las solicitudes de VSA que quedaron en la
+lista antigua (marcadas con 📦) para aprobarlas o denegarlas. En «Preparación»: «Probar el aviso» y el enlace
+**«🔔 Avisarme por correo de cada solicitud nueva»** (alerta de SharePoint, que llega siempre).
 
 **Pestaña «Accesos»** (solo Control total):
 - **Preparación**: si faltan, botones «Crear la lista» (con sus 14 columnas y «leer y editar solo sus elementos») y

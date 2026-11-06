@@ -6388,7 +6388,7 @@ var Cipher = {
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-10-22 · 1';
+  var VERSION = '2026-11-06 · 1';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuestionario de calidad VSA · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -6458,7 +6458,12 @@ var Cipher = {
   var GRUPO_CORREO = { diacu: ['SEGURIDAD_IGE'], ige: ['SEGURIDAD_IGE'],
     suige: function (s) { return s === 'SECOORCEN' ? ['SEGURIDAD_SECORCEN'] : s === 'JEFATURA DE IGE' ? ['SEGURIDAD_IGE'] : s ? ['SEGURIDAD_' + s] : []; } };
   // Control de acceso: grupos que dan acceso además de los de papel, lista de solicitudes y a quién se avisa
-  var ACCESO = { app: 'VSA', lista: 'SOLICITUDES DE ACCESO', grupoBae: 'VSA_BAE', grupos: ['VSA_BAE'], avisar: ['Propietarios Colaborativo'],
+  // (avisarCorreos: direcciones fijas; avisar: grupos, que tienen que dejar ver sus miembros a todos; quien solicita aún no
+  // tiene acceso y no suele poder verlos, por eso hasta la versión 2026-11-06 no llegaba el aviso).
+  // OJO: la lista de solicitudes NO puede llamarse «Solicitudes de acceso»: es la lista interna (oculta) de SharePoint para
+  // las peticiones de acceso al sitio y getbytitle no distingue mayúsculas. Hasta la versión 2026-11-06 se usaba esa por
+  // error; las solicitudes de VSA que quedaron allí se siguen leyendo (listaVieja) para poder resolverlas.
+  var ACCESO = { app: 'VSA', lista: 'SOLICITUDES ACCESO APLICACIONES', listaVieja: 'SOLICITUDES DE ACCESO', grupoBae: 'VSA_BAE', grupos: ['VSA_BAE'], avisar: [], avisarCorreos: ['asansen@et.mde.es'],
     papeles: [['Responsable de BAE (cumplimentar el cuestionario)', 'bae'], ['Negociado de Seguridad de una SUIGE (valorar)', 'suige'], ['DIACU / IGE', 'ige'], ['Solo consulta', 'bae']] };
   var EMPLEOS = ['CORONEL', 'TENIENTE CORONEL', 'COMANDANTE', 'CAPITAN', 'TENIENTE', 'ALFEREZ', 'SUBOFICIAL MAYOR', 'SUBTENIENTE', 'BRIGADA', 'SARGENTO PRIMERO', 'SARGENTO',
     'CABO MAYOR', 'CABO PRIMERO', 'CABO', 'SOLDADO', 'CIVIL FUNCIONARIO', 'CIVIL LABORAL'];
@@ -8004,6 +8009,8 @@ var Cipher = {
   // Quien tiene Control total aprueba en la pestaña «Accesos»: la página añade a la persona al grupo y le avisa.
   var tieneAcceso = function () { return esAdmin || esGestor || misSuiges.length > 0 || esDiacu || esIge || misGrupos.some(function (g) { return ACCESO.grupos.indexOf(String(g).trim()) >= 0; }); };
   var urlAcc = function () { return web + "/_api/web/lists/getbytitle('" + encodeURIComponent(ACCESO.lista.replace(/'/g, "''")) + "')"; };
+  var urlAccVieja = function () { return web + "/_api/web/lists/getbytitle('" + encodeURIComponent(ACCESO.listaVieja.replace(/'/g, "''")) + "')"; };
+  var accVieja = null;   // { tipo, n } de la lista antigua, si tiene solicitudes de VSA
   var accInfo = null, accFaltan = [], accAbierta = null, accSols = null, accEstado = '', accMiembros = null, accGrupos = null, perfil = null;
   var CAMPOS_ACC = [
     '<Field Type="User" Name="Solicitante" StaticName="Solicitante" DisplayName="Solicitante" UserSelectionMode="PeopleOnly" />',
@@ -8117,6 +8124,27 @@ var Cipher = {
       });
     }).catch(function (e) { boton.disabled = false; err('No se pudo enviar la solicitud: ' + (e.message || e)); });
   }
+  // A quién avisa una solicitud nueva: las direcciones fijas de ACCESO.avisarCorreos (no dependen de que quien solicita
+  // pueda ver los miembros de ningún grupo) y, si los hay, los grupos de ACCESO.avisar.
+  function destAvisos(sinVer) {
+    if (ACCESO.avisarCorreos && ACCESO.avisarCorreos.length) return correosDeGrupos(ACCESO.avisar, sinVer).then(function (l) { return ACCESO.avisarCorreos.concat(l); });
+    var prop = api(web + '/_api/web/AssociatedOwnerGroup?$select=Title').then(function (g) { return g && g.Title ? [g.Title] : []; }).catch(function () { return []; });
+    return prop.then(function (pg) { return correosDeGrupos(ACCESO.avisar.concat(pg.filter(function (x) { return ACCESO.avisar.indexOf(x) < 0; })), sinVer); });
+  }
+  function probarAvisoSolicitud(boton) {
+    var el = $('#accPrueba');
+    boton.disabled = true; el.innerHTML = '<p class="small muted">Enviando…</p>';
+    var s = { nombre: yo.Title + ' (PRUEBA, no es una solicitud real)', correo: yo.Email, empleo: '', unidad: 'Prueba del aviso', mando: '', tel: '', papel: ACCESO.papeles[0][0], motivo: 'Comprobar que llegan los avisos de solicitudes de acceso.' };
+    correoAcceso('nueva', s).then(function (c) {
+      c.asunto = 'PRUEBA · ' + c.asunto;
+      var yoEsta = c.to.indexOf(String(yo.Email || '').toLowerCase()) >= 0;
+      return enviarCorreo(c).then(function (r) {
+        boton.disabled = false;
+        el.innerHTML = '<div class="' + (r.ok && yoEsta ? 'okmsg' : 'aviso') + '">' + (r.ok ? '✓ Aviso de prueba enviado a ' + c.to.length + ' persona' + (c.to.length === 1 ? '' : 's') + '. ' : '') +
+          'Destinatarios: ' + esc(c.to.join(', ')) + '. ' + (yoEsta ? 'Tú estás entre ellos.' : '') + msgCorreo(r) + '</div>';
+      });
+    }).catch(function (e) { boton.disabled = false; el.innerHTML = '<div class="error">' + esc(e.message || e) + '</div>'; });
+  }
   function correoAcceso(tipo, s, txt) {
     var filas = [['Solicitante', s.nombre], ['Correo', s.correo], ['Empleo', s.empleo], ['Unidad', [s.unidad, s.mando].filter(Boolean).join(' · ')], ['Teléfono', s.tel], ['Papel solicitado', s.papel],
       ['Motivo', s.motivo], ['Grupo asignado', s.grupo], ['Resolución', txt]].filter(function (x) { return x[1]; });
@@ -8125,7 +8153,7 @@ var Cipher = {
       denegada: ['ACCESO DENEGADO · CUESTIONARIO DE CALIDAD VSA', 'SU SOLICITUD DE ACCESO NO HA SIDO APROBADA.'],
       retirada: ['ACCESO RETIRADO · CUESTIONARIO DE CALIDAD VSA', 'SE LE HA RETIRADO EL ACCESO A LA APLICACIÓN CUESTIONARIO DE CALIDAD VSA.'] }[tipo];
     var sinVer = [];
-    return (tipo === 'nueva' ? correosDeGrupos(ACCESO.avisar, sinVer) : Promise.resolve([s.correo])).then(function (to) {
+    return (tipo === 'nueva' ? destAvisos(sinVer) : Promise.resolve([s.correo])).then(function (to) {
       to = limpia(to);
       return { to: to, cc: [], bcc: [], sinVer: sinVer, asunto: P[0], html: htmlCorreo(P[1], filas, enlacePagina()), texto: 'USO OFICIAL\n\n' + P[1] + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\n' + enlacePagina() };
     });
@@ -8152,13 +8180,24 @@ var Cipher = {
     accEstado = 'cargando';
     return Promise.all([
       leerBiblioteca(),
-      api(urlAcc() + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity').then(function (l) { accInfo = l; }, function () { accInfo = null; }),
+      api(urlAcc() + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity,Hidden,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { accInfo = l; }, function () { accInfo = null; }),
       todas(web + '/_api/web/sitegroups?$select=Id,Title&$top=5000').then(function (l) { accGrupos = l.map(function (g) { return g.Title; }); }, function () { accGrupos = []; })
     ]).then(function () {
       if (!accInfo) { accSols = []; accAbierta = null; accFaltan = []; return; }
       return leerColumnas().then(leerApertura).then(function () { if (accFaltan.length) { accSols = []; return; } return todas(urlAcc() + '/items?$top=500&$select=' + SEL_ACC.join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent("Aplicacion eq '" + ACCESO.app + "'"))
-        .then(function (l) { accSols = l.map(aSol).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); }); }); });
+        .then(function (l) { accSols = l.map(aSol); }); });
     }).then(function () {
+      // Solicitudes de VSA que quedaron en la lista antigua (la interna de SharePoint): se muestran y se resuelven allí
+      accVieja = null; if (!accSols) accSols = [];
+      return api(urlAccVieja() + '?$select=ListItemEntityTypeFullName').then(function (l) {
+        return todas(urlAccVieja() + '/items?$top=500&$select=' + SEL_ACC.join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent("Aplicacion eq '" + ACCESO.app + "'")).then(function (v) {
+          if (!v.length) return;
+          accVieja = { tipo: l.ListItemEntityTypeFullName, n: v.length };
+          v.forEach(function (x) { var o = aSol(x); o.idReal = o.id; o.id = -o.id; o.vieja = true; accSols.push(o); });
+        });
+      }).catch(function () { accVieja = null; });
+    }).then(function () {
+      accSols.sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); });
       if (accGrupos.indexOf(ACCESO.grupoBae) < 0) { accMiembros = null; return; }
       return todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(ACCESO.grupoBae) + "')/users?$select=Id,Title,Email,LoginName").then(function (l) { accMiembros = l; }, function () { accMiembros = []; });
     }).then(function () { accEstado = 'ok'; if (pref.vista === 'accesos') render(); }, function (e) { accEstado = 'error: ' + (e.message || e); if (pref.vista === 'accesos') render(); });
@@ -8184,6 +8223,12 @@ var Cipher = {
         ' <button class="prim" data-accabrir="1">Permitir que cualquiera solicite acceso</button>') + '</p>' : '') +
       '<p class="small">' + (accGrupos.indexOf(ACCESO.grupoBae) >= 0 ? '✔ Grupo «' + esc(ACCESO.grupoBae) + '» creado (' + (accMiembros ? accMiembros.length : 0) + ' personas).' :
         '✕ Falta el grupo «' + esc(ACCESO.grupoBae) + '» para los responsables de BAE. <button class="prim" data-acccreargrupo="1">Crear el grupo</button>') + '</p>' +
+      (accInfo ? '<p class="small">📋 ' + (accInfo.RootFolder && accInfo.RootFolder.ServerRelativeUrl ? '<a href="' + esc(location.origin + accInfo.RootFolder.ServerRelativeUrl) + '" target="_blank" rel="noopener">Abrir la lista «' + esc(ACCESO.lista) + '»</a> · ' : '') +
+        '<a href="' + esc(web + '/_layouts/15/SubNew.aspx?List=' + encodeURIComponent('{' + String(accInfo.Id).replace(/[{}]/g, '') + '}') + '&Source=' + encodeURIComponent(location.href)) + '" target="_blank" rel="noopener">🔔 Avisarme por correo de cada solicitud nueva (alerta de SharePoint)</a>' +
+        '<br><span class="muted">El aviso de la página lo envía Colabora con la cuenta de quien solicita, que aún no tiene permisos y a veces se rechaza. La alerta la envía SharePoint y llega siempre: créala con «Se agregan nuevos elementos» y «Enviar notificación inmediatamente». Si ya la tienes de Incidentes, sirve también para VSA (es la misma lista).</span></p>' : '') +
+      '<p class="small">✉ Cada solicitud nueva se avisa por correo a <b>' + esc((ACCESO.avisarCorreos || []).concat(ACCESO.avisar).join(', ') || 'los propietarios del sitio') + '</b>. ' +
+        '<button data-accprueba="1">Probar el aviso</button></p><div id="accPrueba"></div>' +
+      (accVieja ? '<p class="small">📦 En la lista antigua «' + esc(ACCESO.listaVieja) + '» hay ' + accVieja.n + ' solicitud' + (accVieja.n === 1 ? '' : 'es') + ' de VSA de antes de esta versión (no avisaron por correo). Salen abajo con 📦 y se aprueban o deniegan igual.</p>' : '') +
       (accBiblio ? '<p class="small">' + (accBiblio.Hidden ? '✔ La biblioteca «' + esc(accBiblio.Title) + '», donde está esta página, está oculta en «Contenido del sitio». <button data-accbiblio="0">Volver a mostrarla</button>' :
         '📁 Esta página está en la biblioteca «' + esc(accBiblio.Title) + '», que se ve en «Contenido del sitio». <button data-accbiblio="1">Ocultar la biblioteca</button>') + '</p>' : '') +
       '<p class="small muted">La comprobación de acceso la hace esta página. Para que sea también la de Colabora, quita «Usuarios del dominio» de la lista «' + esc(pref.lista) + '» y da permiso a los grupos SEGURIDAD_* y ' + esc(ACCESO.grupoBae) + '. ' +
@@ -8193,7 +8238,8 @@ var Cipher = {
     var ficha = function (s) {
       return '<b>' + esc(s.nombre) + '</b>' + (s.empleo ? ' · ' + esc(s.empleo) : '') + '<div class="small">' + esc([s.unidad, s.mando].filter(Boolean).join(' · ')) + '</div>' +
         '<div class="small muted">' + esc([s.correo, s.tel].filter(Boolean).join(' · ')) + ' · solicitado el ' + esc(fHora(s.creado)) + '</div>' +
-        '<div class="small">Papel: <b>' + esc(s.papel) + '</b>' + (s.motivo ? ' · ' + esc(s.motivo) : '') + '</div>';
+        '<div class="small">Papel: <b>' + esc(s.papel) + '</b>' + (s.motivo ? ' · ' + esc(s.motivo) : '') + '</div>' +
+        (s.vieja ? '<div class="small muted">📦 De la lista antigua «' + esc(ACCESO.listaVieja) + '» (de antes de la versión 2026-11-06): no se avisó por correo.</div>' : '');
     };
     var lPend = pend.map(function (s) {
       var sug = grupoSugerido(s);
@@ -8222,7 +8268,7 @@ var Cipher = {
       return enviarSP(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(grupo.replace(/'/g, "''")) + "')/users", { __metadata: { type: 'SP.User' }, LoginName: u.LoginName }, 'No tienes permiso para añadir personas al grupo ' + grupo);
     }) : Promise.resolve();
     alta.then(function () {
-      return enviarSP(urlAcc() + '/items(' + id + ')', { __metadata: { type: accInfo.ListItemEntityTypeFullName }, EstadoSolicitud: aprobar ? 'APROBADA' : 'DENEGADA', GrupoAsignado: aprobar ? grupo : '',
+      return enviarSP((s.vieja ? urlAccVieja() : urlAcc()) + '/items(' + (s.vieja ? s.idReal : id) + ')', { __metadata: { type: s.vieja ? accVieja.tipo : accInfo.ListItemEntityTypeFullName }, EstadoSolicitud: aprobar ? 'APROBADA' : 'DENEGADA', GrupoAsignado: aprobar ? grupo : '',
         Resolucion: txt, ResueltoPorId: yo.Id, FechaResolucion: new Date().toISOString() }, 'No tienes permiso para modificar la solicitud', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' });
     }).then(function () {
       s.grupo = aprobar ? grupo : '';
@@ -8338,6 +8384,7 @@ var Cipher = {
     if (el.closest('#recargar')) { accEstado = ''; cargar().then(function () { if (esAdmin && cargadoEn) cargarAccesos(); }); return; }
     var fb = el.closest('[data-firmarbae]'), se = el.closest('[data-subiremp]');
     if (fb || se) { var tf_ = items.find(function (x) { return x.id === Number((fb || se).dataset[fb ? 'firmarbae' : 'subiremp']); }); if (tf_) (fb ? firmarBae : subirFirmaEmpresa)(tf_, fb || se); return; }
+    if (el.closest('[data-accprueba]')) { probarAvisoSolicitud(el.closest('[data-accprueba]')); return; }
     if (el.closest('[data-accbiblio]')) { ocultarBiblioteca(el.closest('[data-accbiblio]'), el.closest('[data-accbiblio]').dataset.accbiblio === '1'); return; }
     if (el.closest('[data-accsolicitar]')) { enviarSolicitud(el.closest('[data-accsolicitar]')); return; }
     var ap = el.closest('[data-accaprobar]'), dn = el.closest('[data-accdenegar]');

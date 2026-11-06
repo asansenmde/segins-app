@@ -64,8 +64,9 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
 13. **Solicitudes de acceso del sitio JIGE** (27/10/2026): Incidentes y Pérdidas usaban por error la lista interna oculta
     «Solicitudes de acceso» de SharePoint; ahora «SOLICITUDES ACCESO APLICACIONES» (Incidentes 2026-10-27 · 1, Pérdidas · 2).
     Hecho (27/10/2026, confirmado en Preparación): lista creada, solo sus elementos, abierta a «usuarios del dominio» y
-    grupo INCIDENTES_UNIDADES (8 personas). Queda confirmar la alerta «Avisarme» con una solicitud de prueba. **VSA tiene el mismo fallo** (sigue con «SOLICITUDES DE
-    ACCESO»): corregirlo cuando el usuario diga.
+    grupo INCIDENTES_UNIDADES (8 personas). Queda confirmar la alerta «Avisarme» con una solicitud de prueba. VSA tenía el mismo fallo: corregido el
+    06/11/2026 (VSA 2026-11-06 · 1, misma lista y aviso a asansen@et.mde.es; lee también las solicitudes antiguas). Queda
+    que el usuario suba la versión, resuelva las solicitudes 📦 y cree la alerta «Avisarme» si no la tiene.
 14. **Buscar en todos los campos** (regla del usuario, 05/11/2026, ya en `CLAUDE.md`): revisar los campos «Buscar» de
     cada aplicación (Tareas Colabora, Permisos, Incidentes, VSA, Pérdidas…) para que busquen en todos los campos. Pendiente
     de que el usuario diga si se hace ya en todas o al tocar cada una.
