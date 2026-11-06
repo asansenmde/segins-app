@@ -162,7 +162,7 @@ console.log('botón derecho bloqueado:', await p.evaluate(() => { const e = new 
 await p.fill('#buscar', ''); await p.waitForTimeout(300); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(300);
 // Ficha con los campos pedidos y ampliar
 console.log('ficha:', await p.$$eval('#detalle dl.ficha-campos dt', l => l.map(x => x.textContent).join(', ')), '| otros plegados:', await p.textContent('#detalle details.otros summary').catch(() => '-'));
-await p.click('#ampliar'); console.log('ampliada: tabla oculta', await p.isHidden('#lista'), '|', await p.textContent('#ampliar'));
+await p.click('#ampliar'); console.log('ampliada: tabla oculta', await p.isHidden('#lista'), '|', await p.textContent('#ampliar')); await p.setViewportSize({ width: 1300, height: 900 }); await p.evaluate(() => scrollTo(0, document.querySelector('#detalle').getBoundingClientRect().top + scrollY + 120)); await p.waitForTimeout(200); await p.screenshot({ path: new URL('ficha-ampliada.png', import.meta.url).pathname });
 { const tit = () => p.textContent('#detalle .cab-msg h2'), pos = () => p.textContent('.navmax .muted');
   const t0 = await tit(), p0 = await pos(); await p.click('#msgSig'); await p.waitForTimeout(300); const t1 = await tit(), p1 = await pos();
   await p.keyboard.press('ArrowRight'); await p.waitForTimeout(300); const p2 = await pos(); await p.keyboard.press('ArrowLeft'); await p.waitForTimeout(300); await p.click('#msgAnt'); await p.waitForTimeout(300);

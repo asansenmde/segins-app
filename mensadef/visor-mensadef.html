@@ -111,9 +111,21 @@
   .anexos { margin: 10px 0; padding: 10px 12px; background: #f4f8fc; border: 1px solid #d3dfee; border-left: 4px solid #1d5fa8; border-radius: 10px; }
   .anexo { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid #e3eaf3; } .anexo:first-of-type { border-top: 0; }
   .anexo .ic { font-size: 1.3rem; } .anexo .nm { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; } .anexo button { padding: 4px 10px; font-size: .82rem; }
+  /* Barra de botones con la ficha ampliada (06/11/2026): fija arriba, agrupada y con botones redondeados */
+  .layout.max .barra-ficha { position: sticky; top: calc(var(--cab, 0px) + 6px); z-index: 6; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -6px -8px 12px; padding: 10px 12px;
+    background: linear-gradient(180deg, #ffffff, #f4f7fb); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 4px 14px rgba(18,49,90,.10); }
+  .layout.max .barra-ficha { gap: 6px; } .layout.max .barra-ficha button { border-radius: 999px; padding: 6px 12px; font-size: .86rem; }
+  .layout.max .barra-ficha #aColabora { order: 2; } .layout.max .barra-ficha #copiarTarea { order: 3; } .layout.max .barra-ficha #verDet { order: 4; } .layout.max .barra-ficha #abrirMensadef { order: 5; }
+  .layout.max .barra-ficha #ampliar { order: 9; margin-left: auto; } .layout.max .barra-ficha #cerrar { order: 10; }
+  .layout.max .barra-ficha #ampliar, .layout.max .barra-ficha #cerrar { background: #eef2f7; border-color: #d3dce8; }
+  .layout.max .navmax { order: 1; background: linear-gradient(180deg, #1d5fa8, #12315a); border-radius: 999px; padding: 3px; margin-right: 6px; border-right: 0; }
+  .layout.max .navmax button { background: transparent; border: 0; color: #fff; padding: 6px 12px; box-shadow: none; }
+  .layout.max .navmax button:hover:not(:disabled) { background: rgba(255,255,255,.15); }
+  .layout.max .navmax button:disabled { opacity: .35; } .layout.max .navmax .muted { color: #f2dc96; font-weight: 700; font-size: .82rem; padding: 0 4px; }
+  .layout.max #detalle .ficha-campos { grid-template-columns: 240px 1fr; background: #f8fafc; border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
   .navmax { display: none; } .layout.max .navmax { display: inline-flex; gap: 6px; align-items: center; margin-right: 10px; padding-right: 10px; border-right: 1px solid var(--line); }
   .layout.max .navmax button { font-weight: 700; }
-  .layout.max #detalle { position: static; max-height: none; padding: 18px 24px; }
+  .layout.max #detalle { position: static; max-height: none; padding: 18px 24px; overflow: visible; }
   .layout.max #detalle dl { grid-template-columns: 220px 1fr; font-size: .95rem; }
   .layout.max #detalle .cuerpo { font-size: .95rem; }
   .ficha-campos { margin-top: 6px; }
@@ -319,6 +331,9 @@
   var $ = function (id) { return document.getElementById(id); };
   // Disuasorio (07/11/2026): sin menú del botón derecho (salvo en campos de texto o con texto seleccionado, para copiar) ni
   // F12, Ctrl+U o Ctrl+Mayús+I/J/C. No impide del todo ver el código (nada lo impide en un navegador): eso lo hace el cifrado.
+  // Alto de la cabecera fija, para que la barra de la ficha ampliada quede justo debajo
+  var altoCab = function () { var h = document.querySelector('header'); if (h) document.documentElement.style.setProperty('--cab', (getComputedStyle(h).position === 'sticky' ? h.offsetHeight : 0) + 'px'); };
+  window.addEventListener('resize', altoCab); setTimeout(altoCab, 0);
   document.addEventListener('contextmenu', function (e) {
     var t = e.target; if (t && t.closest && t.closest('input,textarea,select,[contenteditable]')) return;
     if (String(window.getSelection ? window.getSelection() : '')) return;
@@ -341,7 +356,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-07 · 3';
+  var VERSION = '2026-11-08 · 1';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1345,24 +1360,21 @@
     var fichaApi = '';
     if (m._api) {
       var x = m._x, usados = {};
-      var CAMPOS_FICHA = [['Fecha', verFecha(fechaDe(m))], ['Nombre autoridad', m.MensajeNombre_Autoridad], ['N.º referencia', m.MensajeNum_referencia], ['Su referencia', m.MensajeSu_referencia],
-        ['Asunto', m._asunto], ['Enviable a rúbrica', x.EnviableARubrica], ['Fecha registro de entrada', x.FechaRegistroEntrada], ['Fecha registro de salida', x.FechaRegistroSalida],
-        ['Firma (quién firma)', x.Firma], ['Motivo de distribución', x.MotivoDistribucion], ['Leído', x.Leido], ['Prioridad', x.CodigoPrioridad], ['Tipo de mensaje', m.MensajeTipo_es], ['Último comentario', x.UltimoComentario],
-        ['Usuario remitente', x.UsuarioRemitente], ['Célula', sitioDe(m)], ['Bandera', x.Bandera]];
-      ['Bandera', 'MotivoDistribucion', 'EnviableARubrica', 'FechaRegistroEntrada', 'FechaRegistroSalida', 'Firma', 'Leido', 'CodigoPrioridad', 'UltimoComentario', 'UsuarioRemitente', 'TipoMensaje', 'Sref', 'Fecha', 'Asunto', 'CelulaRemitente', 'NumeroRegistroEntrada', '__es']
-        .forEach(function (k) { usados[k] = 1; });
-      var otros = Object.keys(x).filter(function (k) { return !usados[k]; }).sort(function (a, b) { return EXTRA[a].titulo.localeCompare(EXTRA[b].titulo, 'es'); });
-      fichaApi = '<dl class="ficha-campos">' + CAMPOS_FICHA.filter(function (c) { return c[1]; }).map(function (c) { return '<dt>' + esc(c[0]) + '</dt><dd>' + esc(c[1]) + '</dd>'; }).join('') + '</dl>' +
-        (otros.length ? '<details class="otros"><summary>Otros campos (' + otros.length + ')</summary><dl>' + otros.map(function (k) { return '<dt>' + esc(EXTRA[k].titulo) + '</dt><dd>' + esc(x[k]) + '</dd>'; }).join('') + '</dl></details>' : '');
+      // Solo los campos que pidió el usuario (06/11/2026), en este orden; después, los anexos y el texto
+      var CAMPOS_FICHA = [['Fecha', verFecha(fechaDe(m))], ['Nombre autoridad', m.MensajeNombre_Autoridad], ['N.º referencia', m.MensajeNum_referencia], ['Asunto', m._asunto],
+        ['Fecha registro de entrada', x.FechaRegistroEntrada], ['Fecha registro de salida', x.FechaRegistroSalida], ['Firma (quién firma)', x.Firma], ['Leído', x.Leido],
+        ['Último comentario', x.UltimoComentario], ['Célula', sitioDe(m)], ['Destinatarios', x.Destinatarios], ['Estado del envío', x.NombreEstadoUltimaDistribucionSalida],
+        ['N.º registro de salida', x.NumeroRegistroSalida]];
+      fichaApi = '<dl class="ficha-campos">' + CAMPOS_FICHA.filter(function (c) { return c[1]; }).map(function (c) { return '<dt>' + esc(c[0]) + '</dt><dd>' + esc(c[1]) + '</dd>'; }).join('') + '</dl>';
     }
     var maxi = $('layout').classList.contains('max');
     // Con la ficha ampliada: ◀ ▶ para pasar al mensaje anterior o siguiente de la lista (en el orden y con los filtros de la tabla)
     var pos = filtrados.indexOf(m);
     var nav = pos < 0 ? '' : '<span class="navmax"><button type="button" id="msgAnt"' + (pos > 0 ? '' : ' disabled') + ' title="Mensaje anterior (tecla ←)">◀ Anterior</button>' +
       '<span class="muted">' + (pos + 1) + ' de ' + filtrados.length + '</span><button type="button" id="msgSig"' + (pos < filtrados.length - 1 ? '' : ' disabled') + ' title="Mensaje siguiente (tecla →)">Siguiente ▶</button></span>';
-    $('detalle').innerHTML = '<div class="acciones">' + nav + '<button type="button" id="cerrar">✕ Cerrar</button><button type="button" id="ampliar" title="Ver la ficha a toda la pantalla">' + (maxi ? '⤡ Reducir' : '⛶ Ampliar') + '</button>' + (m._api ? '<button type="button" id="abrirMensadef" title="Abre tu célula en MENSADEF en otra pestaña y busca este mensaje">Abrir en MENSADEF</button>' : disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
+    $('detalle').innerHTML = '<div class="acciones barra-ficha">' + nav + '<button type="button" id="cerrar" title="Cerrar la ficha">✕ Cerrar</button><button type="button" id="ampliar" title="Ver la ficha a toda la pantalla">' + (maxi ? '⤡ Reducir' : '⛶ Ampliar') + '</button>' + (m._api ? '<button type="button" id="abrirMensadef" title="Abre tu célula en MENSADEF en otra pestaña y busca este mensaje">↗ Abrir en MENSADEF</button>' : disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
       '<button type="button" class="prim" id="aColabora" disabled title="Abre Tareas Colabora con el alta rellena">➜ Crear tarea en Colabora</button>' +
-      '<button type="button" id="copiarTarea">Copiar para Gestor de Tareas</button><button type="button" id="verDet">' + (vistos[claveMensaje(m)] ? '✓ Visto · quitar' : '✓ Marcar visto') + '</button></div><div id="colabora"></div>' +
+      '<button type="button" id="copiarTarea">📋 Copiar para Gestor</button><button type="button" id="verDet">' + (vistos[claveMensaje(m)] ? '✓ Visto · quitar' : '✓ Marcar visto') + '</button></div><div id="colabora"></div>' +
       (m._api ? '<div class="cab-msg">' + (m._x.__es ? '<span class="tag st-azul">' + (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + esc(m._x.__es) + '</span>' : '') +
         (m.MensajeTipo_es ? '<span class="tag t-tipo">' + esc(m.MensajeTipo_es) + '</span>' : '') + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') +
         (m._x.CodigoPrioridad ? '<span class="prio' + (prioAlta(m._x.CodigoPrioridad) ? ' alta' : '') + '">' + esc(m._x.CodigoPrioridad) + '</span>' : '') + htmlBandera(m._bandera) +

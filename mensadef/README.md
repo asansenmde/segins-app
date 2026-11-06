@@ -197,3 +197,11 @@ con el formato *verbose* de SharePoint 2013.
   caracteres.
 - **Disuasorio:** sin menú del botón derecho (salvo en los campos de texto o con texto seleccionado) y sin F12, Ctrl+U ni
   Ctrl+Mayús+I/J/C. «Ver código fuente» enseña la página de MENSADEF, no la de SENDERO.
+- **2026-11-08 · 1: ficha y barra.**
+  - **Campos de la ficha:** solo los que pidió el usuario: fecha, nombre de autoridad, nº de referencia, asunto, fechas de
+    registro de entrada y salida, firma, leído, último comentario, célula, destinatarios, estado del envío
+    (`NombreEstadoUltimaDistribucionSalida`) y nº de registro de salida. Después, los anexos y el texto. Se quita «Otros
+    campos».
+  - **Barra con la ficha ampliada:** fija bajo la cabecera al desplazarse, con botones redondeados en una línea.
+    ◀ «n de N» ▶ va en un bloque azul; «Crear tarea», «Copiar para Gestor», «Visto» y «Abrir en MENSADEF» en medio, y
+    «Reducir» y «Cerrar» a la derecha.
