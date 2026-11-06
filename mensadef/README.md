@@ -205,3 +205,4 @@ con el formato *verbose* de SharePoint 2013.
   - **Barra con la ficha ampliada:** fija bajo la cabecera al desplazarse, con botones redondeados en una línea.
     ◀ «n de N» ▶ va en un bloque azul; «Crear tarea», «Copiar para Gestor», «Visto» y «Abrir en MENSADEF» en medio, y
     «Reducir» y «Cerrar» a la derecha.
+- **2026-11-08 · 2:** «↗ Abrir en MENSADEF» destacado (azul marino con filo dorado y sombra) en la ficha normal y en la ampliada.

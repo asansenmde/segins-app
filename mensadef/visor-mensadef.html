@@ -123,6 +123,9 @@
   .layout.max .navmax button:hover:not(:disabled) { background: rgba(255,255,255,.15); }
   .layout.max .navmax button:disabled { opacity: .35; } .layout.max .navmax .muted { color: #f2dc96; font-weight: 700; font-size: .82rem; padding: 0 4px; }
   .layout.max #detalle .ficha-campos { grid-template-columns: 240px 1fr; background: #f8fafc; border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+  /* «Abrir en MENSADEF» destacado (azul marino con filo dorado), en la ficha normal y en la ampliada */
+  #abrirMensadef { background: linear-gradient(180deg, #2a6cb8, #12315a); color: #fff; border: 1px solid #12315a; border-bottom: 3px solid #c9a84c; font-weight: 800; letter-spacing: .02em; box-shadow: 0 3px 10px rgba(18,49,90,.30); }
+  #abrirMensadef:hover:not(:disabled) { background: linear-gradient(180deg, #3478c8, #0e2a4b); box-shadow: 0 5px 14px rgba(18,49,90,.40); }
   .navmax { display: none; } .layout.max .navmax { display: inline-flex; gap: 6px; align-items: center; margin-right: 10px; padding-right: 10px; border-right: 1px solid var(--line); }
   .layout.max .navmax button { font-weight: 700; }
   .layout.max #detalle { position: static; max-height: none; padding: 18px 24px; overflow: visible; }
@@ -356,7 +359,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-08 · 1';
+  var VERSION = '2026-11-08 · 2';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
