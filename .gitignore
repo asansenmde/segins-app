@@ -1,2 +1,7 @@
 node_modules/
 www/
+# Salidas de la simulación de VSA (se regeneran en cada prueba)
+vsa/pruebas/*.png
+vsa/pruebas/correo.html
+vsa/pruebas/cuestionario.params
+vsa/pruebas/cuestionario.pdf
