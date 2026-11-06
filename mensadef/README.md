@@ -206,3 +206,6 @@ con el formato *verbose* de SharePoint 2013.
     ◀ «n de N» ▶ va en un bloque azul; «Crear tarea», «Copiar para Gestor», «Visto» y «Abrir en MENSADEF» en medio, y
     «Reducir» y «Cerrar» a la derecha.
 - **2026-11-08 · 2:** «↗ Abrir en MENSADEF» destacado (azul marino con filo dorado y sombra) en la ficha normal y en la ampliada.
+- **2026-11-08 · 3: destinatarios.** La bandeja trae vacío el campo en los mensajes de entrada. Ahora la lista completa
+  sale de `ObtenerCuerpo` (`Destinatarios` y `DestinatariosCopia`), la misma consulta de los anexos: se ve el número, los 6
+  primeros, «y N más» desplegable y los «Con copia».

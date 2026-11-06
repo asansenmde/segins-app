@@ -108,6 +108,8 @@
   @media (max-width: 600px) { .firmamot { grid-template-columns: 1fr; } }
   .layout.max { grid-template-columns: minmax(0, 1fr) !important; }
   .layout.max #lista { display: none; }
+  .ndest { display: inline-block; min-width: 22px; text-align: center; font-size: .72rem; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: #12315a; color: #fff; margin-right: 4px; }
+  details.mas-dest { display: inline; } details.mas-dest summary { display: inline; cursor: pointer; color: #1d5fa8; font-weight: 600; }
   .anexos { margin: 10px 0; padding: 10px 12px; background: #f4f8fc; border: 1px solid #d3dfee; border-left: 4px solid #1d5fa8; border-radius: 10px; }
   .anexo { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid #e3eaf3; } .anexo:first-of-type { border-top: 0; }
   .anexo .ic { font-size: 1.3rem; } .anexo .nm { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; } .anexo button { padding: 4px 10px; font-size: .82rem; }
@@ -359,7 +361,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-08 · 2';
+  var VERSION = '2026-11-08 · 3';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1002,9 +1004,11 @@
     caja.innerHTML = '<p class="muted small">📎 Cargando los anexos…</p>';
     cuerpoCompleto(m).then(function (j) {
       if (abierto !== m || !$('adjuntos')) return;
+      if (!(j.AnexosDigitales || []).length && !(j.AnexosFisicos || []).length) pintarDestinatarios(m, j);
       var ds = (j.AnexosDigitales || []).filter(function (a) { return a; }), fs = j.AnexosFisicos || [];
       if (!m._cuerpoApi && j.Cuerpo) { m._cuerpo = texto(String(j.Cuerpo)); $('cuerpo').textContent = m._cuerpo; }
       m._anexos = ds;
+      pintarDestinatarios(m, j);
       $('adjuntos').innerHTML = '<div class="anexos"><b>📎 Anexos (' + ds.length + (fs.length ? ' + ' + fs.length + ' en papel' : '') + ')</b>' +
         ds.map(function (a, i) {
           var nom = a.Titulo || a.Nombre || 'Anexo ' + (i + 1), arch = a.Nombre || a.Titulo || '', cif = /\.cif$/i.test(arch), u = urlAnexo(a);
@@ -1013,7 +1017,16 @@
             (u ? (cif ? '' : '<button type="button" data-anexo="' + i + '" data-modo="abrir">Abrir</button>') + '<button type="button" data-anexo="' + i + '" data-modo="bajar">⬇ Descargar</button>' : '<span class="muted small">sin dirección: ábrelo en MENSADEF</span>') + '</div>';
         }).join('') + (fs.length ? '<p class="small muted">Además tiene ' + fs.length + ' anexo' + (fs.length === 1 ? '' : 's') + ' en papel (anexo físico).</p>' : '') + (ds.length ? '' : '<p class="small muted">MENSADEF no devuelve anexos digitales para este mensaje.</p>') + '</div>';
       Array.prototype.forEach.call($('adjuntos').querySelectorAll('[data-anexo]'), function (b) { b.addEventListener('click', function () { usarAnexo(m, Number(b.dataset.anexo), b.dataset.modo, b); }); });
-    }, function (e) { if ($('adjuntos') && abierto === m) $('adjuntos').innerHTML = '<p class="small muted">📎 No se pudieron leer los anexos (' + esc(e.message || e) + '). Ábrelos en MENSADEF.</p>'; });
+    }, function (e) { if ($('adjuntos') && abierto === m) $('adjuntos').innerHTML = '<p class="small muted">📎 No se pudieron leer los anexos (' + esc(e.message || e) + '). Ábrelos en MENSADEF.</p>'; pintarDestinatarios(m, null); });
+  }
+  // Destinatarios y con copia, de ObtenerCuerpo (Destinatarios / DestinatariosCopia: {Nombre, TipoDestinatario…})
+  function pintarDestinatarios(m, j) {
+    var el = $('fDest'); if (!el) return;
+    var nombres = function (l) { return (l || []).map(function (d) { return d && (d.Nombre || d.nombre); }).filter(Boolean); };
+    var d = nombres(j && j.Destinatarios), cc = nombres(j && j.DestinatariosCopia);
+    if (!d.length && !cc.length) { if (!(m._x && m._x.Destinatarios)) el.innerHTML = '<span class="muted">—</span>'; return; }
+    var lista = function (l) { return l.length <= 6 ? esc(l.join(' · ')) : esc(l.slice(0, 6).join(' · ')) + ' <details class="mas-dest"><summary>y ' + (l.length - 6) + ' más</summary>' + esc(l.slice(6).join(' · ')) + '</details>'; };
+    el.innerHTML = '<span class="ndest">' + d.length + '</span> ' + lista(d) + (cc.length ? '<div class="small muted" style="margin-top:4px"><b>Con copia (' + cc.length + '):</b> ' + lista(cc) + '</div>' : '');
   }
   function usarAnexo(m, i, modo, boton) {
     var a = (m._anexos || [])[i]; if (!a) return;
@@ -1366,9 +1379,11 @@
       // Solo los campos que pidió el usuario (06/11/2026), en este orden; después, los anexos y el texto
       var CAMPOS_FICHA = [['Fecha', verFecha(fechaDe(m))], ['Nombre autoridad', m.MensajeNombre_Autoridad], ['N.º referencia', m.MensajeNum_referencia], ['Asunto', m._asunto],
         ['Fecha registro de entrada', x.FechaRegistroEntrada], ['Fecha registro de salida', x.FechaRegistroSalida], ['Firma (quién firma)', x.Firma], ['Leído', x.Leido],
-        ['Último comentario', x.UltimoComentario], ['Célula', sitioDe(m)], ['Destinatarios', x.Destinatarios], ['Estado del envío', x.NombreEstadoUltimaDistribucionSalida],
+        ['Último comentario', x.UltimoComentario], ['Célula', sitioDe(m)], ['Destinatarios', x.Destinatarios || '\u2026'], ['Estado del envío', x.NombreEstadoUltimaDistribucionSalida],
         ['N.º registro de salida', x.NumeroRegistroSalida]];
-      fichaApi = '<dl class="ficha-campos">' + CAMPOS_FICHA.filter(function (c) { return c[1]; }).map(function (c) { return '<dt>' + esc(c[0]) + '</dt><dd>' + esc(c[1]) + '</dd>'; }).join('') + '</dl>';
+      // Destinatarios: la bandeja los trae vacíos en los de entrada; la lista completa (y con copia) llega con el cuerpo del mensaje
+      fichaApi = '<dl class="ficha-campos">' + CAMPOS_FICHA.filter(function (c) { return c[1]; }).map(function (c) {
+        return '<dt>' + esc(c[0]) + '</dt><dd' + (c[0] === 'Destinatarios' ? ' id="fDest"' : '') + '>' + (c[0] === 'Destinatarios' && c[1] === '\u2026' ? '<span class="muted">Cargando…</span>' : esc(c[1])) + '</dd>'; }).join('') + '</dl>';
     }
     var maxi = $('layout').classList.contains('max');
     // Con la ficha ampliada: ◀ ▶ para pasar al mensaje anterior o siguiente de la lista (en el orden y con los filtros de la tabla)
