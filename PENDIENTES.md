@@ -150,3 +150,8 @@ autoría.
     09/11/2026: Gestor de Tareas / META 2026-11-09 · 2 con «📋 Incluir en el Punto de Situación», probado en simulación
     (original y protegidas, ligero y verbose). Pendiente: que suba las copias; funcionará cuando se instale Puntos de Situación.
     09/11/2026: 2026-11-09 · 3: solo se incluyen los asuntos marcados ⭐ Tratar con el General (petición del usuario).
+    09/11/2026: **hecha la aplicación** (`puntos-situacion/`, versión 2026-11-09 · 1), probada en simulación (original,
+    protegida y de pruebas; ligero y verbose; Word comprobado con LibreOffice). Pendiente del usuario: subir
+    `puntos-situacion/colabora/puntos-situacion.html` (o primero la de pruebas) a una biblioteca de `/et/SUIGESUR/JSUIGE`,
+    abrirla para la puesta en marcha, revisar el emparejamiento de negociados, añadir miembros en Ajustes y contar si la
+    validación del bloqueo quedó activa («Comprobar la instalación»).
