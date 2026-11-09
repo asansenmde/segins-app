@@ -253,7 +253,7 @@
 <main>
   <noscript><div class="error">Esta página necesita JavaScript.</div></noscript>
   <nav class="tabs" id="tabs">
-    <a data-v="nlt" class="on">Tareas</a><a data-v="calendario">Calendario</a><a data-v="estadisticas">Estadísticas</a><a data-v="avisos">Avisos</a><a data-v="informes">Informes</a><a data-v="ajustes">Ajustes</a>
+    <a data-v="nlt" class="on">Tareas</a><a data-v="calendario">Calendario</a><a data-v="estadisticas">Estadísticas</a><a data-v="avisos">Avisos</a><a data-v="informes">Informes</a><a data-v="ajustes" style="display:none">Ajustes</a>
   </nav>
   <div id="vista"><p class="muted">Leyendo la lista «Gestor de Tareas»…</p></div>
 </main>
@@ -277,7 +277,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-09 · 1';
+  var VERSION = '2026-11-09 · 2';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -318,6 +318,9 @@
   var guardarPref = function () { try { localStorage.setItem(CLAVE, JSON.stringify(pref)); } catch (e) { /* sin memoria local */ } };
 
   // ---------- SharePoint (REST, solo lectura) ----------
+  // esAdmin: Control total (permiso «Administrar permisos») en la lista o, si no se puede leer, en el sitio.
+  // Solo entonces se ve la pestaña Ajustes (petición del usuario, 09/11/2026).
+  var esAdmin = false;
   var web = null, yo = null, listaInfo = null, campos = {}, infoCampo = {}, tareas = [], cargadoEn = null;
 
   function api(url) {
@@ -433,7 +436,9 @@
     cargando = p.then(function () {
       return Promise.all([
         yo ? yo : api(web.url + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) { yo = u; return u; }),
-        api(urlLista() + '?$select=Id,Title,ItemCount,ListItemEntityTypeFullName,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { listaInfo = l; }),
+        api(urlLista() + '?$select=Id,Title,ItemCount,ListItemEntityTypeFullName,EffectiveBasePermissions,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) {
+          listaInfo = l; esAdmin = ((Number(l.EffectiveBasePermissions && l.EffectiveBasePermissions.Low) || 0) & 0x2000000) !== 0; mostrarAjustes();
+        }),
         api(urlLista() + "/fields?$select=InternalName,Title,Choices,RichText,Required,TypeAsString&$filter=(InternalName eq 'ESTADO') or (InternalName eq 'PersonalImplicado0') or (InternalName eq 'Prioridad') or (InternalName eq 'NegociadoAsignado')" +
           " or (InternalName eq 'NegociadosImplicados') or (InternalName eq 'DescripcionDelAsunto') or (InternalName eq 'Comentarios') or (InternalName eq 'ControlExpediente') or (InternalName eq 'FechaVencimiento') or (InternalName eq 'TratarEn')")
           .then(function (d) { lista(d.value).forEach(function (f) {
@@ -482,16 +487,31 @@
     }).catch(function (e) {
       if (silencioso) return;
       $('#estadoCarga').textContent = 'Error';
+      var fallo = function () {
       $('#vista').innerHTML = '<div class="error">No se pudo leer la lista «' + esc(pref.lista) + '»: ' + esc(e.message || e) +
-        '.<br><small>Versión de la página: ' + esc(VERSION) + '</small></div><p class="muted">Comprueba en Ajustes el nombre de la lista y que tienes permiso para verla.</p>' +
+        '.<br><small>Versión de la página: ' + esc(VERSION) + '</small></div><p class="muted">' + (esAdmin ? 'Comprueba en Ajustes el nombre de la lista y que tienes permiso para verla.' :
+          'Comprueba que tienes permiso para ver la lista o avisa al administrador de la página.') + '</p>' +
         (PRUEBAS && e.status === 404 ? '<div class="card"><h3 style="margin-top:0">Preparar la versión de pruebas</h3><p class="small">Crea la lista «' + esc(pref.lista) + '» como copia <b>vacía</b> de «Gestor de Tareas» (mismas columnas, sin ningún asunto). Necesitas permiso para crear listas en el sitio.</p>' +
           '<div class="acciones"><button class="btn prim" data-crearpruebas="1">Crear la lista de pruebas</button></div><div id="prMsg"></div></div>' : '') +
         (PROPIO && e.status === 404 ? '<div class="card"><h3 style="margin-top:0">' + (PROPIO ? 'Preparar META' : 'Preparar tu Gestor de MENSADEF') + '</h3><p class="small">Falta la lista «' + esc(pref.lista) + '». Puedes ' +
           '<b>usar la de pruebas</b> que ya tienes («Gestor de Tareas PRUEBAS»): se le cambia el nombre y <b>se conservan sus tareas</b> (la página de pruebas dejará de verlas), o crear una lista nueva vacía con las mismas columnas que «Gestor de Tareas». Necesitas poder administrar listas en el sitio.</p>' +
           '<div class="acciones"><button class="btn prim" data-renombrarpruebas="1">Usar la lista de pruebas (conserva sus tareas)</button><button class="btn" data-crearpruebas="1">Crear una lista nueva vacía</button></div><div id="prMsg"></div></div>' : '');
-      if (pref.vista === 'ajustes') render();
+      if (pref.vista === 'ajustes' && esAdmin) render();
+      };
+      // Sin lista no se sabe si es administrador: se mira el permiso en el sitio (para poder corregir el nombre en Ajustes)
+      if (listaInfo || !web) return fallo();
+      return api(web.url + '/_api/web?$select=EffectiveBasePermissions').then(function (w) {
+        esAdmin = ((Number(w.EffectiveBasePermissions && w.EffectiveBasePermissions.Low) || 0) & 0x2000000) !== 0;
+      }, function () { esAdmin = false; }).then(function () { mostrarAjustes(); fallo(); });
     }).then(function () { cargando = null; });
     return cargando;
+  }
+
+  // Pestaña Ajustes solo con Control total; a los demás no les sale (y si la tenían abierta, vuelven a Tareas)
+  function mostrarAjustes() {
+    var a = document.querySelector('#tabs a[data-v="ajustes"]');
+    if (a) a.style.display = esAdmin ? '' : 'none';
+    if (!esAdmin && pref.vista === 'ajustes') { pref.vista = 'nlt'; guardarPref(); }
   }
 
   // Copia vacía de la lista real para la versión de pruebas (copiado de Permisos): las columnas propias de «Gestor de Tareas»
@@ -2198,6 +2218,7 @@
 
   // ---------- Navegación y eventos ----------
   function render() {
+    if (pref.vista === 'ajustes' && !esAdmin) { if (!cargadoEn) return; pref.vista = 'nlt'; }
     document.querySelectorAll('#tabs a').forEach(function (a) { a.classList.toggle('on', a.dataset.v === pref.vista); });
     var v = { nlt: vistaNlt, calendario: vistaCalendario, estadisticas: vistaEstadisticas, avisos: vistaAvisos, informes: vistaInformes, ajustes: vistaAjustes }[pref.vista] || vistaNlt;
     if (!cargadoEn && pref.vista !== 'ajustes') return;
@@ -2207,7 +2228,7 @@
   document.addEventListener('click', function (e) {
     var el = e.target;
     var tab = el.closest('#tabs a');
-    if (tab) { pref.vista = tab.dataset.v; kpiSel = ''; guardarPref(); render(); return; }
+    if (tab) { if (tab.dataset.v === 'ajustes' && !esAdmin) return; pref.vista = tab.dataset.v; kpiSel = ''; guardarPref(); render(); return; }
     if (el.closest('#recargar')) { cargar(); return; }
     if (el.closest('[data-crearpruebas]')) { crearListaPruebas(el.closest('[data-crearpruebas]')); return; }
     var trb = el.closest('[data-tratar]');
