@@ -118,6 +118,6 @@ autoría.
     09/11/2026: el Gestor propio se llama META (2026-11-09 · 1, `colabora/colabora/tareas-nlt-colabora-mensadef.html`),
     con la «M» dorada en la cabecera. Misma lista y mismos datos. Pendiente: que lo suba a Colabora en lugar del anterior.
     09/11/2026: Gestor común y META 2026-11-09 · 2 con «Ajustes solo con Control total» (portado de la rama
-    claude/task-manager-web-nlt-n7elx4, que partía de una versión vieja sin Finalizar/Eliminar). Pendiente: que suba
-    los dos (tareas-nlt-colabora.html y tareas-nlt-colabora-mensadef.html).
+    claude/task-manager-web-nlt-n7elx4, que partía de una versión vieja sin Finalizar/Eliminar). Subidos y confirmados
+    por el usuario el mismo día.
 
