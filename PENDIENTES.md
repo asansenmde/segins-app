@@ -108,3 +108,6 @@ autoría.
     09/11/2026: SENDERO 2026-11-09 · 2 (pruebas): comentario en MENSADEF desde la ficha y comentario automático al añadir
     tarea en META. Pendiente: que lo pruebe en un mensaje sin importancia (y confirme que el autor sale bien) para pasarlo
     al favorito definitivo.
+    09/11/2026: SENDERO 2026-11-09 · 5 (pruebas): barra de la ficha ampliada siempre fija, «Ver estructura» oculto y
+    cambio de bandera desde la ficha. Pendiente: que pruebe poner y quitar una bandera (quitar = idEtiqueta 0, supuesto).
+

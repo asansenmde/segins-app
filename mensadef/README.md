@@ -235,4 +235,11 @@ con el formato *verbose* de SharePoint 2013.
     Se ha probado también con el «sticky» anulado.
   - **«Ver estructura» oculto en las dos copias** (también en la de pruebas). Para soporte: Ctrl + Alt + E.
   - Los dos favoritos van cifrados y protegidos como siempre.
+- **2026-11-09 · 5: cambiar la bandera (solo en el favorito de pruebas).**
+  - Desplegable «⚑ Bandera» en la barra de la ficha, con el color de la bandera puesta y las del catálogo
+    (`etiqueta/EtiquetasObtener`). Al elegir una se guarda en MENSADEF y se ve al momento en la ficha y en la tabla.
+  - Igual que la aplicación (escucha v7 del 09/11): `POST etiqueta/EtiquetaMensajeGuardar?idBuzonCelula&idEtiqueta&emailUsuario&urlColeccionSitio`,
+    sin cuerpo, con las cabeceras `passcode`/`user`.
+  - «Quitar bandera» manda `idEtiqueta=0`. Es un supuesto, porque la escucha solo recogió el poner una.
+  - El comentario y la bandera comparten la misma función de escritura (`escribirApi`).
 

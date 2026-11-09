@@ -59,6 +59,10 @@
   #detalle .barra-ficha { position: sticky; top: -12px; z-index: 6; background: #fff; margin: -12px -14px 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); box-shadow: 0 4px 10px rgba(18,49,90,.06); }
   button.naranja { background: linear-gradient(180deg, #f08a24, #d96b00); color: #fff; border-color: #c25e00; }
   button.naranja:hover:not(:disabled) { background: linear-gradient(180deg, #f59a3c, #c25e00); }
+  /* Cambiar la bandera desde la ficha (solo en pruebas de momento) */
+  #selBandera { border-radius: 999px; padding: 6px 10px; font: inherit; font-size: .86rem; font-weight: 700; border: 1px solid #b9a0d8; background: #f6f1fc; color: #4a2a78; cursor: pointer; max-width: 170px; }
+  #selBandera.con { background: var(--cb, #6b3fa0); color: #fff; border-color: rgba(0,0,0,.15); }
+  #selBandera:disabled { opacity: .6; cursor: progress; }
   button.visto-on { background: linear-gradient(180deg, #3a9a5a, #2e7d4f); color: #fff; border-color: #2e7d4f; }
   #detalle h2 { font-size: 1rem; margin: 0 0 8px; }
   dl { display: grid; grid-template-columns: 140px 1fr; gap: 3px 10px; margin: 0; font-size: .86rem; }
@@ -125,6 +129,7 @@
     background: linear-gradient(180deg, #ffffff, #f4f7fb); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 4px 14px rgba(18,49,90,.10); }
   .layout.max .barra-ficha { gap: 6px; } .layout.max .barra-ficha button { border-radius: 999px; padding: 6px 12px; font-size: .86rem; }
   .layout.max .barra-ficha #aColabora { order: 2; } .layout.max .barra-ficha #porCorreo { order: 2; } .layout.max .barra-ficha #copiarTarea { order: 3; } .layout.max .barra-ficha #verDet { order: 4; } .layout.max .barra-ficha #abrirMensadef { order: 5; }
+  .layout.max .barra-ficha #selBandera { order: 4; }
   .layout.max .barra-ficha #ampliar { order: 9; margin-left: auto; } .layout.max .barra-ficha #cerrar { order: 10; }
   .layout.max .barra-ficha #ampliar, .layout.max .barra-ficha #cerrar { background: #eef2f7; border-color: #d3dce8; }
   .layout.max .navmax { order: 1; background: linear-gradient(180deg, #1d5fa8, #12315a); border-radius: 999px; padding: 3px; margin-right: 6px; border-right: 0; }
@@ -386,7 +391,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-09 · 4';
+  var VERSION = '2026-11-09 · 5';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -926,7 +931,7 @@
     return { _api: true, _x: x, ID: kid ? e[kid] : '', MensajeId: kid ? String(e[kid]) : '', _asunto: val('asunto', CLAVES_API.asunto), MensajeFecha: fecha, MensajeEstado: val('estado', CLAVES_API.estado),
       MensajeTipo_es: val('tipo', CLAVES_API.tipo), MensajeNombre_Autoridad: val('remitente', CLAVES_API.remitente), MensajeNum_referencia: val('referencia', CLAVES_API.referencia, CLAVES_API.referencia2),
       MensajeSu_referencia: val('suReferencia', /^sref$|su_?ref/i), MensajeNum_expediente: val('', CLAVES_API.expediente),
-      _leido: typeof e.Leido === 'boolean' ? e.Leido : undefined, _bandera: bandera, _idBuzon: e.IdBuzonCelula || e.idBuzonCelula || '',
+      _leido: typeof e.Leido === 'boolean' ? e.Leido : undefined, _bandera: bandera, _idBandera: bandera ? String(idb) : '', _idBuzon: e.IdBuzonCelula || e.idBuzonCelula || '',
       Attachments: kadj ? siNo(e[kadj]) : false, _cuerpoApi: kc ? texto(String(e[kc])) : '',
       _enlace: location.origin + location.pathname + '#/celula/' + encodeURIComponent(celula.nombre) + '/' + celula.id,
       _lista: { id: 'api', sitio: celula, titulo: 'tipoES ' + es + ' de ' + celula.nombre } };
@@ -1451,7 +1456,7 @@
     $('detalle').innerHTML = '<div class="acciones barra-ficha">' + nav + '<button type="button" id="cerrar" title="Cerrar la ficha">✕ Cerrar</button><button type="button" id="ampliar" title="Ver la ficha a toda la pantalla">' + (maxi ? '⤡ Reducir' : '⛶ Ampliar') + '</button>' + (m._api ? '<button type="button" id="abrirMensadef" title="Abre tu célula en MENSADEF en otra pestaña y busca este mensaje">↗ Abrir en MENSADEF</button>' : disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
       '<button type="button" class="prim" id="aColabora" disabled title="Abre el Gestor de Tareas (META) con el alta rellena">➜ Añadir tarea en META</button>' +
       '<button type="button" class="naranja" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Enviar por correo</button>' +
-      '<button type="button" id="copiarTarea">📋 Copiar para Gestor</button><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button></div><div id="colabora"></div>' +
+      '<button type="button" id="copiarTarea">📋 Copiar para Gestor</button><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + selectorBandera(m) + '</div><div id="colabora"></div>' +
       (m._api ? '<div class="cab-msg">' + (m._x.__es ? '<span class="tag st-azul">' + (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + esc(m._x.__es) + '</span>' : '') +
         (m.MensajeTipo_es ? '<span class="tag t-tipo">' + esc(m.MensajeTipo_es) + '</span>' : '') + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') +
         (m._x.CodigoPrioridad ? '<span class="prio' + (prioAlta(m._x.CodigoPrioridad) ? ' alta' : '') + '">' + esc(m._x.CodigoPrioridad) + '</span>' : '') + htmlBandera(m._bandera) +
@@ -1470,6 +1475,11 @@
     if ($('msgAnt')) { $('msgAnt').addEventListener('click', function () { irMensaje(-1); }); $('msgSig').addEventListener('click', function () { irMensaje(1); }); }
     if ($('abrirMensadef')) $('abrirMensadef').addEventListener('click', function () { localizarEnMensadef(m); });
     pintarColabora(m); pintarComentario(m); setTimeout(fijarBarra, 0);
+    if ($('selBandera')) $('selBandera').addEventListener('change', function () {
+      var sel = this, id = sel.value; sel.disabled = true;
+      cambiarBandera(m, id).then(function () { pintarTabla(); if (abierto === m) abrir(m); avisoBandera(m, id ? '✓ Bandera cambiada en MENSADEF' : '✓ Bandera quitada en MENSADEF', false); },
+        function (e) { sel.disabled = false; sel.value = m._bandera ? m._idBandera : ''; avisoBandera(m, 'No se pudo cambiar la bandera: ' + (e.message || e), true); });
+    });
     $('verDet').addEventListener('click', function () { cambiarVisto(m, !vistos[claveMensaje(m)]); });
     $('porCorreo').addEventListener('click', function () { correoMensaje(m); });
     $('aColabora').addEventListener('click', function () { pasarAColabora(m, disp); });
@@ -1566,25 +1576,54 @@
   // con { Comentario, IdMensaje, CreadoPor } y las cabeceras passcode/user. Es lo único que el visor escribe en MENSADEF, y
   // siempre lo pide el usuario (botón con confirmación) o al pasar un mensaje a META si deja marcada la casilla.
   var ESCRIBIR = PRUEBAS;
-  function comentarEnMensadef(m, texto) {
-    if (!apiCtx || !m.MensajeId) return Promise.reject(new Error('este mensaje no viene del servicio de MENSADEF'));
-    var q = ['emailUsuario', 'urlColeccionSitio'].map(function (k) { return k + '=' + encodeURIComponent(k === 'emailUsuario' ? apiCtx.email : apiCtx.url); }).join('&');
-    var url = (datosApp.origen || API) + '/api/mensaje/ComentarioCrear?' + q + '&' + q;
-    var cuerpo = JSON.stringify({ Comentario: texto, IdMensaje: m.MensajeId, CreadoPor: apiCtx.idUsuario });
-    var x = diagApi.filter(function (y) { return y.ruta === 'mensaje/ComentarioCrear'; })[0];
-    if (!x) { x = { ruta: 'mensaje/ComentarioCrear', n: 0 }; diagApi.push(x); }
+  // POST al servicio como la aplicación: cabeceras passcode/user y, si la clave ha caducado (406), se pide otra una vez
+  function escribirApi(ruta, consulta, cuerpo, que) {
+    var x = diagApi.filter(function (y) { return y.ruta === ruta; })[0];
+    if (!x) { x = { ruta: ruta, n: 0 }; diagApi.push(x); }
+    var url = (datosApp.origen || API) + '/api/' + ruta + '?' + consulta;
     var intento = function (otra) {
       var cab = leer('cabecerasApi', null), hs = { 'Content-Type': 'application/json' };
       if (cab && cab.passcode) { hs.passcode = cab.passcode; if (cab.user) hs.user = cab.user; }
       x.n++;
-      return fetch(url, { method: 'POST', credentials: modoApi_fetch || 'omit', headers: hs, body: cuerpo }).then(function (r) {
+      var op = { method: 'POST', credentials: modoApi_fetch || 'omit', headers: hs }; if (cuerpo != null) op.body = cuerpo;
+      return fetch(url, op).then(function (r) {
         x.estado = r.status;
         if (r.status === 406 && !otra) return pedirClave(apiCtx.email, apiCtx.url).then(function () { return intento(true); });
-        if (!r.ok) throw new Error('MENSADEF ha contestado HTTP ' + r.status + (r.status === 403 || r.status === 401 ? ' (sin permiso para comentar este mensaje)' : ''));
+        if (!r.ok) throw new Error('MENSADEF ha contestado HTTP ' + r.status + (r.status === 403 || r.status === 401 ? ' (sin permiso para ' + que + ')' : ''));
         return true;
       });
     };
-    return intento(false).then(function () {
+    return intento(false);
+  }
+  var qUsuario = function () { return 'emailUsuario=' + encodeURIComponent(apiCtx.email) + '&urlColeccionSitio=' + encodeURIComponent(apiCtx.url); };
+  // ---------- Bandera (09/11/2026, solo pruebas): como la aplicación (escucha v7), POST etiqueta/EtiquetaMensajeGuardar
+  // ?idBuzonCelula&idEtiqueta&emailUsuario&urlColeccionSitio, sin cuerpo. «Sin bandera» = idEtiqueta 0 (supuesto: la escucha
+  // solo recogió el poner una).
+  function selectorBandera(m) {
+    if (!ESCRIBIR || !m._api || !m._idBuzon || !Object.keys(BANDERAS).length) return '';
+    var act = m._bandera ? m._idBandera : '';
+    return '<select id="selBandera" title="Cambiar la bandera en MENSADEF"' + (m._bandera ? ' class="con" style="--cb:' + esc(colorBandera(m._bandera)) + '"' : '') + '>' +
+      '<option value="">' + (m._bandera ? '⚑ Quitar bandera' : '⚑ Poner bandera…') + '</option>' +
+      Object.keys(BANDERAS).filter(function (k) { return +k !== 0; }).map(function (k) { return '<option value="' + esc(k) + '"' + (String(act) === k ? ' selected' : '') + '>⚑ ' + esc(BANDERAS[k].nombre) + '</option>'; }).join('') + '</select>';
+  }
+  function avisoBandera(m, texto, mal) {
+    if (abierto !== m || !$('colabora')) return;
+    $('colabora').insertAdjacentHTML('afterbegin', '<p class="small ' + (mal ? 'bad' : '') + '"' + (mal ? '' : ' style="color:#2e7d4f;font-weight:700"') + '>' + esc(texto) + '</p>');
+  }
+  function cambiarBandera(m, id) {
+    if (!apiCtx || !m._idBuzon) return Promise.reject(new Error('este mensaje no viene del servicio de MENSADEF'));
+    return escribirApi('etiqueta/EtiquetaMensajeGuardar', 'idBuzonCelula=' + encodeURIComponent(m._idBuzon) + '&idEtiqueta=' + encodeURIComponent(id || 0) + '&' + qUsuario(), null, 'cambiar la bandera').then(function () {
+      var b = id ? BANDERAS[String(id)] : null;
+      m._bandera = b || null; m._idBandera = b ? String(id) : '';
+      if (b) { EXTRA.Bandera = EXTRA.Bandera || { titulo: 'Bandera', tipo: 'Text' }; m._x.Bandera = b.nombre; } else delete m._x.Bandera;
+      return b;
+    });
+  }
+  function comentarEnMensadef(m, texto) {
+    if (!apiCtx || !m.MensajeId) return Promise.reject(new Error('este mensaje no viene del servicio de MENSADEF'));
+    var q = qUsuario();
+    var cuerpo = JSON.stringify({ Comentario: texto, IdMensaje: m.MensajeId, CreadoPor: apiCtx.idUsuario });
+    return escribirApi('mensaje/ComentarioCrear', q + '&' + q, cuerpo, 'comentar este mensaje').then(function () {
       if (m._x) m._x.UltimoComentario = texto;
       return true;
     });
