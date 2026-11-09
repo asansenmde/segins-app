@@ -147,6 +147,32 @@
   .navmax { display: none; } .layout.max .navmax { display: inline-flex; gap: 6px; align-items: center; margin-right: 10px; padding-right: 10px; border-right: 1px solid var(--line); }
   .layout.max .navmax button { font-weight: 700; }
   /* Respaldo de la barra fija (09/11/2026): si el navegador no la deja «sticky», se fija por código al bajar */
+  /* ---------- Barra de la ficha en dos pisos (09/11/2026, propuesta B) ---------- */
+  .barra-ficha .piso1, .barra-ficha .piso2, .barra-ficha .seg { display: contents; }
+  .titmax, .sepb { display: none; }
+  .barra-ficha #cerrar { order: -2; } .barra-ficha #ampliar { order: -1; }
+  .layout.max .barra-ficha, .layout.max #detalle .barra-ficha { display: block; padding: 0; gap: 0; overflow: hidden; background: #fff; border-radius: 16px; }
+  .layout.max .barra-ficha #cerrar, .layout.max .barra-ficha #ampliar { order: 0; margin-left: 0; }
+  .layout.max .barra-ficha .piso1 { display: flex; align-items: center; gap: 10px; padding: 7px 10px; color: #fff;
+    background: linear-gradient(100deg, #0a1f3a 0%, #12315a 55%, #1b4a80 100%); border-bottom: 3px solid #c9a84c; }
+  .layout.max .barra-ficha .piso2 { display: flex; align-items: center; gap: 8px; padding: 8px 10px; flex-wrap: wrap; }
+  .layout.max .barra-ficha .piso1 > *, .layout.max .barra-ficha .piso2 > * { order: 0 !important; }
+  .layout.max .titmax { display: block; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; font-size: .95rem; }
+  .layout.max .titmax small { color: #c9d8ea; font-weight: 600; margin-left: 10px; font-size: .78rem; }
+  .layout.max .barra-ficha .piso1 .navmax { margin: 0; padding: 2px; border: 1px solid rgba(201,168,76,.55); background: rgba(255,255,255,.1); flex: none; }
+  .layout.max .barra-ficha .piso1 .navmax button { height: 30px; padding: 0 10px; }
+  .layout.max .barra-ficha .piso1 > button, .layout.max .barra-ficha .piso2 button, .layout.max .barra-ficha .piso2 a > button { height: 34px; padding: 0 12px; border-radius: 10px; flex: none; }
+  .layout.max .barra-ficha .piso1 > button:not(#abrirMensadef) { background: rgba(255,255,255,.1); color: #fff; border: 1px solid rgba(201,168,76,.45); box-shadow: none; }
+  .layout.max .barra-ficha .piso1 > button:not(#abrirMensadef):hover { background: rgba(255,255,255,.2); }
+  .layout.max .barra-ficha .piso1 #abrirMensadef { background: linear-gradient(180deg, #2a6cb8, #1d5fa8); border-color: rgba(201,168,76,.6); }
+  .layout.max .barra-ficha .sepb { display: block; width: 1px; align-self: stretch; background: #e1e7ef; margin: 2px 2px; }
+  .layout.max .barra-ficha .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #f7f9fc; }
+  .layout.max .barra-ficha .seg button { border: 0; border-radius: 0; box-shadow: none; }
+  .layout.max .barra-ficha .seg button + button { border-left: 1px solid #e1e7ef; }
+  .layout.max .barra-ficha .seg button:not(.visto-on) { background: #f7f9fc; color: #1c2a3a; }
+  .layout.max .barra-ficha .seg button:not(.visto-on):hover { background: #eaf0f7; }
+  .layout.max .barra-ficha #selBandera { height: 34px; border-radius: 10px; }
+  @media (max-width: 760px) { .layout.max .barra-ficha .piso1 { flex-wrap: wrap; } .layout.max .titmax { flex-basis: 100%; order: 5; } }
   .layout.max .barra-ficha.fija { position: fixed !important; margin: 0 !important; z-index: 30; }
   .layout.max #detalle { position: static; max-height: none; padding: 18px 24px; overflow: visible; }
   .layout.max #detalle dl { grid-template-columns: 220px 1fr; font-size: .95rem; }
@@ -397,7 +423,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-09 · 9';
+  var VERSION = '2026-11-09 · 10';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -436,7 +462,7 @@
     'MensajeNum_referencia', 'MensajeSu_referencia', 'MensajeNum_expediente', 'MensajeUrlCarpeta', 'MensajeDireccion', 'MensajeCorreoElectronico', 'MensajeCSV'];
   var ETIQUETAS = { MensajeFecha: 'Fecha', MensajeTipo_es: 'Tipo', MensajeEstado: 'Estado', MensajeCanal: 'Canal', MensajeAutoridad: 'Autoridad', MensajeNombre_Autoridad: 'Nombre autoridad',
     MensajeNivel_1_Organico: 'Órgano (nivel 1)', MensajeNivel_2_Organico: 'Órgano (nivel 2)', MensajeNivel_3_Organico: 'Órgano (nivel 3)', MensajeNivel_4_Organico: 'Órgano (nivel 4)',
-    MensajeNum_referencia: 'N.º referencia', MensajeSu_referencia: 'Su referencia', MensajeNum_expediente: 'N.º expediente', MensajeId: 'Id. mensaje', MensajeDireccion: 'Dirección',
+    MensajeNum_referencia: 'N.º referencia', MensajeSu_referencia: 'Su referencia', MensajeNum_expediente: 'N.º expediente', MensajeId: 'Id. mensaje', EnviableARubrica: 'Enviable a rúbrica', MensajeDireccion: 'Dirección',
     MensajeCorreoElectronico: 'Correo electrónico', MensajeCSV: 'CSV', MensajeUrlCarpeta: 'Carpeta de documentos' };
 
   // REST de SharePoint: JSON ligero y, si el servidor no lo admite, «verbose». Solo GET.
@@ -885,7 +911,7 @@
   var SIN_FILTRO = { EstadoMensaje: 1, TipoMensaje: 1, TipoES: 1 };
   // Con las bandejas, además de buscar, célula, tipo y estado, solo estos filtros (el resto de campos, en el detalle)
   var FILTROS_API = { CodigoPrioridad: 1, Leido: 1, Bandera: 1, EnviableARubrica: 1 };
-  var ETIQUETAS_API = { Actuacion: 'Actuación', CelulaRemitente: 'Célula remitente', CelulaDestinataria: 'Célula destinataria', CodigoPrioridad: 'Prioridad', ContieneAnexos: 'Anexos',
+  var ETIQUETAS_API = { EnviableARubrica: 'Enviable a rúbrica', Actuacion: 'Actuación', CelulaRemitente: 'Célula remitente', CelulaDestinataria: 'Célula destinataria', CodigoPrioridad: 'Prioridad', ContieneAnexos: 'Anexos',
     EstadoMensaje: 'Estado del mensaje', EstadoParaUsuario: 'Estado para mí', Leido: 'Leído', TipoES: 'Entrada/Salida', TipoMensaje: 'Tipo de mensaje', NumeroRegistroEntrada: 'N.º registro de entrada',
     NumeroRegistroSalida: 'N.º registro de salida', FechaRegistroEntrada: 'Fecha registro de entrada', FechaRegistroSalida: 'Fecha registro de salida', UsuarioRemitente: 'Usuario remitente',
     MotivoDistribucion: 'Motivo de distribución', UltimoComentario: 'Último comentario', Sref: 'Su referencia', Nref: 'Nuestra referencia', Destinatarios: 'Destinatarios', Firma: 'Firma' };
@@ -1480,10 +1506,15 @@
     var pos = filtrados.indexOf(m);
     var nav = pos < 0 ? '' : '<span class="navmax"><button type="button" id="msgAnt"' + (pos > 0 ? '' : ' disabled') + ' title="Mensaje anterior (tecla ←)">◀ Anterior</button>' +
       '<span class="muted">' + (pos + 1) + ' de ' + filtrados.length + '</span><button type="button" id="msgSig"' + (pos < filtrados.length - 1 ? '' : ' disabled') + ' title="Mensaje siguiente (tecla →)">Siguiente ▶</button></span>';
-    $('detalle').innerHTML = '<div class="acciones barra-ficha">' + nav + '<button type="button" id="cerrar" title="Cerrar la ficha">✕ Cerrar</button><button type="button" id="ampliar" title="Ver la ficha a toda la pantalla">' + (maxi ? '⤡ Reducir' : '⛶ Ampliar') + '</button>' + (m._api ? '<button type="button" id="abrirMensadef" title="Abre tu célula en MENSADEF en otra pestaña y busca este mensaje">↗ Abrir en MENSADEF</button>' : disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
-      '<button type="button" class="prim" id="aColabora" disabled title="Abre el Gestor de Tareas (META) con el alta rellena">➜ Añadir tarea en META</button>' +
-      '<button type="button" class="naranja" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Enviar por correo</button>' +
-      '<button type="button" id="copiarTarea">📋 Copiar para Gestor</button><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + selectorBandera(m) + botonRubrica(m) + '</div><div id="colabora"></div>' +
+    // Barra en dos pisos (09/11/2026, propuesta B): arriba navegar, el asunto abierto, Abrir en MENSADEF, Reducir y Cerrar;
+    // abajo las acciones. Con la ficha sin ampliar los pisos no se ven (display: contents) y queda como antes.
+    var titMax = '<div class="titmax" title="' + esc(m._asunto || '') + '">' + esc(m._asunto || '(sin asunto)') + '<small>' +
+      esc([m._x && m._x.__es ? (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + m._x.__es : '', verFecha(fechaDe(m)), sitioDe(m)].filter(Boolean).join(' · ')) + '</small></div>';
+    $('detalle').innerHTML = '<div class="acciones barra-ficha"><div class="piso1">' + nav + titMax + (m._api ? '<button type="button" id="abrirMensadef" title="Abre tu célula en MENSADEF en otra pestaña y busca este mensaje">↗ Abrir en MENSADEF</button>' : disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
+      '<button type="button" id="ampliar" title="Ver la ficha a toda la pantalla">' + (maxi ? '⤡ Reducir' : '⛶ Ampliar') + '</button><button type="button" id="cerrar" title="Cerrar la ficha">✕ Cerrar</button></div><div class="piso2">' +
+      '<button type="button" class="prim" id="aColabora" disabled title="Abre el Gestor de Tareas (META) con el alta rellena">➜ Añadir tarea en META</button>' + botonRubrica(m) + '<span class="sepb"></span>' +
+      '<span class="seg"><button type="button" class="naranja" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Enviar por correo</button>' +
+      '<button type="button" id="copiarTarea">📋 Copiar para Gestor</button><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button></span>' + selectorBandera(m) + '</div></div><div id="colabora"></div>' +
       (m._api ? '<div class="cab-msg">' + (m._x.__es ? '<span class="tag st-azul">' + (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + esc(m._x.__es) + '</span>' : '') +
         (m.MensajeTipo_es ? '<span class="tag t-tipo">' + esc(m.MensajeTipo_es) + '</span>' : '') + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') +
         (m._x.CodigoPrioridad ? '<span class="prio' + (prioAlta(m._x.CodigoPrioridad) ? ' alta' : '') + '">' + esc(m._x.CodigoPrioridad) + '</span>' : '') + htmlBandera(m._bandera) +
