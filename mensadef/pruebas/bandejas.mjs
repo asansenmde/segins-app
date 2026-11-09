@@ -201,6 +201,14 @@ await p.click('#ampliar'); console.log('ampliada: tabla oculta', await p.isHidde
   const t0 = await tit(), p0 = await pos(); await p.click('#msgSig'); await p.waitForTimeout(300); const t1 = await tit(), p1 = await pos();
   await p.keyboard.press('ArrowRight'); await p.waitForTimeout(300); const p2 = await pos(); await p.keyboard.press('ArrowLeft'); await p.waitForTimeout(300); await p.click('#msgAnt'); await p.waitForTimeout(300);
   console.log('navegar ampliado:', p0, '→', p1, '→ (tecla →)', p2, '→ (← y ◀)', await pos(), '| cambia el mensaje:', t0 !== t1, '| vuelve al primero:', (await tit()) === t0, '| sigue ampliada:', await p.isHidden('#lista')); }
+// Barra fija con la ficha ampliada, también si el «sticky» no actúa (se simula con overflow:hidden en el contenedor)
+for (const roto of [false, true]) {
+  if (roto) await p.addStyleTag({ content: '#layout { overflow: hidden; }' });
+  await p.setViewportSize({ width: 1300, height: 420 }); await p.evaluate(() => scrollTo(0, document.body.scrollHeight)); await p.waitForTimeout(300);
+  console.log('ampliada y abajo' + (roto ? ' (sticky roto)' : '') + ': barra a la vista:', await p.evaluate(() => { const r = document.querySelector('#detalle .barra-ficha').getBoundingClientRect(), h = document.querySelector('header').getBoundingClientRect(); return r.top >= h.bottom - 2 && r.top < h.bottom + 30 && r.bottom <= innerHeight; }), '| scroll:', await p.evaluate(() => scrollY));
+  if (roto) { await p.screenshot({ path: new URL('barra-fija.png', import.meta.url).pathname }); await p.evaluate(() => document.querySelectorAll('style').forEach(x => x.textContent === '#layout { overflow: hidden; }' && x.remove())); }
+}
+await p.evaluate(() => scrollTo(0, 0)); await p.setViewportSize({ width: 1300, height: 900 });
 await p.click('#ampliar'); console.log('reducida: botones ocultos', !(await p.isVisible('#msgSig')));
 console.log('firma y motivo en la ficha:', (await p.textContent('#detalle .firmamot')).replace(/\s+/g, ' '), '| en la tabla:', await p.$$eval('#lista .sub', l => l.some(x => /✍ GENERAL JEFE <b>A<\/b> · Motivo: Para/.test(x.textContent))));
 // Banderas: en la tabla con su color, en la ficha y con filtro

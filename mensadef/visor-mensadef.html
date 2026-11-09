@@ -137,6 +137,8 @@
   #abrirMensadef:hover:not(:disabled) { background: linear-gradient(180deg, #3478c8, #0e2a4b); box-shadow: 0 5px 14px rgba(18,49,90,.40); }
   .navmax { display: none; } .layout.max .navmax { display: inline-flex; gap: 6px; align-items: center; margin-right: 10px; padding-right: 10px; border-right: 1px solid var(--line); }
   .layout.max .navmax button { font-weight: 700; }
+  /* Respaldo de la barra fija (09/11/2026): si el navegador no la deja «sticky», se fija por código al bajar */
+  .layout.max .barra-ficha.fija { position: fixed !important; margin: 0 !important; z-index: 30; }
   .layout.max #detalle { position: static; max-height: none; padding: 18px 24px; overflow: visible; }
   .layout.max #detalle dl { grid-template-columns: 220px 1fr; font-size: .95rem; }
   .layout.max #detalle .cuerpo { font-size: .95rem; }
@@ -346,6 +348,22 @@
   // Alto de la cabecera fija, para que la barra de la ficha ampliada quede justo debajo
   var altoCab = function () { var h = document.querySelector('header'); if (h) document.documentElement.style.setProperty('--cab', (getComputedStyle(h).position === 'sticky' ? h.offsetHeight : 0) + 'px'); };
   window.addEventListener('resize', altoCab); setTimeout(altoCab, 0);
+  // Barra de la ficha ampliada siempre a la vista: además del «sticky», al bajar se fija por código (en algunos equipos el
+  // «sticky» no actúa y había que subir para ver los botones). Un hueco ocupa su sitio para que la ficha no salte.
+  function fijarBarra() {
+    var lay = $('layout'), bar = document.querySelector('#detalle .barra-ficha'); if (!lay || !bar) return;
+    var hueco = $('huecoBarra');
+    if (!hueco || hueco.nextSibling !== bar) { if (hueco) hueco.parentNode.removeChild(hueco); hueco = document.createElement('div'); hueco.id = 'huecoBarra'; bar.parentNode.insertBefore(hueco, bar); }
+    var quitar = function () { bar.classList.remove('fija'); bar.style.left = bar.style.width = bar.style.top = ''; hueco.style.height = '0'; };
+    if (!lay.classList.contains('max') || $('detalle').hidden) return quitar();
+    var cab = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cab')) || 0, arriba = cab + 6;
+    var r = hueco.getBoundingClientRect(), d = $('detalle').getBoundingClientRect();
+    if (r.top < arriba && d.bottom > arriba + bar.offsetHeight) {
+      if (!bar.classList.contains('fija')) { hueco.style.height = bar.offsetHeight + 'px'; bar.classList.add('fija'); }
+      bar.style.top = arriba + 'px'; bar.style.left = (d.left + 16) + 'px'; bar.style.width = (d.width - 32) + 'px';
+    } else quitar();
+  }
+  document.addEventListener('scroll', fijarBarra, true); window.addEventListener('resize', fijarBarra);
   document.addEventListener('contextmenu', function (e) {
     var t = e.target; if (t && t.closest && t.closest('input,textarea,select,[contenteditable]')) return;
     if (String(window.getSelection ? window.getSelection() : '')) return;
@@ -368,7 +386,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-09 · 3';
+  var VERSION = '2026-11-09 · 4';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1447,11 +1465,11 @@
     $('ampliar').addEventListener('click', function () {
       var on = !$('layout').classList.contains('max');
       $('layout').classList.toggle('max', on); this.textContent = on ? '⤡ Reducir' : '⛶ Ampliar';
-      $('detalle').scrollIntoView({ block: 'start' });
+      $('detalle').scrollIntoView({ block: 'start' }); fijarBarra();
     });
     if ($('msgAnt')) { $('msgAnt').addEventListener('click', function () { irMensaje(-1); }); $('msgSig').addEventListener('click', function () { irMensaje(1); }); }
     if ($('abrirMensadef')) $('abrirMensadef').addEventListener('click', function () { localizarEnMensadef(m); });
-    pintarColabora(m); pintarComentario(m);
+    pintarColabora(m); pintarComentario(m); setTimeout(fijarBarra, 0);
     $('verDet').addEventListener('click', function () { cambiarVisto(m, !vistos[claveMensaje(m)]); });
     $('porCorreo').addEventListener('click', function () { correoMensaje(m); });
     $('aColabora').addEventListener('click', function () { pasarAColabora(m, disp); });
@@ -1617,8 +1635,8 @@
   }
 
   // Estructura sin contenido (sitios, listas, columnas y nº de valores distintos) para enviarla a quien ayuda a ajustar el visor
-  // «Ver estructura» solo en la copia de pruebas; en la definitiva se puede sacar para soporte con Ctrl + Alt + E
-  if (!PRUEBAS) $('lineaSoporte').hidden = true;
+  // «Ver estructura» oculto en las dos copias (09/11/2026, a petición del usuario); para soporte, Ctrl + Alt + E
+  $('lineaSoporte').hidden = true;
   document.addEventListener('keydown', function (e) { if (e.ctrlKey && e.altKey && (e.key === 'e' || e.key === 'E')) { $('lineaSoporte').hidden = false; e.preventDefault(); } });
   $('estructura').addEventListener('click', function (e) {
     e.preventDefault();

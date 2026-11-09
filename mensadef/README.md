@@ -229,3 +229,10 @@ con el formato *verbose* de SharePoint 2013.
   - **Al «Añadir tarea en META»** deja el comentario «Añadido como tarea en META (gestor) el fecha · SENDERO», si está
     marcada la casilla (marcada por defecto, se recuerda).
   - En el favorito definitivo no aparece (`ESCRIBIR = PRUEBAS`) hasta que el usuario lo dé por bueno.
+- **2026-11-09 · 4:**
+  - **Barra de la ficha ampliada siempre a la vista.** En el equipo del usuario el «sticky» no actuaba y había que subir
+    para ver los botones. Ahora, al bajar, la barra se fija por código bajo la cabecera, con un hueco que ocupa su sitio.
+    Se ha probado también con el «sticky» anulado.
+  - **«Ver estructura» oculto en las dos copias** (también en la de pruebas). Para soporte: Ctrl + Alt + E.
+  - Los dos favoritos van cifrados y protegidos como siempre.
+
