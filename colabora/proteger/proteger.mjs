@@ -15,6 +15,7 @@ let html = fs.readFileSync(origen, 'utf8');
 if (PROPIO) {
   if (!html.includes('var PROPIO = false;')) throw new Error('No encuentro «var PROPIO = false;» en tareas-nlt-colabora.html');
   html = html.replace('var PROPIO = false;', 'var PROPIO = true;');
+  html = html.replace(/<title>[^<]*<\/title>/, '<title>META · Gestión de expedientes MENSADEF</title>');
 }
 if (PRUEBAS) {
   if (!html.includes('var PRUEBAS = false;')) throw new Error('No encuentro «var PRUEBAS = false;» en tareas-nlt-colabora.html');
@@ -51,7 +52,7 @@ const ETIQUETAS = /<(?=\/?(?:!doctype|html|head|body|meta|title|style|link|base|
 const codigoFinal = codigoCompacto.replace(ETIQUETAS, '\\x3c');
 if (/<\/script|<!--|<\/?(?:!doctype|html|head|body)\b/i.test(codigoFinal)) throw new Error('El código protegido contiene etiquetas de página («</head>», «<body>»…): no se puede pegar en la página');
 
-const aviso = '<!--\n  Gestor de tareas de la Jefatura de SUIGESUR · versión ' + version + ' (protegida' + (PRUEBAS ? ', COPIA DE PRUEBAS' : PROPIO ? ', GESTOR PROPIO DE MENSADEF' : '') + ')\n' +
+const aviso = '<!--\n  Gestor de tareas de la Jefatura de SUIGESUR · versión ' + version + ' (protegida' + (PRUEBAS ? ', COPIA DE PRUEBAS' : PROPIO ? ', META · GESTOR PROPIO DE MENSADEF' : '') + ')\n' +
   '  © 2026 Cte. Alfredo Sánchez Sender. Desarrollador y autor de esta aplicación. Todos los derechos reservados.\n' +
   '  Prohibida su copia, modificación o redistribución sin autorización del autor.\n-->\n';
 let salida = html.slice(0, ini + 8) + '\n' + codigoFinal + '\n' + html.slice(fin);

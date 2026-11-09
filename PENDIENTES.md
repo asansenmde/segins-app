@@ -115,4 +115,6 @@ autoría.
     funcionaba; en su lugar, enlace fijo «Ir a Rúbrica»). Pendiente: que confirme «Pasar a rúbrica» para pasarlo al definitivo.
     09/11/2026: «Pasar a rúbrica» confirmado por el usuario. Versión final 2026-11-09 · 9 con rúbrica, «Ir a Rúbrica»,
     «⟳ Actualizar» y hora de la última actualización (sin «Pasar a rúbrica» si el estado es «Enviado»).
+    09/11/2026: el Gestor propio se llama META (2026-11-09 · 1, `colabora/colabora/tareas-nlt-colabora-mensadef.html`),
+    con la «M» dorada en la cabecera. Misma lista y mismos datos. Pendiente: que lo suba a Colabora en lugar del anterior.
 
