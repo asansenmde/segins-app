@@ -132,12 +132,12 @@ if '--pruebas' in sys.argv:
     generar(*ESCUCHAR)
     generar('visor-mensadef.html', 'marcador-visor-mensadef-pruebas.html', 'SENDERO (pruebas)',
             'SENDERO · Visor de mensajes de MENSADEF · VERSIÓN DE PRUEBAS',
-            'Copia de pruebas del visor, para probar <b>«➜ Crear tarea en Colabora»</b> sin tocar el favorito bueno. Lleva '
+            'Copia de pruebas del visor, para probar <b>«➜ Añadir tarea en META»</b> sin tocar el favorito bueno. Lleva '
             'una banda roja, guarda su memoria aparte y solo admite la página de Tareas de pruebas '
             '(<i>tareas-nlt-colabora-pruebas.html</i>). Solo <b>lee</b> MENSADEF, con tu sesión.',
             ['Abre MENSADEF en tu célula (por ejemplo SETEC SEGURIDAD).',
              'Pulsa el favorito <b>SENDERO (pruebas)</b>.',
-             'Abre un mensaje y pulsa <b>➜ Crear tarea en Colabora</b>. La primera vez pega la dirección de '
+             'Abre un mensaje y pulsa <b>➜ Añadir tarea en META</b>. La primera vez pega la dirección de '
              '<i>tareas-nlt-colabora-pruebas.html</i> en Colabora.',
              'Para volver a MENSADEF normal, recarga (F5).'], pruebas=True)
     sys.exit()
@@ -153,12 +153,12 @@ generar('prueba-mensadef.html', 'marcador-mensadef.html', 'Prueba MENSADEF', 'Pr
 generar('visor-mensadef.html', 'marcador-visor-mensadef.html', 'SENDERO', 'SENDERO · Visor de mensajes de MENSADEF',
         'Un <b>favorito</b> que convierte la página de MENSADEF en un visor de los mensajes de <b>tus células</b> (cada uno ve '
         'las suyas, con su propia sesión): bandejas de entrada y salida, búsqueda y filtros, ficha con todos los datos y el '
-        'texto, banderas, marcas de «visto», informes para imprimir, PDF o Word, y <b>➜ Crear tarea</b> en el Gestor de Tareas '
+        'texto, banderas, marcas de «visto», informes para imprimir, PDF o Word, <b>✉ Enviar por correo</b> y <b>➜ Añadir tarea en META</b> en el Gestor de Tareas '
         'de Colabora que elijas. Solo <b>lee</b> MENSADEF; los datos no salen de los servidores de Defensa.',
         ['Abre MENSADEF y entra en tu célula; espera a que salgan tus mensajes.',
          'Pulsa el favorito <b>SENDERO</b>. La primera vez puedes elegir qué células se cargan '
          '(<b>Células que se cargan…</b>).',
-         'Pulsa un mensaje para ver su ficha. Con <b>➜ Crear tarea en Colabora</b> se abre el Gestor de Tareas con el alta '
+         'Pulsa un mensaje para ver su ficha. Con <b>➜ Añadir tarea en META</b> se abre el Gestor de Tareas con el alta '
          'rellena: la primera vez te pide la dirección del Gestor (el común de tu unidad o el tuyo) y un nombre; puedes '
          'guardar varios y elegir en cada mensaje.',
          'Para volver a MENSADEF normal, recarga la página (F5).'])

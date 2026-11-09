@@ -155,7 +155,24 @@ if (process.env.PRESENTA) {
   await p.evaluate(() => scrollTo(0, 0)); await p.screenshot({ path: dir + '/p1.png' });
   await p.evaluate(() => { const l = document.querySelector('#layout'); scrollTo(0, l.getBoundingClientRect().top + scrollY - 70); }); await p.waitForTimeout(300); await p.screenshot({ path: dir + '/p2.png' });
 }
-console.log('sin botón de correo:', !(await p.$('#porCorreo')));
+// Correo (mailto) con la información del mensaje, botón naranja
+await p.evaluate(() => { document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href^="mailto:"]'); if (a) { window.__mailto = a.href; e.preventDefault(); } }, true); });
+await p.click('#porCorreo'); await p.waitForTimeout(200);
+{ const mt = await p.evaluate(() => window.__mailto || ''); const body = decodeURIComponent((mt.split('&body=')[1] || '')); const subj = decodeURIComponent((mt.split('subject=')[1] || '').split('&')[0]);
+  console.log('correo:', subj, '| líneas:', body.split('\n').slice(0, 6).join(' / '), '| enlace a MENSADEF:', /Abrir MENSADEF: https/.test(body), '| documentos:', /Documentos del mensaje/.test(body), '| largo:', mt.length, '| botón naranja:', await p.$eval('#porCorreo', b => b.classList.contains('naranja'))); }
+// Visto: con «Ocultar vistos» desaparece al momento y el botón se pone verde
+await p.fill('#buscar', ''); await p.waitForTimeout(300); await p.check('#fVistos'); await p.waitForTimeout(200);
+{ const n0 = await p.$$eval('#lista tr[data-i]', x => x.length); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(500);
+  await p.click('#verDet'); await p.waitForTimeout(300); const n1 = await p.$$eval('#lista tr[data-i]', x => x.length);
+  console.log('visto con filtro: filas', n0, '→', n1, '| botón verde:', await p.$eval('#verDet', b => b.classList.contains('visto-on')), '|', (await p.textContent('#verDet')).trim());
+  await p.click('#lista tbody tr[data-i] >> nth=3'); await p.waitForTimeout(400); await p.click('#ampliar'); await p.waitForTimeout(200); const pos0 = await p.textContent('.navmax .muted'), t0 = await p.textContent('#detalle .cab-msg h2');
+  await p.keyboard.press('v'); await p.waitForTimeout(500);
+  console.log('ampliada + tecla V: pasa al siguiente:', (await p.textContent('#detalle .cab-msg h2')) !== t0 || pos0 !== (await p.textContent('.navmax .muted')), '|', pos0, '→', await p.textContent('.navmax .muted'), '| botón META:', (await p.textContent('#aColabora')).trim());
+  await p.click('#ampliar'); await p.uncheck('#fVistos'); await p.waitForTimeout(300); }
+// Con la tabla larga y bajando, la barra de la ficha sigue a la vista
+await p.setViewportSize({ width: 1400, height: 800 }); await p.evaluate(() => scrollTo(0, document.body.scrollHeight * 0.7)); await p.waitForTimeout(200);
+console.log('barra visible al bajar:', await p.evaluate(() => { const r = document.querySelector('#detalle .barra-ficha').getBoundingClientRect(), h = document.querySelector('header').getBoundingClientRect(); return r.top >= h.bottom - 2 && r.bottom <= innerHeight; }));
+await p.screenshot({ path: new URL('bajando.png', import.meta.url).pathname });
 console.log('botón derecho bloqueado:', await p.evaluate(() => { const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true }); document.querySelector('#lista').dispatchEvent(e); return e.defaultPrevented; }),
   '| en un campo de texto se permite:', await p.evaluate(() => { const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true }); document.querySelector('#buscar').dispatchEvent(e); return !e.defaultPrevented; }),
   '| Ctrl+U bloqueado:', await p.evaluate(() => { const e = new KeyboardEvent('keydown', { key: 'u', ctrlKey: true, bubbles: true, cancelable: true }); document.body.dispatchEvent(e); return e.defaultPrevented; }));

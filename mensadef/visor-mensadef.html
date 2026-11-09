@@ -54,7 +54,12 @@
   .tag { display: inline-block; font-size: .72rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #dde8f7; color: #1d4f91; white-space: nowrap; }
   .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
   @media (min-width: 1100px) { .layout.detalle-abierto { grid-template-columns: minmax(0, 1fr) 440px; } }
-  #detalle { position: sticky; top: 10px; align-self: start; max-height: calc(100vh - 20px); overflow: auto; }
+  #detalle { position: sticky; top: calc(var(--cab, 0px) + 10px); align-self: start; max-height: calc(100vh - var(--cab, 0px) - 20px); overflow: auto; }
+  /* Barra de botones de la ficha siempre a la vista (09/11/2026): fija arriba dentro de la ficha */
+  #detalle .barra-ficha { position: sticky; top: -12px; z-index: 6; background: #fff; margin: -12px -14px 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); box-shadow: 0 4px 10px rgba(18,49,90,.06); }
+  button.naranja { background: linear-gradient(180deg, #f08a24, #d96b00); color: #fff; border-color: #c25e00; }
+  button.naranja:hover:not(:disabled) { background: linear-gradient(180deg, #f59a3c, #c25e00); }
+  button.visto-on { background: linear-gradient(180deg, #3a9a5a, #2e7d4f); color: #fff; border-color: #2e7d4f; }
   #detalle h2 { font-size: 1rem; margin: 0 0 8px; }
   dl { display: grid; grid-template-columns: 140px 1fr; gap: 3px 10px; margin: 0; font-size: .86rem; }
   dt { color: var(--muted); font-weight: 600; }
@@ -117,7 +122,7 @@
   .layout.max .barra-ficha { position: sticky; top: calc(var(--cab, 0px) + 6px); z-index: 6; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -6px -8px 12px; padding: 10px 12px;
     background: linear-gradient(180deg, #ffffff, #f4f7fb); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 4px 14px rgba(18,49,90,.10); }
   .layout.max .barra-ficha { gap: 6px; } .layout.max .barra-ficha button { border-radius: 999px; padding: 6px 12px; font-size: .86rem; }
-  .layout.max .barra-ficha #aColabora { order: 2; } .layout.max .barra-ficha #copiarTarea { order: 3; } .layout.max .barra-ficha #verDet { order: 4; } .layout.max .barra-ficha #abrirMensadef { order: 5; }
+  .layout.max .barra-ficha #aColabora { order: 2; } .layout.max .barra-ficha #porCorreo { order: 2; } .layout.max .barra-ficha #copiarTarea { order: 3; } .layout.max .barra-ficha #verDet { order: 4; } .layout.max .barra-ficha #abrirMensadef { order: 5; }
   .layout.max .barra-ficha #ampliar { order: 9; margin-left: auto; } .layout.max .barra-ficha #cerrar { order: 10; }
   .layout.max .barra-ficha #ampliar, .layout.max .barra-ficha #cerrar { background: #eef2f7; border-color: #d3dce8; }
   .layout.max .navmax { order: 1; background: linear-gradient(180deg, #1d5fa8, #12315a); border-radius: 999px; padding: 3px; margin-right: 6px; border-right: 0; }
@@ -358,10 +363,10 @@
     document.title = 'PRUEBAS · ' + document.title;
     var bandaP = document.createElement('div');
     bandaP.style.cssText = 'background:#b71c1c;color:#fff;text-align:center;font-weight:800;padding:6px 10px';
-    bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Crear tarea» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
+    bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-08 · 3';
+  var VERSION = '2026-11-09 · 1';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -466,6 +471,17 @@
     guardar('vistos', vistos);
   }
   var claveMensaje = function (m) { return m.MensajeId || (m._lista.titulo + ':' + m.ID); };
+  function cambiarVisto(m, si) {
+    var i = filtrados.indexOf(m);
+    marcarVisto(m, si); pintarKpis();
+    var b = $('verDet');
+    if (b && abierto === m) { b.classList.toggle('visto-on', si); b.textContent = si ? '✓ Visto' : '✓ Marcar visto'; b.title = si ? 'Pulsa para quitar la marca' : 'Marcar como visto'; }
+    if (si && $('fVistos').checked && !kpiSel) {
+      filtrar();
+      var sig = filtrados[i] || filtrados[i - 1];
+      if (abierto === m && $('layout').classList.contains('max') && sig) abrir(sig);
+    } else pintarTabla();
+  }
 
   // Fechas por defecto: los últimos 3 días (o lo último que se usó)
   var hoy = new Date();
@@ -1028,6 +1044,27 @@
     var lista = function (l) { return l.length <= 6 ? esc(l.join(' · ')) : esc(l.slice(0, 6).join(' · ')) + ' <details class="mas-dest"><summary>y ' + (l.length - 6) + ' más</summary>' + esc(l.slice(6).join(' · ')) + '</details>'; };
     el.innerHTML = '<span class="ndest">' + d.length + '</span> ' + lista(d) + (cc.length ? '<div class="small muted" style="margin-top:4px"><b>Con copia (' + cc.length + '):</b> ' + lista(cc) + '</div>' : '');
   }
+  // ✉ Enviar por correo (09/11/2026): correo de Outlook (mailto) con lo relevante del mensaje y los enlaces a MENSADEF
+  // y a la carpeta de sus documentos. Sin adjuntos: se ven desde el enlace. No toca MENSADEF.
+  function correoMensaje(m) {
+    var x = m._x || {}, j = m._cuerpoCompleto, carpeta = j && j.UrlCarpeta ? String(j.UrlCarpeta) : '';
+    if (carpeta && !/^https?:\/\//i.test(carpeta)) carpeta = location.origin + (carpeta.charAt(0) === '/' ? '' : '/') + carpeta;
+    var dest = j ? (j.Destinatarios || []).map(function (d) { return d && d.Nombre; }).filter(Boolean) : [];
+    var anexos = (m._anexos || []).map(function (a) { return a.Titulo || a.Nombre; }).filter(Boolean);
+    var linea = function (k, v) { return v ? k + ': ' + v : ''; };
+    var cuerpo = String(m._cuerpo || m._cuerpoApi || '').trim();
+    var partes = ['MENSAJE DE MENSADEF', '────────────────────────',
+      linea('Asunto', m._asunto), linea('Fecha', verFecha(fechaDe(m))), linea('Autoridad', m.MensajeNombre_Autoridad), linea('N.º de referencia', m.MensajeNum_referencia),
+      linea('Firma', x.Firma), linea('Prioridad', x.CodigoPrioridad), linea('Bandera', m._bandera && m._bandera.nombre), linea('Célula', sitioDe(m)),
+      linea('Destinatarios', dest.length ? dest.slice(0, 5).join('; ') + (dest.length > 5 ? ' y ' + (dest.length - 5) + ' más' : '') : x.Destinatarios),
+      linea('Anexos', anexos.length ? anexos.length + ' (' + anexos.join('; ') + ')' : ''), '────────────────────────'].filter(Boolean);
+    var pie = ['', carpeta ? 'Documentos del mensaje en MENSADEF: ' + encodeURI(decodeURI(carpeta)) : '', m._enlace ? 'Abrir MENSADEF: ' + m._enlace : '', '', 'Enviado con SENDERO · © 2026 Cte. Alfredo Sánchez Sender'].filter(function (l, i, a) { return l || a[i - 1]; });
+    var asunto = 'MENSADEF' + (m.MensajeNum_referencia ? ' · ' + m.MensajeNum_referencia : '') + ' · ' + (m._asunto || '');
+    var hacer = function (t) { return 'mailto:?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(t); };
+    var texto0 = cuerpo ? cuerpo : '', t = partes.concat(texto0 ? ['', texto0] : [], pie).join('\n');
+    while (hacer(t).length > 1900 && texto0.length > 50) { texto0 = texto0.slice(0, Math.max(50, texto0.length - 200)); t = partes.concat(['', texto0 + '… (sigue en MENSADEF)'], pie).join('\n'); }
+    var el = document.createElement('a'); el.href = hacer(t); el.style.display = 'none'; document.body.appendChild(el); el.click(); setTimeout(function () { el.remove(); }, 1000);
+  }
   function usarAnexo(m, i, modo, boton) {
     var a = (m._anexos || [])[i]; if (!a) return;
     var u = urlAnexo(a), nom = a.Nombre || a.Titulo || 'anexo';
@@ -1342,7 +1379,7 @@
     Array.prototype.forEach.call($('lista').querySelectorAll('tbody tr[data-i]'), function (tr) {
       tr.addEventListener('click', function (e) {
         var cb = e.target.closest && e.target.closest('[data-visto]');
-        if (cb) { marcarVisto(filas[+cb.getAttribute('data-visto')], cb.checked); e.stopPropagation(); pintarKpis(); tr.classList.toggle('visto', cb.checked); return; }
+        if (cb) { e.stopPropagation(); cambiarVisto(filas[+cb.getAttribute('data-visto')], cb.checked); return; }
         abrir(filas[+tr.getAttribute('data-i')]);
       });
     });
@@ -1361,6 +1398,7 @@
   document.addEventListener('keydown', function (e) {
     if (!$('layout').classList.contains('max') || !abierto || /input|textarea|select/i.test((e.target && e.target.tagName) || '')) return;
     if (e.key === 'ArrowLeft') { e.preventDefault(); irMensaje(-1); } else if (e.key === 'ArrowRight') { e.preventDefault(); irMensaje(1); }
+    else if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); cambiarVisto(abierto, !vistos[claveMensaje(abierto)]); }
   });
   function abrir(m) {
     abierto = m; pintarTabla();
@@ -1391,8 +1429,9 @@
     var nav = pos < 0 ? '' : '<span class="navmax"><button type="button" id="msgAnt"' + (pos > 0 ? '' : ' disabled') + ' title="Mensaje anterior (tecla ←)">◀ Anterior</button>' +
       '<span class="muted">' + (pos + 1) + ' de ' + filtrados.length + '</span><button type="button" id="msgSig"' + (pos < filtrados.length - 1 ? '' : ' disabled') + ' title="Mensaje siguiente (tecla →)">Siguiente ▶</button></span>';
     $('detalle').innerHTML = '<div class="acciones barra-ficha">' + nav + '<button type="button" id="cerrar" title="Cerrar la ficha">✕ Cerrar</button><button type="button" id="ampliar" title="Ver la ficha a toda la pantalla">' + (maxi ? '⤡ Reducir' : '⛶ Ampliar') + '</button>' + (m._api ? '<button type="button" id="abrirMensadef" title="Abre tu célula en MENSADEF en otra pestaña y busca este mensaje">↗ Abrir en MENSADEF</button>' : disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
-      '<button type="button" class="prim" id="aColabora" disabled title="Abre Tareas Colabora con el alta rellena">➜ Crear tarea en Colabora</button>' +
-      '<button type="button" id="copiarTarea">📋 Copiar para Gestor</button><button type="button" id="verDet">' + (vistos[claveMensaje(m)] ? '✓ Visto · quitar' : '✓ Marcar visto') + '</button></div><div id="colabora"></div>' +
+      '<button type="button" class="prim" id="aColabora" disabled title="Abre el Gestor de Tareas (META) con el alta rellena">➜ Añadir tarea en META</button>' +
+      '<button type="button" class="naranja" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Enviar por correo</button>' +
+      '<button type="button" id="copiarTarea">📋 Copiar para Gestor</button><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button></div><div id="colabora"></div>' +
       (m._api ? '<div class="cab-msg">' + (m._x.__es ? '<span class="tag st-azul">' + (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + esc(m._x.__es) + '</span>' : '') +
         (m.MensajeTipo_es ? '<span class="tag t-tipo">' + esc(m.MensajeTipo_es) + '</span>' : '') + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') +
         (m._x.CodigoPrioridad ? '<span class="prio' + (prioAlta(m._x.CodigoPrioridad) ? ' alta' : '') + '">' + esc(m._x.CodigoPrioridad) + '</span>' : '') + htmlBandera(m._bandera) +
@@ -1411,7 +1450,8 @@
     if ($('msgAnt')) { $('msgAnt').addEventListener('click', function () { irMensaje(-1); }); $('msgSig').addEventListener('click', function () { irMensaje(1); }); }
     if ($('abrirMensadef')) $('abrirMensadef').addEventListener('click', function () { localizarEnMensadef(m); });
     pintarColabora(m);
-    $('verDet').addEventListener('click', function () { var si = !vistos[claveMensaje(m)]; marcarVisto(m, si); this.textContent = si ? '✓ Visto · quitar' : '✓ Marcar visto'; pintarKpis(); pintarTabla(); });
+    $('verDet').addEventListener('click', function () { cambiarVisto(m, !vistos[claveMensaje(m)]); });
+    $('porCorreo').addEventListener('click', function () { correoMensaje(m); });
     $('aColabora').addEventListener('click', function () { pasarAColabora(m, disp); });
     $('copiarTarea').addEventListener('click', function () {
       var t = (m._asunto || '') + (m.MensajeNum_referencia ? ' — Ref. ' + m.MensajeNum_referencia : '') + (m.MensajeNum_expediente ? ' — Exp. ' + m.MensajeNum_expediente : '') +

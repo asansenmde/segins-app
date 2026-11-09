@@ -209,3 +209,15 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-08 · 3: destinatarios.** La bandeja trae vacío el campo en los mensajes de entrada. Ahora la lista completa
   sale de `ObtenerCuerpo` (`Destinatarios` y `DestinatariosCopia`), la misma consulta de los anexos: se ve el número, los 6
   primeros, «y N más» desplegable y los «Con copia».
+- **2026-11-09 · 1: mejoras de uso.**
+  - **Ficha visible siempre:** junto a la tabla se queda bajo la cabecera al bajar, con su barra de botones fija arriba (antes había que volver
+    al principio para ver Ampliar, Cerrar, Abrir en MENSADEF…).
+  - **«➜ Añadir tarea en META»** en lugar de «Crear tarea en Colabora».
+  - **«✉ Enviar por correo»** (botón naranja): correo de Outlook (`mailto:`) con asunto, fecha, autoridad, nº de
+    referencia, firma, prioridad, bandera, célula, destinatarios y anexos, el texto (recortado si no cabe) y los enlaces a
+    la carpeta de documentos y a MENSADEF. Sin adjuntos.
+  - **«✓ Visto»** se pone en verde. Con «Ocultar vistos», el mensaje desaparece de la tabla al momento, también al
+    marcarlo en su casilla; con la ficha ampliada se pasa al siguiente.
+  - **Tecla V** con la ficha ampliada: marca o quita el visto.
+  - **Pendiente:** escribir el comentario en MENSADEF y anotar «Añadido en META» al pasar a tarea. Hace falta antes una
+    escucha de cómo lo hace la aplicación.
