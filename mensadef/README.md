@@ -272,4 +272,6 @@ con el formato *verbose* de SharePoint 2013.
     Copiar y Visto juntos en un bloque; la bandera.
   - Sigue fija al bajar. Con la ficha sin ampliar, todo queda como antes.
   - El filtro se llama «Enviable a rúbrica».
+- **2026-11-09 · 11:** «Pasar a rúbrica» tampoco sale si el estado es «Pendiente de firma». Lo mismo con «en firma»,
+  «firmado», «en rúbrica» o «portafirmas», como ya pasaba con «Enviado». «Ir a Rúbrica» sí sale en esos casos.
 

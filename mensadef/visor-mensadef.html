@@ -423,7 +423,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-09 · 10';
+  var VERSION = '2026-11-09 · 11';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1677,7 +1677,8 @@
   var RUBRICA = true; // 09/11/2026: probado por el usuario, también en el definitivo
   function siTexto(v) { return v === true || /^\s*(s|s[ií]|true|1|yes)\s*$/i.test(String(v == null ? '' : v)); }
   // Si el estado es «Enviado» (ya salió) no se ofrece, aunque MENSADEF siga marcándolo como enviable a rúbrica
-  function yaEnviado(m) { return /\benviad[oa]s?\b/i.test((m._rubrica && m._rubrica.estado) || ''); }
+  // Ni si ya está en firma (pendiente de firma, en el portafirmas, firmado): pasarlo otra vez no tiene sentido
+  function yaEnviado(m) { return /\benviad[oa]s?\b|pendiente\s+de\s+firma|firma\s+pendiente|en\s+firma|firmad[oa]|en\s+r[uú]brica|portafirmas/i.test((m._rubrica && m._rubrica.estado) || ''); }
   function puedeRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && m.MensajeId && r && !r.enviado && !yaEnviado(m) && (siTexto(r.enviable) || /validaci/i.test(r.estado || ''))); }
   // Enlace fijo al portafirmas (dirección dada por el usuario) para no tener que buscarlo; la firma se hace allí
   var URL_RUBRICA = 'https://portafirmas.mdef.es/ePortafirmas/Inicio.do?cr=&btnLogout=Entrar';
