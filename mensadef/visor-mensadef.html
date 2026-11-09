@@ -115,6 +115,8 @@
   .layout.max #lista { display: none; }
   .ndest { display: inline-block; min-width: 22px; text-align: center; font-size: .72rem; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: #12315a; color: #fff; margin-right: 4px; }
   details.mas-dest { display: inline; } details.mas-dest summary { display: inline; cursor: pointer; color: #1d5fa8; font-weight: 600; }
+  .comentar { margin: 10px 0; padding: 10px 12px; background: #fffaf0; border: 1px solid #f0d9b0; border-left: 4px solid #d96b00; border-radius: 10px; }
+  .comentar textarea { width: 100%; margin: 6px 0; font: inherit; padding: 7px 9px; border: 1px solid #e3cfa8; border-radius: 8px; min-height: 3.2em; }
   .anexos { margin: 10px 0; padding: 10px 12px; background: #f4f8fc; border: 1px solid #d3dfee; border-left: 4px solid #1d5fa8; border-radius: 10px; }
   .anexo { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid #e3eaf3; } .anexo:first-of-type { border-top: 0; }
   .anexo .ic { font-size: 1.3rem; } .anexo .nm { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; } .anexo button { padding: 4px 10px; font-size: .82rem; }
@@ -366,7 +368,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-09 · 1';
+  var VERSION = '2026-11-09 · 2';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1440,7 +1442,7 @@
         : '<h2>' + esc(m._asunto || '(sin asunto)') + '</h2><dl>' + datos +
         Object.keys(m._x).sort(function (a, b) { return EXTRA[a].titulo.localeCompare(EXTRA[b].titulo, 'es'); }).map(function (k) { return '<dt>' + esc(EXTRA[k].titulo) + '</dt><dd>' + esc(m._x[k]) + '</dd>'; }).join('') +
         (l.sitio ? '<dt>Sitio</dt><dd>' + esc(l.sitio.titulo) + '</dd>' : '') + '<dt>Lista</dt><dd>' + esc(l.titulo) + '</dd></dl>') +
-      '<div id="adjuntos"></div><div id="docs"></div><div class="cuerpo" id="cuerpo">Cargando el texto del mensaje…</div>';
+      '<div id="adjuntos"></div><div id="cajaComentario"></div><div id="docs"></div><div class="cuerpo" id="cuerpo">Cargando el texto del mensaje…</div>';
     $('cerrar').addEventListener('click', function () { abierto = null; $('detalle').hidden = true; $('layout').classList.remove('detalle-abierto', 'max'); pintarTabla(); });
     $('ampliar').addEventListener('click', function () {
       var on = !$('layout').classList.contains('max');
@@ -1449,7 +1451,7 @@
     });
     if ($('msgAnt')) { $('msgAnt').addEventListener('click', function () { irMensaje(-1); }); $('msgSig').addEventListener('click', function () { irMensaje(1); }); }
     if ($('abrirMensadef')) $('abrirMensadef').addEventListener('click', function () { localizarEnMensadef(m); });
-    pintarColabora(m);
+    pintarColabora(m); pintarComentario(m);
     $('verDet').addEventListener('click', function () { cambiarVisto(m, !vistos[claveMensaje(m)]); });
     $('porCorreo').addEventListener('click', function () { correoMensaje(m); });
     $('aColabora').addEventListener('click', function () { pasarAColabora(m, disp); });
@@ -1510,7 +1512,9 @@
     caja.innerHTML = (env ? '<p class="muted">➜ Pasado a ' + esc(enviadosA[claveMensaje(m)] || 'Tareas Colabora') + ' el ' + esc(verFecha(new Date(env))) + ' desde este navegador.</p>' : '') +
       (g.length ? '<div class="fila" style="margin:4px 0"><label style="flex:1;min-width:220px">Crear la tarea en<select id="gestorSel">' +
         g.map(function (x, i) { return '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + esc(x.nombre) + '</option>'; }).join('') + '</select></label>' +
-        '<a href="#" id="cambiarColabora" class="muted">gestionar gestores</a></div>' : '');
+        '<a href="#" id="cambiarColabora" class="muted">gestionar gestores</a></div>' : '') +
+      (ESCRIBIR && m._api ? '<label class="check small"><input type="checkbox" id="anotarMeta"' + (leer('anotarMeta', true) ? ' checked' : '') + '> Al añadir la tarea, dejar en MENSADEF el comentario «Añadido como tarea en META»</label>' : '');
+    if ($('anotarMeta')) $('anotarMeta').addEventListener('change', function () { guardar('anotarMeta', this.checked); });
     if ($('gestorSel')) $('gestorSel').addEventListener('change', function () { guardar('gestorSel', Number(this.value)); });
     if ($('cambiarColabora')) $('cambiarColabora').addEventListener('click', function (e) { e.preventDefault(); configurarColabora(m); });
   }
@@ -1539,6 +1543,52 @@
       if (despues) despues();
     });
   }
+  // ---------- Comentarios en MENSADEF (09/11/2026, solo en la copia de pruebas de momento) ----------
+  // Como la aplicación (escucha v7): POST mensaje/ComentarioCrear?emailUsuario&urlColeccionSitio (dos veces, igual que ella)
+  // con { Comentario, IdMensaje, CreadoPor } y las cabeceras passcode/user. Es lo único que el visor escribe en MENSADEF, y
+  // siempre lo pide el usuario (botón con confirmación) o al pasar un mensaje a META si deja marcada la casilla.
+  var ESCRIBIR = PRUEBAS;
+  function comentarEnMensadef(m, texto) {
+    if (!apiCtx || !m.MensajeId) return Promise.reject(new Error('este mensaje no viene del servicio de MENSADEF'));
+    var q = ['emailUsuario', 'urlColeccionSitio'].map(function (k) { return k + '=' + encodeURIComponent(k === 'emailUsuario' ? apiCtx.email : apiCtx.url); }).join('&');
+    var url = (datosApp.origen || API) + '/api/mensaje/ComentarioCrear?' + q + '&' + q;
+    var cuerpo = JSON.stringify({ Comentario: texto, IdMensaje: m.MensajeId, CreadoPor: apiCtx.idUsuario });
+    var x = diagApi.filter(function (y) { return y.ruta === 'mensaje/ComentarioCrear'; })[0];
+    if (!x) { x = { ruta: 'mensaje/ComentarioCrear', n: 0 }; diagApi.push(x); }
+    var intento = function (otra) {
+      var cab = leer('cabecerasApi', null), hs = { 'Content-Type': 'application/json' };
+      if (cab && cab.passcode) { hs.passcode = cab.passcode; if (cab.user) hs.user = cab.user; }
+      x.n++;
+      return fetch(url, { method: 'POST', credentials: modoApi_fetch || 'omit', headers: hs, body: cuerpo }).then(function (r) {
+        x.estado = r.status;
+        if (r.status === 406 && !otra) return pedirClave(apiCtx.email, apiCtx.url).then(function () { return intento(true); });
+        if (!r.ok) throw new Error('MENSADEF ha contestado HTTP ' + r.status + (r.status === 403 || r.status === 401 ? ' (sin permiso para comentar este mensaje)' : ''));
+        return true;
+      });
+    };
+    return intento(false).then(function () {
+      if (m._x) m._x.UltimoComentario = texto;
+      return true;
+    });
+  }
+  function pintarComentario(m) {
+    var caja = $('cajaComentario'); if (!caja || !ESCRIBIR || !m._api) return;
+    caja.innerHTML = '<div class="comentar"><b>💬 Añadir comentario en MENSADEF</b>' +
+      '<textarea id="txtComentario" rows="2" placeholder="Escribe el comentario; quedará como «Último comentario» del mensaje en MENSADEF"></textarea>' +
+      '<div class="acciones"><button type="button" class="prim" id="guardarComentario">Guardar en MENSADEF</button><span class="small muted" id="msgComentario"></span></div></div>';
+    $('guardarComentario').addEventListener('click', function () {
+      var b = this, t = $('txtComentario').value.trim(), msg = $('msgComentario');
+      if (!t) { msg.textContent = 'Escribe el comentario.'; return; }
+      if (!b.dataset.seguro) { b.dataset.seguro = '1'; b.textContent = '¿Guardar en MENSADEF? Pulsa otra vez'; b.classList.add('naranja'); msg.textContent = 'Se guardará en MENSADEF con tu usuario y lo verán los demás.'; return; }
+      b.disabled = true; msg.textContent = 'Guardando…';
+      comentarEnMensadef(m, t).then(function () {
+        if (abierto !== m) return;
+        msg.innerHTML = '<b style="color:#2e7d4f">✓ Guardado en MENSADEF</b>'; $('txtComentario').value = ''; delete b.dataset.seguro; b.textContent = 'Guardar en MENSADEF'; b.classList.remove('naranja'); b.disabled = false;
+        var dd = Array.prototype.filter.call(document.querySelectorAll('#detalle .ficha-campos dt'), function (d) { return d.textContent === 'Último comentario'; })[0];
+        if (dd) dd.nextElementSibling.textContent = t; else if ($('detalle').querySelector('.ficha-campos')) $('detalle').querySelector('.ficha-campos').insertAdjacentHTML('beforeend', '<dt>Último comentario</dt><dd>' + esc(t) + '</dd>');
+      }, function (e) { b.disabled = false; delete b.dataset.seguro; b.textContent = 'Guardar en MENSADEF'; b.classList.remove('naranja'); msg.innerHTML = '<span class="bad">No se pudo guardar: ' + esc(e.message || e) + '</span>'; });
+    });
+  }
   function pasarAColabora(m, disp) {
     var u = urlColabora();
     if (!u) return configurarColabora(m, function () { pasarAColabora(m, disp); });
@@ -1555,6 +1605,15 @@
     ks.slice(2000).forEach(function (k) { delete enviados[k]; });
     guardar('enviados', enviados);
     pintarColabora(m); pintarTabla();
+    if (ESCRIBIR && m._api && leer('anotarMeta', true)) {
+      var nota = 'Añadido como tarea en META (' + ((gestorElegido() || {}).nombre || 'Gestor de Tareas') + ') el ' + new Date().toLocaleString('es-ES') + ' · SENDERO';
+      comentarEnMensadef(m, nota).then(function () {
+        if (abierto !== m) return;
+        $('colabora').insertAdjacentHTML('beforeend', '<p class="small" style="color:#2e7d4f">✓ Comentario añadido en MENSADEF: «' + esc(nota) + '»</p>');
+        var dd = Array.prototype.filter.call(document.querySelectorAll('#detalle .ficha-campos dt'), function (d) { return d.textContent === 'Último comentario'; })[0];
+        if (dd) dd.nextElementSibling.textContent = nota;
+      }, function (e) { if (abierto === m) $('colabora').insertAdjacentHTML('beforeend', '<p class="small bad">No se pudo dejar el comentario en MENSADEF: ' + esc(e.message || e) + '</p>'); });
+    }
   }
 
   // Estructura sin contenido (sitios, listas, columnas y nº de valores distintos) para enviarla a quien ayuda a ajustar el visor

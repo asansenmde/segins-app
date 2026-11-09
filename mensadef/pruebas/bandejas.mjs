@@ -8,7 +8,7 @@ const { chromium } = require(require('child_process').execSync('npm root -g').to
 const O = 'https://mensadef.mdef.es', API = 'https://mensadefapi.mdef.es', WEB = '/ambito/2SUIGE';
 const verbose = !!process.env.VERBOSE;
 const G4 = '44444444-4444-4444-4444-444444444444', G1 = '8d714e44-b2b5-41a8-9780-2228204861b5', G2 = '11111111-2222-3333-4444-555555555555', G3 = '99999999-8888-7777-6666-555555555555';
-let nClaves = 0, marcadoLeido = 0;
+let nClaves = 0, marcadoLeido = 0; const comentarios = [];
 const PASS = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6', UID = 'abcdef01-2345-6789-abcd-ef0123456789';
 // Consulta que hace la aplicación de MENSADEF al cambiar de célula (de ahí el favorito toma las cabeceras)
 const consultaApp = pg => pg.evaluate(([P, U]) => fetch('https://mensadefapi.mdef.es/api/usuariovista/UsuarioVistaObtener?emailUsuario=persona%40et.mde.es', { headers: { 'Content-Type': 'application/json', passcode: P, user: U } }).catch(() => 0), [PASS, UID]);
@@ -62,6 +62,7 @@ await ctx.route(API + '/**', r => {
   if (ruta === 'mensaje/ObtenerCuerpo') return q.modoVer !== 'true' ? r.fulfill({ status: 400, headers: H, body: '' }) : r.fulfill({ headers: H, json: { ID: q.id, Cuerpo: 'Texto completo', Destinatarios: Array.from({ length: 9 }, (_, k) => ({ ID: k, Nombre: (process.env.PRESENTA ? ['GENERAL JEFE DE LA SUIGESUR', 'JEFE DE LA SECCIÓN DE SEGURIDAD', 'JEFE DEL NEGOCIADO DE INSTALACIONES'][k % 3] + ' ' + (k + 1) : 'DESTINATARIO <b>' + k + '</b>'), TipoDestinatario: 'Autoridad' })), DestinatariosCopia: [{ Nombre: 'COPIA UNO' }], UrlCarpeta: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id, AnexosFisicos: [{}],
     AnexosDigitales: [{ Titulo: process.env.PRESENTA ? 'Calendario de revistas 2027' : 'Informe <b>anexo</b>', Nombre: process.env.PRESENTA ? 'calendario revistas 2027.pdf' : 'informe anexo.pdf', UrlFichero: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id + '/informe anexo.pdf', TipoDocumento: 'Informe', TamanoMB: '0,2', Firma: 'Firmado' },
       { Titulo: process.env.PRESENTA ? 'Relación de instalaciones' : 'Datos', Nombre: process.env.PRESENTA ? 'relacion instalaciones.7z.cif' : 'datos.7z.cif', UrlFichero: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id + '/datos.7z.cif', TamanoMB: '0,1' }] } });
+  if (ruta === 'mensaje/ComentarioCrear') { comentarios.push({ metodo: r.request().method(), params: [...u.searchParams.keys()].join(','), cuerpo: JSON.parse(r.request().postData() || '{}'), passcode: hd.passcode === PASS }); return r.fulfill({ headers: H, json: true }); }
   if (ruta === 'buzon/BuzonCelulaMensajeLeido') { marcadoLeido++; return r.fulfill({ headers: H, json: {} }); }
   if (ruta === 'buzon/ObtenerBuzonCelula') return r.fulfill({ headers: H, json: bandeja(q.idCelula, q.tipoES, +q.indicePagina, +q.tamanoPagina) });
   r.fulfill({ status: 404, headers: H, body: '' });
@@ -148,6 +149,21 @@ console.log('anexos:', (await p.textContent('#adjuntos').catch(() => '-')).repla
 { await p.evaluate(() => { const o = window.open; window.open = function (u) { window.__abierto = u; return o.apply(this, arguments); }; }); const [pop] = await Promise.all([ctx.waitForEvent('page'), p.click('#adjuntos [data-anexo="0"][data-modo="abrir"]')]); console.log('url pedida:', decodeURI(await p.evaluate(() => window.__abierto)).replace(O, '')); await pop.close().catch(() => {}); }
 { const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#adjuntos [data-anexo="1"][data-modo="bajar"]')]); console.log('descargar cifrado →', dl.suggestedFilename(), '| botón abrir en el cifrado:', !!(await p.$('#adjuntos [data-anexo="1"][data-modo="abrir"]'))); }
 console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0);
+// Comentario en MENSADEF (solo en la copia de pruebas): caja con confirmación y comentario automático al añadir a META
+{ console.log('caja de comentario:', !!(await p.$('#txtComentario')), '| casilla anotar en META:', !!(await p.$('#anotarMeta')), '| comentarios automáticos hasta aquí:', comentarios.length);
+  if (!FINAL) {
+    await p.fill('#txtComentario', 'Revisado por la sección'); await p.click('#guardarComentario'); await p.waitForTimeout(200);
+    console.log('primer clic: pide confirmar:', (await p.textContent('#guardarComentario')).trim(), '| enviados:', comentarios.length);
+    await p.click('#guardarComentario'); await p.waitForTimeout(500);
+    const c = comentarios[comentarios.length - 1] || {};
+    console.log('comentario:', c.metodo, c.params, JSON.stringify(c.cuerpo), '| passcode:', c.passcode, '|', (await p.textContent('#msgComentario')).trim(),
+      '| último comentario en la ficha:', await p.$$eval('#detalle .ficha-campos dt', l => (l.find(d => d.textContent === 'Último comentario') || {}).nextElementSibling?.textContent));
+    const n0 = comentarios.length; const [n4] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n4.close(); await p.waitForTimeout(500); await p.bringToFront();
+    console.log('al añadir a META:', comentarios.length - n0, '→', (comentarios[comentarios.length - 1] || {}).cuerpo?.Comentario?.replace(/el .* ·/, 'el (fecha) ·'), '|', (await p.textContent('#colabora')).includes('Comentario añadido en MENSADEF'));
+    await p.uncheck('#anotarMeta'); const n1 = comentarios.length; const [n5] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n5.close(); await p.waitForTimeout(400); await p.bringToFront();
+    console.log('casilla desmarcada → sin comentario:', comentarios.length === n1); await p.check('#anotarMeta');
+  }
+}
 // PRESENTA=carpeta: capturas para presentar SENDERO (datos simulados)
 if (process.env.PRESENTA) {
   const dir = process.env.PRESENTA; await p.setViewportSize({ width: 1400, height: 900 });

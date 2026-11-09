@@ -219,5 +219,13 @@ con el formato *verbose* de SharePoint 2013.
   - **«✓ Visto»** se pone en verde. Con «Ocultar vistos», el mensaje desaparece de la tabla al momento, también al
     marcarlo en su casilla; con la ficha ampliada se pasa al siguiente.
   - **Tecla V** con la ficha ampliada: marca o quita el visto.
-  - **Pendiente:** escribir el comentario en MENSADEF y anotar «Añadido en META» al pasar a tarea. Hace falta antes una
-    escucha de cómo lo hace la aplicación.
+- **2026-11-09 · 2: comentarios en MENSADEF (solo en el favorito de pruebas).**
+  - Es lo único que SENDERO escribe en MENSADEF. Lo hace igual que la aplicación (escucha v7):
+    `POST mensaje/ComentarioCrear?emailUsuario&urlColeccionSitio` (los dos parámetros repetidos, como ella), cuerpo
+    `{ Comentario, IdMensaje, CreadoPor }` y las cabeceras `passcode`/`user`. `CreadoPor` lleva el número de usuario
+    (supuesto: la escucha solo da los nombres de los campos).
+  - **Caja «💬 Añadir comentario en MENSADEF»** en la ficha, tras los anexos. Hay que pulsar dos veces (la segunda
+    confirma). Al guardarse, se actualiza «Último comentario» en la ficha.
+  - **Al «Añadir tarea en META»** deja el comentario «Añadido como tarea en META (gestor) el fecha · SENDERO», si está
+    marcada la casilla (marcada por defecto, se recuerda).
+  - En el favorito definitivo no aparece (`ESCRIBIR = PRUEBAS`) hasta que el usuario lo dé por bueno.

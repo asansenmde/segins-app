@@ -105,3 +105,6 @@ autoría.
     Ajustes). Visor 2026-11-04 · 2: ◀ ▶ con la ficha ampliada.
     07/11/2026: anexos en la ficha del visor (abrir y descargar, sin marcar como leído), dados por buenos y pasados al
     favorito definitivo (2026-11-07 · 2). El envío por correo se probó y se quitó a petición del usuario.
+    09/11/2026: SENDERO 2026-11-09 · 2 (pruebas): comentario en MENSADEF desde la ficha y comentario automático al añadir
+    tarea en META. Pendiente: que lo pruebe en un mensaje sin importancia (y confirme que el autor sale bien) para pasarlo
+    al favorito definitivo.
