@@ -265,7 +265,7 @@ con el formato *verbose* de SharePoint 2013.
     que se estaba viendo. Si «Hasta» era el día de la última carga y ya es otro día, pasa a hoy.
   - **Hora de la última actualización** junto a los botones: «Última actualización: HH:MM:SS (hace N min)». Se pone en
     naranja pasada media hora.
-- **2026-11-09 · 10 (pruebas): barra de la ficha ampliada en dos pisos** (propuesta B, elegida por el usuario).
+- **2026-11-09 · 10: barra de la ficha ampliada en dos pisos** (propuesta B, elegida por el usuario; probada y pasada al definitivo).
   - **Arriba, en azul marino con filo dorado:** ◀ n de N ▶, el asunto del mensaje abierto (con entrada o salida, fecha
     y célula), «Abrir en MENSADEF», «Reducir» y «Cerrar».
   - **Abajo, las acciones:** «Añadir tarea en META», «Pasar a rúbrica» e «Ir a Rúbrica» (cuando proceden); Correo,

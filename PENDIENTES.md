@@ -120,4 +120,4 @@ autoría.
     09/11/2026: Gestor común y META 2026-11-09 · 2 con «Ajustes solo con Control total» (portado de la rama
     claude/task-manager-web-nlt-n7elx4, que partía de una versión vieja sin Finalizar/Eliminar). Subidos y confirmados
     por el usuario el mismo día.
-
+    09/11/2026: SENDERO 2026-11-09 · 10 con la barra en dos pisos, probado por el usuario y pasado al definitivo.
