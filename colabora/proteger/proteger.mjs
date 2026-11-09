@@ -27,7 +27,10 @@ const ofuscado = JavaScriptObfuscator.obfuscate(codigo, {
   deadCodeInjection: false,
   selfDefending: true,            // deja de funcionar si alguien lo reformatea para leerlo
   domainLock: ['.mdef.es'],       // solo funciona dentro de los dominios de Defensa (colabora.mdef.es…)
-  unicodeEscapeSequence: false
+  unicodeEscapeSequence: false,
+  // Semilla fija (como en Pérdidas, Incidentes y VSA): algunas copias al azar llegaban a Edge con el programa anulado y
+  // salía el código como texto. Si vuelve a pasar: SEMILLA=otro número.
+  seed: Number(process.env.SEMILLA || 20261027)
 }).getObfuscatedCode();
 
 const aviso = '<!--\n  Gestor de tareas de la Jefatura de SUIGESUR · versión ' + version + ' (protegida)\n' +

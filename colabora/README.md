@@ -84,6 +84,10 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   si tiene una cuenta antigua sin buzón, a su otra cuenta con su mismo nombre. Quien tramita ve a quién llegó y a quién
   no, y cada aviso queda anotado en los comentarios del asunto. En *Ajustes*, «Correo de prueba».
 
+- **Ajustes solo con Control total** (desde la versión 2026-11-09 · 1): la pestaña sale solo a quien tiene «Control
+  total» (permiso «Administrar permisos») en la lista o, si la lista no se puede leer, en el sitio. A los demás no les
+  aparece y, si la tenían abierta, vuelven a «Tareas».
+
 ## Correspondencia de columnas
 
 | App | Columna de «Gestor de Tareas» (nombre interno) |

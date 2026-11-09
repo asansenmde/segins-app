@@ -26,6 +26,7 @@ const items = Array.from({ length: 706 }, (_, i) => {
 items[2].fECHAFINALIZACION = d(-3); items[18].fECHAFINALIZACION = null;
 // Colabora que rechaza direcciones («destinatario válido»): buzonMal = direcciones rechazadas; enviados = las que acepta
 let buzonMal = [], enviados = [];
+let admin = false;   // Control total en la lista (solo entonces sale Ajustes)
 let denegar = false, correoFalla = false, anexar = true, versiones = {};
 async function prueba() {
   const b = await chromium.launch();
@@ -106,7 +107,7 @@ async function prueba() {
       const next = skip + 500 < items.length ? `https://colabora.mdef.es${WEB}/_api/web/lists/getbytitle('Gestor de Tareas')/items?skip=${skip + 500}` : undefined;
       return r.fulfill({ json: { value: items.slice(skip, skip + 500), 'odata.nextLink': next } });
     }
-    if (resto.startsWith("web/lists/getbytitle('Gestor de Tareas')?")) return r.fulfill({ json: { Id: 'g', Title: 'Gestor de Tareas', ItemCount: items.length, ListItemEntityTypeFullName: 'SP.Data.Gestor_x0020_de_x0020_TareasListItem', RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor de Tareas' } } });
+    if (resto.startsWith("web/lists/getbytitle('Gestor de Tareas')?")) return r.fulfill({ json: { Id: 'g', Title: 'Gestor de Tareas', ItemCount: items.length, ListItemEntityTypeFullName: 'SP.Data.Gestor_x0020_de_x0020_TareasListItem', EffectiveBasePermissions: { High: '0', Low: String(admin ? 0x7FFFFFFF : 0x7) }, RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor de Tareas' } } });
     return r.fulfill({ status: 404, body: '' });
   });
   await p.goto('https://colabora.mdef.es' + WEB + '/seguridad/Documentos%20compartidos/tareas-nlt-colabora.html'); await p.waitForTimeout(1500);
@@ -271,6 +272,17 @@ async function prueba() {
   console.log('buscar «exp 3»:', (await p.$$eval('.tarea', n => n.map(x => x.innerText.replace(/\s+/g, ' ').slice(0, 160)))).slice(0, 3).join(' || '));
   await p.fill('#fq', ''); await p.waitForTimeout(300);
   console.log('avisos ⚠ en pantalla:', await p.$$eval('.badge.warn', n => [...new Set(n.map(x => x.textContent))].join(' / ')));
+  // Ajustes solo con Control total
+  const ajVisible = () => p.$eval('#tabs a[data-v="ajustes"]', a => getComputedStyle(a).display !== 'none');
+  console.log('Ajustes sin Control total: pestaña visible:', await ajVisible());
+  await p.evaluate(() => document.querySelector('#tabs a[data-v="ajustes"]').click()); await p.waitForTimeout(300);
+  console.log('  forzar el clic abre Ajustes:', !!(await p.$('#aLista')), '| pestaña activa:', await p.$eval('#tabs a.on', a => a.dataset.v));
+  admin = true; await p.click('#recargar'); await p.waitForTimeout(2500);
+  console.log('Ajustes con Control total: pestaña visible:', await ajVisible());
+  await p.click('#tabs a[data-v="ajustes"]'); await p.waitForTimeout(300);
+  console.log('  abre Ajustes:', !!(await p.$('#aLista')));
+  admin = false; await p.click('#recargar'); await p.waitForTimeout(2500);
+  console.log('Tras perder el permiso (con Ajustes abierto): pestaña visible:', await ajVisible(), '| vuelve a:', await p.$eval('#tabs a.on', a => a.dataset.v), '| sin Ajustes en pantalla:', !(await p.$('#aLista')));
   console.log('errores:', errs);
   await b.close();
 }
