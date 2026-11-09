@@ -133,7 +133,7 @@
     background: linear-gradient(180deg, #ffffff, #f4f7fb); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 4px 14px rgba(18,49,90,.10); }
   .layout.max .barra-ficha { gap: 6px; } .layout.max .barra-ficha button { border-radius: 999px; padding: 6px 12px; font-size: .86rem; }
   .layout.max .barra-ficha #aColabora { order: 2; } .layout.max .barra-ficha #porCorreo { order: 2; } .layout.max .barra-ficha #copiarTarea { order: 3; } .layout.max .barra-ficha #verDet { order: 4; } .layout.max .barra-ficha #abrirMensadef { order: 5; }
-  .layout.max .barra-ficha #selBandera { order: 4; } .layout.max .barra-ficha #aRubrica, .layout.max .barra-ficha #firmarRubrica { order: 4; }
+  .layout.max .barra-ficha #selBandera { order: 4; } .layout.max .barra-ficha #aRubrica, .layout.max .barra-ficha #irRubrica { order: 4; }
   .layout.max .barra-ficha #ampliar { order: 9; margin-left: auto; } .layout.max .barra-ficha #cerrar { order: 10; }
   .layout.max .barra-ficha #ampliar, .layout.max .barra-ficha #cerrar { background: #eef2f7; border-color: #d3dce8; }
   .layout.max .navmax { order: 1; background: linear-gradient(180deg, #1d5fa8, #12315a); border-radius: 999px; padding: 3px; margin-right: 6px; border-right: 0; }
@@ -395,7 +395,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-09 · 7';
+  var VERSION = '2026-11-09 · 8';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1479,7 +1479,6 @@
     if ($('msgAnt')) { $('msgAnt').addEventListener('click', function () { irMensaje(-1); }); $('msgSig').addEventListener('click', function () { irMensaje(1); }); }
     if ($('abrirMensadef')) $('abrirMensadef').addEventListener('click', function () { localizarEnMensadef(m); });
     pintarColabora(m); pintarComentario(m); setTimeout(fijarBarra, 0);
-    if ($('firmarRubrica')) $('firmarRubrica').addEventListener('click', function () { abrirRubrica(m); });
     if ($('aRubrica')) $('aRubrica').addEventListener('click', function () {
       var b = this;
       if (!b.dataset.seguro) { b.dataset.seguro = '1'; b.textContent = '¿Pasar a rúbrica? Pulsa otra vez'; b.classList.add('seguro'); avisoBandera(m, 'Se enviará al portafirmas de MENSADEF con tu usuario.', false); return; }
@@ -1624,35 +1623,12 @@
   var RUBRICA = PRUEBAS;
   function siTexto(v) { return v === true || /^\s*(s|s[ií]|true|1|yes)\s*$/i.test(String(v == null ? '' : v)); }
   function puedeRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && m.MensajeId && r && !r.enviado && (siTexto(r.enviable) || /validaci/i.test(r.estado || ''))); }
-  // Pendiente de firma: la firma se hace en Rúbrica (con el certificado); el botón abre el portafirmas
-  function pendienteFirma(m) { var r = m._rubrica; return !!(RUBRICA && m._api && r && (r.enviado || /pendiente\s+de\s+firma|firma\s+pendiente|en\s+firma|en\s+portafirmas|pendiente\s+de\s+r[uú]brica/i.test(r.estado || ''))); }
+  // Enlace fijo al portafirmas (dirección dada por el usuario) para no tener que buscarlo; la firma se hace allí
+  var URL_RUBRICA = 'https://portafirmas.mdef.es/ePortafirmas/Inicio.do?cr=&btnLogout=Entrar';
+  function conRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && r && (puedeRubrica(m) || r.enviado || /firma|r[uú]brica|portafirmas|validaci/i.test(r.estado || ''))); }
   function botonRubrica(m) {
     return (puedeRubrica(m) ? '<button type="button" class="rubrica" id="aRubrica" title="Envía el mensaje al portafirmas (rúbrica) en MENSADEF">✍ Pasar a rúbrica</button>' : '') +
-      (pendienteFirma(m) ? '<button type="button" class="rubrica" id="firmarRubrica" title="Abre Rúbrica (portafirmas) para firmarlo con tu certificado">🖋 Firmar en Rúbrica</button>' : '');
-  }
-  // Dirección de Rúbrica: la que dé MENSADEF (PortaFirmasExterno/Obtener o ambito/PortafirmasUsuario, solo lectura) o la que
-  // ponga el usuario una vez (se recuerda)
-  var urlRubrica = null;
-  function buscarUrl(o, n) { if (n > 6 || o == null) return ''; if (typeof o === 'string') return /^https?:\/\/[^\s"<>]+$/i.test(o.trim()) && /rubrica|firma/i.test(o) ? o.trim() : '';
-    if (typeof o !== 'object') return ''; for (var k in o) { var u = buscarUrl(o[k], (n || 0) + 1); if (u) return u; } return ''; }
-  function obtenerUrlRubrica() {
-    var guardada = leer('urlRubrica', ''); if (guardada) return Promise.resolve(guardada);
-    if (urlRubrica !== null) return Promise.resolve(urlRubrica);
-    var p = { idUsuario: apiCtx.idUsuario, emailUsuario: apiCtx.email, urlColeccionSitio: apiCtx.url };
-    var uno = function (ruta) { return pedirApi(ruta, p).then(function (r) { return buscarUrl(r, 0); }, function () { return ''; }); };
-    return uno('PortaFirmasExterno/Obtener').then(function (u) { return u || uno('ambito/PortafirmasUsuario'); }).then(function (u) { urlRubrica = u || ''; return urlRubrica; });
-  }
-  function abrirRubrica(m) {
-    var w = window.open('about:blank', '_blank');
-    obtenerUrlRubrica().then(function (u) {
-      if (!u) {
-        u = (prompt('No encuentro la dirección de Rúbrica en MENSADEF. Pega la dirección de la página de Rúbrica (portafirmas) donde firmas; se recordará:', '') || '').trim();
-        if (!/^https:\/\/[^\s]+\.mdef\.es(\/|$)/i.test(u)) { if (w) w.close(); if (u) avisoBandera(m, 'La dirección de Rúbrica tiene que ser de *.mdef.es (https).', true); return; }
-        guardar('urlRubrica', u);
-      }
-      if (w) { w.opener = null; w.location.href = u; } else window.open(u, '_blank', 'noopener');
-      avisoBandera(m, '🖋 Rúbrica abierta en otra pestaña: fírmalo allí con tu certificado.', false);
-    });
+      (conRubrica(m) ? '<a href="' + esc(URL_RUBRICA) + '" target="_blank" rel="noopener" id="irRubrica"><button type="button" title="Abre el portafirmas (Rúbrica) en otra pestaña">🖋 Ir a Rúbrica</button></a>' : '');
   }
   function pasarARubrica(m) {
     if (!apiCtx || !m.MensajeId) return Promise.reject(new Error('este mensaje no viene del servicio de MENSADEF'));

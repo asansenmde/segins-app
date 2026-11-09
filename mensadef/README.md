@@ -253,7 +253,8 @@ con el formato *verbose* de SharePoint 2013.
   - Solo se usa ese paso. La aplicación, al validar desde su editor, guardó antes el mensaje (`PUT mensaje/Guardar`) y
     creó la distribución (`mensajeDistribucionInternaSalida/Crear`); SENDERO no edita mensajes.
   - **Filtro «Enviable a rúbrica»** entre los filtros extra.
-  - **«🖋 Firmar en Rúbrica»** si el estado es «pendiente de firma» (o se acaba de pasar). La firma se hace en Rúbrica con
-    el certificado, así que el botón abre el portafirmas. Su dirección se busca en `PortaFirmasExterno/Obtener` y
-    `ambito/PortafirmasUsuario` (solo lectura). Si no aparece, se pide una vez (solo *.mdef.es) y se recuerda.
+  - 2026-11-09 · 8: se quita «Firmar en Rúbrica» (abría el portafirmas). No funcionaba y el usuario prefirió quitarlo.
+    En su lugar va **«🖋 Ir a Rúbrica»**, un enlace fijo al portafirmas
+    (`https://portafirmas.mdef.es/ePortafirmas/Inicio.do?cr=&btnLogout=Entrar`, dado por el usuario). Sale en los mensajes
+    enviables a rúbrica, en validación, pendientes de firma o recién pasados.
 

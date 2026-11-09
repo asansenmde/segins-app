@@ -111,6 +111,6 @@ autoría.
     09/11/2026: SENDERO 2026-11-09 · 5 (pruebas): barra de la ficha ampliada siempre fija, «Ver estructura» oculto y
     cambio de bandera desde la ficha. Pendiente: que pruebe poner y quitar una bandera (quitar = idEtiqueta 0, supuesto).
     09/11/2026: probado por el usuario. Comentario y bandera pasados al favorito definitivo (2026-11-09 · 6).
-    09/11/2026: SENDERO 2026-11-09 · 7 (pruebas): «Pasar a rúbrica» y «Firmar en Rúbrica». Pendiente: que lo pruebe con un
-    mensaje en validación y otro pendiente de firma; si Rúbrica no abre el documento concreto, escucha en Rúbrica.
+    09/11/2026: SENDERO 2026-11-09 · 7 (pruebas): «Pasar a rúbrica» (2026-11-09 · 8: «Firmar en Rúbrica» quitado, no
+    funcionaba; en su lugar, enlace fijo «Ir a Rúbrica»). Pendiente: que confirme «Pasar a rúbrica» para pasarlo al definitivo.
 
