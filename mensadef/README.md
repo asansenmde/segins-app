@@ -242,4 +242,6 @@ con el formato *verbose* de SharePoint 2013.
     sin cuerpo, con las cabeceras `passcode`/`user`.
   - «Quitar bandera» manda `idEtiqueta=0`. Es un supuesto, porque la escucha solo recogió el poner una.
   - El comentario y la bandera comparten la misma función de escritura (`escribirApi`).
+- **2026-11-09 · 6: comentario y bandera en el favorito definitivo.** El usuario los ha probado y funcionan, así que
+  pasan a `ESCRIBIR = true` en las dos copias. El autor del comentario no sale con su nombre; lo deja así.
 

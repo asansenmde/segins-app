@@ -152,7 +152,7 @@ console.log('anexos:', (await p.textContent('#adjuntos').catch(() => '-')).repla
 console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0);
 // Comentario en MENSADEF (solo en la copia de pruebas): caja con confirmación y comentario automático al añadir a META
 { console.log('selector de bandera presente:', !!(await p.$('#selBandera'))); console.log('caja de comentario:', !!(await p.$('#txtComentario')), '| casilla anotar en META:', !!(await p.$('#anotarMeta')), '| comentarios automáticos hasta aquí:', comentarios.length);
-  if (!FINAL) {
+  {
     await p.fill('#txtComentario', 'Revisado por la sección'); await p.click('#guardarComentario'); await p.waitForTimeout(200);
     console.log('primer clic: pide confirmar:', (await p.textContent('#guardarComentario')).trim(), '| enviados:', comentarios.length);
     await p.click('#guardarComentario'); await p.waitForTimeout(500);

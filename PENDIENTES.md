@@ -110,4 +110,5 @@ autoría.
     al favorito definitivo.
     09/11/2026: SENDERO 2026-11-09 · 5 (pruebas): barra de la ficha ampliada siempre fija, «Ver estructura» oculto y
     cambio de bandera desde la ficha. Pendiente: que pruebe poner y quitar una bandera (quitar = idEtiqueta 0, supuesto).
+    09/11/2026: probado por el usuario. Comentario y bandera pasados al favorito definitivo (2026-11-09 · 6).
 

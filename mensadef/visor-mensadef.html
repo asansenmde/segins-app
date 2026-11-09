@@ -391,7 +391,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-09 · 5';
+  var VERSION = '2026-11-09 · 6';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1571,11 +1571,11 @@
       if (despues) despues();
     });
   }
-  // ---------- Comentarios en MENSADEF (09/11/2026, solo en la copia de pruebas de momento) ----------
+  // ---------- Comentarios en MENSADEF (09/11/2026, en las dos copias) ----------
   // Como la aplicación (escucha v7): POST mensaje/ComentarioCrear?emailUsuario&urlColeccionSitio (dos veces, igual que ella)
   // con { Comentario, IdMensaje, CreadoPor } y las cabeceras passcode/user. Es lo único que el visor escribe en MENSADEF, y
   // siempre lo pide el usuario (botón con confirmación) o al pasar un mensaje a META si deja marcada la casilla.
-  var ESCRIBIR = PRUEBAS;
+  var ESCRIBIR = true; // 09/11/2026: comentario y bandera dados por buenos, también en el definitivo
   // POST al servicio como la aplicación: cabeceras passcode/user y, si la clave ha caducado (406), se pide otra una vez
   function escribirApi(ruta, consulta, cuerpo, que) {
     var x = diagApi.filter(function (y) { return y.ruta === ruta; })[0];
@@ -1596,7 +1596,7 @@
     return intento(false);
   }
   var qUsuario = function () { return 'emailUsuario=' + encodeURIComponent(apiCtx.email) + '&urlColeccionSitio=' + encodeURIComponent(apiCtx.url); };
-  // ---------- Bandera (09/11/2026, solo pruebas): como la aplicación (escucha v7), POST etiqueta/EtiquetaMensajeGuardar
+  // ---------- Bandera (09/11/2026, en las dos copias): como la aplicación (escucha v7), POST etiqueta/EtiquetaMensajeGuardar
   // ?idBuzonCelula&idEtiqueta&emailUsuario&urlColeccionSitio, sin cuerpo. «Sin bandera» = idEtiqueta 0 (supuesto: la escucha
   // solo recogió el poner una).
   function selectorBandera(m) {
