@@ -63,6 +63,10 @@
   #selBandera { border-radius: 999px; padding: 6px 10px; font: inherit; font-size: .86rem; font-weight: 700; border: 1px solid #b9a0d8; background: #f6f1fc; color: #4a2a78; cursor: pointer; max-width: 170px; }
   #selBandera.con { background: var(--cb, #6b3fa0); color: #fff; border-color: rgba(0,0,0,.15); }
   #selBandera:disabled { opacity: .6; cursor: progress; }
+  /* Pasar a rúbrica (portafirmas) */
+  button.rubrica { background: linear-gradient(180deg, #7a4fb5, #4a2a78); color: #fff; border-color: #4a2a78; border-bottom: 3px solid #c9a84c; font-weight: 800; }
+  button.rubrica:hover:not(:disabled) { background: linear-gradient(180deg, #8a5fc5, #3d2266); }
+  button.rubrica.seguro { background: linear-gradient(180deg, #f08a24, #d96b00); border-color: #c25e00; }
   button.visto-on { background: linear-gradient(180deg, #3a9a5a, #2e7d4f); color: #fff; border-color: #2e7d4f; }
   #detalle h2 { font-size: 1rem; margin: 0 0 8px; }
   dl { display: grid; grid-template-columns: 140px 1fr; gap: 3px 10px; margin: 0; font-size: .86rem; }
@@ -129,7 +133,7 @@
     background: linear-gradient(180deg, #ffffff, #f4f7fb); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 4px 14px rgba(18,49,90,.10); }
   .layout.max .barra-ficha { gap: 6px; } .layout.max .barra-ficha button { border-radius: 999px; padding: 6px 12px; font-size: .86rem; }
   .layout.max .barra-ficha #aColabora { order: 2; } .layout.max .barra-ficha #porCorreo { order: 2; } .layout.max .barra-ficha #copiarTarea { order: 3; } .layout.max .barra-ficha #verDet { order: 4; } .layout.max .barra-ficha #abrirMensadef { order: 5; }
-  .layout.max .barra-ficha #selBandera { order: 4; }
+  .layout.max .barra-ficha #selBandera { order: 4; } .layout.max .barra-ficha #aRubrica, .layout.max .barra-ficha #firmarRubrica { order: 4; }
   .layout.max .barra-ficha #ampliar { order: 9; margin-left: auto; } .layout.max .barra-ficha #cerrar { order: 10; }
   .layout.max .barra-ficha #ampliar, .layout.max .barra-ficha #cerrar { background: #eef2f7; border-color: #d3dce8; }
   .layout.max .navmax { order: 1; background: linear-gradient(180deg, #1d5fa8, #12315a); border-radius: 999px; padding: 3px; margin-right: 6px; border-right: 0; }
@@ -391,7 +395,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-09 · 6';
+  var VERSION = '2026-11-09 · 7';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -878,7 +882,7 @@
   // Ya tienen su filtro (Estado, Tipo, Bandeja): no se repiten
   var SIN_FILTRO = { EstadoMensaje: 1, TipoMensaje: 1, TipoES: 1 };
   // Con las bandejas, además de buscar, célula, tipo y estado, solo estos filtros (el resto de campos, en el detalle)
-  var FILTROS_API = { CodigoPrioridad: 1, Leido: 1, Bandera: 1 };
+  var FILTROS_API = { CodigoPrioridad: 1, Leido: 1, Bandera: 1, EnviableARubrica: 1 };
   var ETIQUETAS_API = { Actuacion: 'Actuación', CelulaRemitente: 'Célula remitente', CelulaDestinataria: 'Célula destinataria', CodigoPrioridad: 'Prioridad', ContieneAnexos: 'Anexos',
     EstadoMensaje: 'Estado del mensaje', EstadoParaUsuario: 'Estado para mí', Leido: 'Leído', TipoES: 'Entrada/Salida', TipoMensaje: 'Tipo de mensaje', NumeroRegistroEntrada: 'N.º registro de entrada',
     NumeroRegistroSalida: 'N.º registro de salida', FechaRegistroEntrada: 'Fecha registro de entrada', FechaRegistroSalida: 'Fecha registro de salida', UsuarioRemitente: 'Usuario remitente',
@@ -931,7 +935,7 @@
     return { _api: true, _x: x, ID: kid ? e[kid] : '', MensajeId: kid ? String(e[kid]) : '', _asunto: val('asunto', CLAVES_API.asunto), MensajeFecha: fecha, MensajeEstado: val('estado', CLAVES_API.estado),
       MensajeTipo_es: val('tipo', CLAVES_API.tipo), MensajeNombre_Autoridad: val('remitente', CLAVES_API.remitente), MensajeNum_referencia: val('referencia', CLAVES_API.referencia, CLAVES_API.referencia2),
       MensajeSu_referencia: val('suReferencia', /^sref$|su_?ref/i), MensajeNum_expediente: val('', CLAVES_API.expediente),
-      _leido: typeof e.Leido === 'boolean' ? e.Leido : undefined, _bandera: bandera, _idBandera: bandera ? String(idb) : '', _idBuzon: e.IdBuzonCelula || e.idBuzonCelula || '',
+      _leido: typeof e.Leido === 'boolean' ? e.Leido : undefined, _bandera: bandera, _idBandera: bandera ? String(idb) : '', _idBuzon: e.IdBuzonCelula || e.idBuzonCelula || '', _rubrica: { enviable: e.EnviableARubrica, estado: [e.EstadoMensaje, e.EstadoParaUsuario, e.NombreEstadoUltimaDistribucionSalida].filter(Boolean).join(' '), personal: e.BuzonPersonal === true },
       Attachments: kadj ? siNo(e[kadj]) : false, _cuerpoApi: kc ? texto(String(e[kc])) : '',
       _enlace: location.origin + location.pathname + '#/celula/' + encodeURIComponent(celula.nombre) + '/' + celula.id,
       _lista: { id: 'api', sitio: celula, titulo: 'tipoES ' + es + ' de ' + celula.nombre } };
@@ -1382,7 +1386,7 @@
           '<td>' + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') + '</td>' +
           '<td>' + (pr ? '<span class="prio' + (prioAlta(pr) ? ' alta' : '') + '">' + esc(pr) + '</span>' : '') + '</td>' +
           '<td><span class="celtag">' + esc(sitioDe(m).replace(/^ET \w+ /, '')) + '</span></td>' +
-          '<td class="nowrap">' + (m.Attachments ? '📎' : '') + (enviados[claveMensaje(m)] ? ' <span class="tag t-tarea" title="Pasado a Tareas Colabora">➜ Tarea</span>' : '') + '</td></tr>';
+          '<td class="nowrap">' + (m.Attachments ? '📎' : '') + (enviados[claveMensaje(m)] ? ' <span class="tag t-tarea" title="Pasado a Tareas Colabora">➜ Tarea</span>' : '') + (m._rubrica && m._rubrica.enviado ? ' <span class="tag t-tarea" title="Pasado a rúbrica desde SENDERO">✍ Rúbrica</span>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>';
   }
   function pintarTabla() {
@@ -1395,7 +1399,7 @@
         var vis = !!vistos[claveMensaje(m)], cls = [m === abierto ? 'sel' : '', m._leido === false ? 'noleido' : '', vis ? 'visto' : ''].filter(Boolean).join(' ');
         return '<tr data-i="' + i + '"' + (cls ? ' class="' + cls + '"' : '') + '><td class="ver"><input type="checkbox" data-visto="' + i + '" title="Marcar como visto"' + (vis ? ' checked' : '') + '></td><td class="fecha">' + esc(verFecha(fechaDe(m))) + '</td><td>' + (m.MensajeTipo_es ? '<span class="tag">' + esc(m.MensajeTipo_es) + '</span>' : '') +
           '</td><td class="nowrap">' + esc(m.MensajeEstado) + '</td><td>' + esc(autoridad(m)) + '</td><td class="asunto">' + esc(m._asunto) + '</td><td class="nowrap">' + esc(m.MensajeNum_referencia) +
-          '</td><td>' + esc(organo(m)) + '</td><td class="nowrap">' + (m.Attachments ? '📎' : '') + (enviados[claveMensaje(m)] ? ' <span class="tag t-tarea" title="Pasado a Tareas Colabora">➜ Tarea</span>' : '') + '</td></tr>';
+          '</td><td>' + esc(organo(m)) + '</td><td class="nowrap">' + (m.Attachments ? '📎' : '') + (enviados[claveMensaje(m)] ? ' <span class="tag t-tarea" title="Pasado a Tareas Colabora">➜ Tarea</span>' : '') + (m._rubrica && m._rubrica.enviado ? ' <span class="tag t-tarea" title="Pasado a rúbrica desde SENDERO">✍ Rúbrica</span>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>' +
       (filtrados.length > mostrar ? '<p style="margin-top:8px"><button type="button" id="mas">Mostrar ' + Math.min(300, filtrados.length - mostrar) + ' más (quedan ' + (filtrados.length - mostrar) + ')</button></p>' : '');
     Array.prototype.forEach.call($('lista').querySelectorAll('th[data-orden]'), function (th) {
@@ -1456,7 +1460,7 @@
     $('detalle').innerHTML = '<div class="acciones barra-ficha">' + nav + '<button type="button" id="cerrar" title="Cerrar la ficha">✕ Cerrar</button><button type="button" id="ampliar" title="Ver la ficha a toda la pantalla">' + (maxi ? '⤡ Reducir' : '⛶ Ampliar') + '</button>' + (m._api ? '<button type="button" id="abrirMensadef" title="Abre tu célula en MENSADEF en otra pestaña y busca este mensaje">↗ Abrir en MENSADEF</button>' : disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
       '<button type="button" class="prim" id="aColabora" disabled title="Abre el Gestor de Tareas (META) con el alta rellena">➜ Añadir tarea en META</button>' +
       '<button type="button" class="naranja" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Enviar por correo</button>' +
-      '<button type="button" id="copiarTarea">📋 Copiar para Gestor</button><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + selectorBandera(m) + '</div><div id="colabora"></div>' +
+      '<button type="button" id="copiarTarea">📋 Copiar para Gestor</button><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + selectorBandera(m) + botonRubrica(m) + '</div><div id="colabora"></div>' +
       (m._api ? '<div class="cab-msg">' + (m._x.__es ? '<span class="tag st-azul">' + (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + esc(m._x.__es) + '</span>' : '') +
         (m.MensajeTipo_es ? '<span class="tag t-tipo">' + esc(m.MensajeTipo_es) + '</span>' : '') + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') +
         (m._x.CodigoPrioridad ? '<span class="prio' + (prioAlta(m._x.CodigoPrioridad) ? ' alta' : '') + '">' + esc(m._x.CodigoPrioridad) + '</span>' : '') + htmlBandera(m._bandera) +
@@ -1475,6 +1479,14 @@
     if ($('msgAnt')) { $('msgAnt').addEventListener('click', function () { irMensaje(-1); }); $('msgSig').addEventListener('click', function () { irMensaje(1); }); }
     if ($('abrirMensadef')) $('abrirMensadef').addEventListener('click', function () { localizarEnMensadef(m); });
     pintarColabora(m); pintarComentario(m); setTimeout(fijarBarra, 0);
+    if ($('firmarRubrica')) $('firmarRubrica').addEventListener('click', function () { abrirRubrica(m); });
+    if ($('aRubrica')) $('aRubrica').addEventListener('click', function () {
+      var b = this;
+      if (!b.dataset.seguro) { b.dataset.seguro = '1'; b.textContent = '¿Pasar a rúbrica? Pulsa otra vez'; b.classList.add('seguro'); avisoBandera(m, 'Se enviará al portafirmas de MENSADEF con tu usuario.', false); return; }
+      b.disabled = true; b.textContent = 'Enviando a rúbrica…';
+      pasarARubrica(m).then(function (info) { pintarTabla(); if (abierto === m) { abrir(m); avisoBandera(m, '✓ Pasado a rúbrica en MENSADEF' + (info ? ': ' + info : ''), false); } },
+        function (e) { b.disabled = false; delete b.dataset.seguro; b.classList.remove('seguro'); b.textContent = '✍ Pasar a rúbrica'; avisoBandera(m, 'No se pudo pasar a rúbrica: ' + (e.message || e), true); });
+    });
     if ($('selBandera')) $('selBandera').addEventListener('change', function () {
       var sel = this, id = sel.value; sel.disabled = true;
       cambiarBandera(m, id).then(function () { pintarTabla(); if (abierto === m) abrir(m); avisoBandera(m, id ? '✓ Bandera cambiada en MENSADEF' : '✓ Bandera quitada en MENSADEF', false); },
@@ -1590,7 +1602,7 @@
         x.estado = r.status;
         if (r.status === 406 && !otra) return pedirClave(apiCtx.email, apiCtx.url).then(function () { return intento(true); });
         if (!r.ok) throw new Error('MENSADEF ha contestado HTTP ' + r.status + (r.status === 403 || r.status === 401 ? ' (sin permiso para ' + que + ')' : ''));
-        return true;
+        return r.text().then(function (t) { try { return t ? JSON.parse(t) : true; } catch (e) { return true; } }, function () { return true; });
       });
     };
     return intento(false);
@@ -1605,6 +1617,52 @@
     return '<select id="selBandera" title="Cambiar la bandera en MENSADEF"' + (m._bandera ? ' class="con" style="--cb:' + esc(colorBandera(m._bandera)) + '"' : '') + '>' +
       '<option value="">' + (m._bandera ? '⚑ Quitar bandera' : '⚑ Poner bandera…') + '</option>' +
       Object.keys(BANDERAS).filter(function (k) { return +k !== 0; }).map(function (k) { return '<option value="' + esc(k) + '"' + (String(act) === k ? ' selected' : '') + '>⚑ ' + esc(BANDERAS[k].nombre) + '</option>'; }).join('') + '</select>';
+  }
+  // ---------- Pasar a rúbrica (09/11/2026, de momento solo en pruebas): como la aplicación (escucha v7),
+  // POST mensaje/EnvioAPortafirmas?idMensaje&emailUsuario&buzonPersonal&urlColeccionSitio, sin cuerpo; contesta
+  // { Correcto, MensajeInformativo }. Solo se ofrece en los que MENSADEF marca «Enviable a rúbrica» o están en validación.
+  var RUBRICA = PRUEBAS;
+  function siTexto(v) { return v === true || /^\s*(s|s[ií]|true|1|yes)\s*$/i.test(String(v == null ? '' : v)); }
+  function puedeRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && m.MensajeId && r && !r.enviado && (siTexto(r.enviable) || /validaci/i.test(r.estado || ''))); }
+  // Pendiente de firma: la firma se hace en Rúbrica (con el certificado); el botón abre el portafirmas
+  function pendienteFirma(m) { var r = m._rubrica; return !!(RUBRICA && m._api && r && (r.enviado || /pendiente\s+de\s+firma|firma\s+pendiente|en\s+firma|en\s+portafirmas|pendiente\s+de\s+r[uú]brica/i.test(r.estado || ''))); }
+  function botonRubrica(m) {
+    return (puedeRubrica(m) ? '<button type="button" class="rubrica" id="aRubrica" title="Envía el mensaje al portafirmas (rúbrica) en MENSADEF">✍ Pasar a rúbrica</button>' : '') +
+      (pendienteFirma(m) ? '<button type="button" class="rubrica" id="firmarRubrica" title="Abre Rúbrica (portafirmas) para firmarlo con tu certificado">🖋 Firmar en Rúbrica</button>' : '');
+  }
+  // Dirección de Rúbrica: la que dé MENSADEF (PortaFirmasExterno/Obtener o ambito/PortafirmasUsuario, solo lectura) o la que
+  // ponga el usuario una vez (se recuerda)
+  var urlRubrica = null;
+  function buscarUrl(o, n) { if (n > 6 || o == null) return ''; if (typeof o === 'string') return /^https?:\/\/[^\s"<>]+$/i.test(o.trim()) && /rubrica|firma/i.test(o) ? o.trim() : '';
+    if (typeof o !== 'object') return ''; for (var k in o) { var u = buscarUrl(o[k], (n || 0) + 1); if (u) return u; } return ''; }
+  function obtenerUrlRubrica() {
+    var guardada = leer('urlRubrica', ''); if (guardada) return Promise.resolve(guardada);
+    if (urlRubrica !== null) return Promise.resolve(urlRubrica);
+    var p = { idUsuario: apiCtx.idUsuario, emailUsuario: apiCtx.email, urlColeccionSitio: apiCtx.url };
+    var uno = function (ruta) { return pedirApi(ruta, p).then(function (r) { return buscarUrl(r, 0); }, function () { return ''; }); };
+    return uno('PortaFirmasExterno/Obtener').then(function (u) { return u || uno('ambito/PortafirmasUsuario'); }).then(function (u) { urlRubrica = u || ''; return urlRubrica; });
+  }
+  function abrirRubrica(m) {
+    var w = window.open('about:blank', '_blank');
+    obtenerUrlRubrica().then(function (u) {
+      if (!u) {
+        u = (prompt('No encuentro la dirección de Rúbrica en MENSADEF. Pega la dirección de la página de Rúbrica (portafirmas) donde firmas; se recordará:', '') || '').trim();
+        if (!/^https:\/\/[^\s]+\.mdef\.es(\/|$)/i.test(u)) { if (w) w.close(); if (u) avisoBandera(m, 'La dirección de Rúbrica tiene que ser de *.mdef.es (https).', true); return; }
+        guardar('urlRubrica', u);
+      }
+      if (w) { w.opener = null; w.location.href = u; } else window.open(u, '_blank', 'noopener');
+      avisoBandera(m, '🖋 Rúbrica abierta en otra pestaña: fírmalo allí con tu certificado.', false);
+    });
+  }
+  function pasarARubrica(m) {
+    if (!apiCtx || !m.MensajeId) return Promise.reject(new Error('este mensaje no viene del servicio de MENSADEF'));
+    var q = 'idMensaje=' + encodeURIComponent(m.MensajeId) + '&emailUsuario=' + encodeURIComponent(apiCtx.email) + '&buzonPersonal=' + (m._rubrica && m._rubrica.personal ? 'true' : 'false') + '&urlColeccionSitio=' + encodeURIComponent(apiCtx.url);
+    return escribirApi('mensaje/EnvioAPortafirmas', q, null, 'pasar a rúbrica este mensaje').then(function (r) {
+      var info = r && typeof r === 'object' ? String(r.MensajeInformativo || r.mensajeInformativo || '') : '';
+      if (r && typeof r === 'object' && (r.Correcto === false || r.correcto === false)) throw new Error(info || 'MENSADEF no lo ha aceptado');
+      m._rubrica.enviado = true; m._rubrica.info = info;
+      return info;
+    });
   }
   function avisoBandera(m, texto, mal) {
     if (abierto !== m || !$('colabora')) return;

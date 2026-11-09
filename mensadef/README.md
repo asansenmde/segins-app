@@ -244,4 +244,16 @@ con el formato *verbose* de SharePoint 2013.
   - El comentario y la bandera comparten la misma función de escritura (`escribirApi`).
 - **2026-11-09 · 6: comentario y bandera en el favorito definitivo.** El usuario los ha probado y funcionan, así que
   pasan a `ESCRIBIR = true` en las dos copias. El autor del comentario no sale con su nombre; lo deja así.
+- **2026-11-09 · 7: rúbrica (solo en el favorito de pruebas).**
+  - **«✍ Pasar a rúbrica»** en los mensajes que MENSADEF marca como «Enviable a rúbrica» o que están en validación. Hay
+    que pulsar dos veces para confirmar. Lo hace igual que la aplicación (escucha v7 del 09/11):
+    `POST mensaje/EnvioAPortafirmas?idMensaje&emailUsuario&buzonPersonal&urlColeccionSitio`, sin cuerpo.
+  - Si MENSADEF contesta `Correcto: false`, se muestra su `MensajeInformativo` como texto. Si lo acepta, la tabla marca el
+    mensaje con «✍ Rúbrica».
+  - Solo se usa ese paso. La aplicación, al validar desde su editor, guardó antes el mensaje (`PUT mensaje/Guardar`) y
+    creó la distribución (`mensajeDistribucionInternaSalida/Crear`); SENDERO no edita mensajes.
+  - **Filtro «Enviable a rúbrica»** entre los filtros extra.
+  - **«🖋 Firmar en Rúbrica»** si el estado es «pendiente de firma» (o se acaba de pasar). La firma se hace en Rúbrica con
+    el certificado, así que el botón abre el portafirmas. Su dirección se busca en `PortaFirmasExterno/Obtener` y
+    `ambito/PortafirmasUsuario` (solo lectura). Si no aparece, se pide una vez (solo *.mdef.es) y se recuerda.
 

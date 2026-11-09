@@ -8,7 +8,7 @@ const { chromium } = require(require('child_process').execSync('npm root -g').to
 const O = 'https://mensadef.mdef.es', API = 'https://mensadefapi.mdef.es', WEB = '/ambito/2SUIGE';
 const verbose = !!process.env.VERBOSE;
 const G4 = '44444444-4444-4444-4444-444444444444', G1 = '8d714e44-b2b5-41a8-9780-2228204861b5', G2 = '11111111-2222-3333-4444-555555555555', G3 = '99999999-8888-7777-6666-555555555555';
-let nClaves = 0, marcadoLeido = 0; const comentarios = [], banderasPuestas = [];
+let nClaves = 0, marcadoLeido = 0; const comentarios = [], banderasPuestas = [], rubricas = [];
 const PASS = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6', UID = 'abcdef01-2345-6789-abcd-ef0123456789';
 // Consulta que hace la aplicación de MENSADEF al cambiar de célula (de ahí el favorito toma las cabeceras)
 const consultaApp = pg => pg.evaluate(([P, U]) => fetch('https://mensadefapi.mdef.es/api/usuariovista/UsuarioVistaObtener?emailUsuario=persona%40et.mde.es', { headers: { 'Content-Type': 'application/json', passcode: P, user: U } }).catch(() => 0), [PASS, UID]);
@@ -24,9 +24,9 @@ const bandeja = (cel, es, pag, tam) => {
   const els = [];
   for (let i = (pag - 1) * tam; i < Math.min(total, pag * tam); i++) els.push({ IdMensaje: '0000' + cel.slice(0, 4) + '-' + es + '000-0000-0000-' + String(i).padStart(12, '0'), IdBuzonCelula: G3, Asunto: process.env.PRESENTA ? ASUNTOS[i % ASUNTOS.length] : 'Mensaje ' + i + ' de ' + cel.slice(0, 4),
     Cuerpo: process.env.PRESENTA ? '<p>Se remite para su conocimiento y efectos la documentación adjunta. Se ruega acuse de recibo y, en su caso, la designación de un punto de contacto antes del próximo viernes.</p>' : '<p>Texto del mensaje ' + i + '</p><script>alert(1)</script>', Fecha: hace(i < 130 ? i * 0.3 : 24 * 40 + i), FechaRegistroEntrada: hace(i), IdEstadoMensaje: 3,
-    EstadoMensaje: i % 3 ? 'Pendiente' : 'Leído', EstadoParaUsuario: i % 2 ? 'No leído' : 'Leído', TipoES: es === '1' ? 'E' : 'S', TipoMensaje: i % 4 ? 'Informe' : 'Orden', CodigoPrioridad: i % 9 ? 'R' : 'U',
+    EstadoMensaje: i === 7 ? 'Pendiente de firma' : i % 3 ? 'Pendiente' : 'Leído', EstadoParaUsuario: i % 2 ? 'No leído' : 'Leído', TipoES: es === '1' ? 'E' : 'S', TipoMensaje: i % 4 ? 'Informe' : 'Orden', CodigoPrioridad: i % 9 ? 'R' : 'U',
     CelulaRemitente: i % 2 ? 'ET 2SUIGE JEFATURA' : 'ET 2SUIGE REGISTRO', CelulaDestinataria: 'ET 2SUIGE SETEC SEGURIDAD', NumeroRegistroEntrada: 'RE-' + i, Sref: 'SREF-' + i,
-    ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 7 ? '' : 'URGENTE', Firma: i % 2 ? (process.env.PRESENTA ? 'GENERAL JEFE DE LA SUIGE' : 'GENERAL JEFE <b>A</b>') : '', MotivoDistribucion: i % 3 ? 'Para conocimiento' : 'Para actuación', IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
+    ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 7 ? '' : 'URGENTE', Firma: i % 2 ? (process.env.PRESENTA ? 'GENERAL JEFE DE LA SUIGE' : 'GENERAL JEFE <b>A</b>') : '', MotivoDistribucion: i % 3 ? 'Para conocimiento' : 'Para actuación', EnviableARubrica: es === '2' && i % 2 === 0 ? 'Sí' : 'No', BuzonPersonal: false, IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
   return { ListaElementos: els, ListaAgrupaciones: [], IndicePagina: pag, TamanoPagina: tam, TotalRegistros: total };
 };
 const b = await chromium.launch();
@@ -62,6 +62,8 @@ await ctx.route(API + '/**', r => {
   if (ruta === 'mensaje/ObtenerCuerpo') return q.modoVer !== 'true' ? r.fulfill({ status: 400, headers: H, body: '' }) : r.fulfill({ headers: H, json: { ID: q.id, Cuerpo: 'Texto completo', Destinatarios: Array.from({ length: 9 }, (_, k) => ({ ID: k, Nombre: (process.env.PRESENTA ? ['GENERAL JEFE DE LA SUIGESUR', 'JEFE DE LA SECCIÓN DE SEGURIDAD', 'JEFE DEL NEGOCIADO DE INSTALACIONES'][k % 3] + ' ' + (k + 1) : 'DESTINATARIO <b>' + k + '</b>'), TipoDestinatario: 'Autoridad' })), DestinatariosCopia: [{ Nombre: 'COPIA UNO' }], UrlCarpeta: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id, AnexosFisicos: [{}],
     AnexosDigitales: [{ Titulo: process.env.PRESENTA ? 'Calendario de revistas 2027' : 'Informe <b>anexo</b>', Nombre: process.env.PRESENTA ? 'calendario revistas 2027.pdf' : 'informe anexo.pdf', UrlFichero: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id + '/informe anexo.pdf', TipoDocumento: 'Informe', TamanoMB: '0,2', Firma: 'Firmado' },
       { Titulo: process.env.PRESENTA ? 'Relación de instalaciones' : 'Datos', Nombre: process.env.PRESENTA ? 'relacion instalaciones.7z.cif' : 'datos.7z.cif', UrlFichero: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id + '/datos.7z.cif', TamanoMB: '0,1' }] } });
+  if (ruta === 'PortaFirmasExterno/Obtener') return r.fulfill({ headers: H, json: { Datos: { Activo: true, UrlPortafirmas: 'https://rubrica.mdef.es/portafirmas/' } } });
+  if (ruta === 'mensaje/EnvioAPortafirmas') { rubricas.push({ metodo: r.request().method(), q: [...u.searchParams.keys()].join(','), id: q.idMensaje, personal: q.buzonPersonal, cuerpo: r.request().postData() || '', passcode: hd.passcode === PASS }); return r.fulfill({ headers: H, json: rubricas.length === 1 ? { Correcto: false, MensajeInformativo: 'El mensaje no está en <b>validación</b>', ListaRespuestas: [] } : { Correcto: true, MensajeInformativo: 'Enviado al portafirmas', ListaRespuestas: [] } }); }
   if (ruta === 'etiqueta/EtiquetaMensajeGuardar') { banderasPuestas.push({ metodo: r.request().method(), q: [...u.searchParams.keys()].join(','), idBuzon: q.idBuzonCelula, idEtiqueta: q.idEtiqueta, cuerpo: r.request().postData() || '', passcode: hd.passcode === PASS }); return r.fulfill({ headers: H, body: '' }); }
   if (ruta === 'mensaje/ComentarioCrear') { comentarios.push({ metodo: r.request().method(), params: [...u.searchParams.keys()].join(','), cuerpo: JSON.parse(r.request().postData() || '{}'), passcode: hd.passcode === PASS }); return r.fulfill({ headers: H, json: true }); }
   if (ruta === 'buzon/BuzonCelulaMensajeLeido') { marcadoLeido++; return r.fulfill({ headers: H, json: {} }); }
@@ -170,6 +172,25 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0);
     console.log('bandera puesta:', bp.metodo, bp.q, 'idEtiqueta=' + bp.idEtiqueta, '| buzón:', !!bp.idBuzon, '| sin cuerpo:', bp.cuerpo === '', '| passcode:', bp.passcode, '| ficha:', (await p.textContent('#detalle .cab-msg .bandera').catch(() => '-')), '| aviso:', (await p.textContent('#colabora p').catch(() => '-')), '| selector:', await p.$eval('#selBandera', x => x.options[x.selectedIndex].textContent));
     await p.selectOption('#selBandera', ''); await p.waitForTimeout(500);
     console.log('bandera quitada: idEtiqueta=' + (banderasPuestas[banderasPuestas.length - 1] || {}).idEtiqueta, '| en la ficha:', !!(await p.$('#detalle .cab-msg .bandera')), '| selector:', await p.$eval('#selBandera', x => x.options[x.selectedIndex].textContent));
+    // Pasar a rúbrica: solo en los «Enviable a rúbrica»; dos pulsaciones; si MENSADEF dice que no, se ve su motivo
+    console.log('rúbrica en uno de entrada:', !!(await p.$('#aRubrica')));
+    if (!FINAL) {
+    await p.fill('#buscar', ''); await p.selectOption('#fSitio', ''); await p.selectOption('[data-x="EnviableARubrica"]', 'Sí'); await p.waitForTimeout(300);
+    const conR = await p.$$eval('#lista tbody tr[data-i]', l => l.length); let k = 0;
+    for (; k < conR; k++) { await p.click('#lista tbody tr[data-i] >> nth=' + k); await p.waitForTimeout(250); if (await p.$('#aRubrica')) break; }
+    console.log('salida:', conR, '| con botón rúbrica en la fila', k, '| filtro «Enviable a rúbrica»:', await p.$$eval('[data-x="EnviableARubrica"] option', o => o.map(x => x.textContent).join(', ')).catch(() => 'no hay'));
+    await p.click('#aRubrica'); await p.waitForTimeout(200); console.log('1.ª pulsación:', (await p.textContent('#aRubrica')).trim(), '| enviados:', rubricas.length);
+    await p.click('#aRubrica'); await p.waitForTimeout(500); console.log('MENSADEF dice que no:', (await p.textContent('#colabora p')).trim(), '| ¿HTML?', !!(await p.$('#colabora p b')), '| botón vuelve:', (await p.textContent('#aRubrica')).trim());
+    await p.click('#aRubrica'); await p.click('#aRubrica'); await p.waitForTimeout(500);
+    const rr = rubricas[rubricas.length - 1] || {};
+    console.log('rúbrica:', rr.metodo, rr.q, '| id:', !!rr.id, '| buzonPersonal=' + rr.personal, '| sin cuerpo:', rr.cuerpo === '', '| passcode:', rr.passcode, '|', (await p.textContent('#colabora p')).trim(), '| botón tras enviar:', !!(await p.$('#aRubrica')), '| marca en la tabla:', await p.$$eval('#lista tr[data-i] .tag', l => l.some(x => /Rúbrica/.test(x.textContent))));
+    // Pendiente de firma (también el que se acaba de pasar): botón que abre Rúbrica
+    { const [pw] = await Promise.all([ctx.waitForEvent('page'), p.click('#firmarRubrica')]); await pw.waitForLoadState().catch(() => {}); await p.waitForTimeout(300);
+      console.log('firmar en Rúbrica abre:', pw.url(), '|', (await p.textContent('#colabora p')).trim()); await pw.close(); await p.bringToFront(); }
+    await p.selectOption('[data-x="EnviableARubrica"]', ''); await p.fill('#buscar', 'RE-7'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(300);
+    console.log('estado «Pendiente de firma» → botón firmar:', !!(await p.$('#firmarRubrica')), '| pasar a rúbrica:', !!(await p.$('#aRubrica'))); await p.fill('#buscar', '');
+    }
+    await p.selectOption('[data-x="EnviableARubrica"]', ''); await p.waitForTimeout(300);
   }
 }
 // PRESENTA=carpeta: capturas para presentar SENDERO (datos simulados)
