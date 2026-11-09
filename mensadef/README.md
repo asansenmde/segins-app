@@ -257,4 +257,12 @@ con el formato *verbose* de SharePoint 2013.
     En su lugar va **«🖋 Ir a Rúbrica»**, un enlace fijo al portafirmas
     (`https://portafirmas.mdef.es/ePortafirmas/Inicio.do?cr=&btnLogout=Entrar`, dado por el usuario). Sale en los mensajes
     enviables a rúbrica, en validación, pendientes de firma o recién pasados.
+- **2026-11-09 · 9: versión final con rúbrica y «Actualizar».**
+  - El usuario ha probado «Pasar a rúbrica» y funciona. Pasa al favorito definitivo (`RUBRICA = true`) junto con el
+    enlace «🖋 Ir a Rúbrica».
+  - Si el estado es «Enviado», no sale «Pasar a rúbrica», aunque MENSADEF lo siga marcando como enviable.
+  - **«⟳ Actualizar»** junto a «Cargar»: vuelve a leer MENSADEF con las mismas fechas y células y deja abierta la ficha
+    que se estaba viendo. Si «Hasta» era el día de la última carga y ya es otro día, pasa a hoy.
+  - **Hora de la última actualización** junto a los botones: «Última actualización: HH:MM:SS (hace N min)». Se pone en
+    naranja pasada media hora.
 

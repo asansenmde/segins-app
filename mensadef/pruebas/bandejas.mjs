@@ -24,7 +24,7 @@ const bandeja = (cel, es, pag, tam) => {
   const els = [];
   for (let i = (pag - 1) * tam; i < Math.min(total, pag * tam); i++) els.push({ IdMensaje: '0000' + cel.slice(0, 4) + '-' + es + '000-0000-0000-' + String(i).padStart(12, '0'), IdBuzonCelula: G3, Asunto: process.env.PRESENTA ? ASUNTOS[i % ASUNTOS.length] : 'Mensaje ' + i + ' de ' + cel.slice(0, 4),
     Cuerpo: process.env.PRESENTA ? '<p>Se remite para su conocimiento y efectos la documentación adjunta. Se ruega acuse de recibo y, en su caso, la designación de un punto de contacto antes del próximo viernes.</p>' : '<p>Texto del mensaje ' + i + '</p><script>alert(1)</script>', Fecha: hace(i < 130 ? i * 0.3 : 24 * 40 + i), FechaRegistroEntrada: hace(i), IdEstadoMensaje: 3,
-    EstadoMensaje: i === 7 ? 'Pendiente de firma' : i % 3 ? 'Pendiente' : 'Leído', EstadoParaUsuario: i % 2 ? 'No leído' : 'Leído', TipoES: es === '1' ? 'E' : 'S', TipoMensaje: i % 4 ? 'Informe' : 'Orden', CodigoPrioridad: i % 9 ? 'R' : 'U',
+    EstadoMensaje: es === '2' && i === 2 ? 'Enviado' : i === 7 ? 'Pendiente de firma' : i % 3 ? 'Pendiente' : 'Leído', EstadoParaUsuario: i % 2 ? 'No leído' : 'Leído', TipoES: es === '1' ? 'E' : 'S', TipoMensaje: i % 4 ? 'Informe' : 'Orden', CodigoPrioridad: i % 9 ? 'R' : 'U',
     CelulaRemitente: i % 2 ? 'ET 2SUIGE JEFATURA' : 'ET 2SUIGE REGISTRO', CelulaDestinataria: 'ET 2SUIGE SETEC SEGURIDAD', NumeroRegistroEntrada: 'RE-' + i, Sref: 'SREF-' + i,
     ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 7 ? '' : 'URGENTE', Firma: i % 2 ? (process.env.PRESENTA ? 'GENERAL JEFE DE LA SUIGE' : 'GENERAL JEFE <b>A</b>') : '', MotivoDistribucion: i % 3 ? 'Para conocimiento' : 'Para actuación', EnviableARubrica: es === '2' && i % 2 === 0 ? 'Sí' : 'No', BuzonPersonal: false, IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
   return { ListaElementos: els, ListaAgrupaciones: [], IndicePagina: pag, TamanoPagina: tam, TotalRegistros: total };
@@ -151,6 +151,10 @@ console.log('anexos:', (await p.textContent('#adjuntos').catch(() => '-')).repla
 { await p.evaluate(() => { const o = window.open; window.open = function (u) { window.__abierto = u; return o.apply(this, arguments); }; }); const [pop] = await Promise.all([ctx.waitForEvent('page'), p.click('#adjuntos [data-anexo="0"][data-modo="abrir"]')]); console.log('url pedida:', decodeURI(await p.evaluate(() => window.__abierto)).replace(O, '')); await pop.close().catch(() => {}); }
 { const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#adjuntos [data-anexo="1"][data-modo="bajar"]')]); console.log('descargar cifrado →', dl.suggestedFilename(), '| botón abrir en el cifrado:', !!(await p.$('#adjuntos [data-anexo="1"][data-modo="abrir"]'))); }
 console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0);
+// Actualizar: vuelve a leer, deja la ficha abierta y muestra la hora
+{ const h0 = await p.textContent('#detalle .cab-msg h2'), n0 = llamadas.filter(x => /ObtenerBuzonCelula/.test(x)).length, t0 = await p.textContent('#ultimaAct');
+  await p.click('#actualizar'); await p.waitForFunction(() => !document.getElementById('actualizar').disabled, null, { timeout: 30000 }); await p.waitForTimeout(300);
+  console.log('actualizar: hora antes', JSON.stringify(t0), '→', (await p.textContent('#ultimaAct')).replace(/\d\d:\d\d:\d\d/, 'HH:MM:SS'), '| relee MENSADEF:', llamadas.filter(x => /ObtenerBuzonCelula/.test(x)).length > n0, '| misma ficha abierta:', !(await p.isHidden('#detalle')) && (await p.textContent('#detalle .cab-msg h2')) === h0, '| botón:', (await p.textContent('#actualizar')).trim()); }
 // Comentario en MENSADEF (solo en la copia de pruebas): caja con confirmación y comentario automático al añadir a META
 { console.log('selector de bandera presente:', !!(await p.$('#selBandera'))); console.log('caja de comentario:', !!(await p.$('#txtComentario')), '| casilla anotar en META:', !!(await p.$('#anotarMeta')), '| comentarios automáticos hasta aquí:', comentarios.length);
   {
@@ -173,10 +177,12 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0);
     console.log('bandera quitada: idEtiqueta=' + (banderasPuestas[banderasPuestas.length - 1] || {}).idEtiqueta, '| en la ficha:', !!(await p.$('#detalle .cab-msg .bandera')), '| selector:', await p.$eval('#selBandera', x => x.options[x.selectedIndex].textContent));
     // Pasar a rúbrica: solo en los «Enviable a rúbrica»; dos pulsaciones; si MENSADEF dice que no, se ve su motivo
     console.log('rúbrica en uno de entrada:', !!(await p.$('#aRubrica')));
-    if (!FINAL) {
+    {
     await p.fill('#buscar', ''); await p.selectOption('#fSitio', ''); await p.selectOption('[data-x="EnviableARubrica"]', 'Sí'); await p.waitForTimeout(300);
     const conR = await p.$$eval('#lista tbody tr[data-i]', l => l.length); let k = 0;
     for (; k < conR; k++) { await p.click('#lista tbody tr[data-i] >> nth=' + k); await p.waitForTimeout(250); if (await p.$('#aRubrica')) break; }
+    { const con = []; for (let k2 = 0; k2 < conR; k2++) { await p.click('#lista tbody tr[data-i] >> nth=' + k2); await p.waitForTimeout(250); con.push((await p.textContent('#detalle .cab-msg')).includes('Enviado') + ':' + !!(await p.$('#aRubrica'))); }
+      console.log('enviables (estado Enviado:botón):', con.join(' ')); await p.click('#lista tbody tr[data-i] >> nth=' + k); await p.waitForTimeout(250); }
     console.log('salida:', conR, '| con botón rúbrica en la fila', k, '| filtro «Enviable a rúbrica»:', await p.$$eval('[data-x="EnviableARubrica"] option', o => o.map(x => x.textContent).join(', ')).catch(() => 'no hay'));
     await p.click('#aRubrica'); await p.waitForTimeout(200); console.log('1.ª pulsación:', (await p.textContent('#aRubrica')).trim(), '| enviados:', rubricas.length);
     await p.click('#aRubrica'); await p.waitForTimeout(500); console.log('MENSADEF dice que no:', (await p.textContent('#colabora p')).trim(), '| ¿HTML?', !!(await p.$('#colabora p b')), '| botón vuelve:', (await p.textContent('#aRubrica')).trim());

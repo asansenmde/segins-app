@@ -113,4 +113,6 @@ autoría.
     09/11/2026: probado por el usuario. Comentario y bandera pasados al favorito definitivo (2026-11-09 · 6).
     09/11/2026: SENDERO 2026-11-09 · 7 (pruebas): «Pasar a rúbrica» (2026-11-09 · 8: «Firmar en Rúbrica» quitado, no
     funcionaba; en su lugar, enlace fijo «Ir a Rúbrica»). Pendiente: que confirme «Pasar a rúbrica» para pasarlo al definitivo.
+    09/11/2026: «Pasar a rúbrica» confirmado por el usuario. Versión final 2026-11-09 · 9 con rúbrica, «Ir a Rúbrica»,
+    «⟳ Actualizar» y hora de la última actualización (sin «Pasar a rúbrica» si el estado es «Enviado»).
 

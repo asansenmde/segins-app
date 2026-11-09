@@ -311,6 +311,8 @@
       <button type="button" data-dias="29">30 días</button>
       <label class="check"><input type="checkbox" id="historicas"> Incluir listas históricas (SMDMDMensajes2026…)</label>
       <button type="button" class="prim" id="cargar">Cargar</button>
+      <button type="button" id="actualizar" title="Vuelve a leer MENSADEF con las mismas fechas y células, sin cerrar la ficha abierta">⟳ Actualizar</button>
+      <span class="small muted" id="ultimaAct" title="Última lectura de MENSADEF"></span>
     </div>
     <div class="fila" id="filaCelulas" style="display:none;margin-top:8px"><button type="button" id="elegirCelulas">Células que se cargan…</button><span class="muted" id="resumenCelulas"></span></div>
     <div class="card" id="cajaCelulas" hidden style="margin:8px 0"></div>
@@ -395,7 +397,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-09 · 8';
+  var VERSION = '2026-11-09 · 9';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1138,6 +1140,27 @@
   }
 
   $('cargar').addEventListener('click', function () { cargar(); });
+  // Actualizar (09/11/2026): vuelve a leer con las mismas fechas y células y deja abierta la ficha que se estaba viendo.
+  // Si «Hasta» era hoy cuando se cargó y ha cambiado el día, pasa a hoy.
+  var ultimaLectura = null;
+  function pintarUltima() {
+    if (!ultimaLectura) { $('ultimaAct').textContent = ''; return; }
+    var min = Math.floor((Date.now() - ultimaLectura.getTime()) / 60000);
+    $('ultimaAct').textContent = 'Última actualización: ' + ultimaLectura.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) +
+      (min >= 1 ? ' (hace ' + (min < 60 ? min + ' min' : Math.floor(min / 60) + ' h ' + (min % 60) + ' min') + ')' : '');
+    $('ultimaAct').style.color = min >= 30 ? '#b45309' : '';
+  }
+  setInterval(pintarUltima, 30000);
+  $('actualizar').addEventListener('click', function () {
+    var clave = abierto ? claveMensaje(abierto) : null, b = this;
+    var hoy = new Date(), hoyTxt = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+    if (ultimaLectura && $('hasta').value) { var u = ultimaLectura, uTxt = u.getFullYear() + '-' + String(u.getMonth() + 1).padStart(2, '0') + '-' + String(u.getDate()).padStart(2, '0'); if ($('hasta').value === uTxt && uTxt < hoyTxt) $('hasta').value = hoyTxt; }
+    b.disabled = true; b.textContent = '⟳ Actualizando…';
+    cargar().then(function () {
+      b.disabled = false; b.textContent = '⟳ Actualizar';
+      if (clave) { var m = mensajes.filter(function (x) { return claveMensaje(x) === clave; })[0]; if (m) abrir(m); }
+    }, function () { b.disabled = false; b.textContent = '⟳ Actualizar'; });
+  });
 
   // Columnas de MENSADEF: además de las conocidas (CAMPOS) se leen todas las propias de cada lista de mensajes (las de
   // MENSADEF, no las de SharePoint), con su nombre visible; las de persona o búsqueda se leen por su nombre (Title).
@@ -1202,7 +1225,7 @@
       sitios = celulasElegidas();
       pintarHero();
       return cargarApi(desde, hasta).then(function (r) {
-        mensajes = r.mensajes; $('cargar').disabled = false;
+        mensajes = r.mensajes; $('cargar').disabled = false; ultimaLectura = new Date(); pintarUltima();
         $('estado').textContent = mensajes.length + ' mensajes del ' + desde.split('-').reverse().join('/') + ' al ' + hasta.split('-').reverse().join('/') + ' en ' + sitios.length + (sitios.length === 1 ? ' célula' : ' células') +
           (r.errores.length ? ' · no se pudieron leer: ' + r.errores.join('; ') : '') + '.';
         $('fSitio').previousSibling.textContent = 'Célula / negociado';
@@ -1235,7 +1258,7 @@
       // Sin duplicados entre listas diarias e históricas (mismo MensajeId)
       var vistos = {};
       mensajes = res.filter(function (m) { var k = m.MensajeId || (m._lista.id + ':' + m.ID); if (vistos[k]) return false; vistos[k] = 1; return true; });
-      $('cargar').disabled = false;
+      $('cargar').disabled = false; ultimaLectura = new Date(); pintarUltima();
       $('estado').textContent = mensajes.length + ' mensajes del ' + desde.split('-').reverse().join('/') + ' al ' + hasta.split('-').reverse().join('/') + (errores.length ? ' · ' + errores.length + ' listas no se pudieron leer (' + esc(errores[0]) + ')' : '') + '.';
       pintarTodo();
     });
@@ -1617,12 +1640,14 @@
       '<option value="">' + (m._bandera ? '⚑ Quitar bandera' : '⚑ Poner bandera…') + '</option>' +
       Object.keys(BANDERAS).filter(function (k) { return +k !== 0; }).map(function (k) { return '<option value="' + esc(k) + '"' + (String(act) === k ? ' selected' : '') + '>⚑ ' + esc(BANDERAS[k].nombre) + '</option>'; }).join('') + '</select>';
   }
-  // ---------- Pasar a rúbrica (09/11/2026, de momento solo en pruebas): como la aplicación (escucha v7),
+  // ---------- Pasar a rúbrica (09/11/2026, en las dos copias): como la aplicación (escucha v7),
   // POST mensaje/EnvioAPortafirmas?idMensaje&emailUsuario&buzonPersonal&urlColeccionSitio, sin cuerpo; contesta
   // { Correcto, MensajeInformativo }. Solo se ofrece en los que MENSADEF marca «Enviable a rúbrica» o están en validación.
-  var RUBRICA = PRUEBAS;
+  var RUBRICA = true; // 09/11/2026: probado por el usuario, también en el definitivo
   function siTexto(v) { return v === true || /^\s*(s|s[ií]|true|1|yes)\s*$/i.test(String(v == null ? '' : v)); }
-  function puedeRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && m.MensajeId && r && !r.enviado && (siTexto(r.enviable) || /validaci/i.test(r.estado || ''))); }
+  // Si el estado es «Enviado» (ya salió) no se ofrece, aunque MENSADEF siga marcándolo como enviable a rúbrica
+  function yaEnviado(m) { return /\benviad[oa]s?\b/i.test((m._rubrica && m._rubrica.estado) || ''); }
+  function puedeRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && m.MensajeId && r && !r.enviado && !yaEnviado(m) && (siTexto(r.enviable) || /validaci/i.test(r.estado || ''))); }
   // Enlace fijo al portafirmas (dirección dada por el usuario) para no tener que buscarlo; la firma se hace allí
   var URL_RUBRICA = 'https://portafirmas.mdef.es/ePortafirmas/Inicio.do?cr=&btnLogout=Entrar';
   function conRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && r && (puedeRubrica(m) || r.enviado || /firma|r[uú]brica|portafirmas|validaci/i.test(r.estado || ''))); }
