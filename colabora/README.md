@@ -35,6 +35,27 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-09 · 2: «📋 Incluir en el Punto de Situación».** Un asunto importante (llegado de SENDERO y dado de
+  alta en META) se incluye desde su ficha en el punto de situación abierto de la aplicación **Puntos de Situación de
+  SUIGESUR** (proyecto aparte, mismo sitio; ver `PENDIENTES.md`).
+  - Recuadro azul en la ficha, bajo «Para tratar en». Si la aplicación aún no está instalada (faltan sus listas), lo dice y
+    no hace nada más: **queda preparado** para cuando se instale.
+  - «📋 Incluir en PS-año-número» abre un formulario: punto abierto, negociado (el del asunto según «PS Negociados»), asunto
+    y situación (de la descripción y el último comentario, corregibles) y prioridad (Alta si el asunto es alta o crítica).
+  - Solo deja escribir en los negociados de los que el usuario es miembro; los de PROCOR (coordinación) en todos. Si no
+    puede, le dice que marque 📋 y PROCOR lo verá como propuesta.
+  - Crea la entrada en «PS Aportaciones» con `Origen` META, `OrigenLista`, `OrigenId` y `OrigenUrl` (enlace a la ficha), al
+    final de su negociado, sin duplicar, y pone la marca 📋 Punto de situación al asunto.
+  - Después la ficha muestra «✓ Incluido en PS-2026-045 · PRL» y, mientras el punto esté abierto, «✎ Actualizar la situación»
+    (relee la entrada y la modifica con `MERGE` + `IF-MATCH`). Tras la hora de cierre no deja tocarla, y si Colabora la
+    rechaza por la validación de la lista lo explica.
+  - Contrato con la aplicación (sus listas las crea ella al instalarse): «PS Puntos» (`Referencia`, `FechaPunto`,
+    `Apertura`, `Cierre`, `EstadoPunto`); «PS Negociados» (`Title`, `Orden`, `NombreGestor` con los valores de
+    NegociadoAsignado separados por «;», `Miembros`, `Coordina`, `EnInforme`); «PS Aportaciones» (`Title`, `PuntoId`,
+    `Referencia`, `Negociado`, `Situacion`, `Prioridad` Normal/Alta, `Orden`, `CierrePunto`, `Origen`, `OrigenLista`,
+    `OrigenId`, `OrigenUrl`).
+  - La copia de pruebas usa las listas «PS … PRUEBAS». Prueba: `node colabora/pruebas/punto-situacion.mjs` (también
+    `VERBOSE=1` y `TAREAS_HTML=colabora/colabora/…` con las copias protegidas).
 - **Versión 2026-11-09 · 1: la copia `--propio` se llama META** («Del mensaje a la tarea»), hermana de SENDERO.
   - Cabecera con un escudo azul marino de filo dorado y la «M» dorada, el nombre en letras espaciadas, el lema y debajo
     «Gestión de expedientes MENSADEF — Cte. Alfredo Sánchez Sender».
@@ -119,6 +140,7 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   horizontal) con los asuntos abiertos en su NLT y los filtros aplicados; desde ahí se imprime o se guarda en PDF.
   Si el navegador no deja abrir ventanas, se descarga como `.html` para abrirlo e imprimirlo.
 - **Estado al crear**: «Remitido al negociado» (como al enviarlo desde Colabora); se cambia en *Ajustes*.
+- `pruebas/punto-situacion.mjs`: inclusión de asuntos en el Punto de Situación (instalada o no, permisos, cierre, validación).
 - `pruebas/simulacion.mjs`: prueba con Playwright contra un Colabora simulado (`node colabora/pruebas/simulacion.mjs`).
   `pruebas/importar.mjs`: alta desde MENSADEF (también dentro del portal) y desde correos .msg/.eml, duplicados y
   actualización automática (`TAREAS_HTML=colabora/colabora/tareas-nlt-colabora.html` para la copia protegida).

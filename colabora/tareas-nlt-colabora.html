@@ -94,6 +94,7 @@
   .finrap { font-size: .72rem; padding: 2px 8px; border-radius: 8px; border: 1px solid #a5d6a7; background: #eef8ef; color: #2e7d32; font-weight: 700; white-space: nowrap; }
   .finrap.seguro { background: #2e7d32; color: #fff; }
   .tratar { margin: 8px 0; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .psbox { margin: 8px 0; padding: 8px 10px; border: 1px solid #1d4f91; border-left-width: 5px; border-radius: 10px; background: #f3f7fd; } .psbox .psya { margin: 4px 0; } .psbox .psform { margin-top: 6px; }
   .filtros > div { flex: 1 1 120px; min-width: 0; } .filtros > .q { flex: 2 1 200px; }
   .filtros label.lbl { margin-top: 0; }
   .modo { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; flex: none; }
@@ -277,7 +278,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-09 · 1';
+  var VERSION = '2026-11-09 · 2';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -1110,6 +1111,180 @@
     enviarSP(urlLista() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas en la lista')
       .then(function () { return cargar(); }).then(function () { aviso('Columna «Tratar en» creada'); render(); })
       .catch(function (e) { boton.disabled = false; aviso('No se pudo crear la columna: ' + (e.message || e)); });
+  }
+  // ---------- Punto de Situación de SUIGESUR (09/11/2026) ----------
+  // Un asunto importante (llegado de SENDERO y dado de alta aquí) se incluye en el punto de situación abierto de la
+  // aplicación «Puntos de Situación» del mismo sitio. Contrato con esa aplicación (sus listas las crea ella al instalarse):
+  //  · «PS Puntos»: Referencia (PS-año-número), FechaPunto, Apertura, Cierre (fecha y hora del bloqueo), EstadoPunto.
+  //  · «PS Negociados»: Title (nombre en el informe), Orden, NombreGestor (valor de NegociadoAsignado; varios con «;»),
+  //    Miembros (personas), Coordina (PROCOR y control total: pueden escribir en cualquier negociado), EnInforme.
+  //  · «PS Aportaciones»: Title (asunto), PuntoId, Referencia, Negociado, Situacion, Prioridad (Normal / Alta), Orden,
+  //    CierrePunto (copia del cierre: la validación de la lista rechaza cambios después), Origen (META), OrigenLista,
+  //    OrigenId (Id del asunto aquí) y OrigenUrl (enlace a su ficha).
+  // Si la aplicación aún no está instalada, la ficha lo dice y no hace nada más. La copia de pruebas usa las listas «… PRUEBAS».
+  var PS_SUF = PRUEBAS ? ' PRUEBAS' : '';
+  var PS_LISTAS = { puntos: 'PS Puntos' + PS_SUF, negs: 'PS Negociados' + PS_SUF, aport: 'PS Aportaciones' + PS_SUF };
+  var psUrl = function (k) { return web.url + "/_api/web/lists/getbytitle('" + encodeURIComponent(PS_LISTAS[k].replace(/'/g, "''")) + "')"; };
+  var psCache = null, psCacheEn = 0;
+  // Estado de la aplicación: si está instalada, puntos abiertos, negociados y en cuáles puede escribir el usuario
+  function psEstado(forzar) {
+    if (psCache && !forzar && Date.now() - psCacheEn < 60000) return Promise.resolve(psCache);
+    var todos = function (url) {
+      var acc = [];
+      var pag = function (u) { return api(u).then(function (d) { acc = acc.concat(lista(d.value)); var s = d['odata.nextLink'] || d['@odata.nextLink']; return s ? pag(s) : acc; }); };
+      return pag(url);
+    };
+    return Promise.all([
+      api(psUrl('aport') + '?$select=Id,ListItemEntityTypeFullName'),
+      todos(psUrl('puntos') + '/items?$top=500&$select=Id,Title,Referencia,FechaPunto,Apertura,Cierre,EstadoPunto&$orderby=Id desc'),
+      todos(psUrl('negs') + '/items?$top=500&$select=Id,Title,Orden,NombreGestor,Coordina,EnInforme,Miembros/Id&$expand=Miembros'),
+    ]).then(function (r) {
+      var ahora = Date.now();
+      var abiertos = r[1].filter(function (p) {
+        var c = p.Cierre ? Date.parse(p.Cierre) : 0, a = p.Apertura ? Date.parse(p.Apertura) : 0;
+        return c > ahora && (!a || a <= ahora) && !/cerrad|archiv|borrad/i.test(p.EstadoPunto || '');
+      }).sort(function (a, b) { return Date.parse(a.Cierre) - Date.parse(b.Cierre); });
+      var negs = r[2].filter(function (n) { return n.EnInforme !== false; }).sort(function (a, b) { return (a.Orden || 99) - (b.Orden || 99); });
+      var soyDe = function (n) { return yo && lista(n.Miembros).some(function (m) { return m.Id === yo.Id; }); };
+      var coordino = r[2].some(function (n) { return n.Coordina && soyDe(n); });
+      var cierres = {}; r[1].forEach(function (p) { cierres[p.Id] = p.Cierre; });
+      psCache = { instalada: true, tipo: r[0].ListItemEntityTypeFullName, abiertos: abiertos, negs: negs, cierres: cierres,
+        puedo: function (nombre) { return coordino || negs.some(function (n) { return n.Title === nombre && soyDe(n); }); }, coordino: coordino };
+      psCacheEn = Date.now();
+      return psCache;
+    }).catch(function (e) {
+      if (e.status === 404) { psCache = { instalada: false }; psCacheEn = Date.now(); return psCache; }
+      throw e;
+    });
+  }
+  // Negociado del punto de situación que corresponde al «Negociado asignado» del asunto
+  function psNegociadoDe(t, negs) {
+    var v = sinTildes(t.negociado).trim();
+    if (!v) return '';
+    var n = negs.filter(function (x) {
+      return String(x.NombreGestor || '').split(';').concat([x.Title]).some(function (y) { return sinTildes(y).trim() === v; });
+    })[0];
+    return n ? n.Title : '';
+  }
+  var psRef = function (p) { return p.Referencia || p.Title || ('Punto ' + p.Id); };
+  var psCierre = function (p) { return new Date(p.Cierre).toLocaleString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); };
+  var psFicha = function (t) { return location.origin + location.pathname + '?id=' + t.id; };
+  // Entradas del punto de situación que vienen de este asunto
+  function psDeAsunto(t) {
+    return api(psUrl('aport') + "/items?$top=50&$select=Id,Title,PuntoId,Referencia,Negociado,Situacion,Prioridad,CierrePunto,Modified&$filter=(OrigenId eq " + Number(t.id) +
+      ") and (OrigenLista eq '" + encodeURIComponent(LISTA.replace(/'/g, "''")) + "')").then(function (d) { return lista(d.value); });
+  }
+  // Recuadro de la ficha
+  function pintarPS(t, msg) {
+    var caja = $('#psBox');
+    if (!caja || Number(caja.dataset.id) !== t.id) return;
+    caja.innerHTML = '<b class="small">📋 Punto de Situación SUIGESUR:</b> <span class="small muted">comprobando…</span>';
+    psEstado().then(function (ps) {
+      if (!ps.instalada) {
+        caja.innerHTML = '<b class="small">📋 Punto de Situación SUIGESUR:</b> <span class="small muted">la aplicación «Puntos de Situación» aún no está instalada en este sitio. ' +
+          'Cuando lo esté, desde aquí podrás incluir este asunto en el punto abierto.</span>';
+        return;
+      }
+      return psDeAsunto(t).then(function (ya) {
+        var ahora = Date.now();
+        var html = '<b class="small">📋 Punto de Situación SUIGESUR</b>';
+        html += ya.map(function (a) {
+          var cierre = ps.cierres[a.PuntoId] || a.CierrePunto, abierta = cierre && Date.parse(cierre) > ahora;
+          return '<div class="psya">✓ Incluido en <b>' + esc(a.Referencia || 'punto ' + a.PuntoId) + '</b> · ' + esc(a.Negociado) + (abierta ? ' · <span class="small">se puede actualizar hasta el ' + esc(psCierre({ Cierre: cierre })) + '</span> ' +
+            (ps.puedo(a.Negociado) ? '<button type="button" class="btn" data-psform="' + t.id + '" data-psaport="' + a.Id + '">✎ Actualizar la situación</button>' : '') : ' · <span class="small muted">punto cerrado</span>') + '</div>';
+        }).join('');
+        var libres = ps.abiertos.filter(function (p) { return !ya.some(function (a) { return a.PuntoId === p.Id; }); });
+        if (!ps.abiertos.length) html += '<div class="small muted">No hay ningún punto de situación abierto. Lo abre PROCOR en la aplicación «Puntos de Situación»; ' +
+          (tieneTratar(t, 'ps') ? 'el asunto queda marcado 📋 y lo verán allí como propuesta.' : 'si marcas 📋 Punto de situación, lo verán allí como propuesta.') + '</div>';
+        else if (libres.length) html += '<div><button type="button" class="btn prim" data-psform="' + t.id + '">📋 Incluir en ' + esc(psRef(libres[0])) + '</button> <span class="small muted">cierra el ' + esc(psCierre(libres[0])) + '</span></div>';
+        caja.innerHTML = html + '<div id="psForm"></div>' + (msg ? '<div class="small">' + msg + '</div>' : '');
+      });
+    }).catch(function (e) { caja.innerHTML = '<b class="small">📋 Punto de Situación SUIGESUR:</b> <span class="error">no se pudo consultar (' + esc(e.message || e) + ')</span>'; });
+  }
+  // Formulario para incluir (o actualizar) el asunto en el punto abierto
+  function psFormulario(t, aportId) {
+    var f = $('#psForm');
+    if (!f || !psCache || !psCache.instalada) return;
+    var ps = psCache;
+    (aportId ? api(psUrl('aport') + '/items(' + Number(aportId) + ')?$select=Id,Title,PuntoId,Negociado,Situacion,Prioridad') : Promise.resolve(null)).then(function (a) {
+      var ult = String(t.observaciones || '').split('\n').filter(Boolean)[0] || '';
+      var sit = a ? a.Situacion || '' : (t.descripcion || t.resumenDesc || '') + (ult ? '\n' + ult : '');
+      var neg = a ? a.Negociado : psNegociadoDe(t, ps.negs);
+      var prio = a ? a.Prioridad : (t.prio === 'critica' || t.prio === 'alta' ? 'Alta' : 'Normal');
+      var negsPuedo = ps.negs.filter(function (n) { return ps.puedo(n.Title); });
+      if (!a && !negsPuedo.length) { f.innerHTML = '<div class="aviso small">Solo los miembros del negociado o de PROCOR pueden incluir asuntos en el punto de situación. ' +
+        'Marca 📋 Punto de situación y PROCOR lo verá como propuesta.</div>'; return; }
+      var libres = ps.abiertos;
+      f.innerHTML = '<div class="psform">' +
+        (a ? '<input type="hidden" id="psAport" value="' + a.Id + '">' :
+          '<label class="lbl">Punto de situación</label><select id="psPunto">' + libres.map(function (p) { return '<option value="' + p.Id + '">' + esc(psRef(p)) + ' · cierra el ' + esc(psCierre(p)) + '</option>'; }).join('') + '</select>' +
+          '<label class="lbl">Negociado</label><select id="psNeg">' + (neg && negsPuedo.some(function (n) { return n.Title === neg; }) ? '' : '<option value="">— Elige negociado —</option>') +
+            negsPuedo.map(function (n) { return '<option' + (n.Title === neg ? ' selected' : '') + '>' + esc(n.Title) + '</option>'; }).join('') + '</select>' +
+          (neg && !negsPuedo.some(function (n) { return n.Title === neg; }) ? '<div class="small muted">El asunto es de ' + esc(neg) + ', donde no puedes escribir: elige uno tuyo o pídeselo a ese negociado.</div>' : '')) +
+        '<label class="lbl">Asunto (como saldrá en el informe)</label><input id="psTit" maxlength="255" value="' + esc(a ? a.Title : t.asunto) + '">' +
+        '<label class="lbl">Situación</label><textarea id="psSit" rows="5" ' + AREA + '>' + esc(sit) + '</textarea>' +
+        '<label class="lbl">Prioridad</label><select id="psPrio">' + ['Normal', 'Alta'].map(function (x) { return '<option' + (x === prio ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select>' +
+        '<div class="error" id="psErr" hidden></div>' +
+        '<div class="acciones"><button type="button" class="btn" data-psno="' + t.id + '">Cancelar</button><button type="button" class="btn prim" data-psok="' + t.id + '">' + (a ? 'Guardar la situación' : '📋 Incluir en el punto') + '</button></div></div>';
+    }).catch(function (e) { f.innerHTML = '<div class="error">' + esc(e.message || e) + '</div>'; });
+  }
+  function psGuardar(t, boton) {
+    var ps = psCache, err = $('#psErr');
+    var fallo = function (m) { err.textContent = m; err.hidden = false; boton.disabled = false; };
+    var tit = $('#psTit').value.trim(), sit = $('#psSit').value.trim(), prio = $('#psPrio').value, aport = $('#psAport');
+    if (!tit) return fallo('Falta el asunto');
+    if (!sit) return fallo('Escribe la situación del asunto');
+    boton.disabled = true; err.hidden = true;
+    var tipo = { __metadata: { type: ps.tipo } };
+    var hecho;
+    if (aport) {
+      // Actualizar: se relee para no pisar cambios y la validación de la lista impide escribir tras el cierre
+      hecho = fetch(psUrl('aport') + '/items(' + Number(aport.value) + ')?$select=Id,PuntoId,Negociado,CierrePunto', { credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+        .then(function (r) { if (!r.ok) throw new Error(r.status === 404 ? 'La entrada ya no existe en el punto de situación' : 'HTTP ' + r.status); return r.json(); })
+        .then(function (d) {
+          d = d.d || d;
+          var ci = ps.cierres[d.PuntoId] || d.CierrePunto;
+          if (!ci || Date.parse(ci) <= Date.now()) throw new Error('El punto de situación ya está cerrado: no admite cambios');
+          if (!ps.puedo(d.Negociado)) throw new Error('No puedes escribir en el negociado ' + d.Negociado);
+          return enviarSP(psUrl('aport') + '/items(' + d.Id + ')', Object.assign(tipo, { Title: tit, Situacion: sit, Prioridad: prio }),
+            'No tienes permiso para modificar el punto de situación', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': (d.__metadata && d.__metadata.etag) || '*' });
+        }).then(function () { return 'Situación actualizada en el punto de situación'; });
+    } else {
+      var p = ps.abiertos.filter(function (x) { return x.Id === Number($('#psPunto').value); })[0], neg = $('#psNeg').value;
+      if (!p) return fallo('Elige el punto de situación');
+      if (!neg) return fallo('Elige el negociado');
+      if (!ps.puedo(neg)) return fallo('No puedes escribir en el negociado ' + neg);
+      if (Date.parse(p.Cierre) <= Date.now()) return fallo('Ese punto de situación acaba de cerrarse');
+      // Va al final de las entradas de su negociado; si ya estaba incluido en ese punto, no se duplica
+      hecho = Promise.all([
+        api(psUrl('aport') + '/items?$top=500&$select=Id,Orden,OrigenId,OrigenLista,Negociado&$filter=PuntoId eq ' + p.Id),
+      ]).then(function (r) {
+        var es = lista(r[0].value);
+        if (es.some(function (x) { return Number(x.OrigenId) === t.id && x.OrigenLista === LISTA; })) throw new Error('Este asunto ya está incluido en ' + psRef(p));
+        var orden = es.filter(function (x) { return x.Negociado === neg; }).reduce(function (m, x) { return Math.max(m, Number(x.Orden) || 0); }, 0) + 1;
+        return enviarSP(psUrl('aport') + '/items', Object.assign(tipo, { Title: tit, PuntoId: p.Id, Referencia: psRef(p), Negociado: neg, Situacion: sit, Prioridad: prio, Orden: orden,
+          CierrePunto: new Date(p.Cierre).toISOString(), Origen: 'META', OrigenLista: LISTA, OrigenId: t.id, OrigenUrl: psFicha(t) }),
+          'No tienes permiso para añadir entradas al punto de situación');
+      }).then(function () {
+        // Queda también la marca 📋 en el asunto (si la lista tiene la columna)
+        if (hayTratar() && !tieneTratar(t, 'ps')) {
+          var vals = t.tratar.concat([TRATAR[0][1]]);
+          return leerElemento(t.id).then(function (e) {
+            return enviarSP(urlLista() + '/items(' + t.id + ')', { __metadata: { type: listaInfo.ListItemEntityTypeFullName }, TratarEn: { __metadata: { type: 'Collection(Edm.String)' }, results: vals } },
+              'No tienes permiso para modificar este asunto', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': e.etag });
+          }).then(function () { return cargar(); }).catch(function () { /* la entrada ya está creada; la marca es opcional */ });
+        }
+      }).then(function () { return 'Incluido en ' + psRef(p) + ' (' + neg + ')'; });
+    }
+    hecho.then(function (m) {
+      aviso(m);
+      var t2 = tareas.find(function (x) { return x.id === t.id; }) || t;
+      if (!$('#psBox')) return;
+      if (!aport) { abrir(t2.id); } else pintarPS(t2, '✓ ' + esc(m));
+    }).catch(function (e) {
+      var m = e.message || String(e);
+      fallo(/valid|validaci/i.test(m) ? 'Colabora no lo admite: el punto de situación ya está cerrado' : m);
+    });
   }
   function imprimirCalendario() {
     var y = mes.getFullYear(), m = mes.getMonth(), ini = iso(mes), fin = iso(new Date(y, m + 1, 0));
@@ -2176,6 +2351,7 @@
       '<div class="tratar"><b class="small">Para tratar en:</b> ' + (hayTratar() ? TRATAR.map(function (x) { var on = tieneTratar(t, x[0]);
         return '<button type="button" class="btn' + (on ? ' on tr-' + x[0] : '') + '" data-tratar="' + x[0] + '" data-id="' + t.id + '" title="' + (on ? 'Quitar la marca' : 'Marcar para tratar') + '">' + (on ? '✓ ' : '') + x[2] + ' ' + x[3] + '</button>'; }).join(' ') :
         '<span class="small muted">falta la columna «Tratar en» en la lista; la crea quien administre la lista en Ajustes.</span>') + '<span id="trMsg" class="small"></span></div>' +
+      '<div id="psBox" class="psbox" data-id="' + t.id + '"></div>' +
       '<div class="estadoacc"><b class="small">Estado:</b> ' +
         (t.clase !== 'hecha' ? '<button type="button" class="btn verde" data-finalizar="' + t.id + '">✅ Finalizar</button>' : '<button type="button" class="btn" data-reabrir="' + t.id + '">↺ Reabrir</button>') +
         '<select id="selEstado">' + valores('ESTADO', 'estado').map(function (e) { return '<option' + (e === t.estado ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select>' +
@@ -2192,6 +2368,7 @@
       '<div id="comLista" data-id="' + t.id + '"></div></div></div>';
     dlg.showModal(); dlg.scrollTop = 0;
     pintarComentarios(t);
+    pintarPS(t);
   }
 
   var aviso = function (txt) { $('#estadoCarga').textContent = txt; setTimeout(function () { if (cargadoEn) $('#estadoCarga').textContent = tareas.length + ' asuntos · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }, 2500); };
@@ -2208,12 +2385,17 @@
     var el = e.target;
     var tab = el.closest('#tabs a');
     if (tab) { pref.vista = tab.dataset.v; kpiSel = ''; guardarPref(); render(); return; }
-    if (el.closest('#recargar')) { cargar(); return; }
+    if (el.closest('#recargar')) { psCache = null; cargar(); return; }
     if (el.closest('[data-crearpruebas]')) { crearListaPruebas(el.closest('[data-crearpruebas]')); return; }
     var trb = el.closest('[data-tratar]');
     if (trb) { cambiarTratar(Number(trb.dataset.id), trb.dataset.tratar, trb); return; }
     var trp = el.closest('[data-imptratar]');
     if (trp) { imprimirTratar(trp.dataset.imptratar); return; }
+    var psf = el.closest('[data-psform]');
+    if (psf) { psFormulario(tareas.find(function (x) { return x.id === Number(psf.dataset.psform); }), psf.dataset.psaport); return; }
+    if (el.closest('[data-psno]')) { $('#psForm').innerHTML = ''; return; }
+    var pso = el.closest('[data-psok]');
+    if (pso) { psGuardar(tareas.find(function (x) { return x.id === Number(pso.dataset.psok); }), pso); return; }
     if (el.closest('[data-creartratar]')) { crearColumnaTratar(el.closest('[data-creartratar]')); return; }
     if (el.closest('[data-renombrarpruebas]')) { renombrarListaPruebas(el.closest('[data-renombrarpruebas]')); return; }
     if (el.closest('[data-pruebacorreo]')) { correoPrueba(el.closest('[data-pruebacorreo]')); return; }
