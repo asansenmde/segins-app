@@ -278,7 +278,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-09 · 2';
+  var VERSION = '2026-11-09 · 3';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -1113,7 +1113,8 @@
       .catch(function (e) { boton.disabled = false; aviso('No se pudo crear la columna: ' + (e.message || e)); });
   }
   // ---------- Punto de Situación de SUIGESUR (09/11/2026) ----------
-  // Un asunto importante (llegado de SENDERO y dado de alta aquí) se incluye en el punto de situación abierto de la
+  // Un asunto importante (llegado de SENDERO y dado de alta aquí) marcado ⭐ «Tratar con el General» se incluye en el punto
+  // de situación abierto de la
   // aplicación «Puntos de Situación» del mismo sitio. Contrato con esa aplicación (sus listas las crea ella al instalarse):
   //  · «PS Puntos»: Referencia (PS-año-número), FechaPunto, Apertura, Cierre (fecha y hora del bloqueo), EstadoPunto.
   //  · «PS Negociados»: Title (nombre en el informe), Orden, NombreGestor (valor de NegociadoAsignado; varios con «;»),
@@ -1194,9 +1195,11 @@
             (ps.puedo(a.Negociado) ? '<button type="button" class="btn" data-psform="' + t.id + '" data-psaport="' + a.Id + '">✎ Actualizar la situación</button>' : '') : ' · <span class="small muted">punto cerrado</span>') + '</div>';
         }).join('');
         var libres = ps.abiertos.filter(function (p) { return !ya.some(function (a) { return a.PuntoId === p.Id; }); });
-        if (!ps.abiertos.length) html += '<div class="small muted">No hay ningún punto de situación abierto. Lo abre PROCOR en la aplicación «Puntos de Situación»; ' +
-          (tieneTratar(t, 'ps') ? 'el asunto queda marcado 📋 y lo verán allí como propuesta.' : 'si marcas 📋 Punto de situación, lo verán allí como propuesta.') + '</div>';
-        else if (libres.length) html += '<div><button type="button" class="btn prim" data-psform="' + t.id + '">📋 Incluir en ' + esc(psRef(libres[0])) + '</button> <span class="small muted">cierra el ' + esc(psCierre(libres[0])) + '</span></div>';
+        var marcado = !hayTratar() || tieneTratar(t, 'gen');
+        if (!ps.abiertos.length) html += '<div class="small muted">No hay ningún punto de situación abierto. Lo abre PROCOR en la aplicación «Puntos de Situación»' +
+          (hayTratar() ? (marcado ? '; el asunto está marcado ⭐ Tratar con el General y lo verán allí como propuesta.' : '.') : '.') + '</div>';
+        else if (libres.length && !marcado && !ya.length) html += '<div class="small muted">Pasan al punto de situación los asuntos para <b>⭐ Tratar con el General</b>: márcalo arriba y podrás incluirlo.</div>';
+        else if (libres.length && marcado) html += '<div><button type="button" class="btn prim" data-psform="' + t.id + '">📋 Incluir en ' + esc(psRef(libres[0])) + '</button> <span class="small muted">cierra el ' + esc(psCierre(libres[0])) + '</span></div>';
         caja.innerHTML = html + '<div id="psForm"></div>' + (msg ? '<div class="small">' + msg + '</div>' : '');
       });
     }).catch(function (e) { caja.innerHTML = '<b class="small">📋 Punto de Situación SUIGESUR:</b> <span class="error">no se pudo consultar (' + esc(e.message || e) + ')</span>'; });
@@ -1213,7 +1216,7 @@
       var prio = a ? a.Prioridad : (t.prio === 'critica' || t.prio === 'alta' ? 'Alta' : 'Normal');
       var negsPuedo = ps.negs.filter(function (n) { return ps.puedo(n.Title); });
       if (!a && !negsPuedo.length) { f.innerHTML = '<div class="aviso small">Solo los miembros del negociado o de PROCOR pueden incluir asuntos en el punto de situación. ' +
-        'Marca 📋 Punto de situación y PROCOR lo verá como propuesta.</div>'; return; }
+        'Está marcado ⭐ Tratar con el General: PROCOR lo verá como propuesta.</div>'; return; }
       var libres = ps.abiertos;
       f.innerHTML = '<div class="psform">' +
         (a ? '<input type="hidden" id="psAport" value="' + a.Id + '">' :
@@ -1265,15 +1268,6 @@
         return enviarSP(psUrl('aport') + '/items', Object.assign(tipo, { Title: tit, PuntoId: p.Id, Referencia: psRef(p), Negociado: neg, Situacion: sit, Prioridad: prio, Orden: orden,
           CierrePunto: new Date(p.Cierre).toISOString(), Origen: 'META', OrigenLista: LISTA, OrigenId: t.id, OrigenUrl: psFicha(t) }),
           'No tienes permiso para añadir entradas al punto de situación');
-      }).then(function () {
-        // Queda también la marca 📋 en el asunto (si la lista tiene la columna)
-        if (hayTratar() && !tieneTratar(t, 'ps')) {
-          var vals = t.tratar.concat([TRATAR[0][1]]);
-          return leerElemento(t.id).then(function (e) {
-            return enviarSP(urlLista() + '/items(' + t.id + ')', { __metadata: { type: listaInfo.ListItemEntityTypeFullName }, TratarEn: { __metadata: { type: 'Collection(Edm.String)' }, results: vals } },
-              'No tienes permiso para modificar este asunto', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': e.etag });
-          }).then(function () { return cargar(); }).catch(function () { /* la entrada ya está creada; la marca es opcional */ });
-        }
       }).then(function () { return 'Incluido en ' + psRef(p) + ' (' + neg + ')'; });
     }
     hecho.then(function (m) {

@@ -87,6 +87,9 @@ comprueba('sin instalar, lo explica: ' + t.slice(0, 90), /aún no está instalad
 // 2. Instalada, punto abierto, el usuario es de PRL
 instalada = true;
 t = await ficha(1);
+comprueba('sin marca ⭐ no deja incluir y lo explica: ' + t.slice(0, 120), /Tratar con el General/.test(t) && !(await p.$('[data-psform]')));
+items[0].TratarEn = ['TRATAR CON EL GENERAL']; items[1].TratarEn = ['TRATAR CON EL GENERAL'];
+t = await ficha(1);
 comprueba('botón de incluir en el punto abierto: ' + t.slice(0, 90), /Incluir en PS-2026-045/.test(t));
 await p.click('[data-psform]'); await p.waitForSelector('#psSit');
 comprueba('negociado propuesto PRL', await p.inputValue('#psNeg') === 'PRL');
@@ -103,7 +106,7 @@ comprueba('entrada creada: ' + JSON.stringify({ Title: a1.Title, PuntoId: a1.Pun
 comprueba('cierre copiado en la entrada', a1.CierrePunto === new Date(puntos[0].Cierre).toISOString());
 comprueba('enlace a la ficha: ' + a1.OrigenUrl, /tareas\.html\?id=1$/.test(a1.OrigenUrl || ''));
 comprueba('tipo de elemento de la lista', /PS_x0020_Aportaciones/.test(posts.find(x => /PS Aportaciones/.test(x.ruta)).cuerpo));
-comprueba('marca 📋 puesta en el asunto: ' + JSON.stringify(items[0].TratarEn), items[0].TratarEn.includes('PUNTO DE SITUACIÓN'));
+comprueba('no cambia las marcas del asunto: ' + JSON.stringify(items[0].TratarEn), JSON.stringify(items[0].TratarEn) === '["TRATAR CON EL GENERAL"]');
 t = (await p.textContent('#psBox')).replace(/\s+/g, ' ');
 if (process.env.CAPTURAS) await p.locator('#psBox').screenshot({ path: process.env.CAPTURAS + '/ps-incluido.png' });
 comprueba('la ficha lo muestra incluido y sin botón de volver a incluir: ' + t.slice(0, 100), /Incluido en PS-2026-045 · PRL/.test(t) && !/Incluir en PS/.test(t));
@@ -133,7 +136,7 @@ soyPRL = true;
 // 7. Sin punto abierto
 puntos[0].Cierre = h(-1);
 t = await ficha(2);
-comprueba('sin punto abierto: ' + t.slice(0, 120), /No hay ningún punto de situación abierto/.test(t) && !/Incluir en/.test(t));
+comprueba('sin punto abierto: ' + t.slice(0, 160), /No hay ningún punto de situación abierto/.test(t) && /propuesta/.test(t) && !/Incluir en/.test(t));
 t = await ficha(1);
 comprueba('incluido en punto ya cerrado: ' + t.slice(0, 100), /punto cerrado/.test(t) && !(await p.$('[data-psaport]')));
 comprueba('errores de página: ' + JSON.stringify(errs), !errs.length);

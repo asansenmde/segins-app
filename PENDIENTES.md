@@ -143,9 +143,10 @@ autoría.
       pasados 30 días del archivo, «Borrar contenido» a la **papelera** (solo PROCOR y el usuario, doble confirmación); la
       ficha del punto se conserva siempre. Ocupación en Colabora a la vista.
     - Desde META: hecho y preparado (Gestor 2026-11-09 · 2, «📋 Incluir en el Punto de Situación»). En la aplicación,
-      mostrar «Desde META» con enlace a la tarea y, como **propuestas**, los asuntos marcados 📋 en META que aún no estén
-      en el punto abierto.
+      mostrar «Desde META» con enlace a la tarea y, como **propuestas**, los asuntos marcados **⭐ Tratar con el General** en
+      META que aún no estén en el punto abierto.
     - Autoría y copia protegida, control de acceso y pruebas simuladas como en las demás páginas.
     Maquetas enseñadas y aprobadas el 09/11/2026 (con datos ficticios).
     09/11/2026: Gestor de Tareas / META 2026-11-09 · 2 con «📋 Incluir en el Punto de Situación», probado en simulación
     (original y protegidas, ligero y verbose). Pendiente: que suba las copias; funcionará cuando se instale Puntos de Situación.
+    09/11/2026: 2026-11-09 · 3: solo se incluyen los asuntos marcados ⭐ Tratar con el General (petición del usuario).

@@ -35,6 +35,9 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-09 · 3:** pasan al punto de situación los asuntos marcados **⭐ Tratar con el General** (decisión del
+  usuario): sin esa marca la ficha lo explica y no ofrece incluirlo; incluir no cambia las marcas del asunto. Las
+  propuestas para PROCOR serán los asuntos ⭐ que aún no estén en el punto abierto.
 - **Versión 2026-11-09 · 2: «📋 Incluir en el Punto de Situación».** Un asunto importante (llegado de SENDERO y dado de
   alta en META) se incluye desde su ficha en el punto de situación abierto de la aplicación **Puntos de Situación de
   SUIGESUR** (proyecto aparte, mismo sitio; ver `PENDIENTES.md`).
@@ -43,9 +46,9 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   - «📋 Incluir en PS-año-número» abre un formulario: punto abierto, negociado (el del asunto según «PS Negociados»), asunto
     y situación (de la descripción y el último comentario, corregibles) y prioridad (Alta si el asunto es alta o crítica).
   - Solo deja escribir en los negociados de los que el usuario es miembro; los de PROCOR (coordinación) en todos. Si no
-    puede, le dice que marque 📋 y PROCOR lo verá como propuesta.
+    puede, PROCOR lo verá como propuesta.
   - Crea la entrada en «PS Aportaciones» con `Origen` META, `OrigenLista`, `OrigenId` y `OrigenUrl` (enlace a la ficha), al
-    final de su negociado, sin duplicar, y pone la marca 📋 Punto de situación al asunto.
+    final de su negociado, sin duplicar (en la · 2 ponía además la marca 📋; desde la · 3, no).
   - Después la ficha muestra «✓ Incluido en PS-2026-045 · PRL» y, mientras el punto esté abierto, «✎ Actualizar la situación»
     (relee la entrada y la modifica con `MERGE` + `IF-MATCH`). Tras la hora de cierre no deja tocarla, y si Colabora la
     rechaza por la validación de la lista lo explica.
