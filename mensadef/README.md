@@ -224,7 +224,7 @@ con el formato *verbose* de SharePoint 2013.
     `POST mensaje/ComentarioCrear?emailUsuario&urlColeccionSitio` (los dos parámetros repetidos, como ella), cuerpo
     `{ Comentario, IdMensaje, CreadoPor }` y las cabeceras `passcode`/`user`. `CreadoPor` lleva el número de usuario
     (supuesto: la escucha solo da los nombres de los campos).
-  - **Caja «💬 Añadir comentario en MENSADEF»** en la ficha, tras los anexos. Hay que pulsar dos veces (la segunda
+  - **Caja «💬 Añadir comentario en MENSADEF»** al final de la ficha, después del texto (2026-11-09 · 3). Hay que pulsar dos veces (la segunda
     confirma). Al guardarse, se actualiza «Último comentario» en la ficha.
   - **Al «Añadir tarea en META»** deja el comentario «Añadido como tarea en META (gestor) el fecha · SENDERO», si está
     marcada la casilla (marcada por defecto, se recuerda).

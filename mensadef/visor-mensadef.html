@@ -368,7 +368,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-09 · 2';
+  var VERSION = '2026-11-09 · 3';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1442,7 +1442,7 @@
         : '<h2>' + esc(m._asunto || '(sin asunto)') + '</h2><dl>' + datos +
         Object.keys(m._x).sort(function (a, b) { return EXTRA[a].titulo.localeCompare(EXTRA[b].titulo, 'es'); }).map(function (k) { return '<dt>' + esc(EXTRA[k].titulo) + '</dt><dd>' + esc(m._x[k]) + '</dd>'; }).join('') +
         (l.sitio ? '<dt>Sitio</dt><dd>' + esc(l.sitio.titulo) + '</dd>' : '') + '<dt>Lista</dt><dd>' + esc(l.titulo) + '</dd></dl>') +
-      '<div id="adjuntos"></div><div id="cajaComentario"></div><div id="docs"></div><div class="cuerpo" id="cuerpo">Cargando el texto del mensaje…</div>';
+      '<div id="adjuntos"></div><div id="docs"></div><div class="cuerpo" id="cuerpo">Cargando el texto del mensaje…</div><div id="cajaComentario"></div>';
     $('cerrar').addEventListener('click', function () { abierto = null; $('detalle').hidden = true; $('layout').classList.remove('detalle-abierto', 'max'); pintarTabla(); });
     $('ampliar').addEventListener('click', function () {
       var on = !$('layout').classList.contains('max');
