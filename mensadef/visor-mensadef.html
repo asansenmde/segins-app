@@ -469,7 +469,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-10 · 7';
+  var VERSION = '2026-11-10 · 8';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -579,7 +579,8 @@
     marcarVisto(m, si); pintarKpis();
     var b = $('verDet');
     if (b && abierto === m) { b.classList.toggle('visto-on', si); b.textContent = si ? '✓ Visto' : '✓ Marcar visto'; b.title = si ? 'Pulsa para quitar la marca' : 'Marcar como visto'; }
-    if (si && $('fVistos').checked && !kpiSel) {
+    // Se quita de la lista al marcarlo con «Ocultar vistos» (con o sin tarjeta elegida) o en la tarjeta «Sin revisar»
+    if (si && ($('fVistos').checked || kpiSel === 'sinver')) {
       filtrar();
       var sig = filtrados[i] || filtrados[i - 1];
       if (abierto === m && $('layout').classList.contains('max') && sig) abrir(sig);
@@ -646,10 +647,10 @@
       if (avisoTxt) $('msgPortal').textContent = avisoTxt;
     }
   }
-  // Entrada automática (10/11/2026, de momento solo en pruebas): el inicio de sesión de MENSADEF ya reconoce al usuario y
+  // Entrada automática (10/11/2026, en las dos copias): el inicio de sesión de MENSADEF ya reconoce al usuario y
   // solo pide pulsar «Iniciar sesión». Se carga en un marco oculto (aislado: no puede cambiar esta página), se pulsa ese
   // botón y, en cuanto hay sesión en el ámbito, se entra. Si en 25 s no lo consigue, queda el portal con su botón.
-  var AUTOENTRADA = PRUEBAS;
+  var AUTOENTRADA = true; // 10/11/2026: probada por el usuario, también en el definitivo
   function autoEntrar(cod) {
     portalManual(cod, '🔄 Entrando en tu ámbito ' + cod + ' sin que tengas que pulsar nada…');
     var f = document.createElement('iframe'), t0 = Date.now(), pulsado = 0, n = 0, fin = false;
@@ -1538,7 +1539,8 @@
     filtrados = mensajes.filter(function (m) {
       if (st && sitioDe(m) !== st) return false;
       if (kpiSel && !KPIS[kpiSel].f(m)) return false;
-      if (sinVistos && !kpiSel && vistos[claveMensaje(m)]) return false;
+      // «Ocultar vistos» vale también con una tarjeta elegida (No leídos, Entrada…): antes solo sin tarjeta (10/11/2026)
+      if (sinVistos && vistos[claveMensaje(m)]) return false;
       if (sinBorr && !e && /borrador/i.test(m.MensajeEstado || '')) return false;
       for (var j = 0; j < xs.length; j++) if (m._x[xs[j]] !== fx[xs[j]]) return false;
       if (t && m.MensajeTipo_es !== t) return false;

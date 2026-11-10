@@ -105,21 +105,38 @@ const consultasApp = pg => !process.env.SINCORREO ? null : pg.evaluate(() => { c
   { name: 'https://mensadefapi.mdef.es/api/usuario/ValidateUser?idUsuario=persona&useUid=true' },
   { name: 'https://mensadefapi.mdef.es/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40et.mde.es&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE' }]; });
 await consultasApp(p);
+if (process.env.VENTANA) await p.evaluate(M => localStorage.setItem(M + 'sinAutoentrada', 'true'), MEM);
 await p.evaluate(codigo); await p.waitForTimeout(2500);
-if (process.env.PORTAL && !process.env.SESION && !FINAL) {
+if (process.env.PORTAL && !process.env.SESION && !process.env.VENTANA) {
   // Entrada automática (pruebas): sin ventana y sin pulsar nada
   let ventanas = 0; ctx.on('page', () => ventanas++);
   await p.waitForFunction(() => /mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 90000 }).catch(() => 0);
   console.log('aviso:', (await p.textContent('#aviso')).slice(0, 200), '| msg:', await p.textContent('#msgPortal').catch(() => '-'));
   console.log('entrada automática: ventanas abiertas:', ventanas, '| marco quitado:', !(await p.$('iframe')), '| estado:', await p.textContent('#estado'));
 }
-if (process.env.PORTAL && !process.env.SESION && FINAL) {
+if (process.env.PORTAL && !process.env.SESION && process.env.VENTANA) {
   console.log('portal:', (await p.textContent('#aviso')).replace(/\s+/g, ' ').slice(0, 160), '| ámbito propuesto:', await p.inputValue('#codAmbito'));
   await p.setViewportSize({ width: 1366, height: 900 }); await p.screenshot({ path: new URL('portal.png', import.meta.url).pathname }); await p.setViewportSize({ width: 390, height: 844 }); await p.screenshot({ path: new URL('portal-movil.png', import.meta.url).pathname }); await p.setViewportSize({ width: 1280, height: 720 });
   const [w] = await Promise.all([ctx.waitForEvent('page'), p.click('#entrarAmbito')]); await w.waitForLoadState();
   console.log('ventana de inicio de sesión:', decodeURIComponent(w.url().replace(O, '')));
   await w.click('#entrar'); await p.waitForFunction(() => /mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 90000 }).catch(() => 0);
   console.log('tras iniciar sesión: ventana cerrada:', w.isClosed(), '| portal oculto:', await p.isHidden('#aviso'), '| estado:', await p.textContent('#estado'));
+}
+if (true) {
+  // Uso real: «Ocultar vistos» marcado; abrir uno no leído y marcarlo visto enseguida (el leído aún en camino)
+  await p.check('#fVistos'); await p.waitForTimeout(300);
+  const n = () => p.$$eval('#lista tbody tr[data-i]', x => x.length);
+  const sel = 'tr.noleido >> nth=0';
+  let n0 = await n(); await p.click('#lista tbody ' + sel + ' >> td.asunto'); await p.click('#verDet'); await p.waitForTimeout(1200);
+  console.log('VISTO ficha nada más abrir: filas', n0, '→', await n());
+  n0 = await n(); await p.click('#lista tbody tr[data-i] >> nth=2 >> td.asunto'); await p.waitForTimeout(800); await p.click('#verDet'); await p.waitForTimeout(800);
+  console.log('VISTO ficha tras abrir: filas', n0, '→', await n());
+  n0 = await n(); await p.click('#lista tbody tr[data-i] >> nth=3 >> [data-visto]'); await p.waitForTimeout(800);
+  console.log('VISTO casilla de la tabla: filas', n0, '→', await n());
+  await p.click('#kpis [data-kpi="noleidos"]'); await p.waitForTimeout(300); n0 = await n(); await p.click('#lista tbody tr[data-i] >> nth=0 >> [data-visto]'); await p.waitForTimeout(800);
+  console.log('VISTO con la tarjeta «No leídos»: filas', n0, '→', await n()); await p.click('#kpis [data-kpi="noleidos"]');
+  await p.uncheck('#fVistos'); await p.click('#kpis [data-kpi="sinver"]'); await p.waitForTimeout(300); n0 = await n(); await p.click('#lista tbody tr[data-i] >> nth=0 >> [data-visto]'); await p.waitForTimeout(800);
+  console.log('VISTO en la tarjeta «Sin revisar» (sin «Ocultar vistos»): filas', n0, '→', await n()); await p.click('#kpis [data-kpi="sinver"]');
 }
 console.log('clave pedida al servicio:', nClaves, 'vez/veces');
 if (process.env.NOCLAVE) { console.log('sin clave del servicio:', (await p.textContent('#aviso')).replace(/\s+/g, ' ').slice(0, 260)); await b.close(); process.exit(); }

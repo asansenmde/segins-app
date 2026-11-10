@@ -56,6 +56,7 @@ de cada proyecto (`*/pruebas/`).
 - Escapar siempre lo que viene del servidor; los campos de texto enriquecido se muestran como texto.
 - Requiere Edge o Chrome; avisar si se abre en modo Internet Explorer.
 - Probar con Playwright contra un SharePoint simulado (formato ligero y *verbose*) antes de entregar.
+  En SENDERO (MENSADEF), siempre la batería completa: `sh mensadef/pruebas/todas.sh` (todas las formas de entrar).
 - **Nunca pedir al usuario que pegue contenido** (asuntos, textos, nombres de personas): solo estructura
   (nombres de listas y columnas, recuentos). Para descubrir la estructura están las páginas de diagnóstico
   `colabora/prueba-sharepoint.html` y `mensadef/prueba-mensadef.html` (marcador «Prueba MENSADEF»).

@@ -343,4 +343,14 @@ con el formato *verbose* de SharePoint 2013.
     todo de la página del ámbito. La colección solo se acepta si es de `/ambito/`.
   - La simulación (`PORTAL=1`) lo reproduce: la portada hace sus consultas con la colección raíz, y el servicio contesta
     500 a lo del ámbito con esa colección. Comprobado que la versión anterior falla y esta no.
+- **2026-11-10 · 8:**
+  - **Entrada automática en el definitivo** (`AUTOENTRADA = true`), probada por el usuario. Si se quiere la ventana
+    pequeña de antes, se puede guardar `sinAutoentrada` (la simulación lo usa con `VENTANA=1`).
+  - **«Visto» con «Ocultar vistos» y una tarjeta elegida.** Con una tarjeta elegida («No leídos», «Entrada»…) el mensaje
+    marcado no se quitaba de la lista: el filtro solo actuaba sin tarjeta. Al entrar ahora con «No leídos» (porque
+    SENDERO ya marca leído), se notaba. Ahora se quita siempre que esté marcado «Ocultar vistos». En la tarjeta «Sin
+    revisar» se quita aunque no lo esté.
+  - **Batería completa:** `sh mensadef/pruebas/todas.sh` pasa `bandejas.mjs` por las seis formas de entrar (dentro de
+    la célula con los dos favoritos; portada con entrada automática, con ventana, con MENSADEF lento y con sesión ya
+    abierta). Incluye los casos reales de «Visto». Hay que pasarla antes de entregar cualquier cambio de SENDERO.
 

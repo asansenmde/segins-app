@@ -128,4 +128,6 @@ autoría.
     lo pruebe (la negrita debe desaparecer también en MENSADEF). Analizado crear mensajes: ver respuesta del 10/11.
     10/11/2026: SENDERO 2026-11-10 · 5: leído en el definitivo; entrada automática desde la portada en pruebas.
     Pendiente: que pruebe la entrada automática sin sesión abierta.
+    10/11/2026: SENDERO 2026-11-10 · 8: entrada automática en el definitivo; «Visto» se quita también con una tarjeta
+    elegida; batería `mensadef/pruebas/todas.sh` para no repetir errores ya resueltos.
 
