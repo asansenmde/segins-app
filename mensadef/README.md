@@ -274,4 +274,18 @@ con el formato *verbose* de SharePoint 2013.
   - El filtro se llama «Enviable a rúbrica».
 - **2026-11-09 · 11:** «Pasar a rúbrica» tampoco sale si el estado es «Pendiente de firma». Lo mismo con «en firma»,
   «firmado», «en rúbrica» o «portafirmas», como ya pasaba con «Enviado». «Ir a Rúbrica» sí sale en esos casos.
+- **2026-11-10 · 1: portal de inicio.** SENDERO se puede pulsar en la portada (`/SitePages/Landing.aspx`) o en cualquier
+  página de MENSADEF fuera de un ámbito.
+  - Comprueba si ya hay sesión en el ámbito (el último usado; la primera vez, 2SUIGE) leyendo `/ambito/X/_api/web`. Si
+    la hay, arranca directamente.
+  - Si no, muestra «Bienvenido a SENDERO» con el ámbito (se puede cambiar) y el botón «🔑 Entrar en mi ámbito». Abre en
+    una ventana pequeña el inicio de sesión de MENSADEF
+    (`/_layouts/15/Defensa/Default.aspx?ReturnUrl=/ambito/X/_layouts/15/Authenticate.aspx?Source=/ambito/X&Source=/ambito/X`).
+    En cuanto la sesión está abierta, cierra la ventana y carga las bandejas, sin pasar por la página de la célula.
+  - Si el navegador bloquea la ventana, el inicio de sesión se abre en la misma pestaña y luego hay que pulsar SENDERO
+    otra vez. Si no se abre la sesión en 5 minutos, o se cierra la ventana, se puede reintentar.
+  - Dentro de un ámbito arranca como siempre y recuerda ese ámbito. «Abrir en MENSADEF» lleva a la página del ámbito.
+  - La clave del servicio se pide con la cuenta del usuario (`ValidateUser`), porque en la portada no hay consultas
+    previas de la aplicación.
+  - Prueba: `PORTAL=1 node pruebas/bandejas.mjs` (sin sesión) y `PORTAL=1 SESION=1` (con sesión ya abierta).
 

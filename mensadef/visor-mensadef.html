@@ -67,6 +67,13 @@
   button.rubrica { background: linear-gradient(180deg, #7a4fb5, #4a2a78); color: #fff; border-color: #4a2a78; border-bottom: 3px solid #c9a84c; font-weight: 800; }
   button.rubrica:hover:not(:disabled) { background: linear-gradient(180deg, #8a5fc5, #3d2266); }
   button.rubrica.seguro { background: linear-gradient(180deg, #f08a24, #d96b00); border-color: #c25e00; }
+  /* Portal de inicio */
+  .portal { display: flex; gap: 18px; align-items: flex-start; padding: 6px 4px; }
+  .portal h2 { margin: 0 0 6px; font: 800 1.25rem Georgia, 'Times New Roman', serif; letter-spacing: .12em; color: var(--brand); }
+  .portal p { margin: 0 0 12px; max-width: 760px; }
+  .portal .escudo { flex: none; width: 64px; height: 64px; display: inline-grid; place-items: center; border-radius: 50%; font: 800 2.1rem/1 Georgia, 'Times New Roman', serif; color: #f2dc96;
+    background: radial-gradient(circle at 30% 30%, #2f7a54, var(--brand) 70%); border: 2px solid #c9a84c; box-shadow: 0 0 0 4px rgba(201,168,76,.25), 0 4px 10px rgba(0,0,0,.3); }
+  .portal input { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; margin-left: 6px; text-transform: uppercase; }
   button.visto-on { background: linear-gradient(180deg, #3a9a5a, #2e7d4f); color: #fff; border-color: #2e7d4f; }
   #detalle h2 { font-size: 1rem; margin: 0 0 8px; }
   dl { display: grid; grid-template-columns: 140px 1fr; gap: 3px 10px; margin: 0; font-size: .86rem; }
@@ -423,7 +430,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-09 · 11';
+  var VERSION = '2026-11-10 · 1';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -552,7 +559,63 @@
     });
   });
 
-  webDe(location.pathname).then(function (w) {
+  // ---------- Portal de inicio (10/11/2026) ----------
+  // SENDERO se puede pulsar en la portada de MENSADEF (Landing) o en cualquier página fuera de un ámbito: si ya hay sesión
+  // en el ámbito, arranca directamente; si no, abre el inicio de sesión de MENSADEF en una ventana pequeña y, en cuanto
+  // la sesión está abierta, la cierra y carga las bandejas. Dentro de un ámbito arranca como siempre.
+  var EN_AMBITO = /^\/ambito\/([^/]+)/i.exec(location.pathname);
+  var rutaBase = location.pathname;   // la del ámbito si se entra desde el portal
+  function paginaAmbito() { return location.origin + (EN_AMBITO ? location.pathname : rutaBase.replace(/\/$/, '') + '/SitePages/ambito.aspx'); }
+  if (EN_AMBITO) guardar('ambito', EN_AMBITO[1]);
+  function urlLogin(cod) {
+    var amb = '/ambito/' + cod;
+    return location.origin + '/_layouts/15/Defensa/Default.aspx?ReturnUrl=' + encodeURIComponent(amb + '/_layouts/15/Authenticate.aspx?Source=' + encodeURIComponent(amb)) + '&Source=' + encodeURIComponent(amb);
+  }
+  function haySesion(cod) {
+    return fetch(location.origin + '/ambito/' + cod + '/_api/web?$select=Url', { credentials: 'same-origin', headers: { Accept: 'application/json;odata=nometadata' }, redirect: 'manual' })
+      .then(function (r) { return r.ok && /json/i.test(r.headers.get('content-type') || ''); }, function () { return false; });
+  }
+  function portal() {
+    var cod = String(leer('ambito', '2SUIGE') || '2SUIGE');
+    $('estado').textContent = 'Comprobando tu sesión en el ámbito ' + cod + '…';
+    haySesion(cod).then(function (ok) {
+      if (ok) return entrar(cod);
+      $('estado').textContent = '';
+      $('aviso').hidden = false;
+      $('aviso').innerHTML = '<div class="portal"><div class="escudo marca" aria-hidden="true">S</div><div><h2>Bienvenido a SENDERO</h2>' +
+        '<p>Para ver tus bandejas hay que abrir la sesión en tu ámbito de MENSADEF. Se hace desde aquí: se abre una ventana pequeña con el inicio de sesión de MENSADEF, pulsas en ella <b>Iniciar sesión</b> y, en cuanto entra, se cierra sola y SENDERO carga tus mensajes.</p>' +
+        '<div class="fila"><label>Ámbito<input id="codAmbito" value="' + esc(cod) + '" size="10" autocomplete="off"></label><button type="button" class="prim" id="entrarAmbito">🔑 Entrar en mi ámbito</button><span class="small muted" id="msgPortal"></span></div></div></div>';
+      $('entrarAmbito').addEventListener('click', function () { login(String($('codAmbito').value || '').trim().replace(/[^\w-]/g, '') || '2SUIGE'); });
+    });
+  }
+  var vigilando = null;
+  function login(cod) {
+    var msg = $('msgPortal'), b = $('entrarAmbito');
+    var w = window.open(urlLogin(cod), 'senderoLogin', 'width=760,height=640');
+    if (!w) { msg.innerHTML = 'El navegador ha bloqueado la ventana. Se abre el inicio de sesión aquí: al terminar, pulsa <b>SENDERO</b> otra vez.'; setTimeout(function () { location.href = urlLogin(cod); }, 2500); return; }
+    b.disabled = true; msg.textContent = 'Inicia sesión en la ventana de MENSADEF…';
+    var inicio = Date.now(), n = 0;
+    clearInterval(vigilando);
+    vigilando = setInterval(function () {
+      n++;
+      var dentro = false; try { dentro = new RegExp('^/ambito/' + cod + '(/|$)', 'i').test(w.location.pathname) && !/Authenticate\.aspx|Default\.aspx/i.test(w.location.pathname); } catch (e) { /* ventana en otra dirección */ }
+      if (!dentro && n % 3 && !w.closed) return;
+      haySesion(cod).then(function (ok) {
+        if (!vigilando) return;
+        if (ok) { clearInterval(vigilando); vigilando = null; try { w.close(); } catch (e) { /* ya cerrada */ } entrar(cod); return; }
+        if (w.closed || Date.now() - inicio > 300000) { clearInterval(vigilando); vigilando = null; b.disabled = false; msg.textContent = w.closed ? 'Se ha cerrado la ventana sin abrir la sesión. Pulsa otra vez «Entrar en mi ámbito».' : 'No se ha abierto la sesión en 5 minutos. Vuelve a intentarlo.'; }
+      });
+    }, 1000);
+  }
+  function entrar(cod) {
+    guardar('ambito', cod); rutaBase = '/ambito/' + cod + '/';
+    $('aviso').hidden = true; $('aviso').innerHTML = '';
+    arrancar(rutaBase);
+  }
+  if (EN_AMBITO) arrancar(location.pathname); else portal();
+
+  function arrancar(ruta) {
+  webDe(ruta).then(function (w) {
     web = w;
     api('web/currentuser?$select=Title', w.url).then(function (u) { $('quien').textContent = [w.titulo, u.Title].filter(Boolean).join(' · '); }).catch(function () { $('quien').textContent = w.titulo || ''; });
     $('estado').textContent = 'Buscando tus células y bandejas en MENSADEF…';
@@ -580,6 +643,7 @@
   }).catch(function (e) {
     $('aviso').hidden = false; $('aviso').innerHTML = '<div class="bad">' + esc(e.message || e) + '</div>' + (e.ayuda ? '<p class="muted">' + esc(e.ayuda) + '</p>' : ''); $('estado').textContent = '';
   });
+  }
   function seguirConListas(r) {
     listasDia.sort(function (a, b) { return a.dia < b.dia ? -1 : 1; });
     revisadosTodos = r.revisados;
@@ -640,7 +704,7 @@
         return Object.keys(webs);
       }).catch(function () { return []; });
     };
-    var ambito = /^\/ambito\/[^/]+/i.exec(location.pathname);
+    var ambito = /^\/ambito\/[^/]+/i.exec(rutaBase);
     return api('site/rootweb?$select=Url', w.url).then(function (r) { return r.Url; }, function () { return ''; }).then(function (raizSitio) {
       var inicio = [w.url];
       if (ambito) inicio.push(location.origin + ambito[0]);
@@ -857,7 +921,7 @@
     });
   }
   function iniciarApi(w) {
-    var coleccion = location.origin + ((/^\/ambito\/[^/]+/i.exec(location.pathname) || [''])[0]);
+    var coleccion = location.origin + ((/^\/ambito\/[^/]+/i.exec(rutaBase) || [''])[0]);
     return Promise.all([correoUsuario(w), datosApp.urlColeccionSitio ? { Url: datosApp.urlColeccionSitio } : api('site?$select=Url', w.url).catch(function () { return { Url: coleccion }; })]).then(function (r) {
       var ctx = { email: r[0].email, url: r[1].Url || coleccion };
       origenCorreo = r[0].de || 'no encontrado';
@@ -965,7 +1029,7 @@
       MensajeSu_referencia: val('suReferencia', /^sref$|su_?ref/i), MensajeNum_expediente: val('', CLAVES_API.expediente),
       _leido: typeof e.Leido === 'boolean' ? e.Leido : undefined, _bandera: bandera, _idBandera: bandera ? String(idb) : '', _idBuzon: e.IdBuzonCelula || e.idBuzonCelula || '', _rubrica: { enviable: e.EnviableARubrica, estado: [e.EstadoMensaje, e.EstadoParaUsuario, e.NombreEstadoUltimaDistribucionSalida].filter(Boolean).join(' '), personal: e.BuzonPersonal === true },
       Attachments: kadj ? siNo(e[kadj]) : false, _cuerpoApi: kc ? texto(String(e[kc])) : '',
-      _enlace: location.origin + location.pathname + '#/celula/' + encodeURIComponent(celula.nombre) + '/' + celula.id,
+      _enlace: paginaAmbito() + '#/celula/' + encodeURIComponent(celula.nombre) + '/' + celula.id,
       _lista: { id: 'api', sitio: celula, titulo: 'tipoES ' + es + ' de ' + celula.nombre } };
   }
   // «Abrir en MENSADEF» localizando el mensaje: abre la célula en otra pestaña (mismo sitio, así que el visor puede

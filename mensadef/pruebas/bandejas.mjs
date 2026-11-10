@@ -8,7 +8,7 @@ const { chromium } = require(require('child_process').execSync('npm root -g').to
 const O = 'https://mensadef.mdef.es', API = 'https://mensadefapi.mdef.es', WEB = '/ambito/2SUIGE';
 const verbose = !!process.env.VERBOSE;
 const G4 = '44444444-4444-4444-4444-444444444444', G1 = '8d714e44-b2b5-41a8-9780-2228204861b5', G2 = '11111111-2222-3333-4444-555555555555', G3 = '99999999-8888-7777-6666-555555555555';
-let nClaves = 0, marcadoLeido = 0; const comentarios = [], banderasPuestas = [], rubricas = [];
+let nClaves = 0, marcadoLeido = 0; let sesion = !process.env.PORTAL || !!process.env.SESION; /* PORTAL=1: se empieza en la portada sin sesión en el ámbito */ const comentarios = [], banderasPuestas = [], rubricas = [];
 const PASS = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6', UID = 'abcdef01-2345-6789-abcd-ef0123456789';
 // Consulta que hace la aplicación de MENSADEF al cambiar de célula (de ahí el favorito toma las cabeceras)
 const consultaApp = pg => pg.evaluate(([P, U]) => fetch('https://mensadefapi.mdef.es/api/usuariovista/UsuarioVistaObtener?emailUsuario=persona%40et.mde.es', { headers: { 'Content-Type': 'application/json', passcode: P, user: U } }).catch(() => 0), [PASS, UID]);
@@ -76,6 +76,10 @@ await ctx.route(O + '/**', r => {
   const J = o => r.fulfill({ contentType: 'application/json', body: JSON.stringify(verbose ? { d: o } : o) });
   // Página de MENSADEF simulada: al entrar en la ruta de una célula, la aplicación consulta su servicio con sus cabeceras
   // Bandeja pintada por la «aplicación» (para «Abrir en MENSADEF»): 5 filas tras 1,5 s y un buscador que deja la fila pedida
+  // Inicio de sesión de MENSADEF simulado: un botón que abre la sesión y lleva al ámbito
+  if (u.includes('/_layouts/15/Defensa/Default.aspx')) return r.fulfill({ contentType: 'text/html', body: '<html><body><h1>Inicio de sesión</h1><button id="entrar">Iniciar sesión</button><script>entrar.onclick=function(){fetch("/login-ok").then(function(){location.href=new URLSearchParams(location.search).get("Source")+"/SitePages/ambito.aspx";});};</script></body></html>' });
+  if (u.endsWith('/login-ok')) { sesion = true; return r.fulfill({ body: 'ok' }); }
+  if (!sesion && u.includes(WEB + '/_api/')) return r.fulfill({ status: 403, contentType: 'text/html', body: 'sin sesión' });
   if (!u.includes('/_api/') && u.includes('?app=1')) return r.fulfill({ contentType: 'text/html', body: '<html><body><h1>MENSADEF</h1><input placeholder="Buscar mensajes"><table id="t"></table><script>' +
     'function fila(i){return "<tr class=\\"ms-Row\\" onclick=\\"window.abierto=\\x27RE-"+i+"\\x27\\"><td>RE-"+i+"</td><td><span>Mensaje "+i+" de 8d71</span></td></tr>";}' +
     'setTimeout(function(){t.innerHTML=[0,1,2,3,4].map(fila).join("");},1500);' +
@@ -90,13 +94,21 @@ await ctx.route(O + '/**', r => {
   r.fulfill({ status: 404, body: '' });
 });
 // Se pulsa desde una tercera célula que no viene en la lista (se añade por la dirección)
-await p.goto(O + WEB + '/SitePages/ambito.aspx');
+await p.goto(process.env.PORTAL ? O + '/SitePages/Landing.aspx' : O + WEB + '/SitePages/ambito.aspx');
 // Lo que la aplicación de MENSADEF ya consultó en la página (en la realidad lo vuelve a hacer al recargar)
 const consultasApp = pg => !process.env.SINCORREO ? null : pg.evaluate(() => { const o = performance.getEntriesByType.bind(performance); performance.getEntriesByType = t => t !== 'resource' ? o(t) : [
   { name: 'https://mensadefapi.mdef.es/api/usuario/ValidateUser?idUsuario=persona&useUid=true' },
   { name: 'https://mensadefapi.mdef.es/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40et.mde.es&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE' }]; });
 await consultasApp(p);
 await p.evaluate(codigo); await p.waitForTimeout(2500);
+if (process.env.PORTAL && !process.env.SESION) {
+  console.log('portal:', (await p.textContent('#aviso')).replace(/\s+/g, ' ').slice(0, 160), '| ámbito propuesto:', await p.inputValue('#codAmbito'));
+  await p.screenshot({ path: new URL('portal.png', import.meta.url).pathname });
+  const [w] = await Promise.all([ctx.waitForEvent('page'), p.click('#entrarAmbito')]); await w.waitForLoadState();
+  console.log('ventana de inicio de sesión:', decodeURIComponent(w.url().replace(O, '')));
+  await w.click('#entrar'); await p.waitForTimeout(5000);
+  console.log('tras iniciar sesión: ventana cerrada:', w.isClosed(), '| portal oculto:', await p.isHidden('#aviso'), '| estado:', await p.textContent('#estado'));
+}
 console.log('clave pedida al servicio:', nClaves, 'vez/veces');
 if (process.env.NOCLAVE) { console.log('sin clave del servicio:', (await p.textContent('#aviso')).replace(/\s+/g, ' ').slice(0, 260)); await b.close(); process.exit(); }
 const filas = () => p.$$eval('#lista tbody tr[data-i]', t => t.length);
