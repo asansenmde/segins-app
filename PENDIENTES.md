@@ -81,3 +81,9 @@ Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar 
 
 Control de acceso · firma con AutoFirma (BAE + empresa) · circuito SUIGE → DIACU/IGE · Informes · copia protegida y
 autoría.
+
+16. **Gestor de Tareas / META 2026-11-10 · 1** (10/11/2026): junta la · 2 (Ajustes solo con Control total, rama
+    `claude/mensadef-outlook-tasks-sync-vozg8g`) y la · 3 («📋 Incluir en el Punto de Situación», rama
+    `claude/modest-fermat-9zf46n`), hechas por separado. Probado en simulación (original y protegida, ligero y verbose).
+    Pendiente: que el usuario suba el Gestor común; META se regenera igual por si la quiere. Ojo: las sesiones de SENDERO
+    y de Puntos de Situación siguen con su versión; si vuelven a tocar el Gestor, que partan de esta.

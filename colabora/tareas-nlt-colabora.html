@@ -24,6 +24,31 @@
     --info: #1d4f91; --info-bg: #dde8f7; --na: #555; --na-bg: #e7e7e7;
     --hoy: #c2410c; --hoy-bg: #ffe3cc; --esp: #6b3fa0; --esp-bg: #efe3fb;
   }
+  /* Tema del Gestor de expedientes MENSADEF (copia --propio): azul marino y oro */
+  .tema-mensadef { --bg: #eef2f7; --surface-2: #e4ebf4; --text: #14233a; --muted: #586579; --line: #d3dce8; --brand: #12315a; --brand-2: #1d5fa8; }
+  .tema-mensadef body { background: radial-gradient(1100px 380px at 100% 0%, #dde7f4 0%, transparent 60%), var(--bg); }
+  .tema-mensadef .top { background: linear-gradient(100deg, #0a1f3a 0%, #12315a 45%, #1b4a80 100%); border-bottom: 3px solid #c9a84c; box-shadow: 0 3px 14px rgba(10,31,58,.35); padding: 8px 16px; }
+  .tema-mensadef .top h1 { display: flex; align-items: center; gap: 10px; font-size: 1.15rem; letter-spacing: .08em; }
+  .tema-mensadef .top h1 .emb { width: 38px; height: 38px; display: inline-grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #2a5c95, #12315a 70%); border: 2px solid #c9a84c; font-size: 1.05rem; flex: none; }
+  .tema-mensadef .top h1 em { font-style: normal; color: #f2dc96; }
+  .tema-mensadef .top h1 small { display: block; font-size: .66rem; letter-spacing: .12em; font-weight: 600; color: #c9d8ea; margin-top: 2px; text-transform: uppercase; }
+  .tema-mensadef .top button { background: rgba(255,255,255,.12); border: 1px solid rgba(201,168,76,.45); }
+  .tema-mensadef .hero { background: linear-gradient(115deg, #0e2a4b 0%, #12315a 45%, #1d5fa8 100%); border: 1px solid rgba(201,168,76,.45); }
+  .tema-mensadef .hero .hola { color: #f2dc96; }
+  .tema-mensadef nav.tabs a.on { color: #12315a; box-shadow: inset 0 -3px 0 #c9a84c, 0 1px 3px rgba(0,0,0,.08); }
+  .tema-mensadef .btn.prim, .tema-mensadef button.prim { background: linear-gradient(180deg, #1d5fa8, #12315a); border-color: #12315a; }
+  .tema-mensadef .card { border-color: var(--line); box-shadow: 0 1px 2px rgba(18,49,90,.05), 0 3px 10px rgba(18,49,90,.06); }
+  .tema-mensadef a { color: #1d5fa8; }
+  @media (max-width: 600px) { .tema-mensadef .top h1 small { display: none; } .tema-mensadef .top h1 { font-size: .95rem; } }
+  /* META (09/11/2026): escudo con la «M» dorada y nombre en versalitas espaciadas, como SENDERO */
+  .tema-mensadef .top h1.meta { gap: 14px; letter-spacing: 0; flex-wrap: nowrap; }
+  .tema-mensadef .top h1.meta .tt { flex: 1; min-width: 0; display: block; }
+  .tema-mensadef .top h1.meta .emb { width: 46px; height: 46px; font: 800 1.55rem/1 Georgia, 'Times New Roman', serif; color: #f2dc96; border-width: 2px; box-shadow: 0 0 0 3px rgba(201,168,76,.25), 0 3px 8px rgba(0,0,0,.35); text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+  .tema-mensadef .top h1.meta .nm { font: 800 1.6rem/1 Georgia, 'Times New Roman', serif; letter-spacing: .34em; color: #fff; margin-right: 10px; }
+  .tema-mensadef .top h1.meta .lema { font: italic 600 .78rem/1.2 system-ui, 'Segoe UI', sans-serif; letter-spacing: .06em; color: #f2dc96; }
+  .tema-mensadef .top h1.meta small { margin-top: 5px; letter-spacing: .1em; }
+  .tema-mensadef .top h1.meta small b { color: #f2dc96; }
+  @media (max-width: 600px) { .tema-mensadef .top h1.meta .lema { display: none; } .tema-mensadef .top h1.meta .nm { font-size: 1.25rem; letter-spacing: .22em; } .tema-mensadef .top h1.meta .emb { width: 38px; height: 38px; font-size: 1.25rem; } }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   .top { position: sticky; top: 0; z-index: 5; background: var(--brand); color: var(--on-brand); padding: 10px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -61,6 +86,15 @@
   .mini .r b { color: var(--bad); } .mini .n b { color: var(--hoy); } .mini .cero b { color: var(--muted); }
   /* Barra de filtros */
   .filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+  .badge.tr-ps, .btn.on.tr-ps { background: #dde8f7; color: #1d4f91; border-color: #1d4f91; } .badge.tr-gen, .btn.on.tr-gen { background: #fdebc8; color: #8a4b00; border-color: #c9a84c; }
+  .estadoacc { margin: 8px 0; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 8px; background: var(--soft, #f3f5f1); border-radius: 10px; }
+  .estadoacc select { max-width: 220px; } .estadoacc .sep { flex: 1; }
+  .btn.verde { background: #2e7d32; color: #fff; border-color: #2e7d32; } .btn.rojo { background: #fff; color: #b71c1c; border-color: #e3a5a5; }
+  .t-der { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .finrap { font-size: .72rem; padding: 2px 8px; border-radius: 8px; border: 1px solid #a5d6a7; background: #eef8ef; color: #2e7d32; font-weight: 700; white-space: nowrap; }
+  .finrap.seguro { background: #2e7d32; color: #fff; }
+  .tratar { margin: 8px 0; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .psbox { margin: 8px 0; padding: 8px 10px; border: 1px solid #1d4f91; border-left-width: 5px; border-radius: 10px; background: #f3f7fd; } .psbox .psya { margin: 4px 0; } .psbox .psform { margin-top: 6px; }
   .filtros > div { flex: 1 1 120px; min-width: 0; } .filtros > .q { flex: 2 1 200px; }
   .filtros label.lbl { margin-top: 0; }
   .modo { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; flex: none; }
@@ -175,6 +209,8 @@
     .ficha-com { position: sticky; top: 64px; max-height: calc(100vh - 110px); overflow: auto; }
   }
   dialog::backdrop { background: rgba(0,0,0,.45); }
+  body.soltando main { outline: 3px dashed var(--brand); outline-offset: -6px; }
+  body.soltando main::before { content: "Suelta el correo para crear un asunto"; display: block; text-align: center; font-weight: 700; padding: 10px; }
   .dh { position: sticky; top: 0; background: var(--brand); color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; gap: 10px; }
   .dh h2 { margin: 0; font-size: 1.25rem; }
   .db { padding: 16px 22px; }
@@ -191,6 +227,8 @@
   table.t td { border-bottom: 1px solid var(--line); padding: 5px 6px; vertical-align: top; }
   .rojo { color: var(--bad); font-weight: 700; }
   .aviso { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
+  .bandaPruebas { background: var(--bad); color: #fff; text-align: center; font-weight: 800; letter-spacing: .5px; padding: 6px 10px; font-size: .9rem; }
+  @media print { .bandaPruebas { display: none; } }
   .error { background: var(--bad-bg); color: var(--bad); border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-weight: 600; }
   .acciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 10px 0; }
   .autor { max-width: 1000px; margin: 0 auto; padding: 12px 16px 24px; text-align: center; font-size: .78rem; color: var(--muted); border-top: 1px solid var(--line); }
@@ -209,6 +247,8 @@
   <h1>GESTOR DE TAREAS DE LA JEFATURA DE SUIGESUR</h1>
   <span class="estado" id="estadoCarga">Cargando…</span>
   <button id="nuevo" title="Dar de alta un asunto en Colabora">＋ Nuevo asunto</button>
+  <button id="desdeCorreo" title="Crear un asunto a partir de un correo de Outlook (.msg o .eml). También puedes arrastrarlo a la página">✉ Desde correo</button>
+  <input type="file" id="ficheroCorreo" accept=".msg,.eml,message/rfc822,application/vnd.ms-outlook" hidden>
   <button id="recargar" title="Volver a leer la lista">↻ Actualizar</button>
 </header>
 <main>
@@ -238,16 +278,44 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-09 · 1';
+  var VERSION = '2026-11-10 · 1';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
 
   // ---------- Preferencias de este navegador ----------
-  var CLAVE = 'tareas-nlt-colabora';
-  var pref = { lista: 'Gestor de Tareas', vista: 'nlt', quien: 'mias', q: '', negociado: '', estado: '', prio: '', resp: '', mapaEstados: {}, avisoDias: 3, informe: null,
+  // Copia de pruebas («node proteger.mjs --pruebas» genera tareas-nlt-colabora-pruebas.html con PRUEBAS = true): trabaja
+  // sobre la lista «Gestor de Tareas PRUEBAS» (nunca sobre la real), guarda sus preferencias aparte, lleva una banda roja
+  // y marca los correos.
+  var PRUEBAS = false;
+  // Gestor propio de MENSADEF («node proteger.mjs --propio» genera tareas-nlt-colabora-mensadef.html con PROPIO = true): las
+  // tareas de trabajo que llegan de MENSADEF, en la lista «Gestor de Tareas MENSADEF», nunca en la común. Sin banda roja.
+  var PROPIO = false;
+  var LISTA = 'Gestor de Tareas' + (PRUEBAS ? ' PRUEBAS' : PROPIO ? ' MENSADEF' : '');
+  var listaPermitida = function (n) { n = String(n || '').trim(); return !n ? LISTA : PRUEBAS && !/PRUEBAS$/i.test(n) ? LISTA : PROPIO && /^gestor de tareas$/i.test(n) ? LISTA : n; };
+  var CLAVE = 'tareas-nlt-colabora' + (PRUEBAS ? '-pruebas' : PROPIO ? '-mensadef' : '');
+  var pref = { lista: LISTA, vista: 'nlt', quien: 'mias', q: '', negociado: '', estado: '', prio: '', resp: '', mapaEstados: {}, avisoDias: 3, informe: null,
     modo: 'tarjetas', grupos: { vencidas: true, hoy: true } };
   try { Object.assign(pref, JSON.parse(localStorage.getItem(CLAVE)) || {}); } catch (e) { /* sin memoria local */ }
+  pref.lista = listaPermitida(pref.lista);
+  if (PRUEBAS) {
+    document.title = 'PRUEBAS · ' + document.title;
+    var bandaP = document.createElement('div');
+    bandaP.className = 'bandaPruebas';
+    bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · trabaja sobre la lista «' + pref.lista + '», no sobre la real · los correos llevan [PRUEBAS] en el asunto';
+    document.body.insertBefore(bandaP, document.body.firstChild);
+  }
+  // Gestor propio de MENSADEF: «Gestión de expedientes MENSADEF», en azul marino y oro (para no confundirlo con el común, verde)
+  if (PROPIO) {
+    document.title = 'META · Gestión de expedientes MENSADEF';
+    document.documentElement.classList.add('tema-mensadef');
+    var h1 = document.querySelector('.top h1');
+    // 09/11/2026: bautizado como META (Mensajes, Expedientes, Tareas y Asuntos), hermano de SENDERO: «M» dorada en el escudo
+    h1.classList.add('meta');
+    h1.innerHTML = '<span class="emb" aria-hidden="true">M</span><span class="tt"><span class="nm">META</span><span class="lema">Del mensaje a la tarea</span>' +
+      '<small>Gestión de expedientes <b>MENSADEF</b> — Cte. Alfredo Sánchez Sender</small></span>';
+    var pie = document.querySelector('footer.autor'); if (pie) pie.insertAdjacentHTML('afterbegin', '<b>META</b> · ');
+  }
   var guardarPref = function () { try { localStorage.setItem(CLAVE, JSON.stringify(pref)); } catch (e) { /* sin memoria local */ } };
 
   // ---------- SharePoint (REST, solo lectura) ----------
@@ -292,6 +360,12 @@
     'correoResponsable', 'correoimplicados', 'ResponsableDeLaInformacion/EMail', 'PersonalImplicado0/EMail'];
   var EXPANDIR = 'ResponsableDeLaInformacion,PersonalImplicado0,Author,Editor';
 
+  // Marcas para tratar en reuniones (04/11/2026): columna de opción múltiple «TratarEn» de la lista. Se ven en la tarjeta, se
+  // marcan en la ficha, tienen su recuadro en la pantalla inicial y su relación imprimible. Si falta la columna, Ajustes la crea.
+  var TRATAR = [['ps', 'PUNTO DE SITUACIÓN', '📋', 'Punto de situación'], ['gen', 'TRATAR CON EL GENERAL', '⭐', 'Tratar con el General']];
+  var hayTratar = function () { return !!(infoCampo.TratarEn && infoCampo.TratarEn.existe); };
+  var tieneTratar = function (t, k) { var x = TRATAR.filter(function (y) { return y[0] === k; })[0]; return !!x && t.tratar.indexOf(x[1]) >= 0; };
+  var chipTratar = function (t) { return TRATAR.filter(function (x) { return t.tratar.indexOf(x[1]) >= 0; }).map(function (x) { return '<span class="badge tr-' + x[0] + '" title="Para tratar: ' + x[3] + '">' + x[2] + ' ' + x[3] + '</span>'; }).join(''); };
   var urlLista = function () { return web.url + "/_api/web/lists/getbytitle('" + encodeURIComponent(pref.lista.replace(/'/g, "''")) + "')"; };
 
   // Texto sin formato de un campo enriquecido (DOMParser no ejecuta nada)
@@ -345,6 +419,7 @@
       usuarios: (resp && resp.Id ? [resp] : []).concat(lista(it.PersonalImplicado0)).map(function (u) { return { Id: u.Id, Title: u.Title, Email: u.EMail || '' }; }),
       implicados: implicados.length ? implicados : String(it.NombreImplicados || '').split(/[;,]/).map(function (s) { return s.trim(); }).filter(Boolean),
       creada: it.Created, modificada: it.Modified, autor: it.Author && it.Author.Title, editor: it.Editor && it.Editor.Title,
+      tratar: lista(it.TratarEn).length ? lista(it.TratarEn) : (Array.isArray(it.TratarEn) ? it.TratarEn : []),
     };
     t.clase = claseEstado(t.estado);
     t.incoh = incoherencia(t);
@@ -352,20 +427,24 @@
     return t;
   }
 
-  function cargar() {
-    $('#estadoCarga').textContent = 'Cargando…';
+  // silencioso: actualización automática (no muestra «Cargando…» ni redibuja si se está escribiendo)
+  var cargando = null;
+  function cargar(silencioso) {
+    // Si ya hay una lectura en curso: la automática se une a ella; la pedida (tras guardar) lee otra vez al terminar
+    if (cargando) return silencioso ? cargando : cargando.then(function () { return cargar(); });
+    if (!silencioso) $('#estadoCarga').textContent = 'Cargando…';
     var p = web ? Promise.resolve(web) : webDe(location.pathname.replace(/\/[^/]*$/, '')).then(function (w) { web = w; return w; });
-    return p.then(function () {
+    cargando = p.then(function () {
       return Promise.all([
         yo ? yo : api(web.url + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) { yo = u; return u; }),
         api(urlLista() + '?$select=Id,Title,ItemCount,ListItemEntityTypeFullName,EffectiveBasePermissions,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) {
           listaInfo = l; esAdmin = ((Number(l.EffectiveBasePermissions && l.EffectiveBasePermissions.Low) || 0) & 0x2000000) !== 0; mostrarAjustes();
         }),
         api(urlLista() + "/fields?$select=InternalName,Title,Choices,RichText,Required,TypeAsString&$filter=(InternalName eq 'ESTADO') or (InternalName eq 'PersonalImplicado0') or (InternalName eq 'Prioridad') or (InternalName eq 'NegociadoAsignado')" +
-          " or (InternalName eq 'NegociadosImplicados') or (InternalName eq 'DescripcionDelAsunto') or (InternalName eq 'Comentarios') or (InternalName eq 'ControlExpediente') or (InternalName eq 'FechaVencimiento')")
+          " or (InternalName eq 'NegociadosImplicados') or (InternalName eq 'DescripcionDelAsunto') or (InternalName eq 'Comentarios') or (InternalName eq 'ControlExpediente') or (InternalName eq 'FechaVencimiento') or (InternalName eq 'TratarEn')")
           .then(function (d) { lista(d.value).forEach(function (f) {
             campos[f.InternalName] = lista(f.Choices).length ? lista(f.Choices) : (f.Choices || []);
-            infoCampo[f.InternalName] = Object.assign(infoCampo[f.InternalName] || {}, { rico: !!f.RichText, obligatorio: !!f.Required, tipo: f.TypeAsString || '' });
+            infoCampo[f.InternalName] = Object.assign(infoCampo[f.InternalName] || {}, { rico: !!f.RichText, obligatorio: !!f.Required, tipo: f.TypeAsString || '', existe: true });
           }); })
           .catch(function () { /* las opciones se deducen de los datos */ }),
       ].concat(['Comentarios', 'REGISTRODEACTIVIDAD'].map(function (k) {
@@ -378,18 +457,28 @@
       var pagina = function (url) {
         return api(url).then(function (d) {
           todos = todos.concat(lista(d.value));
-          $('#estadoCarga').textContent = 'Cargando… ' + todos.length;
+          if (!silencioso) $('#estadoCarga').textContent = 'Cargando… ' + todos.length;
           var sig = d['odata.nextLink'] || d['@odata.nextLink'];
           return sig ? pagina(sig) : todos;
         });
       };
-      return pagina(urlLista() + '/items?$top=500&$select=' + CAMPOS_SEL.join(',') + '&$expand=' + EXPANDIR);
+      return pagina(urlLista() + '/items?$top=500&$select=' + CAMPOS_SEL.concat(hayTratar() ? ['TratarEn'] : []).join(',') + '&$expand=' + EXPANDIR);
     }).then(function (items) {
+      var antes = cargadoEn ? new Map(tareas.map(function (t) { return [t.id, t.modificada]; })) : null;
       tareas = items.map(aTarea);
+      // Novedades desde la última lectura hechas por otras personas (las del usuario no se marcan)
+      var nuevas = 0;
+      if (antes) tareas.forEach(function (t) {
+        if (antes.get(t.id) === t.modificada || (yo && t.editor === yo.Title)) return;
+        novedades[t.id] = antes.has(t.id) ? 'Cambiado' : 'Nuevo'; nuevas++;
+      });
       cargadoEn = new Date();
-      $('#estadoCarga').textContent = tareas.length + ' asuntos · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      $('#estadoCarga').textContent = tareas.length + ' asuntos · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) +
+        (Object.keys(novedades).length ? ' · ' + Object.keys(novedades).length + ' novedades' : '');
       $('#estadoCarga').title = 'Versión de la página: ' + VERSION;
-      render();
+      var escribiendo = document.activeElement && document.activeElement.closest && document.activeElement.closest('#vista input, #vista textarea, #vista select');
+      if (!silencioso || (nuevas && !escribiendo)) render();
+      if (importacion) { var dImp = importacion; importacion = null; ofrecerImportacion(dImp); }
       if (idInicial) {
         var pedido = idInicial; idInicial = null;
         if (tareas.some(function (x) { return x.id === pedido; })) abrir(pedido);
@@ -397,25 +486,70 @@
         try { history.replaceState(null, '', location.pathname); } catch (e) { /* sin historial */ }
       }
     }).catch(function (e) {
+      if (silencioso) return;
       $('#estadoCarga').textContent = 'Error';
       var fallo = function () {
-        $('#vista').innerHTML = '<div class="error">No se pudo leer la lista «' + esc(pref.lista) + '»: ' + esc(e.message || e) +
-          '.<br><small>Versión de la página: ' + esc(VERSION) + '</small></div><p class="muted">' + (esAdmin ? 'Comprueba en Ajustes el nombre de la lista y que tienes permiso para verla.' :
-          'Comprueba que tienes permiso para ver la lista o avisa al administrador de la página.') + '</p>';
-        if (pref.vista === 'ajustes' && esAdmin) render();
+      $('#vista').innerHTML = '<div class="error">No se pudo leer la lista «' + esc(pref.lista) + '»: ' + esc(e.message || e) +
+        '.<br><small>Versión de la página: ' + esc(VERSION) + '</small></div><p class="muted">' + (esAdmin ? 'Comprueba en Ajustes el nombre de la lista y que tienes permiso para verla.' :
+          'Comprueba que tienes permiso para ver la lista o avisa al administrador de la página.') + '</p>' +
+        (PRUEBAS && e.status === 404 ? '<div class="card"><h3 style="margin-top:0">Preparar la versión de pruebas</h3><p class="small">Crea la lista «' + esc(pref.lista) + '» como copia <b>vacía</b> de «Gestor de Tareas» (mismas columnas, sin ningún asunto). Necesitas permiso para crear listas en el sitio.</p>' +
+          '<div class="acciones"><button class="btn prim" data-crearpruebas="1">Crear la lista de pruebas</button></div><div id="prMsg"></div></div>' : '') +
+        (PROPIO && e.status === 404 ? '<div class="card"><h3 style="margin-top:0">' + (PROPIO ? 'Preparar META' : 'Preparar tu Gestor de MENSADEF') + '</h3><p class="small">Falta la lista «' + esc(pref.lista) + '». Puedes ' +
+          '<b>usar la de pruebas</b> que ya tienes («Gestor de Tareas PRUEBAS»): se le cambia el nombre y <b>se conservan sus tareas</b> (la página de pruebas dejará de verlas), o crear una lista nueva vacía con las mismas columnas que «Gestor de Tareas». Necesitas poder administrar listas en el sitio.</p>' +
+          '<div class="acciones"><button class="btn prim" data-renombrarpruebas="1">Usar la lista de pruebas (conserva sus tareas)</button><button class="btn" data-crearpruebas="1">Crear una lista nueva vacía</button></div><div id="prMsg"></div></div>' : '');
+      if (pref.vista === 'ajustes' && esAdmin) render();
       };
       // Sin lista no se sabe si es administrador: se mira el permiso en el sitio (para poder corregir el nombre en Ajustes)
       if (listaInfo || !web) return fallo();
-      api(web.url + '/_api/web?$select=EffectiveBasePermissions').then(function (w) {
+      return api(web.url + '/_api/web?$select=EffectiveBasePermissions').then(function (w) {
         esAdmin = ((Number(w.EffectiveBasePermissions && w.EffectiveBasePermissions.Low) || 0) & 0x2000000) !== 0;
       }, function () { esAdmin = false; }).then(function () { mostrarAjustes(); fallo(); });
-    });
+    }).then(function () { cargando = null; });
+    return cargando;
   }
+
   // Pestaña Ajustes solo con Control total; a los demás no les sale (y si la tenían abierta, vuelven a Tareas)
   function mostrarAjustes() {
     var a = document.querySelector('#tabs a[data-v="ajustes"]');
     if (a) a.style.display = esAdmin ? '' : 'none';
     if (!esAdmin && pref.vista === 'ajustes') { pref.vista = 'nlt'; guardarPref(); }
+  }
+
+  // Copia vacía de la lista real para la versión de pruebas (copiado de Permisos): las columnas propias de «Gestor de Tareas»
+  // con su mismo nombre interno; se quitan los identificadores para que no choquen con los de la real
+  function crearListaPruebas(boton) {
+    var real = web.url + "/_api/web/lists/getbytitle('Gestor%20de%20Tareas')", msg = function (t) { var el = $('#prMsg'); if (el) el.innerHTML = t; };
+    if (!PRUEBAS && !PROPIO) return;
+    boton.disabled = true; msg('<p class="small muted">Leyendo las columnas de la lista real…</p>');
+    var fallos = [];
+    api(real + '/fields?$select=InternalName,SchemaXml,Hidden,ReadOnlyField,FromBaseType&$top=500').then(function (d) {
+      var propias = lista(d.value).filter(function (f) { return !f.Hidden && !f.ReadOnlyField && !f.FromBaseType && f.InternalName !== 'Title' && f.SchemaXml; });
+      return enviarSP(web.url + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: pref.lista, Description: PROPIO ? 'Tareas de MENSADEF (página tareas-nlt-colabora-mensadef.html)' : 'Copia de pruebas de «Gestor de Tareas» (página tareas-nlt-colabora-pruebas.html)' }, 'No tienes permiso para crear listas en el sitio')
+        .then(function () {
+          return propias.reduce(function (p, f, i) {
+            return p.then(function () {
+              msg('<p class="small muted">Creando columnas: ' + (i + 1) + ' de ' + propias.length + '…</p>');
+              var xml = f.SchemaXml.replace(/\s(ID|SourceID|Version|ColName|RowOrdinal|WebId|Customization)="[^"]*"/g, '');
+              return enviarSP(urlLista() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas')
+                .catch(function (e) { fallos.push(f.InternalName + ' (' + (e.message || e) + ')'); });
+            });
+          }, Promise.resolve()).then(function () { return propias.length; });
+        });
+    }).then(function (n) {
+      msg('<div class="' + (fallos.length ? 'error' : 'small') + '">✓ Lista ' + (PROPIO ? 'de MENSADEF' : 'de pruebas') + ' creada con ' + (n - fallos.length) + ' de ' + n + ' columnas.' + (fallos.length ? ' No se pudieron copiar: ' + esc(fallos.join('; ')) + '.' : '') + ' Cargando…</div>');
+      setTimeout(cargar, 800);
+    }).catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo crear: ' + esc(e.message || e) + '</div>'); });
+  }
+
+  // Gestor propio: la lista de pruebas pasa a ser la de MENSADEF cambiándole el nombre (se conservan las tareas y columnas)
+  function renombrarListaPruebas(boton) {
+    var msg = function (t) { var el = $('#prMsg'); if (el) el.innerHTML = t; };
+    if (!PROPIO) return;
+    boton.disabled = true; msg('<p class="small muted">Cambiando el nombre de la lista…</p>');
+    enviarSP(web.url + "/_api/web/lists/getbytitle('Gestor%20de%20Tareas%20PRUEBAS')", { __metadata: { type: 'SP.List' }, Title: pref.lista, Description: 'Tareas de MENSADEF (página tareas-nlt-colabora-mensadef.html)' },
+      'No tienes permiso para cambiar la lista', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
+      .then(function () { msg('<div class="small">✓ La lista «Gestor de Tareas PRUEBAS» ahora es «' + esc(pref.lista) + '», con todas sus tareas. Cargando…</div>'); setTimeout(cargar, 800); })
+      .catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo: ' + esc(/404|no existe|does not exist/i.test(e.message || '') ? 'no existe la lista «Gestor de Tareas PRUEBAS» en este sitio' : (e.message || e)) + '</div>'); });
   }
 
   // ---------- Reglas de NLT ----------
@@ -459,7 +593,10 @@
     return '<option value="">' + esc(vacio) + '</option>' + lista.map(function (v) { return '<option' + (v === sel ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
   };
 
-  var hayFiltros = function () { return !!(pref.q || pref.negociado || pref.estado || pref.prio || pref.resp); };
+  var hayFiltros = function () { return !!(pref.q || pref.negociado || pref.estado || pref.prio || pref.resp || pref.terDesde || pref.terHasta); };
+  // Terminados: por la fecha en que se terminaron (fecha de fin o, si no hay, la de la última modificación)
+  var enRangoTer = function (t) { var f = String(terminadaEn(t) || '').slice(0, 10); return (!pref.terDesde || (f && f >= pref.terDesde)) && (!pref.terHasta || (f && f <= pref.terHasta)); };
+  var verHechas = 200;
   function barraFiltros(pie) {
     var negs = valores('NegociadoAsignado', 'negociado');
     tareas.forEach(function (t) { t.negociados.forEach(function (n) { if (negs.indexOf(n) < 0) negs.push(n); }); });
@@ -472,6 +609,8 @@
       '<div><label class="lbl">Responsable</label><select id="fresp">' + opciones(resps, pref.resp, 'Todos') + '</select></div>' +
       '<div><label class="lbl">Estado</label><select id="fest">' + opciones(valores('ESTADO', 'estado'), pref.estado, 'Todos') + '</select></div>' +
       '<div><label class="lbl">Prioridad</label><select id="fprio">' + opciones(valores('Prioridad', 'prioridad'), pref.prio, 'Todas') + '</select></div>' +
+      '<div><label class="lbl">Terminados desde</label><input type="date" id="fterd" value="' + esc(pref.terDesde || '') + '"></div>' +
+      '<div><label class="lbl">Terminados hasta</label><input type="date" id="fterh" value="' + esc(pref.terHasta || '') + '"></div>' +
       '</div>' + (pie || hayFiltros() ? '<div class="fpie">' + (pie || '') + (hayFiltros() ? '<button data-limpiar="1">✕ Limpiar filtros</button>' : '') + '</div>' : '') + '</div>';
   }
 
@@ -481,12 +620,16 @@
   var chipPrio = function (t) { return t.prioridad ? '<span class="badge pr-' + t.prio + '">' + esc(t.prio === 'critica' && t.clase !== 'hecha' ? t.prioridad.toUpperCase() : t.prioridad) + '</span>' : ''; };
   var chipPlazo = function (t, u) { return '<span class="badge ' + (u.grupo === 'hoy' ? 'hoy' : u.cls) + '">' + (u.cls === 'bad' || u.grupo === 'hoy' ? '⏰ ' : '') + esc(u.txt) + '</span>'; };
 
+  // Asuntos nuevos o cambiados por otras personas desde la última lectura (hasta que se abren)
+  var chipNovedad = function (t) { return novedades[t.id] ? '<span class="badge warn">' + esc(novedades[t.id]) + '</span> ' : ''; };
+  // Botón rápido «✔ Finalizar» en la pantalla principal (pide confirmar con un segundo clic)
+  var botonFin = function (t) { return t.clase === 'hecha' ? '' : '<button type="button" class="finrap" data-finrapido="' + t.id + '" title="Finalizar este asunto">✔ Finalizar</button>'; };
   function tarjeta(t) {
     var u = urgencia(t);
     return '<div class="card tarea ' + colorU(t, u) + '" data-id="' + t.id + '">' +
       '<div class="t-top"><div><div class="exp">Exp. ' + esc(t.expediente) + '</div>' +
-      '<div class="tit">' + esc(t.asunto) + '</div></div>' + chipPlazo(t, u) + '</div><div class="meta">' +
-      chipEstado(t) + chipPrio(t) + chipIncoh(t) +
+      '<div class="tit">' + chipNovedad(t) + esc(t.asunto) + '</div></div><div class="t-der">' + chipPlazo(t, u) + botonFin(t) + '</div></div><div class="meta">' +
+      chipEstado(t) + chipPrio(t) + chipIncoh(t) + chipTratar(t) +
       (t.nlt ? '<span class="muted">📅 NLT ' + esc(fMedia(t.nlt)) + '</span>' : '') +
       (t.responsable ? '<span class="muted">👤 ' + esc(t.responsable) + '</span>' : '') +
       (t.negociado ? '<span class="chip">' + esc(t.negociado) + '</span>' : '') + '</div></div>';
@@ -495,23 +638,23 @@
     return '<div class="tabla-wrap"><table class="tt"><tr><th>Plazo</th><th>Asunto</th><th>Estado</th><th class="opc">Prioridad</th><th class="opc">Responsable</th><th class="opc">Negociado</th></tr>' +
       ts.map(function (t) {
         var u = urgencia(t);
-        return '<tr class="tarea ' + colorU(t, u) + '" data-id="' + t.id + '"><td class="nw">' + chipPlazo(t, u) + (t.nlt ? '<div class="small muted">' + esc(fCorta(t.nlt)) + '</div>' : '') + '</td>' +
-          '<td><div class="exp">Exp. ' + esc(t.expediente) + '</div><b>' + esc(t.asunto) + '</b>' + (t.incoh ? '<div>' + chipIncoh(t) + '</div>' : '') + '</td>' +
+        return '<tr class="tarea ' + colorU(t, u) + '" data-id="' + t.id + '"><td class="nw">' + chipPlazo(t, u) + botonFin(t) + (t.nlt ? '<div class="small muted">' + esc(fCorta(t.nlt)) + '</div>' : '') + '</td>' +
+          '<td><div class="exp">Exp. ' + esc(t.expediente) + '</div>' + chipNovedad(t) + '<b>' + esc(t.asunto) + '</b>' + (t.incoh ? '<div>' + chipIncoh(t) + '</div>' : '') + (t.tratar.length ? '<div>' + chipTratar(t) + '</div>' : '') + '</td>' +
           '<td>' + chipEstado(t) + '</td><td class="opc">' + chipPrio(t) + '</td><td class="opc">' + esc(t.responsable) + '</td><td class="opc">' + esc(t.negociado) + '</td></tr>';
       }).join('') + '</table></div>';
   }
   var TOPE = 300;
-  function listaTareas(ts) {
-    var vis = ts.slice(0, TOPE);
+  function listaTareas(ts, sinTope) {
+    var vis = sinTope ? ts : ts.slice(0, TOPE);
     return (pref.modo === 'tabla' ? tablaTareas(vis) : vis.map(tarjeta).join('')) +
-      (ts.length > TOPE ? '<div class="mas">Se muestran ' + TOPE + ' de ' + ts.length + '. Afina con la búsqueda o los filtros.</div>' : '');
+      (!sinTope && ts.length > TOPE ? '<div class="mas">Se muestran ' + TOPE + ' de ' + ts.length + '. Afina con la búsqueda o los filtros.</div>' : '');
   }
   // Grupo plegable; lo que se abre o cierra se recuerda en este navegador
-  function grupo(clave, titulo, ts, forzar) {
+  function grupo(clave, titulo, ts, forzar, sinTope) {
     if (!ts.length) return '';
     var abierto = forzar || !!(pref.grupos || {})[clave];
     return '<details class="grupo g-' + clave + '" data-grupo="' + clave + '"' + (abierto ? ' open' : '') + '><summary><span class="fl">▶</span><span>' + titulo + '</span><span class="n">' + ts.length + '</span></summary>' +
-      '<div class="cuerpo">' + listaTareas(ts) + '</div></details>';
+      '<div class="cuerpo">' + listaTareas(ts, sinTope) + '</div></details>';
   }
 
   // ---------- Vistas ----------
@@ -526,7 +669,7 @@
     var ab = tareas.filter(function (t) { return t.clase !== 'hecha'; });
     var mias = ab.filter(esMia).length, impl = ab.filter(function (t) { return meImplica(t) && !esMia(t); }).length;
     var fecha = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    return '<div class="hero"><div class="hola">Gestor de tareas · Jefatura de SUIGESUR</div><div class="nom">👤 ' + esc(yo.Title) + '</div>' +
+    return '<div class="hero"><div class="hola">' + (PROPIO ? 'META · Gestión de expedientes MENSADEF' : 'Gestor de tareas · Jefatura de SUIGESUR') + '</div><div class="nom">👤 ' + esc(yo.Title) + '</div>' +
       '<span class="rolh">Responsable de ' + mias + ' asunto' + (mias === 1 ? '' : 's') + ' abierto' + (mias === 1 ? '' : 's') + '</span>' +
       (impl ? '<span class="rolh">Implicado en ' + impl + ' más</span>' : '') +
       '<span class="rolh">Viendo: ' + { mias: 'mis asuntos', implicado: 'míos y en los que intervengo', todos: 'todos los asuntos' }[pref.quien] + '</span>' +
@@ -539,22 +682,31 @@
     abiertas.forEach(function (t) { grupoDe[t.id] = urgencia(t).grupo; });
     var cuenta = function (g) { return abiertas.filter(function (t) { return grupoDe[t.id] === g; }).length; };
     var iniMes = hoy().slice(0, 8) + '01';
-    var hechas = ts.filter(function (t) { return t.clase === 'hecha'; }).sort(function (a, b) { return terminadaEn(b).localeCompare(terminadaEn(a)); });
+    var hechas = ts.filter(function (t) { return t.clase === 'hecha' && enRangoTer(t); }).sort(function (a, b) { return terminadaEn(b).localeCompare(terminadaEn(a)); });
     var hechasMes = hechas.filter(function (t) { return terminadaEn(t) >= iniMes; });
     var n = { vencidas: cuenta('vencidas'), hoy: cuenta('hoy'), semana: cuenta('semana'), hechasMes: hechasMes.length };
+    TRATAR.forEach(function (x) { n['tr:' + x[0]] = abiertas.filter(function (t) { return tieneTratar(t, x[0]); }).length; });
     FASES.forEach(function (f) { n['c:' + f[0]] = f[0] === 'hecha' ? hechas.length : abiertas.filter(function (t) { return t.clase === f[0]; }).length; });
     var cSel = kpiSel.indexOf('c:') === 0 ? kpiSel.slice(2) : '';
     var mini = function (k, ic, cls, txt) {
       return '<button class="' + cls + (n[k] ? '' : ' cero') + (kpiSel === k ? ' on' : '') + '" data-kpi="' + k + '" title="Pulsa para ver solo estos; otra vez para verlos todos"><span class="ic ' + cls + '">' + ic + '</span><div><b>' + n[k] + '</b><span>' + txt + '</span></div></button>';
     };
     var html;
-    if (kpiSel === 'hechasMes' || cSel === 'hecha') html = grupo('hechas', cSel ? '✅ Terminados' : '✅ Terminados este mes', cSel ? hechas : hechasMes, true) || '<div class="card muted">Ningún asunto terminado con estos filtros.</div>';
+    var trSel = kpiSel.indexOf('tr:') === 0 ? kpiSel.slice(3) : '';
+    if (trSel) {
+      var xt = TRATAR.filter(function (x) { return x[0] === trSel; })[0], lt = abiertas.filter(function (t) { return tieneTratar(t, trSel); }).sort(ordenar);
+      html = (lt.length ? '<div class="card" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="flex:1">' + xt[2] + ' ' + lt.length + ' asunto' + (lt.length === 1 ? '' : 's') + ' para «' + esc(xt[3]) + '»</b>' +
+        '<button class="btn prim" data-imptratar="' + trSel + '">🖨 Imprimir relación</button></div>' + grupo('tratar', xt[2] + ' Para tratar: ' + esc(xt[3]), lt, true) : '<div class="card muted">Ningún asunto abierto marcado para «' + esc(xt[3]) + '». Márcalo en su ficha.</div>');
+    } else if (kpiSel === 'hechasMes' || cSel === 'hecha') html = grupo('hechas', cSel ? '✅ Terminados' : '✅ Terminados este mes', cSel ? hechas : hechasMes, true) || '<div class="card muted">Ningún asunto terminado con estos filtros.</div>';
     else {
       var base = cSel ? abiertas.filter(function (t) { return t.clase === cSel; }) : abiertas;
       html = GRUPOS.filter(function (g) { return !kpiSel || cSel || kpiSel === g[0]; }).map(function (g) {
         return grupo(g[0], g[1], base.filter(function (t) { return grupoDe[t.id] === g[0]; }).sort(ordenar), !!kpiSel);
       }).join('') || '<div class="card muted">No hay asuntos abiertos con estos filtros.</div>';
-      if (!kpiSel && hechas.length) html += grupo('hechas', '✅ Terminados', hechas.slice(0, 200), false);
+      // Todos los terminados (antes solo los 200 últimos): de 200 en 200, con «Mostrar más»
+      if (!kpiSel && hechas.length) html += grupo('hechas', '✅ Terminados' + (pref.terDesde || pref.terHasta ? ' (' + (pref.terDesde ? 'desde ' + fCorta(pref.terDesde) : '') + (pref.terHasta ? ' hasta ' + fCorta(pref.terHasta) : '') + ')' : '') +
+        (hechas.length > verHechas ? ' · los ' + verHechas + ' más recientes' : ''), hechas.slice(0, verHechas), !!(pref.terDesde || pref.terHasta), true) +
+        (hechas.length > verHechas ? '<div class="card" style="text-align:center"><button class="btn" data-mashechas="1">Mostrar ' + Math.min(200, hechas.length - verHechas) + ' terminados más (quedan ' + (hechas.length - verHechas) + ')</button> <span class="small muted">o acota con «Terminados desde / hasta»</span></div>' : '');
     }
     var aviso = !yo || pref.quien === 'todos' ? '' : !ts.length && tareas.length ? '<div class="aviso">No hay asuntos en los que figures como responsable. Cambia «Qué asuntos» a «Todos».</div>' : '';
     var modo = '<span class="modo" title="Cómo se ven los asuntos"><button data-modo="tarjetas" class="' + (pref.modo !== 'tabla' ? 'on' : '') + '">▤ Tarjetas</button><button data-modo="tabla" class="' + (pref.modo === 'tabla' ? 'on' : '') + '">☰ Tabla</button></span>';
@@ -562,7 +714,8 @@
       (kpiSel ? ' · <b>mostrando solo una tarjeta del resumen</b> <button data-kpi="' + kpiSel + '">Ver todo</button>' : '') + '</span>';
     return heroTareas() +
       '<div class="mini">' + mini('vencidas', '🔴', 'r', 'Fuera de plazo') + mini('hoy', '⏰', 'n', 'Vencen hoy') + mini('semana', '📅', 'a', 'Próximos 7 días') +
-      mini('c:curso', '⚙️', 'az', 'En curso') + mini('hechasMes', '✅', 'v', 'Terminados este mes') + '</div>' +
+      mini('c:curso', '⚙️', 'az', 'En curso') + mini('hechasMes', '✅', 'v', 'Terminados este mes') +
+      (hayTratar() ? TRATAR.map(function (x) { return mini('tr:' + x[0], x[2], x[0] === 'gen' ? 'r' : 'az', 'Para ' + x[3].charAt(0).toLowerCase() + x[3].slice(1)); }).join('') : '') + '</div>' +
       '<div class="sec"><span>Recorrido de los asuntos</span><span>pendiente › en curso › en espera › terminado</span></div><div class="flujo">' +
       FASES.map(function (f, k) {
         var ests = estadosDe(f[0]);
@@ -948,6 +1101,205 @@
     descargar(nombre + '.html', doc, 'text/html;charset=utf-8');
     aviso('Descargado: ábrelo y elige Imprimir → Guardar como PDF');
   }
+  // Marcar o quitar «para tratar» (se guarda en Colabora y lo ven todos)
+  function cambiarTratar(id, k, boton) {
+    var t = tareas.find(function (x) { return x.id === id; }), x = TRATAR.filter(function (y) { return y[0] === k; })[0];
+    if (!t || !x || !hayTratar()) return;
+    var vals = t.tratar.indexOf(x[1]) >= 0 ? t.tratar.filter(function (v) { return v !== x[1]; }) : t.tratar.concat([x[1]]);
+    boton.disabled = true;
+    leerElemento(id).then(function (e) {
+      return enviarSP(urlLista() + '/items(' + id + ')', { __metadata: { type: listaInfo.ListItemEntityTypeFullName }, TratarEn: { __metadata: { type: 'Collection(Edm.String)' }, results: vals } },
+        'No tienes permiso para modificar este asunto', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': e.etag });
+    }).then(function () { return cargar(); }).then(function () { abrir(id); aviso(vals.indexOf(x[1]) >= 0 ? 'Marcado para tratar: ' + x[3] : 'Quitada la marca: ' + x[3]); })
+      .catch(function (e) { boton.disabled = false; var m = $('#trMsg'); if (m) m.innerHTML = ' <span class="error">' + esc(e.message || e) + '</span>'; });
+  }
+  // Relación imprimible de lo marcado para una reunión
+  function imprimirTratar(k) {
+    var x = TRATAR.filter(function (y) { return y[0] === k; })[0];
+    var ts = filtrar(tareas).filter(function (t) { return t.clase !== 'hecha' && tieneTratar(t, k); }).sort(ordenar);
+    var cuerpo = '<h2>' + x[2] + ' ASUNTOS PARA TRATAR: ' + esc(x[1]) + '</h2><p>' + esc(new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) + ' · ' + ts.length + ' asunto' + (ts.length === 1 ? '' : 's') + '</p>' +
+      '<table class="cal" style="table-layout:auto"><tr><th>Nº</th><th>Exp.</th><th>Asunto</th><th>Estado</th><th>Prioridad</th><th>NLT</th><th>Responsable</th><th>Último comentario / situación</th></tr>' +
+      ts.map(function (t, i) { var ult = String(t.observaciones || t.resumenDesc || '').split('\n').filter(Boolean).pop() || '';
+        return '<tr><td>' + (i + 1) + '</td><td>' + esc(t.expediente) + '</td><td><b>' + esc(t.asunto) + '</b></td><td>' + esc(t.estado) + '</td><td>' + esc(t.prioridad) + '</td><td>' + esc(fCorta(t.nlt)) + '</td><td>' + esc(t.responsable) + '</td><td>' + esc(ult.slice(0, 300)) + '</td></tr>'; }).join('') +
+      '</table><p style="font-size:8pt;color:#555;margin-top:12px">' + esc(listaInfo ? listaInfo.Title : pref.lista) + ' · ' + (PROPIO ? 'META · Gestión de expedientes MENSADEF' : 'Gestor de tareas') + ' · © 2026 Cte. Alfredo Sánchez Sender</p>';
+    imprimirHtml('Para tratar: ' + x[3], cuerpo.replace(/<td>/g, '<td style="border:1px solid #bbb;padding:3px 5px;vertical-align:top;font-size:9pt">'), 'para-tratar-' + k);
+  }
+  // Crear la columna «Tratar en» (Ajustes)
+  function crearColumnaTratar(boton) {
+    boton.disabled = true;
+    var xml = '<Field Type="MultiChoice" Name="TratarEn" StaticName="TratarEn" DisplayName="Tratar en" FillInChoice="FALSE"><CHOICES>' + TRATAR.map(function (x) { return '<CHOICE>' + x[1] + '</CHOICE>'; }).join('') + '</CHOICES></Field>';
+    enviarSP(urlLista() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas en la lista')
+      .then(function () { return cargar(); }).then(function () { aviso('Columna «Tratar en» creada'); render(); })
+      .catch(function (e) { boton.disabled = false; aviso('No se pudo crear la columna: ' + (e.message || e)); });
+  }
+  // ---------- Punto de Situación de SUIGESUR (09/11/2026) ----------
+  // Un asunto importante (llegado de SENDERO y dado de alta aquí) marcado ⭐ «Tratar con el General» se incluye en el punto
+  // de situación abierto de la
+  // aplicación «Puntos de Situación» del mismo sitio. Contrato con esa aplicación (sus listas las crea ella al instalarse):
+  //  · «PS Puntos»: Referencia (PS-año-número), FechaPunto, Apertura, Cierre (fecha y hora del bloqueo), EstadoPunto.
+  //  · «PS Negociados»: Title (nombre en el informe), Orden, NombreGestor (valor de NegociadoAsignado; varios con «;»),
+  //    Miembros (personas), Coordina (PROCOR y control total: pueden escribir en cualquier negociado), EnInforme.
+  //  · «PS Aportaciones»: Title (asunto), PuntoId, Referencia, Negociado, Situacion, Prioridad (Normal / Alta), Orden,
+  //    CierrePunto (copia del cierre: la validación de la lista rechaza cambios después), Origen (META), OrigenLista,
+  //    OrigenId (Id del asunto aquí) y OrigenUrl (enlace a su ficha).
+  // Si la aplicación aún no está instalada, la ficha lo dice y no hace nada más. La copia de pruebas usa las listas «… PRUEBAS».
+  var PS_SUF = PRUEBAS ? ' PRUEBAS' : '';
+  var PS_LISTAS = { puntos: 'PS Puntos' + PS_SUF, negs: 'PS Negociados' + PS_SUF, aport: 'PS Aportaciones' + PS_SUF };
+  var psUrl = function (k) { return web.url + "/_api/web/lists/getbytitle('" + encodeURIComponent(PS_LISTAS[k].replace(/'/g, "''")) + "')"; };
+  var psCache = null, psCacheEn = 0;
+  // Estado de la aplicación: si está instalada, puntos abiertos, negociados y en cuáles puede escribir el usuario
+  function psEstado(forzar) {
+    if (psCache && !forzar && Date.now() - psCacheEn < 60000) return Promise.resolve(psCache);
+    var todos = function (url) {
+      var acc = [];
+      var pag = function (u) { return api(u).then(function (d) { acc = acc.concat(lista(d.value)); var s = d['odata.nextLink'] || d['@odata.nextLink']; return s ? pag(s) : acc; }); };
+      return pag(url);
+    };
+    return Promise.all([
+      api(psUrl('aport') + '?$select=Id,ListItemEntityTypeFullName'),
+      todos(psUrl('puntos') + '/items?$top=500&$select=Id,Title,Referencia,FechaPunto,Apertura,Cierre,EstadoPunto&$orderby=Id desc'),
+      todos(psUrl('negs') + '/items?$top=500&$select=Id,Title,Orden,NombreGestor,Coordina,EnInforme,Miembros/Id&$expand=Miembros'),
+    ]).then(function (r) {
+      var ahora = Date.now();
+      var abiertos = r[1].filter(function (p) {
+        var c = p.Cierre ? Date.parse(p.Cierre) : 0, a = p.Apertura ? Date.parse(p.Apertura) : 0;
+        return c > ahora && (!a || a <= ahora) && !/cerrad|archiv|borrad/i.test(p.EstadoPunto || '');
+      }).sort(function (a, b) { return Date.parse(a.Cierre) - Date.parse(b.Cierre); });
+      var negs = r[2].filter(function (n) { return n.EnInforme !== false; }).sort(function (a, b) { return (a.Orden || 99) - (b.Orden || 99); });
+      var soyDe = function (n) { return yo && lista(n.Miembros).some(function (m) { return m.Id === yo.Id; }); };
+      var coordino = r[2].some(function (n) { return n.Coordina && soyDe(n); });
+      var cierres = {}; r[1].forEach(function (p) { cierres[p.Id] = p.Cierre; });
+      psCache = { instalada: true, tipo: r[0].ListItemEntityTypeFullName, abiertos: abiertos, negs: negs, cierres: cierres,
+        puedo: function (nombre) { return coordino || negs.some(function (n) { return n.Title === nombre && soyDe(n); }); }, coordino: coordino };
+      psCacheEn = Date.now();
+      return psCache;
+    }).catch(function (e) {
+      if (e.status === 404) { psCache = { instalada: false }; psCacheEn = Date.now(); return psCache; }
+      throw e;
+    });
+  }
+  // Negociado del punto de situación que corresponde al «Negociado asignado» del asunto
+  function psNegociadoDe(t, negs) {
+    var v = sinTildes(t.negociado).trim();
+    if (!v) return '';
+    var n = negs.filter(function (x) {
+      return String(x.NombreGestor || '').split(';').concat([x.Title]).some(function (y) { return sinTildes(y).trim() === v; });
+    })[0];
+    return n ? n.Title : '';
+  }
+  var psRef = function (p) { return p.Referencia || p.Title || ('Punto ' + p.Id); };
+  var psCierre = function (p) { return new Date(p.Cierre).toLocaleString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); };
+  var psFicha = function (t) { return location.origin + location.pathname + '?id=' + t.id; };
+  // Entradas del punto de situación que vienen de este asunto
+  function psDeAsunto(t) {
+    return api(psUrl('aport') + "/items?$top=50&$select=Id,Title,PuntoId,Referencia,Negociado,Situacion,Prioridad,CierrePunto,Modified&$filter=(OrigenId eq " + Number(t.id) +
+      ") and (OrigenLista eq '" + encodeURIComponent(LISTA.replace(/'/g, "''")) + "')").then(function (d) { return lista(d.value); });
+  }
+  // Recuadro de la ficha
+  function pintarPS(t, msg) {
+    var caja = $('#psBox');
+    if (!caja || Number(caja.dataset.id) !== t.id) return;
+    caja.innerHTML = '<b class="small">📋 Punto de Situación SUIGESUR:</b> <span class="small muted">comprobando…</span>';
+    psEstado().then(function (ps) {
+      if (!ps.instalada) {
+        caja.innerHTML = '<b class="small">📋 Punto de Situación SUIGESUR:</b> <span class="small muted">la aplicación «Puntos de Situación» aún no está instalada en este sitio. ' +
+          'Cuando lo esté, desde aquí podrás incluir este asunto en el punto abierto.</span>';
+        return;
+      }
+      return psDeAsunto(t).then(function (ya) {
+        var ahora = Date.now();
+        var html = '<b class="small">📋 Punto de Situación SUIGESUR</b>';
+        html += ya.map(function (a) {
+          var cierre = ps.cierres[a.PuntoId] || a.CierrePunto, abierta = cierre && Date.parse(cierre) > ahora;
+          return '<div class="psya">✓ Incluido en <b>' + esc(a.Referencia || 'punto ' + a.PuntoId) + '</b> · ' + esc(a.Negociado) + (abierta ? ' · <span class="small">se puede actualizar hasta el ' + esc(psCierre({ Cierre: cierre })) + '</span> ' +
+            (ps.puedo(a.Negociado) ? '<button type="button" class="btn" data-psform="' + t.id + '" data-psaport="' + a.Id + '">✎ Actualizar la situación</button>' : '') : ' · <span class="small muted">punto cerrado</span>') + '</div>';
+        }).join('');
+        var libres = ps.abiertos.filter(function (p) { return !ya.some(function (a) { return a.PuntoId === p.Id; }); });
+        var marcado = !hayTratar() || tieneTratar(t, 'gen');
+        if (!ps.abiertos.length) html += '<div class="small muted">No hay ningún punto de situación abierto. Lo abre PROCOR en la aplicación «Puntos de Situación»' +
+          (hayTratar() ? (marcado ? '; el asunto está marcado ⭐ Tratar con el General y lo verán allí como propuesta.' : '.') : '.') + '</div>';
+        else if (libres.length && !marcado && !ya.length) html += '<div class="small muted">Pasan al punto de situación los asuntos para <b>⭐ Tratar con el General</b>: márcalo arriba y podrás incluirlo.</div>';
+        else if (libres.length && marcado) html += '<div><button type="button" class="btn prim" data-psform="' + t.id + '">📋 Incluir en ' + esc(psRef(libres[0])) + '</button> <span class="small muted">cierra el ' + esc(psCierre(libres[0])) + '</span></div>';
+        caja.innerHTML = html + '<div id="psForm"></div>' + (msg ? '<div class="small">' + msg + '</div>' : '');
+      });
+    }).catch(function (e) { caja.innerHTML = '<b class="small">📋 Punto de Situación SUIGESUR:</b> <span class="error">no se pudo consultar (' + esc(e.message || e) + ')</span>'; });
+  }
+  // Formulario para incluir (o actualizar) el asunto en el punto abierto
+  function psFormulario(t, aportId) {
+    var f = $('#psForm');
+    if (!f || !psCache || !psCache.instalada) return;
+    var ps = psCache;
+    (aportId ? api(psUrl('aport') + '/items(' + Number(aportId) + ')?$select=Id,Title,PuntoId,Negociado,Situacion,Prioridad') : Promise.resolve(null)).then(function (a) {
+      var ult = String(t.observaciones || '').split('\n').filter(Boolean)[0] || '';
+      var sit = a ? a.Situacion || '' : (t.descripcion || t.resumenDesc || '') + (ult ? '\n' + ult : '');
+      var neg = a ? a.Negociado : psNegociadoDe(t, ps.negs);
+      var prio = a ? a.Prioridad : (t.prio === 'critica' || t.prio === 'alta' ? 'Alta' : 'Normal');
+      var negsPuedo = ps.negs.filter(function (n) { return ps.puedo(n.Title); });
+      if (!a && !negsPuedo.length) { f.innerHTML = '<div class="aviso small">Solo los miembros del negociado o de PROCOR pueden incluir asuntos en el punto de situación. ' +
+        'Está marcado ⭐ Tratar con el General: PROCOR lo verá como propuesta.</div>'; return; }
+      var libres = ps.abiertos;
+      f.innerHTML = '<div class="psform">' +
+        (a ? '<input type="hidden" id="psAport" value="' + a.Id + '">' :
+          '<label class="lbl">Punto de situación</label><select id="psPunto">' + libres.map(function (p) { return '<option value="' + p.Id + '">' + esc(psRef(p)) + ' · cierra el ' + esc(psCierre(p)) + '</option>'; }).join('') + '</select>' +
+          '<label class="lbl">Negociado</label><select id="psNeg">' + (neg && negsPuedo.some(function (n) { return n.Title === neg; }) ? '' : '<option value="">— Elige negociado —</option>') +
+            negsPuedo.map(function (n) { return '<option' + (n.Title === neg ? ' selected' : '') + '>' + esc(n.Title) + '</option>'; }).join('') + '</select>' +
+          (neg && !negsPuedo.some(function (n) { return n.Title === neg; }) ? '<div class="small muted">El asunto es de ' + esc(neg) + ', donde no puedes escribir: elige uno tuyo o pídeselo a ese negociado.</div>' : '')) +
+        '<label class="lbl">Asunto (como saldrá en el informe)</label><input id="psTit" maxlength="255" value="' + esc(a ? a.Title : t.asunto) + '">' +
+        '<label class="lbl">Situación</label><textarea id="psSit" rows="5" ' + AREA + '>' + esc(sit) + '</textarea>' +
+        '<label class="lbl">Prioridad</label><select id="psPrio">' + ['Normal', 'Alta'].map(function (x) { return '<option' + (x === prio ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select>' +
+        '<div class="error" id="psErr" hidden></div>' +
+        '<div class="acciones"><button type="button" class="btn" data-psno="' + t.id + '">Cancelar</button><button type="button" class="btn prim" data-psok="' + t.id + '">' + (a ? 'Guardar la situación' : '📋 Incluir en el punto') + '</button></div></div>';
+    }).catch(function (e) { f.innerHTML = '<div class="error">' + esc(e.message || e) + '</div>'; });
+  }
+  function psGuardar(t, boton) {
+    var ps = psCache, err = $('#psErr');
+    var fallo = function (m) { err.textContent = m; err.hidden = false; boton.disabled = false; };
+    var tit = $('#psTit').value.trim(), sit = $('#psSit').value.trim(), prio = $('#psPrio').value, aport = $('#psAport');
+    if (!tit) return fallo('Falta el asunto');
+    if (!sit) return fallo('Escribe la situación del asunto');
+    boton.disabled = true; err.hidden = true;
+    var tipo = { __metadata: { type: ps.tipo } };
+    var hecho;
+    if (aport) {
+      // Actualizar: se relee para no pisar cambios y la validación de la lista impide escribir tras el cierre
+      hecho = fetch(psUrl('aport') + '/items(' + Number(aport.value) + ')?$select=Id,PuntoId,Negociado,CierrePunto', { credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+        .then(function (r) { if (!r.ok) throw new Error(r.status === 404 ? 'La entrada ya no existe en el punto de situación' : 'HTTP ' + r.status); return r.json(); })
+        .then(function (d) {
+          d = d.d || d;
+          var ci = ps.cierres[d.PuntoId] || d.CierrePunto;
+          if (!ci || Date.parse(ci) <= Date.now()) throw new Error('El punto de situación ya está cerrado: no admite cambios');
+          if (!ps.puedo(d.Negociado)) throw new Error('No puedes escribir en el negociado ' + d.Negociado);
+          return enviarSP(psUrl('aport') + '/items(' + d.Id + ')', Object.assign(tipo, { Title: tit, Situacion: sit, Prioridad: prio }),
+            'No tienes permiso para modificar el punto de situación', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': (d.__metadata && d.__metadata.etag) || '*' });
+        }).then(function () { return 'Situación actualizada en el punto de situación'; });
+    } else {
+      var p = ps.abiertos.filter(function (x) { return x.Id === Number($('#psPunto').value); })[0], neg = $('#psNeg').value;
+      if (!p) return fallo('Elige el punto de situación');
+      if (!neg) return fallo('Elige el negociado');
+      if (!ps.puedo(neg)) return fallo('No puedes escribir en el negociado ' + neg);
+      if (Date.parse(p.Cierre) <= Date.now()) return fallo('Ese punto de situación acaba de cerrarse');
+      // Va al final de las entradas de su negociado; si ya estaba incluido en ese punto, no se duplica
+      hecho = Promise.all([
+        api(psUrl('aport') + '/items?$top=500&$select=Id,Orden,OrigenId,OrigenLista,Negociado&$filter=PuntoId eq ' + p.Id),
+      ]).then(function (r) {
+        var es = lista(r[0].value);
+        if (es.some(function (x) { return Number(x.OrigenId) === t.id && x.OrigenLista === LISTA; })) throw new Error('Este asunto ya está incluido en ' + psRef(p));
+        var orden = es.filter(function (x) { return x.Negociado === neg; }).reduce(function (m, x) { return Math.max(m, Number(x.Orden) || 0); }, 0) + 1;
+        return enviarSP(psUrl('aport') + '/items', Object.assign(tipo, { Title: tit, PuntoId: p.Id, Referencia: psRef(p), Negociado: neg, Situacion: sit, Prioridad: prio, Orden: orden,
+          CierrePunto: new Date(p.Cierre).toISOString(), Origen: 'META', OrigenLista: LISTA, OrigenId: t.id, OrigenUrl: psFicha(t) }),
+          'No tienes permiso para añadir entradas al punto de situación');
+      }).then(function () { return 'Incluido en ' + psRef(p) + ' (' + neg + ')'; });
+    }
+    hecho.then(function (m) {
+      aviso(m);
+      var t2 = tareas.find(function (x) { return x.id === t.id; }) || t;
+      if (!$('#psBox')) return;
+      if (!aport) { abrir(t2.id); } else pintarPS(t2, '✓ ' + esc(m));
+    }).catch(function (e) {
+      var m = e.message || String(e);
+      fallo(/valid|validaci/i.test(m) ? 'Colabora no lo admite: el punto de situación ya está cerrado' : m);
+    });
+  }
   function imprimirCalendario() {
     var y = mes.getFullYear(), m = mes.getMonth(), ini = iso(mes), fin = iso(new Date(y, m + 1, 0));
     var porDia = {};
@@ -1031,7 +1383,7 @@
   function mailto(para, cc, asunto, cuerpo) {
     var montar = function (c) {
       return 'mailto:' + para.map(encodeURIComponent).join(';') + '?' + (cc.length ? 'cc=' + cc.map(encodeURIComponent).join(';') + '&' : '') +
-        'subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(c);
+        'subject=' + encodeURIComponent((PRUEBAS ? '[PRUEBAS] ' : '') + asunto) + '&body=' + encodeURIComponent(c);
     };
     var url = montar(cuerpo);
     if (url.length <= 2000) return url;
@@ -1258,6 +1610,39 @@
     });
   }
 
+  // ---------- Cambios de estado y eliminar (desde la ficha o la pantalla principal) ----------
+  // Finalizar: el primer estado «terminado» de la lista (FINALIZADO…) y la fecha de fin de hoy si no la tenía.
+  // Reabrir: el primer estado «en curso» (o pendiente) y sin fecha de fin. Cambiar: cualquier estado, con la fecha coherente.
+  var estadoDe = function (clase) { var es = valores('ESTADO', 'estado'); return es.filter(function (e) { return claseEstado(e) === clase; }).sort(function (a, b) { return (/finaliz/i.test(b) ? 1 : 0) - (/finaliz/i.test(a) ? 1 : 0); })[0] || ''; };
+  function ponerEstado(id, nuevo, boton) {
+    var t = tareas.find(function (x) { return x.id === id; });
+    if (!t || !nuevo) return Promise.resolve();
+    var cuerpo = { __metadata: { type: listaInfo.ListItemEntityTypeFullName }, ESTADO: nuevo };
+    if (claseEstado(nuevo) === 'hecha') { if (!t.fin) cuerpo.fECHAFINALIZACION = aFecha(hoy()).toISOString(); }
+    else if (t.fin) cuerpo.fECHAFINALIZACION = null;
+    if (boton) boton.disabled = true;
+    return modificarElemento(t, cuerpo).then(function () { return cargar(); }).then(function () {
+      aviso('Nº ' + id + ': ' + (claseEstado(nuevo) === 'hecha' ? 'finalizado' : 'estado «' + nuevo + '»'));
+      if ($('#dlg').open) abrir(id);
+    }, function (e) {
+      if (boton) boton.disabled = false;
+      var m = $('#estMsg'); if (m && $('#dlg').open) m.innerHTML = ' <span class="error">' + esc(e.message || e) + '</span>'; else aviso('No se pudo cambiar el nº ' + id + ': ' + (e.message || e));
+    });
+  }
+  // Eliminar: va a la papelera de reciclaje de Colabora (se puede recuperar desde allí)
+  function eliminarAsunto(id, boton) {
+    if (!boton.dataset.seguro) {
+      boton.dataset.seguro = '1'; boton.textContent = '¿Seguro? Pulsa otra vez para eliminar';
+      setTimeout(function () { if (boton.isConnected) { delete boton.dataset.seguro; boton.textContent = '🗑 Eliminar'; } }, 5000);
+      return;
+    }
+    boton.disabled = true;
+    enviarSP(urlLista() + '/items(' + id + ')/recycle()', {}, 'No tienes permiso para eliminar asuntos en esta lista')
+      .then(function () { $('#dlg').close(); return cargar(); })
+      .then(function () { aviso('Nº ' + id + ' eliminado: está en la papelera de reciclaje de Colabora, de donde se puede recuperar'); })
+      .catch(function (e) { boton.disabled = false; var m = $('#estMsg'); if (m) m.innerHTML = ' <span class="error">' + esc(e.message || e) + '</span>'; });
+  }
+
   // ---------- Comentarios ----------
   // Se guardan en la columna de comentarios de la lista (Observaciones o Registro de actividad, se elige en Ajustes).
   // Si la columna «añade cambios al texto existente» (como en el formulario de Colabora), cada comentario es una
@@ -1361,7 +1746,7 @@
   var palabrasNombre = function (n) { return sinTildes(n).replace(/[^a-zñ ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 3 && ['del', 'las', 'los'].indexOf(w) < 0; }); };
   var mismasPalabras = function (a, b) { var x = palabrasNombre(a).sort().join(' '), y = palabrasNombre(b).sort().join(' '); return !!x && x === y; };
   function enviarUno(to, cc, bcc, c) {
-    var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, CC: { results: cc || [] }, Subject: c.asunto, Body: c.html };
+    var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, CC: { results: cc || [] }, Subject: (PRUEBAS ? '[PRUEBAS] ' : '') + c.asunto, Body: c.html };
     if (bcc && bcc.length) pr.BCC = { results: bcc };
     return enviarSP(web.url + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página');
   }
@@ -1563,8 +1948,10 @@
       ests.find(function (e) { return claseEstado(e) === 'pendiente' && !/borrador/.test(sinTildes(e)); }) || ests[0] || '';
   }
   // Alta (t vacío) o modificación (t = asunto existente). Al modificar solo se envían los campos cambiados.
-  function formularioNuevo(texto, t) {
+  // pre: datos de un mensaje de MENSADEF o de un correo para rellenar el alta (asunto literal, sin interpretar)
+  function formularioNuevo(texto, t, pre) {
     var r = !t && texto ? interpretar(texto) : { titulo: '', nlt: '', prioridad: '' };
+    if (pre) r = { titulo: pre.asunto || '', nlt: interpretar(pre.asunto || '').nlt, prioridad: '' };
     var con = function (lst, v) { return v && lst.indexOf(v) < 0 ? lst.concat(v) : lst; };
     var ests = valores('ESTADO', 'estado'), prios = valores('Prioridad', 'prioridad');
     var estIni = t ? t.estado : estadoAlta(ests);
@@ -1577,9 +1964,9 @@
     var campoCom = campoComentarios();
     var conObs = !t || campoCom !== 'Comentarios';
     var dlg = $('#dlg');
-    dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Modificar asunto' : 'Nuevo asunto en «' + esc(pref.lista) + '»') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db" id="fNuevo">' +
+    dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Modificar asunto' : pre ? 'Nuevo asunto desde ' + (pre.origen === 'MENSADEF' ? 'MENSADEF' : 'correo') : 'Nuevo asunto en «' + esc(pref.lista) + '»') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db" id="fNuevo">' +
       '<label class="lbl">Asunto *</label><input name="Title" value="' + esc(t ? t.asunto : r.titulo || texto || '') + '">' +
-      '<p class="small muted" id="nDetect"></p>' +
+      '<p class="small muted" id="nDetect">' + (pre && r.nlt ? 'Fecha detectada en el asunto: ' + esc(fLarga(r.nlt)) + ' (puesta como NLT; cámbiala si no lo es)' : '') + '</p>' +
       '<div class="grid"><div><label class="lbl">Fecha vencimiento (NLT)' + (obligNlt ? ' *' : '') + '</label><input type="date" name="nlt" value="' + ((t ? t.nlt : r.nlt) || '') + '"></div>' +
       '<div><label class="lbl">Fecha de inicio</label><input type="date" name="inicio" value="' + (t ? t.inicio : hoy()) + '"></div>' +
       '<div><label class="lbl">Estado</label><select name="ESTADO">' + opciones(con(ests, estIni), estIni, '—') + '</select></div>' +
@@ -1595,7 +1982,7 @@
       }).join('') + '</div>' : '') +
       '<label class="lbl">Expediente</label><input value="' + (t ? 'Nº ' + esc(t.expediente) + ' (número de Colabora)' : 'Se asigna al crearlo: el número de Colabora') + '" data-exp disabled>' +
       (t && t.ctrlExp && t.ctrlExp !== t.expediente ? '<p class="small muted">Texto anterior de «Control expediente»: ' + esc(t.ctrlExp.split('\n')[0].slice(0, 120)) + ' (se sustituirá por el número al guardar)</p>' : '') +
-      '<label class="lbl">Descripción del asunto</label><textarea name="DescripcionDelAsunto" rows="8" ' + AREA + '>' + esc(t ? t.descripcion : '') + '</textarea>' +
+      '<label class="lbl">Descripción del asunto</label><textarea name="DescripcionDelAsunto" rows="8" ' + AREA + '>' + esc(t ? t.descripcion : pre ? pre.descripcion : '') + '</textarea>' +
       (conObs ? '<label class="lbl">Observaciones</label><textarea name="Comentarios" rows="4" ' + AREA + '>' + esc(t ? t.observaciones : '') + '</textarea>' : '') +
       '<label class="check"><input type="checkbox" id="nCorreo"' + (pref.correoAlta !== false ? ' checked' : '') + '> ' +
         (t ? 'Enviar correo de asignación a las personas que añada' : 'Enviar correo de asignación al responsable y al personal implicado') + '</label>' +
@@ -1638,16 +2025,16 @@
     $('#nImpl').onclick = function (e) { var q = e.target.closest('[data-quitarimpl]'); if (q) { e.preventDefault(); implicados.splice(Number(q.dataset.quitarimpl), 1); pintarImpl(); } };
     // Fechas escritas en el asunto («antes del viernes»): se usan como NLT si no se elige otra (solo en el alta)
     var tit = $('#fNuevo [name=Title]');
-    if (!t) tit.oninput = function () {
+    if (!t && !pre) tit.oninput = function () {
       var x = interpretar(tit.value);
       $('#nDetect').textContent = x.nlt && !$('#fNuevo [name=nlt]').value ? 'Fecha detectada en el texto: ' + fLarga(x.nlt) + ' (se usará como NLT)' : '';
     };
     $('#nCrear').onclick = function () {
       var f = $('#fNuevo');
       var v = function (n) { var el = f.querySelector('[name=' + n + ']'); return el ? (el.value || '').trim() : ''; };
-      var x = t ? { titulo: '', nlt: '' } : interpretar(v('Title'));
+      var x = t || pre ? { titulo: '', nlt: '' } : interpretar(v('Title'));
       var nlt = v('nlt') || x.nlt;
-      var asunto = t || v('nlt') ? v('Title') : (x.titulo || v('Title'));
+      var asunto = t || pre || v('nlt') ? v('Title') : (x.titulo || v('Title'));
       if (!asunto) return err('Escribe el asunto.');
       if (!nlt && obligNlt) return err('La fecha de vencimiento es obligatoria en esta lista.');
       var resp = !v('resp') ? null : respElegido && respElegido.Title === v('resp') ? respElegido : usuarioPorNombre(v('resp'));
@@ -1724,6 +2111,213 @@
     };
   }
 
+  // ---------- Asuntos desde MENSADEF y desde correos de Outlook ----------
+  // MENSADEF abre esta página con «#importar=<datos>»: el fragmento (lo que va tras «#») no se envía a ningún
+  // servidor, se queda en el navegador. Los correos se leen del archivo .msg o .eml en el propio navegador.
+  var novedades = {}, importacion = null;
+  function tomarImportacion() {
+    // También si esta página está dentro de una página del portal (iframe del mismo servidor) y el «#» va en la del portal
+    var ventana = window;
+    try { if (window.top !== window && window.top.location.origin === location.origin && /#importar=/.test(window.top.location.hash)) ventana = window.top; } catch (e) { /* otro origen */ }
+    var m = /#importar=(.+)$/.exec(ventana.location.hash);
+    if (!m) return;
+    try { importacion = JSON.parse(decodeURIComponent(m[1])); } catch (e) { importacion = null; }
+    if (!importacion || typeof importacion !== 'object' || !importacion.asunto) importacion = null;
+    try { ventana.history.replaceState(null, '', ventana.location.href.replace(/#?importar=.*$/, '').replace(/#$/, '')); } catch (e) { /* sin historial */ }
+    // Con la lista ya cargada (la página estaba abierta) se ofrece en el momento
+    if (importacion && cargadoEn && !cargando) { var d = importacion; importacion = null; if ($('#dlg').open) $('#dlg').close(); ofrecerImportacion(d); }
+  }
+  tomarImportacion();
+  window.addEventListener('hashchange', tomarImportacion);
+
+  var recortar = function (s, n) { s = String(s == null ? '' : s).trim(); return s.length > n ? s.slice(0, n) + '…' : s; };
+  // Línea que identifica el origen: sirve para no crear dos veces el mismo mensaje o correo
+  var marcaOrigen = function (d) { return d.id ? (d.origen === 'MENSADEF' ? 'Id. mensaje MENSADEF: ' : 'Id. correo: ') + d.id : ''; };
+  function datosImportados(d) {
+    var f = d.fecha && !isNaN(new Date(d.fecha)) ? new Date(d.fecha).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    var lineas = [d.origen === 'MENSADEF' ? 'Origen: MENSADEF' + (d.tipo ? ' (' + d.tipo + ')' : '') : 'Origen: correo electrónico',
+      f && 'Fecha: ' + f, d.de && (d.origen === 'MENSADEF' ? 'Autoridad: ' : 'De: ') + d.de, d.para && 'Para: ' + d.para,
+      d.referencia && 'Referencia: ' + d.referencia, d.suReferencia && 'Su referencia: ' + d.suReferencia, d.expediente && 'Expediente: ' + d.expediente,
+      d.adjuntos && d.adjuntos.length && 'Adjuntos: ' + d.adjuntos.join(', '), d.enlace && 'Enlace: ' + d.enlace, marcaOrigen(d)].filter(Boolean);
+    return {
+      origen: d.origen === 'MENSADEF' ? 'MENSADEF' : 'correo', asunto: recortar(d.asunto, 255),
+      descripcion: lineas.join('\n') + (d.texto ? '\n\n' + recortar(d.texto, 8000) : ''),
+      marca: marcaOrigen(d), referencia: d.referencia || '',
+    };
+  }
+  function duplicados(pre) {
+    return tareas.filter(function (t) {
+      var h = t.descripcion + '\n' + t.ctrlExp;
+      if (pre.marca) return h.indexOf(pre.marca) >= 0;
+      return pre.referencia && h.indexOf(pre.referencia) >= 0 && sinTildes(t.asunto) === sinTildes(pre.asunto);
+    });
+  }
+  function ofrecerImportacion(d) {
+    var pre = datosImportados(d), ya = duplicados(pre);
+    if (!ya.length) return formularioNuevo('', null, pre);
+    var dlg = $('#dlg');
+    dlg.innerHTML = '<div class="dh"><h2>Ya está en Colabora</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db">' +
+      '<p>Este ' + (pre.origen === 'MENSADEF' ? 'mensaje de MENSADEF' : 'correo') + ' ya tiene ' + (ya.length === 1 ? 'un asunto' : ya.length + ' asuntos') + ' en «' + esc(pref.lista) + '»:</p>' +
+      ya.map(function (t) { var u = urgencia(t); return '<div>• <a href="#" data-abrir="' + t.id + '">Exp. ' + esc(t.expediente) + ' · ' + esc(t.asunto) + '</a> <span class="badge ' + u.cls + '">' + esc(t.estado || u.txt) + '</span>' + (t.responsable ? ' <span class="muted">👤 ' + esc(t.responsable) + '</span>' : '') + '</div>'; }).join('') +
+      '<div class="acciones"><button type="button" data-cerrar>Cerrar</button><button type="button" class="btn" id="impOtro">Crear otro asunto igualmente</button></div></div>';
+    dlg.showModal();
+    $('#impOtro').onclick = function () { formularioNuevo('', null, pre); };
+  }
+
+  // Correo .eml (formato MIME de Outlook en la web, Thunderbird…)
+  var bytesTexto = function (bytes, cs) {
+    try { return new TextDecoder(String(cs || 'utf-8').trim().replace(/^["']|["']$/g, '')).decode(bytes); } catch (e) { return new TextDecoder('windows-1252').decode(bytes); }
+  };
+  var binario = function (s) { var b = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) b[i] = s.charCodeAt(i) & 255; return b; };
+  var dePrintable = function (s) { return binario(s.replace(/=\r?\n/g, '').replace(/=([0-9A-F]{2})/gi, function (m, h) { return String.fromCharCode(parseInt(h, 16)); })); };
+  var deBase64 = function (s) { try { return binario(atob(s.replace(/[^A-Za-z0-9+/=]/g, ''))); } catch (e) { return new Uint8Array(0); } };
+  // «=?utf-8?B?…?=» y «=?iso-8859-1?Q?…?=» en las cabeceras
+  var cabeceraMime = function (v) {
+    return String(v || '').replace(/\?=\s+=\?/g, '?==?').replace(/=\?([^?]+)\?([BQ])\?([^?]*)\?=/gi, function (m, cs, enc, txt) {
+      return bytesTexto(enc.toUpperCase() === 'B' ? deBase64(txt) : dePrintable(txt.replace(/_/g, ' ')), cs);
+    }).trim();
+  };
+  function parteMime(bruto) {
+    var corte = bruto.search(/\r?\n\r?\n/);
+    var cab = corte < 0 ? bruto : bruto.slice(0, corte), cuerpo = corte < 0 ? '' : bruto.slice(corte).replace(/^\r?\n\r?\n/, '');
+    var h = {};
+    cab.replace(/\r?\n[ \t]+/g, ' ').split(/\r?\n/).forEach(function (l) { var i = l.indexOf(':'); if (i > 0) { var k = l.slice(0, i).trim().toLowerCase(); if (!(k in h)) h[k] = l.slice(i + 1).trim(); } });
+    var param = function (v, n) { var m = new RegExp(';\\s*' + n + '\\*?=\\s*(?:"([^"]*)"|([^;\\s]*))', 'i').exec(v || ''); return m ? (m[1] != null ? m[1] : m[2]) : ''; };
+    return { h: h, cuerpo: cuerpo, tipo: (h['content-type'] || 'text/plain').split(';')[0].trim().toLowerCase(), param: param };
+  }
+  function leerEml(buf) {
+    var bruto = new TextDecoder('latin1').decode(new Uint8Array(buf));
+    var raiz = parteMime(bruto), plano = '', html = '', adjuntos = [];
+    var recorrer = function (p, nivel) {
+      if (nivel > 8) return;
+      if (/^multipart\//.test(p.tipo)) {
+        var lim = p.param(p.h['content-type'], 'boundary');
+        if (!lim) return;
+        p.cuerpo.split('--' + lim).slice(1).forEach(function (trozo) { if (!/^--/.test(trozo)) recorrer(parteMime(trozo.replace(/^\r?\n/, '')), nivel + 1); });
+        return;
+      }
+      var disp = p.h['content-disposition'] || '', nombre = cabeceraMime(p.param(disp, 'filename') || p.param(p.h['content-type'], 'name'));
+      if (/^attachment/i.test(disp) || (nombre && !/^text\//.test(p.tipo))) { if (nombre) adjuntos.push(nombre); return; }
+      if (p.tipo === 'message/rfc822') return;
+      var enc = (p.h['content-transfer-encoding'] || '').toLowerCase();
+      var bytes = enc === 'base64' ? deBase64(p.cuerpo) : enc === 'quoted-printable' ? dePrintable(p.cuerpo) : binario(p.cuerpo);
+      var txt = bytesTexto(bytes, p.param(p.h['content-type'], 'charset') || 'utf-8');
+      if (p.tipo === 'text/plain' && !plano) plano = txt;
+      else if (p.tipo === 'text/html' && !html) html = txt;
+    };
+    recorrer(raiz, 0);
+    var h = raiz.h;
+    if (!h.subject && !h.from && !h.date) throw new Error('El archivo no parece un correo (.eml)');
+    return { origen: 'correo', asunto: cabeceraMime(h.subject) || '(sin asunto)', de: cabeceraMime(h.from), para: recortar(cabeceraMime(h.to), 300),
+      fecha: h.date && !isNaN(new Date(h.date)) ? new Date(h.date).toISOString() : '', id: (h['message-id'] || '').replace(/[<>\s]/g, ''),
+      texto: (plano || texto(html.replace(/<(style|script|head)[\s\S]*?<\/\1>/gi, ''))).replace(/\r\n/g, '\n').trim(), adjuntos: adjuntos };
+  }
+
+  // Correo .msg de Outlook de escritorio: archivo compuesto de Microsoft (CFB) con una propiedad MAPI por flujo
+  function leerMsg(buf) {
+    var dv = new DataView(buf), u8 = new Uint8Array(buf);
+    if (buf.byteLength < 512 || dv.getUint32(0, true) !== 0xE011CFD0 || dv.getUint32(4, true) !== 0xE11AB1A1) throw new Error('El archivo no parece un correo de Outlook (.msg)');
+    var ss = 1 << dv.getUint16(30, true), ms = 1 << dv.getUint16(32, true), corteMini = dv.getUint32(56, true);
+    var sector = function (n) { return (n + 1) * ss; };
+    var fatSect = [];
+    for (var i = 0; i < 109; i++) { var x = dv.getUint32(76 + i * 4, true); if (x < 0xFFFFFFFA) fatSect.push(x); }
+    for (var dif = dv.getUint32(68, true), vueltas = 0; dif < 0xFFFFFFFA && vueltas < 1000; vueltas++) {
+      for (var j = 0; j < ss / 4 - 1; j++) { var y = dv.getUint32(sector(dif) + j * 4, true); if (y < 0xFFFFFFFA) fatSect.push(y); }
+      dif = dv.getUint32(sector(dif) + ss - 4, true);
+    }
+    var fat = [];
+    fatSect.forEach(function (s) { for (var k = 0; k < ss / 4; k++) fat.push(dv.getUint32(sector(s) + k * 4, true)); });
+    var cadena = function (ini, tabla) { var r = [], n = ini; while (n < 0xFFFFFFFA && r.length <= tabla.length) { r.push(n); n = tabla[n]; } return r; };
+    var leerCadena = function (ini) { var cs = cadena(ini, fat), out = new Uint8Array(cs.length * ss); cs.forEach(function (s, k) { out.set(u8.subarray(sector(s), sector(s) + ss), k * ss); }); return out; };
+    var dir = leerCadena(dv.getUint32(48, true)), ddv = new DataView(dir.buffer), ents = [];
+    for (var o = 0; o + 128 <= dir.length; o += 128) {
+      var nl = ddv.getUint16(o + 64, true);
+      ents.push({ nombre: nl > 2 ? new TextDecoder('utf-16le').decode(dir.subarray(o, o + nl - 2)) : '', tipo: dir[o + 66],
+        izq: ddv.getUint32(o + 68, true), der: ddv.getUint32(o + 72, true), hijo: ddv.getUint32(o + 76, true), ini: ddv.getUint32(o + 116, true), tam: ddv.getUint32(o + 120, true) });
+    }
+    var raiz = ents[0], miniFat = [], mini = raiz && raiz.tam ? leerCadena(raiz.ini) : new Uint8Array(0);
+    var mf = leerCadena(dv.getUint32(60, true)), mdv = new DataView(mf.buffer);
+    if (dv.getUint32(64, true)) for (var q = 0; q + 4 <= mf.length; q += 4) miniFat.push(mdv.getUint32(q, true));
+    var flujo = function (e) {
+      if (e.tam >= corteMini) return leerCadena(e.ini).subarray(0, e.tam);
+      var cs = cadena(e.ini, miniFat), out = new Uint8Array(cs.length * ms);
+      cs.forEach(function (s, k) { out.set(mini.subarray(s * ms, s * ms + ms), k * ms); });
+      return out.subarray(0, e.tam);
+    };
+    var hijos = function (e) {
+      var r = [], pila = [e.hijo], vistos = {};
+      while (pila.length) { var n = pila.pop(); if (n >= ents.length || vistos[n]) continue; vistos[n] = 1; r.push(ents[n]); pila.push(ents[n].izq, ents[n].der); }
+      return r;
+    };
+    var props = function (e) { var p = {}; hijos(e).forEach(function (h) { var m = /^__substg1\.0_([0-9A-F]{4})([0-9A-F]{4})$/i.exec(h.nombre); if (m && h.tipo === 2) p[m[1].toUpperCase()] = { tipo: m[2].toUpperCase(), e: h }; }); return p; };
+    var p = props(raiz);
+    var valor = function (id, cp) {
+      var x = cp ? cp[id] : p[id];
+      if (!x) return '';
+      var b = flujo(x.e);
+      return (x.tipo === '001F' ? new TextDecoder('utf-16le').decode(b) : x.tipo === '001E' ? new TextDecoder('windows-1252').decode(b) : bytesTexto(b, 'utf-8')).replace(/\0+$/, '');
+    };
+    var fecha = '', pv = hijos(raiz).find(function (h) { return h.nombre === '__properties_version1.0'; });
+    if (pv) {
+      var pb = flujo(pv), pdv = new DataView(pb.buffer, pb.byteOffset, pb.byteLength);
+      for (var z = 32; z + 16 <= pb.length; z += 16) {
+        var tag = pdv.getUint32(z, true);
+        if (tag === 0x0E060040 || (tag === 0x00390040 && !fecha)) {
+          var ms100 = pdv.getUint32(z + 12, true) * 4294967296 + pdv.getUint32(z + 8, true);
+          fecha = new Date(ms100 / 1e4 - 11644473600000).toISOString();
+        }
+      }
+    }
+    var adjuntos = hijos(raiz).filter(function (h) { return h.tipo === 1 && /^__attach_version1\.0_/.test(h.nombre); })
+      .map(function (a) { var ap = props(a); return valor('3707', ap) || valor('3704', ap) || valor('3001', ap); }).filter(Boolean);
+    var de = valor('0C1A') || valor('0042'), dirDe = valor('5D01') || (/@/.test(valor('0C1F')) ? valor('0C1F') : '');
+    var cuerpo = valor('1000') || texto(valor('1013').replace(/<(style|script|head)[\s\S]*?<\/\1>/gi, ''));
+    if (!p['0037'] && !p['1000'] && !p['0C1A']) throw new Error('El archivo .msg no contiene un correo');
+    return { origen: 'correo', asunto: valor('0037') || '(sin asunto)', de: de + (dirDe && dirDe !== de ? ' <' + dirDe + '>' : ''), para: recortar(valor('0E04'), 300),
+      fecha: fecha, id: valor('1035').replace(/[<>\s]/g, ''), texto: cuerpo.replace(/\r\n/g, '\n').trim() || '(El texto del correo no se ha podido leer: está solo en formato enriquecido; ábrelo en Outlook.)', adjuntos: adjuntos };
+  }
+  function leerCorreo(f) {
+    if (f.size > 40 * 1024 * 1024) return Promise.reject(new Error('El archivo es demasiado grande (más de 40 MB)'));
+    return f.arrayBuffer().then(function (buf) {
+      var u = new Uint8Array(buf, 0, Math.min(8, buf.byteLength));
+      return u[0] === 0xD0 && u[1] === 0xCF ? leerMsg(buf) : leerEml(buf);
+    });
+  }
+  function importarArchivo(f) {
+    if (!f) return;
+    if (!cargadoEn) { aviso('Espera a que termine de cargar la lista'); return; }
+    leerCorreo(f).then(ofrecerImportacion).catch(function (e) {
+      aviso('No se pudo leer el correo');
+      var dlg = $('#dlg');
+      dlg.innerHTML = '<div class="dh"><h2>No se pudo leer el correo</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db">' +
+        '<div class="error">' + esc(e.message || e) + '</div><p class="small">Admite correos de Outlook de escritorio (.msg: arrastra el correo desde Outlook, o guárdalo con <i>Archivo → Guardar como</i>) ' +
+        'y de Outlook en la web (.eml: <i>⋯ → Descargar</i>).</p><div class="acciones"><button type="button" data-cerrar>Cerrar</button></div></div>';
+      if (!dlg.open) dlg.showModal();
+    });
+  }
+  $('#ficheroCorreo').addEventListener('change', function (e) { importarArchivo(e.target.files[0]); e.target.value = ''; });
+  // Arrastrar el correo desde Outlook (o el archivo) a cualquier parte de la página
+  var conArchivos = function (e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0; };
+  document.addEventListener('dragover', function (e) { if (conArchivos(e)) { e.preventDefault(); document.body.classList.add('soltando'); } });
+  document.addEventListener('dragleave', function (e) { if (!e.relatedTarget) document.body.classList.remove('soltando'); });
+  document.addEventListener('drop', function (e) {
+    document.body.classList.remove('soltando');
+    if (!conArchivos(e)) return;
+    e.preventDefault();
+    if ($('#dlg').open) $('#dlg').close();
+    importarArchivo(e.dataTransfer.files[0]);
+  });
+
+  // Actualización automática: el grupo de trabajo ve lo que cambian los demás sin pulsar «Actualizar»
+  var minutosAuto = function () { return pref.autoMin === undefined ? 2 : Number(pref.autoMin) || 0; };
+  setInterval(function () {
+    if (!minutosAuto() || !cargadoEn || document.hidden || $('#dlg').open) return;
+    if (Date.now() - cargadoEn.getTime() >= minutosAuto() * 6e4) cargar(true);
+  }, 15000);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && minutosAuto() && cargadoEn && !$('#dlg').open && Date.now() - cargadoEn.getTime() >= minutosAuto() * 6e4) cargar(true);
+  });
+
   // ---------- Ajustes ----------
   function vistaAjustes() {
     var ests = valores('ESTADO', 'estado');
@@ -1731,6 +2325,8 @@
       '<p class="small muted">Sitio: ' + esc(web ? (web.titulo || '') + ' (' + web.url + ')' : '—') + '<br>Usuario: ' + esc(yo ? yo.Title : '—') +
       (listaInfo ? '<br>Lista: «' + esc(listaInfo.Title) + '», ' + listaInfo.ItemCount + ' elementos' : '') + (cargadoEn ? '<br>Leída a las ' + cargadoEn.toLocaleTimeString('es-ES') : '') + '<br>Versión de la página: ' + esc(VERSION) + '</p>' +
       '<label class="lbl">Nombre de la lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
+      '<p class="small">' + (hayTratar() ? '✔ Columna «Tratar en» (marcas «Punto de situación» y «Tratar con el General»).' : '✕ Falta la columna «Tratar en» para marcar asuntos para el punto de situación o para tratar con el General. <button type="button" class="btn prim" data-creartratar="1">Crear la columna</button> <span class="muted">(hace falta poder administrar la lista)</span>') + '</p>' +
+      '<label class="lbl">Actualizar la lista automáticamente cada (minutos; 0 = no)</label><input id="aAuto" type="number" min="0" max="60" value="' + minutosAuto() + '">' +
       '<label class="lbl">Marcar en naranja cuando queden (días)</label><input id="aDias" type="number" min="1" max="30" value="' + pref.avisoDias + '">' +
       '<label class="lbl">Estado con el que se crean los asuntos</label><select id="aEstAlta">' +
         valores('ESTADO', 'estado').map(function (e) { return '<option' + (estadoAlta(valores('ESTADO', 'estado')) === e ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select>' +
@@ -1744,7 +2340,7 @@
       }).join('') || '<p class="muted">Aún no se han leído los estados.</p>') + '</div>' +
       '<div class="card"><h3 style="margin-top:0">✉ Correo de prueba</h3><p class="small muted">Comprueba si Colabora acepta y entrega los avisos a unas direcciones (separadas por «;»). Si alguna no la acepta, lo dice.</p>' +
       '<input id="aPruebaA" value="' + esc(yo && yo.Email ? yo.Email : '') + '"><div class="acciones"><button data-pruebacorreo="1">Enviar correo de prueba</button></div><div id="aPrueba"></div></div>' +
-      '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">Esta página funciona dentro de Colabora con tu sesión. Lee la lista y <b>solo escribe cuando das de alta un asunto, lo modificas o añades un comentario</b> (nunca borra), con tus permisos de Colabora. El correo de asignación lo envía el propio Colabora con su correo interno. No envía nada fuera del servidor. ' +
+      '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">Esta página funciona dentro de Colabora con tu sesión. Lee la lista y <b>solo escribe cuando das de alta un asunto, lo modificas o añades un comentario</b> (nunca borra), con tus permisos de Colabora. El correo de asignación lo envía el propio Colabora con su correo interno. No envía nada fuera del servidor. Los correos que arrastras (.msg o .eml) y los mensajes que llegan de MENSADEF se leen en este navegador y solo se guardan en Colabora si pulsas «Crear». ' +
       'Tus preferencias (filtros, estados, informe) se guardan solo en este navegador.</p></div>';
   }
 
@@ -1752,6 +2348,7 @@
   function abrir(id) {
     var t = tareas.find(function (x) { return x.id === id; });
     if (!t) return;
+    if (novedades[id]) { delete novedades[id]; render(); }
     var base = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl : '';
     var volver = encodeURIComponent(enlacePagina());
     var u = urgencia(t);
@@ -1765,6 +2362,15 @@
     dlg.innerHTML = '<div class="dh"><h2>' + esc(t.asunto) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db ficha"><div class="ficha-datos">' +
       '<div class="pasos" title="Fase del asunto (se ajusta en Ajustes)">' + FASES.map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<span class="c-' + f[0] + (t.clase === f[0] ? ' on' : '') + '">' + f[1] + ' ' + CLASES[f[0]] + '</span>'; }).join('') + '</div>' +
       c.filter(function (x) { return x[0] && x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
+      '<div class="tratar"><b class="small">Para tratar en:</b> ' + (hayTratar() ? TRATAR.map(function (x) { var on = tieneTratar(t, x[0]);
+        return '<button type="button" class="btn' + (on ? ' on tr-' + x[0] : '') + '" data-tratar="' + x[0] + '" data-id="' + t.id + '" title="' + (on ? 'Quitar la marca' : 'Marcar para tratar') + '">' + (on ? '✓ ' : '') + x[2] + ' ' + x[3] + '</button>'; }).join(' ') :
+        '<span class="small muted">falta la columna «Tratar en» en la lista; la crea quien administre la lista en Ajustes.</span>') + '<span id="trMsg" class="small"></span></div>' +
+      '<div id="psBox" class="psbox" data-id="' + t.id + '"></div>' +
+      '<div class="estadoacc"><b class="small">Estado:</b> ' +
+        (t.clase !== 'hecha' ? '<button type="button" class="btn verde" data-finalizar="' + t.id + '">✅ Finalizar</button>' : '<button type="button" class="btn" data-reabrir="' + t.id + '">↺ Reabrir</button>') +
+        '<select id="selEstado">' + valores('ESTADO', 'estado').map(function (e) { return '<option' + (e === t.estado ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select>' +
+        '<button type="button" class="btn" data-cambiarestado="' + t.id + '">Cambiar estado</button>' +
+        '<span class="sep"></span><button type="button" class="btn rojo" data-eliminar="' + t.id + '">🗑 Eliminar</button><span id="estMsg" class="small"></span></div>' +
       '<div class="acciones"><button type="button" class="btn prim" data-modificar="' + t.id + '">✎ Modificar</button>' +
         (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
         (base ? '<a class="btn" target="_top" href="' + esc(base + '/DispForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Ver en Colabora</a>' : '') + '</div>' +
@@ -1776,6 +2382,7 @@
       '<div id="comLista" data-id="' + t.id + '"></div></div></div>';
     dlg.showModal(); dlg.scrollTop = 0;
     pintarComentarios(t);
+    pintarPS(t);
   }
 
   var aviso = function (txt) { $('#estadoCarga').textContent = txt; setTimeout(function () { if (cargadoEn) $('#estadoCarga').textContent = tareas.length + ' asuntos · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }, 2500); };
@@ -1793,14 +2400,27 @@
     var el = e.target;
     var tab = el.closest('#tabs a');
     if (tab) { if (tab.dataset.v === 'ajustes' && !esAdmin) return; pref.vista = tab.dataset.v; kpiSel = ''; guardarPref(); render(); return; }
-    if (el.closest('#recargar')) { cargar(); return; }
+    if (el.closest('#recargar')) { psCache = null; cargar(); return; }
+    if (el.closest('[data-crearpruebas]')) { crearListaPruebas(el.closest('[data-crearpruebas]')); return; }
+    var trb = el.closest('[data-tratar]');
+    if (trb) { cambiarTratar(Number(trb.dataset.id), trb.dataset.tratar, trb); return; }
+    var trp = el.closest('[data-imptratar]');
+    if (trp) { imprimirTratar(trp.dataset.imptratar); return; }
+    var psf = el.closest('[data-psform]');
+    if (psf) { psFormulario(tareas.find(function (x) { return x.id === Number(psf.dataset.psform); }), psf.dataset.psaport); return; }
+    if (el.closest('[data-psno]')) { $('#psForm').innerHTML = ''; return; }
+    var pso = el.closest('[data-psok]');
+    if (pso) { psGuardar(tareas.find(function (x) { return x.id === Number(pso.dataset.psok); }), pso); return; }
+    if (el.closest('[data-creartratar]')) { crearColumnaTratar(el.closest('[data-creartratar]')); return; }
+    if (el.closest('[data-renombrarpruebas]')) { renombrarListaPruebas(el.closest('[data-renombrarpruebas]')); return; }
     if (el.closest('[data-pruebacorreo]')) { correoPrueba(el.closest('[data-pruebacorreo]')); return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); return; }
     var k = el.closest('[data-kpi]');
     if (k) { kpiSel = kpiSel === k.dataset.kpi ? '' : k.dataset.kpi; render(); return; }
     var md = el.closest('[data-modo]');
     if (md) { pref.modo = md.dataset.modo; guardarPref(); render(); return; }
-    if (el.closest('[data-limpiar]')) { pref.q = pref.negociado = pref.estado = pref.prio = pref.resp = ''; kpiSel = ''; guardarPref(); render(); return; }
+    if (el.closest('[data-limpiar]')) { pref.q = pref.negociado = pref.estado = pref.prio = pref.resp = pref.terDesde = pref.terHasta = ''; kpiSel = ''; verHechas = 200; guardarPref(); render(); return; }
+    if (el.closest('[data-mashechas]')) { verHechas += 200; render(); return; }
     var d = el.closest('[data-dia]');
     if (d) { diaSel = d.dataset.dia; render(); return; }
     var m = el.closest('[data-mes]');
@@ -1846,7 +2466,18 @@
     var inf = el.closest('[data-inf]');
     if (inf) { accionInforme(inf.dataset.inf); return; }
     if (el.closest('#nuevo')) { if (cargadoEn) formularioNuevo(''); return; }
+    if (el.closest('#desdeCorreo')) { $('#ficheroCorreo').click(); return; }
     if (el.closest('#altaRapidaBtn')) { formularioNuevo($('#altaRapida').value.trim()); return; }
+    var fr = el.closest('[data-finrapido]');
+    if (fr) {
+      if (!fr.dataset.seguro) { fr.dataset.seguro = '1'; fr.textContent = '¿Finalizar? Pulsa otra vez'; fr.classList.add('seguro'); setTimeout(function () { if (fr.isConnected) { delete fr.dataset.seguro; fr.textContent = '✔ Finalizar'; fr.classList.remove('seguro'); } }, 4000); return; }
+      ponerEstado(Number(fr.dataset.finrapido), estadoDe('hecha'), fr); return;
+    }
+    var bf = el.closest('[data-finalizar]'), br = el.closest('[data-reabrir]'), bc = el.closest('[data-cambiarestado]'), be = el.closest('[data-eliminar]');
+    if (bf) { ponerEstado(Number(bf.dataset.finalizar), estadoDe('hecha'), bf); return; }
+    if (br) { ponerEstado(Number(br.dataset.reabrir), estadoDe('curso') || estadoDe('pendiente'), br); return; }
+    if (bc) { ponerEstado(Number(bc.dataset.cambiarestado), $('#selEstado').value, bc); return; }
+    if (be) { eliminarAsunto(Number(be.dataset.eliminar), be); return; }
     var t = el.closest('.tarea');
     if (t) abrir(Number(t.dataset.id));
   });
@@ -1859,10 +2490,13 @@
     else if (el.id === 'fest') pref.estado = el.value;
     else if (el.id === 'fprio') pref.prio = el.value;
     else if (el.id === 'fresp') pref.resp = el.value;
+    else if (el.id === 'fterd') { pref.terDesde = el.value; verHechas = 200; }
+    else if (el.id === 'fterh') { pref.terHasta = el.value; verHechas = 200; }
     else if (el.id === 'aDias') pref.avisoDias = Math.max(1, Number(el.value) || 3);
     else if (el.id === 'aCom') pref.campoComentarios = el.value;
+    else if (el.id === 'aAuto') pref.autoMin = Math.max(0, Math.min(60, Number(el.value) || 0));
     else if (el.id === 'aEstAlta') pref.estadoAlta = el.value;
-    else if (el.id === 'aLista') { pref.lista = el.value.trim() || 'Gestor de Tareas'; guardarPref(); listaInfo = null; cargar(); return; }
+    else if (el.id === 'aLista') { pref.lista = listaPermitida(el.value); guardarPref(); listaInfo = null; cargar(); return; }
     else if (el.dataset.mapa !== undefined) {
       pref.mapaEstados[el.dataset.mapa] = el.value;
       tareas.forEach(function (t) { t.clase = claseEstado(t.estado); t.incoh = incoherencia(t); });

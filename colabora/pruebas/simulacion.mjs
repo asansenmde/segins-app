@@ -4,6 +4,8 @@ const { chromium } = require(require('child_process').execSync('npm root -g').to
 const fs = require('fs');
 // TAREAS_HTML=colabora/colabora/tareas-nlt-colabora.html para probar la versión protegida; VERBOSE=1 para SharePoint 2013 (odata=verbose)
 const html0 = fs.readFileSync(process.env.TAREAS_HTML ? process.env.TAREAS_HTML : new URL('../tareas-nlt-colabora.html', import.meta.url), 'utf8'); const html = html0;
+const CLAVE = /mensadef/.test(process.env.TAREAS_HTML || '') ? 'tareas-nlt-colabora-mensadef' : /pruebas/.test(process.env.TAREAS_HTML || '') ? 'tareas-nlt-colabora-pruebas' : 'tareas-nlt-colabora';
+let admin = false;   // Control total en la lista (solo entonces sale Ajustes)
 const VERBOSE = !!process.env.VERBOSE, CAPTURAS = process.env.CAPTURAS || '';
 const aVerbose = j => j && !j.d && !j.error ? (Array.isArray(j.value) ? { d: { results: j.value, __next: j['odata.nextLink'] } } : { d: j }) : j;
 const WEB = '/et/SUIGESUR/JSUIGE';
@@ -12,7 +14,8 @@ const PRIOS = ['Alta', 'Media', 'Baja', 'Urgente'];
 const NEGS = ['Seguridad', 'Personal', 'Logística'];
 const hoy = new Date(); const d = n => { const x = new Date(hoy); x.setDate(x.getDate() + n); x.setHours(0, 0, 0, 0); return x.toISOString(); };
 const items = Array.from({ length: 706 }, (_, i) => {
-  const est = i % 13 === 5 ? 'FINALIZADO' : ESTADOS[i % 4];
+  // MUCHAS=1: la mitad terminados (más de 200), para probar «Mostrar más» y «Terminados desde / hasta»
+  const est = (process.env.MUCHAS ? i % 2 === 1 : i % 13 === 5) ? 'FINALIZADO' : ESTADOS[i % 4];
   return { Id: i + 1, Title: `Asunto ${i + 1}`, ESTADO: est, Prioridad: PRIOS[i % 4], FechaDeInicio: d(-30), FechaVencimiento: i % 9 === 0 ? null : d((i % 40) - 10),
     fECHAFINALIZACION: est === 'FINALIZADO' ? d(-(i % 20)) : null, NegociadoAsignado: NEGS[i % 3], NegociadosImplicados: [NEGS[(i + 1) % 3]],
     Descripcion: 'Resumen ' + i, DescripcionDelAsunto: `<div><p>Descripción <b>detallada</b> ${i}</p><p>Segunda línea</p></div>`, Comentarios: i % 5 ? '' : 'Obs <br>línea 2',
@@ -26,7 +29,7 @@ const items = Array.from({ length: 706 }, (_, i) => {
 items[2].fECHAFINALIZACION = d(-3); items[18].fECHAFINALIZACION = null;
 // Colabora que rechaza direcciones («destinatario válido»): buzonMal = direcciones rechazadas; enviados = las que acepta
 let buzonMal = [], enviados = [];
-let admin = false;   // Control total en la lista (solo entonces sale Ajustes)
+let conTratar = false, papelera = [];   // asuntos «eliminados» (se restauran tras comprobarlo)   // columna «TratarEn» (se crea desde Ajustes)
 let denegar = false, correoFalla = false, anexar = true, versiones = {};
 async function prueba() {
   const b = await chromium.launch();
@@ -48,6 +51,7 @@ async function prueba() {
     const [base, resto] = u.split('/_api/');
     if (base.replace('https://colabora.mdef.es', '') !== WEB) return r.fulfill({ status: 404, body: '' });
     const mItem = resto.match(/\/items\((\d+)\)/);
+    if (mItem && req.method() === 'POST' && resto.endsWith('/recycle()')) { posts.push({ ruta: resto, cab: req.headers(), cuerpo: '' }); const i = items.findIndex(x => x.Id === Number(mItem[1])); if (i >= 0) papelera.push([i, items.splice(i, 1)[0]]); return r.fulfill({ json: { d: { Recycle: '00000000-0000-0000-0000-000000000001' } } }); }
     if (mItem && req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
       const it = items.find(x => x.Id === Number(mItem[1]));
@@ -70,6 +74,7 @@ async function prueba() {
     }
     if (req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
+      if (resto.includes('/fields/createfieldasxml')) { if (/TratarEn/.test(req.postData())) conTratar = true; return r.fulfill({ json: { d: {} } }); }
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DIGEST-123', FormDigestTimeoutSeconds: 1800 } } } });
       if (resto.startsWith('SP.UI.ApplicationPages.ClientPeoplePickerWebServiceInterface')) {
         const q = JSON.parse(req.postData()).queryParams.QueryString.toUpperCase();
@@ -101,13 +106,13 @@ async function prueba() {
     if (resto.startsWith('web/currentuser')) return r.fulfill({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' } });
     if (resto.startsWith('web/siteusers')) return r.fulfill({ json: { value: [{ Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' }, { Id: 31, Title: 'GARCIA LOPEZ ANA', Email: 'agarcia@et.mde.es' }, { Id: 32, Title: 'PEREZ RUIZ LUIS', Email: 'lperez@et.mde.es' }, { Id: 41, Title: 'Garcia Lopez, Ana', Email: 'agarcia2@et.mde.es' }] } });
     if (resto.includes("/fields")) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'Prioridad', Choices: PRIOS }, { InternalName: 'NegociadoAsignado', Choices: NEGS },
-      { InternalName: 'NegociadosImplicados', Choices: NEGS }, { InternalName: 'DescripcionDelAsunto', RichText: true }, { InternalName: 'Comentarios', RichText: false }, { InternalName: 'FechaVencimiento', Required: false }] } });
+      { InternalName: 'NegociadosImplicados', Choices: NEGS }, { InternalName: 'DescripcionDelAsunto', RichText: true }, { InternalName: 'Comentarios', RichText: false }, { InternalName: 'FechaVencimiento', Required: false }].concat(conTratar ? [{ InternalName: 'TratarEn', Choices: ['PUNTO DE SITUACIÓN', 'TRATAR CON EL GENERAL'], TypeAsString: 'MultiChoice' }] : []) } });
     if (resto.includes("/items")) {
       const skip = Number((u.match(/skip=(\d+)/) || [0, 0])[1]);
       const next = skip + 500 < items.length ? `https://colabora.mdef.es${WEB}/_api/web/lists/getbytitle('Gestor de Tareas')/items?skip=${skip + 500}` : undefined;
       return r.fulfill({ json: { value: items.slice(skip, skip + 500), 'odata.nextLink': next } });
     }
-    if (resto.startsWith("web/lists/getbytitle('Gestor de Tareas')?")) return r.fulfill({ json: { Id: 'g', Title: 'Gestor de Tareas', ItemCount: items.length, ListItemEntityTypeFullName: 'SP.Data.Gestor_x0020_de_x0020_TareasListItem', EffectiveBasePermissions: { High: '0', Low: String(admin ? 0x7FFFFFFF : 0x7) }, RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor de Tareas' } } });
+    if (/^web\/lists\/getbytitle\('Gestor de Tareas[^']*'\)\?/.test(resto)) return r.fulfill({ json: { Id: 'g', Title: resto.match(/getbytitle\('([^']*)'/)[1], ItemCount: items.length, EffectiveBasePermissions: { High: '0', Low: String(admin ? 0x7FFFFFFF : 0x1F) }, ListItemEntityTypeFullName: 'SP.Data.Gestor_x0020_de_x0020_TareasListItem', RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor de Tareas' } } });
     return r.fulfill({ status: 404, body: '' });
   });
   await p.goto('https://colabora.mdef.es' + WEB + '/seguridad/Documentos%20compartidos/tareas-nlt-colabora.html'); await p.waitForTimeout(1500);
@@ -118,7 +123,7 @@ async function prueba() {
   console.log('pie:', await p.textContent('.fpie'), '| autor:', await p.textContent('footer.autor'));
   if (CAPTURAS) await p.screenshot({ path: CAPTURAS + '/movil-tarjetas.png', fullPage: false });
   await p.click('details[data-grupo=semana] > summary');
-  console.log('semana abierta y recordada:', await p.evaluate(() => JSON.parse(localStorage.getItem('tareas-nlt-colabora')).grupos.semana));
+  console.log('semana abierta y recordada:', await p.evaluate(K => JSON.parse(localStorage.getItem(K)).grupos.semana, CLAVE));
   await p.click('[data-kpi=vencidas]');
   console.log('solo vencidas:', (await p.$$eval('details.grupo', ds => ds.map(d => d.dataset.grupo + (d.open ? '(abierto)' : '')))).join(' '));
   await p.click('.fpie [data-kpi]');
@@ -130,6 +135,52 @@ async function prueba() {
   console.log('filtro responsable:', await p.textContent('.fpie'), '| responsables distintos:', await p.$$eval('details.grupo .tarea', ts => new Set(ts.map(t => (t.innerText.match(/👤 (.+)/) || [])[1])).size));
   await p.click('[data-limpiar]');
   console.log('tras limpiar:', await p.inputValue('#fresp') === '', '| quien sigue en', await p.inputValue('#fquien'));
+  // Terminados: todos, de 200 en 200, y por fechas
+  { const nTer = () => p.$$eval('details[data-grupo=hechas] .tarea', x => x.length);
+    console.log('terminados en pantalla:', await nTer(), '| botón más:', (await p.textContent('[data-mashechas]').catch(() => 'no hay')).trim());
+    if (await p.$('[data-mashechas]')) { await p.click('[data-mashechas]'); console.log('tras «mostrar más»:', await nTer()); }
+    const f = n => { const x = new Date(); x.setDate(x.getDate() - n); return x.toISOString().slice(0, 10); };
+    await p.fill('#fterd', f(5)); await p.dispatchEvent('#fterd', 'change'); await p.fill('#fterh', f(2)); await p.dispatchEvent('#fterh', 'change'); await p.waitForTimeout(200);
+    console.log('terminados del', f(5), 'al', f(2) + ':', await nTer(), '|', (await p.textContent('details[data-grupo=hechas] summary')).replace(/\s+/g, ' '), '| fuera de rango:',
+      await p.$$eval('details[data-grupo=hechas] .tarea', x => x.length) && 'ver arriba');
+    // Ajustes solo con Control total
+    { const ajVisible = () => p.$eval('#tabs a[data-v="ajustes"]', a => getComputedStyle(a).display !== 'none');
+      console.log('Ajustes sin Control total: pestaña visible:', await ajVisible());
+      await p.evaluate(() => document.querySelector('#tabs a[data-v="ajustes"]').click()); await p.waitForTimeout(300);
+      console.log('  forzar el clic: pestaña activa:', await p.$eval('#tabs a.on', a => a.dataset.v));
+      admin = true; await p.click('#recargar'); await p.waitForTimeout(2500);
+      console.log('Ajustes con Control total: pestaña visible:', await ajVisible()); }
+    // Marcas «para tratar»: crear la columna en Ajustes, marcar en la ficha, recuadro e impresión
+    await p.click('#tabs [data-v=ajustes]'); await p.waitForTimeout(200);
+    console.log('ajustes, columna:', (await p.textContent('p:has([data-creartratar])').catch(() => 'sin botón')).slice(0, 60));
+    await p.click('[data-creartratar]'); await p.waitForTimeout(1500);
+    console.log('tras crear:', (await p.$$eval('p.small', n => (n.find(x => /Tratar en/.test(x.textContent)) || { textContent: '-' }).textContent)).slice(0, 60));
+    await p.click('#tabs [data-v=nlt]'); await p.waitForTimeout(300);
+    await p.click('details.grupo .tarea >> nth=0'); await p.waitForTimeout(300); const idT = await p.$eval('[data-tratar=gen]', b => b.dataset.id);
+    await p.click('[data-tratar=gen]'); await p.waitForTimeout(1500);
+    const itT = items.find(x => x.Id === Number(idT));
+    console.log('marcado nº', idT, ':', JSON.stringify(itT.TratarEn && itT.TratarEn.results), '| botón:', (await p.textContent('[data-tratar=gen]')).trim());
+    await p.click('[data-tratar=ps]'); await p.waitForTimeout(1500); await p.click('#dlg [data-cerrar]');
+    console.log('recuadros:', (await p.$$eval('[data-kpi^="tr:"]', b => b.map(x => x.innerText.replace(/\s+/g, ' ')))).join(' | '));
+    await p.click('[data-kpi="tr:gen"]'); await p.waitForTimeout(200);
+    console.log('lista para el General:', await p.$$eval('details[data-grupo=tratar] .tarea', x => x.length), '| chip en tarjeta:', await p.$$eval('details[data-grupo=tratar] .badge.tr-gen', x => x.length));
+    const [imp] = await Promise.all([p.context().waitForEvent('page'), p.click('[data-imptratar]')]); await imp.waitForLoadState();
+    console.log('impresión:', (await imp.textContent('h2')).trim(), '|', await imp.$$eval('table tr', x => x.length - 1), 'filas'); await imp.close();
+    await p.click('[data-kpi="tr:gen"]');
+    // Estado desde la ficha: finalizar, reabrir, cambiar a cualquiera y eliminar (a la papelera)
+    { const est = id => { const x = items.find(y => y.Id === id); return x ? x.ESTADO + (x.fECHAFINALIZACION ? ' (fin ' + String(x.fECHAFINALIZACION).slice(0, 10) + ')' : ' (sin fin)') : 'ELIMINADO'; };
+      await p.click('details.grupo .tarea >> nth=0'); await p.waitForTimeout(300); const id = Number(await p.$eval('[data-finalizar]', b => b.dataset.finalizar));
+      await p.click('[data-finalizar]'); await p.waitForTimeout(1500); const e1 = est(id);
+      await p.click('[data-reabrir]'); await p.waitForTimeout(1500); const e2 = est(id);
+      await p.selectOption('#selEstado', 'EN ESPERA DE RESPUESTA'); await p.click('[data-cambiarestado]'); await p.waitForTimeout(1500); const e3 = est(id);
+      await p.click('[data-eliminar]'); const txt = (await p.textContent('[data-eliminar]')).trim(); await p.click('[data-eliminar]'); await p.waitForTimeout(1500);
+      const elim = est(id); papelera.forEach(([i, x]) => items.splice(i, 0, x)); papelera = []; await p.click('#recargar'); await p.waitForTimeout(1200);
+      console.log('estados nº', id, ':', e1, '→ reabrir:', e2, '→ cambiar:', e3, '| eliminar pide confirmar:', txt, '→', elim, '| ficha cerrada:', !(await p.evaluate(() => document.querySelector('#dlg').open)));
+      // Finalizar desde la pantalla principal (dos clics)
+      const b0 = p.locator('[data-finrapido]').first(); const id2 = Number(await b0.getAttribute('data-finrapido'));
+      await b0.click(); const t1 = (await b0.textContent()).trim(); await b0.click(); await p.waitForTimeout(1500);
+      console.log('finalizar rápido nº', id2, ':', t1, '→', est(id2), '| ficha abierta:', await p.evaluate(() => document.querySelector('#dlg').open)); }
+    await p.click('[data-limpiar]'); console.log('tras limpiar, fechas vacías:', !(await p.inputValue('#fterd')) && !(await p.inputValue('#fterh'))); }
   await p.click('[data-modo=tabla]');
   console.log('tabla filas:', await p.$$eval('table.tt tr.tarea', x => x.length));
   await p.setViewportSize({ width: 1280, height: 900 });
@@ -272,17 +323,6 @@ async function prueba() {
   console.log('buscar «exp 3»:', (await p.$$eval('.tarea', n => n.map(x => x.innerText.replace(/\s+/g, ' ').slice(0, 160)))).slice(0, 3).join(' || '));
   await p.fill('#fq', ''); await p.waitForTimeout(300);
   console.log('avisos ⚠ en pantalla:', await p.$$eval('.badge.warn', n => [...new Set(n.map(x => x.textContent))].join(' / ')));
-  // Ajustes solo con Control total
-  const ajVisible = () => p.$eval('#tabs a[data-v="ajustes"]', a => getComputedStyle(a).display !== 'none');
-  console.log('Ajustes sin Control total: pestaña visible:', await ajVisible());
-  await p.evaluate(() => document.querySelector('#tabs a[data-v="ajustes"]').click()); await p.waitForTimeout(300);
-  console.log('  forzar el clic abre Ajustes:', !!(await p.$('#aLista')), '| pestaña activa:', await p.$eval('#tabs a.on', a => a.dataset.v));
-  admin = true; await p.click('#recargar'); await p.waitForTimeout(2500);
-  console.log('Ajustes con Control total: pestaña visible:', await ajVisible());
-  await p.click('#tabs a[data-v="ajustes"]'); await p.waitForTimeout(300);
-  console.log('  abre Ajustes:', !!(await p.$('#aLista')));
-  admin = false; await p.click('#recargar'); await p.waitForTimeout(2500);
-  console.log('Tras perder el permiso (con Ajustes abierto): pestaña visible:', await ajVisible(), '| vuelve a:', await p.$eval('#tabs a.on', a => a.dataset.v), '| sin Ajustes en pantalla:', !(await p.$('#aLista')));
   console.log('errores:', errs);
   await b.close();
 }

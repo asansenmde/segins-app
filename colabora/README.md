@@ -35,6 +35,84 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-10 · 1: se juntan la · 2 y la · 3**, que se hicieron por separado en dos sesiones: Ajustes solo con
+  Control total (· 2) y «📋 Incluir en el Punto de Situación» solo para los asuntos ⭐ Tratar con el General (· 3).
+- **Versión 2026-11-09 · 2: Ajustes solo con Control total**, en el Gestor común y en META.
+  - La pestaña Ajustes sale solo a quien tiene «Control total» (permiso «Administrar permisos») en la lista o, si la
+    lista no se puede leer, en el sitio. A los demás no les aparece y, si la tenían abierta, vuelven a «Tareas».
+  - Esto se hizo la mañana del 09/11 en otra rama (`claude/task-manager-web-nlt-n7elx4`, commit 8fca758), pero sobre
+    la versión 2026-10-23 · 3. La copia que salió de allí no tenía Finalizar, Eliminar, Tratar en, etc. Ahora está
+    portado a la versión buena.
+- **Versión 2026-11-09 · 3:** pasan al punto de situación los asuntos marcados **⭐ Tratar con el General** (decisión del
+  usuario): sin esa marca la ficha lo explica y no ofrece incluirlo; incluir no cambia las marcas del asunto. Las
+  propuestas para PROCOR serán los asuntos ⭐ que aún no estén en el punto abierto.
+- **Versión 2026-11-09 · 2: «📋 Incluir en el Punto de Situación».** Un asunto importante (llegado de SENDERO y dado de
+  alta en META) se incluye desde su ficha en el punto de situación abierto de la aplicación **Puntos de Situación de
+  SUIGESUR** (proyecto aparte, mismo sitio; ver `PENDIENTES.md`).
+  - Recuadro azul en la ficha, bajo «Para tratar en». Si la aplicación aún no está instalada (faltan sus listas), lo dice y
+    no hace nada más: **queda preparado** para cuando se instale.
+  - «📋 Incluir en PS-año-número» abre un formulario: punto abierto, negociado (el del asunto según «PS Negociados»), asunto
+    y situación (de la descripción y el último comentario, corregibles) y prioridad (Alta si el asunto es alta o crítica).
+  - Solo deja escribir en los negociados de los que el usuario es miembro; los de PROCOR (coordinación) en todos. Si no
+    puede, PROCOR lo verá como propuesta.
+  - Crea la entrada en «PS Aportaciones» con `Origen` META, `OrigenLista`, `OrigenId` y `OrigenUrl` (enlace a la ficha), al
+    final de su negociado, sin duplicar (en la · 2 ponía además la marca 📋; desde la · 3, no).
+  - Después la ficha muestra «✓ Incluido en PS-2026-045 · PRL» y, mientras el punto esté abierto, «✎ Actualizar la situación»
+    (relee la entrada y la modifica con `MERGE` + `IF-MATCH`). Tras la hora de cierre no deja tocarla, y si Colabora la
+    rechaza por la validación de la lista lo explica.
+  - Contrato con la aplicación (sus listas las crea ella al instalarse): «PS Puntos» (`Referencia`, `FechaPunto`,
+    `Apertura`, `Cierre`, `EstadoPunto`); «PS Negociados» (`Title`, `Orden`, `NombreGestor` con los valores de
+    NegociadoAsignado separados por «;», `Miembros`, `Coordina`, `EnInforme`); «PS Aportaciones» (`Title`, `PuntoId`,
+    `Referencia`, `Negociado`, `Situacion`, `Prioridad` Normal/Alta, `Orden`, `CierrePunto`, `Origen`, `OrigenLista`,
+    `OrigenId`, `OrigenUrl`).
+  - La copia de pruebas usa las listas «PS … PRUEBAS». Prueba: `node colabora/pruebas/punto-situacion.mjs` (también
+    `VERBOSE=1` y `TAREAS_HTML=colabora/colabora/…` con las copias protegidas).
+- **Versión 2026-11-09 · 1: la copia `--propio` se llama META** («Del mensaje a la tarea»), hermana de SENDERO.
+  - Cabecera con un escudo azul marino de filo dorado y la «M» dorada, el nombre en letras espaciadas, el lema y debajo
+    «Gestión de expedientes MENSADEF — Cte. Alfredo Sánchez Sender».
+  - META sale también en el título de la pestaña, la bienvenida, el pie de autoría y el pie de los informes, y en
+    «Preparar META» cuando falta la lista.
+  - La lista sigue siendo «Gestor de Tareas MENSADEF» y la memoria la misma: no cambia nada de los datos.
+  - El Gestor común y la copia de pruebas solo cambian de número de versión.
+- **Versión 2026-11-05 · 2:** la copia `--propio` se presenta como **«GESTIÓN DE EXPEDIENTES MENSADEF»**, en azul marino y
+  oro (cabecera con emblema y subtítulo, bienvenida, pestañas y botones), para no confundirla con el Gestor común, que es
+  verde. Pendiente, aparcado por el usuario: control de acceso por perfil y negociado (análisis hecho el 05/11/2026).
+- **Versión 2026-11-05 · 1: estado del asunto.**
+  - **En la ficha:** «✅ Finalizar» (o «↺ Reabrir» si ya está terminado), «Cambiar estado» a cualquiera de los de la
+    lista y «🗑 Eliminar».
+  - **Finalizar** pone el primer estado de terminado (FINALIZADO) y, si no la tenía, la fecha de fin de hoy.
+  - **Reabrir** pone el primer estado «en curso» y quita la fecha de fin. Al cambiar a mano, la fecha se ajusta igual.
+  - **Eliminar** pide un segundo clic y manda el asunto a la papelera de reciclaje de Colabora (`recycle()`), de donde se
+    puede recuperar.
+  - **En la pantalla principal**, cada asunto abierto tiene «✔ Finalizar», que pide un segundo clic para confirmar.
+- **Versión 2026-11-04 · 3: marcas «para tratar».** En la ficha, «📋 Punto de situación» y «⭐ Tratar con el General»
+  marcan o quitan la marca, y se guarda en Colabora: lo ve todo el que use la lista. La tarjeta lleva la marca, y la pantalla
+  inicial tiene un recuadro para cada una, con su lista y «🖨 Imprimir relación» (asunto, estado, prioridad, NLT,
+  responsable y último comentario). Usa la columna de opción múltiple `TratarEn`; si falta, en Ajustes la crea con «Crear
+  la columna» quien pueda administrar la lista. Hay que crearla en cada lista: común, MENSADEF y pruebas.
+- **Versión 2026-11-04 · 2:** en la pantalla inicial se ven todos los terminados (antes solo los 200 últimos), de 200 en 200
+  con «Mostrar más», y hay filtro «Terminados desde / hasta» (por la fecha de fin). Nueva copia **Gestor propio de
+  MENSADEF** (`node proteger.mjs --propio` → `colabora/tareas-nlt-colabora-mensadef.html`): lista «Gestor de Tareas
+  MENSADEF», sin banda roja ni [PRUEBAS]; si falta la lista, ofrece usar la de pruebas cambiándole el nombre (conserva sus
+  tareas) o crear una vacía.
+- **Versión 2026-11-04 · 1 (buena):** pasan a la copia buena las novedades que estaban solo en la de pruebas (recibir
+  mensajes de MENSADEF con «#importar», alta desde correos .msg/.eml, avisos de duplicados, actualización automática), para
+  que el visor de MENSADEF pueda crear tareas en el Gestor común. La copia protegida se genera con la protección nueva
+  (compactada, sin `</head>`, `<body>` ni `<!--` literales dentro del código; ver `SHAREPOINT.md`).
+- **Copia de pruebas** `colabora/tareas-nlt-colabora-pruebas.html` (se genera con `node proteger.mjs --pruebas`): se sube
+  junto a la buena sin sustituirla. Trabaja sobre la lista **«Gestor de Tareas PRUEBAS»** y nunca sobre la real (no deja
+  cambiarla a otra que no acabe en PRUEBAS); guarda sus preferencias aparte; banda roja «VERSIÓN DE PRUEBAS»; los correos
+  llevan «[PRUEBAS]» en el asunto. Si falta su lista, ofrece «Crear la lista de pruebas»: copia vacía de las columnas de
+  «Gestor de Tareas» (de la real solo se leen las columnas). La versión 2026-10-27 · 1 está **solo en la copia de pruebas**;
+  `colabora/tareas-nlt-colabora.html` sigue siendo la 2026-10-23 · 3 hasta que el usuario la dé por buena.
+- **Asuntos desde MENSADEF y desde correos de Outlook** (versión 2026-10-27 · 1; ver `SINCRONIZACION.md`): el visor de
+  MENSADEF abre la página con `#importar=<datos>` («➜ Crear tarea en Colabora») y aparece el alta rellena (asunto y, en
+  la descripción, origen, referencias, expediente de MENSADEF, enlace y texto). También funciona si el `#` llega a la página
+  del portal que la contiene. Los correos se arrastran a la página o se eligen con «✉ Desde correo»: `.msg` (Outlook de
+  escritorio) y `.eml` (Outlook en la web), leídos en el navegador. **Sin duplicados**: la descripción lleva
+  `Id. mensaje MENSADEF: …` o `Id. correo: …`; si se vuelve a pasar, avisa y enseña el asunto existente.
+- **Actualización automática** (cada 2 minutos por defecto, *Ajustes*; 0 = no): con la pestaña visible y sin ficha abierta;
+  marca «Nuevo» / «Cambiado» lo que han tocado otras personas hasta que se abre.
 - **Dentro de una página del portal** (iframe): los enlaces de los correos y «Ver en Colabora» llevan a la página del
   portal (también con `start.aspx#/…`).
 - **Alta de asuntos**: botón «＋ Nuevo asunto» o el campo rápido de *Mis NLT*, que entiende fechas escritas
@@ -73,7 +151,10 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   horizontal) con los asuntos abiertos en su NLT y los filtros aplicados; desde ahí se imprime o se guarda en PDF.
   Si el navegador no deja abrir ventanas, se descarga como `.html` para abrirlo e imprimirlo.
 - **Estado al crear**: «Remitido al negociado» (como al enviarlo desde Colabora); se cambia en *Ajustes*.
+- `pruebas/punto-situacion.mjs`: inclusión de asuntos en el Punto de Situación (instalada o no, permisos, cierre, validación).
 - `pruebas/simulacion.mjs`: prueba con Playwright contra un Colabora simulado (`node colabora/pruebas/simulacion.mjs`).
+  `pruebas/importar.mjs`: alta desde MENSADEF (también dentro del portal) y desde correos .msg/.eml, duplicados y
+  actualización automática (`TAREAS_HTML=colabora/colabora/tareas-nlt-colabora.html` para la copia protegida).
   `VERBOSE=1` simula SharePoint 2013 (*verbose*); `TAREAS_HTML=colabora/colabora/tareas-nlt-colabora.html` prueba la
   copia protegida; `CAPTURAS=<carpeta>` guarda capturas del panel.
 - `prueba-sharepoint.html`: página de diagnóstico que comprueba si el sitio ejecuta páginas propias y
@@ -83,10 +164,6 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   Colabora rechaza una dirección («destinatario válido»), el aviso se reenvía uno a uno, por la cuenta de la persona y,
   si tiene una cuenta antigua sin buzón, a su otra cuenta con su mismo nombre. Quien tramita ve a quién llegó y a quién
   no, y cada aviso queda anotado en los comentarios del asunto. En *Ajustes*, «Correo de prueba».
-
-- **Ajustes solo con Control total** (desde la versión 2026-11-09 · 1): la pestaña sale solo a quien tiene «Control
-  total» (permiso «Administrar permisos») en la lista o, si la lista no se puede leer, en el sitio. A los demás no les
-  aparece y, si la tenían abierta, vuelven a «Tareas».
 
 ## Correspondencia de columnas
 
