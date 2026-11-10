@@ -335,4 +335,12 @@ con el formato *verbose* de SharePoint 2013.
   - **Portal más paciente:** espera hasta 45 s a que la aplicación del ámbito pida sus datos (antes 15 s; con 15 s salía
     «UsuarioCelulas: HTTP 500»). Si aun así falla, vuelve a preparar y lo intenta otra vez. En la entrada automática,
     toma ya esos datos del marco del inicio de sesión.
+- **2026-11-10 · 7: «UsuarioCelulas / EtiquetasObtener → 500» entrando por la portada.**
+  - **Causa:** la propia portada consulta el servicio con la colección raíz (`urlColeccionSitio=https://mensadef.mdef.es`).
+    SENDERO tomaba esas consultas como «datos de la aplicación» y no los sustituía por los del ámbito, así que todo lo
+    del ámbito contestaba 500.
+  - **Arreglo:** fuera de un ámbito no se toman las consultas de la página. `prepararApp` borra lo que hubiera y lo toma
+    todo de la página del ámbito. La colección solo se acepta si es de `/ambito/`.
+  - La simulación (`PORTAL=1`) lo reproduce: la portada hace sus consultas con la colección raíz, y el servicio contesta
+    500 a lo del ámbito con esa colección. Comprobado que la versión anterior falla y esta no.
 

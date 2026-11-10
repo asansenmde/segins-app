@@ -469,7 +469,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-10 · 6';
+  var VERSION = '2026-11-10 · 7';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -708,7 +708,9 @@
   // en un marco oculto, se espera a que pida sus células o bandejas (máx. 15 s) y se toman de allí, como dentro de la célula
   var reintentoPortal = false;
   function prepararApp(ruta) {
-    if (datosApp.idUsuario && datosApp.validar) return Promise.resolve();
+    // Lo que la portada consultó (con la colección raíz de MENSADEF) no vale para el ámbito: contesta 500 a células y banderas.
+    // Se descarta y se toma todo de la página del ámbito.
+    var origen = datosApp.origen; Object.keys(datosApp).forEach(function (k) { delete datosApp[k]; }); if (origen) datosApp.origen = origen;
     return new Promise(function (fin) {
       var f = document.createElement('iframe'), t0 = Date.now(), hecho = false;
       f.setAttribute('aria-hidden', 'true'); f.tabIndex = -1;
@@ -1015,6 +1017,7 @@
   var datosApp = {};
   function recogerDatosApp(win) {
     var r = datosApp;
+    if (win === window && !EN_AMBITO) return r;   // en la portada sus consultas no son las del ámbito
     try {
       win.performance.getEntriesByType('resource').forEach(function (e) {
         var u = new URL(e.name, location.href);
@@ -1048,7 +1051,7 @@
   }
   function iniciarApi(w) {
     var coleccion = location.origin + ((/^\/ambito\/[^/]+/i.exec(rutaBase) || [''])[0]);
-    return Promise.all([correoUsuario(w), datosApp.urlColeccionSitio ? { Url: datosApp.urlColeccionSitio } : api('site?$select=Url', w.url).catch(function () { return { Url: coleccion }; })]).then(function (r) {
+    return Promise.all([correoUsuario(w), datosApp.urlColeccionSitio && (EN_AMBITO || /\/ambito\//i.test(datosApp.urlColeccionSitio)) ? { Url: datosApp.urlColeccionSitio } : api('site?$select=Url', w.url).catch(function () { return { Url: coleccion }; })]).then(function (r) {
       var ctx = { email: r[0].email, url: r[1].Url || coleccion };
       origenCorreo = r[0].de || 'no encontrado';
       if (!ctx.email) throw new Error('no encuentro tu correo (ni en las consultas de MENSADEF ni en SharePoint): abre la portada o tu célula en MENSADEF, espera a que carguen tus mensajes y pulsa el favorito sin recargar');
