@@ -151,7 +151,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-09 · 1';
+  var VERSION = '2026-11-10 · 1';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -499,6 +499,8 @@
         (esAbierto(p) && pend.length ? '<button data-recordar>✉ Recordar a ' + (pend.length === 1 ? 'el pendiente' : 'los ' + pend.length + ' pendientes') + '</button>' : '') +
         (esAbierto(p) ? '<button data-cerrarya>🔒 Cerrar ahora</button>' : '') +
         (p.estado !== 'Contenido borrado' ? '<button data-cambiarcierre>⏱ ' + (esCerrado(p) ? 'Reabrir / cambiar cierre' : 'Cambiar hora de cierre') + '</button>' : '') +
+        (p.estado !== 'Contenido borrado' ? '<button data-modificarpunto>✎ Modificar punto</button>' : '') +
+        '<button class="rojo" data-eliminarpunto="' + p.id + '">🗑 Eliminar punto</button>' +
         '<span class="sep"></span>' + (p.estado !== 'Contenido borrado' ? '<button class="prim" data-word="' + p.id + '">📄 Generar informe Word</button>' : '') + '</div>';
       var props = propuestas(p);
       if (props.length) h += '<h2 class="sec">⭐ Propuestas de META (Tratar con el General) · ' + props.length + '</h2><div class="card">' + props.map(function (x) {
@@ -1007,9 +1009,12 @@
       return merge(U('puntos') + '/items(' + p.id + ')', { __metadata: tipo('puntos'), Historial: ahoraTxt() + ' · ' + yo.Title + ': ' + txt + '\n' + (x.datos.Historial || '') }, 'Sin permiso', x.etag);
     }).catch(function () { /* el historial es informativo */ });
   }
-  function dialogoPunto(base) {
+  // base: punto del que se calcula el siguiente periódico; edit: punto que se modifica
+  function dialogoPunto(base, edit) {
     var u = puntos[0], f, ap, ci, rep = 7, rec = 2, cv = negsInforme().map(function (n) { return n.titulo; });
-    if (base) {
+    if (edit) {
+      f = edit.fecha; ap = edit.apertura || edit.creado; ci = edit.cierre; rep = edit.repetir; rec = edit.recordarHoras; cv = edit.convocados.length ? edit.convocados : cv;
+    } else if (base) {
       var dd = base.repetir * 864e5;
       f = new Date(base.fecha.getTime() + dd); ap = new Date((base.apertura || base.creado).getTime() + dd); ci = new Date(base.cierre.getTime() + dd);
       rep = base.repetir; rec = base.recordarHoras; cv = base.convocados.length ? base.convocados : cv;
@@ -1020,16 +1025,19 @@
       if (u) { rep = u.repetir; rec = u.recordarHoras; }
     }
     var dlg = $('#dlg');
-    dlg.innerHTML = '<div class="dh"><h2>Nuevo punto de situación</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db">' +
+    dlg.innerHTML = '<div class="dh"><h2>' + (edit ? 'Modificar ' + esc(edit.ref) : 'Nuevo punto de situación') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db">' +
       '<div class="grid2"><div><label class="lbl">Fecha del punto</label><input type="date" id="npFecha" value="' + aDia(f) + '"></div>' +
       '<div><label class="lbl">Abrir aportaciones</label><input type="datetime-local" id="npAp" value="' + aLocal(ap) + '"></div>' +
       '<div><label class="lbl">Bloqueo automático (fecha y hora)</label><input type="datetime-local" id="npCi" value="' + aLocal(ci) + '"></div></div>' +
       '<label class="lbl">Negociados convocados</label><div>' + negsInforme().map(function (n) { return '<label class="check"><input type="checkbox" data-conv value="' + esc(n.titulo) + '"' + (cv.indexOf(n.titulo) >= 0 ? ' checked' : '') + '> ' + esc(n.titulo) + '</label>'; }).join('') + '</div>' +
       '<div class="grid2"><div><label class="lbl">Repetir</label><select id="npRep">' + [[0, 'No se repite'], [1, 'Cada día'], [7, 'Cada semana'], [14, 'Cada dos semanas'], [28, 'Cada cuatro semanas']].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === rep ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
       '<div><label class="lbl">Recordatorio a pendientes (horas antes del cierre; 0 = no)</label><input type="number" id="npRec" min="0" max="72" value="' + rec + '"></div></div>' +
-      '<label class="check" style="margin-top:8px"><input type="checkbox" id="npAvisar" checked> Avisar ahora por correo a los miembros de los negociados convocados</label>' +
-      '<p class="small muted">La referencia (PS-año-número) se pone sola. El recordatorio no sale solo: cuando falten esas horas, la página se lo ofrece a la coordinación.</p>' +
-      '<div class="error" id="npErr" hidden></div><div id="npMsg"></div><div class="acciones"><span class="sep"></span><button data-cerrar>Cancelar</button><button class="prim" data-crearpunto>Crear punto</button></div></div>';
+      '<label class="check" style="margin-top:8px"><input type="checkbox" id="npAvisar"' + (edit ? '' : ' checked') + '> ' + (edit ? 'Avisar del cambio por correo a los miembros de los negociados convocados' : 'Avisar ahora por correo a los miembros de los negociados convocados') + '</label>' +
+      (edit ? '<p class="small muted">Si cambias el bloqueo, se cambia también en sus ' + delPunto(edit).length + ' entradas. Para cerrarlo ya, usa «Cerrar ahora». La referencia se mantiene' +
+        (delPunto(edit).length ? '' : ' (si cambias el año, se le da el siguiente número del año nuevo)') + '.</p>' :
+        '<p class="small muted">La referencia (PS-año-número) se pone sola. El recordatorio no sale solo: cuando falten esas horas, la página se lo ofrece a la coordinación.</p>') +
+      '<div class="error" id="npErr" hidden></div><div id="npMsg"></div><div class="acciones"><span class="sep"></span><button data-cerrar>Cancelar</button>' +
+      (edit ? '<button class="prim" data-guardarpunto="' + edit.id + '">Guardar cambios</button>' : '<button class="prim" data-crearpunto>Crear punto</button>') + '</div></div>';
     dlg.showModal();
   }
   function crearPunto(boton) {
@@ -1065,6 +1073,66 @@
       else $('#dlg').close();
     }).catch(function (e) { fallo(e.message || String(e)); });
   }
+  // Modificar un punto (por si se puso mal la fecha, el bloqueo, los convocados…): solo coordinación
+  function guardarPunto(boton, p) {
+    var er = $('#npErr'), fallo = function (m) { er.textContent = m; er.hidden = false; boton.disabled = false; };
+    var fd = $('#npFecha').value, ap = $('#npAp').value ? new Date($('#npAp').value) : (p.apertura || p.creado), ci = $('#npCi').value ? new Date($('#npCi').value) : null;
+    var conv = Array.prototype.filter.call(document.querySelectorAll('[data-conv]'), function (c) { return c.checked; }).map(function (c) { return c.value; });
+    if (!fd) return fallo('Falta la fecha del punto');
+    if (!ci || isNaN(ci)) return fallo('Falta la hora de bloqueo');
+    var cambiaCierre = aLocal(ci) !== aLocal(p.cierre);
+    if (cambiaCierre && ci.getTime() <= ahora() + 60000) return fallo('La nueva hora de bloqueo tiene que ser futura (para cerrarlo ya, usa «Cerrar ahora»)');
+    if (ci <= ap) return fallo('El bloqueo tiene que ser después de la apertura');
+    if (!conv.length) return fallo('Marca al menos un negociado');
+    var f = new Date(fd + 'T09:00:00'), anio = f.getFullYear(), cambios = [];
+    if (aDia(f) !== aDia(p.fecha)) cambios.push('fecha ' + fCorta(p.fecha) + ' → ' + fCorta(f));
+    if (aLocal(ap) !== aLocal(p.apertura || p.creado)) cambios.push('apertura → ' + fFH(ap));
+    if (cambiaCierre) cambios.push('bloqueo ' + fFH(p.cierre) + ' → ' + fFH(ci));
+    if (conv.join('; ') !== p.convocados.join('; ')) cambios.push('convocados: ' + conv.join(', '));
+    var repN = Number($('#npRep').value), recN = Number($('#npRec').value) || 0;
+    if (repN !== p.repetir) cambios.push('repetición cada ' + repN + ' días');
+    if (recN !== p.recordarHoras) cambios.push('recordatorio ' + recN + ' h antes');
+    if (!cambios.length) { $('#dlg').close(); return; }
+    boton.disabled = true; er.hidden = true;
+    var cuerpo = { __metadata: tipo('puntos'), Title: 'Punto de Situación ' + fCorta(f), FechaPunto: f.toISOString(), Apertura: ap.toISOString(), Convocados: conv.join('; '), Repetir: repN, RecordarHoras: recN };
+    if (recN !== p.recordarHoras || cambiaCierre) cuerpo.RecordatorioEnviado = null;
+    // Cambio de año sin entradas: se le da el número siguiente del año nuevo (con entradas se mantiene la referencia)
+    var numerar = anio !== Number(p.anio) && !delPunto(p).length ? todos(U('puntos') + '/items?$top=500&$select=Id,Anio,Numero').then(function (xs) {
+      var n = xs.filter(function (x) { return Number(x.Anio) === anio && x.Id !== p.id; }).reduce(function (m, x) { return Math.max(m, Number(x.Numero) || 0); }, 0) + 1;
+      cuerpo.Anio = anio; cuerpo.Numero = n; cuerpo.Referencia = 'PS-' + anio + '-' + pad(n, 3); cambios.push('referencia → ' + cuerpo.Referencia);
+    }) : Promise.resolve();
+    var mal = [];
+    numerar.then(function () {
+      return leerItem('puntos', p.id).then(function (x) { return merge(U('puntos') + '/items(' + p.id + ')', cuerpo, 'No tienes permiso para modificar el punto', x.etag); });
+    }).then(function () {
+      if (!cambiaCierre) return;
+      return cambiarCierre(p, ci).then(function (m) { mal = m; });
+    }).then(function () { return anotar(p, 'modificado: ' + cambios.join('; ')); })
+      .then(function () { return cargar(); })
+      .then(function () {
+        var p2 = puntoPorId(p.id);
+        if (!$('#npAvisar').checked || !p2) return null;
+        $('#npMsg').innerHTML = '<p class="muted small">Enviando el aviso…</p>';
+        return enviarAviso(p2, convocados(p2), 'cambio');
+      }).then(function (r) {
+        var txt = '✓ Punto modificado: ' + esc(cambios.join('; ')) + '.' + (mal.length ? ' No se pudo cambiar el bloqueo en: ' + esc(mal.join('; ')) + '.' : '');
+        $('#dlg').querySelector('.db').innerHTML = '<div class="' + (r ? claseCorreo(r) : mal.length ? 'aviso' : 'okmsg') + '">' + txt + (r ? msgCorreo(r) : '') + '</div><div class="acciones"><span class="sep"></span><button data-cerrar>Cerrar</button></div>';
+      }).catch(function (e) { fallo(e.message || String(e)); });
+  }
+  // Eliminar un punto creado por error: él y sus entradas van a la papelera de Colabora (se pueden recuperar)
+  var confirmarEliminar = {};
+  function eliminarPunto(boton, p) {
+    var n = delPunto(p).length;
+    if (!confirmarEliminar[p.id]) { confirmarEliminar[p.id] = true; boton.textContent = '¿Eliminar ' + p.ref + '? Pulsa otra vez'; return; }
+    if (!confirm('Se va a eliminar ' + p.ref + ' (' + fLarga(p.fecha) + ')' + (n ? ' con sus ' + n + ' entradas e imágenes' : '') + '.\n\nVa a la papelera de Colabora: se puede recuperar desde allí.\n\n¿Continuar?')) { confirmarEliminar[p.id] = false; render(); return; }
+    boton.disabled = true; boton.textContent = 'Eliminando…';
+    var mal = [];
+    delPunto(p).reduce(function (q, a) { return q.then(function () { return papelera('aport', a.id).catch(function (e) { mal.push(a.titulo + ': ' + e.message); }); }); }, Promise.resolve())
+      .then(function () {
+        if (mal.length) throw new Error('No se pudieron quitar todas las entradas, así que el punto no se ha eliminado:\n' + mal.join('\n'));
+        return papelera('puntos', p.id);
+      }).then(function () { sel = null; aviso(p.ref + ' eliminado (está en la papelera de Colabora)'); return cargar(); }, function (e) { alert(e.message); cargar(); });
+  }
   // Cambia la hora de cierre del punto y la copia en todas sus entradas (la validación de la lista usa la de cada entrada)
   function cambiarCierre(p, nueva) {
     var es = delPunto(p), mal = [];
@@ -1097,15 +1165,16 @@
     var to = [], cuentas = {}, nombres = {};
     lst.forEach(function (n) { n.miembros.forEach(function (m) { if (m.Email && to.map(function (x) { return x.toLowerCase(); }).indexOf(m.Email.toLowerCase()) < 0) { to.push(m.Email); cuentas[m.Email.toLowerCase()] = m.Id; nombres[m.Email.toLowerCase()] = m.Title; } }); });
     if (!to.length) return Promise.resolve({ ok: false, n: 0, motivo: 'los negociados no tienen miembros con correo', rechazados: [], mailto: '' });
-    var rec = motivo === 'recordatorio';
+    var rec = motivo === 'recordatorio', cambio = motivo === 'cambio';
     var intro = rec ? 'RECORDATORIO: TU NEGOCIADO AÚN NO HA APORTADO SU INFORMACIÓN AL PUNTO DE SITUACIÓN. SE BLOQUEA EL ' + fFH(p.cierre).toUpperCase() + '.'
+      : cambio ? 'SE HAN MODIFICADO LOS DATOS DEL PUNTO DE SITUACIÓN. REVISA LAS NUEVAS FECHAS.'
       : 'SE HA ABIERTO UN NUEVO PUNTO DE SITUACIÓN. CADA NEGOCIADO DEBE APORTAR SU INFORMACIÓN ANTES DEL BLOQUEO.';
     var filas = [['Punto de situación', p.ref + ' · ' + fLarga(p.fecha)], ['Aportaciones desde', fFH(p.apertura || p.creado)], ['Bloqueo automático', fFH(p.cierre)],
       [rec ? 'Negociados pendientes' : 'Negociados convocados', lst.map(function (n) { return n.titulo; }).join(', ')], ['Aviso enviado por', yo.Title]];
-    var c = { to: to, cc: [], bcc: [], cuentas: cuentas, nombres: nombres, asunto: (rec ? 'RECORDATORIO · ' : '') + p.ref + ' · Punto de situación del ' + fCorta(p.fecha) + ' · aportaciones hasta el ' + fFH(p.cierre),
+    var c = { to: to, cc: [], bcc: [], cuentas: cuentas, nombres: nombres, asunto: (rec ? 'RECORDATORIO · ' : cambio ? 'CAMBIO · ' : '') + p.ref + ' · Punto de situación del ' + fCorta(p.fecha) + ' · aportaciones hasta el ' + fFH(p.cierre),
       html: htmlCorreo(intro, filas, enlacePunto(p)), texto: 'USO OFICIAL\n\n' + intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\nAbrir: ' + enlacePunto(p) };
     return enviarCorreo(c).then(function (r) {
-      var txt = (rec ? 'recordatorio' : 'aviso de apertura') + ' por correo: ' + (r.ok ? 'enviado a ' + (r.llegaron || []).join(', ') : 'NO ENVIADO (' + (r.motivo || '') + ')') + (r.rechazados.length ? '; Colabora no aceptó: ' + r.rechazados.join(', ') : '');
+      var txt = (rec ? 'recordatorio' : cambio ? 'aviso del cambio' : 'aviso de apertura') + ' por correo: ' + (r.ok ? 'enviado a ' + (r.llegaron || []).join(', ') : 'NO ENVIADO (' + (r.motivo || '') + ')') + (r.rechazados.length ? '; Colabora no aceptó: ' + r.rechazados.join(', ') : '');
       var extra = rec && r.ok ? merge(U('puntos') + '/items(' + p.id + ')', { __metadata: tipo('puntos'), RecordatorioEnviado: new Date().toISOString() }, 'Sin permiso').catch(function () {}) : Promise.resolve();
       return extra.then(function () { return anotar(p, txt); }).then(function () { return r; });
     });
@@ -1552,6 +1621,9 @@
     if (el.closest('[data-nuevo]')) { dialogoPunto(); return; }
     if (el.closest('[data-siguiente]')) { var sg = siguientePeriodico(); if (sg) dialogoPunto(sg.base); return; }
     if ((b = el.closest('[data-crearpunto]'))) { crearPunto(b); return; }
+    if (el.closest('[data-modificarpunto]')) { dialogoPunto(null, p); return; }
+    if ((b = el.closest('[data-guardarpunto]'))) { guardarPunto(b, puntoPorId(Number(b.dataset.guardarpunto))); return; }
+    if ((b = el.closest('[data-eliminarpunto]'))) { eliminarPunto(b, puntoPorId(Number(b.dataset.eliminarpunto))); return; }
     if ((b = el.closest('[data-verpunto]'))) { sel = Number(b.dataset.verpunto); pref.vista = 'seguimiento'; guardarPref(); render(); window.scrollTo(0, 0); return; }
     if ((b = el.closest('[data-irneg]'))) { pref.neg = b.dataset.irneg; pref.vista = 'negociado'; guardarPref(); render(); window.scrollTo(0, 0); return; }
     if (el.closest('[data-recordar]')) { recordar(p); return; }

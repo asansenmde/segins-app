@@ -173,6 +173,34 @@ await p.click('#dlg [data-cerrar]');
 comprueba('seguimiento: 0 de 6 y 6 pendientes', /0 de 6 negociados/.test(await txt('#vista')) && (await p.$$('.neg.r')).length === 6);
 await foto('03-seguimiento');
 
+// 3b. Modificar el punto (fecha, bloqueo y convocados) y eliminar uno creado por error
+const local = ms => p.evaluate(ms => { const d = new Date(Date.now() + ms); const z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + 'T' + z(d.getHours()) + ':' + z(d.getMinutes()); }, ms);
+await p.click('[data-modificarpunto]'); await p.waitForSelector('[data-guardarpunto]');
+comprueba('el diálogo de modificar viene relleno', await p.inputValue('#npCi') !== '' && !(await p.isChecked('#npAvisar')));
+const fAntes = pt1.FechaPunto;
+await p.fill('#npFecha', (await local(2 * D)).slice(0, 10)); await p.fill('#npCi', await local(4 * H));
+await p.uncheck('[data-conv][value="Acuartelamiento"]'); await p.check('#npAvisar');
+const nC0 = correos.length;
+await p.click('[data-guardarpunto]'); await p.waitForFunction(() => /Punto modificado/.test(document.querySelector('#dlg').textContent) || (document.querySelector('#npErr') && !document.querySelector('#npErr').hidden), null, { timeout: 15000 });
+if (await p.$('#npErr:not([hidden])')) console.log('   error:', await txt('#npErr'));
+const msgMod = await txt('#dlg');
+comprueba('punto modificado: ' + msgMod.slice(0, 160), /Punto modificado/.test(msgMod) && pt1.FechaPunto !== fAntes && new Date(pt1.Cierre) - Date.now() > 3.5 * H && !/Acuartelamiento/.test(pt1.Convocados) && pt1.Referencia.endsWith('-001'));
+comprueba('aviso del cambio por correo: ' + (correos[nC0] && correos[nC0].asunto), correos.length === nC0 + 1 && /^(\[PRUEBAS\] )?CAMBIO · PS-/.test(correos[nC0].asunto));
+comprueba('cambio anotado en el historial', /modificado: fecha/.test(pt1.Historial));
+await p.click('#dlg [data-cerrar]');
+await p.click('[data-nuevo]'); await p.waitForSelector('#npCi'); await p.fill('#npCi', await local(5 * H)); await p.uncheck('#npAvisar');
+await p.click('[data-crearpunto]'); await esperaDlgCerrado(); await p.waitForTimeout(500);
+const errId = LP('Puntos').items[1].Id;
+comprueba('punto creado por error: ' + LP('Puntos').items[1].Referencia, /-002$/.test(LP('Puntos').items[1].Referencia));
+await p.selectOption('#selPunto', String(errId)); await p.waitForTimeout(200);
+await p.click(`[data-eliminarpunto="${errId}"]`);
+comprueba('eliminar: el primer clic solo pide confirmar', LP('Puntos').items.length === 2);
+await p.click(`[data-eliminarpunto="${errId}"]`); await p.waitForTimeout(1200);
+comprueba('punto eliminado (a la papelera) y queda el bueno', LP('Puntos').items.length === 1 && LP('Puntos').items[0].Id === pt1.Id);
+await ir(8);
+comprueba('un miembro de PRL no ve modificar ni eliminar', !(await p.$('[data-modificarpunto]')) && !(await p.$('[data-eliminarpunto]')));
+await ir(7); await p.click('nav.tabs a[data-v=seguimiento]');
+
 // 4. Miembro de PRL: alta con imagen
 await ir(8);
 comprueba('Luis ve solo PRL: ' + await p.$eval('#quien', e => e.textContent), /PRL/.test(await p.$eval('#quien', e => e.textContent)));
@@ -230,7 +258,7 @@ await p.click('[data-sinnovedad]'); await p.waitForTimeout(800);
 comprueba('Sin novedad en Seguridad', LP('Aportaciones').items.some(x => x.Negociado === 'Seguridad' && x.Tipo === 'Sin novedad'));
 await p.click('nav.tabs a[data-v=seguimiento]');
 const seg = await txt('#vista');
-comprueba('seguimiento: 2 de 6, 3 entradas, 1 sin novedad, faltan 4', /2 de 6 negociados/.test(seg) && /Entradas ?3/.test(seg) && /«Sin novedad» ?1/.test(seg) && /Faltan ?4/.test(seg));
+comprueba('seguimiento: 2 de 5, 3 entradas, 1 sin novedad, faltan 3', /2 de 5 negociados/.test(seg) && /Entradas ?3/.test(seg) && /«Sin novedad» ?1/.test(seg) && /Faltan ?3/.test(seg));
 buzonMal = ['ana@et.mde.es'];   // Colabora rechaza una dirección: envío uno a uno
 const nCorreos = correos.length;
 await p.click('[data-recordar]'); await p.waitForFunction(() => /destinatario|Aviso enviado|No se pudo/.test(document.querySelector('#dlg').textContent), null, { timeout: 15000 });

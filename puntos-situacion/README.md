@@ -18,6 +18,17 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-10 · 1: modificar y eliminar un punto
+
+Para corregir un punto creado con la fecha u otro dato equivocado (petición del usuario). Solo coordinación (PROCOR y
+Control total), en *Seguimiento*:
+- **✎ Modificar punto**: el mismo formulario del alta, relleno: fecha del punto, apertura, bloqueo, negociados
+  convocados, repetición y recordatorio. Si cambia el bloqueo, se copia en todas sus entradas (para cerrarlo ya sigue
+  «Cerrar ahora»). La referencia se mantiene; si cambia el año y el punto aún no tiene entradas, toma el siguiente número
+  del año nuevo. Opcional: avisar del cambio por correo («CAMBIO · PS-…»). Queda en el historial del punto.
+- **🗑 Eliminar punto**: dos clics y confirmación; el punto y sus entradas (con sus imágenes) van a la **papelera** de
+  Colabora, de donde se pueden recuperar. Si alguna entrada no se puede quitar, el punto no se elimina.
+
 ## Versión 2026-11-09 · 1
 
 **Primera puesta en marcha** (la primera vez que se abre; hace falta «Administrar listas»): crea las listas y columnas

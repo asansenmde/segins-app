@@ -159,5 +159,7 @@ autoría.
     `puntos-situacion/colabora/puntos-situacion.html` (o primero la de pruebas) a una biblioteca de `/et/SUIGESUR/JSUIGE`,
     abrirla para la puesta en marcha, revisar el emparejamiento de negociados, añadir miembros en Ajustes y contar si la
     validación del bloqueo quedó activa («Comprobar la instalación»).
+    10/11/2026: Puntos de Situación **2026-11-10 · 1**: «✎ Modificar punto» y «🗑 Eliminar punto» (a la papelera) para la
+    coordinación, pedido por el usuario al probar la copia de pruebas. Pendiente: que suba la nueva copia de pruebas.
     10/11/2026: Gestor común, META y pruebas **2026-11-10 · 1**: unidas la · 2 confirmada (Ajustes solo con Control total) y
     el enlace con el Punto de Situación (solo ⭐ Tratar con el General). Pendiente: que suba las tres copias.
