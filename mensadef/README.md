@@ -288,4 +288,13 @@ con el formato *verbose* de SharePoint 2013.
   - La clave del servicio se pide con la cuenta del usuario (`ValidateUser`), porque en la portada no hay consultas
     previas de la aplicación.
   - Prueba: `PORTAL=1 node pruebas/bandejas.mjs` (sin sesión) y `PORTAL=1 SESION=1` (con sesión ya abierta).
+- **2026-11-10 · 2: versión definitiva con el portal, rediseñado.**
+  - **Diseño:** tarjeta grande en azul marino y verde con brillo dorado; escudo grande con la «S»; el nombre una sola
+    vez (en el portal se ocultan la cabecera y el pie de la página); lema; texto breve; caja «Tu ámbito» con el botón
+    dorado «🔑 Entrar en mi ámbito» y los 3 pasos; recuadro «Así trabaja» (el camino del mensaje, se oculta en pantallas
+    estrechas); chips de lo que hace; pie con la autoría y la versión.
+  - A petición del usuario, el portal no dice nada de dónde quedan los datos.
+  - **Seguridad, igual que antes:** ofuscación fuerte con bloqueo a *.mdef.es y «self-defending»; botón derecho, F12 y
+    Ctrl+U/Ctrl+Mayús+I/J/C bloqueados; «Ver estructura» oculto (Ctrl+Alt+E); nunca marca como leído. Las escrituras
+    (comentario, bandera, rúbrica) piden confirmación.
 

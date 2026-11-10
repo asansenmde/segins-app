@@ -67,13 +67,52 @@
   button.rubrica { background: linear-gradient(180deg, #7a4fb5, #4a2a78); color: #fff; border-color: #4a2a78; border-bottom: 3px solid #c9a84c; font-weight: 800; }
   button.rubrica:hover:not(:disabled) { background: linear-gradient(180deg, #8a5fc5, #3d2266); }
   button.rubrica.seguro { background: linear-gradient(180deg, #f08a24, #d96b00); border-color: #c25e00; }
-  /* Portal de inicio */
-  .portal { display: flex; gap: 18px; align-items: flex-start; padding: 6px 4px; }
-  .portal h2 { margin: 0 0 6px; font: 800 1.25rem Georgia, 'Times New Roman', serif; letter-spacing: .12em; color: var(--brand); }
-  .portal p { margin: 0 0 12px; max-width: 760px; }
-  .portal .escudo { flex: none; width: 64px; height: 64px; display: inline-grid; place-items: center; border-radius: 50%; font: 800 2.1rem/1 Georgia, 'Times New Roman', serif; color: #f2dc96;
-    background: radial-gradient(circle at 30% 30%, #2f7a54, var(--brand) 70%); border: 2px solid #c9a84c; box-shadow: 0 0 0 4px rgba(201,168,76,.25), 0 4px 10px rgba(0,0,0,.3); }
-  .portal input { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; margin-left: 6px; text-transform: uppercase; }
+  /* Portal de inicio (10/11/2026): presentación de SENDERO en la portada de MENSADEF */
+  #aviso.aviso-portal { padding: 0; border: 0; overflow: hidden; border-radius: 22px; box-shadow: 0 18px 50px rgba(10,31,58,.35); }
+  .portal { position: relative; color: #fff; padding: 46px 48px 26px; min-height: 520px; overflow: hidden;
+    background: radial-gradient(900px 420px at 85% -10%, rgba(201,168,76,.28), transparent 60%), linear-gradient(125deg, #0a1f3a 0%, #12315a 38%, #1d3f2a 78%, #2f5a35 100%); }
+  .portal-fondo { position: absolute; inset: 0; pointer-events: none; opacity: .5;
+    background: repeating-linear-gradient(115deg, transparent 0 46px, rgba(255,255,255,.035) 46px 47px), radial-gradient(600px 300px at 0% 110%, rgba(201,168,76,.22), transparent 70%); }
+  .portal > * { position: relative; }
+  .portal-cab { display: flex; align-items: center; gap: 24px; }
+  .portal .escudo { flex: none; width: 104px; height: 104px; display: inline-grid; place-items: center; border-radius: 50%; font: 800 3.3rem/1 Georgia, 'Times New Roman', serif; color: #f2dc96;
+    background: radial-gradient(circle at 32% 28%, #2f7a54, #1d3f2a 72%); border: 3px solid #c9a84c; box-shadow: 0 0 0 7px rgba(201,168,76,.18), 0 0 40px rgba(201,168,76,.35), 0 10px 24px rgba(0,0,0,.45); text-shadow: 0 2px 4px rgba(0,0,0,.5); }
+  .portal-pre { font-size: .72rem; font-weight: 800; letter-spacing: .26em; text-transform: uppercase; color: #c9d8ea; }
+  .portal h2 { margin: 4px 0 2px; font: 800 3.1rem/1 Georgia, 'Times New Roman', serif; letter-spacing: .18em; color: #fff; text-shadow: 0 3px 12px rgba(0,0,0,.4); }
+  .portal-lema { font: italic 600 1.05rem/1.2 Georgia, serif; color: #f2dc96; letter-spacing: .06em; }
+  .portal-txt { max-width: 720px; margin: 26px 0 22px; font-size: 1.05rem; line-height: 1.55; color: #e6edf6; }
+  .portal-txt b { color: #f2dc96; }
+  .portal-caja { max-width: 640px; background: rgba(255,255,255,.08); border: 1px solid rgba(201,168,76,.45); border-radius: 18px; padding: 18px 20px; backdrop-filter: blur(4px); }
+  .portal-caja label { display: block; font-size: .7rem; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: #f2dc96; margin-bottom: 8px; }
+  .portal-fila { display: flex; gap: 12px; flex-wrap: wrap; }
+  .portal-caja input { font: 800 1.15rem system-ui, 'Segoe UI', sans-serif; letter-spacing: .12em; text-transform: uppercase; padding: 10px 14px; width: 170px; border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.35); background: rgba(10,31,58,.55); color: #fff; }
+  .portal-caja input:focus { outline: 2px solid #c9a84c; outline-offset: 1px; }
+  #entrarAmbito { font: 800 1.05rem system-ui, 'Segoe UI', sans-serif; padding: 11px 26px; border-radius: 12px; cursor: pointer; color: #1b1405; border: 1px solid #8a6d1f;
+    background: linear-gradient(180deg, #f6e3a6, #c9a84c 60%, #a8862f); box-shadow: 0 6px 18px rgba(201,168,76,.45), inset 0 1px 0 rgba(255,255,255,.6); transition: transform .12s, box-shadow .12s; }
+  #entrarAmbito:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(201,168,76,.55), inset 0 1px 0 rgba(255,255,255,.6); }
+  #entrarAmbito:disabled { opacity: .65; cursor: progress; }
+  .portal-pasos { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 14px; font-size: .84rem; color: #d6e1ee; }
+  .portal-pasos b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #c9a84c; color: #1b1405; font-size: .72rem; margin-right: 6px; }
+  #msgPortal { margin-top: 10px; color: #f2dc96; font-weight: 700; min-height: 1em; }
+  .portal-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 26px; }
+  .portal-chips span { padding: 6px 12px; border-radius: 999px; font-size: .82rem; font-weight: 700; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); color: #eef3f9; }
+  .portal-camino { position: absolute; top: 46px; right: 48px; width: 300px; list-style: none; margin: 0; padding: 22px 22px 8px; border-radius: 18px;
+    background: rgba(10,31,58,.35); border: 1px solid rgba(201,168,76,.35); }
+  .portal-camino li.tit { display: block; padding: 0 0 14px; font-size: .66rem; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: #f2dc96; }
+  .portal-camino li.tit::after { display: none; }
+  .portal-camino li { position: relative; display: flex; gap: 14px; align-items: flex-start; padding-bottom: 18px; }
+  .portal-camino li:not(:last-child)::after { content: ''; position: absolute; left: 17px; top: 38px; bottom: 2px; border-left: 2px dashed rgba(201,168,76,.6); }
+  .portal-camino i { flex: none; width: 36px; height: 36px; display: inline-grid; place-items: center; border-radius: 50%; font-style: normal; background: rgba(255,255,255,.1); border: 2px solid #c9a84c; }
+  .portal-camino span { font-weight: 800; color: #fff; font-size: .92rem; padding-top: 2px; }
+  .portal-camino small { display: block; font-weight: 600; color: #b9c8da; font-size: .76rem; margin-top: 2px; }
+  @media (max-width: 1100px) { .portal-camino { display: none; } }
+  /* En el portal, el nombre sale una sola vez: se ocultan la cabecera y el pie de la página (la autoría va en el portal) */
+  body.en-portal > header, body.en-portal > footer, body.en-portal header, body.en-portal footer { display: none !important; }
+  body.en-portal main, body.en-portal #aviso { margin-top: 18px; }
+  .portal-pie b { color: #f2dc96; }
+  .portal-pie { margin-top: 26px; padding-top: 14px; border-top: 1px solid rgba(201,168,76,.35); font-size: .78rem; color: #b9c8da; letter-spacing: .04em; }
+  @media (max-width: 700px) { .portal { padding: 28px 20px 20px; } .portal h2 { font-size: 1.7rem; letter-spacing: .06em; } .portal .escudo { width: 70px; height: 70px; font-size: 2.2rem; } .portal-cab { gap: 14px; } }
   button.visto-on { background: linear-gradient(180deg, #3a9a5a, #2e7d4f); color: #fff; border-color: #2e7d4f; }
   #detalle h2 { font-size: 1rem; margin: 0 0 8px; }
   dl { display: grid; grid-template-columns: 140px 1fr; gap: 3px 10px; margin: 0; font-size: .86rem; }
@@ -430,7 +469,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-10 · 1';
+  var VERSION = '2026-11-10 · 2';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -582,9 +621,21 @@
       if (ok) return entrar(cod);
       $('estado').textContent = '';
       $('aviso').hidden = false;
-      $('aviso').innerHTML = '<div class="portal"><div class="escudo marca" aria-hidden="true">S</div><div><h2>Bienvenido a SENDERO</h2>' +
-        '<p>Para ver tus bandejas hay que abrir la sesión en tu ámbito de MENSADEF. Se hace desde aquí: se abre una ventana pequeña con el inicio de sesión de MENSADEF, pulsas en ella <b>Iniciar sesión</b> y, en cuanto entra, se cierra sola y SENDERO carga tus mensajes.</p>' +
-        '<div class="fila"><label>Ámbito<input id="codAmbito" value="' + esc(cod) + '" size="10" autocomplete="off"></label><button type="button" class="prim" id="entrarAmbito">🔑 Entrar en mi ámbito</button><span class="small muted" id="msgPortal"></span></div></div></div>';
+      $('aviso').classList.add('aviso-portal');
+      var tarjetaFechas = $('desde').closest('.card'); if (tarjetaFechas) tarjetaFechas.hidden = true;
+      $('aviso').innerHTML = '<div class="portal"><div class="portal-fondo" aria-hidden="true"></div>' +
+        '<div class="portal-cab"><div class="escudo marca" aria-hidden="true">S</div><div><div class="portal-pre">Ministerio de Defensa · Mensajería oficial</div>' +
+        '<h2>S E N D E R O</h2><div class="portal-lema">El camino de cada mensaje</div></div></div>' +
+        '<p class="portal-txt">Tus bandejas de <b>MENSADEF</b>, sus anexos, la rúbrica y el paso a tareas de <b>META</b>, en una sola pantalla. Abre la sesión en tu ámbito y todo lo demás llega solo.</p>' +
+        '<div class="portal-caja"><label for="codAmbito">Tu ámbito</label><div class="portal-fila"><input id="codAmbito" value="' + esc(cod) + '" size="10" autocomplete="off" spellcheck="false">' +
+        '<button type="button" id="entrarAmbito">🔑 Entrar en mi ámbito</button></div>' +
+        '<div class="portal-pasos"><span><b>1</b> Se abre una ventana pequeña de MENSADEF</span><span><b>2</b> Pulsas «Iniciar sesión»</span><span><b>3</b> Se cierra sola y se cargan tus mensajes</span></div>' +
+        '<div class="small" id="msgPortal"></div></div>' +
+        '<div class="portal-chips"><span>📥 Bandejas de tus células</span><span>📎 Anexos sin marcar leído</span><span>✍ Rúbrica</span><span>➜ Tareas en META</span><span>⚑ Banderas y comentarios</span></div>' +
+        '<ol class="portal-camino" aria-hidden="true"><li class="tit">Así trabaja</li><li><i>📥</i><span>Llega el mensaje<small>a las bandejas de tus células</small></span></li><li><i>📎</i><span>Lo lees con sus anexos<small>sin marcarlo como leído</small></span></li>' +
+        '<li><i>⚑</i><span>Lo marcas y comentas<small>bandera y último comentario</small></span></li><li><i>➜</i><span>Tarea en META<small>con su expediente</small></span></li><li><i>✍</i><span>A rúbrica<small>y a la firma</small></span></li></ol>' +
+        '<div class="portal-pie">Diseño, desarrollo y propiedad intelectual: <b>Cte. Alfredo Sánchez Sender</b> · © 2026 · Todos los derechos reservados · versión ' + esc(VERSION) + '</div></div>';
+      document.body.classList.add('en-portal');
       $('entrarAmbito').addEventListener('click', function () { login(String($('codAmbito').value || '').trim().replace(/[^\w-]/g, '') || '2SUIGE'); });
     });
   }
@@ -609,7 +660,8 @@
   }
   function entrar(cod) {
     guardar('ambito', cod); rutaBase = '/ambito/' + cod + '/';
-    $('aviso').hidden = true; $('aviso').innerHTML = '';
+    $('aviso').hidden = true; $('aviso').innerHTML = ''; $('aviso').classList.remove('aviso-portal'); document.body.classList.remove('en-portal');
+    var tarjetaFechas = $('desde').closest('.card'); if (tarjetaFechas) tarjetaFechas.hidden = false;
     arrancar(rutaBase);
   }
   if (EN_AMBITO) arrancar(location.pathname); else portal();

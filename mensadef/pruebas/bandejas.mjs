@@ -103,7 +103,7 @@ await consultasApp(p);
 await p.evaluate(codigo); await p.waitForTimeout(2500);
 if (process.env.PORTAL && !process.env.SESION) {
   console.log('portal:', (await p.textContent('#aviso')).replace(/\s+/g, ' ').slice(0, 160), '| ámbito propuesto:', await p.inputValue('#codAmbito'));
-  await p.screenshot({ path: new URL('portal.png', import.meta.url).pathname });
+  await p.setViewportSize({ width: 1366, height: 900 }); await p.screenshot({ path: new URL('portal.png', import.meta.url).pathname }); await p.setViewportSize({ width: 390, height: 844 }); await p.screenshot({ path: new URL('portal-movil.png', import.meta.url).pathname }); await p.setViewportSize({ width: 1280, height: 720 });
   const [w] = await Promise.all([ctx.waitForEvent('page'), p.click('#entrarAmbito')]); await w.waitForLoadState();
   console.log('ventana de inicio de sesión:', decodeURIComponent(w.url().replace(O, '')));
   await w.click('#entrar'); await p.waitForTimeout(5000);

@@ -122,5 +122,5 @@ autoría.
     por el usuario el mismo día.
     09/11/2026: SENDERO 2026-11-09 · 10 con la barra en dos pisos, probado por el usuario y pasado al definitivo.
     10/11/2026: SENDERO 2026-11-10 · 1 (pruebas): portal de inicio desde la portada de MENSADEF (Landing), con el inicio
-    de sesión del ámbito en una ventana pequeña. Pendiente: que lo pruebe desde la portada sin sesión abierta.
+    de sesión del ámbito en una ventana pequeña. Probado por el usuario; versión definitiva 2026-11-10 · 2 con el portal rediseñado.
 
