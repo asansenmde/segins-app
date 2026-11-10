@@ -325,4 +325,7 @@ con el formato *verbose* de SharePoint 2013.
     el portal con «Entrar en mi ámbito» (ventana pequeña), como antes.
   - Un favorito no puede arrancar solo: el navegador solo lo ejecuta al pulsarlo, sobre la página abierta. Para un solo
     clic, se pone la portada de MENSADEF como página de inicio de Edge.
+- **2026-11-10 · 5 (marcadores regenerados): pulsado fuera de MENSADEF.** Si el favorito se pulsa en otra web (Colabora,
+  Outlook en el navegador…), lleva a la portada de MENSADEF (`/SitePages/Landing.aspx#/`); allí se pulsa otra vez. Lo
+  hace un `if` al principio del marcador (`generar-marcador.py`), antes del código protegido.
 

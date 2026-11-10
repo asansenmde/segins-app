@@ -106,7 +106,10 @@ def generar(fuente, salida, nombre, titulo, intro, pasos, pruebas=False):
             if r.returncode:
                 sys.exit('No se pudo proteger el visor (¿falta «cd mensadef/proteger && npm install»?):\n' + r.stderr[-800:])
             pagina = sal.read_text(encoding='utf-8')
-    codigo = '(function(){var h=' + json.dumps(pagina) + ';document.open();document.write(h);document.close();})()'
+    # Fuera de MENSADEF (otra web, Colabora, Outlook…) el favorito no puede leer nada: lleva a la portada de MENSADEF, donde
+    # basta con pulsarlo otra vez (10/11/2026)
+    ir = "if(!/^mensadef\\.mdef\\.es$/i.test(location.hostname)){location.href='https://mensadef.mdef.es/SitePages/Landing.aspx#/';return;}"
+    codigo = '(function(){' + (ir if fuente == 'visor-mensadef.html' else '') + 'var h=' + json.dumps(pagina) + ';document.open();document.write(h);document.close();})()'
     marcador = 'javascript:' + urllib.parse.quote(codigo, safe='')
     uso = '\n'.join('      <li>' + p + '</li>' for p in pasos)
     (aqui / salida).write_text(PLANTILLA.format(nombre=nombre, titulo=titulo, intro=intro, uso=uso,
