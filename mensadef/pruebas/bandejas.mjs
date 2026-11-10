@@ -8,7 +8,7 @@ const { chromium } = require(require('child_process').execSync('npm root -g').to
 const O = 'https://mensadef.mdef.es', API = 'https://mensadefapi.mdef.es', WEB = '/ambito/2SUIGE';
 const verbose = !!process.env.VERBOSE;
 const G4 = '44444444-4444-4444-4444-444444444444', G1 = '8d714e44-b2b5-41a8-9780-2228204861b5', G2 = '11111111-2222-3333-4444-555555555555', G3 = '99999999-8888-7777-6666-555555555555';
-let nClaves = 0, marcadoLeido = 0; let sesion = !process.env.PORTAL || !!process.env.SESION; /* PORTAL=1: se empieza en la portada sin sesión en el ámbito */ const comentarios = [], banderasPuestas = [], rubricas = [];
+let nClaves = 0, marcadoLeido = 0; let sesion = !process.env.PORTAL || !!process.env.SESION; /* PORTAL=1: se empieza en la portada sin sesión en el ámbito */ const comentarios = [], banderasPuestas = [], rubricas = [], leidos = [];
 const PASS = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6', UID = 'abcdef01-2345-6789-abcd-ef0123456789';
 // Consulta que hace la aplicación de MENSADEF al cambiar de célula (de ahí el favorito toma las cabeceras)
 const consultaApp = pg => pg.evaluate(([P, U]) => fetch('https://mensadefapi.mdef.es/api/usuariovista/UsuarioVistaObtener?emailUsuario=persona%40et.mde.es', { headers: { 'Content-Type': 'application/json', passcode: P, user: U } }).catch(() => 0), [PASS, UID]);
@@ -66,7 +66,7 @@ await ctx.route(API + '/**', r => {
   if (ruta === 'mensaje/EnvioAPortafirmas') { rubricas.push({ metodo: r.request().method(), q: [...u.searchParams.keys()].join(','), id: q.idMensaje, personal: q.buzonPersonal, cuerpo: r.request().postData() || '', passcode: hd.passcode === PASS }); return r.fulfill({ headers: H, json: rubricas.length === 1 ? { Correcto: false, MensajeInformativo: 'El mensaje no está en <b>validación</b>', ListaRespuestas: [] } : { Correcto: true, MensajeInformativo: 'Enviado al portafirmas', ListaRespuestas: [] } }); }
   if (ruta === 'etiqueta/EtiquetaMensajeGuardar') { banderasPuestas.push({ metodo: r.request().method(), q: [...u.searchParams.keys()].join(','), idBuzon: q.idBuzonCelula, idEtiqueta: q.idEtiqueta, cuerpo: r.request().postData() || '', passcode: hd.passcode === PASS }); return r.fulfill({ headers: H, body: '' }); }
   if (ruta === 'mensaje/ComentarioCrear') { comentarios.push({ metodo: r.request().method(), params: [...u.searchParams.keys()].join(','), cuerpo: JSON.parse(r.request().postData() || '{}'), passcode: hd.passcode === PASS }); return r.fulfill({ headers: H, json: true }); }
-  if (ruta === 'buzon/BuzonCelulaMensajeLeido') { marcadoLeido++; return r.fulfill({ headers: H, json: {} }); }
+  if (ruta === 'buzon/BuzonCelulaMensajeLeido') { marcadoLeido++; leidos.push({ metodo: r.request().method(), q: [...u.searchParams.keys()].join(','), estado: q.estado, buzon: !!q.idBuzonCelula, cuerpo: r.request().postData() || '', passcode: hd.passcode === PASS }); return r.fulfill({ headers: H, json: {} }); }
   if (ruta === 'buzon/ObtenerBuzonCelula') return r.fulfill({ headers: H, json: bandeja(q.idCelula, q.tipoES, +q.indicePagina, +q.tamanoPagina) });
   r.fulfill({ status: 404, headers: H, body: '' });
 });
@@ -163,7 +163,18 @@ await p.fill('#buscar', 'RE-5'); await p.waitForTimeout(400); await p.click('#li
 console.log('anexos:', (await p.textContent('#adjuntos').catch(() => '-')).replace(/\s+/g, ' ').slice(0, 220), '| ¿HTML del servidor?', !!(await p.$('#adjuntos b b')));
 { await p.evaluate(() => { const o = window.open; window.open = function (u) { window.__abierto = u; return o.apply(this, arguments); }; }); const [pop] = await Promise.all([ctx.waitForEvent('page'), p.click('#adjuntos [data-anexo="0"][data-modo="abrir"]')]); console.log('url pedida:', decodeURI(await p.evaluate(() => window.__abierto)).replace(O, '')); await pop.close().catch(() => {}); }
 { const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#adjuntos [data-anexo="1"][data-modo="bajar"]')]); console.log('descargar cifrado →', dl.suggestedFilename(), '| botón abrir en el cifrado:', !!(await p.$('#adjuntos [data-anexo="1"][data-modo="abrir"]'))); }
-console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0);
+console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(en pruebas sí al abrir los no leídos; en el definitivo, no)');
+// Leído en MENSADEF: abrir uno no leído lo marca (PUT estado=true) y quita la negrita; «Marcar no leído» lo deshace
+if (!FINAL) {
+  await p.fill('#buscar', 'RE-6'); await p.waitForTimeout(400);
+  const fila = '#lista tbody tr[data-i] >> nth=0'; const neg = () => p.$eval('#lista tbody tr[data-i]', t => t.classList.contains('noleido'));
+  const n0 = leidos.length, antes = await neg(); await p.click(fila); await p.waitForTimeout(600);
+  const l = leidos[leidos.length - 1] || {};
+  console.log('leído al abrir: negrita antes', antes, '→ después', await neg(), '| llamada:', l.metodo, l.q, 'estado=' + l.estado, '| buzón:', l.buzon, '| sin cuerpo:', l.cuerpo === '', '| passcode:', l.passcode, '| nuevas:', leidos.length - n0, '| botón:', (await p.textContent('#leidoBtn')).trim());
+  await p.click('#leidoBtn'); await p.waitForTimeout(500);
+  console.log('marcar no leído: estado=' + (leidos[leidos.length - 1] || {}).estado, '| negrita:', await neg(), '| botón:', (await p.textContent('#leidoBtn')).trim());
+  await p.click('#leidoBtn'); await p.waitForTimeout(500); await p.fill('#buscar', ''); await p.waitForTimeout(300);
+}
 // Actualizar: vuelve a leer, deja la ficha abierta y muestra la hora
 { const h0 = await p.textContent('#detalle .cab-msg h2'), n0 = llamadas.filter(x => /ObtenerBuzonCelula/.test(x)).length, t0 = await p.textContent('#ultimaAct');
   await p.click('#actualizar'); await p.waitForFunction(() => !document.getElementById('actualizar').disabled, null, { timeout: 30000 }); await p.waitForTimeout(300);

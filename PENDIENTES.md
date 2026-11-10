@@ -124,3 +124,6 @@ autoría.
     10/11/2026: SENDERO 2026-11-10 · 1 (pruebas): portal de inicio desde la portada de MENSADEF (Landing), con el inicio
     de sesión del ámbito en una ventana pequeña. Probado por el usuario; versión definitiva 2026-11-10 · 2 con el portal rediseñado.
     10/11/2026: SENDERO 2026-11-10 · 3 (portal sin caer a borradores) confirmado por el usuario.
+    10/11/2026: SENDERO 2026-11-10 · 4 (pruebas): marca leído en MENSADEF al abrir y «Marcar no leído». Pendiente: que
+    lo pruebe (la negrita debe desaparecer también en MENSADEF). Analizado crear mensajes: ver respuesta del 10/11.
+

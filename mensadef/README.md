@@ -308,4 +308,12 @@ con el formato *verbose* de SharePoint 2013.
     valores.
   - La simulación (`PORTAL=1`) reproduce el fallo: `ConsultaUsuarioDicodef` devuelve un número que no sirve y la página
     del ámbito hace sus consultas al cargar.
+- **2026-11-10 · 4 (pruebas): leído en MENSADEF.** A petición del usuario se deja la regla anterior («nunca marcar como
+  leído»).
+  - Al abrir en SENDERO un mensaje no leído, se marca leído también en MENSADEF, como hace la aplicación (escucha):
+    `PUT buzon/BuzonCelulaMensajeLeido?emailUsuario&urlColeccionSitio&idBuzonCelula&estado=true`, sin cuerpo. Desaparece
+    la negrita en SENDERO y en MENSADEF.
+  - Botón **«📩 Marcar no leído» / «📖 Marcar leído»** en la ficha (`estado=false/true`).
+  - «✓ Visto» sigue siendo una marca propia de SENDERO, aparte.
+  - `escribirApi` admite el método (POST por defecto; aquí PUT). Abrir o descargar anexos no marca nada.
 

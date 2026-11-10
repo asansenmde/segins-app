@@ -469,7 +469,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-10 · 3';
+  var VERSION = '2026-11-10 · 4';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1190,8 +1190,8 @@
   }
   // ---------- Anexos de un mensaje de la bandeja (05/11/2026) ----------
   // Como MENSADEF al abrir un mensaje: GET mensaje/ObtenerCuerpo (id, modoVer) devuelve AnexosDigitales (Titulo, Nombre,
-  // UrlFichero, TipoDocumento, TamanoMB, Firma…) y AnexosFisicos. Solo se lee: el visor NO llama a la función que marca el
-  // mensaje como leído (buzon/BuzonCelulaMensajeLeido). Los archivos están en la biblioteca del ámbito en MENSADEF
+  // UrlFichero, TipoDocumento, TamanoMB, Firma…) y AnexosFisicos. Abrir los anexos no marca nada; el leído lo marca SENDERO
+  // aparte, al abrir la ficha (ver «Leído en MENSADEF», 10/11/2026). Los archivos están en la biblioteca del ámbito en MENSADEF
   // (SMDMDMensajesDocumentos_…): se abren en otra pestaña, como en MENSADEF, o se descargan con la sesión (los cifrados .cif).
   var modoVerBueno = null;
   function cuerpoCompleto(m) {
@@ -1660,7 +1660,7 @@
       '<button type="button" id="ampliar" title="Ver la ficha a toda la pantalla">' + (maxi ? '⤡ Reducir' : '⛶ Ampliar') + '</button><button type="button" id="cerrar" title="Cerrar la ficha">✕ Cerrar</button></div><div class="piso2">' +
       '<button type="button" class="prim" id="aColabora" disabled title="Abre el Gestor de Tareas (META) con el alta rellena">➜ Añadir tarea en META</button>' + botonRubrica(m) + '<span class="sepb"></span>' +
       '<span class="seg"><button type="button" class="naranja" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Enviar por correo</button>' +
-      '<button type="button" id="copiarTarea">📋 Copiar para Gestor</button><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button></span>' + selectorBandera(m) + '</div></div><div id="colabora"></div>' +
+      '<button type="button" id="copiarTarea">📋 Copiar para Gestor</button><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + botonLeido(m) + '</span>' + selectorBandera(m) + '</div></div><div id="colabora"></div>' +
       (m._api ? '<div class="cab-msg">' + (m._x.__es ? '<span class="tag st-azul">' + (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + esc(m._x.__es) + '</span>' : '') +
         (m.MensajeTipo_es ? '<span class="tag t-tipo">' + esc(m.MensajeTipo_es) + '</span>' : '') + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') +
         (m._x.CodigoPrioridad ? '<span class="prio' + (prioAlta(m._x.CodigoPrioridad) ? ' alta' : '') + '">' + esc(m._x.CodigoPrioridad) + '</span>' : '') + htmlBandera(m._bandera) +
@@ -1679,6 +1679,9 @@
     if ($('msgAnt')) { $('msgAnt').addEventListener('click', function () { irMensaje(-1); }); $('msgSig').addEventListener('click', function () { irMensaje(1); }); }
     if ($('abrirMensadef')) $('abrirMensadef').addEventListener('click', function () { localizarEnMensadef(m); });
     pintarColabora(m); pintarComentario(m); setTimeout(fijarBarra, 0);
+    if ($('leidoBtn')) $('leidoBtn').addEventListener('click', function () { cambiarLeido(m, m._leido === false); });
+    // Al abrir un mensaje no leído se marca leído también en MENSADEF (como al abrirlo allí)
+    if (LEIDO && m._api && m._idBuzon && m._leido === false) cambiarLeido(m, true);
     if ($('aRubrica')) $('aRubrica').addEventListener('click', function () {
       var b = this;
       if (!b.dataset.seguro) { b.dataset.seguro = '1'; b.textContent = '¿Pasar a rúbrica? Pulsa otra vez'; b.classList.add('seguro'); avisoBandera(m, 'Se enviará al portafirmas de MENSADEF con tu usuario.', false); return; }
@@ -1788,7 +1791,7 @@
   // siempre lo pide el usuario (botón con confirmación) o al pasar un mensaje a META si deja marcada la casilla.
   var ESCRIBIR = true; // 09/11/2026: comentario y bandera dados por buenos, también en el definitivo
   // POST al servicio como la aplicación: cabeceras passcode/user y, si la clave ha caducado (406), se pide otra una vez
-  function escribirApi(ruta, consulta, cuerpo, que) {
+  function escribirApi(ruta, consulta, cuerpo, que, metodo) {
     var x = diagApi.filter(function (y) { return y.ruta === ruta; })[0];
     if (!x) { x = { ruta: ruta, n: 0 }; diagApi.push(x); }
     var url = (datosApp.origen || API) + '/api/' + ruta + '?' + consulta;
@@ -1796,7 +1799,7 @@
       var cab = leer('cabecerasApi', null), hs = { 'Content-Type': 'application/json' };
       if (cab && cab.passcode) { hs.passcode = cab.passcode; if (cab.user) hs.user = cab.user; }
       x.n++;
-      var op = { method: 'POST', credentials: modoApi_fetch || 'omit', headers: hs }; if (cuerpo != null) op.body = cuerpo;
+      var op = { method: metodo || 'POST', credentials: modoApi_fetch || 'omit', headers: hs }; if (cuerpo != null) op.body = cuerpo;
       return fetch(url, op).then(function (r) {
         x.estado = r.status;
         if (r.status === 406 && !otra) return pedirClave(apiCtx.email, apiCtx.url).then(function () { return intento(true); });
@@ -1842,6 +1845,27 @@
       m._rubrica.enviado = true; m._rubrica.info = info;
       return info;
     });
+  }
+  // ---------- Leído en MENSADEF (10/11/2026, de momento solo en pruebas) ----------
+  // «Visto» es una marca propia de SENDERO; «Leído» es el de MENSADEF (la negrita). Al abrir un mensaje no leído se marca
+  // leído en MENSADEF como hace la aplicación (escucha): PUT buzon/BuzonCelulaMensajeLeido?emailUsuario&urlColeccionSitio
+  // &idBuzonCelula&estado, sin cuerpo. «Marcar no leído» lo deshace (estado=false).
+  var LEIDO = PRUEBAS;
+  function botonLeido(m) {
+    if (!LEIDO || !m._api || !m._idBuzon) return '';
+    return '<button type="button" id="leidoBtn" title="Cambia el leído en MENSADEF (la negrita)">' + (m._leido === false ? '📖 Marcar leído' : '📩 Marcar no leído') + '</button>';
+  }
+  function cambiarLeido(m, si) {
+    if (!apiCtx || !m._idBuzon) return;
+    var b = $('leidoBtn'); if (b && abierto === m) b.disabled = true;
+    escribirApi('buzon/BuzonCelulaMensajeLeido', qUsuario() + '&idBuzonCelula=' + encodeURIComponent(m._idBuzon) + '&estado=' + (si ? 'true' : 'false'), null, 'marcar como leído este mensaje', 'PUT').then(function () {
+      m._leido = si; if (m._x) m._x.Leido = si ? 'Sí' : 'No';
+      pintarTabla(); pintarKpis();
+      if (abierto !== m) return;
+      var bt = $('leidoBtn'); if (bt) { bt.disabled = false; bt.textContent = si ? '📩 Marcar no leído' : '📖 Marcar leído'; }
+      var dd = Array.prototype.filter.call(document.querySelectorAll('#detalle .ficha-campos dt'), function (d) { return d.textContent === 'Leído'; })[0];
+      if (dd) dd.nextElementSibling.textContent = si ? 'Sí' : 'No';
+    }, function (e) { var bt = $('leidoBtn'); if (bt && abierto === m) bt.disabled = false; avisoBandera(m, 'No se pudo cambiar el leído en MENSADEF: ' + (e.message || e), true); });
   }
   function avisoBandera(m, texto, mal) {
     if (abierto !== m || !$('colabora')) return;
