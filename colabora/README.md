@@ -35,6 +35,15 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-10 · 2: en META, cada uno ve solo lo suyo** (solo META; el Gestor común no cambia salvo el número).
+  - Ve un expediente quien lo creó, su responsable, el personal implicado y los miembros de **su negociado** (asignado o
+    implicado). Lo ven todos quien tiene Control total y quien se marque «Lo ve todo».
+  - Los negociados de cada persona se dan de alta en *Ajustes › Quién ve los expedientes de META* (lista **«META MIEMBROS»**:
+    `Persona`, `Negociados` separados por «;», `VeTodo`; la página la crea con «Crear la lista»). Alta buscando en el sitio o
+    en el directorio, modificar y quitar (a la papelera). Sin la lista, cada uno ve solo lo que creó, lleva o en lo que interviene.
+  - La cabecera dice «3 de 6 asuntos» y la bienvenida qué ve cada uno. Es un **filtro de la página**: quien abra la lista
+    directamente en Colabora la ve entera (para eso, permisos de la lista en Colabora).
+  - Prueba: `node colabora/pruebas/meta-acceso.mjs` (también `VERBOSE=1` y `TAREAS_HTML=colabora/colabora/tareas-nlt-colabora-mensadef.html`).
 - **Versión 2026-11-10 · 1: se juntan la · 2 y la · 3**, que se hicieron por separado en dos sesiones: Ajustes solo con
   Control total (· 2) y «📋 Incluir en el Punto de Situación» solo para los asuntos ⭐ Tratar con el General (· 3).
 - **Versión 2026-11-09 · 2: Ajustes solo con Control total**, en el Gestor común y en META.

@@ -87,3 +87,8 @@ autoría.
     `claude/modest-fermat-9zf46n`), hechas por separado. Probado en simulación (original y protegida, ligero y verbose).
     Pendiente: que el usuario suba el Gestor común; META se regenera igual por si la quiere. Ojo: las sesiones de SENDERO
     y de Puntos de Situación siguen con su versión; si vuelven a tocar el Gestor, que partan de esta.
+17. **META: quién ve cada expediente** (10/11/2026, META 2026-11-10 · 2): autor, responsable, implicados y su negociado; todo
+    con Control total o «Lo ve todo»; altas en Ajustes (lista «META MIEMBROS»). Probado en simulación. Pendiente: que el
+    usuario suba META, cree la lista desde Ajustes y dé de alta a cada uno en su negociado. Siguiente paso posible: que
+    SENDERO pase el negociado y el responsable al abrir la tarea (se hace en la sesión de SENDERO). `importar.mjs` no
+    sirve con la copia de META (ya pasaba con la · 2): adaptarlo si se toca la importación.
