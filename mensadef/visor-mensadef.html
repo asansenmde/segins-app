@@ -469,7 +469,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-10 · 4';
+  var VERSION = '2026-11-10 · 5';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -619,6 +619,12 @@
     $('estado').textContent = 'Comprobando tu sesión en el ámbito ' + cod + '…';
     haySesion(cod).then(function (ok) {
       if (ok) return entrar(cod);
+      if (AUTOENTRADA && !leer('sinAutoentrada', false)) return autoEntrar(cod);
+      portalManual(cod);
+    });
+  }
+  function portalManual(cod, avisoTxt) {
+    {
       $('estado').textContent = '';
       $('aviso').hidden = false;
       $('aviso').classList.add('aviso-portal');
@@ -637,7 +643,41 @@
         '<div class="portal-pie">Diseño, desarrollo y propiedad intelectual: <b>Cte. Alfredo Sánchez Sender</b> · © 2026 · Todos los derechos reservados · versión ' + esc(VERSION) + '</div></div>';
       document.body.classList.add('en-portal');
       $('entrarAmbito').addEventListener('click', function () { login(String($('codAmbito').value || '').trim().replace(/[^\w-]/g, '') || '2SUIGE'); });
-    });
+      if (avisoTxt) $('msgPortal').textContent = avisoTxt;
+    }
+  }
+  // Entrada automática (10/11/2026, de momento solo en pruebas): el inicio de sesión de MENSADEF ya reconoce al usuario y
+  // solo pide pulsar «Iniciar sesión». Se carga en un marco oculto (aislado: no puede cambiar esta página), se pulsa ese
+  // botón y, en cuanto hay sesión en el ámbito, se entra. Si en 25 s no lo consigue, queda el portal con su botón.
+  var AUTOENTRADA = PRUEBAS;
+  function autoEntrar(cod) {
+    portalManual(cod, '🔄 Entrando en tu ámbito ' + cod + ' sin que tengas que pulsar nada…');
+    var f = document.createElement('iframe'), t0 = Date.now(), pulsado = 0, n = 0, fin = false;
+    f.setAttribute('sandbox', 'allow-scripts allow-forms allow-same-origin');
+    f.setAttribute('aria-hidden', 'true'); f.tabIndex = -1;
+    f.style.cssText = 'position:absolute;left:-9999px;top:0;width:1000px;height:700px;border:0;visibility:hidden';
+    var quitar = function () { fin = true; clearInterval(t); setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 0); };
+    var t = setInterval(function () {
+      if (fin) return; n++;
+      try {
+        var d = f.contentDocument, w = f.contentWindow;
+        if (d && d.readyState === 'complete' && /Default\.aspx|login|Authenticate/i.test(w.location.pathname) && pulsado < 3) {
+          var bs = Array.prototype.filter.call(d.querySelectorAll('input[type=submit],input[type=button],button,a'), function (b) {
+            return /iniciar|entrar|acceder|aceptar|login|sign\s*in/i.test(b.value || b.textContent || '') && b.offsetParent !== null;
+          });
+          if (bs.length && !f.dataset.pulsado) { f.dataset.pulsado = '1'; pulsado++; bs[0].click(); }
+        }
+      } catch (e) { /* aún cargando o en otra dirección */ }
+      if (n % 3) return;
+      haySesion(cod).then(function (ok) {
+        if (fin) return;
+        if (ok) { quitar(); entrar(cod); return; }
+        if (Date.now() - t0 > 25000) { quitar(); portalManual(cod, 'No he podido entrar solo. Pulsa «Entrar en mi ámbito».'); }
+      });
+    }, 700);
+    f.addEventListener('load', function () { delete f.dataset.pulsado; });
+    f.src = urlLogin(cod);
+    document.body.appendChild(f);
   }
   var vigilando = null;
   function login(cod) {
@@ -1846,11 +1886,11 @@
       return info;
     });
   }
-  // ---------- Leído en MENSADEF (10/11/2026, de momento solo en pruebas) ----------
+  // ---------- Leído en MENSADEF (10/11/2026, en las dos copias) ----------
   // «Visto» es una marca propia de SENDERO; «Leído» es el de MENSADEF (la negrita). Al abrir un mensaje no leído se marca
   // leído en MENSADEF como hace la aplicación (escucha): PUT buzon/BuzonCelulaMensajeLeido?emailUsuario&urlColeccionSitio
   // &idBuzonCelula&estado, sin cuerpo. «Marcar no leído» lo deshace (estado=false).
-  var LEIDO = PRUEBAS;
+  var LEIDO = true; // 10/11/2026: probado por el usuario, también en el definitivo
   function botonLeido(m) {
     if (!LEIDO || !m._api || !m._idBuzon) return '';
     return '<button type="button" id="leidoBtn" title="Cambia el leído en MENSADEF (la negrita)">' + (m._leido === false ? '📖 Marcar leído' : '📩 Marcar no leído') + '</button>';

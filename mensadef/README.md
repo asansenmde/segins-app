@@ -316,4 +316,13 @@ con el formato *verbose* de SharePoint 2013.
   - Botón **«📩 Marcar no leído» / «📖 Marcar leído»** en la ficha (`estado=false/true`).
   - «✓ Visto» sigue siendo una marca propia de SENDERO, aparte.
   - `escribirApi` admite el método (POST por defecto; aquí PUT). Abrir o descargar anexos no marca nada.
+- **2026-11-10 · 5:**
+  - **Leído en el definitivo** (`LEIDO = true`): el usuario lo ha probado y funciona.
+  - **Entrada automática (solo pruebas, `AUTOENTRADA = PRUEBAS`).** Desde la portada, si no hay sesión, SENDERO carga el
+    inicio de sesión de MENSADEF en un marco oculto y aislado (`sandbox` sin permiso para cambiar la página). Allí pulsa
+    el botón de entrar (texto con iniciar, entrar, acceder, aceptar o login) y, en cuanto hay sesión, carga las bandejas.
+    Sin ventanas y sin pulsar nada; mientras, el portal dice «Entrando en tu ámbito…». Si en 25 s no lo consigue, queda
+    el portal con «Entrar en mi ámbito» (ventana pequeña), como antes.
+  - Un favorito no puede arrancar solo: el navegador solo lo ejecuta al pulsarlo, sobre la página abierta. Para un solo
+    clic, se pone la portada de MENSADEF como página de inicio de Edge.
 

@@ -102,7 +102,14 @@ const consultasApp = pg => !process.env.SINCORREO ? null : pg.evaluate(() => { c
   { name: 'https://mensadefapi.mdef.es/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40et.mde.es&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE' }]; });
 await consultasApp(p);
 await p.evaluate(codigo); await p.waitForTimeout(2500);
-if (process.env.PORTAL && !process.env.SESION) {
+if (process.env.PORTAL && !process.env.SESION && !FINAL) {
+  // Entrada automática (pruebas): sin ventana y sin pulsar nada
+  let ventanas = 0; ctx.on('page', () => ventanas++);
+  await p.waitForFunction(() => /mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 40000 }).catch(() => 0);
+  console.log('aviso:', (await p.textContent('#aviso')).slice(0, 200), '| msg:', await p.textContent('#msgPortal').catch(() => '-'));
+  console.log('entrada automática: ventanas abiertas:', ventanas, '| marco quitado:', !(await p.$('iframe')), '| estado:', await p.textContent('#estado'));
+}
+if (process.env.PORTAL && !process.env.SESION && FINAL) {
   console.log('portal:', (await p.textContent('#aviso')).replace(/\s+/g, ' ').slice(0, 160), '| ámbito propuesto:', await p.inputValue('#codAmbito'));
   await p.setViewportSize({ width: 1366, height: 900 }); await p.screenshot({ path: new URL('portal.png', import.meta.url).pathname }); await p.setViewportSize({ width: 390, height: 844 }); await p.screenshot({ path: new URL('portal-movil.png', import.meta.url).pathname }); await p.setViewportSize({ width: 1280, height: 720 });
   const [w] = await Promise.all([ctx.waitForEvent('page'), p.click('#entrarAmbito')]); await w.waitForLoadState();
@@ -163,9 +170,9 @@ await p.fill('#buscar', 'RE-5'); await p.waitForTimeout(400); await p.click('#li
 console.log('anexos:', (await p.textContent('#adjuntos').catch(() => '-')).replace(/\s+/g, ' ').slice(0, 220), '| ¿HTML del servidor?', !!(await p.$('#adjuntos b b')));
 { await p.evaluate(() => { const o = window.open; window.open = function (u) { window.__abierto = u; return o.apply(this, arguments); }; }); const [pop] = await Promise.all([ctx.waitForEvent('page'), p.click('#adjuntos [data-anexo="0"][data-modo="abrir"]')]); console.log('url pedida:', decodeURI(await p.evaluate(() => window.__abierto)).replace(O, '')); await pop.close().catch(() => {}); }
 { const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#adjuntos [data-anexo="1"][data-modo="bajar"]')]); console.log('descargar cifrado →', dl.suggestedFilename(), '| botón abrir en el cifrado:', !!(await p.$('#adjuntos [data-anexo="1"][data-modo="abrir"]'))); }
-console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(en pruebas sí al abrir los no leídos; en el definitivo, no)');
+console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí: al abrir los no leídos)');
 // Leído en MENSADEF: abrir uno no leído lo marca (PUT estado=true) y quita la negrita; «Marcar no leído» lo deshace
-if (!FINAL) {
+{
   await p.fill('#buscar', 'RE-6'); await p.waitForTimeout(400);
   const fila = '#lista tbody tr[data-i] >> nth=0'; const neg = () => p.$eval('#lista tbody tr[data-i]', t => t.classList.contains('noleido'));
   const n0 = leidos.length, antes = await neg(); await p.click(fila); await p.waitForTimeout(600);

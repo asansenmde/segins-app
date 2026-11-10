@@ -126,4 +126,6 @@ autoría.
     10/11/2026: SENDERO 2026-11-10 · 3 (portal sin caer a borradores) confirmado por el usuario.
     10/11/2026: SENDERO 2026-11-10 · 4 (pruebas): marca leído en MENSADEF al abrir y «Marcar no leído». Pendiente: que
     lo pruebe (la negrita debe desaparecer también en MENSADEF). Analizado crear mensajes: ver respuesta del 10/11.
+    10/11/2026: SENDERO 2026-11-10 · 5: leído en el definitivo; entrada automática desde la portada en pruebas.
+    Pendiente: que pruebe la entrada automática sin sesión abierta.
 
