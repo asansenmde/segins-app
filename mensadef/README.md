@@ -353,4 +353,9 @@ con el formato *verbose* de SharePoint 2013.
   - **Batería completa:** `sh mensadef/pruebas/todas.sh` pasa `bandejas.mjs` por las seis formas de entrar (dentro de
     la célula con los dos favoritos; portada con entrada automática, con ventana, con MENSADEF lento y con sesión ya
     abierta). Incluye los casos reales de «Visto». Hay que pasarla antes de entregar cualquier cambio de SENDERO.
+- **2026-11-11 · 1: negociado y responsable a META.** En el panel de META de la ficha hay dos campos:
+  - **Negociado**: el último usado con esa célula o, la primera vez, el de su nombre («SETEC SEGURIDAD» → «Seguridad»).
+  - **Responsable**: el último usado con ese negociado.
+  - Los dos tienen lista de los ya usados y se mandan en `#importar` (`negociado`, `responsable`). Se recuerdan por
+    célula y por negociado.
 

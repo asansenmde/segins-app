@@ -186,6 +186,14 @@ if (FINAL) {
   await p.selectOption('#gestorSel', '0'); const [n3] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n3.waitForLoadState();
   console.log('va al mío:', n3.url().split('#')[0], '| aviso:', (await p.textContent('#colabora p.muted')).trim()); await n3.close(); await p.bringToFront();
 }
+// Negociado y responsable para META: propuestos (por la célula) y enviados en el alta
+{ console.log('META propone: negociado', await p.inputValue('#metaNeg'), '| responsable', JSON.stringify(await p.inputValue('#metaResp')));
+  await p.fill('#metaResp', 'GARCIA LOPEZ ANA');
+  const [n6] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n6.waitForLoadState();
+  const d6 = JSON.parse(decodeURIComponent(n6.url().split('#importar=')[1])); await n6.close(); await p.bringToFront();
+  console.log('META recibe: negociado', d6.negociado, '| responsable', d6.responsable);
+  await p.click('#lista tbody tr[data-i] >> nth=1'); await p.waitForTimeout(300); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(300);
+  console.log('META recuerda: negociado', await p.inputValue('#metaNeg'), '| responsable', await p.inputValue('#metaResp')); }
 // Anexos: lista, abrir (pestaña nueva) y descargar con la sesión; el visor no marca el mensaje como leído
 await p.fill('#buscar', 'RE-5'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(1200);
 console.log('anexos:', (await p.textContent('#adjuntos').catch(() => '-')).replace(/\s+/g, ' ').slice(0, 220), '| ¿HTML del servidor?', !!(await p.$('#adjuntos b b')));
