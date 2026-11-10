@@ -35,10 +35,19 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
-- **Versión 2026-11-09 · 3:** pasan al punto de situación los asuntos marcados **⭐ Tratar con el General** (decisión del
+- **Versión 2026-11-10 · 1: une las dos últimas.** Lleva «Ajustes solo con Control total» (la 2026-11-09 · 2 que el
+  usuario subió y confirmó) y el enlace con el **Punto de Situación** (hecho el 09/11 en la rama
+  `claude/modest-fermat-9zf46n`, numerado allí también · 2 y · 3 porque se hizo en paralelo). Mismas listas y datos.
+- **Versión 2026-11-09 · 2: Ajustes solo con Control total**, en el Gestor común y en META.
+  - La pestaña Ajustes sale solo a quien tiene «Control total» (permiso «Administrar permisos») en la lista o, si la
+    lista no se puede leer, en el sitio. A los demás no les aparece y, si la tenían abierta, vuelven a «Tareas».
+  - Esto se hizo la mañana del 09/11 en otra rama (`claude/task-manager-web-nlt-n7elx4`, commit 8fca758), pero sobre
+    la versión 2026-10-23 · 3. La copia que salió de allí no tenía Finalizar, Eliminar, Tratar en, etc. Ahora está
+    portado a la versión buena.
+- **Enlace con el Punto de Situación (2) · ⭐:** pasan al punto de situación los asuntos marcados **⭐ Tratar con el General** (decisión del
   usuario): sin esa marca la ficha lo explica y no ofrece incluirlo; incluir no cambia las marcas del asunto. Las
   propuestas para PROCOR serán los asuntos ⭐ que aún no estén en el punto abierto.
-- **Versión 2026-11-09 · 2: «📋 Incluir en el Punto de Situación».** Un asunto importante (llegado de SENDERO y dado de
+- **Enlace con el Punto de Situación (1): «📋 Incluir en el Punto de Situación».** Un asunto importante (llegado de SENDERO y dado de
   alta en META) se incluye desde su ficha en el punto de situación abierto de la aplicación **Puntos de Situación de
   SUIGESUR** (proyecto aparte, mismo sitio; ver `PENDIENTES.md`).
   - Recuadro azul en la ficha, bajo «Para tratar en». Si la aplicación aún no está instalada (faltan sus listas), lo dice y

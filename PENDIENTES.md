@@ -117,6 +117,10 @@ autoría.
     «⟳ Actualizar» y hora de la última actualización (sin «Pasar a rúbrica» si el estado es «Enviado»).
     09/11/2026: el Gestor propio se llama META (2026-11-09 · 1, `colabora/colabora/tareas-nlt-colabora-mensadef.html`),
     con la «M» dorada en la cabecera. Misma lista y mismos datos. Pendiente: que lo suba a Colabora en lugar del anterior.
+    09/11/2026: Gestor común y META 2026-11-09 · 2 con «Ajustes solo con Control total» (portado de la rama
+    claude/task-manager-web-nlt-n7elx4, que partía de una versión vieja sin Finalizar/Eliminar). Subidos y confirmados
+    por el usuario el mismo día.
+    09/11/2026: SENDERO 2026-11-09 · 10 con la barra en dos pisos, probado por el usuario y pasado al definitivo.
 
 16. **Nuevo proyecto: Puntos de Situación de SUIGESUR** (`puntos-situacion/`, etiqueta `[PUNTOS]`; acordado el 09/11/2026,
     se hace el 10/11/2026). Sustituye al Word de Colabora donde cada negociado aporta lo suyo. Decisiones del usuario:
@@ -155,3 +159,5 @@ autoría.
     `puntos-situacion/colabora/puntos-situacion.html` (o primero la de pruebas) a una biblioteca de `/et/SUIGESUR/JSUIGE`,
     abrirla para la puesta en marcha, revisar el emparejamiento de negociados, añadir miembros en Ajustes y contar si la
     validación del bloqueo quedó activa («Comprobar la instalación»).
+    10/11/2026: Gestor común, META y pruebas **2026-11-10 · 1**: unidas la · 2 confirmada (Ajustes solo con Control total) y
+    el enlace con el Punto de Situación (solo ⭐ Tratar con el General). Pendiente: que suba las tres copias.
