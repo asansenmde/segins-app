@@ -130,4 +130,6 @@ autoría.
     Pendiente: que pruebe la entrada automática sin sesión abierta.
     10/11/2026: SENDERO 2026-11-10 · 8: entrada automática en el definitivo; «Visto» se quita también con una tarjeta
     elegida; batería `mensadef/pruebas/todas.sh` para no repetir errores ya resueltos.
+    11/11/2026: SENDERO 2026-11-11 · 1 manda a META el negociado y el responsable (se recuerdan por célula y negociado);
+    Gestor común y META 2026-11-11 · 1 los ponen en el alta. Pendiente: que suba los dos Gestores y pruebe.
 

@@ -35,6 +35,12 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-11 · 1: negociado y responsable desde SENDERO.** Si el `#importar` trae `negociado` y
+  `responsable`, el alta los deja puestos.
+  - El negociado se busca en las opciones de la lista sin tener en cuenta tildes ni mayúsculas, o que lo contenga
+    («Secretaria» → «Secretaría»).
+  - El responsable se escribe y se buscan sus coincidencias para elegirlo con un clic. Al guardar se resuelve por el
+    nombre, como al escribirlo.
 - **Versión 2026-11-09 · 2: Ajustes solo con Control total**, en el Gestor común y en META.
   - La pestaña Ajustes sale solo a quien tiene «Control total» (permiso «Administrar permisos») en la lista o, si la
     lista no se puede leer, en el sitio. A los demás no les aparece y, si la tenían abierta, vuelven a «Tareas».

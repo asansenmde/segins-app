@@ -99,9 +99,9 @@ await p.route(O + '/**', async r => {
   }
   if (resto.startsWith('web?')) return r.fulfill({ json: { Url: O + WEB, Title: 'JSUIGE' } });
   if (resto.startsWith('web/currentuser')) return r.fulfill({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' } });
-  if (resto.startsWith('web/siteusers')) return r.fulfill({ json: { value: [{ Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' }] } });
+  if (resto.startsWith('web/siteusers')) return r.fulfill({ json: { value: [{ Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' }, { Id: 31, Title: 'GARCIA LOPEZ ANA', Email: 'agarcia@et.mde.es' }] } });
   if (resto.includes('getbyinternalnameortitle')) return r.fulfill({ json: { AppendOnly: false, RichText: false } });
-  if (resto.includes('/fields')) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'DescripcionDelAsunto', RichText: false }] } });
+  if (resto.includes('/fields')) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'NegociadoAsignado', Choices: ['Personal', 'Secretaría', 'Seguridad'] }, { InternalName: 'DescripcionDelAsunto', RichText: false }] } });
   if (resto.includes('/items')) { lecturas++; return r.fulfill({ json: { value: items } }); }
   if (resto.startsWith("web/lists/getbytitle('" + LISTA + "')?")) return r.fulfill({ json: { Title: LISTA, ItemCount: items.length, ListItemEntityTypeFullName: 'SP.Data.GestorListItem', RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor' } } });
   return r.fulfill({ status: 404, body: '' });
@@ -119,14 +119,15 @@ if (PRUEBAS) {
 
 // 1. Desde MENSADEF
 const datos = { v: 1, origen: 'MENSADEF', id: 'MSG-2026-0042', asunto: 'Inspección de seguridad 3 de noviembre', fecha: '2026-10-20T08:00:00Z', de: 'Jefe A', tipo: 'Orden',
-  referencia: 'REF-77', suReferencia: 'SU-1', expediente: 'EXP-2026/55', enlace: 'https://mensadef.mdef.es/ambito/2SUIGE/Lists/X/DispForm.aspx?ID=4', texto: 'Cuerpo <b>con</b> marcas & símbolos' };
+  referencia: 'REF-77', suReferencia: 'SU-1', expediente: 'EXP-2026/55', enlace: 'https://mensadef.mdef.es/ambito/2SUIGE/Lists/X/DispForm.aspx?ID=4', texto: 'Cuerpo <b>con</b> marcas & símbolos', negociado: 'Secretaria', responsable: 'GARCIA LOPEZ ANA' };
 const conDatos = PAGINA + '#importar=' + encodeURIComponent(JSON.stringify(datos));
 await p.goto(conDatos); await p.waitForTimeout(1200);
 console.log('dirección limpia:', !p.url().includes('#'), '| título:', await p.textContent('#dlg h2'));
 console.log('asunto:', await p.inputValue('#fNuevo [name=Title]'), '| NLT:', await p.inputValue('#fNuevo [name=nlt]'), '| exp.:', await p.inputValue('#fNuevo [data-exp]'));
 console.log('descripción:\n' + await p.inputValue('#fNuevo [name=DescripcionDelAsunto]'));
+console.log('desde SENDERO: negociado', await p.inputValue('#fNuevo [name=NegociadoAsignado]'), '| responsable', await p.inputValue('#fNuevo [name=resp]'));
 await p.click('#nCrear'); await p.waitForTimeout(1200);
-console.log('alta MENSADEF:', JSON.stringify({ Title: altas[0].Title, NLT: altas[0].FechaVencimiento, Estado: altas[0].ESTADO }), '| expediente escrito después:', items[3].ControlExpediente);
+console.log('alta MENSADEF:', JSON.stringify({ Title: altas[0].Title, NLT: altas[0].FechaVencimiento, Estado: altas[0].ESTADO, Negociado: altas[0].NegociadoAsignado, Resp: altas[0].ResponsableDeLaInformacionId }), '| expediente escrito después:', items[3].ControlExpediente);
 await p.goto(conDatos); await p.waitForTimeout(1200);
 console.log('segunda vez:', await p.textContent('#dlg h2'), '|', (await p.textContent('#dlg .db')).replace(/\s+/g, ' ').slice(0, 140));
 await p.click('#impOtro'); console.log('crear otro igualmente abre:', await p.textContent('#dlg h2')); await p.click('#dlg [data-cerrar]');
