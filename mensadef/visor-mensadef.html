@@ -469,7 +469,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-10 · 2';
+  var VERSION = '2026-11-10 · 3';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -662,7 +662,25 @@
     guardar('ambito', cod); rutaBase = '/ambito/' + cod + '/';
     $('aviso').hidden = true; $('aviso').innerHTML = ''; $('aviso').classList.remove('aviso-portal'); document.body.classList.remove('en-portal');
     var tarjetaFechas = $('desde').closest('.card'); if (tarjetaFechas) tarjetaFechas.hidden = false;
-    arrancar(rutaBase);
+    prepararApp(rutaBase).then(function () { arrancar(rutaBase); });
+  }
+  // Fuera del ámbito no hay consultas de la aplicación (número de usuario, clave, colección): se abre su página del ámbito
+  // en un marco oculto, se espera a que pida sus células o bandejas (máx. 15 s) y se toman de allí, como dentro de la célula
+  function prepararApp(ruta) {
+    if (datosApp.idUsuario && datosApp.validar) return Promise.resolve();
+    $('estado').textContent = 'Preparando tu sesión de MENSADEF…';
+    return new Promise(function (fin) {
+      var f = document.createElement('iframe'), t0 = Date.now(), hecho = false;
+      f.setAttribute('aria-hidden', 'true'); f.tabIndex = -1;
+      f.style.cssText = 'position:absolute;left:-9999px;top:0;width:1200px;height:800px;border:0;visibility:hidden';
+      var acabar = function () { if (hecho) return; hecho = true; clearInterval(t); try { recogerDatosApp(f.contentWindow); } catch (e) { /* sin acceso */ } setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 0); fin(); };
+      var t = setInterval(function () {
+        try { recogerDatosApp(f.contentWindow); } catch (e) { /* aún cargando */ }
+        if ((datosApp.idUsuario && datosApp.validar) || Date.now() - t0 > 15000) acabar();
+      }, 500);
+      f.src = location.origin + ruta.replace(/\/$/, '') + '/SitePages/ambito.aspx';
+      document.body.appendChild(f);
+    });
   }
   if (EN_AMBITO) arrancar(location.pathname); else portal();
 
@@ -680,7 +698,15 @@
     }, function (e) {
       errorApi = e;
       var verListas = function () { $('aviso').hidden = true; $('estado').textContent = 'Buscando las listas de mensajes…'; return buscarListas(w).then(seguirConListas); };
-      if (e.status !== 406) return verListas();
+      // Entrando por el portal no se cae a las listas del sitio (solo son borradores): se dice qué ha fallado
+      if (e.status !== 406 && EN_AMBITO) return verListas();
+      if (e.status !== 406) {
+        $('estado').textContent = ''; $('aviso').hidden = false;
+        $('aviso').innerHTML = '<div class="bad">No he podido leer tus bandejas de MENSADEF: ' + esc(e.message || e) + '</div>' +
+          '<p>Entra en tu célula en MENSADEF y pulsa SENDERO allí. Si así funciona y desde la portada no, mándame la línea «Detalle».</p>' +
+          '<p class="muted">Detalle (sin valores): datos de la aplicación: ' + esc(Object.keys(datosApp).join(', ') || 'ninguno') + ' · respuestas: ' + esc(diagApi.map(function (x) { return x.ruta + ' → ' + x.estado; }).join(', ')) + ' · ' + esc(intentosApi.join(' | ')) + ' · versión ' + esc(VERSION) + '</p>';
+        return;
+      }
       // Falta la clave de MENSADEF (o ha caducado): no se enseñan los borradores del sitio como si fueran la bandeja
       $('estado').textContent = '';
       $('aviso').hidden = false;
@@ -940,10 +966,13 @@
   var noGuid = function (v) { return typeof v === 'string' && v.trim() && !GUID.test(v) && !/^\d+$/.test(v); };
   // Los mismos datos con los que la aplicación de MENSADEF llamó al servicio en esta página (su correo, su número de
   // usuario y la dirección del sitio), sacados del registro del navegador. Se usan solo aquí: no se muestran ni se guardan.
-  var datosApp = (function () {
-    var r = {};
+  // Datos de las consultas que ya hizo la aplicación de MENSADEF (en esta página o, entrando por el portal, en su página
+  // del ámbito cargada aparte): se juntan en datosApp sin pisar lo que ya hubiera
+  var datosApp = {};
+  function recogerDatosApp(win) {
+    var r = datosApp;
     try {
-      performance.getEntriesByType('resource').forEach(function (e) {
+      win.performance.getEntriesByType('resource').forEach(function (e) {
         var u = new URL(e.name, location.href);
         if (u.host.toLowerCase().indexOf('mensadefapi.') !== 0) return;
         if (!r.origen) r.origen = u.origin;
@@ -955,7 +984,8 @@
       });
     } catch (e) { /* sin registro */ }
     return r;
-  })();
+  }
+  recogerDatosApp(window);
   var esCorreo = function (v) { return typeof v === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v); };
   // Correo del usuario: lo que usó la aplicación, el contexto de la página de SharePoint, su ficha o su perfil
   function correoUsuario(w) {

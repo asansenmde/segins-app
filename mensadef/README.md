@@ -297,4 +297,15 @@ con el formato *verbose* de SharePoint 2013.
   - **Seguridad, igual que antes:** ofuscación fuerte con bloqueo a *.mdef.es y «self-defending»; botón derecho, F12 y
     Ctrl+U/Ctrl+Mayús+I/J/C bloqueados; «Ver estructura» oculto (Ctrl+Alt+E); nunca marca como leído. Las escrituras
     (comentario, bandera, rúbrica) piden confirmación.
+- **2026-11-10 · 3: corrección del portal («me sale todo borrador»).**
+  - **Causa:** entrando desde la portada no había consultas previas de la aplicación. SENDERO tomaba el número de
+    usuario de `ConsultaUsuarioDicodefPorCorreo`, que no es el que sirve para pedir las células. No salían células, el
+    servicio de bandejas fallaba y se caía en silencio a las listas del sitio (los borradores).
+  - **Arreglo:** al entrar por el portal, SENDERO abre la página del ámbito en un marco oculto. Espera a que la
+    aplicación de MENSADEF haga sus consultas (como mucho 15 s) y toma de ellas el número de usuario, la consulta de la
+    clave y la colección, igual que dentro de la célula.
+  - Entrando por el portal ya no se cae a los borradores. Si algo falla, sale un aviso con la línea «Detalle», sin
+    valores.
+  - La simulación (`PORTAL=1`) reproduce el fallo: `ConsultaUsuarioDicodef` devuelve un número que no sirve y la página
+    del ámbito hace sus consultas al cargar.
 
