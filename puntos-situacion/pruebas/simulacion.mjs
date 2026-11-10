@@ -215,6 +215,11 @@ await p.fill('#edSit figure [data-pie]', 'Croquis ficticio');
 await p.click('#edSit figure [data-tam]');
 await p.click('#edSit'); await p.keyboard.press('End'); await p.keyboard.type(' Texto final.');
 await p.selectOption('#edPrio', 'Alta');
+await p.click('[data-ampliar]');
+comprueba('editor a pantalla completa', await p.$eval('#dlg', d => d.classList.contains('grande') && d.getBoundingClientRect().width >= window.innerWidth - 2));
+comprueba('el recuadro se puede estirar', (await p.$eval('#edSit', e => getComputedStyle(e).resize)) === 'vertical');
+await foto('04-editor-ampliado');
+await p.click('[data-ampliar]');
 await foto('04-editor');
 await p.click('[data-guardarent]'); await esperaDlgCerrado(); await p.waitForTimeout(500);
 let e1 = LP('Aportaciones').items[0];
@@ -248,6 +253,20 @@ const e3 = LP('Aportaciones').items[2];
 comprueba('entrada desde META: ' + [e3.Origen, e3.OrigenLista, e3.OrigenId, e3.OrigenUrl].join(' | '), e3.Origen === 'META' && e3.OrigenId === 31 && /DispForm\.aspx\?ID=31$/.test(e3.OrigenUrl));
 comprueba('ya no sale como propuesta y lleva la marca', (await p.$$('[data-incluirmeta]')).length === 0 && /Desde META/.test(await txt('#entradas')));
 await foto('05-mi-negociado');
+// Parte del negociado en Word y en PDF
+{ const [d1] = await Promise.all([p.waitForEvent('download'), p.click('[data-wordneg][data-neg="PRL"]')]);
+  const nom = d1.suggestedFilename(), dir2 = fs.mkdtempSync('/tmp/ps-parte-'); fs.copyFileSync(await d1.path(), path.join(dir2, 'parte.docx'));
+  const r = execFileSync('python3', ['-c', `
+import zipfile,sys,xml.dom.minidom as m
+z=zipfile.ZipFile(sys.argv[1]); d=z.read('word/document.xml').decode(); m.parseString(d)
+print('APORTACIÓN DE PRL' in d, 'PROCOR' in d, 'Revisión ficticia' in d, 'EL JEFE' in d)`, path.join(dir2, 'parte.docx')]).toString().trim();
+  comprueba('Word de la parte de PRL: ' + nom + ' · ' + r, /^PS-\d{4}-001 PRL Punto de Situacion \d{4}-\d{2}-\d{2}\.docx$/.test(nom) && r === 'True False True False');
+  await p.click('[data-pdfneg][data-neg="PRL"]'); await p.waitForTimeout(800);
+  const hoja = await p.$eval('#marcoPdf', f => f.contentDocument.body.innerText);
+  comprueba('PDF de la parte de PRL (hoja de impresión)', /APORTACIÓN DE PRL/.test(hoja) && /PRL/.test(hoja) && !/PROCOR/.test(hoja) && !/EL JEFE/.test(hoja));
+  await p.click('nav.tabs a[data-v=informe]');
+  comprueba('en Informe, Luis solo puede sacar la parte de PRL y no el completo', (await p.$$eval('#selParte option', o => o.map(x => x.textContent))).join() === 'PRL' && !(await p.$('[data-word]')));
+  await p.click('nav.tabs a[data-v=negociado]'); }
 
 // 5. Coordinación: Sin novedad en Seguridad, seguimiento, recordatorio
 await ir(9);

@@ -161,5 +161,7 @@ autoría.
     validación del bloqueo quedó activa («Comprobar la instalación»).
     10/11/2026: Puntos de Situación **2026-11-10 · 1**: «✎ Modificar punto» y «🗑 Eliminar punto» (a la papelera) para la
     coordinación, pedido por el usuario al probar la copia de pruebas. Pendiente: que suba la nueva copia de pruebas.
+    10/11/2026: Puntos de Situación **2026-11-10 · 2**: editor ampliable y la parte de cada negociado en Word o PDF
+    (petición del usuario). Pendiente: que suba la copia de pruebas y lo pruebe.
     10/11/2026: Gestor común, META y pruebas **2026-11-10 · 1**: unidas la · 2 confirmada (Ajustes solo con Control total) y
     el enlace con el Punto de Situación (solo ⭐ Tratar con el General). Pendiente: que suba las tres copias.

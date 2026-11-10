@@ -84,6 +84,9 @@
   .texto figcaption { font-size: .8rem; font-style: italic; color: var(--muted); }
   .editor { min-height: 160px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: #fff; white-space: pre-wrap; overflow-wrap: anywhere; outline: none; }
   .editor:focus { border-color: var(--brand); }
+  .editor { resize: vertical; overflow: auto; }
+  dialog.grande { width: 100vw; max-width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; }
+  dialog.grande .editor { min-height: calc(100vh - 330px); font-size: 1.05rem; }
   .editor.sobre { background: var(--info-bg); }
   .editor figure { border: 1px dashed var(--line); border-radius: 8px; padding: 6px; background: #fafbfc; }
   .editor figure img { max-width: 100%; display: block; border-radius: 6px; }
@@ -151,7 +154,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-10 · 1';
+  var VERSION = '2026-11-10 · 2';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -556,6 +559,7 @@
         (ant.lista.length ? '<button data-traer>⤵ Traer del punto anterior (' + ant.lista.length + ')</button>' : '') +
         (!es.length ? (sn ? '<button data-quitarsn="' + sn.id + '">Quitar «Sin novedad»</button>' : '<button data-sinnovedad>Sin novedad</button>') : '') + '</div>';
     }
+    h += '<div class="acciones" style="margin-top:0"><span class="small muted" style="align-self:center">Descargar la parte de ' + esc(neg) + ':</span><button data-wordneg="' + p.id + '" data-neg="' + esc(neg) + '">📄 Word</button><button data-pdfneg="' + p.id + '" data-neg="' + esc(neg) + '">🖨 PDF</button></div>';
     if (sn && !es.length) h += '<div class="card neg s"><b>Sin novedad</b> <span class="small muted">· marcado por ' + esc(sn.editor || '') + ' · ' + esc(fMedia(sn.modificado)) + '</span></div>';
     h += '<h2 class="sec">' + es.length + ' entrada' + (es.length === 1 ? '' : 's') + '</h2><div id="entradas">' + es.map(function (a, i) {
       return '<div class="card ent' + (a.prio === 'Alta' ? ' alta' : '') + '" data-ent="' + a.id + '"' + (edit ? ' draggable="true"' : '') + '>' + (edit ? '<span class="asa" title="Arrastra para ordenar">⠿</span>' : '') +
@@ -583,13 +587,15 @@
     return { punto: prev, lista: entradas(prev, neg).filter(function (a) { return a.pasar && ya.indexOf(a.id) < 0; }) };
   }
 
-  function htmlInforme(p) {
+  // soloNeg: solo la parte de un negociado (cada negociado descarga la suya)
+  function htmlInforme(p, soloNeg) {
     var nFig = { n: 0 }, min = $('.oficial .minisdef').src, uso = $('.oficial .uso').src;
-    var cs = negsInforme(), nAs = delPunto(p).filter(function (a) { return a.tipo !== 'Sin novedad'; }).length;
+    var cs = negsInforme(), nAs = delPunto(p).filter(function (a) { return a.tipo !== 'Sin novedad' && (!soloNeg || a.neg === soloNeg); }).length;
     return '<div class="hoja"><div class="sup"><img class="m" src="' + esc(min) + '" alt="MINISTERIO DE DEFENSA"><img class="u" src="' + esc(uso) + '" alt="USO OFICIAL"><div class="r">' + esc(p.ref) + '</div></div>' +
-      '<div class="banda"><div class="o">' + esc(ORG) + '</div><div class="t">' + esc(TITULO_INF) + '</div><div class="f">' + esc(fLarga(p.fecha)) + '</div></div>' +
-      '<div class="subt">' + esc(subtitulo(p, nAs)) + '</div>' +
+      '<div class="banda"><div class="o">' + esc(ORG) + '</div><div class="t">' + esc(TITULO_INF) + '</div><div class="f">' + esc(fLarga(p.fecha)) + (soloNeg ? ' · APORTACIÓN DE ' + esc(soloNeg.toUpperCase()) : '') + '</div></div>' +
+      '<div class="subt">' + esc(subtitulo(p, nAs, soloNeg)) + '</div>' +
       cs.map(function (n, i) {
+        if (soloNeg && n.titulo !== soloNeg) return '';
         var es = entradas(p, n.titulo);
         return '<h3>' + (i + 1) + '. ' + esc(n.titulo.toUpperCase()) + '</h3>' + (es.length ? es.map(function (a) {
           var tr = trozos(a.sit), primero = tr.length && tr[0].t != null ? tr.shift().t : '';
@@ -597,18 +603,21 @@
           return '<div class="item"><b>' + esc(a.titulo) + (a.prio === 'Alta' ? ' (PRIORIDAD ALTA)' : '') + '.</b> <span class="texto" style="display:inline">' + esc(primero) + '</span>' + htmlSit(resto, nFig) + '</div>';
         }).join('') : '<p><i>' + (sinNovedad(p, n.titulo) ? 'Sin novedad.' : 'No ha aportado información.') + '</i></p>');
       }).join('') +
-      '<div class="firma">EL JEFE DE LA SUIGESUR<br><br><br>Fdo.: ……………………………</div>' +
+      (soloNeg ? '' : '<div class="firma">EL JEFE DE LA SUIGESUR<br><br><br>Fdo.: ……………………………</div>') +
       '<div class="pie"><img src="' + esc(uso) + '" alt="USO OFICIAL"><br>Emitido por ' + esc(yo.Title) + ' el ' + esc(ahoraTxt()) + ' · Puntos de Situación SUIGESUR</div></div>';
   }
-  var subtitulo = function (p, nAs) {
+  var subtitulo = function (p, nAs, soloNeg) {
     return 'Ref. ' + p.ref + ' · Elaborado el ' + fCorta(p.creado) + ' · Información ' + (esCerrado(p) ? 'cerrada' : 'hasta') + ' el ' + fCorta(p.cierre) + ' a las ' + fHora(p.cierre) +
-      ' · ' + negsInforme().length + ' negociados · ' + nAs + ' asunto' + (nAs === 1 ? '' : 's');
+      ' · ' + (soloNeg ? 'Negociado ' + soloNeg : negsInforme().length + ' negociados') + ' · ' + nAs + ' asunto' + (nAs === 1 ? '' : 's') + (esAbierto(p) ? ' · BORRADOR (punto abierto)' : '');
   };
   function vistaInforme(p) {
     if (!p) return vistaSeguimiento(p);
     if (p.estado === 'Contenido borrado') return '<div class="aviso">El contenido de ' + esc(p.ref) + ' se borró de Colabora. El informe está archivado en: <b>' + esc(p.ruta || '—') + '</b></div>';
-    return '<div class="acciones">' + (coordino() ? '<button class="prim" data-word="' + p.id + '">📄 Descargar Word</button>' +
-        (esCerrado(p) && p.estado === 'Abierto' ? '<button data-entregado="' + p.id + '">✔ Marcar como entregado</button>' : '') : '<span class="small muted">El informe Word lo genera PROCOR.</span>') +
+    var partes = misNegs().map(function (n) { return '<option>' + esc(n.titulo) + '</option>'; }).join('');
+    return '<div class="acciones">' + (coordino() ? '<button class="prim" data-word="' + p.id + '">📄 Informe completo en Word</button><button data-pdf="' + p.id + '">🖨 Informe completo en PDF</button>' +
+        (esCerrado(p) && p.estado === 'Abierto' ? '<button data-entregado="' + p.id + '">✔ Marcar como entregado</button>' : '') : '<span class="small muted" style="align-self:center">El informe completo lo genera PROCOR.</span>') +
+      '<span class="sep"></span><span class="small muted" style="align-self:center">Parte de</span><select id="selParte" style="width:auto">' + partes + '</select>' +
+      '<button data-wordneg="' + p.id + '">📄 Word</button><button data-pdfneg="' + p.id + '">🖨 PDF</button>' +
       (esAbierto(p) ? '<span class="badge warn" style="align-self:center">Borrador: el punto sigue abierto hasta el ' + esc(fFH(p.cierre)) + '</span>' : '') + '</div>' + htmlInforme(p);
   }
 
@@ -779,7 +788,7 @@
       (d.origen === 'META' ? '<div class="small"><span class="badge oro">⭐ Desde META</span> asunto Exp. ' + esc(d.origenId) + '</div>' : '') +
       '<label class="lbl">Asunto</label><input id="edTit" maxlength="255" value="' + esc(d.titulo || '') + '">' +
       '<label class="lbl">Situación (texto que sale en el informe)</label>' +
-      '<div class="barra-ed"><button type="button" data-insimg>🖼 Insertar imagen</button><span class="small muted">También puedes pegar una captura (Ctrl+V) o arrastrar una foto dentro del texto. Las fotos grandes se reducen.</span></div>' +
+      '<div class="barra-ed"><button type="button" data-insimg>🖼 Insertar imagen</button><button type="button" data-ampliar title="Ver el editor a pantalla completa">⛶ Ampliar</button><span class="small muted">También puedes pegar una captura (Ctrl+V) o arrastrar una foto dentro del texto. Las fotos grandes se reducen. Para hacer el recuadro más alto, tira de su esquina inferior derecha.</span></div>' +
       '<div id="edSit" class="editor" contenteditable="true" spellcheck="true"></div>' +
       '<div class="grid2"><div><label class="lbl">Prioridad</label><select id="edPrio"><option>Normal</option><option' + (d.prio === 'Alta' ? ' selected' : '') + '>Alta</option></select></div>' +
       '<div><label class="lbl">Expediente (opcional)</label><input id="edExp" maxlength="255" value="' + esc(d.exp || '') + '"></div>' +
@@ -799,6 +808,8 @@
       if (r) { var s = getSelection(); s.removeAllRanges(); s.addRange(r); }
       insertarImagenes(fs);
     });
+    dlg.classList.toggle('grande', !!pref.editorGrande);
+    if (pref.editorGrande) $('[data-ampliar]', dlg).textContent = '🗗 Reducir';
     dlg.showModal(); $('#edTit').focus();
   }
   function figura(img, src) {
@@ -1468,8 +1479,9 @@
     });
   }
   // Sin tildes en el nombre del archivo: algunos navegadores descargan entonces como «download»
-  var nombreWord = function (p) { return p.ref + ' Punto de Situacion ' + aDia(p.fecha) + '.docx'; };
-  function docxInforme(p) {
+  var sinAcentos = function (x) { return String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\\/:*?"<>|]+/g, ' ').trim(); };
+  var nombreWord = function (p, soloNeg) { return p.ref + (soloNeg ? ' ' + sinAcentos(soloNeg) : '') + ' Punto de Situacion ' + aDia(p.fecha) + '.docx'; };
+  function docxInforme(p, soloNeg) {
     var media = [], rels = [], nPic = 0, nFig = 0;
     var NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
       'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
@@ -1499,11 +1511,12 @@
     cuerpo.push('<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:right w:val="nil"/><w:bottom w:val="single" w:sz="24" w:color="B8962E"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>' +
       '<w:tblCellMar><w:left w:w="160" w:type="dxa"/><w:right w:w="160" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid><w:gridCol w:w="9638"/></w:tblGrid><w:tr><w:tc><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="1B3A5C"/></w:tcPr>' +
       par(run(ORG, { color: 'E6D9A8', sz: 15, sp: 20 }), { antes: 80, despues: 0 }) + par(run(TITULO_INF, { b: true, color: 'FFFFFF', sz: 30 }), { despues: 0 }) +
-      par(run(fLarga(p.fecha), { color: 'FFFFFF', sz: 21 }), { despues: 80 }) + '</w:tc></w:tr></w:tbl>');
-    var nAs = delPunto(p).filter(function (a) { return a.tipo !== 'Sin novedad'; }).length;
-    cuerpo.push(par(run(subtitulo(p, nAs), { sz: 17, color: '333333' }), { jc: 'center', antes: 120, despues: 160 }));
+      par(run(fLarga(p.fecha) + (soloNeg ? ' · APORTACIÓN DE ' + soloNeg.toUpperCase() : ''), { color: 'FFFFFF', sz: 21 }), { despues: 80 }) + '</w:tc></w:tr></w:tbl>');
+    var nAs = delPunto(p).filter(function (a) { return a.tipo !== 'Sin novedad' && (!soloNeg || a.neg === soloNeg); }).length;
+    cuerpo.push(par(run(subtitulo(p, nAs, soloNeg), { sz: 17, color: '333333' }), { jc: 'center', antes: 120, despues: 160 }));
     var cola = Promise.resolve();
     negsInforme().forEach(function (n, i) {
+      if (soloNeg && n.titulo !== soloNeg) return;
       cola = cola.then(function () {
         cuerpo.push(par(run((i + 1) + '. ' + n.titulo.toUpperCase(), { b: true, color: '1B3A5C', sz: 24 }), { borde: true, antes: 240, despues: 100, keep: true }));
         var es = entradas(p, n.titulo);
@@ -1536,9 +1549,11 @@
       });
     });
     return cola.then(function () {
-      cuerpo.push(par('', { antes: 480 }));
-      cuerpo.push(par(run('EL JEFE DE LA SUIGESUR', { b: true }), { jc: 'right', despues: 720 }));
-      cuerpo.push(par(run('Fdo.: ……………………………………'), { jc: 'right' }));
+      if (!soloNeg) {
+        cuerpo.push(par('', { antes: 480 }));
+        cuerpo.push(par(run('EL JEFE DE LA SUIGESUR', { b: true }), { jc: 'right', despues: 720 }));
+        cuerpo.push(par(run('Fdo.: ……………………………………'), { jc: 'right' }));
+      }
       var sect = '<w:sectPr><w:headerReference w:type="default" r:id="rIdH"/><w:footerReference w:type="default" r:id="rIdF"/><w:pgSz w:w="11906" w:h="16838"/>' +
         '<w:pgMar w:top="1985" w:right="1134" w:bottom="1418" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr>';
       var doc = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ' + NS + '><w:body>' + cuerpo.join('') + sect + '</w:body></w:document>';
@@ -1575,12 +1590,38 @@
       return zip(archivos, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     });
   }
-  function descargarWord(id, boton) {
+  function descargarWord(id, boton, soloNeg) {
     var p = puntoPorId(id);
     if (!p) return;
+    if (soloNeg && !puedo(soloNeg)) return aviso('Solo puedes descargar la parte de tu negociado');
     var t = boton.textContent; boton.disabled = true; boton.textContent = 'Preparando…';
-    docxInforme(p).then(function (b) { descargar(nombreWord(p), b); aviso('Informe descargado: ' + nombreWord(p)); }, function (e) { alert('No se pudo generar el Word: ' + e.message); })
+    docxInforme(p, soloNeg).then(function (b) { descargar(nombreWord(p, soloNeg), b); aviso('Descargado: ' + nombreWord(p, soloNeg)); }, function (e) { alert('No se pudo generar el Word: ' + e.message); })
       .then(function () { boton.disabled = false; boton.textContent = t; });
+  }
+  // PDF: la misma hoja del informe en un marco oculto y «Imprimir» del navegador (elegir «Guardar como PDF»).
+  // Se monta con el DOM, sin escribir etiquetas de página en el código.
+  function imprimirPdf(id, boton, soloNeg) {
+    var p = puntoPorId(id);
+    if (!p) return;
+    if (soloNeg && !puedo(soloNeg)) return aviso('Solo puedes descargar la parte de tu negociado');
+    var viejo = $('#marcoPdf'); if (viejo) viejo.remove();
+    var fr = document.createElement('iframe');
+    fr.id = 'marcoPdf'; fr.setAttribute('aria-hidden', 'true');
+    fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+    document.body.appendChild(fr);
+    var d = fr.contentDocument, st = d.createElement('style');
+    d.title = (soloNeg ? sinAcentos(soloNeg) + ' · ' : '') + p.ref + ' Punto de Situacion ' + aDia(p.fecha);
+    st.textContent = document.querySelector('style').textContent + '@page{size:A4;margin:12mm}body{background:#fff;margin:0}.hoja{box-shadow:none;margin:0;max-width:none;padding:0}' +
+      '.hoja .banda{-webkit-print-color-adjust:exact;print-color-adjust:exact}.hoja h3{break-after:avoid}.hoja figure{break-inside:avoid}';
+    d.head.appendChild(st);
+    d.body.innerHTML = htmlInforme(p, soloNeg);
+    var t = boton.textContent; boton.disabled = true; boton.textContent = 'Preparando…';
+    var imgs = Array.prototype.slice.call(d.images);
+    Promise.all(imgs.map(function (im) { return im.complete ? null : new Promise(function (ok) { im.onload = im.onerror = ok; }); })).then(function () {
+      boton.disabled = false; boton.textContent = t;
+      aviso('En la ventana de imprimir, elige «Guardar como PDF»');
+      fr.contentWindow.focus(); fr.contentWindow.print();
+    });
   }
   function descargarZip(id, boton) {
     var p = puntoPorId(id), arch = [];
@@ -1611,6 +1652,7 @@
     if (el.closest('#recargar')) { cargar(); return; }
     if ((b = el.closest('nav.tabs a'))) { pref.vista = b.dataset.v; guardarPref(); render(); window.scrollTo(0, 0); return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); return; }
+    if ((b = el.closest('[data-ampliar]'))) { var dg = $('#dlg'), g = dg.classList.toggle('grande'); pref.editorGrande = g; guardarPref(); b.textContent = g ? '🗗 Reducir' : '⛶ Ampliar'; $('#edSit').focus(); return; }
     if (el.closest('[data-recargar2]')) { cargar(); return; }
     if ((b = el.closest('[data-instalar]'))) { instalar(b); return; }
     if ((b = el.closest('[data-comprobar]'))) {
@@ -1634,6 +1676,9 @@
     if (el.closest('[data-cambiarcierre]')) { dialogoCierre(p); return; }
     if ((b = el.closest('[data-cierreok]'))) { cierreOk(b, p); return; }
     if ((b = el.closest('[data-word]'))) { descargarWord(Number(b.dataset.word), b); return; }
+    if ((b = el.closest('[data-pdf]'))) { imprimirPdf(Number(b.dataset.pdf), b); return; }
+    if ((b = el.closest('[data-wordneg]'))) { descargarWord(Number(b.dataset.wordneg), b, b.dataset.neg || ($('#selParte') && $('#selParte').value)); return; }
+    if ((b = el.closest('[data-pdfneg]'))) { imprimirPdf(Number(b.dataset.pdfneg), b, b.dataset.neg || ($('#selParte') && $('#selParte').value)); return; }
     if ((b = el.closest('[data-zip]'))) { descargarZip(Number(b.dataset.zip), b); return; }
     if ((b = el.closest('[data-entregado]'))) {
       var pe = puntoPorId(Number(b.dataset.entregado)); b.disabled = true;
@@ -1694,6 +1739,7 @@
     if ((b = el.closest('[data-solicitar]'))) { solicitar(b); return; }
     if ((b = el.closest('[data-pruebacorreo]'))) { correoPrueba(b); return; }
   });
+  $('#dlg').addEventListener('close', function () { $('#dlg').classList.remove('grande'); });
   document.addEventListener('change', function (e) {
     if (e.target.id === 'selPunto') { sel = Number(e.target.value); render(); return; }
     if (e.target.id === 'selNeg') { pref.neg = e.target.value; guardarPref(); render(); return; }

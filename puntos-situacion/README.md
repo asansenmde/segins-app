@@ -18,6 +18,18 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-10 · 2: editor ampliable y la parte de cada negociado en Word o PDF
+
+- **Editor**: botón «⛶ Ampliar» (pantalla completa, se recuerda en el navegador; «🗗 Reducir» para volver) y el recuadro
+  de la situación se puede estirar desde su esquina inferior derecha.
+- **Parte de cada negociado**: en «Mi negociado», «Descargar la parte de PRL: 📄 Word · 🖨 PDF» (siempre, también con el
+  punto cerrado); en *Informe*, «Parte de [negociado]» con Word y PDF. Cada uno solo puede sacar la de sus negociados
+  (coordinación, la de todos). La parte lleva el mismo membrete, «APORTACIÓN DE [NEGOCIADO]» en la banda, solo ese
+  negociado y sin firma. Archivo `PS-2026-045 PRL Punto de Situacion 2026-11-10.docx`.
+- **PDF**: la hoja del informe se prepara en un marco oculto y se abre «Imprimir» del navegador: elegir «Guardar como
+  PDF». En *Informe*, la coordinación tiene también «🖨 Informe completo en PDF». Si el punto sigue abierto, el
+  subtítulo dice «BORRADOR (punto abierto)».
+
 ## Versión 2026-11-10 · 1: modificar y eliminar un punto
 
 Para corregir un punto creado con la fecha u otro dato equivocado (petición del usuario). Solo coordinación (PROCOR y
