@@ -24,7 +24,7 @@ const bandeja = (cel, es, pag, tam) => {
   const els = [];
   for (let i = (pag - 1) * tam; i < Math.min(total, pag * tam); i++) els.push({ IdMensaje: '0000' + cel.slice(0, 4) + '-' + es + '000-0000-0000-' + String(i).padStart(12, '0'), IdBuzonCelula: G3, Asunto: process.env.PRESENTA ? ASUNTOS[i % ASUNTOS.length] : 'Mensaje ' + i + ' de ' + cel.slice(0, 4),
     Cuerpo: process.env.PRESENTA ? '<p>Se remite para su conocimiento y efectos la documentación adjunta. Se ruega acuse de recibo y, en su caso, la designación de un punto de contacto antes del próximo viernes.</p>' : '<p>Texto del mensaje ' + i + '</p><script>alert(1)</script>', Fecha: hace(i < 130 ? i * 0.3 : 24 * 40 + i), FechaRegistroEntrada: hace(i), IdEstadoMensaje: 3,
-    EstadoMensaje: es === '2' && i === 2 ? 'Enviado' : es === '2' && i === 1 ? 'Pendiente de firma' : i === 7 ? 'Pendiente de firma' : i % 3 ? 'Pendiente' : 'Leído', EstadoParaUsuario: i % 2 ? 'No leído' : 'Leído', TipoES: es === '1' ? 'E' : 'S', TipoMensaje: i % 4 ? 'Informe' : 'Orden', CodigoPrioridad: i % 9 ? 'R' : 'U',
+    NombreEstadoUltimaDistribucionSalida: es === '2' && i === 0 ? 'Pendiente de Validar' : '', EstadoMensaje: es === '2' && i === 0 ? 'Borrador' : es === '2' && i === 2 ? 'Enviado' : es === '2' && i === 1 ? 'Pendiente de firma' : i === 7 ? 'Pendiente de firma' : i % 3 ? 'Pendiente' : 'Leído', EstadoParaUsuario: i % 2 ? 'No leído' : 'Leído', TipoES: es === '1' ? 'E' : 'S', TipoMensaje: i % 4 ? 'Informe' : 'Orden', CodigoPrioridad: i % 9 ? 'R' : 'U',
     CelulaRemitente: i % 2 ? 'ET 2SUIGE JEFATURA' : 'ET 2SUIGE REGISTRO', CelulaDestinataria: 'ET 2SUIGE SETEC SEGURIDAD', NumeroRegistroEntrada: 'RE-' + i, Sref: 'SREF-' + i,
     ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 7 ? '' : 'URGENTE', Firma: i % 2 ? (process.env.PRESENTA ? 'GENERAL JEFE DE LA SUIGE' : 'GENERAL JEFE <b>A</b>') : '', MotivoDistribucion: i % 3 ? 'Para conocimiento' : 'Para actuación', EnviableARubrica: es === '2' ? 'Sí' : 'No', BuzonPersonal: false, IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
   return { ListaElementos: els, ListaAgrupaciones: [], IndicePagina: pag, TamanoPagina: tam, TotalRegistros: total };
@@ -55,6 +55,8 @@ await ctx.route(API + '/**', r => {
   if (q.emailUsuario !== 'persona@et.mde.es' || q.urlColeccionSitio !== O + WEB) return r.fulfill({ status: 400, headers: H, json: { error: 'parámetros' } });
   if (ruta === 'usuario/ConsultaUsuarioDicodefPorCorreo' && process.env.PORTAL) return r.fulfill({ headers: H, json: { Datos: { IdUsuario: 999, Nombre: 'PERSONA', Correo: q.emailUsuario } } });
   if (ruta === 'usuario/ConsultaUsuarioDicodefPorCorreo') return r.fulfill({ headers: H, json: { Datos: { IdUsuario: 77, Nombre: 'PERSONA', Correo: q.emailUsuario } } });
+  // Como el real: con un número de usuario que no es el suyo contesta 500
+  if (ruta === 'ambito/UsuarioCelulas' && process.env.PORTAL && q.idUsuario !== '77') return r.fulfill({ status: 500, headers: H, body: '' });
   if (ruta === 'ambito/UsuarioCelulas') return r.fulfill({ headers: H, json: q.idUsuario !== '77' ? [] : q.tipoCelula === '4' ? [{ IdCelula: G1, NombreCelula: 'SETEC SEGURIDAD', TipoCelula: 4 }, { IdCelula: G2, NombreCelula: 'SETEC SECRETARIA', TipoCelula: 4 }]
     : [{ IdCelula: G1, NombreCelula: 'SETEC SEGURIDAD', TipoCelula: 4 }, { IdCelula: G2, NombreCelula: 'SETEC SECRETARIA', TipoCelula: 4 }, { IdCelula: G4, NombreCelula: 'ET 2SUIGE REGISTRO', TipoCelula: 1 }, { IdCelula: G3, NombreCelula: 'ET 2SUIGE JEFATURA PORTAFIRMAS', TipoCelula: 2 }] });
   // Catálogo de banderas, como el real: [{IdEtiqueta, Nombre, Color}] (la 9 no está: se ve como «Bandera 9»)
@@ -86,7 +88,7 @@ await ctx.route(O + '/**', r => {
     'setTimeout(function(){t.innerHTML=[0,1,2,3,4].map(fila).join("");},1500);' +
     'document.querySelector("input").addEventListener("keyup",function(e){if(e.key!=="Enter")return;var n=/RE-(\\d+)/.exec(this.value);window.buscado=this.value;setTimeout(function(){t.innerHTML=n?fila(n[1]):"";},600);});' +
     '</script></body></html>' });
-  if (!u.includes('/_api/')) return r.fulfill({ contentType: 'text/html', body: '<html><body>MENSADEF<script>if (/SitePages\\/ambito\\.aspx/i.test(location.pathname)) { fetch("' + API + '/api/usuario/ValidateUser?idUsuario=persona&useUid=false"); fetch("' + API + '/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40et.mde.es&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE", { headers: { "Content-Type": "application/json", passcode: "' + PASS + '", user: "' + UID + '" } }); }addEventListener("hashchange", function () { if (/^#\\/celula\\//.test(location.hash)) fetch("' + API + '/api/usuariovista/UsuarioVistaObtener?x=1", { headers: { "Content-Type": "application/json", passcode: "' + PASS + '", user: "' + UID + '" } }); });</script></body></html>' });
+  if (!u.includes('/_api/')) return r.fulfill({ contentType: 'text/html', body: '<html><body>MENSADEF<script>if (/SitePages\\/ambito\\.aspx/i.test(location.pathname)) setTimeout(function () { fetch("' + API + '/api/usuario/ValidateUser?idUsuario=persona&useUid=false"); fetch("' + API + '/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40et.mde.es&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE", { headers: { "Content-Type": "application/json", passcode: "' + PASS + '", user: "' + UID + '" } }); }, ' + (process.env.LENTO ? 18000 : 300) + ');addEventListener("hashchange", function () { if (/^#\\/celula\\//.test(location.hash)) fetch("' + API + '/api/usuariovista/UsuarioVistaObtener?x=1", { headers: { "Content-Type": "application/json", passcode: "' + PASS + '", user: "' + UID + '" } }); });</script></body></html>' });
   if (u.startsWith(O + WEB + '/_api/web?')) return J({ Url: O + WEB, Title: 'Segunda SUIGE' });
   if (u.includes('/_api/web?')) return r.fulfill({ status: 404, body: '' });
   if (u.includes('currentuser')) return J(process.env.SINCORREO ? { Title: 'PERSONA', Email: '', UserPrincipalName: '', LoginName: 'i:0#.w|et\\persona' } : { Title: 'PERSONA', Email: 'persona@et.mde.es', LoginName: 'i:0#.w|et\\persona' });
@@ -105,7 +107,7 @@ await p.evaluate(codigo); await p.waitForTimeout(2500);
 if (process.env.PORTAL && !process.env.SESION && !FINAL) {
   // Entrada automática (pruebas): sin ventana y sin pulsar nada
   let ventanas = 0; ctx.on('page', () => ventanas++);
-  await p.waitForFunction(() => /mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 40000 }).catch(() => 0);
+  await p.waitForFunction(() => /mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 90000 }).catch(() => 0);
   console.log('aviso:', (await p.textContent('#aviso')).slice(0, 200), '| msg:', await p.textContent('#msgPortal').catch(() => '-'));
   console.log('entrada automática: ventanas abiertas:', ventanas, '| marco quitado:', !(await p.$('iframe')), '| estado:', await p.textContent('#estado'));
 }
@@ -114,7 +116,7 @@ if (process.env.PORTAL && !process.env.SESION && FINAL) {
   await p.setViewportSize({ width: 1366, height: 900 }); await p.screenshot({ path: new URL('portal.png', import.meta.url).pathname }); await p.setViewportSize({ width: 390, height: 844 }); await p.screenshot({ path: new URL('portal-movil.png', import.meta.url).pathname }); await p.setViewportSize({ width: 1280, height: 720 });
   const [w] = await Promise.all([ctx.waitForEvent('page'), p.click('#entrarAmbito')]); await w.waitForLoadState();
   console.log('ventana de inicio de sesión:', decodeURIComponent(w.url().replace(O, '')));
-  await w.click('#entrar'); await p.waitForTimeout(5000);
+  await w.click('#entrar'); await p.waitForFunction(() => /mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 90000 }).catch(() => 0);
   console.log('tras iniciar sesión: ventana cerrada:', w.isClosed(), '| portal oculto:', await p.isHidden('#aviso'), '| estado:', await p.textContent('#estado'));
 }
 console.log('clave pedida al servicio:', nClaves, 'vez/veces');
@@ -214,6 +216,7 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
     for (; k < conR; k++) { await p.click('#lista tbody tr[data-i] >> nth=' + k); await p.waitForTimeout(250); if (await p.$('#aRubrica')) break; }
     { const con = []; for (let k2 = 0; k2 < conR; k2++) { await p.click('#lista tbody tr[data-i] >> nth=' + k2); await p.waitForTimeout(250); { const t = await p.textContent('#detalle .cab-msg'); con.push((/Pendiente de firma/.test(t) ? 'pendiente de firma' : /Enviado/.test(t) ? 'enviado' : 'en validación') + '→' + (await p.$('#aRubrica') ? 'botón' : 'sin botón')); } }
       console.log('enviables (estado Enviado:botón):', con.join(' ')); await p.click('#lista tbody tr[data-i] >> nth=' + k); await p.waitForTimeout(250); }
+    console.log('estado en la tabla del que está en validación:', await p.$$eval('#lista tbody tr[data-i]', l => l.map(t => t.textContent).filter(x => /Pendiente de Validar/.test(x)).length), '| ocultos como borrador:', /borradores ocultos/.test(await p.textContent('#chips')));
     console.log('salida:', conR, '| con botón rúbrica en la fila', k, '| filtro «Enviable a rúbrica»:', await p.$$eval('[data-x="EnviableARubrica"] option', o => o.map(x => x.textContent).join(', ')).catch(() => 'no hay'));
     await p.click('#aRubrica'); await p.waitForTimeout(200); console.log('1.ª pulsación:', (await p.textContent('#aRubrica')).trim(), '| enviados:', rubricas.length);
     await p.click('#aRubrica'); await p.waitForTimeout(500); console.log('MENSADEF dice que no:', (await p.textContent('#colabora p')).trim(), '| ¿HTML?', !!(await p.$('#colabora p b')), '| botón vuelve:', (await p.textContent('#aRubrica')).trim());

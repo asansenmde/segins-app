@@ -469,7 +469,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-10 · 5';
+  var VERSION = '2026-11-10 · 6';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -671,7 +671,7 @@
       if (n % 3) return;
       haySesion(cod).then(function (ok) {
         if (fin) return;
-        if (ok) { quitar(); entrar(cod); return; }
+        if (ok) { try { recogerDatosApp(f.contentWindow); } catch (e) { /* sin acceso */ } quitar(); entrar(cod); return; }
         if (Date.now() - t0 > 25000) { quitar(); portalManual(cod, 'No he podido entrar solo. Pulsa «Entrar en mi ámbito».'); }
       });
     }, 700);
@@ -706,9 +706,9 @@
   }
   // Fuera del ámbito no hay consultas de la aplicación (número de usuario, clave, colección): se abre su página del ámbito
   // en un marco oculto, se espera a que pida sus células o bandejas (máx. 15 s) y se toman de allí, como dentro de la célula
+  var reintentoPortal = false;
   function prepararApp(ruta) {
     if (datosApp.idUsuario && datosApp.validar) return Promise.resolve();
-    $('estado').textContent = 'Preparando tu sesión de MENSADEF…';
     return new Promise(function (fin) {
       var f = document.createElement('iframe'), t0 = Date.now(), hecho = false;
       f.setAttribute('aria-hidden', 'true'); f.tabIndex = -1;
@@ -716,7 +716,9 @@
       var acabar = function () { if (hecho) return; hecho = true; clearInterval(t); try { recogerDatosApp(f.contentWindow); } catch (e) { /* sin acceso */ } setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 0); fin(); };
       var t = setInterval(function () {
         try { recogerDatosApp(f.contentWindow); } catch (e) { /* aún cargando */ }
-        if ((datosApp.idUsuario && datosApp.validar) || Date.now() - t0 > 15000) acabar();
+        $('estado').textContent = 'Preparando tu sesión de MENSADEF… (' + Math.round((Date.now() - t0) / 1000) + ' s)';
+        // La página del ámbito tarda en cargar (SharePoint): se espera a que la aplicación pida sus células (máx. 45 s)
+        if ((datosApp.idUsuario && datosApp.validar) || Date.now() - t0 > 45000) acabar();
       }, 500);
       f.src = location.origin + ruta.replace(/\/$/, '') + '/SitePages/ambito.aspx';
       document.body.appendChild(f);
@@ -740,6 +742,8 @@
       var verListas = function () { $('aviso').hidden = true; $('estado').textContent = 'Buscando las listas de mensajes…'; return buscarListas(w).then(seguirConListas); };
       // Entrando por el portal no se cae a las listas del sitio (solo son borradores): se dice qué ha fallado
       if (e.status !== 406 && EN_AMBITO) return verListas();
+      // Entrando por el portal, un fallo suele ser que la aplicación aún no había pedido sus datos: se espera otra vez y se repite
+      if (!EN_AMBITO && !reintentoPortal) { reintentoPortal = true; datosApp.idUsuario = ''; datosApp.validar = ''; try { sessionStorage.removeItem(MEMORIA + 'cabecerasApi'); } catch (x) { /* sin memoria */ } return prepararApp(ruta).then(function () { arrancar(ruta); }); }
       if (e.status !== 406) {
         $('estado').textContent = ''; $('aviso').hidden = false;
         $('aviso').innerHTML = '<div class="bad">No he podido leer tus bandejas de MENSADEF: ' + esc(e.message || e) + '</div>' +
@@ -1086,6 +1090,8 @@
     });
   }
   // Un mensaje de la bandeja: los campos se reconocen por su nombre
+  // Estado (10/11/2026): en las salidas manda el de su último envío (NombreEstadoUltimaDistribucionSalida, «Pendiente de
+  // Validar»…), que es el que enseña MENSADEF; EstadoMensaje se queda en «Borrador» hasta que sale
   var CLAVES_API = { asunto: /^asunto$|asunto|^titulo$|^title$/i, fecha: /fecha.*(registro|recepci|entrada|env|alta|creaci)|^fecha$/i, fecha2: /fecha/i,
     estado: /^estado$|estado/i, tipo: /^tipo(mensaje|documento)?$|clase|naturaleza|^tipo_?mensaje/i, remitente: /remitente|origen|emisor|autoridad|^de$/i,
     referencia: /referencia/i, referencia2: /^n(u|ú)mero|^num_?|registro/i, expediente: /expediente/i, adjuntos: /adjunto/i, id: /^id_?mensaje$|^id$/i };
@@ -1146,7 +1152,7 @@
     var noFecha = function (v) { return tipoDe(v) !== 'fecha'; };
     var val = function (cl, re, re2) { var k = nombre(cl) || campo(re, noFecha) || (re2 && campo(re2, noFecha)); return k ? comoTexto(e[k]) : ''; };
     var kadj = nombre('adjuntos') || campo(CLAVES_API.adjuntos), kc = nombre('cuerpo');
-    return { _api: true, _x: x, ID: kid ? e[kid] : '', MensajeId: kid ? String(e[kid]) : '', _asunto: val('asunto', CLAVES_API.asunto), MensajeFecha: fecha, MensajeEstado: val('estado', CLAVES_API.estado),
+    return { _api: true, _x: x, ID: kid ? e[kid] : '', MensajeId: kid ? String(e[kid]) : '', _asunto: val('asunto', CLAVES_API.asunto), MensajeFecha: fecha, MensajeEstado: String(e.NombreEstadoUltimaDistribucionSalida || '').trim() || val('estado', CLAVES_API.estado),
       MensajeTipo_es: val('tipo', CLAVES_API.tipo), MensajeNombre_Autoridad: val('remitente', CLAVES_API.remitente), MensajeNum_referencia: val('referencia', CLAVES_API.referencia, CLAVES_API.referencia2),
       MensajeSu_referencia: val('suReferencia', /^sref$|su_?ref/i), MensajeNum_expediente: val('', CLAVES_API.expediente),
       _leido: typeof e.Leido === 'boolean' ? e.Leido : undefined, _bandera: bandera, _idBandera: bandera ? String(idb) : '', _idBuzon: e.IdBuzonCelula || e.idBuzonCelula || '', _rubrica: { enviable: e.EnviableARubrica, estado: [e.EstadoMensaje, e.EstadoParaUsuario, e.NombreEstadoUltimaDistribucionSalida].filter(Boolean).join(' '), personal: e.BuzonPersonal === true },
@@ -1868,7 +1874,7 @@
   // Si el estado es «Enviado» (ya salió) no se ofrece, aunque MENSADEF siga marcándolo como enviable a rúbrica
   // Ni si ya está en firma (pendiente de firma, en el portafirmas, firmado): pasarlo otra vez no tiene sentido
   function yaEnviado(m) { return /\benviad[oa]s?\b|pendiente\s+de\s+firma|firma\s+pendiente|en\s+firma|firmad[oa]|en\s+r[uú]brica|portafirmas/i.test((m._rubrica && m._rubrica.estado) || ''); }
-  function puedeRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && m.MensajeId && r && !r.enviado && !yaEnviado(m) && (siTexto(r.enviable) || /validaci/i.test(r.estado || ''))); }
+  function puedeRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && m.MensajeId && r && !r.enviado && !yaEnviado(m) && (siTexto(r.enviable) || /validaci|validar/i.test(r.estado || ''))); }
   // Enlace fijo al portafirmas (dirección dada por el usuario) para no tener que buscarlo; la firma se hace allí
   var URL_RUBRICA = 'https://portafirmas.mdef.es/ePortafirmas/Inicio.do?cr=&btnLogout=Entrar';
   function conRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && r && (puedeRubrica(m) || r.enviado || /firma|r[uú]brica|portafirmas|validaci/i.test(r.estado || ''))); }

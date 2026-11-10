@@ -328,4 +328,11 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-10 · 5 (marcadores regenerados): pulsado fuera de MENSADEF.** Si el favorito se pulsa en otra web (Colabora,
   Outlook en el navegador…), lleva a la portada de MENSADEF (`/SitePages/Landing.aspx#/`); allí se pulsa otra vez. Lo
   hace un `if` al principio del marcador (`generar-marcador.py`), antes del código protegido.
+- **2026-11-10 · 6:**
+  - **Estado de las salidas como en MENSADEF:** en la tabla, los chips, los filtros y el informe se muestra el estado del
+    último envío (`NombreEstadoUltimaDistribucionSalida`, p. ej. «Pendiente de Validar») si lo hay. Antes se veía
+    `EstadoMensaje`, que sigue en «Borrador» mientras no sale. Así esos mensajes ya no se ocultan como borradores.
+  - **Portal más paciente:** espera hasta 45 s a que la aplicación del ámbito pida sus datos (antes 15 s; con 15 s salía
+    «UsuarioCelulas: HTTP 500»). Si aun así falla, vuelve a preparar y lo intenta otra vez. En la entrada automática,
+    toma ya esos datos del marco del inicio de sesión.
 
