@@ -155,4 +155,6 @@ autoría.
     «Departamentos de MENSADEF» y dar de alta a la gente con sus células en «Quién ve los expedientes de META».
     11/11/2026: Gestores 2026-11-11 · 4 (sin negociados antiguos, alta reordenada, células automáticas) y SENDERO
     2026-11-11 · 3 (manda todas las células). Pendiente: subir los dos Gestores y el favorito.
+    11/11/2026: Gestores 2026-11-11 · 5: catálogo de departamentos (12 células de SUIGESUR, altas y bajas en Ajustes).
+    Pendiente: subirlos y pulsar en Ajustes «Poner las 12 células de SUIGESUR» en META y en el común.
 

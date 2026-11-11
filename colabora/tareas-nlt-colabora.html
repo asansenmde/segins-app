@@ -73,6 +73,8 @@
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 6px 0 10px; padding: 10px 12px; border: 1px solid var(--line, #d3dce8); border-radius: 12px; background: rgba(29,95,168,.04); }
   .grid2 .lbl { white-space: normal; }
   .grid2 .ayuda { margin: 3px 0 0; line-height: 1.25; }
+  .chipdep { display: inline-flex; align-items: center; gap: 4px; margin: 3px 4px 3px 0; padding: 3px 4px 3px 10px; border-radius: 999px; background: rgba(29,95,168,.08); border: 1px solid rgba(29,95,168,.25); font-size: .85rem; }
+  .chipdep .x { border: 0; background: transparent; cursor: pointer; color: #8a1c1c; padding: 0 6px; font-weight: 700; }
   .conboton { display: flex; gap: 6px; } .conboton input { flex: 1; min-width: 0; } .conboton .btn { white-space: nowrap; }
   @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } }
   /* Cabecera de bienvenida y tarjetas de resumen (como en Incidentes) */
@@ -284,7 +286,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-11 · 4';
+  var VERSION = '2026-11-11 · 5';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -726,7 +728,7 @@
       '<div class="q"><label class="lbl">Buscar</label><input id="fq" type="search" value="' + esc(pref.q) + '" placeholder="Asunto, nº de expediente, persona…"></div>' +
       '<div><label class="lbl">Qué asuntos</label><select id="fquien">' +
         [['mias', 'Soy responsable'], ['implicado', 'Responsable o implicado'], ['todos', 'Todos']].map(function (o) { return '<option value="' + o[0] + '"' + (pref.quien === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
-      '<div><label class="lbl">Departamento</label><select id="fneg">' + opciones(negs.sort(), pref.negociado, 'Todos') + '</select></div>' +
+      '<div><label class="lbl">Departamento</label><select id="fneg">' + opcionesDep(pref.negociado) + '</select></div>' +
       '<div><label class="lbl">Responsable</label><select id="fresp">' + opciones(resps, pref.resp, 'Todos') + '</select></div>' +
       '<div><label class="lbl">Estado</label><select id="fest">' + opciones(valores('ESTADO', 'estado'), pref.estado, 'Todos') + '</select></div>' +
       '<div><label class="lbl">Prioridad</label><select id="fprio">' + opciones(valores('Prioridad', 'prioridad'), pref.prio, 'Todas') + '</select></div>' +
@@ -1150,7 +1152,7 @@
       '<div class="grid"><div><label class="lbl">Desde</label><input type="date" name="desde" value="' + o.desde + '"></div><div><label class="lbl">Hasta</label><input type="date" name="hasta" value="' + o.hasta + '"></div>' +
       '<div><label class="lbl">Qué asuntos</label>' + sel('criterio', CRITERIOS, o.criterio) + '</div>' +
       '<div><label class="lbl">De quién</label>' + sel('quien', { todos: 'Todos', mias: 'Soy responsable', implicado: 'Responsable o implicado' }, o.quien) + '</div>' +
-      '<div><label class="lbl">Departamento</label><select name="negociado">' + opciones(negs, o.negociado, 'Todos') + '</select></div>' +
+      '<div><label class="lbl">Departamento</label><select name="negociado">' + opcionesDep(o.negociado) + '</select></div>' +
       '<div><label class="lbl">Prioridad</label><select name="prio">' + opciones(valores('Prioridad', 'prioridad'), o.prio, 'Todas') + '</select></div>' +
       '<div><label class="lbl">Agrupar por</label>' + sel('agrupar', AGRUPAR, o.agrupar) + '</div></div>' +
       '<label class="lbl">Estados (ninguno marcado = todos)</label><div>' + ests.map(function (e) { return '<label class="check"><input type="checkbox" name="estados" value="' + esc(e) + '"' + (o.estados.indexOf(e) >= 0 ? ' checked' : '') + '> ' + esc(e) + '</label>'; }).join('') +
@@ -1246,6 +1248,32 @@
     imprimirHtml('Para tratar: ' + x[3], cuerpo.replace(/<td>/g, '<td style="border:1px solid #bbb;padding:3px 5px;vertical-align:top;font-size:9pt">'), 'para-tratar-' + k);
   }
   // Que «Negociado asignado» y «Negociados implicados» admitan valores propios (las células de MENSADEF): FillInChoice
+  // Ajustes › Departamentos: catálogo (opciones de las dos columnas) con las células de MENSADEF, altas y bajas
+  function vistaCatalogo() {
+    var cat = catalogo(), viejos = (campos.NegociadoAsignado || []).filter(function (d) { return !esCelula(d); });
+    return '<div class="card" style="margin:10px 0"><h3 style="margin-top:0">🏢 Departamentos (células de MENSADEF)</h3>' +
+      '<p class="small muted">Son las opciones de «Departamento asignado» e «implicados» para todos. Los expedientes que ya tienen un negociado antiguo lo conservan.</p>' +
+      (cat.length ? '<div id="catDeps">' + cat.map(function (d) { return '<span class="chipdep">' + esc(d) + ' <button type="button" class="x" data-catquitar="' + esc(d) + '" title="Quitar del catálogo">✕</button></span>'; }).join('') + '</div>'
+        : '<p class="small">Aún no hay células en el catálogo.</p>') +
+      (viejos.length ? '<p class="small muted">Negociados antiguos en la columna: ' + esc(viejos.join(', ')) + '. Se quitan al poner las células.</p>' : '') +
+      '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><input id="catNueva" style="flex:1;min-width:240px" placeholder="Nueva célula, tal como sale en MENSADEF (p. ej. ET 2SUIGE SETEC SEGURIDAD)" autocomplete="off">' +
+      '<button type="button" class="btn" data-catanadir="1">＋ Dar de alta</button></div>' +
+      '<div class="acciones" style="margin-top:8px">' + (CELULAS_SUIGESUR.some(function (d) { return cat.indexOf(d) < 0; }) ? '<button type="button" class="btn prim" data-catsuigesur="1">Poner las ' + CELULAS_SUIGESUR.length + ' células de SUIGESUR</button>' : '') +
+      '<span class="small muted" id="catMsg"></span></div></div>';
+  }
+  // Guarda el catálogo en las dos columnas (opciones) y deja que admitan otros valores (FillInChoice)
+  function guardarCatalogo(lista, boton, hecho) {
+    if (boton) boton.disabled = true;
+    var vals = lista.filter(function (d, i, l) { return d && l.indexOf(d) === i; }).sort(function (a, b) { return a.localeCompare(b, 'es'); });
+    var pon = function (campo, tipo) {
+      if (!infoCampo[campo] || !infoCampo[campo].existe) return Promise.resolve();
+      return enviarSP(urlLista() + "/fields/getbyinternalnameortitle('" + campo + "')", { __metadata: { type: tipo }, FillInChoice: true, Choices: { __metadata: { type: 'Collection(Edm.String)' }, results: vals } },
+        'No tienes permiso para cambiar las columnas de la lista', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' });
+    };
+    return pon('NegociadoAsignado', 'SP.FieldChoice').then(function () { return pon('NegociadosImplicados', 'SP.FieldMultiChoice'); })
+      .then(function () { return cargar(); }).then(function () { aviso(hecho || 'Departamentos guardados'); render(); })
+      .catch(function (e) { if (boton) boton.disabled = false; aviso('No se pudo: ' + (e.message || e)); });
+  }
   function admitirDepartamentos(boton) {
     boton.disabled = true;
     var pon = function (campo, tipo) {
@@ -1559,7 +1587,7 @@
       '<div><label class="lbl">Avisar de lo que vence en los próximos (días)</label><input type="number" name="dias" min="0" max="60" value="' + o.dias + '"></div>' +
       '<div><label class="lbl">De quién</label><select name="quien">' + [['todos', 'Todos los responsables'], ['mias', 'Solo mis asuntos'], ['implicado', 'Míos o en los que intervengo']]
         .map(function (x) { return '<option value="' + x[0] + '"' + (o.quien === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>' +
-      '<div><label class="lbl">Departamento</label><select name="negociado">' + opciones(negs, o.negociado, 'Todos') + '</select></div></div>' +
+      '<div><label class="lbl">Departamento</label><select name="negociado">' + opcionesDep(o.negociado) + '</select></div></div>' +
       '<label class="check"><input type="checkbox" name="vencidos"' + (o.vencidos ? ' checked' : '') + '> Incluir los ya vencidos</label>' +
       '<label class="check"><input type="checkbox" name="cc"' + (o.cc ? ' checked' : '') + '> Copia al personal implicado</label></div>' +
       '<p class="small muted">' + total + ' asunto' + (total === 1 ? '' : 's') + ' para avisar, a ' + gs.length + ' responsable' + (gs.length === 1 ? '' : 's') +
@@ -2086,11 +2114,28 @@
   // Departamentos (11/11/2026): son las células de MENSADEF («ET 2SUIGE SEGURIDAD»…), que llegan desde SENDERO. Se ofrecen solo
   // ellas: las que ya están en los asuntos (las que no son las opciones antiguas de la columna) y las que se han visto
   // llegar en este navegador. Los asuntos antiguos conservan su negociado (PROCOR, SEGURIDAD…) y se siguen viendo.
+  // Catálogo (11/11/2026): las opciones de la columna «Negociado asignado» son el catálogo de departamentos, igual para todos.
+  // Se gestiona en Ajustes (Control total): poner las células de SUIGESUR, añadir o quitar. Si aún no se ha cambiado (solo
+  // hay negociados antiguos), se ofrecen las células que manda SENDERO y las que hay en los expedientes.
+  var CELULAS_SUIGESUR = ['ET 2SUIGE SETEC CALIDAD VIDA', 'ET 2SUIGE SETEC INFRAPROP', 'ET 2SUIGE SETEC INFRAPROP MAMBIENTAL', 'ET 2SUIGE SETEC INFRAPROP MANTO',
+    'ET 2SUIGE SETEC INFRAPROP OBRAS', 'ET 2SUIGE SETEC INFRAPROP PROPIEDADES', 'ET 2SUIGE SETEC JEFATURA', 'ET 2SUIGE SETEC PRL', 'ET 2SUIGE SETEC PROGCOORD',
+    'ET 2SUIGE SETEC SECRETARIA', 'ET 2SUIGE SETEC SEGURIDAD', 'ET 2SUIGE SETEC SVC ACTO'];
+  var esCelula = function (d) { return /^[A-Z]{2,4}\s+\S+\s+\S/.test(String(d || '').trim()); };   // «ET 2SUIGE …»
+  var catalogo = function () { return (campos.NegociadoAsignado || []).filter(esCelula); };
   function departamentos(extra) {
-    var antiguos = (campos.NegociadoAsignado || []).concat(campos.NegociadosImplicados || []).map(sinTildes), s = {};
-    tareas.forEach(function (t) { [t.negociado].concat(t.negociados || []).forEach(function (d) { if (d && antiguos.indexOf(sinTildes(d)) < 0) s[d] = 1; }); });
-    (pref.departamentos || []).concat(extra || []).forEach(function (d) { if (d) s[d] = 1; });
+    var s = {};
+    catalogo().forEach(function (d) { s[d] = 1; });
+    tareas.forEach(function (t) { [t.negociado].concat(t.negociados || []).forEach(function (d) { if (esCelula(d)) s[d] = 1; }); });
+    (pref.departamentos || []).concat(extra || []).forEach(function (d) { if (d && esCelula(d)) s[d] = 1; });
     return Object.keys(s).sort(function (a, b) { return a.localeCompare(b, 'es'); });
+  }
+  // Para los filtros: los departamentos y, aparte, los negociados antiguos que aún tienen expedientes
+  function opcionesDep(sel) {
+    var deps = departamentos(), viejos = {};
+    tareas.forEach(function (t) { [t.negociado].concat(t.negociados || []).forEach(function (d) { if (d && deps.indexOf(d) < 0) viejos[d] = 1; }); });
+    var vs = Object.keys(viejos).sort(function (a, b) { return a.localeCompare(b, 'es'); });
+    var op = function (v) { return '<option' + (v === sel ? ' selected' : '') + '>' + esc(v) + '</option>'; };
+    return '<option value="">Todos</option>' + deps.map(op).join('') + (vs.length ? '<optgroup label="Antiguos (en expedientes anteriores)">' + vs.map(op).join('') + '</optgroup>' : '');
   }
   // Se pueden guardar células de MENSADEF si la columna admite valores propios (se activa en Ajustes, con Control total)
   var admiteDep = function (campo, v) { return !v || (infoCampo[campo] && infoCampo[campo].abierto) || (campos[campo] || []).indexOf(v) >= 0; };
@@ -2492,9 +2537,7 @@
       (listaInfo ? '<br>Lista: «' + esc(listaInfo.Title) + '», ' + listaInfo.ItemCount + ' elementos' : '') + (cargadoEn ? '<br>Leída a las ' + cargadoEn.toLocaleTimeString('es-ES') : '') + '<br>Versión de la página: ' + esc(VERSION) + '</p>' +
       '<label class="lbl">Nombre de la lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
       '<p class="small">' + (hayTratar() ? '✔ Columna «Tratar en» (marcas «Punto de situación» y «Tratar con el General»).' : '✕ Falta la columna «Tratar en» para marcar asuntos para el punto de situación o para tratar con el General. <button type="button" class="btn prim" data-creartratar="1">Crear la columna</button> <span class="muted">(hace falta poder administrar la lista)</span>') + '</p>' +
-      '<p class="small">' + (infoCampo.NegociadoAsignado && infoCampo.NegociadoAsignado.abierto && (!infoCampo.NegociadosImplicados || !infoCampo.NegociadosImplicados.existe || infoCampo.NegociadosImplicados.abierto)
-        ? '✔ Departamentos de MENSADEF: la lista admite las células de MENSADEF como departamento asignado e implicado.'
-        : '✕ Departamentos de MENSADEF: la lista solo admite sus negociados antiguos. <button type="button" class="btn prim" data-departamentos="1">Admitir las células de MENSADEF</button> <span class="small muted">(una vez; no borra ni cambia los asuntos ni las opciones que ya hay)</span>') + '</p>' +
+      vistaCatalogo() +
       '<label class="lbl">Actualizar la lista automáticamente cada (minutos; 0 = no)</label><input id="aAuto" type="number" min="0" max="60" value="' + minutosAuto() + '">' +
       '<label class="lbl">Marcar en naranja cuando queden (días)</label><input id="aDias" type="number" min="1" max="30" value="' + pref.avisoDias + '">' +
       '<label class="lbl">Estado con el que se crean los asuntos</label><select id="aEstAlta">' +
@@ -2601,6 +2644,15 @@
     if (pso) { psGuardar(tareas.find(function (x) { return x.id === Number(pso.dataset.psok); }), pso); return; }
     if (el.closest('[data-creartratar]')) { crearColumnaTratar(el.closest('[data-creartratar]')); return; }
     if (el.closest('[data-departamentos]')) { admitirDepartamentos(el.closest('[data-departamentos]')); return; }
+    if (el.closest('[data-catsuigesur]')) { var bs = el.closest('[data-catsuigesur]');
+      if (!bs.dataset.seguro) { bs.dataset.seguro = '1'; bs.textContent = '¿Poner las ' + CELULAS_SUIGESUR.length + ' células? Pulsa otra vez'; return; }
+      guardarCatalogo(catalogo().concat(CELULAS_SUIGESUR), bs, 'Puestas las células de SUIGESUR como departamentos'); return; }
+    if (el.closest('[data-catanadir]')) { var nv = ($('#catNueva').value || '').trim().replace(/\s+/g, ' ').toUpperCase();
+      if (!esCelula(nv)) { $('#catMsg').textContent = 'Escríbela como en MENSADEF, p. ej. «ET 2SUIGE SETEC SEGURIDAD».'; return; }
+      guardarCatalogo(catalogo().concat(nv), el.closest('[data-catanadir]'), 'Dado de alta: ' + nv); return; }
+    if (el.closest('[data-catquitar]')) { var bq = el.closest('[data-catquitar]'), dq = bq.getAttribute('data-catquitar');
+      if (!bq.dataset.seguro) { bq.dataset.seguro = '1'; bq.textContent = '¿Quitar?'; return; }
+      guardarCatalogo(catalogo().filter(function (d) { return d !== dq; }), bq, 'Quitado: ' + dq); return; }
     if (el.closest('[data-renombrarpruebas]')) { renombrarListaPruebas(el.closest('[data-renombrarpruebas]')); return; }
     if (el.closest('[data-pruebacorreo]')) { correoPrueba(el.closest('[data-pruebacorreo]')); return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); return; }

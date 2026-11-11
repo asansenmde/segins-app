@@ -89,7 +89,7 @@ await p.route(O + '/**', async r => {
   if (req.method() === 'POST') {
     if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'D', FormDigestTimeoutSeconds: 1800 } } } });
     if (resto === 'SP.Utilities.Utility.SendEmail') { asuntosCorreo.push(JSON.parse(req.postData()).properties.Subject); return r.fulfill({ json: { d: {} } }); }
-    if (resto.includes('/fields/getbyinternalnameortitle')) { const c = JSON.parse(req.postData()); camposCambiados.push(resto.match(/'([^']+)'\)$/)[1] + ' ' + c.__metadata.type + ' FillInChoice=' + c.FillInChoice + ' ' + (req.headers()['x-http-method'] || '')); abiertos = true; return r.fulfill({ status: 204, body: '' }); }
+    if (resto.includes('/fields/getbyinternalnameortitle')) { const c = JSON.parse(req.postData()); camposCambiados.push(resto.match(/'([^']+)'\)$/)[1] + ' ' + c.__metadata.type + ' FillInChoice=' + c.FillInChoice + ' opciones=' + (c.Choices ? c.Choices.results.length : '-') + ' ' + (req.headers()['x-http-method'] || '')); abiertos = true; if (c.Choices) opcionesDep = c.Choices.results; return r.fulfill({ status: 204, body: '' }); }
     if (resto.endsWith('/items')) {
       const c = JSON.parse(req.postData()); altas.push(c);
       items.push({ Id: items.length + 1, Title: c.Title, ESTADO: c.ESTADO, Prioridad: c.Prioridad || '', FechaVencimiento: c.FechaVencimiento, DescripcionDelAsunto: c.DescripcionDelAsunto, ControlExpediente: c.ControlExpediente,
@@ -102,7 +102,7 @@ await p.route(O + '/**', async r => {
   if (resto.startsWith('web/currentuser')) return r.fulfill({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' } });
   if (resto.startsWith('web/siteusers')) return r.fulfill({ json: { value: [{ Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' }, { Id: 31, Title: 'GARCIA LOPEZ ANA', Email: 'agarcia@et.mde.es' }] } });
   if (resto.includes('getbyinternalnameortitle')) return r.fulfill({ json: { AppendOnly: false, RichText: false } });
-  if (resto.includes('/fields')) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'NegociadoAsignado', Choices: ['PROCOR', 'SEGURIDAD', 'SETEC'], FillInChoice: abiertos }, { InternalName: 'NegociadosImplicados', Choices: ['PROCOR', 'SEGURIDAD', 'SETEC'], FillInChoice: abiertos }, { InternalName: 'DescripcionDelAsunto', RichText: false }] } });
+  if (resto.includes('/fields')) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'NegociadoAsignado', Choices: opcionesDep, FillInChoice: abiertos }, { InternalName: 'NegociadosImplicados', Choices: opcionesDep, FillInChoice: abiertos }, { InternalName: 'DescripcionDelAsunto', RichText: false }] } });
   if (resto.includes('/items')) { lecturas++; return r.fulfill({ json: { value: items } }); }
   if (resto.startsWith("web/lists/getbytitle('" + LISTA + "')?")) return r.fulfill({ json: { Title: LISTA, ItemCount: items.length, ListItemEntityTypeFullName: 'SP.Data.GestorListItem', EffectiveBasePermissions: { High: '0', Low: String(0x7FFFFFFF) }, RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor' } } });
   return r.fulfill({ status: 404, body: '' });
@@ -119,7 +119,7 @@ if (PRUEBAS) {
 }
 
 // 1. Desde MENSADEF
-let abiertos = false; const camposCambiados = [];
+let abiertos = false; const camposCambiados = []; let opcionesDep = ['PROCOR', 'SEGURIDAD', 'SETEC'];
 const datos = { v: 1, origen: 'MENSADEF', id: 'MSG-2026-0042', asunto: 'Inspección de seguridad 3 de noviembre', fecha: '2026-10-20T08:00:00Z', de: 'Jefe A', tipo: 'Orden',
   referencia: 'REF-77', suReferencia: 'SU-1', expediente: 'EXP-2026/55', enlace: 'https://mensadef.mdef.es/ambito/2SUIGE/Lists/X/DispForm.aspx?ID=4', texto: 'Cuerpo <b>con</b> marcas & símbolos', departamento: 'ET 2SUIGE SEGURIDAD', departamentos: ['ET 2SUIGE JEFSERVICIO', 'ET 2SUIGE SEGURIDAD', 'ET 2SUIGE SECRETARIA'] };
 const conDatos = PAGINA + '#importar=' + encodeURIComponent(JSON.stringify(datos));
@@ -133,8 +133,11 @@ console.log('desde SENDERO: departamento', await p.inputValue('#fNuevo [name=Neg
 // La lista aún no admite células: avisa; se activa en Ajustes (Control total) y ya se crea
 await p.click('#nCrear'); await p.waitForTimeout(600); console.log('sin activar:', (await p.textContent('#nError')).slice(0, 90));
 await p.click('#dlg [data-cerrar]'); await p.click('#tabs [data-v=ajustes]'); await p.waitForTimeout(300);
-console.log('Ajustes:', (await p.textContent('p:has([data-departamentos])')).slice(0, 80)); await p.click('[data-departamentos]'); await p.waitForTimeout(1500);
-console.log('columnas cambiadas:', camposCambiados.join(' | '), '| ahora:', (await p.$$eval('p.small', n => (n.find(x => /Departamentos de MENSADEF/.test(x.textContent)) || { textContent: '-' }).textContent)).slice(0, 60));
+console.log('Ajustes:', (await p.textContent('.card:has([data-catsuigesur])')).replace(/\s+/g, ' ').slice(0, 160)); await p.click('[data-catsuigesur]'); await p.click('[data-catsuigesur]'); await p.waitForTimeout(1500);
+console.log('catálogo tras poner SUIGESUR:', await p.$$eval('#catDeps .chipdep', l => l.length), 'células'); await p.fill('#catNueva', 'et 2suige setec nueva'); await p.click('[data-catanadir]'); await p.waitForTimeout(1500); console.log('alta nueva:', await p.$$eval('#catDeps .chipdep', l => l.map(x => x.textContent).filter(t => /NUEVA/.test(t)).join()));
+console.log('columnas cambiadas:', camposCambiados.join(' | '));
+await p.click('#tabs [data-v=nlt]'); await p.waitForTimeout(400); console.log('filtro Departamento:', await p.$$eval('#fneg option', o => o.length - 1), 'opciones · antiguos aparte:', await p.$$eval('#fneg optgroup option', o => o.map(x => x.value).join(', ') || '(ninguno)'));
+await p.click('#tabs [data-v=ajustes]'); await p.waitForTimeout(300); await p.locator('[data-catanadir]').scrollIntoViewIfNeeded(); await p.screenshot({ path: new URL('catalogo.png', import.meta.url).pathname });
 await p.goto(conDatos); await p.waitForTimeout(1200);
 await p.click('#nCrear'); await p.waitForTimeout(1200);
 console.log('alta MENSADEF:', JSON.stringify({ Title: altas[0].Title, NLT: altas[0].FechaVencimiento, Estado: altas[0].ESTADO, Negociado: altas[0].NegociadoAsignado, Resp: altas[0].ResponsableDeLaInformacionId }), '| expediente escrito después:', items[3].ControlExpediente);

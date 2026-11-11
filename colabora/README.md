@@ -35,6 +35,19 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-11 · 5: catálogo de departamentos.**
+  - Las opciones de las columnas «Negociado asignado» e «implicados» son el **catálogo de departamentos**, el mismo
+    para todos.
+  - Se gestiona en Ajustes (Control total) › «🏢 Departamentos (células de MENSADEF)»:
+    - «Poner las 12 células de SUIGESUR» (lista dada por el usuario, `CELULAS_SUIGESUR`). Pide confirmar y quita las
+      opciones antiguas de la columna.
+    - «＋ Dar de alta» otra célula, escrita como en MENSADEF.
+    - ✕ para quitar una.
+  - Se guarda con MERGE en las dos columnas (`Choices` + `FillInChoice=true`). Para instalarlo en otro sitio, se ponen
+    allí sus células.
+  - Los filtros (pantalla e informes) muestran el catálogo, más las células que manda SENDERO y las que hay en los
+    expedientes. Los negociados antiguos que aún tienen expedientes salen aparte («Antiguos (en expedientes
+    anteriores)»).
 - **Versión 2026-11-11 · 4:**
   - **Fuera lo antiguo:** solo se ofrecen células de MENSADEF, también en «Quién ve los expedientes». Al modificar a
     alguien, sus departamentos actuales siguen saliendo, para no perderlos.
