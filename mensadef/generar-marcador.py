@@ -135,11 +135,10 @@ if '--pruebas' in sys.argv:
     generar(*ESCUCHAR)
     generar('visor-mensadef.html', 'marcador-visor-mensadef-pruebas.html', 'SENDERO (pruebas)',
             'SENDERO · Visor de mensajes de MENSADEF · VERSIÓN DE PRUEBAS',
-            'Copia de pruebas del visor, para probar <b>«➜ Añadir tarea en META»</b> sin tocar el favorito bueno. Lleva '
-            'una banda roja, guarda su memoria aparte y solo admite la página de Tareas de pruebas '
-            '(<i>tareas-nlt-colabora-pruebas.html</i>). Solo <b>lee</b> MENSADEF, con tu sesión.',
-            ['Abre MENSADEF en tu célula (por ejemplo SETEC SEGURIDAD).',
-             'Pulsa el favorito <b>SENDERO (pruebas)</b>.',
+            'Copia de pruebas de SENDERO, para probar las novedades sin tocar el favorito bueno. Lleva una banda roja, '
+            'guarda su memoria aparte y solo admite la página de Tareas de pruebas (<i>tareas-nlt-colabora-pruebas.html</i>).',
+            ['Pulsa el favorito <b>SENDERO (pruebas)</b>. Si no estás en MENSADEF, te lleva a su portada: pulsa el favorito otra vez.',
+             'Entra solo en tu ámbito y carga tus bandejas (si no puede, pulsa <b>🔑 Entrar en mi ámbito</b>).',
              'Abre un mensaje y pulsa <b>➜ Añadir tarea en META</b>. La primera vez pega la dirección de '
              '<i>tareas-nlt-colabora-pruebas.html</i> en Colabora.',
              'Para volver a MENSADEF normal, recarga (F5).'], pruebas=True)
@@ -154,16 +153,19 @@ generar('prueba-mensadef.html', 'marcador-mensadef.html', 'Prueba MENSADEF', 'Pr
          'La página se sustituye por la de diagnóstico. Para volver, recarga (F5).'])
 
 generar('visor-mensadef.html', 'marcador-visor-mensadef.html', 'SENDERO', 'SENDERO · Visor de mensajes de MENSADEF',
-        'Un <b>favorito</b> que convierte la página de MENSADEF en un visor de los mensajes de <b>tus células</b> (cada uno ve '
-        'las suyas, con su propia sesión): bandejas de entrada y salida, búsqueda y filtros, ficha con todos los datos y el '
-        'texto, banderas, marcas de «visto», informes para imprimir, PDF o Word, <b>✉ Enviar por correo</b> y <b>➜ Añadir tarea en META</b> en el Gestor de Tareas '
-        'de Colabora que elijas. Solo <b>lee</b> MENSADEF; los datos no salen de los servidores de Defensa.',
-        ['Abre MENSADEF y entra en tu célula; espera a que salgan tus mensajes.',
-         'Pulsa el favorito <b>SENDERO</b>. La primera vez puedes elegir qué células se cargan '
-         '(<b>Células que se cargan…</b>).',
-         'Pulsa un mensaje para ver su ficha. Con <b>➜ Añadir tarea en META</b> se abre el Gestor de Tareas con el alta '
-         'rellena: la primera vez te pide la dirección del Gestor (el común de tu unidad o el tuyo) y un nombre; puedes '
-         'guardar varios y elegir en cada mensaje.',
+        'Un <b>favorito</b> que abre tus bandejas de MENSADEF en una sola pantalla (cada uno ve las de <b>sus células</b>, '
+        'con su propia sesión): entrada y salida, búsqueda y filtros, ficha con los datos, destinatarios, anexos y el texto, '
+        'banderas y comentarios, leído y «visto», paso a rúbrica, informes para imprimir, PDF o Word y '
+        '<b>➜ Añadir tarea en META</b> con el negociado y el responsable. Entra solo en tu ámbito desde la portada de MENSADEF.',
+        ['Pulsa el favorito <b>SENDERO</b>. Si no estás en MENSADEF, te lleva a su portada: pulsa <b>SENDERO</b> otra vez. '
+         '(Para ahorrarte este paso, pon la portada de MENSADEF como página de inicio de Edge.)',
+         'SENDERO entra solo en tu ámbito, sin que tengas que pulsar «Iniciar sesión», y carga tus bandejas. Si no lo '
+         'consigue, pulsa <b>🔑 Entrar en mi ámbito</b> e inicia sesión en la ventana pequeña: se cierra sola.',
+         'La primera vez puedes elegir qué células se cargan (<b>Células que se cargan…</b>). Con <b>⟳ Actualizar</b> vuelves a '
+         'leer MENSADEF sin perder la ficha abierta.',
+         'Pulsa un mensaje para ver su ficha (al abrirlo queda leído también en MENSADEF). Con <b>➜ Añadir tarea en META</b> se '
+         'abre el Gestor de Tareas con el alta rellena, el negociado y el responsable: la primera vez te pide la dirección '
+         'del Gestor y un nombre; puedes guardar varios y elegir en cada mensaje.',
          'Para volver a MENSADEF normal, recarga la página (F5).'])
 
 generar(*ESCUCHAR)
