@@ -358,4 +358,9 @@ con el formato *verbose* de SharePoint 2013.
   - **Responsable**: el último usado con ese negociado.
   - Los dos tienen lista de los ya usados y se mandan en `#importar` (`negociado`, `responsable`). Se recuerdan por
     célula y por negociado.
+- **2026-11-11 · 2: departamento = célula de MENSADEF.** Lo pide el usuario, pensando en llevarlo a todo el Ejército.
+  - Se quitan los campos «Negociado» y «Responsable» del panel de META.
+  - SENDERO manda la **célula del mensaje** como `departamento` (p. ej. «ET 2SUIGE SEGURIDAD») y lo dice en la ficha
+    («Departamento en META: …»).
+  - El responsable ya no se manda: en META es quien crea la tarea, y se puede cambiar allí.
 

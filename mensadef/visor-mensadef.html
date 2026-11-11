@@ -469,7 +469,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-11 · 1';
+  var VERSION = '2026-11-11 · 2';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1806,30 +1806,12 @@
       (g.length ? '<div class="fila" style="margin:4px 0"><label style="flex:1;min-width:220px">Crear la tarea en<select id="gestorSel">' +
         g.map(function (x, i) { return '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + esc(x.nombre) + '</option>'; }).join('') + '</select></label>' +
         '<a href="#" id="cambiarColabora" class="muted">gestionar gestores</a></div>' +
-        // Negociado y responsable que se proponen en META (11/11/2026): se recuerdan por célula y por negociado
-        '<div class="fila" style="margin:4px 0"><label style="flex:1;min-width:180px">Negociado<input id="metaNeg" list="metaNegs" value="' + esc(negociadoPropuesto(m)) + '" autocomplete="off"></label>' +
-        '<label style="flex:1;min-width:220px">Responsable<input id="metaResp" list="metaResps" value="' + esc(responsablePropuesto(negociadoPropuesto(m))) + '" placeholder="Nombre como en Colabora" autocomplete="off"></label>' +
-        '<datalist id="metaNegs">' + leer('negociadosUsados', []).map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>' +
-        '<datalist id="metaResps">' + leer('responsablesUsados', []).map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist></div>' : '') +
+        // Departamento en META = la célula de MENSADEF del mensaje (11/11/2026); el responsable es quien crea la tarea
+        '<p class="small muted" style="margin:2px 0">Departamento en META: <b>' + esc(sitioDe(m) || '—') + '</b> · responsable: quien crea la tarea (se puede cambiar en META)</p>' : '') +
       (ESCRIBIR && m._api ? '<label class="check small"><input type="checkbox" id="anotarMeta"' + (leer('anotarMeta', true) ? ' checked' : '') + '> Al añadir la tarea, dejar en MENSADEF el comentario «Añadido como tarea en META»</label>' : '');
     if ($('anotarMeta')) $('anotarMeta').addEventListener('change', function () { guardar('anotarMeta', this.checked); });
-    if ($('metaNeg')) $('metaNeg').addEventListener('change', function () { var r = responsablePropuesto(this.value); if (r) $('metaResp').value = r; });
     if ($('gestorSel')) $('gestorSel').addEventListener('change', function () { guardar('gestorSel', Number(this.value)); });
     if ($('cambiarColabora')) $('cambiarColabora').addEventListener('click', function (e) { e.preventDefault(); configurarColabora(m); });
-  }
-  // Negociado propuesto: el último usado con esta célula; si no, el de su nombre («SETEC SEGURIDAD» → «Seguridad»)
-  function negociadoPropuesto(m) {
-    var c = sitioDe(m) || '', porCel = leer('negPorCelula', {});
-    if (porCel[c]) return porCel[c];
-    var w = c.trim().split(/\s+/).pop() || '';
-    return /^[A-ZÁÉÍÓÚÑ]{4,}$/.test(w) ? w.charAt(0) + w.slice(1).toLowerCase() : '';
-  }
-  function responsablePropuesto(neg) { return (leer('respPorNeg', {})[String(neg || '').toLowerCase()]) || ''; }
-  function recordarNegResp(m, neg, resp) {
-    var porCel = leer('negPorCelula', {}); if (neg) { porCel[sitioDe(m) || ''] = neg; guardar('negPorCelula', porCel); }
-    var porNeg = leer('respPorNeg', {}); if (neg && resp) { porNeg[neg.toLowerCase()] = resp; guardar('respPorNeg', porNeg); }
-    var anadir = function (k, v) { if (!v) return; var l = leer(k, []).filter(function (x) { return x !== v; }); l.unshift(v); guardar(k, l.slice(0, 40)); };
-    anadir('negociadosUsados', neg); anadir('responsablesUsados', resp);
   }
   function configurarColabora(m, despues) {
     var caja = $('colabora'), g = gestores();
@@ -1985,10 +1967,7 @@
     var datos = { v: 1, origen: 'MENSADEF', id: claveMensaje(m), asunto: m._asunto || m.Title || '(sin asunto)', fecha: f ? f.toISOString() : '', de: autoridad(m),
       tipo: m.MensajeTipo_es || '', referencia: m.MensajeNum_referencia || '', suReferencia: m.MensajeSu_referencia || '', expediente: m.MensajeNum_expediente || '',
       enlace: disp || '', texto: cuerpo.length > 6000 ? cuerpo.slice(0, 6000) + '…' : cuerpo };
-    var neg = $('metaNeg') ? $('metaNeg').value.trim() : '', resp = $('metaResp') ? $('metaResp').value.trim() : '';
-    if (neg) datos.negociado = neg;
-    if (resp) datos.responsable = resp;
-    recordarNegResp(m, neg, resp);
+    if (sitioDe(m)) datos.departamento = sitioDe(m);   // la célula de MENSADEF
     window.open(u + '#importar=' + encodeURIComponent(JSON.stringify(datos)), '_blank', 'noopener');
     enviados[claveMensaje(m)] = new Date().toISOString();
     enviadosA[claveMensaje(m)] = (gestorElegido() || {}).nombre || 'Tareas Colabora';
