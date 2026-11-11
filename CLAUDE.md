@@ -57,6 +57,8 @@ de cada proyecto (`*/pruebas/`).
 - Requiere Edge o Chrome; avisar si se abre en modo Internet Explorer.
 - Probar con Playwright contra un SharePoint simulado (formato ligero y *verbose*) antes de entregar.
   En SENDERO (MENSADEF), siempre la batería completa: `sh mensadef/pruebas/todas.sh` (todas las formas de entrar).
+  En los Gestores (Colabora), `sh colabora/pruebas/todas.sh`. Antes de tocar un proyecto, comprobar que no hay otra rama
+  con cambios más nuevos del mismo archivo (`git log --all -- <archivo>`) y juntarlos primero.
 - **Nunca pedir al usuario que pegue contenido** (asuntos, textos, nombres de personas): solo estructura
   (nombres de listas y columnas, recuentos). Para descubrir la estructura están las páginas de diagnóstico
   `colabora/prueba-sharepoint.html` y `mensadef/prueba-mensadef.html` (marcador «Prueba MENSADEF»).

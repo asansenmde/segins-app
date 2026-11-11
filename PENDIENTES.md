@@ -64,12 +64,16 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
 13. **Solicitudes de acceso del sitio JIGE** (27/10/2026): Incidentes y Pérdidas usaban por error la lista interna oculta
     «Solicitudes de acceso» de SharePoint; ahora «SOLICITUDES ACCESO APLICACIONES» (Incidentes 2026-10-27 · 1, Pérdidas · 2).
     Hecho (27/10/2026, confirmado en Preparación): lista creada, solo sus elementos, abierta a «usuarios del dominio» y
-    grupo INCIDENTES_UNIDADES (8 personas). Queda confirmar la alerta «Avisarme» con una solicitud de prueba. **VSA tiene el mismo fallo** (sigue con «SOLICITUDES DE
-    ACCESO»): corregirlo cuando el usuario diga.
-    **01/11/2026**: una unidad acreditada no podía guardar el borrador («Acceso denegado»): `INCIDENTES_UNIDADES` sin
-    «Colaborar» en la lista de incidentes. Incidentes 2026-11-01 · 1 lo avisa y en Ajustes › Accesos lo da con un botón.
-    Copia protegida (semilla fija 20261027) subida y funcionando (01/11/2026). Pendiente: pulsar «Dar «Colaborar»…» en
-    Ajustes › Accesos y confirmar con la unidad. Revisar Pérdidas y VSA igual.
+    grupo INCIDENTES_UNIDADES (8 personas). Queda confirmar la alerta «Avisarme» con una solicitud de prueba. VSA tenía el mismo fallo: corregido el
+    06/11/2026 (VSA 2026-11-06 · 1, misma lista y aviso a asansen@et.mde.es; lee también las solicitudes antiguas). Queda
+    que el usuario suba la versión, resuelva las solicitudes 📦 y cree la alerta «Avisarme» si no la tiene.
+14. **Buscar en todos los campos** (regla del usuario, 05/11/2026, ya en `CLAUDE.md`): revisar los campos «Buscar» de
+    cada aplicación (Tareas Colabora, Permisos, Incidentes, VSA, Pérdidas…) para que busquen en todos los campos. Pendiente
+    de que el usuario diga si se hace ya en todas o al tocar cada una.
+15. **Eliminar registros y adjuntos** (05/11/2026, hecho en Incidentes 2026-11-05 · 1 y Pérdidas 2026-11-05 · 3): botón
+    rojo «Eliminar» en la ficha solo para quien tiene permiso de eliminar en la lista (va a la papelera). Falta que el
+    usuario decida si quita «Eliminar elementos» a unidades y SUIGE (con «Colaborar» pueden todos) con un nivel de permiso
+    propio en Colabora.
 
 Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar por la que diga).
 
@@ -135,4 +139,18 @@ autoría.
     11/11/2026: departamentos = células de MENSADEF (SENDERO 2026-11-11 · 2 manda la célula; Gestor común y META
     2026-11-11 · 2 la ponen como departamento; responsable = quien crea). Pendiente: subir los Gestores y, con Control
     total, activar una vez Ajustes → «Departamentos de MENSADEF» en cada lista (META y común).
+
+16. **Gestor de Tareas / META 2026-11-10 · 1** (10/11/2026): junta la · 2 (Ajustes solo con Control total, rama
+    `claude/mensadef-outlook-tasks-sync-vozg8g`) y la · 3 («📋 Incluir en el Punto de Situación», rama
+    `claude/modest-fermat-9zf46n`), hechas por separado. Probado en simulación (original y protegida, ligero y verbose).
+    Pendiente: que el usuario suba el Gestor común; META se regenera igual por si la quiere. Ojo: las sesiones de SENDERO
+    y de Puntos de Situación siguen con su versión; si vuelven a tocar el Gestor, que partan de esta.
+17. **META: quién ve cada expediente** (10/11/2026, META 2026-11-10 · 2): autor, responsable, implicados y su negociado; todo
+    con Control total o «Lo ve todo»; altas en Ajustes (lista «META MIEMBROS»). Probado en simulación. Pendiente: que el
+    usuario suba META, cree la lista desde Ajustes y dé de alta a cada uno en su negociado. Siguiente paso posible: que
+    SENDERO pase el negociado y el responsable al abrir la tarea (se hace en la sesión de SENDERO). `importar.mjs` no
+    sirve con la copia de META (ya pasaba con la · 2): adaptarlo si se toca la importación.
+    11/11/2026: Gestor común y META 2026-11-11 · 3 = control de acceso de META (rama task-manager, 10/11 · 2) + Punto de
+    Situación + departamentos = células de MENSADEF. Pendiente: subir los dos y, en Ajustes (Control total), activar
+    «Departamentos de MENSADEF» y dar de alta a la gente con sus células en «Quién ve los expedientes de META».
 

@@ -35,6 +35,18 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-11 · 3: todo junto.** Se juntan dos líneas de trabajo que iban por separado:
+  - la de la rama `claude/task-manager-web-nlt-n7elx4` (2026-11-10 · 2): en META cada uno ve sus expedientes y los de
+    su negociado (lista «META MIEMBROS», Ajustes › «Quién ve los expedientes de META») e «Incluir en el Punto de
+    Situación»;
+  - la de esta rama: negociado/responsable desde SENDERO y departamentos = células de MENSADEF.
+
+  Fusión a tres bandas desde la base común (2026-11-09 · 2). En «Quién ve los expedientes», los negociados pasan a
+  ser **departamentos**: primero las células de MENSADEF, después los negociados antiguos, y un campo para añadir otra
+  célula. El control de acceso compara el nombre tal cual, así que una persona dada de alta en «ET 2SUIGE SEGURIDAD» ve
+  los expedientes con ese departamento.
+  **Batería:** `sh colabora/pruebas/todas.sh` (simulación, importar, quién ve, punto de situación; original, verbose y
+  protegidas). Hay que pasarla antes de entregar.
 - **Versión 2026-11-11 · 2: departamentos = células de MENSADEF.**
   - En pantalla, «Negociado asignado / implicados» pasa a **«Departamento asignado / implicados»**. Las columnas de la
     lista son las mismas (`NegociadoAsignado`, `NegociadosImplicados`).
@@ -48,12 +60,47 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   - **Desde SENDERO:** llega `departamento` (la célula del mensaje) y queda puesto como asignado.
   - **Responsable:** siempre quien crea la tarea (también desde SENDERO). Se cambia buscando en el directorio; las
     sugerencias muestran la cuenta del dominio (`et\usuario`) además del correo.
+- **Versión 2026-11-10 · 2: en META, cada uno ve solo lo suyo** (solo META; el Gestor común no cambia salvo el número).
+  - Ve un expediente quien lo creó, su responsable, el personal implicado y los miembros de **su negociado** (asignado o
+    implicado). Lo ven todos quien tiene Control total y quien se marque «Lo ve todo».
+  - Los negociados de cada persona se dan de alta en *Ajustes › Quién ve los expedientes de META* (lista **«META MIEMBROS»**:
+    `Persona`, `Negociados` separados por «;», `VeTodo`; la página la crea con «Crear la lista»). Alta buscando en el sitio o
+    en el directorio, modificar y quitar (a la papelera). Sin la lista, cada uno ve solo lo que creó, lleva o en lo que interviene.
+  - La cabecera dice «3 de 6 asuntos» y la bienvenida qué ve cada uno. Es un **filtro de la página**: quien abra la lista
+    directamente en Colabora la ve entera (para eso, permisos de la lista en Colabora).
+  - Prueba: `node colabora/pruebas/meta-acceso.mjs` (también `VERBOSE=1` y `TAREAS_HTML=colabora/colabora/tareas-nlt-colabora-mensadef.html`).
+- **Versión 2026-11-10 · 1: se juntan la · 2 y la · 3**, que se hicieron por separado en dos sesiones: Ajustes solo con
+  Control total (· 2) y «📋 Incluir en el Punto de Situación» solo para los asuntos ⭐ Tratar con el General (· 3).
 - **Versión 2026-11-09 · 2: Ajustes solo con Control total**, en el Gestor común y en META.
   - La pestaña Ajustes sale solo a quien tiene «Control total» (permiso «Administrar permisos») en la lista o, si la
     lista no se puede leer, en el sitio. A los demás no les aparece y, si la tenían abierta, vuelven a «Tareas».
   - Esto se hizo la mañana del 09/11 en otra rama (`claude/task-manager-web-nlt-n7elx4`, commit 8fca758), pero sobre
     la versión 2026-10-23 · 3. La copia que salió de allí no tenía Finalizar, Eliminar, Tratar en, etc. Ahora está
     portado a la versión buena.
+- **Versión 2026-11-09 · 3:** pasan al punto de situación los asuntos marcados **⭐ Tratar con el General** (decisión del
+  usuario): sin esa marca la ficha lo explica y no ofrece incluirlo; incluir no cambia las marcas del asunto. Las
+  propuestas para PROCOR serán los asuntos ⭐ que aún no estén en el punto abierto.
+- **Versión 2026-11-09 · 2: «📋 Incluir en el Punto de Situación».** Un asunto importante (llegado de SENDERO y dado de
+  alta en META) se incluye desde su ficha en el punto de situación abierto de la aplicación **Puntos de Situación de
+  SUIGESUR** (proyecto aparte, mismo sitio; ver `PENDIENTES.md`).
+  - Recuadro azul en la ficha, bajo «Para tratar en». Si la aplicación aún no está instalada (faltan sus listas), lo dice y
+    no hace nada más: **queda preparado** para cuando se instale.
+  - «📋 Incluir en PS-año-número» abre un formulario: punto abierto, negociado (el del asunto según «PS Negociados»), asunto
+    y situación (de la descripción y el último comentario, corregibles) y prioridad (Alta si el asunto es alta o crítica).
+  - Solo deja escribir en los negociados de los que el usuario es miembro; los de PROCOR (coordinación) en todos. Si no
+    puede, PROCOR lo verá como propuesta.
+  - Crea la entrada en «PS Aportaciones» con `Origen` META, `OrigenLista`, `OrigenId` y `OrigenUrl` (enlace a la ficha), al
+    final de su negociado, sin duplicar (en la · 2 ponía además la marca 📋; desde la · 3, no).
+  - Después la ficha muestra «✓ Incluido en PS-2026-045 · PRL» y, mientras el punto esté abierto, «✎ Actualizar la situación»
+    (relee la entrada y la modifica con `MERGE` + `IF-MATCH`). Tras la hora de cierre no deja tocarla, y si Colabora la
+    rechaza por la validación de la lista lo explica.
+  - Contrato con la aplicación (sus listas las crea ella al instalarse): «PS Puntos» (`Referencia`, `FechaPunto`,
+    `Apertura`, `Cierre`, `EstadoPunto`); «PS Negociados» (`Title`, `Orden`, `NombreGestor` con los valores de
+    NegociadoAsignado separados por «;», `Miembros`, `Coordina`, `EnInforme`); «PS Aportaciones» (`Title`, `PuntoId`,
+    `Referencia`, `Negociado`, `Situacion`, `Prioridad` Normal/Alta, `Orden`, `CierrePunto`, `Origen`, `OrigenLista`,
+    `OrigenId`, `OrigenUrl`).
+  - La copia de pruebas usa las listas «PS … PRUEBAS». Prueba: `node colabora/pruebas/punto-situacion.mjs` (también
+    `VERBOSE=1` y `TAREAS_HTML=colabora/colabora/…` con las copias protegidas).
 - **Versión 2026-11-09 · 1: la copia `--propio` se llama META** («Del mensaje a la tarea»), hermana de SENDERO.
   - Cabecera con un escudo azul marino de filo dorado y la «M» dorada, el nombre en letras espaciadas, el lema y debajo
     «Gestión de expedientes MENSADEF — Cte. Alfredo Sánchez Sender».
@@ -138,6 +185,7 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   horizontal) con los asuntos abiertos en su NLT y los filtros aplicados; desde ahí se imprime o se guarda en PDF.
   Si el navegador no deja abrir ventanas, se descarga como `.html` para abrirlo e imprimirlo.
 - **Estado al crear**: «Remitido al negociado» (como al enviarlo desde Colabora); se cambia en *Ajustes*.
+- `pruebas/punto-situacion.mjs`: inclusión de asuntos en el Punto de Situación (instalada o no, permisos, cierre, validación).
 - `pruebas/simulacion.mjs`: prueba con Playwright contra un Colabora simulado (`node colabora/pruebas/simulacion.mjs`).
   `pruebas/importar.mjs`: alta desde MENSADEF (también dentro del portal) y desde correos .msg/.eml, duplicados y
   actualización automática (`TAREAS_HTML=colabora/colabora/tareas-nlt-colabora.html` para la copia protegida).

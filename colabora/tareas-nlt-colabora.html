@@ -94,6 +94,7 @@
   .finrap { font-size: .72rem; padding: 2px 8px; border-radius: 8px; border: 1px solid #a5d6a7; background: #eef8ef; color: #2e7d32; font-weight: 700; white-space: nowrap; }
   .finrap.seguro { background: #2e7d32; color: #fff; }
   .tratar { margin: 8px 0; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .psbox { margin: 8px 0; padding: 8px 10px; border: 1px solid #1d4f91; border-left-width: 5px; border-radius: 10px; background: #f3f7fd; } .psbox .psya { margin: 4px 0; } .psbox .psform { margin-top: 6px; }
   .filtros > div { flex: 1 1 120px; min-width: 0; } .filtros > .q { flex: 2 1 200px; }
   .filtros label.lbl { margin-top: 0; }
   .modo { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; flex: none; }
@@ -277,7 +278,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-11 · 2';
+  var VERSION = '2026-11-11 · 3';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -355,7 +356,7 @@
   var CAMPOS_SEL = ['Id', 'Title', 'ESTADO', 'Prioridad', 'FechaDeInicio', 'FechaVencimiento', 'fECHAFINALIZACION', 'NegociadoAsignado',
     'NegociadosImplicados', 'Descripcion', 'DescripcionDelAsunto', 'Comentarios', 'ControlExpediente', 'REGISTRODEACTIVIDAD',
     'NombreResponsable', 'NombreImplicados', 'Created', 'Modified', 'ResponsableDeLaInformacion/Id', 'ResponsableDeLaInformacion/Title',
-    'PersonalImplicado0/Id', 'PersonalImplicado0/Title', 'Author/Title', 'Editor/Title',
+    'PersonalImplicado0/Id', 'PersonalImplicado0/Title', 'Author/Id', 'Author/Title', 'Editor/Title',
     'correoResponsable', 'correoimplicados', 'ResponsableDeLaInformacion/EMail', 'PersonalImplicado0/EMail'];
   var EXPANDIR = 'ResponsableDeLaInformacion,PersonalImplicado0,Author,Editor';
 
@@ -406,7 +407,7 @@
     var resp = it.ResponsableDeLaInformacion || null;
     var implicados = lista(it.PersonalImplicado0).map(function (u) { return u.Title; });
     var t = {
-      id: it.Id, asunto: it.Title || '(sin asunto)', estado: it.ESTADO || '', prioridad: it.Prioridad || '',
+      id: it.Id, autorId: it.Author && it.Author.Id, asunto: it.Title || '(sin asunto)', estado: it.ESTADO || '', prioridad: it.Prioridad || '',
       inicio: fechaSP(it.FechaDeInicio), nlt: fechaSP(it.FechaVencimiento), fin: fechaSP(it.fECHAFINALIZACION),
       negociado: it.NegociadoAsignado || '', negociados: lista(it.NegociadosImplicados).length ? lista(it.NegociadosImplicados) : (Array.isArray(it.NegociadosImplicados) ? it.NegociadosImplicados : []),
       descripcion: texto(it.DescripcionDelAsunto) || texto(it.Descripcion), resumenDesc: texto(it.Descripcion),
@@ -428,6 +429,117 @@
 
   // silencioso: actualización automática (no muestra «Cargando…» ni redibuja si se está escribiendo)
   var cargando = null;
+
+  // ---------- META: quién ve cada expediente (solo en META, la copia --propio) ----------
+  // Cada uno ve los expedientes que ha creado, de los que es responsable, en los que está implicado y los de sus negociados
+  // (asignado o implicado). Lo ve todo quien tiene Control total y quien el administrador marque «Lo ve todo».
+  // Los negociados de cada persona se dan de alta en Ajustes (lista «META MIEMBROS»: Persona, Negociados separados por «;»,
+  // VeTodo). Es un filtro de la página: quien abra la lista directamente en Colabora la sigue viendo entera.
+  var MIEMBROS = 'META MIEMBROS';
+  var acceso = { info: null, filas: [], misNegs: [], veTodo: false, error: '', total: 0 };
+  var urlMiembros = function () { return web.url + "/_api/web/lists/getbytitle('" + encodeURIComponent(MIEMBROS) + "')"; };
+  var negsDe = function (txt) { return String(txt || '').split(/[;\n]/).map(function (x) { return x.trim(); }).filter(Boolean); };
+  function cargarMiembros() {
+    if (!PROPIO) return Promise.resolve();
+    return api(urlMiembros() + '?$select=Id,Title,ListItemEntityTypeFullName').then(function (l) {
+      acceso.info = l;
+      return api(urlMiembros() + '/items?$top=5000&$select=Id,Title,Negociados,VeTodo,Persona/Id,Persona/Title,Persona/EMail&$expand=Persona');
+    }).then(function (d) {
+      acceso.error = '';
+      acceso.filas = lista(d.value).map(function (x) {
+        return { id: x.Id, personaId: x.Persona && x.Persona.Id, nombre: (x.Persona && x.Persona.Title) || x.Title || '', correo: (x.Persona && x.Persona.EMail) || '', negs: negsDe(x.Negociados), todo: !!x.VeTodo };
+      }).sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
+    }).catch(function (e) { acceso.info = e.status === 404 ? null : acceso.info; acceso.filas = []; acceso.error = e.status === 404 ? '' : (e.message || String(e)); });
+  }
+  var restringido = function () { return PROPIO && !esAdmin && !acceso.veTodo; };
+  function puedeVer(t) {
+    if (!restringido()) return true;
+    if (!yo) return false;
+    if (t.autorId === yo.Id || meImplica(t)) return true;
+    var negs = [t.negociado].concat(t.negociados).filter(Boolean).map(sinTildes);
+    return acceso.misNegs.some(function (n) { return negs.indexOf(n) >= 0; });
+  }
+  function aplicarAcceso(ts) {
+    var mia = yo ? acceso.filas.find(function (f) { return f.personaId === yo.Id; }) : null;
+    acceso.misNegs = mia ? mia.negs.map(sinTildes) : [];
+    acceso.veTodo = !!(mia && mia.todo);
+    acceso.total = ts.length;
+    return ts.filter(puedeVer);
+  }
+  var textoAcceso = function () {
+    if (!PROPIO) return '';
+    if (esAdmin) return 'Ves todos los expedientes (Control total).';
+    if (acceso.veTodo) return 'Ves todos los expedientes (dado de alta para verlo todo).';
+    var mia = yo ? acceso.filas.find(function (f) { return f.personaId === yo.Id; }) : null;
+    return 'Ves los expedientes que has creado, de los que eres responsable o en los que estás implicado' + (mia && mia.negs.length ? ' y los de ' + mia.negs.join(', ') : '') + '.';
+  };
+  // Ajustes de META (solo Control total): crear la lista y dar de alta a las personas
+  var mmEditando = null, mmPersona = null;
+  function vistaAccesoMeta() {
+    if (!PROPIO) return '';
+    // Departamentos (11/11/2026): primero las células de MENSADEF; después los negociados antiguos de la lista
+    var celulas = departamentos(acceso.filas.reduce(function (a, f) { return a.concat(f.negs); }, []).filter(function (n) { return (campos.NegociadoAsignado || []).concat(campos.NegociadosImplicados || []).map(sinTildes).indexOf(sinTildes(n)) < 0; }));
+    var antiguos = valores('NegociadoAsignado', 'negociado').concat(campos.NegociadosImplicados || []).filter(function (n, i, l) { return celulas.indexOf(n) < 0 && l.indexOf(n) === i; }).sort(function (a, b) { return a.localeCompare(b, 'es'); });
+    var negs = celulas.concat(antiguos);
+    var cab = '<div class="card"><h3 style="margin-top:0">👥 Quién ve los expedientes de META</h3><p class="small">Cada persona ve los expedientes que ha creado, de los que es responsable, en los que está implicada y los de <b>sus departamentos (células de MENSADEF) o negociados</b> (asignado o implicado). ' +
+      'Los ve todos quien tiene Control total (tú) y quien marques «Lo ve todo».</p>' +
+      '<p class="small muted">Es un filtro de esta página: quien abra la lista «' + esc(pref.lista) + '» directamente en Colabora la verá entera. Para que no pase, en Colabora deja la lista solo para los que usan META.</p>';
+    if (!acceso.info) return cab + (acceso.error ? '<div class="error">No se pudo leer la lista «' + esc(MIEMBROS) + '»: ' + esc(acceso.error) + '</div>' :
+      '<p class="small">✕ Falta la lista «' + esc(MIEMBROS) + '» donde se dan de alta los negociados de cada persona. Mientras no exista, cada uno ve solo lo suyo (creado, responsable o implicado).</p>' +
+      '<div class="acciones"><button class="btn prim" data-mmcrear="1">Crear la lista</button></div><div id="mmMsg"></div>') + '</div>';
+    var ed = mmEditando ? acceso.filas.find(function (f) { return f.id === mmEditando; }) : null;
+    var filas = acceso.filas.map(function (f) {
+      return '<tr><td>' + esc(f.nombre) + (f.correo ? '<br><span class="small muted">' + esc(f.correo) + '</span>' : '') + '</td><td>' + (f.negs.length ? esc(f.negs.join(', ')) : '<span class="muted">—</span>') + '</td><td>' + (f.todo ? '✔' : '') + '</td>' +
+        '<td style="white-space:nowrap"><button class="btn" data-mmeditar="' + f.id + '">✎</button> <button class="btn" data-mmquitar="' + f.id + '">Quitar</button></td></tr>';
+    }).join('');
+    return cab + '<table class="t"><tr><th>Persona</th><th>Departamentos</th><th>Lo ve todo</th><th></th></tr>' + (filas || '<tr><td colspan="4" class="muted">Nadie dado de alta todavía.</td></tr>') + '</table>' +
+      '<h4 style="margin:14px 0 4px">' + (ed ? 'Modificar a ' + esc(ed.nombre) : 'Dar de alta a una persona') + '</h4>' +
+      (ed ? '' : '<label class="lbl">Persona</label><input id="mmPersona" placeholder="Escribe nombre o apellido"><div class="sugs" id="mmSug" hidden></div>') +
+      '<label class="lbl">Departamentos que ve <span class="small muted">(células de MENSADEF' + (antiguos.length ? '; al final, los negociados antiguos' : '') + ')</span></label><div id="mmNegs">' + (negs.length ? negs.map(function (n) {
+        return '<label class="check"' + (antiguos.indexOf(n) >= 0 ? ' style="opacity:.75"' : '') + '><input type="checkbox" value="' + esc(n) + '"' + (ed && ed.negs.map(sinTildes).indexOf(sinTildes(n)) >= 0 ? ' checked' : '') + '> ' + esc(n) + '</label>';
+      }).join('') : '<span class="small muted">Aún no hay departamentos en los expedientes.</span>') + '</div>' +
+      '<div style="display:flex;gap:6px;margin-top:4px"><input id="mmDepTxt" list="mmDeps" placeholder="Añadir otra célula de MENSADEF (p. ej. ET 2SUIGE SEGURIDAD)" autocomplete="off"><button type="button" class="btn" data-mmdep="1">＋</button></div>' +
+      '<datalist id="mmDeps">' + celulas.map(function (d) { return '<option value="' + esc(d) + '">'; }).join('') + '</datalist>' +
+      '<label class="check"><input type="checkbox" id="mmTodo"' + (ed && ed.todo ? ' checked' : '') + '> <b>Lo ve todo</b> (todos los expedientes, como tú)</label>' +
+      '<div class="acciones"><button class="btn prim" data-mmguardar="1">' + (ed ? 'Guardar cambios' : 'Dar de alta') + '</button>' + (ed ? '<button class="btn" data-mmcancelar="1">Cancelar</button>' : '') + '</div><div id="mmMsg"></div></div>';
+  }
+  function crearListaMiembros(boton) {
+    var msg = function (t) { var el = $('#mmMsg'); if (el) el.innerHTML = t; };
+    boton.disabled = true; msg('<p class="small muted">Creando la lista…</p>');
+    var campo = function (xml) { return enviarSP(urlMiembros() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas'); };
+    enviarSP(web.url + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: MIEMBROS, Description: 'Negociados de cada persona en META (página tareas-nlt-colabora-mensadef.html)' }, 'No tienes permiso para crear listas en el sitio')
+      .then(function () { return campo('<Field Type="User" Name="Persona" StaticName="Persona" DisplayName="Persona" UserSelectionMode="PeopleOnly" />'); })
+      .then(function () { return campo('<Field Type="Note" Name="Negociados" StaticName="Negociados" DisplayName="Negociados" NumLines="3" RichText="FALSE" />'); })
+      .then(function () { return campo('<Field Type="Boolean" Name="VeTodo" StaticName="VeTodo" DisplayName="Lo ve todo"><Default>0</Default></Field>'); })
+      .then(function () { return cargarMiembros(); }).then(function () { render(); })
+      .catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo crear: ' + esc(e.message || e) + '</div>'); });
+  }
+  function guardarMiembro(boton) {
+    var msg = function (t) { var el = $('#mmMsg'); if (el) el.innerHTML = t; };
+    var ed = mmEditando ? acceso.filas.find(function (f) { return f.id === mmEditando; }) : null;
+    var negs = Array.prototype.filter.call(document.querySelectorAll('#mmNegs input'), function (x) { return x.checked; }).map(function (x) { return x.value; });
+    var todo = $('#mmTodo').checked;
+    if (!ed && !mmPersona) return msg('<div class="error">Elige la persona de la lista de sugerencias.</div>');
+    if (!negs.length && !todo) return msg('<div class="error">Marca al menos un departamento o «Lo ve todo».</div>');
+    var ya = !ed && acceso.filas.find(function (f) { return f.personaId === mmPersona.Id; });
+    var fila = ed || ya;
+    boton.disabled = true;
+    var cuerpo = { __metadata: { type: acceso.info.ListItemEntityTypeFullName }, Title: fila ? fila.nombre : mmPersona.Title, Negociados: negs.join('; '), VeTodo: todo };
+    if (!fila) cuerpo.PersonaId = mmPersona.Id;
+    (fila ? enviarSP(urlMiembros() + '/items(' + fila.id + ')', cuerpo, 'No tienes permiso para modificar la lista ' + MIEMBROS, { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
+      : enviarSP(urlMiembros() + '/items', cuerpo, 'No tienes permiso para escribir en la lista ' + MIEMBROS))
+      .then(function () { var n = fila ? fila.nombre : mmPersona.Title; mmEditando = null; mmPersona = null; return cargarMiembros().then(function () { render(); aviso('✓ ' + n + (fila ? ': cambios guardados' : ': dado de alta')); }); })
+      .catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo guardar: ' + esc(e.message || e) + '</div>'); });
+  }
+  function quitarMiembro(boton) {
+    var f = acceso.filas.find(function (x) { return x.id === Number(boton.dataset.mmquitar); });
+    if (!f) return;
+    if (!boton.dataset.seguro) { boton.dataset.seguro = '1'; boton.textContent = '¿Quitar a ' + f.nombre + '? Pulsa otra vez'; boton.classList.add('rojo'); return; }
+    boton.disabled = true;
+    enviarSP(urlMiembros() + '/items(' + f.id + ')/recycle()', {}, 'No tienes permiso para quitar personas de la lista ' + MIEMBROS)
+      .then(function () { if (mmEditando === f.id) mmEditando = null; return cargarMiembros().then(function () { render(); aviso('✓ ' + f.nombre + ' quitado: ya solo ve lo suyo'); }); })
+      .catch(function (e) { boton.disabled = false; aviso('No se pudo quitar: ' + (e.message || e)); });
+  }
   function cargar(silencioso) {
     // Si ya hay una lectura en curso: la automática se une a ella; la pedida (tras guardar) lee otra vez al terminar
     if (cargando) return silencioso ? cargando : cargando.then(function () { return cargar(); });
@@ -439,6 +551,7 @@
         api(urlLista() + '?$select=Id,Title,ItemCount,ListItemEntityTypeFullName,EffectiveBasePermissions,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) {
           listaInfo = l; esAdmin = ((Number(l.EffectiveBasePermissions && l.EffectiveBasePermissions.Low) || 0) & 0x2000000) !== 0; mostrarAjustes();
         }),
+        cargarMiembros(),
         api(urlLista() + "/fields?$select=InternalName,Title,Choices,RichText,Required,TypeAsString,FillInChoice&$filter=(InternalName eq 'ESTADO') or (InternalName eq 'PersonalImplicado0') or (InternalName eq 'Prioridad') or (InternalName eq 'NegociadoAsignado')" +
           " or (InternalName eq 'NegociadosImplicados') or (InternalName eq 'DescripcionDelAsunto') or (InternalName eq 'Comentarios') or (InternalName eq 'ControlExpediente') or (InternalName eq 'FechaVencimiento') or (InternalName eq 'TratarEn')")
           .then(function (d) { lista(d.value).forEach(function (f) {
@@ -464,7 +577,7 @@
       return pagina(urlLista() + '/items?$top=500&$select=' + CAMPOS_SEL.concat(hayTratar() ? ['TratarEn'] : []).join(',') + '&$expand=' + EXPANDIR);
     }).then(function (items) {
       var antes = cargadoEn ? new Map(tareas.map(function (t) { return [t.id, t.modificada]; })) : null;
-      tareas = items.map(aTarea);
+      tareas = aplicarAcceso(items.map(aTarea));
       // Novedades desde la última lectura hechas por otras personas (las del usuario no se marcan)
       var nuevas = 0;
       if (antes) tareas.forEach(function (t) {
@@ -472,7 +585,7 @@
         novedades[t.id] = antes.has(t.id) ? 'Cambiado' : 'Nuevo'; nuevas++;
       });
       cargadoEn = new Date();
-      $('#estadoCarga').textContent = tareas.length + ' asuntos · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) +
+      $('#estadoCarga').textContent = (restringido() && acceso.total !== tareas.length ? tareas.length + ' de ' + acceso.total : tareas.length) + ' asuntos · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) +
         (Object.keys(novedades).length ? ' · ' + Object.keys(novedades).length + ' novedades' : '');
       $('#estadoCarga').title = 'Versión de la página: ' + VERSION;
       var escribiendo = document.activeElement && document.activeElement.closest && document.activeElement.closest('#vista input, #vista textarea, #vista select');
@@ -672,7 +785,7 @@
       '<span class="rolh">Responsable de ' + mias + ' asunto' + (mias === 1 ? '' : 's') + ' abierto' + (mias === 1 ? '' : 's') + '</span>' +
       (impl ? '<span class="rolh">Implicado en ' + impl + ' más</span>' : '') +
       '<span class="rolh">Viendo: ' + { mias: 'mis asuntos', implicado: 'míos y en los que intervengo', todos: 'todos los asuntos' }[pref.quien] + '</span>' +
-      '<p>' + esc(fecha[0].toUpperCase() + fecha.slice(1)) + ' · ' + ab.length + ' asuntos abiertos en «' + esc(listaInfo ? listaInfo.Title : pref.lista) + '»</p></div>';
+      '<p>' + esc(fecha[0].toUpperCase() + fecha.slice(1)) + ' · ' + ab.length + ' asuntos abiertos en «' + esc(listaInfo ? listaInfo.Title : pref.lista) + '»' + (PROPIO ? '<br><span class="small">🔒 ' + esc(textoAcceso()) + '</span>' : '') + '</p></div>';
   }
   function vistaNlt() {
     var ts = filtrar(tareas);
@@ -1141,6 +1254,174 @@
     enviarSP(urlLista() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas en la lista')
       .then(function () { return cargar(); }).then(function () { aviso('Columna «Tratar en» creada'); render(); })
       .catch(function (e) { boton.disabled = false; aviso('No se pudo crear la columna: ' + (e.message || e)); });
+  }
+  // ---------- Punto de Situación de SUIGESUR (09/11/2026) ----------
+  // Un asunto importante (llegado de SENDERO y dado de alta aquí) marcado ⭐ «Tratar con el General» se incluye en el punto
+  // de situación abierto de la
+  // aplicación «Puntos de Situación» del mismo sitio. Contrato con esa aplicación (sus listas las crea ella al instalarse):
+  //  · «PS Puntos»: Referencia (PS-año-número), FechaPunto, Apertura, Cierre (fecha y hora del bloqueo), EstadoPunto.
+  //  · «PS Negociados»: Title (nombre en el informe), Orden, NombreGestor (valor de NegociadoAsignado; varios con «;»),
+  //    Miembros (personas), Coordina (PROCOR y control total: pueden escribir en cualquier negociado), EnInforme.
+  //  · «PS Aportaciones»: Title (asunto), PuntoId, Referencia, Negociado, Situacion, Prioridad (Normal / Alta), Orden,
+  //    CierrePunto (copia del cierre: la validación de la lista rechaza cambios después), Origen (META), OrigenLista,
+  //    OrigenId (Id del asunto aquí) y OrigenUrl (enlace a su ficha).
+  // Si la aplicación aún no está instalada, la ficha lo dice y no hace nada más. La copia de pruebas usa las listas «… PRUEBAS».
+  var PS_SUF = PRUEBAS ? ' PRUEBAS' : '';
+  var PS_LISTAS = { puntos: 'PS Puntos' + PS_SUF, negs: 'PS Negociados' + PS_SUF, aport: 'PS Aportaciones' + PS_SUF };
+  var psUrl = function (k) { return web.url + "/_api/web/lists/getbytitle('" + encodeURIComponent(PS_LISTAS[k].replace(/'/g, "''")) + "')"; };
+  var psCache = null, psCacheEn = 0;
+  // Estado de la aplicación: si está instalada, puntos abiertos, negociados y en cuáles puede escribir el usuario
+  function psEstado(forzar) {
+    if (psCache && !forzar && Date.now() - psCacheEn < 60000) return Promise.resolve(psCache);
+    var todos = function (url) {
+      var acc = [];
+      var pag = function (u) { return api(u).then(function (d) { acc = acc.concat(lista(d.value)); var s = d['odata.nextLink'] || d['@odata.nextLink']; return s ? pag(s) : acc; }); };
+      return pag(url);
+    };
+    return Promise.all([
+      api(psUrl('aport') + '?$select=Id,ListItemEntityTypeFullName'),
+      todos(psUrl('puntos') + '/items?$top=500&$select=Id,Title,Referencia,FechaPunto,Apertura,Cierre,EstadoPunto&$orderby=Id desc'),
+      todos(psUrl('negs') + '/items?$top=500&$select=Id,Title,Orden,NombreGestor,Coordina,EnInforme,Miembros/Id&$expand=Miembros'),
+    ]).then(function (r) {
+      var ahora = Date.now();
+      var abiertos = r[1].filter(function (p) {
+        var c = p.Cierre ? Date.parse(p.Cierre) : 0, a = p.Apertura ? Date.parse(p.Apertura) : 0;
+        return c > ahora && (!a || a <= ahora) && !/cerrad|archiv|borrad/i.test(p.EstadoPunto || '');
+      }).sort(function (a, b) { return Date.parse(a.Cierre) - Date.parse(b.Cierre); });
+      var negs = r[2].filter(function (n) { return n.EnInforme !== false; }).sort(function (a, b) { return (a.Orden || 99) - (b.Orden || 99); });
+      var soyDe = function (n) { return yo && lista(n.Miembros).some(function (m) { return m.Id === yo.Id; }); };
+      var coordino = r[2].some(function (n) { return n.Coordina && soyDe(n); });
+      var cierres = {}; r[1].forEach(function (p) { cierres[p.Id] = p.Cierre; });
+      psCache = { instalada: true, tipo: r[0].ListItemEntityTypeFullName, abiertos: abiertos, negs: negs, cierres: cierres,
+        puedo: function (nombre) { return coordino || negs.some(function (n) { return n.Title === nombre && soyDe(n); }); }, coordino: coordino };
+      psCacheEn = Date.now();
+      return psCache;
+    }).catch(function (e) {
+      if (e.status === 404) { psCache = { instalada: false }; psCacheEn = Date.now(); return psCache; }
+      throw e;
+    });
+  }
+  // Negociado del punto de situación que corresponde al «Negociado asignado» del asunto
+  function psNegociadoDe(t, negs) {
+    var v = sinTildes(t.negociado).trim();
+    if (!v) return '';
+    var n = negs.filter(function (x) {
+      return String(x.NombreGestor || '').split(';').concat([x.Title]).some(function (y) { return sinTildes(y).trim() === v; });
+    })[0];
+    return n ? n.Title : '';
+  }
+  var psRef = function (p) { return p.Referencia || p.Title || ('Punto ' + p.Id); };
+  var psCierre = function (p) { return new Date(p.Cierre).toLocaleString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); };
+  var psFicha = function (t) { return location.origin + location.pathname + '?id=' + t.id; };
+  // Entradas del punto de situación que vienen de este asunto
+  function psDeAsunto(t) {
+    return api(psUrl('aport') + "/items?$top=50&$select=Id,Title,PuntoId,Referencia,Negociado,Situacion,Prioridad,CierrePunto,Modified&$filter=(OrigenId eq " + Number(t.id) +
+      ") and (OrigenLista eq '" + encodeURIComponent(LISTA.replace(/'/g, "''")) + "')").then(function (d) { return lista(d.value); });
+  }
+  // Recuadro de la ficha
+  function pintarPS(t, msg) {
+    var caja = $('#psBox');
+    if (!caja || Number(caja.dataset.id) !== t.id) return;
+    caja.innerHTML = '<b class="small">📋 Punto de Situación SUIGESUR:</b> <span class="small muted">comprobando…</span>';
+    psEstado().then(function (ps) {
+      if (!ps.instalada) {
+        caja.innerHTML = '<b class="small">📋 Punto de Situación SUIGESUR:</b> <span class="small muted">la aplicación «Puntos de Situación» aún no está instalada en este sitio. ' +
+          'Cuando lo esté, desde aquí podrás incluir este asunto en el punto abierto.</span>';
+        return;
+      }
+      return psDeAsunto(t).then(function (ya) {
+        var ahora = Date.now();
+        var html = '<b class="small">📋 Punto de Situación SUIGESUR</b>';
+        html += ya.map(function (a) {
+          var cierre = ps.cierres[a.PuntoId] || a.CierrePunto, abierta = cierre && Date.parse(cierre) > ahora;
+          return '<div class="psya">✓ Incluido en <b>' + esc(a.Referencia || 'punto ' + a.PuntoId) + '</b> · ' + esc(a.Negociado) + (abierta ? ' · <span class="small">se puede actualizar hasta el ' + esc(psCierre({ Cierre: cierre })) + '</span> ' +
+            (ps.puedo(a.Negociado) ? '<button type="button" class="btn" data-psform="' + t.id + '" data-psaport="' + a.Id + '">✎ Actualizar la situación</button>' : '') : ' · <span class="small muted">punto cerrado</span>') + '</div>';
+        }).join('');
+        var libres = ps.abiertos.filter(function (p) { return !ya.some(function (a) { return a.PuntoId === p.Id; }); });
+        var marcado = !hayTratar() || tieneTratar(t, 'gen');
+        if (!ps.abiertos.length) html += '<div class="small muted">No hay ningún punto de situación abierto. Lo abre PROCOR en la aplicación «Puntos de Situación»' +
+          (hayTratar() ? (marcado ? '; el asunto está marcado ⭐ Tratar con el General y lo verán allí como propuesta.' : '.') : '.') + '</div>';
+        else if (libres.length && !marcado && !ya.length) html += '<div class="small muted">Pasan al punto de situación los asuntos para <b>⭐ Tratar con el General</b>: márcalo arriba y podrás incluirlo.</div>';
+        else if (libres.length && marcado) html += '<div><button type="button" class="btn prim" data-psform="' + t.id + '">📋 Incluir en ' + esc(psRef(libres[0])) + '</button> <span class="small muted">cierra el ' + esc(psCierre(libres[0])) + '</span></div>';
+        caja.innerHTML = html + '<div id="psForm"></div>' + (msg ? '<div class="small">' + msg + '</div>' : '');
+      });
+    }).catch(function (e) { caja.innerHTML = '<b class="small">📋 Punto de Situación SUIGESUR:</b> <span class="error">no se pudo consultar (' + esc(e.message || e) + ')</span>'; });
+  }
+  // Formulario para incluir (o actualizar) el asunto en el punto abierto
+  function psFormulario(t, aportId) {
+    var f = $('#psForm');
+    if (!f || !psCache || !psCache.instalada) return;
+    var ps = psCache;
+    (aportId ? api(psUrl('aport') + '/items(' + Number(aportId) + ')?$select=Id,Title,PuntoId,Negociado,Situacion,Prioridad') : Promise.resolve(null)).then(function (a) {
+      var ult = String(t.observaciones || '').split('\n').filter(Boolean)[0] || '';
+      var sit = a ? a.Situacion || '' : (t.descripcion || t.resumenDesc || '') + (ult ? '\n' + ult : '');
+      var neg = a ? a.Negociado : psNegociadoDe(t, ps.negs);
+      var prio = a ? a.Prioridad : (t.prio === 'critica' || t.prio === 'alta' ? 'Alta' : 'Normal');
+      var negsPuedo = ps.negs.filter(function (n) { return ps.puedo(n.Title); });
+      if (!a && !negsPuedo.length) { f.innerHTML = '<div class="aviso small">Solo los miembros del negociado o de PROCOR pueden incluir asuntos en el punto de situación. ' +
+        'Está marcado ⭐ Tratar con el General: PROCOR lo verá como propuesta.</div>'; return; }
+      var libres = ps.abiertos;
+      f.innerHTML = '<div class="psform">' +
+        (a ? '<input type="hidden" id="psAport" value="' + a.Id + '">' :
+          '<label class="lbl">Punto de situación</label><select id="psPunto">' + libres.map(function (p) { return '<option value="' + p.Id + '">' + esc(psRef(p)) + ' · cierra el ' + esc(psCierre(p)) + '</option>'; }).join('') + '</select>' +
+          '<label class="lbl">Negociado</label><select id="psNeg">' + (neg && negsPuedo.some(function (n) { return n.Title === neg; }) ? '' : '<option value="">— Elige negociado —</option>') +
+            negsPuedo.map(function (n) { return '<option' + (n.Title === neg ? ' selected' : '') + '>' + esc(n.Title) + '</option>'; }).join('') + '</select>' +
+          (neg && !negsPuedo.some(function (n) { return n.Title === neg; }) ? '<div class="small muted">El asunto es de ' + esc(neg) + ', donde no puedes escribir: elige uno tuyo o pídeselo a ese negociado.</div>' : '')) +
+        '<label class="lbl">Asunto (como saldrá en el informe)</label><input id="psTit" maxlength="255" value="' + esc(a ? a.Title : t.asunto) + '">' +
+        '<label class="lbl">Situación</label><textarea id="psSit" rows="5" ' + AREA + '>' + esc(sit) + '</textarea>' +
+        '<label class="lbl">Prioridad</label><select id="psPrio">' + ['Normal', 'Alta'].map(function (x) { return '<option' + (x === prio ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select>' +
+        '<div class="error" id="psErr" hidden></div>' +
+        '<div class="acciones"><button type="button" class="btn" data-psno="' + t.id + '">Cancelar</button><button type="button" class="btn prim" data-psok="' + t.id + '">' + (a ? 'Guardar la situación' : '📋 Incluir en el punto') + '</button></div></div>';
+    }).catch(function (e) { f.innerHTML = '<div class="error">' + esc(e.message || e) + '</div>'; });
+  }
+  function psGuardar(t, boton) {
+    var ps = psCache, err = $('#psErr');
+    var fallo = function (m) { err.textContent = m; err.hidden = false; boton.disabled = false; };
+    var tit = $('#psTit').value.trim(), sit = $('#psSit').value.trim(), prio = $('#psPrio').value, aport = $('#psAport');
+    if (!tit) return fallo('Falta el asunto');
+    if (!sit) return fallo('Escribe la situación del asunto');
+    boton.disabled = true; err.hidden = true;
+    var tipo = { __metadata: { type: ps.tipo } };
+    var hecho;
+    if (aport) {
+      // Actualizar: se relee para no pisar cambios y la validación de la lista impide escribir tras el cierre
+      hecho = fetch(psUrl('aport') + '/items(' + Number(aport.value) + ')?$select=Id,PuntoId,Negociado,CierrePunto', { credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+        .then(function (r) { if (!r.ok) throw new Error(r.status === 404 ? 'La entrada ya no existe en el punto de situación' : 'HTTP ' + r.status); return r.json(); })
+        .then(function (d) {
+          d = d.d || d;
+          var ci = ps.cierres[d.PuntoId] || d.CierrePunto;
+          if (!ci || Date.parse(ci) <= Date.now()) throw new Error('El punto de situación ya está cerrado: no admite cambios');
+          if (!ps.puedo(d.Negociado)) throw new Error('No puedes escribir en el negociado ' + d.Negociado);
+          return enviarSP(psUrl('aport') + '/items(' + d.Id + ')', Object.assign(tipo, { Title: tit, Situacion: sit, Prioridad: prio }),
+            'No tienes permiso para modificar el punto de situación', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': (d.__metadata && d.__metadata.etag) || '*' });
+        }).then(function () { return 'Situación actualizada en el punto de situación'; });
+    } else {
+      var p = ps.abiertos.filter(function (x) { return x.Id === Number($('#psPunto').value); })[0], neg = $('#psNeg').value;
+      if (!p) return fallo('Elige el punto de situación');
+      if (!neg) return fallo('Elige el negociado');
+      if (!ps.puedo(neg)) return fallo('No puedes escribir en el negociado ' + neg);
+      if (Date.parse(p.Cierre) <= Date.now()) return fallo('Ese punto de situación acaba de cerrarse');
+      // Va al final de las entradas de su negociado; si ya estaba incluido en ese punto, no se duplica
+      hecho = Promise.all([
+        api(psUrl('aport') + '/items?$top=500&$select=Id,Orden,OrigenId,OrigenLista,Negociado&$filter=PuntoId eq ' + p.Id),
+      ]).then(function (r) {
+        var es = lista(r[0].value);
+        if (es.some(function (x) { return Number(x.OrigenId) === t.id && x.OrigenLista === LISTA; })) throw new Error('Este asunto ya está incluido en ' + psRef(p));
+        var orden = es.filter(function (x) { return x.Negociado === neg; }).reduce(function (m, x) { return Math.max(m, Number(x.Orden) || 0); }, 0) + 1;
+        return enviarSP(psUrl('aport') + '/items', Object.assign(tipo, { Title: tit, PuntoId: p.Id, Referencia: psRef(p), Negociado: neg, Situacion: sit, Prioridad: prio, Orden: orden,
+          CierrePunto: new Date(p.Cierre).toISOString(), Origen: 'META', OrigenLista: LISTA, OrigenId: t.id, OrigenUrl: psFicha(t) }),
+          'No tienes permiso para añadir entradas al punto de situación');
+      }).then(function () { return 'Incluido en ' + psRef(p) + ' (' + neg + ')'; });
+    }
+    hecho.then(function (m) {
+      aviso(m);
+      var t2 = tareas.find(function (x) { return x.id === t.id; }) || t;
+      if (!$('#psBox')) return;
+      if (!aport) { abrir(t2.id); } else pintarPS(t2, '✓ ' + esc(m));
+    }).catch(function (e) {
+      var m = e.message || String(e);
+      fallo(/valid|validaci/i.test(m) ? 'Colabora no lo admite: el punto de situación ya está cerrado' : m);
+    });
   }
   function imprimirCalendario() {
     var y = mes.getFullYear(), m = mes.getMonth(), ini = iso(mes), fin = iso(new Date(y, m + 1, 0));
@@ -2212,6 +2493,7 @@
       }).join('') || '<p class="muted">Aún no se han leído los estados.</p>') + '</div>' +
       '<div class="card"><h3 style="margin-top:0">✉ Correo de prueba</h3><p class="small muted">Comprueba si Colabora acepta y entrega los avisos a unas direcciones (separadas por «;»). Si alguna no la acepta, lo dice.</p>' +
       '<input id="aPruebaA" value="' + esc(yo && yo.Email ? yo.Email : '') + '"><div class="acciones"><button data-pruebacorreo="1">Enviar correo de prueba</button></div><div id="aPrueba"></div></div>' +
+      vistaAccesoMeta() +
       '<div class="card"><h3 style="margin-top:0">Privacidad</h3><p class="small">Esta página funciona dentro de Colabora con tu sesión. Lee la lista y <b>solo escribe cuando das de alta un asunto, lo modificas o añades un comentario</b> (nunca borra), con tus permisos de Colabora. El correo de asignación lo envía el propio Colabora con su correo interno. No envía nada fuera del servidor. Los correos que arrastras (.msg o .eml) y los mensajes que llegan de MENSADEF se leen en este navegador y solo se guardan en Colabora si pulsas «Crear». ' +
       'Tus preferencias (filtros, estados, informe) se guardan solo en este navegador.</p></div>';
   }
@@ -2237,6 +2519,7 @@
       '<div class="tratar"><b class="small">Para tratar en:</b> ' + (hayTratar() ? TRATAR.map(function (x) { var on = tieneTratar(t, x[0]);
         return '<button type="button" class="btn' + (on ? ' on tr-' + x[0] : '') + '" data-tratar="' + x[0] + '" data-id="' + t.id + '" title="' + (on ? 'Quitar la marca' : 'Marcar para tratar') + '">' + (on ? '✓ ' : '') + x[2] + ' ' + x[3] + '</button>'; }).join(' ') :
         '<span class="small muted">falta la columna «Tratar en» en la lista; la crea quien administre la lista en Ajustes.</span>') + '<span id="trMsg" class="small"></span></div>' +
+      '<div id="psBox" class="psbox" data-id="' + t.id + '"></div>' +
       '<div class="estadoacc"><b class="small">Estado:</b> ' +
         (t.clase !== 'hecha' ? '<button type="button" class="btn verde" data-finalizar="' + t.id + '">✅ Finalizar</button>' : '<button type="button" class="btn" data-reabrir="' + t.id + '">↺ Reabrir</button>') +
         '<select id="selEstado">' + valores('ESTADO', 'estado').map(function (e) { return '<option' + (e === t.estado ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select>' +
@@ -2253,6 +2536,7 @@
       '<div id="comLista" data-id="' + t.id + '"></div></div></div>';
     dlg.showModal(); dlg.scrollTop = 0;
     pintarComentarios(t);
+    pintarPS(t);
   }
 
   var aviso = function (txt) { $('#estadoCarga').textContent = txt; setTimeout(function () { if (cargadoEn) $('#estadoCarga').textContent = tareas.length + ' asuntos · ' + cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }, 2500); };
@@ -2264,18 +2548,41 @@
     var v = { nlt: vistaNlt, calendario: vistaCalendario, estadisticas: vistaEstadisticas, avisos: vistaAvisos, informes: vistaInformes, ajustes: vistaAjustes }[pref.vista] || vistaNlt;
     if (!cargadoEn && pref.vista !== 'ajustes') return;
     $('#vista').innerHTML = v();
+    // Selector de personas del alta de META (Ajustes)
+    if ($('#mmPersona')) {
+      var elegirMm = selectorPersona($('#mmPersona'), $('#mmSug'), function (u, e) {
+        if (!u) { $('#mmMsg').innerHTML = '<div class="error">No se pudo elegir a esa persona: ' + esc((e && e.message) || e) + '</div>'; return; }
+        mmPersona = u; $('#mmPersona').value = u.Title; $('#mmMsg').innerHTML = '';
+        var ya = acceso.filas.find(function (f) { return f.personaId === u.Id; });
+        if (ya) { mmEditando = ya.id; render(); }
+      });
+      $('#mmPersona').onkeydown = function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); elegirMm(); } };
+      if (!usuariosSitio) cargarUsuarios();
+    }
   }
 
   document.addEventListener('click', function (e) {
     var el = e.target;
     var tab = el.closest('#tabs a');
     if (tab) { if (tab.dataset.v === 'ajustes' && !esAdmin) return; pref.vista = tab.dataset.v; kpiSel = ''; guardarPref(); render(); return; }
-    if (el.closest('#recargar')) { cargar(); return; }
+    if (el.closest('#recargar')) { psCache = null; cargar(); return; }
+    if (el.closest('[data-mmcrear]')) { crearListaMiembros(el.closest('[data-mmcrear]')); return; }
+    if (el.closest('[data-mmguardar]')) { guardarMiembro(el.closest('[data-mmguardar]')); return; }
+    if (el.closest('[data-mmdep]')) { var dv = $('#mmDepTxt').value.trim(); if (!dv) return; var ya = Array.prototype.filter.call(document.querySelectorAll('#mmNegs input'), function (x) { return x.value === dv; })[0];
+      if (ya) ya.checked = true; else $('#mmNegs').insertAdjacentHTML('afterbegin', '<label class="check"><input type="checkbox" value="' + esc(dv) + '" checked> ' + esc(dv) + '</label>'); $('#mmDepTxt').value = ''; return; }
+    if (el.closest('[data-mmquitar]')) { quitarMiembro(el.closest('[data-mmquitar]')); return; }
+    if (el.closest('[data-mmeditar]')) { mmEditando = Number(el.closest('[data-mmeditar]').dataset.mmeditar); mmPersona = null; render(); return; }
+    if (el.closest('[data-mmcancelar]')) { mmEditando = null; mmPersona = null; render(); return; }
     if (el.closest('[data-crearpruebas]')) { crearListaPruebas(el.closest('[data-crearpruebas]')); return; }
     var trb = el.closest('[data-tratar]');
     if (trb) { cambiarTratar(Number(trb.dataset.id), trb.dataset.tratar, trb); return; }
     var trp = el.closest('[data-imptratar]');
     if (trp) { imprimirTratar(trp.dataset.imptratar); return; }
+    var psf = el.closest('[data-psform]');
+    if (psf) { psFormulario(tareas.find(function (x) { return x.id === Number(psf.dataset.psform); }), psf.dataset.psaport); return; }
+    if (el.closest('[data-psno]')) { $('#psForm').innerHTML = ''; return; }
+    var pso = el.closest('[data-psok]');
+    if (pso) { psGuardar(tareas.find(function (x) { return x.id === Number(pso.dataset.psok); }), pso); return; }
     if (el.closest('[data-creartratar]')) { crearColumnaTratar(el.closest('[data-creartratar]')); return; }
     if (el.closest('[data-departamentos]')) { admitirDepartamentos(el.closest('[data-departamentos]')); return; }
     if (el.closest('[data-renombrarpruebas]')) { renombrarListaPruebas(el.closest('[data-renombrarpruebas]')); return; }
