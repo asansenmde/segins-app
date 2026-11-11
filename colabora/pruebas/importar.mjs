@@ -121,12 +121,14 @@ if (PRUEBAS) {
 // 1. Desde MENSADEF
 let abiertos = false; const camposCambiados = [];
 const datos = { v: 1, origen: 'MENSADEF', id: 'MSG-2026-0042', asunto: 'Inspección de seguridad 3 de noviembre', fecha: '2026-10-20T08:00:00Z', de: 'Jefe A', tipo: 'Orden',
-  referencia: 'REF-77', suReferencia: 'SU-1', expediente: 'EXP-2026/55', enlace: 'https://mensadef.mdef.es/ambito/2SUIGE/Lists/X/DispForm.aspx?ID=4', texto: 'Cuerpo <b>con</b> marcas & símbolos', departamento: 'ET 2SUIGE SEGURIDAD' };
+  referencia: 'REF-77', suReferencia: 'SU-1', expediente: 'EXP-2026/55', enlace: 'https://mensadef.mdef.es/ambito/2SUIGE/Lists/X/DispForm.aspx?ID=4', texto: 'Cuerpo <b>con</b> marcas & símbolos', departamento: 'ET 2SUIGE SEGURIDAD', departamentos: ['ET 2SUIGE JEFSERVICIO', 'ET 2SUIGE SEGURIDAD', 'ET 2SUIGE SECRETARIA'] };
 const conDatos = PAGINA + '#importar=' + encodeURIComponent(JSON.stringify(datos));
 await p.goto(conDatos); await p.waitForTimeout(1200);
 console.log('dirección limpia:', !p.url().includes('#'), '| título:', await p.textContent('#dlg h2'));
 console.log('asunto:', await p.inputValue('#fNuevo [name=Title]'), '| NLT:', await p.inputValue('#fNuevo [name=nlt]'), '| exp.:', await p.inputValue('#fNuevo [data-exp]'));
 console.log('descripción:\n' + await p.inputValue('#fNuevo [name=DescripcionDelAsunto]'));
+console.log('departamentos para elegir:', await p.$$eval('#nDeps option', o => o.map(x => x.value).join(', ')));
+await p.setViewportSize({ width: 1200, height: 900 }); await p.screenshot({ path: new URL('alta-nueva.png', import.meta.url).pathname });
 console.log('desde SENDERO: departamento', await p.inputValue('#fNuevo [name=NegociadoAsignado]'), '| responsable (quien crea)', await p.inputValue('#fNuevo [name=resp]'));
 // La lista aún no admite células: avisa; se activa en Ajustes (Control total) y ya se crea
 await p.click('#nCrear'); await p.waitForTimeout(600); console.log('sin activar:', (await p.textContent('#nError')).slice(0, 90));

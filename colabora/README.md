@@ -35,6 +35,14 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-11 · 4:**
+  - **Fuera lo antiguo:** solo se ofrecen células de MENSADEF, también en «Quién ve los expedientes». Al modificar a
+    alguien, sus departamentos actuales siguen saliendo, para no perderlos.
+  - **Alta más clara:** asunto; después, en su propio recuadro, «Departamento asignado» y «Responsable de la
+    información», con la ayuda debajo (ya no se solapan); después las fechas, el estado y lo demás. El responsable
+    tiene «✎ Cambiar» para poner a otra persona (búsqueda con la cuenta del dominio).
+  - **Células automáticas:** SENDERO manda, con cada mensaje, todas las células del usuario (`departamentos`). META
+    las guarda en el navegador y las ofrece al elegir el departamento, sin escribirlas.
 - **Versión 2026-11-11 · 3: todo junto.** Se juntan dos líneas de trabajo que iban por separado:
   - la de la rama `claude/task-manager-web-nlt-n7elx4` (2026-11-10 · 2): en META cada uno ve sus expedientes y los de
     su negociado (lista «META MIEMBROS», Ajustes › «Quién ve los expedientes de META») e «Incluir en el Punto de

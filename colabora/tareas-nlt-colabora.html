@@ -69,6 +69,12 @@
   label.check { display: inline-flex; gap: 6px; align-items: center; margin: 4px 12px 4px 0; font-size: .9rem; }
   label.check input { width: auto; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+  /* Alta (11/11/2026): departamento y responsable en dos columnas anchas, con su ayuda debajo (sin solaparse) */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 6px 0 10px; padding: 10px 12px; border: 1px solid var(--line, #d3dce8); border-radius: 12px; background: rgba(29,95,168,.04); }
+  .grid2 .lbl { white-space: normal; }
+  .grid2 .ayuda { margin: 3px 0 0; line-height: 1.25; }
+  .conboton { display: flex; gap: 6px; } .conboton input { flex: 1; min-width: 0; } .conboton .btn { white-space: nowrap; }
+  @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } }
   /* Cabecera de bienvenida y tarjetas de resumen (como en Incidentes) */
   .hero { background: linear-gradient(120deg, #26331d 0%, #3b4a2f 55%, #56693f 100%); color: #fff; border-radius: 16px; padding: 16px 20px; margin: 12px 0; position: relative; overflow: hidden; box-shadow: 0 6px 18px rgba(38,51,29,.2); }
   .hero::after { content: ''; position: absolute; right: -40px; top: -40px; width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, rgba(201,168,76,.35), transparent 70%); }
@@ -278,7 +284,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-11 · 3';
+  var VERSION = '2026-11-11 · 4';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -477,10 +483,13 @@
   var mmEditando = null, mmPersona = null;
   function vistaAccesoMeta() {
     if (!PROPIO) return '';
-    // Departamentos (11/11/2026): primero las células de MENSADEF; después los negociados antiguos de la lista
+    // Departamentos: las células de MENSADEF
     var celulas = departamentos(acceso.filas.reduce(function (a, f) { return a.concat(f.negs); }, []).filter(function (n) { return (campos.NegociadoAsignado || []).concat(campos.NegociadosImplicados || []).map(sinTildes).indexOf(sinTildes(n)) < 0; }));
-    var antiguos = valores('NegociadoAsignado', 'negociado').concat(campos.NegociadosImplicados || []).filter(function (n, i, l) { return celulas.indexOf(n) < 0 && l.indexOf(n) === i; }).sort(function (a, b) { return a.localeCompare(b, 'es'); });
+    // 11/11/2026: ya no se ofrecen los negociados antiguos (PROCOR, SEGURIDAD…): solo células de MENSADEF
+    var antiguos = [].sort(function (a, b) { return a.localeCompare(b, 'es'); });
     var negs = celulas.concat(antiguos);
+    // Al modificar a alguien, sus departamentos actuales siempre salen (aunque sean de antes), para no perderlos sin querer
+    if (mmEditando) (acceso.filas.find(function (f) { return f.id === mmEditando; }) || { negs: [] }).negs.forEach(function (n) { if (negs.indexOf(n) < 0) negs.push(n); });
     var cab = '<div class="card"><h3 style="margin-top:0">👥 Quién ve los expedientes de META</h3><p class="small">Cada persona ve los expedientes que ha creado, de los que es responsable, en los que está implicada y los de <b>sus departamentos (células de MENSADEF) o negociados</b> (asignado o implicado). ' +
       'Los ve todos quien tiene Control total (tú) y quien marques «Lo ve todo».</p>' +
       '<p class="small muted">Es un filtro de esta página: quien abra la lista «' + esc(pref.lista) + '» directamente en Colabora la verá entera. Para que no pase, en Colabora deja la lista solo para los que usan META.</p>';
@@ -2103,14 +2112,17 @@
     dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Modificar asunto' : pre ? 'Nuevo asunto desde ' + (pre.origen === 'MENSADEF' ? 'MENSADEF' : 'correo') : 'Nuevo asunto en «' + esc(pref.lista) + '»') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db" id="fNuevo">' +
       '<label class="lbl">Asunto *</label><input name="Title" value="' + esc(t ? t.asunto : r.titulo || texto || '') + '">' +
       '<p class="small muted" id="nDetect">' + (pre && r.nlt ? 'Fecha detectada en el asunto: ' + esc(fLarga(r.nlt)) + ' (puesta como NLT; cámbiala si no lo es)' : '') + '</p>' +
+      // 11/11/2026: después del asunto, departamento y responsable en su propia fila (antes iban apretados con las fechas)
+      '<div class="grid2"><div><label class="lbl">Departamento asignado</label><input name="NegociadoAsignado" list="nDeps" value="' + esc(depIni) + '" placeholder="Elige o escribe la célula de MENSADEF" autocomplete="off">' +
+        '<datalist id="nDeps">' + deps.map(function (d) { return '<option value="' + esc(d) + '">'; }).join('') + '</datalist><p class="small muted ayuda">Célula de MENSADEF (p. ej. ET 2SUIGE SEGURIDAD)</p></div>' +
+      '<div><label class="lbl">Responsable de la información</label><div class="conboton"><input name="resp" value="' + esc(t ? t.responsable : yo ? yo.Title : '') + '" placeholder="Escribe nombre, apellido o cuenta (et\\usuario)" autocomplete="off">' +
+        '<button type="button" class="btn" id="nRespCambiar" title="Poner a otra persona">✎ Cambiar</button></div><div class="sugs" id="nRespSug" hidden></div>' +
+        '<p class="small muted ayuda">Quien crea el asunto; para cambiarlo, escribe y elige de la lista</p></div></div>' +
       '<div class="grid"><div><label class="lbl">Fecha vencimiento (NLT)' + (obligNlt ? ' *' : '') + '</label><input type="date" name="nlt" value="' + ((t ? t.nlt : r.nlt) || '') + '"></div>' +
       '<div><label class="lbl">Fecha de inicio</label><input type="date" name="inicio" value="' + (t ? t.inicio : hoy()) + '"></div>' +
       '<div><label class="lbl">Estado</label><select name="ESTADO">' + opciones(con(ests, estIni), estIni, '—') + '</select></div>' +
       '<div><label class="lbl">Prioridad</label><select name="Prioridad">' + opciones(con(prios, prioIni), prioIni, '—') + '</select></div>' +
-      '<div><label class="lbl">Departamento asignado <span class="small muted">(célula de MENSADEF)</span></label><input name="NegociadoAsignado" list="nDeps" value="' + esc(depIni) + '" placeholder="p. ej. ET 2SUIGE SEGURIDAD" autocomplete="off">' +
-        '<datalist id="nDeps">' + deps.map(function (d) { return '<option value="' + esc(d) + '">'; }).join('') + '</datalist></div>' +
-      '<div><label class="lbl">Responsable de la información</label><input name="resp" value="' + esc(t ? t.responsable : yo ? yo.Title : '') + '" placeholder="Escribe nombre, apellido o cuenta"><div class="sugs" id="nRespSug" hidden></div></div>' +
-      '<div><label class="lbl">Fecha finalización <span class="small muted">(obligatoria si el estado es terminado)</span></label><input type="date" name="fin" value="' + (t ? t.fin || '' : '') + '"></div></div>' +
+      '<div><label class="lbl" title="Obligatoria si el estado es de asunto terminado">Fecha finalización</label><input type="date" name="fin" value="' + (t ? t.fin || '' : '') + '"></div></div>' +
       '<label class="lbl">Personal implicado</label><div id="nImpl" class="meta"></div>' +
       '<div style="display:flex;gap:6px;margin-top:4px"><input id="nImplTxt" placeholder="Escribe nombre o apellido y elige (puedes añadir varias)"><button type="button" id="nImplAdd">＋</button></div>' +
       '<div class="sugs" id="nImplSug" hidden></div>' +
@@ -2144,6 +2156,7 @@
       respElegido = u; $('#fNuevo [name=resp]').value = u.Title; $('#nError').hidden = true;
     });
     $('#fNuevo [name=resp]').onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); elegirResp(); } };
+    $('#nRespCambiar').onclick = function () { var i = $('#fNuevo [name=resp]'); respElegido = null; i.value = ''; i.focus(); };
     // Añadir un departamento implicado que no está en la lista
     $('#nDepAdd').onclick = function () {
       var d = $('#nDepTxt').value.trim(); if (!d) return;
@@ -2292,6 +2305,7 @@
       marca: marcaOrigen(d), referencia: d.referencia || '',
       // Propuestos desde SENDERO (11/11/2026): se ponen en el alta y se pueden cambiar
       departamento: recortar(d.departamento || d.celula || '', 120),
+      departamentos: Array.isArray(d.departamentos) ? d.departamentos.map(function (x) { return recortar(x, 120); }).filter(Boolean).slice(0, 150) : [],
     };
   }
   function duplicados(pre) {
@@ -2303,7 +2317,9 @@
   }
   function ofrecerImportacion(d) {
     var pre = datosImportados(d), ya = duplicados(pre);
-    if (pre.departamento && (pref.departamentos || []).indexOf(pre.departamento) < 0) { pref.departamentos = (pref.departamentos || []).concat(pre.departamento).slice(-200); guardarPref(); }
+    // Las células que manda SENDERO (la del mensaje y todas las del usuario) quedan como departamentos para elegir
+    var nuevos = [pre.departamento].concat(pre.departamentos || []).filter(function (x) { return x && (pref.departamentos || []).indexOf(x) < 0; });
+    if (nuevos.length) { pref.departamentos = (pref.departamentos || []).concat(nuevos).slice(-300); guardarPref(); }
     if (!ya.length) return formularioNuevo('', null, pre);
     var dlg = $('#dlg');
     dlg.innerHTML = '<div class="dh"><h2>Ya está en Colabora</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db">' +

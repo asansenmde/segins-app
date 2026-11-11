@@ -153,4 +153,6 @@ autoría.
     11/11/2026: Gestor común y META 2026-11-11 · 3 = control de acceso de META (rama task-manager, 10/11 · 2) + Punto de
     Situación + departamentos = células de MENSADEF. Pendiente: subir los dos y, en Ajustes (Control total), activar
     «Departamentos de MENSADEF» y dar de alta a la gente con sus células en «Quién ve los expedientes de META».
+    11/11/2026: Gestores 2026-11-11 · 4 (sin negociados antiguos, alta reordenada, células automáticas) y SENDERO
+    2026-11-11 · 3 (manda todas las células). Pendiente: subir los dos Gestores y el favorito.
 

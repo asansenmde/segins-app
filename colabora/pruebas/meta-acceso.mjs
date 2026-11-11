@@ -111,7 +111,9 @@ await p.fill('#mmPersona', 'OTRA'); await p.waitForTimeout(400);
 await p.click('#mmSug [data-sug="0"]'); await p.waitForTimeout(500);
 await p.click('[data-mmguardar]'); await p.waitForTimeout(200);
 comprueba('sin negociados ni «lo ve todo» lo pide', /al menos un (departamento|negociado)/.test(await p.textContent('#mmMsg')));
-await p.check('#mmNegs input[value="PRL"]'); await p.check('#mmNegs input[value="Infraestructura"]');
+// Solo se ofrecen células de MENSADEF; los nombres de esta prueba se añaden con el campo «Añadir otra célula»
+comprueba('no ofrece negociados antiguos', !(await p.$('#mmNegs input[value="PRL"]')));
+for (const n of ['PRL', 'Infraestructura']) { await p.fill('#mmDepTxt', n); await p.click('[data-mmdep]'); }
 await p.click('[data-mmguardar]'); await p.waitForTimeout(1200);
 comprueba('alta guardada', filas.length === 1 && filas[0].PersonaId === 20 && filas[0].Negociados === 'Infraestructura; PRL' && filas[0].VeTodo === false, JSON.stringify(filas[0] && { P: filas[0].PersonaId, N: filas[0].Negociados, T: filas[0].VeTodo }));
 comprueba('sale en la tabla', /OTRA PERSONA.*Infraestructura, PRL/.test((await p.textContent('#vista table.t')).replace(/\s+/g, ' ')));
