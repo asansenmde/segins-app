@@ -163,4 +163,6 @@ autoría.
     Pendiente: que lo pruebe con el favorito de pruebas y META; luego pasarlo al definitivo.
     11/11/2026: META se sube como `aplicaciones/META.html` (2026-11-11 · 8); SENDERO 2026-11-11 · 5 la trae por defecto y el
     botón se llama «Pasar directamente al PSIT» (aún solo en pruebas).
+    11/11/2026: META 2026-11-11 · 9 con solicitud de acceso. Pendiente: subir META.html y, en Ajustes › «Quién ve los
+    expedientes», crear «META SOLICITUDES» (y la alerta), dar de alta a la gente o atender sus solicitudes.
 

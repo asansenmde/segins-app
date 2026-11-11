@@ -35,6 +35,22 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-11 · 9: solicitud de acceso en META** (como en el resto de aplicaciones; receta de VSA).
+  - **Quien no está dado de alta** (con «META MIEMBROS» ya creada) no ve ningún expediente. Ve «🔒 Aún no tienes acceso
+    a META» y el formulario: marca su departamento (catálogo o «Otro», escrito como en MENSADEF), escribe el motivo y
+    pulsa «Solicitar acceso». Después ve si está pendiente, o el motivo si se le denegó, y puede pedirlo otra vez.
+  - **Lista «META SOLICITUDES»** (Persona, Departamentos, Motivo, Estado, Respuesta). La crea el administrador en Ajustes
+    › «Quién ve los expedientes» › «📨 Solicitudes de acceso»:
+    - con «solo sus elementos» (`ReadSecurity`/`WriteSecurity` = 2);
+    - abierta con «Colaborar» a «Usuarios del dominio» (`breakroleinheritance` + `addroleassignment`), para que
+      cualquiera pueda pedir.
+  - Hay enlace para la **alerta de SharePoint** de solicitudes nuevas, y la bienvenida del administrador avisa de las
+    pendientes.
+  - **Dar de alta:** crea o completa su fila de «META MIEMBROS» con los departamentos pedidos, marca la solicitud
+    «Aprobada» y le manda un correo (envío robusto).
+  - **Denegar:** pide el motivo, marca «Denegada» y manda un correo.
+  - Si aún no existe «META MIEMBROS», no se bloquea a nadie (cada uno ve lo suyo, como antes).
+  - Prueba: escenario 6 de `meta-acceso.mjs`.
 - **Versión 2026-11-11 · 8:** la copia protegida de META se llama **`colabora/colabora/META.html`** (antes
   `tareas-nlt-colabora-mensadef.html`) y se sube a `…/JSUIGE/aplicaciones/META.html`, la dirección que SENDERO trae por
   defecto. El alta desde SENDERO para el PSIT se titula «Pasar directamente al PSIT (queda registrado en META)».
