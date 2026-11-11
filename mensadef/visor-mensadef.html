@@ -469,7 +469,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-11 · 2';
+  var VERSION = '2026-11-11 · 3';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1968,6 +1968,8 @@
       tipo: m.MensajeTipo_es || '', referencia: m.MensajeNum_referencia || '', suReferencia: m.MensajeSu_referencia || '', expediente: m.MensajeNum_expediente || '',
       enlace: disp || '', texto: cuerpo.length > 6000 ? cuerpo.slice(0, 6000) + '…' : cuerpo };
     if (sitioDe(m)) datos.departamento = sitioDe(m);   // la célula de MENSADEF
+    // Y todas las células del usuario, para que META las ofrezca como departamentos sin escribirlas (11/11/2026)
+    if (apiCtx && apiCtx.celulas) datos.departamentos = apiCtx.celulas.map(function (c) { return c.nombre; }).filter(Boolean).slice(0, 150);
     window.open(u + '#importar=' + encodeURIComponent(JSON.stringify(datos)), '_blank', 'noopener');
     enviados[claveMensaje(m)] = new Date().toISOString();
     enviadosA[claveMensaje(m)] = (gestorElegido() || {}).nombre || 'Tareas Colabora';

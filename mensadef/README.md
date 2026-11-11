@@ -363,4 +363,6 @@ con el formato *verbose* de SharePoint 2013.
   - SENDERO manda la **célula del mensaje** como `departamento` (p. ej. «ET 2SUIGE SEGURIDAD») y lo dice en la ficha
     («Departamento en META: …»).
   - El responsable ya no se manda: en META es quien crea la tarea, y se puede cambiar allí.
+- **2026-11-11 · 3:** con cada paso a META, SENDERO manda también todas las células del usuario (`departamentos`), para
+  que META las ofrezca como departamentos.
 

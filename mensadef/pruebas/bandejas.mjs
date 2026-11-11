@@ -190,6 +190,7 @@ if (FINAL) {
 { console.log('META aviso:', (await p.textContent('#colabora')).match(/Departamento en META:[^·]*/)?.[0]);
   const [n6] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n6.waitForLoadState();
   const d6 = JSON.parse(decodeURIComponent(n6.url().split('#importar=')[1])); await n6.close(); await p.bringToFront();
+  console.log('META recibe todas las células:', (d6.departamentos || []).join(', '));
   console.log('META recibe: departamento', d6.departamento, '| responsable', d6.responsable === undefined ? '(no se manda)' : d6.responsable, '| negociado', d6.negociado === undefined ? '(no se manda)' : d6.negociado); }
 // Anexos: lista, abrir (pestaña nueva) y descargar con la sesión; el visor no marca el mensaje como leído
 await p.fill('#buscar', 'RE-5'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(1200);
