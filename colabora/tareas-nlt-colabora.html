@@ -286,7 +286,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-11 · 7';
+  var VERSION = '2026-11-11 · 8';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -521,7 +521,7 @@
     var msg = function (t) { var el = $('#mmMsg'); if (el) el.innerHTML = t; };
     boton.disabled = true; msg('<p class="small muted">Creando la lista…</p>');
     var campo = function (xml) { return enviarSP(urlMiembros() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas'); };
-    enviarSP(web.url + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: MIEMBROS, Description: 'Negociados de cada persona en META (página tareas-nlt-colabora-mensadef.html)' }, 'No tienes permiso para crear listas en el sitio')
+    enviarSP(web.url + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: MIEMBROS, Description: 'Negociados de cada persona en META (página META.html)' }, 'No tienes permiso para crear listas en el sitio')
       .then(function () { return campo('<Field Type="User" Name="Persona" StaticName="Persona" DisplayName="Persona" UserSelectionMode="PeopleOnly" />'); })
       .then(function () { return campo('<Field Type="Note" Name="Negociados" StaticName="Negociados" DisplayName="Negociados" NumLines="3" RichText="FALSE" />'); })
       .then(function () { return campo('<Field Type="Boolean" Name="VeTodo" StaticName="VeTodo" DisplayName="Lo ve todo"><Default>0</Default></Field>'); })
@@ -650,7 +650,7 @@
     var fallos = [];
     api(real + '/fields?$select=InternalName,SchemaXml,Hidden,ReadOnlyField,FromBaseType&$top=500').then(function (d) {
       var propias = lista(d.value).filter(function (f) { return !f.Hidden && !f.ReadOnlyField && !f.FromBaseType && f.InternalName !== 'Title' && f.SchemaXml; });
-      return enviarSP(web.url + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: pref.lista, Description: PROPIO ? 'Tareas de MENSADEF (página tareas-nlt-colabora-mensadef.html)' : 'Copia de pruebas de «Gestor de Tareas» (página tareas-nlt-colabora-pruebas.html)' }, 'No tienes permiso para crear listas en el sitio')
+      return enviarSP(web.url + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: pref.lista, Description: PROPIO ? 'Tareas de MENSADEF (página META.html)' : 'Copia de pruebas de «Gestor de Tareas» (página tareas-nlt-colabora-pruebas.html)' }, 'No tienes permiso para crear listas en el sitio')
         .then(function () {
           return propias.reduce(function (p, f, i) {
             return p.then(function () {
@@ -672,7 +672,7 @@
     var msg = function (t) { var el = $('#prMsg'); if (el) el.innerHTML = t; };
     if (!PROPIO) return;
     boton.disabled = true; msg('<p class="small muted">Cambiando el nombre de la lista…</p>');
-    enviarSP(web.url + "/_api/web/lists/getbytitle('Gestor%20de%20Tareas%20PRUEBAS')", { __metadata: { type: 'SP.List' }, Title: pref.lista, Description: 'Tareas de MENSADEF (página tareas-nlt-colabora-mensadef.html)' },
+    enviarSP(web.url + "/_api/web/lists/getbytitle('Gestor%20de%20Tareas%20PRUEBAS')", { __metadata: { type: 'SP.List' }, Title: pref.lista, Description: 'Tareas de MENSADEF (página META.html)' },
       'No tienes permiso para cambiar la lista', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
       .then(function () { msg('<div class="small">✓ La lista «Gestor de Tareas PRUEBAS» ahora es «' + esc(pref.lista) + '», con todas sus tareas. Cargando…</div>'); setTimeout(cargar, 800); })
       .catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo: ' + esc(/404|no existe|does not exist/i.test(e.message || '') ? 'no existe la lista «Gestor de Tareas PRUEBAS» en este sitio' : (e.message || e)) + '</div>'); });
@@ -2175,7 +2175,7 @@
     var campoCom = campoComentarios();
     var conObs = !t || campoCom !== 'Comentarios';
     var dlg = $('#dlg');
-    dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Modificar asunto' : pre && pre.punto ? '📋 Nuevo asunto para el Punto de Situación' : pre ? 'Nuevo asunto desde ' + (pre.origen === 'MENSADEF' ? 'MENSADEF' : 'correo') : 'Nuevo asunto en «' + esc(pref.lista) + '»') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db" id="fNuevo">' +
+    dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Modificar asunto' : pre && pre.punto ? 'Pasar directamente al PSIT (queda registrado en META)' : pre ? 'Nuevo asunto desde ' + (pre.origen === 'MENSADEF' ? 'MENSADEF' : 'correo') : 'Nuevo asunto en «' + esc(pref.lista) + '»') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db" id="fNuevo">' +
       '<label class="lbl">Asunto *</label><input name="Title" value="' + esc(t ? t.asunto : r.titulo || texto || '') + '">' +
       '<p class="small muted" id="nDetect">' + (pre && r.nlt ? 'Fecha detectada en el asunto: ' + esc(fLarga(r.nlt)) + ' (puesta como NLT; cámbiala si no lo es)' : '') + '</p>' +
       // 11/11/2026: después del asunto, departamento y responsable en su propia fila (antes iban apretados con las fechas)

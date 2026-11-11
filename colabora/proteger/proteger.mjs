@@ -7,10 +7,10 @@ import fs from 'fs';
 import JavaScriptObfuscator from 'javascript-obfuscator';
 
 const PRUEBAS = process.argv.includes('--pruebas');
-//      node proteger.mjs --propio   → ../colabora/tareas-nlt-colabora-mensadef.html (Gestor propio de MENSADEF: lista «Gestor de Tareas MENSADEF»)
+//      node proteger.mjs --propio   → ../colabora/META.html (Gestor propio de MENSADEF: lista «Gestor de Tareas MENSADEF»)
 const PROPIO = process.argv.includes('--propio');
 // ORIGEN=ruta: generar desde otro original (p. ej. la versión que está como buena en Colabora)
-const origen = process.env.ORIGEN ? new URL('file://' + (process.env.ORIGEN.startsWith('/') ? '' : process.cwd() + '/') + process.env.ORIGEN) : new URL('../tareas-nlt-colabora.html', import.meta.url), destino = new URL(PROPIO ? '../colabora/tareas-nlt-colabora-mensadef.html' : PRUEBAS ? '../colabora/tareas-nlt-colabora-pruebas.html' : '../colabora/tareas-nlt-colabora.html', import.meta.url);
+const origen = process.env.ORIGEN ? new URL('file://' + (process.env.ORIGEN.startsWith('/') ? '' : process.cwd() + '/') + process.env.ORIGEN) : new URL('../tareas-nlt-colabora.html', import.meta.url), destino = new URL(PROPIO ? '../colabora/META.html' : PRUEBAS ? '../colabora/tareas-nlt-colabora-pruebas.html' : '../colabora/tareas-nlt-colabora.html', import.meta.url);
 let html = fs.readFileSync(origen, 'utf8');
 if (PROPIO) {
   if (!html.includes('var PROPIO = false;')) throw new Error('No encuentro «var PROPIO = false;» en tareas-nlt-colabora.html');

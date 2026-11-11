@@ -6,7 +6,7 @@ fallos=0
 prueba() { nombre="$1"; shift; salida=$(env "$@" 2>&1); rc=$?
   if [ $rc -eq 0 ] && ! echo "$salida" | grep -qE "HAY FALLOS|TimeoutError|ReferenceError|TypeError"; then r=bien; else r=MAL; fallos=$((fallos+1)); fi
   echo "== $nombre: $r"; }
-COM=colabora/colabora/tareas-nlt-colabora.html; META=colabora/colabora/tareas-nlt-colabora-mensadef.html
+COM=colabora/colabora/tareas-nlt-colabora.html; META=colabora/colabora/META.html
 prueba "simulación (original)" node colabora/pruebas/simulacion.mjs
 prueba "simulación (original, verbose)" VERBOSE=1 node colabora/pruebas/simulacion.mjs
 prueba "simulación (común protegido)" TAREAS_HTML=$COM node colabora/pruebas/simulacion.mjs

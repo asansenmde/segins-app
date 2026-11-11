@@ -8,7 +8,7 @@ const { chromium } = require(require('child_process').execSync('npm root -g').to
 const fs = require('fs');
 const html = fs.readFileSync(process.env.TAREAS_HTML ? process.env.TAREAS_HTML : new URL('../tareas-nlt-colabora.html', import.meta.url), 'utf8').replace(process.env.PROPIO ? 'var PROPIO = false;' : '\u0000', 'var PROPIO = true;');
 const WEB = '/et/SUIGESUR/JSUIGE', O = 'https://colabora.mdef.es';
-const PRUEBAS = !!process.env.PRUEBAS, PROPIO = !!process.env.PROPIO || /mensadef/.test(process.env.TAREAS_HTML || ''), LISTA = 'Gestor de Tareas' + (PRUEBAS ? ' PRUEBAS' : PROPIO ? ' MENSADEF' : '');
+const PRUEBAS = !!process.env.PRUEBAS, PROPIO = !!process.env.PROPIO || /mensadef|META\.html/.test(process.env.TAREAS_HTML || ''), LISTA = 'Gestor de Tareas' + (PRUEBAS ? ' PRUEBAS' : PROPIO ? ' MENSADEF' : '');
 let listaCreada = !PRUEBAS; const creadas = [], asuntosCorreo = [], tocadas = new Set();
 const PAGINA = O + WEB + '/Documentos%20compartidos/tareas-nlt-colabora.html';
 const ESTADOS = ['REMITIDO AL NEGOCIADO', 'EN CURSO', 'FINALIZADO'];

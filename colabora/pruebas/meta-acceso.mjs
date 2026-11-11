@@ -1,5 +1,5 @@
 // Prueba de «Quién ve los expedientes de META» (solo en META, la copia --propio) contra un Colabora simulado.
-// node colabora/pruebas/meta-acceso.mjs   ·   VERBOSE=1 (SharePoint 2013)   ·   TAREAS_HTML=colabora/colabora/tareas-nlt-colabora-mensadef.html (copia protegida)
+// node colabora/pruebas/meta-acceso.mjs   ·   VERBOSE=1 (SharePoint 2013)   ·   TAREAS_HTML=colabora/colabora/META.html (copia protegida)
 // Datos ficticios. Usuario 7 (USUARIO DE PRUEBA).
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);

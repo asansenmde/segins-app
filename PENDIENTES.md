@@ -161,4 +161,6 @@ autoría.
     común; META puede quedarse en la · 5 o subir la · 6 (igual para META).
     11/11/2026: «📋 Al Punto de Situación» desde SENDERO (pruebas 2026-11-11 · 4) pasando por META (2026-11-11 · 7).
     Pendiente: que lo pruebe con el favorito de pruebas y META; luego pasarlo al definitivo.
+    11/11/2026: META se sube como `aplicaciones/META.html` (2026-11-11 · 8); SENDERO 2026-11-11 · 5 la trae por defecto y el
+    botón se llama «Pasar directamente al PSIT» (aún solo en pruebas).
 

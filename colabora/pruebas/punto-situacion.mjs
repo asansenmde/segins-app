@@ -1,11 +1,11 @@
 // Prueba de «📋 Incluir en el Punto de Situación» (META / Gestor de Tareas → aplicación Puntos de Situación) contra un Colabora simulado.
-// node colabora/pruebas/punto-situacion.mjs   ·   VERBOSE=1 (SharePoint 2013)   ·   TAREAS_HTML=colabora/colabora/tareas-nlt-colabora-mensadef.html (copia protegida)
+// node colabora/pruebas/punto-situacion.mjs   ·   VERBOSE=1 (SharePoint 2013)   ·   TAREAS_HTML=colabora/colabora/META.html (copia protegida)
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
 const fs = require('fs');
 const html = fs.readFileSync(process.env.TAREAS_HTML || new URL('../tareas-nlt-colabora.html', import.meta.url), 'utf8');
-const LISTA = /mensadef/.test(process.env.TAREAS_HTML || '') ? 'Gestor de Tareas MENSADEF' : /pruebas/.test(process.env.TAREAS_HTML || '') ? 'Gestor de Tareas PRUEBAS' : 'Gestor de Tareas';
+const LISTA = /mensadef|META\.html/.test(process.env.TAREAS_HTML || '') ? 'Gestor de Tareas MENSADEF' : /pruebas/.test(process.env.TAREAS_HTML || '') ? 'Gestor de Tareas PRUEBAS' : 'Gestor de Tareas';
 const SUF = /PRUEBAS$/.test(LISTA) ? ' PRUEBAS' : '';
 const VERBOSE = !!process.env.VERBOSE;
 const aVerbose = j => j && !j.d && !j.error ? (Array.isArray(j.value) ? { d: { results: j.value, __next: j['odata.nextLink'] } } : { d: j }) : j;
@@ -137,7 +137,7 @@ soyPRL = true;
 // 6b. Desde SENDERO «📋 Al Punto de Situación»: el asunto nace marcado ⭐ y se abre «Incluir en el punto»
 await p.goto(URL0 + '#importar=' + encodeURIComponent(JSON.stringify({ v: 1, origen: 'MENSADEF', id: 'MSG-PS-1', asunto: 'Mensaje para el punto de situación', texto: 'Texto del mensaje', punto: true, departamento: 'ET 2SUIGE SETEC PRL' })));
 await p.waitForSelector('#dlg[open] #nCrear', { timeout: 15000 });
-comprueba('alta titulada para el Punto de Situación: ' + await p.textContent('#dlg h2'), /Punto de Situación/.test(await p.textContent('#dlg h2')));
+comprueba('alta titulada para el Punto de Situación: ' + await p.textContent('#dlg h2'), /PSIT/.test(await p.textContent('#dlg h2')));
 await p.click('#nCrear'); await p.waitForSelector('#psForm #psSit, #psForm .aviso', { timeout: 20000 }).catch(() => 0);
 { const n = items.find(x => x.Title === 'Mensaje para el punto de situación') || {};
   comprueba('creado marcado ⭐ Tratar con el General: ' + JSON.stringify(n.TratarEn), (n.TratarEn || []).indexOf('TRATAR CON EL GENERAL') >= 0);

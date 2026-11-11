@@ -4,7 +4,7 @@ const { chromium } = require(require('child_process').execSync('npm root -g').to
 const fs = require('fs');
 // TAREAS_HTML=colabora/colabora/tareas-nlt-colabora.html para probar la versión protegida; VERBOSE=1 para SharePoint 2013 (odata=verbose)
 const html0 = fs.readFileSync(process.env.TAREAS_HTML ? process.env.TAREAS_HTML : new URL('../tareas-nlt-colabora.html', import.meta.url), 'utf8'); const html = html0;
-const CLAVE = /mensadef/.test(process.env.TAREAS_HTML || '') ? 'tareas-nlt-colabora-mensadef' : /pruebas/.test(process.env.TAREAS_HTML || '') ? 'tareas-nlt-colabora-pruebas' : 'tareas-nlt-colabora';
+const CLAVE = /mensadef|META\.html/.test(process.env.TAREAS_HTML || '') ? 'tareas-nlt-colabora-mensadef' : /pruebas/.test(process.env.TAREAS_HTML || '') ? 'tareas-nlt-colabora-pruebas' : 'tareas-nlt-colabora';
 let admin = false;   // Control total en la lista (solo entonces sale Ajustes)
 const VERBOSE = !!process.env.VERBOSE, CAPTURAS = process.env.CAPTURAS || '';
 const aVerbose = j => j && !j.d && !j.error ? (Array.isArray(j.value) ? { d: { results: j.value, __next: j['odata.nextLink'] } } : { d: j }) : j;

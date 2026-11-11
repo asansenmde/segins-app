@@ -35,6 +35,9 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-11 · 8:** la copia protegida de META se llama **`colabora/colabora/META.html`** (antes
+  `tareas-nlt-colabora-mensadef.html`) y se sube a `…/JSUIGE/aplicaciones/META.html`, la dirección que SENDERO trae por
+  defecto. El alta desde SENDERO para el PSIT se titula «Pasar directamente al PSIT (queda registrado en META)».
 - **Versión 2026-11-11 · 7: Punto de Situación desde SENDERO.** Si `#importar` trae `punto: true`:
   - el alta se titula «📋 Nuevo asunto para el Punto de Situación»;
   - el asunto se crea con `TratarEn = TRATAR CON EL GENERAL` (si la lista tiene la columna);
@@ -101,7 +104,7 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
     en el directorio, modificar y quitar (a la papelera). Sin la lista, cada uno ve solo lo que creó, lleva o en lo que interviene.
   - La cabecera dice «3 de 6 asuntos» y la bienvenida qué ve cada uno. Es un **filtro de la página**: quien abra la lista
     directamente en Colabora la ve entera (para eso, permisos de la lista en Colabora).
-  - Prueba: `node colabora/pruebas/meta-acceso.mjs` (también `VERBOSE=1` y `TAREAS_HTML=colabora/colabora/tareas-nlt-colabora-mensadef.html`).
+  - Prueba: `node colabora/pruebas/meta-acceso.mjs` (también `VERBOSE=1` y `TAREAS_HTML=colabora/colabora/META.html`).
 - **Versión 2026-11-10 · 1: se juntan la · 2 y la · 3**, que se hicieron por separado en dos sesiones: Ajustes solo con
   Control total (· 2) y «📋 Incluir en el Punto de Situación» solo para los asuntos ⭐ Tratar con el General (· 3).
 - **Versión 2026-11-09 · 2: Ajustes solo con Control total**, en el Gestor común y en META.
@@ -159,7 +162,7 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   la columna» quien pueda administrar la lista. Hay que crearla en cada lista: común, MENSADEF y pruebas.
 - **Versión 2026-11-04 · 2:** en la pantalla inicial se ven todos los terminados (antes solo los 200 últimos), de 200 en 200
   con «Mostrar más», y hay filtro «Terminados desde / hasta» (por la fecha de fin). Nueva copia **Gestor propio de
-  MENSADEF** (`node proteger.mjs --propio` → `colabora/tareas-nlt-colabora-mensadef.html`): lista «Gestor de Tareas
+  MENSADEF** (`node proteger.mjs --propio` → `colabora/META.html` (antes `tareas-nlt-colabora-mensadef.html`)): lista «Gestor de Tareas
   MENSADEF», sin banda roja ni [PRUEBAS]; si falta la lista, ofrece usar la de pruebas cambiándole el nombre (conserva sus
   tareas) o crear una vacía.
 - **Versión 2026-11-04 · 1 (buena):** pasan a la copia buena las novedades que estaban solo en la de pruebas (recibir
