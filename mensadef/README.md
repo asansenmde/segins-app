@@ -368,4 +368,10 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-11 · 4 (pruebas): «📋 Al Punto de Situación».** Botón dorado junto a «➜ Añadir tarea en META». Pasa por
   META con `punto: true`: META crea el asunto marcado ⭐ «Tratar con el General» y abre «Incluir en el Punto de
   Situación». El comentario en MENSADEF dice «Añadido como tarea en META para el Punto de Situación».
+- **2026-11-11 · 5:**
+  - El botón pasa a llamarse **«Pasar directamente al PSIT»**, sin icono. Queda registrado también en META.
+  - **META viene puesto por defecto** como Gestor: `https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/META.html`
+    (`META_URL`). La dirección antigua (`…/tareas-nlt-colabora-mensadef.html`) se cambia sola por esta. Se pueden
+    añadir otros Gestores en «gestionar gestores». Si alguien quita META, no vuelve a ponerse (`sinMetaPorDefecto`).
+  - El favorito de pruebas admite META además de la página de pruebas.
 

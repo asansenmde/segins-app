@@ -468,10 +468,10 @@
     document.title = 'PRUEBAS · ' + document.title;
     var bandaP = document.createElement('div');
     bandaP.style.cssText = 'background:#b71c1c;color:#fff;text-align:center;font-weight:800;padding:6px 10px';
-    bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
+    bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-11 · 4';
+  var VERSION = '2026-11-11 · 5';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1712,7 +1712,7 @@
     $('detalle').innerHTML = '<div class="acciones barra-ficha"><div class="piso1">' + nav + titMax + (m._api ? '<button type="button" id="abrirMensadef" title="Abre tu célula en MENSADEF en otra pestaña y busca este mensaje">↗ Abrir en MENSADEF</button>' : disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
       '<button type="button" id="ampliar" title="Ver la ficha a toda la pantalla">' + (maxi ? '⤡ Reducir' : '⛶ Ampliar') + '</button><button type="button" id="cerrar" title="Cerrar la ficha">✕ Cerrar</button></div><div class="piso2">' +
       '<button type="button" class="prim" id="aColabora" disabled title="Abre el Gestor de Tareas (META) con el alta rellena">➜ Añadir tarea en META</button>' +
-      (PUNTO ? '<button type="button" class="punto" id="aPunto" disabled title="Crea el asunto en META marcado ⭐ Tratar con el General y abre «Incluir en el Punto de Situación»">📋 Al Punto de Situación</button>' : '') + botonRubrica(m) + '<span class="sepb"></span>' +
+      (PUNTO ? '<button type="button" class="punto" id="aPunto" disabled title="Lo pasa al Punto de Situación (PSIT); también queda registrado en META">Pasar directamente al PSIT</button>' : '') + botonRubrica(m) + '<span class="sepb"></span>' +
       '<span class="seg"><button type="button" class="naranja" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Enviar por correo</button>' +
       '<button type="button" id="copiarTarea">📋 Copiar para Gestor</button><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + botonLeido(m) + '</span>' + selectorBandera(m) + '</div></div><div id="colabora"></div>' +
       (m._api ? '<div class="cab-msg">' + (m._x.__es ? '<span class="tag st-azul">' + (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + esc(m._x.__es) + '</span>' : '') +
@@ -1796,9 +1796,17 @@
   // MENSADEF no puede escribir en Colabora (es otro servidor): el alta la hace Colabora con tu sesión.
   // Varios Gestores de Tareas, cada uno con su nombre (el común de la unidad, el propio…): se elige a cuál va cada mensaje.
   // Se guardan en este navegador. La dirección antigua (una sola) pasa a ser el primero.
+  // META viene ya puesto como Gestor por defecto (11/11/2026): https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/META.html.
+  // La dirección antigua (tareas-nlt-colabora-mensadef.html) se cambia sola por la nueva. Se pueden añadir otros.
+  var META_URL = 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/META.html';
   var gestores = function () {
     var g = leer('gestores', null);
-    if (!g) { var viejo = leer('colabora', ''); g = viejo ? [{ nombre: 'Mi Gestor de Tareas', url: viejo }] : []; if (g.length) guardar('gestores', g); }
+    if (!g) { var viejo = leer('colabora', ''); g = viejo ? [{ nombre: 'Mi Gestor de Tareas', url: viejo }] : []; }
+    var cambio = false;
+    g = g.map(function (x) { if (/\/tareas-nlt-colabora-mensadef\.html$/i.test(x.url)) { cambio = true; return { nombre: 'META', url: META_URL }; } return x; })
+      .filter(function (x, i, l) { return l.map(function (y) { return y.url; }).indexOf(x.url) === i; });
+    if (!leer('sinMetaPorDefecto', false) && !g.some(function (x) { return x.url === META_URL; })) { g.unshift({ nombre: 'META', url: META_URL }); cambio = true; if (leer('gestorSel', null) !== null) guardar('gestorSel', 0); }
+    if (cambio) guardar('gestores', g);
     return g;
   };
   var gestorElegido = function () { var g = gestores(), i = Number(leer('gestorSel', 0)) || 0; return g[i] || g[0] || null; };
@@ -1819,21 +1827,21 @@
   }
   function configurarColabora(m, despues) {
     var caja = $('colabora'), g = gestores();
-    caja.innerHTML = '<div class="card" style="margin:6px 0"><b>¿A qué Gestor de Tareas quieres llevar los mensajes?</b>' +
-      '<p class="muted">Abre en Colabora la página del Gestor de Tareas (el común de tu unidad, el tuyo…), copia la dirección de la barra del navegador y pégala aquí con un nombre. Puedes guardar varios y elegir en cada mensaje.</p>' +
+    caja.innerHTML = '<div class="card" style="margin:6px 0"><b>Gestores de Tareas</b>' +
+      '<p class="muted">Por defecto los mensajes van a <b>META</b>. Si quieres llevarlos también a otro Gestor de Colabora, abre su página, copia la dirección de la barra del navegador y pégala aquí con un nombre; luego eliges en cada mensaje.</p>' +
       (g.length ? '<table style="margin:6px 0">' + g.map(function (x, i) { return '<tr><td><b>' + esc(x.nombre) + '</b></td><td class="muted" style="word-break:break-all">' + esc(x.url.replace(/^https?:\/\//, '').slice(0, 80)) + '</td><td><button type="button" data-quitargestor="' + i + '">Quitar</button></td></tr>'; }).join('') + '</table>' : '') +
       '<div class="fila"><input id="nomGestor" style="min-width:180px" placeholder="Nombre (p. ej. Gestor común SUIGESUR)">' +
       '<input id="urlColabora" style="flex:1;min-width:240px" placeholder="https://colabora.mdef.es/…/tareas-nlt-colabora' + (PRUEBAS ? '-pruebas' : '') + '.html">' +
       '<button type="button" class="prim" id="guardarColabora">Añadir</button>' + (g.length ? '<button type="button" id="hechoGestores">Hecho</button>' : '') + '</div><div class="muted" id="errColabora"></div></div>';
     Array.prototype.forEach.call(caja.querySelectorAll('[data-quitargestor]'), function (b) {
-      b.addEventListener('click', function () { var l = gestores(); l.splice(Number(b.dataset.quitargestor), 1); guardar('gestores', l); guardar('gestorSel', 0); configurarColabora(m, despues); });
+      b.addEventListener('click', function () { var l = gestores(), q = l.splice(Number(b.dataset.quitargestor), 1)[0]; if (q && q.url === META_URL) guardar('sinMetaPorDefecto', true); guardar('gestores', l); guardar('gestorSel', 0); configurarColabora(m, despues); });
     });
     if ($('hechoGestores')) $('hechoGestores').addEventListener('click', function () { pintarColabora(m); if (despues && gestores().length) despues(); });
     $('guardarColabora').addEventListener('click', function () {
       var v = $('urlColabora').value.trim().replace(/#.*$/, ''), n = $('nomGestor').value.trim();
       if (!/^https?:\/\/[^/]+\/./i.test(v)) { $('errColabora').textContent = 'Pega la dirección completa, empezando por https://'; return; }
       if (v.indexOf(location.origin + '/') === 0) { $('errColabora').textContent = 'Esa dirección es de MENSADEF; tiene que ser la de la página en Colabora.'; return; }
-      if (PRUEBAS && !/pruebas/i.test(v)) { $('errColabora').textContent = 'Esta es la versión de pruebas: pon la dirección de tareas-nlt-colabora-pruebas.html, no la de la buena.'; return; }
+      if (PRUEBAS && !/pruebas/i.test(v) && v !== META_URL) { $('errColabora').textContent = 'Esta es la versión de pruebas: pon la dirección de tareas-nlt-colabora-pruebas.html, no la de la buena.'; return; }
       var l = gestores();
       if (l.some(function (x) { return x.url === v; })) { $('errColabora').textContent = 'Esa dirección ya está guardada.'; return; }
       l.push({ nombre: n || (/pruebas/i.test(v) ? 'Gestor de Tareas (pruebas)' : 'Gestor de Tareas ' + (l.length + 1)), url: v });

@@ -171,9 +171,11 @@ await consultasApp(p2); await p2.evaluate(codigo); await p2.waitForTimeout(1500)
 await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(300);
 console.log('detalle:', (await p.textContent('#detalle')).replace(/\s+/g, ' ').slice(0, 420));
 console.log('abrir en MENSADEF: botón', !!(await p.$('#abrirMensadef')));
-await p.click('#aColabora'); await p.fill('#nomGestor', 'Mi gestor de pruebas'); await p.fill('#urlColabora', 'https://colabora.mdef.es/x/tareas-nlt-colabora-pruebas.html');
+console.log('gestor por defecto:', await p.$$eval('#gestorSel option', o => o.map(x => x.textContent + (x.selected ? ' (elegido)' : '')).join(' | ')), '| texto del botón PSIT:', await p.textContent('#aPunto').catch(() => '(no está)'));
+await p.click('#cambiarColabora'); await p.fill('#nomGestor', 'Mi gestor de pruebas'); await p.fill('#urlColabora', 'https://colabora.mdef.es/x/tareas-nlt-colabora-pruebas.html');
 await ctx.route('https://colabora.mdef.es/**', r => r.fulfill({ contentType: 'text/html', body: 'ok' }));
-const [nueva] = await Promise.all([ctx.waitForEvent('page'), p.click('#guardarColabora')]); await nueva.waitForLoadState();
+await p.click('#guardarColabora'); await p.waitForTimeout(200);
+const [nueva] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await nueva.waitForLoadState();
 console.log('a Colabora:', decodeURIComponent(nueva.url().split('#importar=')[1]).slice(0, 400));
 await p.bringToFront();
 // Segundo gestor (el común) y elegir a cuál va: en la versión definitiva se admite cualquier dirección de Colabora
@@ -183,7 +185,7 @@ if (FINAL) {
   console.log('gestores:', await p.$$eval('#gestorSel option', o => o.map(x => x.textContent + (x.selected ? ' (elegido)' : '')).join(' | ')));
   const [n2] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n2.waitForLoadState();
   console.log('va al común:', n2.url().split('#')[0]); await n2.close();
-  await p.selectOption('#gestorSel', '0'); const [n3] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n3.waitForLoadState();
+  await p.selectOption('#gestorSel', '1'); const [n3] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n3.waitForLoadState();
   console.log('va al mío:', n3.url().split('#')[0], '| aviso:', (await p.textContent('#colabora p.muted')).trim()); await n3.close(); await p.bringToFront();
 }
 // Departamento para META: la célula de MENSADEF del mensaje; el responsable lo pone META (quien crea la tarea)
