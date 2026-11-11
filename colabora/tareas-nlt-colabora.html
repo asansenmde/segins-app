@@ -286,7 +286,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-11 · 5';
+  var VERSION = '2026-11-11 · 6';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -299,6 +299,9 @@
   // Gestor propio de MENSADEF («node proteger.mjs --propio» genera tareas-nlt-colabora-mensadef.html con PROPIO = true): las
   // tareas de trabajo que llegan de MENSADEF, en la lista «Gestor de Tareas MENSADEF», nunca en la común. Sin banda roja.
   var PROPIO = false;
+  // Departamentos = células de MENSADEF solo en META (11/11/2026). El Gestor común sigue con sus negociados de siempre.
+  var DEP = PROPIO;
+  var tx = function (x) { return DEP ? x : String(x).replace(/Departamentos/g, 'Negociados').replace(/Departamento/g, 'Negociado').replace(/departamentos/g, 'negociados').replace(/departamento/g, 'negociado'); };
   var LISTA = 'Gestor de Tareas' + (PRUEBAS ? ' PRUEBAS' : PROPIO ? ' MENSADEF' : '');
   var listaPermitida = function (n) { n = String(n || '').trim(); return !n ? LISTA : PRUEBAS && !/PRUEBAS$/i.test(n) ? LISTA : PROPIO && /^gestor de tareas$/i.test(n) ? LISTA : n; };
   var CLAVE = 'tareas-nlt-colabora' + (PRUEBAS ? '-pruebas' : PROPIO ? '-mensadef' : '');
@@ -728,7 +731,7 @@
       '<div class="q"><label class="lbl">Buscar</label><input id="fq" type="search" value="' + esc(pref.q) + '" placeholder="Asunto, nº de expediente, persona…"></div>' +
       '<div><label class="lbl">Qué asuntos</label><select id="fquien">' +
         [['mias', 'Soy responsable'], ['implicado', 'Responsable o implicado'], ['todos', 'Todos']].map(function (o) { return '<option value="' + o[0] + '"' + (pref.quien === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
-      '<div><label class="lbl">Departamento</label><select id="fneg">' + opcionesDep(pref.negociado) + '</select></div>' +
+      '<div><label class="lbl">' + tx('Departamento') + '</label><select id="fneg">' + opcionesDep(pref.negociado) + '</select></div>' +
       '<div><label class="lbl">Responsable</label><select id="fresp">' + opciones(resps, pref.resp, 'Todos') + '</select></div>' +
       '<div><label class="lbl">Estado</label><select id="fest">' + opciones(valores('ESTADO', 'estado'), pref.estado, 'Todos') + '</select></div>' +
       '<div><label class="lbl">Prioridad</label><select id="fprio">' + opciones(valores('Prioridad', 'prioridad'), pref.prio, 'Todas') + '</select></div>' +
@@ -758,7 +761,7 @@
       (t.negociado ? '<span class="chip">' + esc(t.negociado) + '</span>' : '') + '</div></div>';
   }
   function tablaTareas(ts) {
-    return '<div class="tabla-wrap"><table class="tt"><tr><th>Plazo</th><th>Asunto</th><th>Estado</th><th class="opc">Prioridad</th><th class="opc">Responsable</th><th class="opc">Departamento</th></tr>' +
+    return '<div class="tabla-wrap"><table class="tt"><tr><th>Plazo</th><th>Asunto</th><th>Estado</th><th class="opc">Prioridad</th><th class="opc">Responsable</th><th class="opc">' + tx('Departamento') + '</th></tr>' +
       ts.map(function (t) {
         var u = urgencia(t);
         return '<tr class="tarea ' + colorU(t, u) + '" data-id="' + t.id + '"><td class="nw">' + chipPlazo(t, u) + botonFin(t) + (t.nlt ? '<div class="small muted">' + esc(fCorta(t.nlt)) + '</div>' : '') + '</td>' +
@@ -946,7 +949,7 @@
   }
   var filtrosVistaTxt = function () {
     var f = [{ mias: 'Asuntos de ' + (yo ? yo.Title : 'mi responsabilidad'), implicado: 'Asuntos en los que intervengo', todos: 'Todos los asuntos' }[pref.quien]];
-    if (pref.negociado) f.push('Departamento: ' + pref.negociado);
+    if (pref.negociado) f.push(tx('Departamento: ') + pref.negociado);
     if (pref.resp) f.push('Responsable: ' + pref.resp);
     if (pref.estado) f.push('Estado: ' + pref.estado);
     if (pref.prio) f.push('Prioridad: ' + pref.prio);
@@ -983,7 +986,7 @@
         }).join('') + '</div><div class="ejex">' + ms.map(function (m) { return '<span>' + esc(m.nom) + '</span>'; }).join('') + '</div>' +
         '<details style="margin-top:8px"><summary class="small" style="cursor:pointer">Ver en tabla</summary><table class="t" style="margin-top:6px"><tr><th>Mes</th><th>Creados</th><th>Terminados</th><th>NLT cumplida</th></tr>' +
         ms.map(function (m) { return '<tr><td>' + esc(m.nom) + '</td><td>' + m.creados + '</td><td>' + m.hechas + '</td><td>' + nd(m.pct, ' %') + '</td></tr>'; }).join('') + '</table></details>') +
-      bloque('Por departamento', 'Abiertos hoy (barra), terminados en el periodo y porcentaje de NLT cumplida.', leyAb + barrasGrupo(porClave(d, CLAVES_EST.negociado), 30)) +
+      bloque(tx('Por departamento'), 'Abiertos hoy (barra), terminados en el periodo y porcentaje de NLT cumplida.', leyAb + barrasGrupo(porClave(d, CLAVES_EST.negociado), 30)) +
       bloque('Por responsable', 'Los 15 con más asuntos abiertos.', leyAb + barrasGrupo(porClave(d, CLAVES_EST.responsable), 15)) +
       bloque('Por prioridad', 'Abiertos hoy y terminados en el periodo.', leyAb + barrasGrupo(porClave(d, CLAVES_EST.prioridad), 10)) + '</div>';
   }
@@ -1003,7 +1006,7 @@
 
   // ---------- Informes ----------
   var CRITERIOS = { actividad: 'Con actividad en el periodo (creados, modificados o terminados)', nlt: 'Con NLT dentro del periodo', creadas: 'Creados en el periodo', hechas: 'Terminados en el periodo', abiertas: 'Abiertos al final del periodo' };
-  var AGRUPAR = { estado: 'Estado', negociado: 'Departamento asignado', responsable: 'Responsable', prioridad: 'Prioridad', ninguno: 'Sin agrupar' };
+  var AGRUPAR = { estado: 'Estado', negociado: tx('Departamento asignado'), responsable: 'Responsable', prioridad: 'Prioridad', ninguno: 'Sin agrupar' };
   function infDef() {
     var h = new Date();
     return { desde: iso(new Date(h.getFullYear(), h.getMonth(), 1)), hasta: hoy(), criterio: 'actividad', estados: [], soloVencidas: false,
@@ -1062,7 +1065,7 @@
     if (o.estados.length) f.push('Estados: ' + o.estados.join(', '));
     if (o.soloVencidas) f.push('Solo vencidos o terminados fuera de NLT');
     if (o.quien !== 'todos') f.push(o.quien === 'mias' ? 'Asuntos de ' + (yo ? yo.Title : 'mi responsabilidad') : 'Asuntos en los que intervengo');
-    if (o.negociado) f.push('Departamento: ' + o.negociado);
+    if (o.negociado) f.push(tx('Departamento: ') + o.negociado);
     if (o.prio) f.push('Prioridad: ' + o.prio);
     return f.join(' · ');
   }
@@ -1090,7 +1093,7 @@
       grupos(ts, o).forEach(function (g) {
         if (g[0]) h += '<p style="font-weight:bold;margin:12px 0 4px">' + esc(g[0]) + ' (' + g[1].length + ')</p>';
         var conEstado = o.agrupar !== 'estado';
-        h += '<table class="t" style="border-collapse:collapse;width:100%;font-size:9pt"><tr><th ' + th + '>Expediente</th><th ' + th + '>Asunto</th><th ' + th + '>Responsable</th><th ' + th + '>Departamento</th><th ' + th + '>Prior.</th><th ' + th + '>NLT</th>' +
+        h += '<table class="t" style="border-collapse:collapse;width:100%;font-size:9pt"><tr><th ' + th + '>Expediente</th><th ' + th + '>Asunto</th><th ' + th + '>Responsable</th><th ' + th + '>' + tx('Departamento') + '</th><th ' + th + '>Prior.</th><th ' + th + '>NLT</th>' +
           (conEstado ? '<th ' + th + '>Estado</th>' : '') + '<th ' + th + '>Situación</th></tr>' +
           g[1].map(fila).map(function (f) {
             return '<tr><td ' + td + '>' + esc(f.exp) + '</td><td ' + td + '>' + esc(f.asunto) + '</td><td ' + td + '>' + esc(f.resp) + '</td><td ' + td + '>' + esc(f.neg) + '</td><td ' + td + '>' + esc(f.prio) +
@@ -1104,7 +1107,7 @@
         var f = fila(t);
         h += '<p style="font-weight:bold;color:#3b4a2f;margin:14px 0 2px">' + esc(t.asunto) + '</p><p style="margin:0 0 4px;font-size:9pt">' +
           esc([f.resp, f.neg, f.prio, 'NLT ' + f.nlt, f.estado, f.situacion].filter(Boolean).join(' · ')) + '</p><table class="t" style="border-collapse:collapse;width:100%;font-size:9pt">' +
-          [['Expediente', t.expediente], ['Descripción', t.descripcion], ['Personal implicado', t.implicados.join(', ')], ['Departamentos implicados', t.negociados.join(', ')],
+          [['Expediente', t.expediente], ['Descripción', t.descripcion], ['Personal implicado', t.implicados.join(', ')], [tx('Departamentos implicados'), t.negociados.join(', ')],
             ['Fecha de inicio', fCorta(t.inicio)], ['Observaciones', t.observaciones], ['Registro de actividad', t.registro]]
             .filter(function (x) { return x[1]; })
             .map(function (x) { return '<tr><td ' + td + ' width="25%"><b>' + esc(x[0]) + '</b></td><td ' + td + '>' + esc(x[1]).replace(/\n/g, '<br>') + '</td></tr>'; }).join('') + '</table>';
@@ -1135,7 +1138,7 @@
   }
   function csvInforme(o) {
     var c = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
-    var filas = [['Id', 'Expediente', 'Asunto', 'Estado', 'Prioridad', 'Responsable', 'Departamento', 'Departamentos implicados', 'Personal implicado', 'Fecha inicio', 'NLT', 'Fecha finalización', 'Situación', 'Descripción', 'Observaciones']];
+    var filas = [['Id', 'Expediente', 'Asunto', 'Estado', 'Prioridad', 'Responsable', tx('Departamento'), tx('Departamentos implicados'), 'Personal implicado', 'Fecha inicio', 'NLT', 'Fecha finalización', 'Situación', 'Descripción', 'Observaciones']];
     seleccion(o).forEach(function (t) {
       filas.push([t.id, t.expediente, t.asunto, t.estado, t.prioridad, t.responsable, t.negociado, t.negociados.join(', '), t.implicados.join(', '), fCorta(t.inicio), fCorta(t.nlt), fCorta(t.fin), urgencia(t).txt, t.descripcion, t.observaciones]);
     });
@@ -1152,7 +1155,7 @@
       '<div class="grid"><div><label class="lbl">Desde</label><input type="date" name="desde" value="' + o.desde + '"></div><div><label class="lbl">Hasta</label><input type="date" name="hasta" value="' + o.hasta + '"></div>' +
       '<div><label class="lbl">Qué asuntos</label>' + sel('criterio', CRITERIOS, o.criterio) + '</div>' +
       '<div><label class="lbl">De quién</label>' + sel('quien', { todos: 'Todos', mias: 'Soy responsable', implicado: 'Responsable o implicado' }, o.quien) + '</div>' +
-      '<div><label class="lbl">Departamento</label><select name="negociado">' + opcionesDep(o.negociado) + '</select></div>' +
+      '<div><label class="lbl">' + tx('Departamento') + '</label><select name="negociado">' + opcionesDep(o.negociado) + '</select></div>' +
       '<div><label class="lbl">Prioridad</label><select name="prio">' + opciones(valores('Prioridad', 'prioridad'), o.prio, 'Todas') + '</select></div>' +
       '<div><label class="lbl">Agrupar por</label>' + sel('agrupar', AGRUPAR, o.agrupar) + '</div></div>' +
       '<label class="lbl">Estados (ninguno marcado = todos)</label><div>' + ests.map(function (e) { return '<label class="check"><input type="checkbox" name="estados" value="' + esc(e) + '"' + (o.estados.indexOf(e) >= 0 ? ' checked' : '') + '> ' + esc(e) + '</label>'; }).join('') +
@@ -1250,6 +1253,7 @@
   // Que «Negociado asignado» y «Negociados implicados» admitan valores propios (las células de MENSADEF): FillInChoice
   // Ajustes › Departamentos: catálogo (opciones de las dos columnas) con las células de MENSADEF, altas y bajas
   function vistaCatalogo() {
+    if (!DEP) return '';
     var cat = catalogo(), viejos = (campos.NegociadoAsignado || []).filter(function (d) { return !esCelula(d); });
     return '<div class="card" style="margin:10px 0"><h3 style="margin-top:0">🏢 Departamentos (células de MENSADEF)</h3>' +
       '<p class="small muted">Son las opciones de «Departamento asignado» e «implicados» para todos. Los expedientes que ya tienen un negociado antiguo lo conservan.</p>' +
@@ -1485,7 +1489,7 @@
     var f = [];
     if (pref.quien === 'mias') f.push('Asuntos de ' + (yo ? yo.Title : 'mi responsabilidad'));
     if (pref.quien === 'implicado') f.push('Asuntos en los que intervengo');
-    if (pref.negociado) f.push('Departamento: ' + pref.negociado);
+    if (pref.negociado) f.push(tx('Departamento: ') + pref.negociado);
     if (pref.estado) f.push('Estado: ' + pref.estado);
     if (pref.prio) f.push('Prioridad: ' + pref.prio);
     if (pref.q) f.push('Búsqueda: «' + pref.q + '»');
@@ -1587,7 +1591,7 @@
       '<div><label class="lbl">Avisar de lo que vence en los próximos (días)</label><input type="number" name="dias" min="0" max="60" value="' + o.dias + '"></div>' +
       '<div><label class="lbl">De quién</label><select name="quien">' + [['todos', 'Todos los responsables'], ['mias', 'Solo mis asuntos'], ['implicado', 'Míos o en los que intervengo']]
         .map(function (x) { return '<option value="' + x[0] + '"' + (o.quien === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>' +
-      '<div><label class="lbl">Departamento</label><select name="negociado">' + opcionesDep(o.negociado) + '</select></div></div>' +
+      '<div><label class="lbl">' + tx('Departamento') + '</label><select name="negociado">' + opcionesDep(o.negociado) + '</select></div></div>' +
       '<label class="check"><input type="checkbox" name="vencidos"' + (o.vencidos ? ' checked' : '') + '> Incluir los ya vencidos</label>' +
       '<label class="check"><input type="checkbox" name="cc"' + (o.cc ? ' checked' : '') + '> Copia al personal implicado</label></div>' +
       '<p class="small muted">' + total + ' asunto' + (total === 1 ? '' : 's') + ' para avisar, a ' + gs.length + ' responsable' + (gs.length === 1 ? '' : 's') +
@@ -1883,8 +1887,8 @@
   function datosAsignacion(t) {
     var disp = enlaceAsunto(t);
     var filas = [['Asunto', t.asunto], ['NLT (fecha vencimiento)', t.nlt ? fLarga(t.nlt) : 'Sin fecha'], ['Prioridad', t.prioridad], ['Estado', t.estado],
-      ['Responsable de la información', t.responsable], ['Personal implicado', t.implicados.join(', ')], ['Departamento asignado', t.negociado],
-      ['Departamentos implicados', t.negociados.join(', ')], ['Expediente (nº de Colabora)', t.expediente], ['Descripción del asunto', t.descripcion]].filter(function (x) { return x[1]; });
+      ['Responsable de la información', t.responsable], ['Personal implicado', t.implicados.join(', ')], [tx('Departamento asignado'), t.negociado],
+      [tx('Departamentos implicados'), t.negociados.join(', ')], ['Expediente (nº de Colabora)', t.expediente], ['Descripción del asunto', t.descripcion]].filter(function (x) { return x[1]; });
     var quien = yo ? yo.Title : '';
     return {
       asunto: 'Asunto asignado: ' + t.asunto,
@@ -2131,6 +2135,7 @@
   }
   // Para los filtros: los departamentos y, aparte, los negociados antiguos que aún tienen expedientes
   function opcionesDep(sel) {
+    if (!DEP) { var todos = valores('NegociadoAsignado', 'negociado'); tareas.forEach(function (t) { t.negociados.forEach(function (n) { if (todos.indexOf(n) < 0) todos.push(n); }); }); return opciones(todos.sort(), sel, 'Todos'); }
     var deps = departamentos(), viejos = {};
     tareas.forEach(function (t) { [t.negociado].concat(t.negociados || []).forEach(function (d) { if (d && deps.indexOf(d) < 0) viejos[d] = 1; }); });
     var vs = Object.keys(viejos).sort(function (a, b) { return a.localeCompare(b, 'es'); });
@@ -2146,9 +2151,10 @@
     var ests = valores('ESTADO', 'estado'), prios = valores('Prioridad', 'prioridad');
     var estIni = t ? t.estado : estadoAlta(ests);
     var prioIni = t ? t.prioridad : r.prioridad ? (prios.find(function (p) { return clasePrio(p) === r.prioridad; }) || '') : '';
-    var depIni = t ? t.negociado : pre && pre.departamento ? pre.departamento : '';
-    var deps = departamentos([depIni]);
-    var negsImpl = t ? t.negociados.reduce(function (a, n) { return con(a, n); }, deps) : deps;
+    var depIni = t ? t.negociado : DEP ? (pre && pre.departamento ? pre.departamento : '') : (pref.negociado || '');
+    var deps = DEP ? departamentos([depIni]) : valores('NegociadoAsignado', 'negociado').sort();
+    var negsImpl = DEP ? deps : (campos.NegociadosImplicados && campos.NegociadosImplicados.length ? campos.NegociadosImplicados.slice() : deps.slice());
+    if (t) negsImpl = t.negociados.reduce(function (a, n) { return con(a, n); }, negsImpl);
     var base = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl : '';
     var obligNlt = infoCampo.FechaVencimiento && infoCampo.FechaVencimiento.obligatorio;
     var campoCom = campoComentarios();
@@ -2158,8 +2164,9 @@
       '<label class="lbl">Asunto *</label><input name="Title" value="' + esc(t ? t.asunto : r.titulo || texto || '') + '">' +
       '<p class="small muted" id="nDetect">' + (pre && r.nlt ? 'Fecha detectada en el asunto: ' + esc(fLarga(r.nlt)) + ' (puesta como NLT; cámbiala si no lo es)' : '') + '</p>' +
       // 11/11/2026: después del asunto, departamento y responsable en su propia fila (antes iban apretados con las fechas)
-      '<div class="grid2"><div><label class="lbl">Departamento asignado</label><input name="NegociadoAsignado" list="nDeps" value="' + esc(depIni) + '" placeholder="Elige o escribe la célula de MENSADEF" autocomplete="off">' +
-        '<datalist id="nDeps">' + deps.map(function (d) { return '<option value="' + esc(d) + '">'; }).join('') + '</datalist><p class="small muted ayuda">Célula de MENSADEF (p. ej. ET 2SUIGE SEGURIDAD)</p></div>' +
+      '<div class="grid2"><div><label class="lbl">' + tx('Departamento asignado') + '</label>' + (DEP ? '<input name="NegociadoAsignado" list="nDeps" value="' + esc(depIni) + '" placeholder="Elige o escribe la célula de MENSADEF" autocomplete="off">' +
+        '<datalist id="nDeps">' + deps.map(function (d) { return '<option value="' + esc(d) + '">'; }).join('') + '</datalist><p class="small muted ayuda">Célula de MENSADEF (p. ej. ET 2SUIGE SEGURIDAD)</p>'
+        : '<select name="NegociadoAsignado">' + opciones(con(deps, depIni), depIni, '—') + '</select>') + '</div>' +
       '<div><label class="lbl">Responsable de la información</label><div class="conboton"><input name="resp" value="' + esc(t ? t.responsable : yo ? yo.Title : '') + '" placeholder="Escribe nombre, apellido o cuenta (et\\usuario)" autocomplete="off">' +
         '<button type="button" class="btn" id="nRespCambiar" title="Poner a otra persona">✎ Cambiar</button></div><div class="sugs" id="nRespSug" hidden></div>' +
         '<p class="small muted ayuda">Quien crea el asunto; para cambiarlo, escribe y elige de la lista</p></div></div>' +
@@ -2171,9 +2178,9 @@
       '<label class="lbl">Personal implicado</label><div id="nImpl" class="meta"></div>' +
       '<div style="display:flex;gap:6px;margin-top:4px"><input id="nImplTxt" placeholder="Escribe nombre o apellido y elige (puedes añadir varias)"><button type="button" id="nImplAdd">＋</button></div>' +
       '<div class="sugs" id="nImplSug" hidden></div>' +
-      '<label class="lbl">Departamentos implicados</label><div id="nDepImpl">' + negsImpl.map(function (n) {
+      '<label class="lbl">' + tx('Departamentos implicados') + '</label><div id="nDepImpl">' + negsImpl.map(function (n) {
         return '<label class="check"><input type="checkbox" name="negImpl" value="' + esc(n) + '"' + (t && t.negociados.indexOf(n) >= 0 ? ' checked' : '') + '> ' + esc(n) + '</label>';
-      }).join('') + '</div><div style="display:flex;gap:6px;margin-top:4px"><input id="nDepTxt" list="nDeps" placeholder="Añadir otra célula de MENSADEF" autocomplete="off"><button type="button" id="nDepAdd">＋</button></div>' +
+      }).join('') + '</div>' + (DEP ? '<div style="display:flex;gap:6px;margin-top:4px"><input id="nDepTxt" list="nDeps" placeholder="Añadir otra célula de MENSADEF" autocomplete="off"><button type="button" id="nDepAdd">＋</button></div>' : '') +
       '<label class="lbl">Expediente</label><input value="' + (t ? 'Nº ' + esc(t.expediente) + ' (número de Colabora)' : 'Se asigna al crearlo: el número de Colabora') + '" data-exp disabled>' +
       (t && t.ctrlExp && t.ctrlExp !== t.expediente ? '<p class="small muted">Texto anterior de «Control expediente»: ' + esc(t.ctrlExp.split('\n')[0].slice(0, 120)) + ' (se sustituirá por el número al guardar)</p>' : '') +
       '<label class="lbl">Descripción del asunto</label><textarea name="DescripcionDelAsunto" rows="8" ' + AREA + '>' + esc(t ? t.descripcion : pre ? pre.descripcion : '') + '</textarea>' +
@@ -2203,7 +2210,7 @@
     $('#fNuevo [name=resp]').onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); elegirResp(); } };
     $('#nRespCambiar').onclick = function () { var i = $('#fNuevo [name=resp]'); respElegido = null; i.value = ''; i.focus(); };
     // Añadir un departamento implicado que no está en la lista
-    $('#nDepAdd').onclick = function () {
+    if ($('#nDepAdd')) $('#nDepAdd').onclick = function () {
       var d = $('#nDepTxt').value.trim(); if (!d) return;
       var ya = Array.from(document.querySelectorAll('#nDepImpl [name=negImpl]')).filter(function (c) { return c.value === d; })[0];
       if (ya) ya.checked = true; else $('#nDepImpl').insertAdjacentHTML('beforeend', '<label class="check"><input type="checkbox" name="negImpl" value="' + esc(d) + '" checked> ' + esc(d) + '</label>');
@@ -2260,7 +2267,7 @@
       poner('ESTADO', v('ESTADO'), t && t.estado);
       poner('Prioridad', v('Prioridad'), t && t.prioridad);
       var negImpl = Array.from(f.querySelectorAll('[name=negImpl]:checked')).map(function (c) { return c.value; });
-      var noAdmite = [v('NegociadoAsignado')].filter(function (d) { return d && d !== (t && t.negociado) && !admiteDep('NegociadoAsignado', d); })
+      var noAdmite = !DEP ? [] : [v('NegociadoAsignado')].filter(function (d) { return d && d !== (t && t.negociado) && !admiteDep('NegociadoAsignado', d); })
         .concat(negImpl.filter(function (d) { return (!t || t.negociados.indexOf(d) < 0) && !admiteDep('NegociadosImplicados', d); }));
       if (noAdmite.length) return err('La lista aún no admite las células de MENSADEF como departamento (' + noAdmite.join(', ') + '). Quien tenga Control total tiene que activarlo una vez en Ajustes → «Departamentos de MENSADEF».');
       poner('NegociadoAsignado', v('NegociadoAsignado'), t && t.negociado);
@@ -2363,7 +2370,7 @@
   function ofrecerImportacion(d) {
     var pre = datosImportados(d), ya = duplicados(pre);
     // Las células que manda SENDERO (la del mensaje y todas las del usuario) quedan como departamentos para elegir
-    var nuevos = [pre.departamento].concat(pre.departamentos || []).filter(function (x) { return x && (pref.departamentos || []).indexOf(x) < 0; });
+    var nuevos = !DEP ? [] : [pre.departamento].concat(pre.departamentos || []).filter(function (x) { return x && (pref.departamentos || []).indexOf(x) < 0; });
     if (nuevos.length) { pref.departamentos = (pref.departamentos || []).concat(nuevos).slice(-300); guardarPref(); }
     if (!ya.length) return formularioNuevo('', null, pre);
     var dlg = $('#dlg');
@@ -2567,7 +2574,7 @@
     var u = urgencia(t);
     var c = [['Estado', t.estado], ['Prioridad', t.prioridad], ['NLT (fecha vencimiento)', t.nlt ? fLarga(t.nlt) + ' · ' + u.txt : '—'], ['Fecha de inicio', t.inicio && fLarga(t.inicio)],
       ['Fecha finalización', t.fin && fLarga(t.fin)], ['Responsable de la información', t.responsable], ['Personal implicado', t.implicados.join(', ')],
-      ['Departamento asignado', t.negociado], ['Departamentos implicados', t.negociados.join(', ')], ['Expediente (nº de Colabora)', t.expediente],
+      [tx('Departamento asignado'), t.negociado], [tx('Departamentos implicados'), t.negociados.join(', ')], ['Expediente (nº de Colabora)', t.expediente],
       ['Control expediente (texto anterior)', t.ctrlExp && t.ctrlExp !== t.expediente ? t.ctrlExp : ''], ['Descripción del asunto', t.descripcion],
       [campoComentarios() === 'Comentarios' ? '' : 'Observaciones', t.observaciones], [campoComentarios() === 'REGISTRODEACTIVIDAD' ? '' : 'Registro de actividad', t.registro],
       ['Creado', new Date(t.creada).toLocaleString('es-ES') + (t.autor ? ' por ' + t.autor : '')], ['Modificado', new Date(t.modificada).toLocaleString('es-ES') + (t.editor ? ' por ' + t.editor : '')]];

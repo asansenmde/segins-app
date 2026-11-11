@@ -35,6 +35,11 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-11 · 6: departamentos solo en META.** El Gestor común es para otros asuntos y vuelve a sus
+  negociados de siempre: «Negociado asignado» (desplegable con las opciones de la lista), «Negociados implicados»,
+  filtros con todos los negociados y sin el catálogo de Ajustes. Lo de SENDERO le llega sin departamento. Todo lo de
+  departamentos depende de `DEP = PROPIO`; los textos pasan por `tx()`. Del cambio solo le queda el orden nuevo del
+  alta (asunto; negociado y responsable con «✎ Cambiar»; lo demás).
 - **Versión 2026-11-11 · 5: catálogo de departamentos.**
   - Las opciones de las columnas «Negociado asignado» e «implicados» son el **catálogo de departamentos**, el mismo
     para todos.

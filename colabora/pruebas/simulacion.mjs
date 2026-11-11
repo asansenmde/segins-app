@@ -223,7 +223,10 @@ async function prueba() {
   await p.press('#altaRapida', 'Enter'); await p.waitForTimeout(500);
   console.log('form asunto:', await p.inputValue('#fNuevo [name=Title]'), '| NLT:', await p.inputValue('#fNuevo [name=nlt]'), '| estado:', await p.inputValue('#fNuevo [name=ESTADO]'), '| prioridad:', await p.inputValue('#fNuevo [name=Prioridad]'), '| resp:', await p.inputValue('#fNuevo [name=resp]'));
   console.log('departamentos ofrecidos (solo células):', await p.$$eval('#nDeps option', o => o.map(x => x.value).join(', ')) || '(ninguno aún)', '| responsable propuesto:', await p.inputValue('#fNuevo [name=resp]'));
-  await p.fill('#fNuevo [name=NegociadoAsignado]', 'ET 2SUIGE SEGURIDAD');
+  // META: departamento = célula de MENSADEF (campo de texto); Gestor común: negociado de la lista (desplegable)
+  const esMeta = (await p.$eval('#fNuevo [name=NegociadoAsignado]', e => e.tagName)) === 'INPUT';
+  if (esMeta) await p.fill('#fNuevo [name=NegociadoAsignado]', 'ET 2SUIGE SEGURIDAD'); else await p.selectOption('#fNuevo [name=NegociadoAsignado]', 'Seguridad');
+  console.log('formulario:', esMeta ? 'META (departamentos)' : 'Gestor común (negociados)', '| etiqueta:', await p.$eval('#fNuevo [name=NegociadoAsignado]', e => e.closest('div').querySelector('.lbl').textContent));
   await p.fill('#nImplTxt', 'GARCIA LOPEZ ANA'); await p.press('#nImplTxt', 'Enter');
   await p.type('#nImplTxt', 'perez'); await p.waitForTimeout(700);
   console.log('sugerencias perez:', await p.textContent('#nImplSug'));
@@ -235,7 +238,7 @@ async function prueba() {
   console.log('chips:', await p.textContent('#nImpl'));
   await p.fill('#nImplTxt', 'NADIE INVENTADO'); await p.click('#nImplAdd');
   console.log('error implicado inexistente:', await p.textContent('#nError'));
-  await p.fill('#nDepTxt', 'ET 2SUIGE PERSONAL'); await p.click('#nDepAdd');
+  if (esMeta) { await p.fill('#nDepTxt', 'ET 2SUIGE PERSONAL'); await p.click('#nDepAdd'); } else await p.check('#fNuevo [name=negImpl][value=Personal]');
   console.log('departamentos implicados marcados:', await p.$$eval('#nDepImpl [name=negImpl]:checked', c => c.map(x => x.value).join(', ')));
   console.log('expediente en el alta:', await p.isDisabled('#fNuevo [data-exp]'), await p.inputValue('#fNuevo [data-exp]'));
   // Estado y fecha de finalización deben ir de acuerdo

@@ -11,7 +11,9 @@ prueba "simulación (original)" node colabora/pruebas/simulacion.mjs
 prueba "simulación (original, verbose)" VERBOSE=1 node colabora/pruebas/simulacion.mjs
 prueba "simulación (común protegido)" TAREAS_HTML=$COM node colabora/pruebas/simulacion.mjs
 prueba "simulación (META protegida)" TAREAS_HTML=$META node colabora/pruebas/simulacion.mjs
-prueba "importar desde SENDERO (común protegido)" TAREAS_HTML=$COM node colabora/pruebas/importar.mjs
+prueba "importar desde SENDERO (común protegido, negociados como antes)" TAREAS_HTML=$COM node colabora/pruebas/importar.mjs
+prueba "importar desde SENDERO (META, departamentos)" PROPIO=1 node colabora/pruebas/importar.mjs
+prueba "importar desde SENDERO (META protegida)" TAREAS_HTML=$META node colabora/pruebas/importar.mjs
 prueba "quién ve los expedientes (META)" node colabora/pruebas/meta-acceso.mjs
 prueba "quién ve los expedientes (META protegida)" TAREAS_HTML=$META node colabora/pruebas/meta-acceso.mjs
 prueba "quién ve los expedientes (verbose)" VERBOSE=1 node colabora/pruebas/meta-acceso.mjs

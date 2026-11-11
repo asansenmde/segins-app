@@ -157,4 +157,6 @@ autoría.
     2026-11-11 · 3 (manda todas las células). Pendiente: subir los dos Gestores y el favorito.
     11/11/2026: Gestores 2026-11-11 · 5: catálogo de departamentos (12 células de SUIGESUR, altas y bajas en Ajustes).
     Pendiente: subirlos y pulsar en Ajustes «Poner las 12 células de SUIGESUR» en META y en el común.
+    11/11/2026: 2026-11-11 · 6: el Gestor común vuelve a sus negociados (departamentos solo en META). Pendiente: subir el
+    común; META puede quedarse en la · 5 o subir la · 6 (igual para META).
 
