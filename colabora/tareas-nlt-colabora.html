@@ -287,7 +287,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-11 · 11';
+  var VERSION = '2026-11-11 · 12';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -581,7 +581,7 @@
   var pendientes = function () { return solic.filas.filter(function (f) { return f.estado === 'Pendiente'; }); };
   // Pantalla de quien aún no está dado de alta: como la de Incidentes (datos de la cuenta, empleo, teléfono, departamento,
   // motivo, historial de sus solicitudes y aviso por correo al responsable de los accesos)
-  var AVISAR_SOLIC = ['asansen@et.mde.es'];   // siempre se avisa aquí, además de a los propietarios del sitio
+  var AVISAR_SOLIC = ['asansen@et.mde.es'];   // a quién avisa cada solicitud de acceso (solo aquí, como en Incidentes)
   var EMPLEOS = ['CORONEL', 'TENIENTE CORONEL', 'COMANDANTE', 'CAPITAN', 'TENIENTE', 'SUBOFICIAL MAYOR', 'SUBTENIENTE', 'BRIGADA', 'SARGENTO PRIMERO', 'SARGENTO',
     'CABO MAYOR', 'CABO PRIMERO', 'CABO', 'SOLDADO', 'CIVIL FUNCIONARIO', 'CIVIL LABORAL'];
   var perfilMeta = null, msgSolic = '';
@@ -627,10 +627,10 @@
     var faltan = []; if (!empleo) faltan.push('empleo'); if (!deps.length) faltan.push('departamento');
     if (faltan.length) return msg('<div class="error">Falta: ' + faltan.join(', ') + '. Marca tu departamento' + (faltan.length > 1 ? ' y tu empleo' : '') + '.</div>');
     boton.disabled = true;
-    // Aviso por correo: al responsable de los accesos y a los propietarios del sitio (envío robusto; la solicitud queda guardada igualmente)
+    // Aviso por correo: solo al responsable de los accesos (AVISAR_SOLIC), como en Incidentes (envío robusto; la solicitud queda guardada igualmente)
     var avisar = function () {
-      return api(web.url + '/_api/web/associatedownergroup/users?$select=Title,Email').then(function (d) { return lista(d.value).map(function (u) { return u.Email; }); }, function () { return []; }).then(function (prop) {
-        var to = AVISAR_SOLIC.concat(prop).filter(function (x, i, l) { return x && l.indexOf(x) === i; });
+      return Promise.resolve().then(function () {
+        var to = AVISAR_SOLIC.slice();
         var html = '<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px"><p><b>' + esc(empleo + ' ' + yo.Title) + '</b>' + (yo.Email ? ' (' + esc(yo.Email) + ')' : '') + (tel ? ' · tel. ' + esc(tel) : '') + ' pide acceso a <b>META</b>.</p>' +
           '<p>Departamento: <b>' + esc(deps.join(', ')) + '</b></p>' + (motivo ? '<p>Motivo: ' + esc(motivo) + '</p>' : '') +
           '<p>Para darle de alta: <a href="' + esc(location.origin + location.pathname) + '">META</a> › Ajustes › «Quién ve los expedientes de META» › Solicitudes de acceso.</p><p style="color:#666;font-size:12px">META · © 2026 Cte. Alfredo Sánchez Sender</p></div>';

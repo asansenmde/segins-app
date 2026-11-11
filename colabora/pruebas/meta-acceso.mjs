@@ -161,7 +161,7 @@ let t6 = (await p.textContent('#vista')).replace(/\s+/g, ' ');
 comprueba('sin alta: no ve expedientes, ni pestañas, ni «Nuevo asunto» / «Desde correo»', /No tienes acceso a META/.test(t6) && !(await p.$('.tarea[data-id]')) && await p.isHidden('#tabs') && await p.isHidden('#nuevo') && await p.isHidden('#desdeCorreo'), t6.slice(0, 120));
 comprueba('sin la lista de solicitudes también sale el formulario, como en Incidentes', !!(await p.$('[data-solpedir]')) && !!(await p.$('#solEmpleo')) && /No tienes acceso a META/.test(t6));
 await p.selectOption('#solEmpleo', 'COMANDANTE'); await p.check('#solDeps input >> nth=0'); correos.length = 0; await p.click('[data-solpedir]'); await p.waitForTimeout(1200);
-comprueba('la solicitud llega por correo al responsable de los accesos y a los propietarios', correos.some(c => /solicitud de acceso de USUARIO DE PRUEBA/.test(c.Subject) && JSON.stringify(c.To).includes('admin@et.mde.es') && JSON.stringify(c.To).includes('asansen@et.mde.es') && /COMANDANTE/.test(c.Body)) && /enviado por correo al responsable/.test(await p.textContent('#vista')));
+comprueba('la solicitud llega por correo solo a asansen@et.mde.es', correos.some(c => /solicitud de acceso de USUARIO DE PRUEBA/.test(c.Subject) && JSON.stringify(c.To) === JSON.stringify({ results: ['asansen@et.mde.es'] }) && /COMANDANTE/.test(c.Body)) && /enviado por correo al responsable/.test(await p.textContent('#vista')));
 await p.evaluate(() => { location.hash = '#importar=' + encodeURIComponent(JSON.stringify({ v: 1, origen: 'MENSADEF', id: 'X1', asunto: 'Intento desde SENDERO' })); }); await p.waitForTimeout(800);
 comprueba('sin acceso tampoco se abre el alta desde SENDERO', !(await p.$('#dlg[open] #nCrear')));
 // el administrador crea la lista de solicitudes

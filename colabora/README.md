@@ -45,8 +45,8 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
     - el botón «📨 Enviar solicitud de acceso»;
     - «Tus solicitudes», con su estado y el motivo del rechazo.
   - El formulario sale siempre. Si «META SOLICITUDES» no existe o no deja escribir, la solicitud va solo por correo.
-  - Cada solicitud **avisa por correo** a `AVISAR_SOLIC` (asansen@et.mde.es) y a los propietarios del sitio, y dice si
-    el aviso ha salido.
+  - Cada solicitud **avisa por correo solo a `AVISAR_SOLIC`** (asansen@et.mde.es), como en Incidentes, y dice si el
+    aviso ha salido. En la · 11 iba también a los propietarios del sitio; el usuario lo quitó en la · 12.
   - Columnas nuevas: `Empleo` y `Telefono`. Si la lista es anterior, esos datos van en el motivo.
 - **Versión 2026-11-11 · 9: solicitud de acceso en META** (como en el resto de aplicaciones; receta de VSA).
   - **Quien no está dado de alta** (con «META MIEMBROS» ya creada) no ve ningún expediente. Ve «🔒 Aún no tienes acceso
