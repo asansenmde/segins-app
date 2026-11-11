@@ -190,6 +190,11 @@ if (FINAL) {
 { console.log('META aviso:', (await p.textContent('#colabora')).match(/Departamento en META:[^·]*/)?.[0]);
   const [n6] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n6.waitForLoadState();
   const d6 = JSON.parse(decodeURIComponent(n6.url().split('#importar=')[1])); await n6.close(); await p.bringToFront();
+  // «📋 Al Punto de Situación» (de momento solo en pruebas): pasa por META con la marca punto
+  if (!FINAL) { const [n7] = await Promise.all([ctx.waitForEvent('page'), p.click('#aPunto')]); await n7.waitForLoadState();
+    const d7 = JSON.parse(decodeURIComponent(n7.url().split('#importar=')[1])); await n7.close(); await p.bringToFront();
+    console.log('PUNTO: botón', !!(await p.$('#aPunto')), '| va a META con punto =', d7.punto, '| departamento', d7.departamento); }
+  else console.log('PUNTO: en el definitivo no sale aún:', !(await p.$('#aPunto')));
   console.log('META recibe todas las células:', (d6.departamentos || []).join(', '));
   console.log('META recibe: departamento', d6.departamento, '| responsable', d6.responsable === undefined ? '(no se manda)' : d6.responsable, '| negociado', d6.negociado === undefined ? '(no se manda)' : d6.negociado); }
 // Anexos: lista, abrir (pestaña nueva) y descargar con la sesión; el visor no marca el mensaje como leído

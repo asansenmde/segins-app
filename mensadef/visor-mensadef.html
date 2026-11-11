@@ -113,6 +113,8 @@
   .portal-pie b { color: #f2dc96; }
   .portal-pie { margin-top: 26px; padding-top: 14px; border-top: 1px solid rgba(201,168,76,.35); font-size: .78rem; color: #b9c8da; letter-spacing: .04em; }
   @media (max-width: 700px) { .portal { padding: 28px 20px 20px; } .portal h2 { font-size: 1.7rem; letter-spacing: .06em; } .portal .escudo { width: 70px; height: 70px; font-size: 2.2rem; } .portal-cab { gap: 14px; } }
+  button.punto { background: linear-gradient(180deg, #c9a84c, #8a6d1f); color: #fff; border-color: #8a6d1f; font-weight: 800; }
+  button.punto:hover:not(:disabled) { background: linear-gradient(180deg, #d8b85a, #7a5f18); }
   button.visto-on { background: linear-gradient(180deg, #3a9a5a, #2e7d4f); color: #fff; border-color: #2e7d4f; }
   #detalle h2 { font-size: 1rem; margin: 0 0 8px; }
   dl { display: grid; grid-template-columns: 140px 1fr; gap: 3px 10px; margin: 0; font-size: .86rem; }
@@ -469,7 +471,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-11 · 3';
+  var VERSION = '2026-11-11 · 4';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1709,7 +1711,8 @@
       esc([m._x && m._x.__es ? (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + m._x.__es : '', verFecha(fechaDe(m)), sitioDe(m)].filter(Boolean).join(' · ')) + '</small></div>';
     $('detalle').innerHTML = '<div class="acciones barra-ficha"><div class="piso1">' + nav + titMax + (m._api ? '<button type="button" id="abrirMensadef" title="Abre tu célula en MENSADEF en otra pestaña y busca este mensaje">↗ Abrir en MENSADEF</button>' : disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
       '<button type="button" id="ampliar" title="Ver la ficha a toda la pantalla">' + (maxi ? '⤡ Reducir' : '⛶ Ampliar') + '</button><button type="button" id="cerrar" title="Cerrar la ficha">✕ Cerrar</button></div><div class="piso2">' +
-      '<button type="button" class="prim" id="aColabora" disabled title="Abre el Gestor de Tareas (META) con el alta rellena">➜ Añadir tarea en META</button>' + botonRubrica(m) + '<span class="sepb"></span>' +
+      '<button type="button" class="prim" id="aColabora" disabled title="Abre el Gestor de Tareas (META) con el alta rellena">➜ Añadir tarea en META</button>' +
+      (PUNTO ? '<button type="button" class="punto" id="aPunto" disabled title="Crea el asunto en META marcado ⭐ Tratar con el General y abre «Incluir en el Punto de Situación»">📋 Al Punto de Situación</button>' : '') + botonRubrica(m) + '<span class="sepb"></span>' +
       '<span class="seg"><button type="button" class="naranja" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Enviar por correo</button>' +
       '<button type="button" id="copiarTarea">📋 Copiar para Gestor</button><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + botonLeido(m) + '</span>' + selectorBandera(m) + '</div></div><div id="colabora"></div>' +
       (m._api ? '<div class="cab-msg">' + (m._x.__es ? '<span class="tag st-azul">' + (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + esc(m._x.__es) + '</span>' : '') +
@@ -1748,6 +1751,7 @@
     $('verDet').addEventListener('click', function () { cambiarVisto(m, !vistos[claveMensaje(m)]); });
     $('porCorreo').addEventListener('click', function () { correoMensaje(m); });
     $('aColabora').addEventListener('click', function () { pasarAColabora(m, disp); });
+    if ($('aPunto')) $('aPunto').addEventListener('click', function () { pasarAColabora(m, disp, true); });
     $('copiarTarea').addEventListener('click', function () {
       var t = (m._asunto || '') + (m.MensajeNum_referencia ? ' — Ref. ' + m.MensajeNum_referencia : '') + (m.MensajeNum_expediente ? ' — Exp. ' + m.MensajeNum_expediente : '') +
         ' — ' + verFecha(fechaDe(m)) + (autoridad(m) ? ' — ' + autoridad(m) : '');
@@ -1758,7 +1762,7 @@
       // El texto completo del mensaje se ve en MENSADEF (el servicio de la bandeja no lo trae)
       m._cuerpo = m._cuerpoApi || Object.keys(m._x).filter(function (k) { return k !== '__es'; }).map(function (k) { return EXTRA[k].titulo + ': ' + m._x[k]; }).join('\n');
       $('cuerpo').textContent = m._cuerpoApi || '(La bandeja no trae el texto: ábrelo en MENSADEF.)';
-      $('aColabora').disabled = false;
+      $('aColabora').disabled = false; if ($('aPunto')) $('aPunto').disabled = false;
       pintarAnexos(m);   // siempre: la marca de anexos de la bandeja puede venir con otro valor
       return;
     }
@@ -1768,7 +1772,7 @@
       m._cuerpo = c;
       $('cuerpo').textContent = c || '(sin texto)';
     }).catch(function (e) { if (abierto === m) $('cuerpo').textContent = 'No se pudo leer el texto (' + (e.message || e) + ').'; })
-      .then(function () { if (abierto === m && $('aColabora')) $('aColabora').disabled = false; });
+      .then(function () { if (abierto === m && $('aColabora')) { $('aColabora').disabled = false; if ($('aPunto')) $('aPunto').disabled = false; } });
     if (m.Attachments) {
       api(base + '/AttachmentFiles', l.web).then(function (d) {
         if (abierto !== m) return;
@@ -1960,14 +1964,18 @@
       }, function (e) { b.disabled = false; delete b.dataset.seguro; b.textContent = 'Guardar en MENSADEF'; b.classList.remove('naranja'); msg.innerHTML = '<span class="bad">No se pudo guardar: ' + esc(e.message || e) + '</span>'; });
     });
   }
-  function pasarAColabora(m, disp) {
+  // Punto de Situación (11/11/2026, de momento en pruebas): pasa por META, que crea el asunto marcado ⭐ Tratar con el General
+  // y abre «Incluir en el Punto de Situación»; así el asunto tiene expediente, responsable, departamento e historial
+  var PUNTO = PRUEBAS;
+  function pasarAColabora(m, disp, punto) {
     var u = urlColabora();
-    if (!u) return configurarColabora(m, function () { pasarAColabora(m, disp); });
+    if (!u) return configurarColabora(m, function () { pasarAColabora(m, disp, punto); });
     var f = fechaDe(m), cuerpo = m._cuerpo || '';
     var datos = { v: 1, origen: 'MENSADEF', id: claveMensaje(m), asunto: m._asunto || m.Title || '(sin asunto)', fecha: f ? f.toISOString() : '', de: autoridad(m),
       tipo: m.MensajeTipo_es || '', referencia: m.MensajeNum_referencia || '', suReferencia: m.MensajeSu_referencia || '', expediente: m.MensajeNum_expediente || '',
       enlace: disp || '', texto: cuerpo.length > 6000 ? cuerpo.slice(0, 6000) + '…' : cuerpo };
     if (sitioDe(m)) datos.departamento = sitioDe(m);   // la célula de MENSADEF
+    if (punto) datos.punto = true;
     // Y todas las células del usuario, para que META las ofrezca como departamentos sin escribirlas (11/11/2026)
     if (apiCtx && apiCtx.celulas) datos.departamentos = apiCtx.celulas.map(function (c) { return c.nombre; }).filter(Boolean).slice(0, 150);
     window.open(u + '#importar=' + encodeURIComponent(JSON.stringify(datos)), '_blank', 'noopener');
@@ -1980,7 +1988,7 @@
     guardar('enviados', enviados);
     pintarColabora(m); pintarTabla();
     if (ESCRIBIR && m._api && leer('anotarMeta', true)) {
-      var nota = 'Añadido como tarea en META (' + ((gestorElegido() || {}).nombre || 'Gestor de Tareas') + ') el ' + new Date().toLocaleString('es-ES') + ' · SENDERO';
+      var nota = 'Añadido como tarea en META' + (punto ? ' para el Punto de Situación' : '') + ' (' + ((gestorElegido() || {}).nombre || 'Gestor de Tareas') + ') el ' + new Date().toLocaleString('es-ES') + ' · SENDERO';
       comentarEnMensadef(m, nota).then(function () {
         if (abierto !== m) return;
         $('colabora').insertAdjacentHTML('beforeend', '<p class="small" style="color:#2e7d4f">✓ Comentario añadido en MENSADEF: «' + esc(nota) + '»</p>');

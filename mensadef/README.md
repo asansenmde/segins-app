@@ -365,4 +365,7 @@ con el formato *verbose* de SharePoint 2013.
   - El responsable ya no se manda: en META es quien crea la tarea, y se puede cambiar allí.
 - **2026-11-11 · 3:** con cada paso a META, SENDERO manda también todas las células del usuario (`departamentos`), para
   que META las ofrezca como departamentos.
+- **2026-11-11 · 4 (pruebas): «📋 Al Punto de Situación».** Botón dorado junto a «➜ Añadir tarea en META». Pasa por
+  META con `punto: true`: META crea el asunto marcado ⭐ «Tratar con el General» y abre «Incluir en el Punto de
+  Situación». El comentario en MENSADEF dice «Añadido como tarea en META para el Punto de Situación».
 
