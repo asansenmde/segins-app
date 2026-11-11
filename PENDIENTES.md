@@ -132,4 +132,7 @@ autoría.
     elegida; batería `mensadef/pruebas/todas.sh` para no repetir errores ya resueltos.
     11/11/2026: SENDERO 2026-11-11 · 1 manda a META el negociado y el responsable (se recuerdan por célula y negociado);
     Gestor común y META 2026-11-11 · 1 los ponen en el alta. Pendiente: que suba los dos Gestores y pruebe.
+    11/11/2026: departamentos = células de MENSADEF (SENDERO 2026-11-11 · 2 manda la célula; Gestor común y META
+    2026-11-11 · 2 la ponen como departamento; responsable = quien crea). Pendiente: subir los Gestores y, con Control
+    total, activar una vez Ajustes → «Departamentos de MENSADEF» en cada lista (META y común).
 

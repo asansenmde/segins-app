@@ -105,8 +105,8 @@ async function prueba() {
     if (resto.startsWith('web?')) return r.fulfill({ json: { Url: 'https://colabora.mdef.es' + WEB, Title: 'JSUIGE' } });
     if (resto.startsWith('web/currentuser')) return r.fulfill({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' } });
     if (resto.startsWith('web/siteusers')) return r.fulfill({ json: { value: [{ Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' }, { Id: 31, Title: 'GARCIA LOPEZ ANA', Email: 'agarcia@et.mde.es' }, { Id: 32, Title: 'PEREZ RUIZ LUIS', Email: 'lperez@et.mde.es' }, { Id: 41, Title: 'Garcia Lopez, Ana', Email: 'agarcia2@et.mde.es' }] } });
-    if (resto.includes("/fields")) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'Prioridad', Choices: PRIOS }, { InternalName: 'NegociadoAsignado', Choices: NEGS },
-      { InternalName: 'NegociadosImplicados', Choices: NEGS }, { InternalName: 'DescripcionDelAsunto', RichText: true }, { InternalName: 'Comentarios', RichText: false }, { InternalName: 'FechaVencimiento', Required: false }].concat(conTratar ? [{ InternalName: 'TratarEn', Choices: ['PUNTO DE SITUACIÓN', 'TRATAR CON EL GENERAL'], TypeAsString: 'MultiChoice' }] : []) } });
+    if (resto.includes("/fields")) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'Prioridad', Choices: PRIOS }, { InternalName: 'NegociadoAsignado', Choices: NEGS, FillInChoice: !process.env.SINCELULAS },
+      { InternalName: 'NegociadosImplicados', Choices: NEGS, FillInChoice: !process.env.SINCELULAS }, { InternalName: 'DescripcionDelAsunto', RichText: true }, { InternalName: 'Comentarios', RichText: false }, { InternalName: 'FechaVencimiento', Required: false }].concat(conTratar ? [{ InternalName: 'TratarEn', Choices: ['PUNTO DE SITUACIÓN', 'TRATAR CON EL GENERAL'], TypeAsString: 'MultiChoice' }] : []) } });
     if (resto.includes("/items")) {
       const skip = Number((u.match(/skip=(\d+)/) || [0, 0])[1]);
       const next = skip + 500 < items.length ? `https://colabora.mdef.es${WEB}/_api/web/lists/getbytitle('Gestor de Tareas')/items?skip=${skip + 500}` : undefined;
@@ -222,7 +222,8 @@ async function prueba() {
   await p.fill('#altaRapida', 'Preparar informe de visita antes del viernes urgente');
   await p.press('#altaRapida', 'Enter'); await p.waitForTimeout(500);
   console.log('form asunto:', await p.inputValue('#fNuevo [name=Title]'), '| NLT:', await p.inputValue('#fNuevo [name=nlt]'), '| estado:', await p.inputValue('#fNuevo [name=ESTADO]'), '| prioridad:', await p.inputValue('#fNuevo [name=Prioridad]'), '| resp:', await p.inputValue('#fNuevo [name=resp]'));
-  await p.selectOption('#fNuevo [name=NegociadoAsignado]', 'Seguridad');
+  console.log('departamentos ofrecidos (solo células):', await p.$$eval('#nDeps option', o => o.map(x => x.value).join(', ')) || '(ninguno aún)', '| responsable propuesto:', await p.inputValue('#fNuevo [name=resp]'));
+  await p.fill('#fNuevo [name=NegociadoAsignado]', 'ET 2SUIGE SEGURIDAD');
   await p.fill('#nImplTxt', 'GARCIA LOPEZ ANA'); await p.press('#nImplTxt', 'Enter');
   await p.type('#nImplTxt', 'perez'); await p.waitForTimeout(700);
   console.log('sugerencias perez:', await p.textContent('#nImplSug'));
@@ -234,7 +235,8 @@ async function prueba() {
   console.log('chips:', await p.textContent('#nImpl'));
   await p.fill('#nImplTxt', 'NADIE INVENTADO'); await p.click('#nImplAdd');
   console.log('error implicado inexistente:', await p.textContent('#nError'));
-  await p.check('#fNuevo [name=negImpl][value=Personal]');
+  await p.fill('#nDepTxt', 'ET 2SUIGE PERSONAL'); await p.click('#nDepAdd');
+  console.log('departamentos implicados marcados:', await p.$$eval('#nDepImpl [name=negImpl]:checked', c => c.map(x => x.value).join(', ')));
   console.log('expediente en el alta:', await p.isDisabled('#fNuevo [data-exp]'), await p.inputValue('#fNuevo [data-exp]'));
   // Estado y fecha de finalización deben ir de acuerdo
   { const est0 = await p.inputValue('#fNuevo [name=ESTADO]');
@@ -245,6 +247,7 @@ async function prueba() {
     await p.selectOption('#fNuevo [name=ESTADO]', est0); }
   await p.fill('#fNuevo [name=DescripcionDelAsunto]', 'Línea 1\nLínea <2>');
   await p.click('#nCrear'); await p.waitForTimeout(1500);
+  if (process.env.SINCELULAS) { console.log('sin admitir células:', await p.textContent('#nError')); await b.close(); process.exit(0); }
   const alta = posts.find(x => x.ruta.endsWith('/items'));
   console.log('cabeceras:', alta.cab['x-requestdigest'], alta.cab['content-type']);
   console.log('cuerpo:', alta.cuerpo);
