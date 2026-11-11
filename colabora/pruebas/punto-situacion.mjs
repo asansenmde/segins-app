@@ -47,6 +47,7 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
       if (m) { Object.assign(aport.find(a => a.Id === Number(m[1])), c, { Modified: new Date().toISOString() }); return ful({ status: 204, body: '' }); }
       const a = { Id: aport.length + 1, ...c, Modified: new Date().toISOString() }; aport.push(a); return ful({ status: 201, json: { d: a } });
     }
+    if (lst === LISTA && /\/items$/.test(resto)) { const n = { Id: items.length + 1, ...c, TratarEn: c.TratarEn ? c.TratarEn.results : [], Created: new Date().toISOString(), Modified: new Date().toISOString(), Author: { Title: 'USUARIO DE PRUEBA' }, Editor: { Title: 'USUARIO DE PRUEBA' }, ResponsableDeLaInformacion: { Id: 7, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.es' }, PersonalImplicado0: VERBOSE ? { results: [] } : [] }; delete n.ResponsableDeLaInformacionId; delete n.PersonalImplicado0Id; items.push(n); return ful({ status: 201, json: { d: { Id: n.Id } } }); }
     if (lst === LISTA) { const it = items.find(x => x.Id === Number(resto.match(/items\((\d+)\)/)[1])); if (c.TratarEn) it.TratarEn = c.TratarEn.results; it.Modified = new Date().toISOString(); return ful({ status: 204, body: '' }); }
     return ful({ status: 400, body: '' });
   }
@@ -68,7 +69,7 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
     return ful({ status: 404, body: '' });
   }
   if (lst === LISTA) {
-    if (resto.includes('/fields?')) return ful({ json: { value: [{ InternalName: 'ESTADO', Choices: ['EN CURSO', 'FINALIZADO'] }, { InternalName: 'TratarEn', Choices: ['PUNTO DE SITUACIÓN', 'TRATAR CON EL GENERAL'], TypeAsString: 'MultiChoice' }] } });
+    if (resto.includes('/fields?')) return ful({ json: { value: [{ InternalName: 'ESTADO', Choices: ['EN CURSO', 'FINALIZADO'] }, { InternalName: 'TratarEn', Choices: ['PUNTO DE SITUACIÓN', 'TRATAR CON EL GENERAL'], TypeAsString: 'MultiChoice' }, { InternalName: 'NegociadoAsignado', Choices: ['PRL', 'Infraestructura'], FillInChoice: true }] } });
     if (resto.includes('getbyinternalnameortitle')) return ful({ json: { InternalName: 'Comentarios', AppendOnly: false } });
     const m = resto.match(/items\((\d+)\)/);
     if (m) { const it = items.find(x => x.Id === Number(m[1])); return ful({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, Id: it.Id, Modified: it.Modified } } }); }
@@ -133,6 +134,14 @@ soyPRL = false;
 t = await ficha(2); await p.click('[data-psform]'); await p.waitForSelector('#psForm .aviso');
 comprueba('sin negociado: ' + (await p.textContent('#psForm')).slice(0, 80), /Solo los miembros/.test(await p.textContent('#psForm')));
 soyPRL = true;
+// 6b. Desde SENDERO «📋 Al Punto de Situación»: el asunto nace marcado ⭐ y se abre «Incluir en el punto»
+await p.goto(URL0 + '#importar=' + encodeURIComponent(JSON.stringify({ v: 1, origen: 'MENSADEF', id: 'MSG-PS-1', asunto: 'Mensaje para el punto de situación', texto: 'Texto del mensaje', punto: true, departamento: 'ET 2SUIGE SETEC PRL' })));
+await p.waitForSelector('#dlg[open] #nCrear', { timeout: 15000 });
+comprueba('alta titulada para el Punto de Situación: ' + await p.textContent('#dlg h2'), /Punto de Situación/.test(await p.textContent('#dlg h2')));
+await p.click('#nCrear'); await p.waitForSelector('#psForm #psSit, #psForm .aviso', { timeout: 20000 }).catch(() => 0);
+{ const n = items.find(x => x.Title === 'Mensaje para el punto de situación') || {};
+  comprueba('creado marcado ⭐ Tratar con el General: ' + JSON.stringify(n.TratarEn), (n.TratarEn || []).indexOf('TRATAR CON EL GENERAL') >= 0);
+  comprueba('se abre solo el formulario de incluir en el punto (o su aviso de permisos)', !!(await p.$('#psForm #psSit, #psForm .aviso'))); }
 // 7. Sin punto abierto
 puntos[0].Cierre = h(-1);
 t = await ficha(2);

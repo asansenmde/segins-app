@@ -159,4 +159,6 @@ autoría.
     Pendiente: subirlos y pulsar en Ajustes «Poner las 12 células de SUIGESUR» en META y en el común.
     11/11/2026: 2026-11-11 · 6: el Gestor común vuelve a sus negociados (departamentos solo en META). Pendiente: subir el
     común; META puede quedarse en la · 5 o subir la · 6 (igual para META).
+    11/11/2026: «📋 Al Punto de Situación» desde SENDERO (pruebas 2026-11-11 · 4) pasando por META (2026-11-11 · 7).
+    Pendiente: que lo pruebe con el favorito de pruebas y META; luego pasarlo al definitivo.
 

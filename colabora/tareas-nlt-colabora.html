@@ -286,7 +286,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-11 · 6';
+  var VERSION = '2026-11-11 · 7';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -1388,6 +1388,21 @@
       });
     }).catch(function (e) { caja.innerHTML = '<b class="small">📋 Punto de Situación SUIGESUR:</b> <span class="error">no se pudo consultar (' + esc(e.message || e) + ')</span>'; });
   }
+  // Recién creado desde SENDERO «Al Punto de Situación»: en cuanto la ficha enseña el botón de incluir, se abre su formulario
+  function psAbrirAlCrear(id) {
+    var t0 = Date.now();
+    var mirar = function () {
+      var b = document.querySelector('[data-psform="' + id + '"]:not([data-psaport])');
+      if (b) { b.click(); var c = $('#psBox'); if (c && c.scrollIntoView) c.scrollIntoView({ block: 'center' }); return; }
+      var caja = $('#psBox');
+      if (Date.now() - t0 > 15000 || (caja && /no está instalada|ningún punto de situación abierto/.test(caja.textContent))) {
+        if (caja && caja.scrollIntoView) caja.scrollIntoView({ block: 'center' });
+        return aviso('Asunto creado y marcado ⭐ Tratar con el General. ' + (caja && /ningún punto/.test(caja.textContent) ? 'No hay un punto de situación abierto: lo verán allí como propuesta.' : 'Mira el recuadro del Punto de Situación en la ficha.'));
+      }
+      setTimeout(mirar, 400);
+    };
+    setTimeout(mirar, 400);
+  }
   // Formulario para incluir (o actualizar) el asunto en el punto abierto
   function psFormulario(t, aportId) {
     var f = $('#psForm');
@@ -2160,7 +2175,7 @@
     var campoCom = campoComentarios();
     var conObs = !t || campoCom !== 'Comentarios';
     var dlg = $('#dlg');
-    dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Modificar asunto' : pre ? 'Nuevo asunto desde ' + (pre.origen === 'MENSADEF' ? 'MENSADEF' : 'correo') : 'Nuevo asunto en «' + esc(pref.lista) + '»') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db" id="fNuevo">' +
+    dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Modificar asunto' : pre && pre.punto ? '📋 Nuevo asunto para el Punto de Situación' : pre ? 'Nuevo asunto desde ' + (pre.origen === 'MENSADEF' ? 'MENSADEF' : 'correo') : 'Nuevo asunto en «' + esc(pref.lista) + '»') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db" id="fNuevo">' +
       '<label class="lbl">Asunto *</label><input name="Title" value="' + esc(t ? t.asunto : r.titulo || texto || '') + '">' +
       '<p class="small muted" id="nDetect">' + (pre && r.nlt ? 'Fecha detectada en el asunto: ' + esc(fLarga(r.nlt)) + ' (puesta como NLT; cámbiala si no lo es)' : '') + '</p>' +
       // 11/11/2026: después del asunto, departamento y responsable en su propia fila (antes iban apretados con las fechas)
@@ -2267,6 +2282,8 @@
       poner('ESTADO', v('ESTADO'), t && t.estado);
       poner('Prioridad', v('Prioridad'), t && t.prioridad);
       var negImpl = Array.from(f.querySelectorAll('[name=negImpl]:checked')).map(function (c) { return c.value; });
+      // Desde SENDERO «Al Punto de Situación»: el asunto nace marcado ⭐ Tratar con el General (si la lista tiene la columna)
+      if (!t && pre && pre.punto && hayTratar()) cuerpo.TratarEn = { __metadata: { type: 'Collection(Edm.String)' }, results: [TRATAR[1][1]] };
       var noAdmite = !DEP ? [] : [v('NegociadoAsignado')].filter(function (d) { return d && d !== (t && t.negociado) && !admiteDep('NegociadoAsignado', d); })
         .concat(negImpl.filter(function (d) { return (!t || t.negociados.indexOf(d) < 0) && !admiteDep('NegociadosImplicados', d); }));
       if (noAdmite.length) return err('La lista aún no admite las células de MENSADEF como departamento (' + noAdmite.join(', ') + '). Quien tenga Control total tiene que activarlo una vez en Ajustes → «Departamentos de MENSADEF».');
@@ -2311,6 +2328,7 @@
         return cargar().then(function () {
           if (!id) return;
           abrir(id);
+          if (!t && pre && pre.punto) psAbrirAlCrear(id);
           var tt = tareas.find(function (y) { return y.id === id; });
           if (!conCorreo || !tt) return;
           if (!t) return avisarAsignacion(tt);
@@ -2356,7 +2374,7 @@
       descripcion: lineas.join('\n') + (d.texto ? '\n\n' + recortar(d.texto, 8000) : ''),
       marca: marcaOrigen(d), referencia: d.referencia || '',
       // Propuestos desde SENDERO (11/11/2026): se ponen en el alta y se pueden cambiar
-      departamento: recortar(d.departamento || d.celula || '', 120),
+      departamento: recortar(d.departamento || d.celula || '', 120), punto: !!d.punto,
       departamentos: Array.isArray(d.departamentos) ? d.departamentos.map(function (x) { return recortar(x, 120); }).filter(Boolean).slice(0, 150) : [],
     };
   }
