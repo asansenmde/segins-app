@@ -113,8 +113,10 @@
   .portal-pie b { color: #f2dc96; }
   .portal-pie { margin-top: 26px; padding-top: 14px; border-top: 1px solid rgba(201,168,76,.35); font-size: .78rem; color: #b9c8da; letter-spacing: .04em; }
   @media (max-width: 700px) { .portal { padding: 28px 20px 20px; } .portal h2 { font-size: 1.7rem; letter-spacing: .06em; } .portal .escudo { width: 70px; height: 70px; font-size: 2.2rem; } .portal-cab { gap: 14px; } }
-  button.punto { background: linear-gradient(180deg, #c9a84c, #8a6d1f); color: #fff; border-color: #8a6d1f; font-weight: 800; }
-  button.punto:hover:not(:disabled) { background: linear-gradient(180deg, #d8b85a, #7a5f18); }
+  /* «Pasar directamente al PSIT» (11/11/2026): mismo tamaño y forma que «Añadir tarea en META», azul marino con filo dorado */
+  button.psit { background: linear-gradient(180deg, #2a6cb8, #12315a); color: #fff; border: 1px solid #12315a; border-bottom: 3px solid #c9a84c; font-weight: 800; white-space: nowrap; }
+  button.psit:hover:not(:disabled) { background: linear-gradient(180deg, #3478c8, #0e2a4b); }
+  .barra-ficha button, .barra-ficha select { white-space: nowrap; flex-shrink: 0; }
   button.visto-on { background: linear-gradient(180deg, #3a9a5a, #2e7d4f); color: #fff; border-color: #2e7d4f; }
   #detalle h2 { font-size: 1rem; margin: 0 0 8px; }
   dl { display: grid; grid-template-columns: 140px 1fr; gap: 3px 10px; margin: 0; font-size: .86rem; }
@@ -471,7 +473,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-11 · 5';
+  var VERSION = '2026-11-11 · 6';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1712,7 +1714,7 @@
     $('detalle').innerHTML = '<div class="acciones barra-ficha"><div class="piso1">' + nav + titMax + (m._api ? '<button type="button" id="abrirMensadef" title="Abre tu célula en MENSADEF en otra pestaña y busca este mensaje">↗ Abrir en MENSADEF</button>' : disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
       '<button type="button" id="ampliar" title="Ver la ficha a toda la pantalla">' + (maxi ? '⤡ Reducir' : '⛶ Ampliar') + '</button><button type="button" id="cerrar" title="Cerrar la ficha">✕ Cerrar</button></div><div class="piso2">' +
       '<button type="button" class="prim" id="aColabora" disabled title="Abre el Gestor de Tareas (META) con el alta rellena">➜ Añadir tarea en META</button>' +
-      (PUNTO ? '<button type="button" class="punto" id="aPunto" disabled title="Lo pasa al Punto de Situación (PSIT); también queda registrado en META">Pasar directamente al PSIT</button>' : '') + botonRubrica(m) + '<span class="sepb"></span>' +
+      (PUNTO ? '<button type="button" class="psit" id="aPunto" disabled title="Lo pasa al Punto de Situación (PSIT); también queda registrado en META">Pasar directamente al PSIT</button>' : '') + botonRubrica(m) + '<span class="sepb"></span>' +
       '<span class="seg"><button type="button" class="naranja" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Enviar por correo</button>' +
       '<button type="button" id="copiarTarea">📋 Copiar para Gestor</button><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + botonLeido(m) + '</span>' + selectorBandera(m) + '</div></div><div id="colabora"></div>' +
       (m._api ? '<div class="cab-msg">' + (m._x.__es ? '<span class="tag st-azul">' + (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + esc(m._x.__es) + '</span>' : '') +
@@ -1972,9 +1974,9 @@
       }, function (e) { b.disabled = false; delete b.dataset.seguro; b.textContent = 'Guardar en MENSADEF'; b.classList.remove('naranja'); msg.innerHTML = '<span class="bad">No se pudo guardar: ' + esc(e.message || e) + '</span>'; });
     });
   }
-  // Punto de Situación (11/11/2026, de momento en pruebas): pasa por META, que crea el asunto marcado ⭐ Tratar con el General
+  // Punto de Situación (11/11/2026, en las dos copias): pasa por META, que crea el asunto marcado ⭐ Tratar con el General
   // y abre «Incluir en el Punto de Situación»; así el asunto tiene expediente, responsable, departamento e historial
-  var PUNTO = PRUEBAS;
+  var PUNTO = true;   // 11/11/2026: también en el definitivo, como pidió el usuario
   function pasarAColabora(m, disp, punto) {
     var u = urlColabora();
     if (!u) return configurarColabora(m, function () { pasarAColabora(m, disp, punto); });

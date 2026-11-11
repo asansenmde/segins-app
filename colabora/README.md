@@ -35,6 +35,19 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versiones 2026-11-11 · 10 y · 11: solicitud de acceso como en Incidentes.**
+  - Sin alta no se ven las pestañas ni «Nuevo asunto» / «Desde correo». Tampoco se abre ningún alta, ni siquiera la
+    que llega desde SENDERO.
+  - Pantalla «🔒 No tienes acceso a META» con:
+    - la sesión;
+    - el formulario «Solicitar acceso»: nombre y correo de la cuenta, empleo (propuesto del perfil), teléfono,
+      departamento (catálogo u «Otro») y motivo;
+    - el botón «📨 Enviar solicitud de acceso»;
+    - «Tus solicitudes», con su estado y el motivo del rechazo.
+  - El formulario sale siempre. Si «META SOLICITUDES» no existe o no deja escribir, la solicitud va solo por correo.
+  - Cada solicitud **avisa por correo** a `AVISAR_SOLIC` (asansen@et.mde.es) y a los propietarios del sitio, y dice si
+    el aviso ha salido.
+  - Columnas nuevas: `Empleo` y `Telefono`. Si la lista es anterior, esos datos van en el motivo.
 - **Versión 2026-11-11 · 9: solicitud de acceso en META** (como en el resto de aplicaciones; receta de VSA).
   - **Quien no está dado de alta** (con «META MIEMBROS» ya creada) no ve ningún expediente. Ve «🔒 Aún no tienes acceso
     a META» y el formulario: marca su departamento (catálogo o «Otro», escrito como en MENSADEF), escribe el motivo y

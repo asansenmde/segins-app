@@ -71,6 +71,7 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
     if (!resto.includes('/items')) return ful({ json: { Id: '{5a1}', Title: SOL, ListItemEntityTypeFullName: 'SP.Data.META_x0020_SOLICITUDESListItem', ReadSecurity: 2, WriteSecurity: 2 } });
     return ful({ json: { value: solicitudes.filter(f => admin || f.PersonaId === 7).map(f => ({ ...f })).reverse() } });
   }
+  if (resto.startsWith('web/associatedownergroup/users')) return ful({ json: { value: [{ Title: 'ADMINISTRADOR', Email: 'admin@et.mde.es' }] } });
   if (resto.startsWith('web/roleassignments')) return ful({ json: { value: [{ PrincipalId: 99, Member: { Id: 99, Title: 'MDEF\\usuarios del dominio', LoginName: 'c:0-.f|rolemanager|usuarios del dominio' } }] } });
   if (resto.startsWith('web/roledefinitions/getbytype(3)')) return ful({ json: { Id: 1073741827 } });
   if (lst === MIEM) {
@@ -157,19 +158,24 @@ comprueba('sin Control total vuelve a Tareas y no ve Ajustes', !(await ajVisible
 // 6. Sin alta (con la lista de miembros creada): no ve nada y pide acceso
 filas = filas.filter(f => f.PersonaId !== 7 && (!f.Persona || f.Persona.Id !== 7)); await recargar();
 let t6 = (await p.textContent('#vista')).replace(/\s+/g, ' ');
-comprueba('sin alta y sin lista de solicitudes: no ve expedientes y se lo explica', /Aún no tienes acceso a META/.test(t6) && /no ha preparado las solicitudes/.test(t6) && !(await p.$('.tarea[data-id]')) && await p.isHidden('#tabs'), t6.slice(0, 160));
+comprueba('sin alta: no ve expedientes, ni pestañas, ni «Nuevo asunto» / «Desde correo»', /No tienes acceso a META/.test(t6) && !(await p.$('.tarea[data-id]')) && await p.isHidden('#tabs') && await p.isHidden('#nuevo') && await p.isHidden('#desdeCorreo'), t6.slice(0, 120));
+comprueba('sin la lista de solicitudes también sale el formulario, como en Incidentes', !!(await p.$('[data-solpedir]')) && !!(await p.$('#solEmpleo')) && /No tienes acceso a META/.test(t6));
+await p.selectOption('#solEmpleo', 'COMANDANTE'); await p.check('#solDeps input >> nth=0'); correos.length = 0; await p.click('[data-solpedir]'); await p.waitForTimeout(1200);
+comprueba('la solicitud llega por correo al responsable de los accesos y a los propietarios', correos.some(c => /solicitud de acceso de USUARIO DE PRUEBA/.test(c.Subject) && JSON.stringify(c.To).includes('admin@et.mde.es') && JSON.stringify(c.To).includes('asansen@et.mde.es') && /COMANDANTE/.test(c.Body)) && /enviado por correo al responsable/.test(await p.textContent('#vista')));
+await p.evaluate(() => { location.hash = '#importar=' + encodeURIComponent(JSON.stringify({ v: 1, origen: 'MENSADEF', id: 'X1', asunto: 'Intento desde SENDERO' })); }); await p.waitForTimeout(800);
+comprueba('sin acceso tampoco se abre el alta desde SENDERO', !(await p.$('#dlg[open] #nCrear')));
 // el administrador crea la lista de solicitudes
 admin = true; await recargar(); await p.click('#tabs a[data-v="ajustes"]'); await p.waitForTimeout(400);
 posts.length = 0; await p.click('[data-solcrear]'); await p.waitForTimeout(2000);
-comprueba('crea la lista de solicitudes, sus 5 columnas, solo sus elementos y abierta a todos', posts.some(x => x.ruta === 'web/lists' && /META SOLICITUDES/.test(x.cuerpo)) && posts.filter(x => x.ruta.includes(SOL) && x.ruta.includes('createfieldasxml')).length === 5
+comprueba('crea la lista de solicitudes, sus 7 columnas, solo sus elementos y abierta a todos', posts.some(x => x.ruta === 'web/lists' && /META SOLICITUDES/.test(x.cuerpo)) && posts.filter(x => x.ruta.includes(SOL) && x.ruta.includes('createfieldasxml')).length === 7
   && posts.some(x => /breakroleinheritance/.test(x.ruta)) && posts.some(x => /addroleassignment\(principalid=99,roledefid=1073741827\)/.test(x.ruta)) && posts.some(x => /ReadSecurity/.test(x.cuerpo || '')));
 // el usuario pide acceso
 admin = false; await recargar(); t6 = (await p.textContent('#vista')).replace(/\s+/g, ' ');
 comprueba('ofrece pedir acceso con los departamentos', /Solicitar acceso/.test(t6) && !!(await p.$('#solDeps input')), t6.slice(0, 100));
-await p.click('[data-solpedir]'); await p.waitForTimeout(200); comprueba('sin departamento lo pide', /Marca tu departamento/.test(await p.textContent('#solMsg')));
-await p.check('#solDeps input >> nth=0'); await p.fill('#solMotivo', 'Destino nuevo'); await p.click('[data-solpedir]'); await p.waitForTimeout(1200);
-comprueba('solicitud guardada', solicitudes.length === 1 && solicitudes[0].PersonaId === 7 && solicitudes[0].Estado === 'Pendiente' && !!solicitudes[0].Departamentos, JSON.stringify(solicitudes[0]));
-comprueba('luego ve que está pendiente', /Está pendiente/.test(await p.textContent('#vista')));
+await p.click('[data-solpedir]'); await p.waitForTimeout(200); comprueba('sin empleo ni departamento lo pide', /Falta: empleo, departamento/.test(await p.textContent('#solMsg')));
+await p.selectOption('#solEmpleo', 'COMANDANTE'); await p.fill('#solTel', '600111222'); await p.check('#solDeps input >> nth=0'); await p.fill('#solMotivo', 'Destino nuevo'); await p.click('[data-solpedir]'); await p.waitForTimeout(1200);
+comprueba('solicitud guardada con empleo y teléfono', solicitudes.length === 1 && solicitudes[0].PersonaId === 7 && solicitudes[0].Estado === 'Pendiente' && !!solicitudes[0].Departamentos && solicitudes[0].Empleo === 'COMANDANTE' && solicitudes[0].Telefono === '600111222', JSON.stringify(solicitudes[0]));
+comprueba('luego ve que está PENDIENTE y su historial', /está PENDIENTE de revisión/.test(await p.textContent('#vista')) && /Tus solicitudes/.test(await p.textContent('#vista')));
 // el administrador la ve y lo da de alta
 admin = true; await recargar();
 comprueba('aviso de solicitudes pendientes en la bienvenida', /1 solicitud de acceso pendiente/.test(await p.textContent('.hero')));
@@ -178,9 +184,9 @@ comprueba('la solicitud sale en Ajustes', /USUARIO DE PRUEBA/.test(await p.textC
 await p.click('[data-solalta="1"]'); await p.waitForTimeout(1500);
 comprueba('dado de alta en su departamento y solicitud aprobada', filas.some(f => f.PersonaId === 7 && f.Negociados === solicitudes[0].Departamentos) && solicitudes[0].Estado === 'Aprobada');
 comprueba('correo de acceso concedido', correos.some(c => /acceso concedido/.test(c.Subject)));
-admin = false; await recargar(); comprueba('ya entra en META', !(await p.isHidden('#tabs')) && !/Aún no tienes acceso/.test(await p.textContent('#vista')));
+admin = false; await recargar(); comprueba('ya entra en META', !(await p.isHidden('#tabs')) && !/No tienes acceso a META/.test(await p.textContent('#vista')));
 // denegar: otra solicitud
-filas = filas.filter(f => f.PersonaId !== 7); await recargar(); await p.check('#solDeps input >> nth=0'); await p.click('[data-solpedir]'); await p.waitForTimeout(1000);
+filas = filas.filter(f => f.PersonaId !== 7); await recargar(); await p.selectOption('#solEmpleo', 'COMANDANTE'); await p.check('#solDeps input >> nth=0'); await p.click('[data-solpedir]'); await p.waitForTimeout(1000);
 admin = true; await recargar(); await p.click('#tabs a[data-v="ajustes"]'); await p.waitForTimeout(400);
 p.once('dialog', d => d.accept('No corresponde a la sección')); await p.click('[data-soldeny="2"]'); await p.waitForTimeout(1200);
 comprueba('denegada con motivo y correo', solicitudes[1].Estado === 'Denegada' && solicitudes[1].Respuesta === 'No corresponde a la sección' && correos.some(c => /denegada/.test(c.Subject)));

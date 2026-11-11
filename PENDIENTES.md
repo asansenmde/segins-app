@@ -165,4 +165,6 @@ autoría.
     botón se llama «Pasar directamente al PSIT» (aún solo en pruebas).
     11/11/2026: META 2026-11-11 · 9 con solicitud de acceso. Pendiente: subir META.html y, en Ajustes › «Quién ve los
     expedientes», crear «META SOLICITUDES» (y la alerta), dar de alta a la gente o atender sus solicitudes.
+    11/11/2026: META 2026-11-11 · 11 (solicitud de acceso como Incidentes, sin menús sin alta) y SENDERO 2026-11-11 · 6
+    (PSIT en el definitivo, botón arreglado). Pendiente: probarlos.
 

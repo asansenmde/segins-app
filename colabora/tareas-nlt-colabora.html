@@ -191,6 +191,7 @@
   table.tt .nw { white-space: nowrap; }
   @media (max-width: 640px) { table.tt .opc { display: none; } }
   .meta { display: flex; flex-wrap: wrap; gap: 5px 8px; margin-top: 4px; font-size: .82rem; align-items: center; }
+  .okmsg { background: #e8f5ec; border: 1px solid #9fd3b0; border-radius: 10px; padding: 8px 12px; color: #1d5a32; }
   .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .74rem; font-weight: 700; white-space: nowrap; }
   .badge.ok { background: var(--ok-bg); color: var(--ok); } .badge.warn { background: var(--warn-bg); color: var(--warn); }
   .badge.bad { background: var(--bad-bg); color: var(--bad); } .badge.info { background: var(--info-bg); color: var(--info); }
@@ -286,7 +287,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-11 · 9';
+  var VERSION = '2026-11-11 · 11';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -568,42 +569,91 @@
     if (!PROPIO) return Promise.resolve();
     return api(urlSolic() + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity').then(function (l) {
       solic.info = l;
-      return api(urlSolic() + '/items?$top=500&$orderby=Id desc&$select=Id,Title,Departamentos,Motivo,Estado,Respuesta,Created,Persona/Id,Persona/Title,Persona/EMail&$expand=Persona');
+      return api(urlSolic() + '/items?$top=500&$orderby=Id desc&$select=*,Persona/Id,Persona/Title,Persona/EMail&$expand=Persona');
     }).then(function (d) {
       solic.error = '';
       solic.filas = lista(d.value).map(function (x) {
         return { id: x.Id, personaId: x.Persona && x.Persona.Id, nombre: (x.Persona && x.Persona.Title) || x.Title || '', correo: (x.Persona && x.Persona.EMail) || '', deps: negsDe(x.Departamentos),
-          motivo: x.Motivo || '', estado: x.Estado || 'Pendiente', respuesta: x.Respuesta || '', fecha: x.Created };
+          motivo: x.Motivo || '', estado: x.Estado || 'Pendiente', respuesta: x.Respuesta || '', fecha: x.Created, empleo: x.Empleo || '', tel: x.Telefono || '' };
       });
     }).catch(function (e) { solic.info = e.status === 404 ? null : solic.info; solic.filas = []; solic.error = e.status === 404 ? '' : (e.message || String(e)); });
   }
   var pendientes = function () { return solic.filas.filter(function (f) { return f.estado === 'Pendiente'; }); };
-  // Pantalla de quien aún no está dado de alta
+  // Pantalla de quien aún no está dado de alta: como la de Incidentes (datos de la cuenta, empleo, teléfono, departamento,
+  // motivo, historial de sus solicitudes y aviso por correo al responsable de los accesos)
+  var AVISAR_SOLIC = ['asansen@et.mde.es'];   // siempre se avisa aquí, además de a los propietarios del sitio
+  var EMPLEOS = ['CORONEL', 'TENIENTE CORONEL', 'COMANDANTE', 'CAPITAN', 'TENIENTE', 'SUBOFICIAL MAYOR', 'SUBTENIENTE', 'BRIGADA', 'SARGENTO PRIMERO', 'SARGENTO',
+    'CABO MAYOR', 'CABO PRIMERO', 'CABO', 'SOLDADO', 'CIVIL FUNCIONARIO', 'CIVIL LABORAL'];
+  var perfilMeta = null, msgSolic = '';
+  function leerPerfilMeta() {
+    if (perfilMeta) return Promise.resolve(perfilMeta);
+    return api(web.url + '/_api/SP.UserProfiles.PeopleManager/GetMyProperties?$select=DisplayName,Title,Email,UserProfileProperties').then(function (d) {
+      var props = {}; lista(d.UserProfileProperties).forEach(function (x) { props[x.Key] = x.Value; });
+      perfilMeta = { cargo: d.Title || props.Title || '', telefono: props.WorkPhone || '' }; return perfilMeta;
+    }).catch(function () { perfilMeta = {}; return perfilMeta; });
+  }
   function pantallaSolicitud() {
-    var mias = solic.filas.filter(function (f) { return yo && f.personaId === yo.Id; });
+    if (!perfilMeta) { leerPerfilMeta().then(function () { if (acceso.sinAlta) render(); }); return '<div class="card"><p class="muted">Comprobando tus solicitudes…</p></div>'; }
+    var P = perfilMeta, mias = solic.filas.filter(function (f) { return yo && f.personaId === yo.Id; });
     var pend = mias.filter(function (f) { return f.estado === 'Pendiente'; })[0], ult = mias[0];
-    var deps = departamentos();
-    var h = '<div class="card acceso-meta"><h2 style="margin-top:0">🔒 Aún no tienes acceso a META</h2>' +
-      '<p>Para ver los expedientes hay que estar dado de alta en tu <b>departamento</b> (tu célula de MENSADEF). Pide acceso y el administrador te dará de alta.</p>';
-    if (!solic.info) return h + '<p class="small muted">El administrador aún no ha preparado las solicitudes de acceso: pídele que te dé de alta en META.' + (solic.error ? ' (' + esc(solic.error) + ')' : '') + '</p></div>';
-    if (pend) return h + '<div class="aviso">⏳ Solicitud enviada el ' + esc(fCorta(pend.fecha)) + ' para <b>' + esc(pend.deps.join(', ') || '—') + '</b>. Está pendiente: en cuanto el administrador te dé de alta, al actualizar entrarás.</div></div>';
-    if (ult && ult.estado === 'Denegada') h += '<div class="aviso">Tu última solicitud se denegó' + (ult.respuesta ? ': «' + esc(ult.respuesta) + '»' : '') + '. Puedes pedirlo otra vez.</div>';
-    return h + '<label class="lbl">Tu departamento (puedes marcar varios)</label><div id="solDeps">' + (deps.length ? deps.map(function (d) {
-        return '<label class="check"><input type="checkbox" value="' + esc(d) + '"> ' + esc(d) + '</label>'; }).join('') : '') + '</div>' +
+    var cab = '<div class="card" style="border-left:5px solid #b3261e"><h3 style="margin-top:0">🔒 No tienes acceso a META</h3>' +
+      '<p class="small">META es la gestión de expedientes de los mensajes de MENSADEF. Para ver los expedientes hay que estar dado de alta en tu <b>departamento</b> (tu célula de MENSADEF). ' +
+      'Si lo necesitas, solicita el acceso: se revisará y recibirás un correo con la respuesta.</p>' +
+      '<p class="small muted">Sesión: <b>' + esc(yo.Title) + '</b>' + (yo.Email ? ' · ' + esc(yo.Email) : '') + '</p></div>';
+    var hist = mias.length ? '<div class="card"><h3 style="margin-top:0">Tus solicitudes</h3>' + mias.map(function (f) {
+      return '<div class="small" style="margin:4px 0"><b>' + esc(fCorta(f.fecha)) + '</b> · ' + esc(f.deps.join(', ')) + ' <span class="badge">' + esc(f.estado.toUpperCase()) + '</span>' +
+        (f.respuesta ? '<br>' + (f.estado === 'Denegada' ? '<b>Motivo del rechazo:</b> ' : '') + esc(f.respuesta) : '') + '</div>';
+    }).join('') + '</div>' : '';
+    if (pend) return cab + '<div class="aviso">Tu solicitud del ' + esc(fCorta(pend.fecha)) + ' está <b>PENDIENTE</b> de revisión. Recibirás un correo cuando se resuelva.</div>' + msgSolic + hist;
+    if (solic.porCorreo && !solic.info) return cab + '<div class="aviso">Tu solicitud se ha enviado por correo al responsable de los accesos (' + esc(solic.porCorreo.deps.join(', ')) + '). Recibirás la respuesta por correo.</div>' + msgSolic;
+    if (ult && ult.estado === 'Denegada') cab += '<div class="aviso">Tu última solicitud se denegó' + (ult.respuesta ? ': «' + esc(ult.respuesta) + '»' : '') + '. Puedes pedirlo otra vez.</div>';
+    var deps = departamentos(), cargo = sinTildes(P.cargo || '').toUpperCase();
+    return cab + '<div class="card" id="fSolic"><h3 style="margin-top:0">Solicitar acceso</h3>' +
+      '<div class="grid"><div><label class="lbl">Apellidos y nombre</label><input value="' + esc(yo.Title) + '" disabled></div>' +
+      '<div><label class="lbl">Correo</label><input value="' + esc(yo.Email || '') + '" disabled></div>' +
+      '<div><label class="lbl">Empleo *</label><select id="solEmpleo"><option value="">Seleccionar…</option>' + EMPLEOS.map(function (e) { return '<option' + (cargo && cargo === sinTildes(e).toUpperCase() ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="lbl">Teléfono</label><input id="solTel" value="' + esc(P.telefono || '') + '" placeholder="RPV o fijo"></div></div>' +
+      '<label class="lbl">Tu departamento * <span class="small muted">(tu célula de MENSADEF; puedes marcar varios)</span></label><div id="solDeps">' + deps.map(function (d) {
+        return '<label class="check"><input type="checkbox" value="' + esc(d) + '"> ' + esc(d) + '</label>'; }).join('') + '</div>' +
       '<input id="solOtro" placeholder="' + (deps.length ? 'Otro (escríbelo como en MENSADEF)' : 'Escribe tu célula como en MENSADEF, p. ej. ET 2SUIGE SETEC SEGURIDAD') + '" autocomplete="off" style="margin-top:4px">' +
-      '<label class="lbl">Motivo (opcional)</label><textarea id="solMotivo" rows="3" placeholder="Por ejemplo: destino nuevo en la sección"></textarea>' +
-      '<div class="acciones"><button class="btn prim" data-solpedir="1">Solicitar acceso</button></div><div id="solMsg"></div></div>';
+      '<label class="lbl">Motivo / observaciones</label><textarea id="solMotivo" rows="3" placeholder="Por ejemplo: destino nuevo en la sección; tengo que llevar los expedientes de…"></textarea>' +
+      '<div id="solMsg"></div><div class="acciones"><button class="btn prim" data-solpedir="1">📨 Enviar solicitud de acceso</button></div></div>' + msgSolic + hist;
   }
   function pedirAcceso(boton) {
     var msg = function (t) { var el = $('#solMsg'); if (el) el.innerHTML = t; };
     var deps = Array.prototype.filter.call(document.querySelectorAll('#solDeps input'), function (x) { return x.checked; }).map(function (x) { return x.value; });
     var otro = ($('#solOtro') && $('#solOtro').value || '').trim().replace(/\s+/g, ' ').toUpperCase(); if (otro && deps.indexOf(otro) < 0) deps.push(otro);
-    if (!deps.length) return msg('<div class="error">Marca tu departamento.</div>');
+    var empleo = $('#solEmpleo') ? $('#solEmpleo').value : '', tel = ($('#solTel') && $('#solTel').value || '').trim(), motivo = ($('#solMotivo').value || '').trim();
+    var faltan = []; if (!empleo) faltan.push('empleo'); if (!deps.length) faltan.push('departamento');
+    if (faltan.length) return msg('<div class="error">Falta: ' + faltan.join(', ') + '. Marca tu departamento' + (faltan.length > 1 ? ' y tu empleo' : '') + '.</div>');
     boton.disabled = true;
-    enviarSP(urlSolic() + '/items', { __metadata: { type: solic.info.ListItemEntityTypeFullName }, Title: yo.Title, PersonaId: yo.Id, Departamentos: deps.join('; '), Motivo: ($('#solMotivo').value || '').trim(), Estado: 'Pendiente' },
-      'No tienes permiso para pedir acceso (la lista de solicitudes no está abierta a todos): avisa al administrador')
-      .then(function () { return cargarSolicitudes(); }).then(function () { render(); aviso('Solicitud enviada'); })
-      .catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo enviar: ' + esc(e.message || e) + '</div>'); });
+    // Aviso por correo: al responsable de los accesos y a los propietarios del sitio (envío robusto; la solicitud queda guardada igualmente)
+    var avisar = function () {
+      return api(web.url + '/_api/web/associatedownergroup/users?$select=Title,Email').then(function (d) { return lista(d.value).map(function (u) { return u.Email; }); }, function () { return []; }).then(function (prop) {
+        var to = AVISAR_SOLIC.concat(prop).filter(function (x, i, l) { return x && l.indexOf(x) === i; });
+        var html = '<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px"><p><b>' + esc(empleo + ' ' + yo.Title) + '</b>' + (yo.Email ? ' (' + esc(yo.Email) + ')' : '') + (tel ? ' · tel. ' + esc(tel) : '') + ' pide acceso a <b>META</b>.</p>' +
+          '<p>Departamento: <b>' + esc(deps.join(', ')) + '</b></p>' + (motivo ? '<p>Motivo: ' + esc(motivo) + '</p>' : '') +
+          '<p>Para darle de alta: <a href="' + esc(location.origin + location.pathname) + '">META</a> › Ajustes › «Quién ve los expedientes de META» › Solicitudes de acceso.</p><p style="color:#666;font-size:12px">META · © 2026 Cte. Alfredo Sánchez Sender</p></div>';
+        return enviarCorreo({ to: to, cc: [], asunto: 'META: solicitud de acceso de ' + yo.Title, html: html });
+      }).catch(function (e) { return { ok: false, motivo: e.message || String(e) }; });
+    };
+    var cuerpo = { __metadata: { type: solic.info ? solic.info.ListItemEntityTypeFullName : '' }, Title: yo.Title, PersonaId: yo.Id, Departamentos: deps.join('; '), Motivo: motivo, Estado: 'Pendiente', Empleo: empleo, Telefono: tel };
+    var guardar = !solic.info ? Promise.resolve(false) : enviarSP(urlSolic() + '/items', cuerpo, 'No tienes permiso para pedir acceso').then(function () { return true; }, function (e) {
+      // Lista creada antes de que tuviera Empleo y Teléfono: van en el motivo
+      if (e.status !== 400) throw e;
+      var c2 = Object.assign({}, cuerpo); delete c2.Empleo; delete c2.Telefono; c2.Motivo = [empleo, tel && 'Tel. ' + tel, motivo].filter(Boolean).join(' · ');
+      return enviarSP(urlSolic() + '/items', c2, 'No tienes permiso para pedir acceso').then(function () { return true; });
+    }).catch(function () { return false; });
+    guardar.then(function (enLista) {
+      return avisar().then(function (r) {
+        var ok = r && r.ok !== false;
+        if (!enLista && !ok) throw new Error('no se pudo guardar la solicitud ni avisar por correo' + (r && r.motivo ? ' (' + r.motivo + ')' : ''));
+        msgSolic = '<div class="' + (ok ? 'okmsg' : 'aviso') + '" style="margin-top:8px">' + (ok ? '✓ Se ha avisado por correo al responsable de los accesos.' : 'No se pudo avisar por correo' + (r && r.motivo ? ' (' + esc(r.motivo) + ')' : '') + '. La solicitud está guardada; si puedes, avisa también a ' + esc(AVISAR_SOLIC.join(', ')) + '.') + '</div>';
+        if (!enLista) solic.porCorreo = { fecha: new Date().toISOString(), deps: deps };
+        return cargarSolicitudes();
+      });
+    }).then(function () { render(); aviso('Solicitud de acceso enviada'); })
+      .catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo enviar: ' + esc(e.message || e) + '. Pide el acceso directamente a ' + esc(AVISAR_SOLIC.join(', ')) + '.</div>'); });
   }
   // Administrador: preparar la lista, dar de alta o denegar
   function vistaSolicitudes() {
@@ -617,7 +667,7 @@
       ' · <a target="_blank" rel="noopener" href="' + esc(web.url + '/_layouts/15/SubNew.aspx?List=' + encodeURIComponent('{' + String(solic.info.Id).replace(/[{}]/g, '') + '}')) + '">🔔 Avisarme por correo de cada solicitud nueva</a></p>';
     if (!p.length) return h + '<p class="small">No hay solicitudes pendientes.</p><div id="solAdmMsg"></div>';
     return h + '<table class="t"><tr><th>Persona</th><th>Pide</th><th>Motivo</th><th>Fecha</th><th></th></tr>' + p.map(function (f) {
-      return '<tr><td>' + esc(f.nombre) + (f.correo ? '<br><span class="small muted">' + esc(f.correo) + '</span>' : '') + '</td><td>' + esc(f.deps.join(', ')) + '</td><td class="small">' + esc(f.motivo || '—') + '</td><td class="small">' + esc(fCorta(f.fecha)) + '</td>' +
+      return '<tr><td>' + esc([f.empleo, f.nombre].filter(Boolean).join(' ')) + (f.correo || f.tel ? '<br><span class="small muted">' + esc([f.correo, f.tel && 'tel. ' + f.tel].filter(Boolean).join(' · ')) + '</span>' : '') + '</td><td>' + esc(f.deps.join(', ')) + '</td><td class="small">' + esc(f.motivo || '—') + '</td><td class="small">' + esc(fCorta(f.fecha)) + '</td>' +
         '<td style="white-space:nowrap"><button class="btn prim" data-solalta="' + f.id + '">Dar de alta</button> <button class="btn" data-soldeny="' + f.id + '">Denegar</button></td></tr>';
     }).join('') + '</table><div id="solAdmMsg"></div>';
   }
@@ -630,6 +680,8 @@
       .then(function () { return campo('<Field Type="Note" Name="Departamentos" StaticName="Departamentos" DisplayName="Departamentos" NumLines="3" RichText="FALSE" />'); })
       .then(function () { return campo('<Field Type="Note" Name="Motivo" StaticName="Motivo" DisplayName="Motivo" NumLines="4" RichText="FALSE" />'); })
       .then(function () { return campo('<Field Type="Text" Name="Estado" StaticName="Estado" DisplayName="Estado" />'); })
+      .then(function () { return campo('<Field Type="Text" Name="Empleo" StaticName="Empleo" DisplayName="Empleo" />'); })
+      .then(function () { return campo('<Field Type="Text" Name="Telefono" StaticName="Telefono" DisplayName="Teléfono" />'); })
       .then(function () { return campo('<Field Type="Note" Name="Respuesta" StaticName="Respuesta" DisplayName="Respuesta" NumLines="3" RichText="FALSE" />'); })
       .then(function () { return enviarSP(urlSolic(), { __metadata: { type: 'SP.List' }, ReadSecurity: 2, WriteSecurity: 2 }, 'No se pudo poner «solo sus elementos»', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }).catch(function () { /* se ofrece después */ }); })
       .then(function () { return abrirSolicitudesATodos().catch(function (e) { aviso('Lista creada, pero no se pudo abrir a todos: ' + (e.message || e) + '. Dale «Colaborar» a Usuarios del dominio a mano.'); }); })
@@ -2285,6 +2337,7 @@
   // Se pueden guardar células de MENSADEF si la columna admite valores propios (se activa en Ajustes, con Control total)
   var admiteDep = function (campo, v) { return !v || (infoCampo[campo] && infoCampo[campo].abierto) || (campos[campo] || []).indexOf(v) >= 0; };
   function formularioNuevo(texto, t, pre) {
+    if (acceso.sinAlta) { aviso('Aún no tienes acceso a META: pide acceso y, cuando te den de alta, podrás crear asuntos'); render(); return; }
     var r = !t && texto ? interpretar(texto) : { titulo: '', nlt: '', prioridad: '' };
     if (pre) r = { titulo: pre.asunto || '', nlt: interpretar(pre.asunto || '').nlt, prioridad: '' };
     var con = function (lst, v) { return v && lst.indexOf(v) < 0 ? lst.concat(v) : lst; };
@@ -2757,6 +2810,7 @@
     var v = { nlt: vistaNlt, calendario: vistaCalendario, estadisticas: vistaEstadisticas, avisos: vistaAvisos, informes: vistaInformes, ajustes: vistaAjustes }[pref.vista] || vistaNlt;
     if (!cargadoEn && pref.vista !== 'ajustes') return;
     $('#tabs').style.display = acceso.sinAlta ? 'none' : '';
+    ['#nuevo', '#desdeCorreo'].forEach(function (q) { var b = $(q); if (b) b.style.display = acceso.sinAlta ? 'none' : ''; });
     if (acceso.sinAlta) { $('#vista').innerHTML = pantallaSolicitud(); return; }
     $('#vista').innerHTML = v();
     // Selector de personas del alta de META (Ajustes)

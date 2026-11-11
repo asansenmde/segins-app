@@ -374,4 +374,7 @@ con el formato *verbose* de SharePoint 2013.
     (`META_URL`). La dirección antigua (`…/tareas-nlt-colabora-mensadef.html`) se cambia sola por esta. Se pueden
     añadir otros Gestores en «gestionar gestores». Si alguien quita META, no vuelve a ponerse (`sinMetaPorDefecto`).
   - El favorito de pruebas admite META además de la página de pruebas.
+- **2026-11-11 · 6:** «Pasar directamente al PSIT» también en el **definitivo**. El botón es azul marino con filo dorado y
+  del mismo tamaño que «Añadir tarea en META». Antes salía aplastado porque usaba la clase `punto`, la del puntito de
+  «no leído»; ahora usa `psit`.
 
