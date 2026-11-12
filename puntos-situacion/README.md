@@ -18,6 +18,11 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-12 · 6: todos los negociados descargan el informe completo en PDF
+
+- En la pestaña «Informe», cada negociado puede descargar el informe completo en PDF, además de la parte de su
+  negociado. El Word completo y «Marcar como entregado» siguen siendo solo de PROCOR. «Mi negociado» no cambia.
+
 ## Versión 2026-11-12 · 5: al incluir una propuesta en un negociado se abre ese negociado
 
 - Tras guardar una propuesta incluida con «Incluir en…», la página pasa a «Mi negociado» con ese negociado

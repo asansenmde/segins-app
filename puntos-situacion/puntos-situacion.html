@@ -154,7 +154,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-12 · 5';
+  var VERSION = '2026-11-12 · 6';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -644,7 +644,7 @@
     if (p.estado === 'Contenido borrado') return '<div class="aviso">El contenido de ' + esc(p.ref) + ' se borró de Colabora. El informe está archivado en: <b>' + esc(p.ruta || '—') + '</b></div>';
     var partes = misNegs().map(function (n) { return '<option>' + esc(n.titulo) + '</option>'; }).join('');
     return '<div class="acciones">' + (coordino() ? '<button class="prim" data-word="' + p.id + '">📄 Informe completo en Word</button><button data-pdf="' + p.id + '">🖨 Informe completo en PDF</button>' +
-        (esCerrado(p) && p.estado === 'Abierto' ? '<button data-entregado="' + p.id + '">✔ Marcar como entregado</button>' : '') : '<span class="small muted" style="align-self:center">El informe completo lo genera PROCOR.</span>') +
+        (esCerrado(p) && p.estado === 'Abierto' ? '<button data-entregado="' + p.id + '">✔ Marcar como entregado</button>' : '') : '<button data-pdf="' + p.id + '">🖨 Informe completo en PDF</button>') +
       '<span class="sep"></span><span class="small muted" style="align-self:center">Parte de</span><select id="selParte" style="width:auto">' + partes + '</select>' +
       '<button data-wordneg="' + p.id + '">📄 Word</button><button data-pdfneg="' + p.id + '">🖨 PDF</button>' +
       (esAbierto(p) ? '<span class="badge warn" style="align-self:center">Borrador: el punto sigue abierto hasta el ' + esc(fFH(p.cierre)) + '</span>' : '') + '</div>' + htmlInforme(p);

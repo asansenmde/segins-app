@@ -288,7 +288,10 @@ print('APORTACIÓN DE PRL' in d, 'PROCOR' in d, 'Revisión ficticia' in d, 'EL J
   const hoja = await p.$eval('#marcoPdf', f => f.contentDocument.body.innerText);
   comprueba('PDF de la parte de PRL (hoja de impresión)', /APORTACIÓN DE PRL/.test(hoja) && /PRL/.test(hoja) && !/PROCOR/.test(hoja) && !/EL JEFE/.test(hoja));
   await p.click('nav.tabs a[data-v=informe]');
-  comprueba('en Informe, Luis solo puede sacar la parte de PRL y no el completo', (await p.$$eval('#selParte option', o => o.map(x => x.textContent))).join() === 'PRL' && !(await p.$('[data-word]')));
+  comprueba('en Informe, Luis saca la parte de PRL y el completo solo en PDF (no en Word)', (await p.$$eval('#selParte option', o => o.map(x => x.textContent))).join() === 'PRL' && !(await p.$('[data-word]')) && !!(await p.$('[data-pdf]')));
+  await p.click('[data-pdf]'); await p.waitForTimeout(800);
+  { const hc = await p.$eval('#marcoPdf', f => f.contentDocument.body.innerText);
+    comprueba('PDF completo descargado por un miembro de PRL', /PROCOR/.test(hc) && /PRL/.test(hc) && /SEGURIDAD/i.test(hc)); }
   await p.click('nav.tabs a[data-v=negociado]'); }
 
 // 5. Coordinación: Sin novedad en Seguridad, seguimiento, recordatorio
