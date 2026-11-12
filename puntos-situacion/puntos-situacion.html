@@ -154,7 +154,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-10 · 2';
+  var VERSION = '2026-11-12 · 1';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -286,7 +286,17 @@
       .then(function (r) { if (!r.ok) throw new Error(r.status === 404 ? 'Ya no existe en Colabora' : 'HTTP ' + r.status); return r.json(); })
       .then(function (d) { d = d.d || d; return { etag: (d.__metadata && d.__metadata.etag) || '*', datos: d }; });
   }
-  var papelera = function (k, id) { return enviarSP(U(k) + '/items(' + Number(id) + ')/recycle()', null, 'No tienes permiso para quitarlo'); };
+  // A la papelera. El cuerpo va como «{}» (como en el resto de aplicaciones): sin cuerpo, con Content-Type JSON, Colabora
+  // puede rechazarlo y no dejaba quitar entradas ni el «Sin novedad» (12/11/2026)
+  var papelera = function (k, id) { return enviarSP(U(k) + '/items(' + Number(id) + ')/recycle()', {}, 'No tienes permiso para quitarlo'); };
+  // Quitar una entrada o el «Sin novedad»: a la papelera y, si Colabora no lo deja, se aparta del punto (PuntoId = 0), que
+  // solo necesita poder editar (lo mismo que para escribirla). Así desaparece del negociado, del seguimiento y del informe.
+  function quitarAport(id) {
+    return papelera('aport', id).catch(function (e1) {
+      return merge(U('aport') + '/items(' + Number(id) + ')', { __metadata: tipo('aport'), PuntoId: 0 }, 'No tienes permiso para modificarla').then(function () { return 'apartada'; },
+        function (e2) { throw new Error('No se pudo quitar. Al llevarla a la papelera: ' + (e1.message || e1) + '. Al apartarla del punto: ' + (e2.message || e2) + '. Avisa a PROCOR.'); });
+    });
+  }
 
   // ---------- Estructura de las listas (la crea la propia página) ----------
   var CAMPOS = {
@@ -933,7 +943,7 @@
     }).then(function () {
       // Al aportar algo deja de valer el «Sin novedad»
       var sn = sinNovedad(p, ed.neg);
-      if (sn) return papelera('aport', sn.id).catch(function () { /* se queda; no afecta al informe si hay entradas */ });
+      if (sn) return quitarAport(sn.id).catch(function (e) { avisos.push('no se pudo quitar el «Sin novedad» (' + (e.message || e) + ')'); });
     }).then(function () {
       $('#dlg').close();
       aviso(avisos.length ? 'Guardado con avisos: ' + avisos.join('; ') : 'Entrada guardada');
@@ -1704,7 +1714,7 @@
       if (!ab || !esAbierto(p)) return;
       if (b.dataset.seguro !== '1') { b.dataset.seguro = '1'; b.textContent = '¿Quitar? Pulsa otra vez'; return; }
       b.disabled = true;
-      papelera('aport', ab.id).then(function () { aviso('Entrada quitada (está en la papelera de Colabora)'); cargar(); }, function (er) { alert(er.message); b.disabled = false; });
+      quitarAport(ab.id).then(function (r) { aviso(r === 'apartada' ? 'Entrada quitada del punto' : 'Entrada quitada (está en la papelera de Colabora)'); cargar(); }, function (er) { alert(er.message); b.disabled = false; });
       return;
     }
     if ((b = el.closest('[data-sinnovedad]'))) {
@@ -1714,7 +1724,7 @@
         .then(function () { aviso('Marcado «Sin novedad»'); cargar(); }, function (er) { alert(er.message); b.disabled = false; });
       return;
     }
-    if ((b = el.closest('[data-quitarsn]'))) { b.disabled = true; papelera('aport', Number(b.dataset.quitarsn)).then(function () { cargar(); }, function (er) { alert(er.message); b.disabled = false; }); return; }
+    if ((b = el.closest('[data-quitarsn]'))) { b.disabled = true; quitarAport(Number(b.dataset.quitarsn)).then(function () { aviso('«Sin novedad» quitado'); cargar(); }, function (er) { alert(er.message); b.disabled = false; }); return; }
     if (el.closest('[data-traer]')) { traerAnterior(p, pref.neg); return; }
     if ((b = el.closest('[data-traerok]'))) { traerOk(b); return; }
     if ((b = el.closest('[data-incluirmeta]'))) { incluirMeta(Number(b.dataset.incluirmeta)); return; }

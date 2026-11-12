@@ -1,3 +1,4 @@
+let sinBorrar = false;
 // Prueba de Puntos de Situación contra un Colabora simulado (todo en memoria, datos ficticios).
 // node puntos-situacion/pruebas/simulacion.mjs · VERBOSE=1 (SharePoint 2013) · PS_HTML=puntos-situacion/colabora/puntos-situacion.html (copia protegida)
 // CAPTURAS=carpeta guarda capturas de pantalla.
@@ -103,7 +104,10 @@ await ctx.route(ORIGEN + '/**', async r0 => {
     if (!it) return ful({ status: 404, body: '' });
     const sub = mi[2];
     if (m === 'GET') { const o = exportar(l, it); return ful({ status: 200, contentType: 'application/json', body: JSON.stringify({ d: { __metadata: { etag: '"' + it.Modified + '"' }, ...(VERBOSE ? conResults(o) : o) } }) }); }
-    if (sub === '/recycle()') { l.items.splice(l.items.indexOf(it), 1); return json({ d: {} }); }
+    // Como (se sospecha que) Colabora: sin cuerpo con Content-Type JSON lo rechaza; con sinBorrar, sin permiso de eliminar
+    if (sub === '/recycle()') { if (!req.postData()) return json({ error: { message: { value: 'Invalid JSON. The request body is empty.' } } }, 400);
+      if (sinBorrar) return json({ error: { message: { value: 'Acceso denegado.' } } }, 403);
+      l.items.splice(l.items.indexOf(it), 1); return json({ d: {} }); }
     const ad = sub.match(/^\/AttachmentFiles\/add\(FileName='([^']+)'\)$/);
     if (ad) { it._adj.push(ad[1]); adjuntos[`${WEB}/Lists/${l.titulo}/Attachments/${it.Id}/${ad[1]}`] = req.postDataBuffer(); it.Modified = new Date(Date.now() + 5).toISOString(); return json({ d: {} }); }
     const bo = sub.match(/^\/AttachmentFiles\/getByFileName\('([^']+)'\)$/);
@@ -275,6 +279,12 @@ comprueba('PROCOR puede elegir todos los negociados: ' + (await p.$$eval('#selNe
 await p.selectOption('#selNeg', 'Seguridad'); await p.waitForTimeout(200);
 await p.click('[data-sinnovedad]'); await p.waitForTimeout(800);
 comprueba('Sin novedad en Seguridad', LP('Aportaciones').items.some(x => x.Negociado === 'Seguridad' && x.Tipo === 'Sin novedad'));
+// Quitar el «Sin novedad» (antes Colabora lo rechazaba) y, sin permiso de eliminar, se aparta del punto
+await p.click('[data-quitarsn]'); await p.waitForTimeout(900);
+comprueba('se puede quitar el «Sin novedad»', !LP('Aportaciones').items.some(x => x.Negociado === 'Seguridad' && x.Tipo === 'Sin novedad'));
+sinBorrar = true; await p.click('[data-sinnovedad]'); await p.waitForTimeout(800); await p.click('[data-quitarsn]'); await p.waitForTimeout(1200);
+comprueba('sin permiso de eliminar: se aparta del punto y ya no cuenta', LP('Aportaciones').items.some(x => x.Negociado === 'Seguridad' && x.Tipo === 'Sin novedad' && Number(x.PuntoId) === 0) && !!(await p.$('[data-sinnovedad]')));
+sinBorrar = false; await p.click('[data-sinnovedad]'); await p.waitForTimeout(800);
 await p.click('nav.tabs a[data-v=seguimiento]');
 const seg = await txt('#vista');
 comprueba('seguimiento: 2 de 5, 3 entradas, 1 sin novedad, faltan 3', /2 de 5 negociados/.test(seg) && /Entradas ?3/.test(seg) && /«Sin novedad» ?1/.test(seg) && /Faltan ?3/.test(seg));
@@ -301,7 +311,7 @@ await p.click('[data-cambiarcierre]'); await p.waitForSelector('#ciNueva');
 const nueva = await p.evaluate(() => { const d = new Date(Date.now() + 5 * 3600e3); const z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + 'T' + z(d.getHours()) + ':' + z(d.getMinutes()); });
 await p.fill('#ciNueva', nueva); await p.click('[data-cierreok]'); await esperaDlgCerrado(); await p.waitForTimeout(800);
 const nCi = LP('Puntos').items[0].Cierre;
-comprueba('cierre cambiado en el punto y en las ' + LP('Aportaciones').items.length + ' entradas', LP('Aportaciones').items.every(x => x.CierrePunto === nCi) && new Date(nCi) - Date.now() > 4 * H);
+comprueba('cierre cambiado en el punto y en las ' + LP('Aportaciones').items.filter(x => Number(x.PuntoId) !== 0).length + ' entradas', LP('Aportaciones').items.filter(x => Number(x.PuntoId) !== 0).every(x => x.CierrePunto === nCi) && new Date(nCi) - Date.now() > 4 * H);
 
 // 8. Informe Word (con una imagen en una entrada)
 { const e = LP('Aportaciones').items[0]; e._adj = ['img-x-1.jpg']; e.Situacion += '\n[[imagen:img-x-1.jpg|Croquis ficticio|75|1234]]\nTexto después de la imagen.';

@@ -18,6 +18,18 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-12 · 1: quitar lo escrito
+
+- **Problema:** un usuario con «Colaborar» marcaba «Sin novedad» (o escribía una entrada) y luego no podía quitarlo.
+  La orden de mandar a la papelera (`recycle()`) iba **sin cuerpo** y con Content-Type JSON. El resto de aplicaciones
+  la mandan con `{}` y ahí «Eliminar» funciona. Ahora va con `{}`.
+- **Segunda vía:** si Colabora aun así no deja llevarlo a la papelera (por ejemplo, sin permiso de eliminar), la entrada
+  o el «Sin novedad» se **aparta del punto** (`PuntoId = 0`). Eso solo necesita poder editar, como para escribirla.
+  Desaparece del negociado, del seguimiento y del informe.
+- Si no se puede de ninguna de las dos formas, se dice el porqué de cada una. Si al escribir una entrada no se puede
+  quitar el «Sin novedad» anterior, ya no se calla: sale como aviso.
+- Simulación: quitar «Sin novedad» y, con borrado denegado, apartarlo. El simulacro rechaza `recycle()` sin cuerpo.
+
 ## Versión 2026-11-10 · 2: editor ampliable y la parte de cada negociado en Word o PDF
 
 - **Editor**: botón «⛶ Ampliar» (pantalla completa, se recuerda en el navegador; «🗗 Reducir» para volver) y el recuadro
