@@ -24,6 +24,7 @@ const items = [
   { Id: 6, Title: 'Ajeno de Seguridad', Author: OTRO, ResponsableDeLaInformacion: OTRO, NegociadoAsignado: 'Seguridad' },
 ].map(x => ({ ESTADO: 'EN CURSO', Prioridad: 'Media', DescripcionDelAsunto: 'Texto ficticio', Comentarios: '', Created: h(-48), Modified: h(-24), Editor: OTRO,
   PersonalImplicado0: [], NegociadosImplicados: [], ...x }));
+let biblioOculta = false;
 let admin = false, hayMiembros = true, filas = [], haySolic = false, solicitudes = [], correos = []; const SOL = 'META SOLICITUDES';
 const posts = [];
 let ok = true; const comprueba = (txt, c, extra) => { console.log((c ? '✔ ' : '✘ ') + txt + (extra !== undefined ? ': ' + extra : '')); if (!c) ok = false; };
@@ -44,6 +45,7 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
     if (resto === 'contextinfo') return ful({ json: { d: { GetContextWebInformation: { FormDigestValue: 'D', FormDigestTimeoutSeconds: 1800 } } } });
     const c = JSON.parse(req.postData() || '{}');
     if (resto === 'web/lists') { if (c.Title === MIEM) hayMiembros = true; if (c.Title === SOL) haySolic = true; return ful({ status: 201, json: { d: { Id: 'm' } } }); }
+    if (/^web\/lists\(guid'b1'\)$/.test(resto)) { biblioOculta = !!c.Hidden; return ful({ status: 204, body: '' }); }
     if (resto === 'SP.Utilities.Utility.SendEmail') { correos.push(c.properties); return ful({ json: { d: {} } }); }
     if (lst === SOL) {
       if (/createfieldasxml|breakroleinheritance|addroleassignment/.test(resto) || !resto.includes('/items')) return ful({ json: { d: {} } });
@@ -71,6 +73,7 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
     if (!resto.includes('/items')) return ful({ json: { Id: '{5a1}', Title: SOL, ListItemEntityTypeFullName: 'SP.Data.META_x0020_SOLICITUDESListItem', ReadSecurity: 2, WriteSecurity: 2 } });
     return ful({ json: { value: solicitudes.filter(f => admin || f.PersonaId === 7).map(f => ({ ...f })).reverse() } });
   }
+  if (resto.includes('GetFileByServerRelativeUrl') && resto.includes('ParentList')) return ful({ json: { Id: 'b1', Title: 'aplicaciones', Hidden: biblioOculta, BaseTemplate: 101 } });
   if (resto.startsWith('web/associatedownergroup/users')) return ful({ json: { value: [{ Title: 'ADMINISTRADOR', Email: 'admin@et.mde.es' }] } });
   if (resto.startsWith('web/roleassignments')) return ful({ json: { value: [{ PrincipalId: 99, Member: { Id: 99, Title: 'MDEF\\usuarios del dominio', LoginName: 'c:0-.f|rolemanager|usuarios del dominio' } }] } });
   if (resto.startsWith('web/roledefinitions/getbytype(3)')) return ful({ json: { Id: 1073741827 } });
@@ -116,6 +119,11 @@ comprueba('Control total ve los 6', (await vistos()) === '1,2,3,4,5,6');
 comprueba('Control total ve Ajustes', await ajVisible());
 await p.click('#tabs a[data-v="ajustes"]'); await p.waitForTimeout(400);
 comprueba('Ajustes ofrece crear la lista', !!(await p.$('[data-mmcrear]')));
+await p.waitForSelector('[data-biblio]', { timeout: 5000 }).catch(() => 0);
+comprueba('dice en qué biblioteca está y ofrece ocultarla', /biblioteca «aplicaciones», que se ve/.test(await p.textContent('#vista')) && !!(await p.$('[data-biblio="1"]')));
+await p.click('[data-biblio="1"]'); await p.waitForTimeout(1200);
+comprueba('biblioteca oculta (Hidden = true) y lo dice', biblioOculta && /está oculta/.test(await p.textContent('#vista')));
+await p.click('[data-biblio="0"]'); await p.waitForTimeout(1200); comprueba('y se puede volver a mostrar', !biblioOculta);
 posts.length = 0; await p.click('[data-mmcrear]'); await p.waitForTimeout(1500);
 comprueba('crea la lista y sus 3 columnas', posts.some(x => x.ruta === 'web/lists' && /META MIEMBROS/.test(x.cuerpo)) && posts.filter(x => x.ruta.includes('createfieldasxml')).length === 3);
 comprueba('después muestra el alta', !!(await p.$('#mmPersona')));

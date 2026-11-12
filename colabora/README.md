@@ -35,6 +35,9 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-12 · 1: ocultar la biblioteca.** En Ajustes › Lista de SharePoint se dice en qué biblioteca está
+  la página (p. ej. «aplicaciones») y se puede ocultar de «Contenido del sitio» o volver a mostrarla. Es un MERGE
+  `Hidden`, igual que en Incidentes y VSA. La página sigue funcionando con su dirección. Prueba: `meta-acceso.mjs`.
 - **Versiones 2026-11-11 · 10 y · 11: solicitud de acceso como en Incidentes.**
   - Sin alta no se ven las pestañas ni «Nuevo asunto» / «Desde correo». Tampoco se abre ningún alta, ni siquiera la
     que llega desde SENDERO.

@@ -287,7 +287,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-11 · 12';
+  var VERSION = '2026-11-12 · 1';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -1428,6 +1428,28 @@
     imprimirHtml('Para tratar: ' + x[3], cuerpo.replace(/<td>/g, '<td style="border:1px solid #bbb;padding:3px 5px;vertical-align:top;font-size:9pt">'), 'para-tratar-' + k);
   }
   // Que «Negociado asignado» y «Negociados implicados» admitan valores propios (las células de MENSADEF): FillInChoice
+  // Biblioteca donde está esta página (p. ej. «aplicaciones»): ocultarla de «Contenido del sitio», como en Incidentes y VSA
+  // (12/11/2026). La página sigue funcionando con su dirección; solo deja de verse la biblioteca en el sitio.
+  var biblio;   // undefined = sin leer; null = no se pudo leer
+  function leerBiblioteca() {
+    return api(web.url + "/_api/web/GetFileByServerRelativeUrl('" + encodeURIComponent(decodeURIComponent(location.pathname).replace(/'/g, "''")) + "')/ListItemAllFields/ParentList?$select=Id,Title,Hidden,BaseTemplate")
+      .then(function (l) { biblio = l; }, function () { biblio = null; });
+  }
+  function vistaBiblioteca() {
+    if (biblio === undefined) { leerBiblioteca().then(function () { if (pref.vista === 'ajustes') render(); }); return '<p class="small muted">📁 Comprobando la biblioteca de esta página…</p>'; }
+    if (!biblio) return '<p class="small muted">📁 No se pudo leer la biblioteca donde está esta página.</p>';
+    return '<p class="small">📁 Esta página está en la biblioteca «' + esc(biblio.Title) + '», que ' + (biblio.Hidden ? '<b>está oculta</b> en «Contenido del sitio». <button type="button" class="btn" data-biblio="0">Volver a mostrarla</button>'
+      : '<b>se ve</b> en «Contenido del sitio». <button type="button" class="btn prim" data-biblio="1">Ocultar la biblioteca</button>') + '</p>';
+  }
+  function ocultarBiblioteca(boton, ocultar) {
+    if (!biblio) return;
+    if (ocultar && /^(Documentos compartidos|Documentos|Shared Documents)$/i.test(biblio.Title) &&
+      !window.confirm('«' + biblio.Title + '» es la biblioteca general de documentos del sitio: al ocultarla dejará de verse en «Contenido del sitio» para todos. Lo recomendable es tener los .html en una biblioteca propia (p. ej. «aplicaciones»). ¿Ocultarla igualmente?')) return;
+    boton.disabled = true;
+    enviarSP(web.url + "/_api/web/lists(guid'" + biblio.Id + "')", { __metadata: { type: 'SP.List' }, Hidden: !!ocultar }, 'No tienes permiso para cambiar la biblioteca', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
+      .then(function () { return leerBiblioteca(); }).then(function () { aviso(ocultar ? 'Biblioteca oculta en «Contenido del sitio»' : 'Biblioteca visible de nuevo'); render(); })
+      .catch(function (e) { boton.disabled = false; aviso('No se pudo: ' + (e.message || e)); });
+  }
   // Ajustes › Departamentos: catálogo (opciones de las dos columnas) con las células de MENSADEF, altas y bajas
   function vistaCatalogo() {
     if (!DEP) return '';
@@ -2738,7 +2760,7 @@
     return '<div class="card"><h3 style="margin-top:0">Lista de SharePoint</h3>' +
       '<p class="small muted">Sitio: ' + esc(web ? (web.titulo || '') + ' (' + web.url + ')' : '—') + '<br>Usuario: ' + esc(yo ? yo.Title : '—') +
       (listaInfo ? '<br>Lista: «' + esc(listaInfo.Title) + '», ' + listaInfo.ItemCount + ' elementos' : '') + (cargadoEn ? '<br>Leída a las ' + cargadoEn.toLocaleTimeString('es-ES') : '') + '<br>Versión de la página: ' + esc(VERSION) + '</p>' +
-      '<label class="lbl">Nombre de la lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
+      '<label class="lbl">Nombre de la lista</label><input id="aLista" value="' + esc(pref.lista) + '">' + vistaBiblioteca() +
       '<p class="small">' + (hayTratar() ? '✔ Columna «Tratar en» (marcas «Punto de situación» y «Tratar con el General»).' : '✕ Falta la columna «Tratar en» para marcar asuntos para el punto de situación o para tratar con el General. <button type="button" class="btn prim" data-creartratar="1">Crear la columna</button> <span class="muted">(hace falta poder administrar la lista)</span>') + '</p>' +
       vistaCatalogo() +
       '<label class="lbl">Actualizar la lista automáticamente cada (minutos; 0 = no)</label><input id="aAuto" type="number" min="0" max="60" value="' + minutosAuto() + '">' +
@@ -2854,6 +2876,7 @@
     var pso = el.closest('[data-psok]');
     if (pso) { psGuardar(tareas.find(function (x) { return x.id === Number(pso.dataset.psok); }), pso); return; }
     if (el.closest('[data-creartratar]')) { crearColumnaTratar(el.closest('[data-creartratar]')); return; }
+    if (el.closest('[data-biblio]')) { ocultarBiblioteca(el.closest('[data-biblio]'), el.closest('[data-biblio]').dataset.biblio === '1'); return; }
     if (el.closest('[data-departamentos]')) { admitirDepartamentos(el.closest('[data-departamentos]')); return; }
     if (el.closest('[data-catsuigesur]')) { var bs = el.closest('[data-catsuigesur]');
       if (!bs.dataset.seguro) { bs.dataset.seguro = '1'; bs.textContent = '¿Poner las ' + CELULAS_SUIGESUR.length + ' células? Pulsa otra vez'; return; }
