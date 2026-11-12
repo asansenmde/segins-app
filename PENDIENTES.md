@@ -226,7 +226,7 @@ autoría.
     10/11/2026: Gestor común, META y pruebas **2026-11-10 · 1**: unidas la · 2 confirmada (Ajustes solo con Control total) y
     el enlace con el Punto de Situación (solo ⭐ Tratar con el General). Pendiente: que suba las tres copias.
     12/11/2026: Puntos de Situación 2026-11-12 · 2 (quitar «Sin novedad» y entradas sin pantalla de identificarse) confirmado por el usuario.
-    12/11/2026: Puntos de Situación 2026-11-12 · 3 (asunto en su línea y texto debajo en el informe, Word y PDF): entregado, pendiente de que lo pruebe el usuario.
-    12/11/2026: Puntos de Situación 2026-11-12 · 4 (propuestas de META sin negociado: motivo e «Incluir en…» para PROCOR): entregado, pendiente de que lo pruebe el usuario.
-    12/11/2026: Puntos de Situación 2026-11-12 · 5 (tras «Incluir en…» se abre «Mi negociado» en ese negociado): entregado, pendiente de que lo pruebe el usuario.
+    12/11/2026: Puntos de Situación 2026-11-12 · 3 (asunto en su línea y texto debajo en el informe, Word y PDF) confirmado por el usuario.
+    12/11/2026: Puntos de Situación 2026-11-12 · 4 (propuestas de META sin negociado: motivo e «Incluir en…» para PROCOR) confirmado por el usuario.
+    12/11/2026: Puntos de Situación 2026-11-12 · 5 (tras «Incluir en…» se abre «Mi negociado» en ese negociado) confirmado por el usuario.
 
