@@ -184,8 +184,8 @@ async function prueba() {
         if (!sinViejo || !/Modificar/.test(botones) || !/Eliminar/.test(botones) || /Ver en Colabora/.test(botones)) console.log('HAY FALLOS: ficha de META');
         await p.click('[data-fase="hecha"]'); await p.waitForTimeout(1500); e1 = est(id);
         await p.click('[data-fase="curso"]'); await p.waitForTimeout(1500); e2 = est(id);
-        await p.click('[data-fase="espera"]'); await p.waitForTimeout(1500); e3 = est(id);
-        if (!/\(fin /.test(e1) || /\(fin /.test(e2) || !/ESPERA/.test(e3)) console.log('HAY FALLOS: estados desde los pasos', e1, e2, e3);
+        e3 = 'solo En curso y Terminada: ' + ((await p.$$eval('[data-fase]', n => n.map(x => x.dataset.fase))).join() === 'curso,hecha');
+        if (!/\(fin /.test(e1) || /\(fin /.test(e2) || !/true/.test(e3)) console.log('HAY FALLOS: estados desde los pasos', e1, e2, e3);
       } else {
         id = Number(await p.$eval('[data-finalizar]', b => b.dataset.finalizar));
         await p.click('[data-finalizar]'); await p.waitForTimeout(1500); e1 = est(id);
@@ -214,7 +214,7 @@ async function prueba() {
   console.log('solo en espera:', (await p.$$eval('details.grupo', ds => ds.map(d => d.dataset.grupo + ':' + d.querySelector('.n').textContent))).join(' '),
     '| todas en espera:', await p.$$eval('details.grupo .tarea .badge[class*=st-]', bs => bs.every(b => b.classList.contains('st-espera'))));
   await p.click('details.grupo .tarea'); await p.waitForTimeout(200);
-  console.log('fase en ficha:', await p.textContent('#dlg .pasos .on'));
+  console.log('fase en ficha:', await p.$eval('#dlg .pasos .on', e => e.textContent).catch(() => 'ninguna marcada'));
   await p.click('#dlg [data-cerrar]'); await p.click('.flujo [data-kpi="c:espera"]');
   if (CAPTURAS) { await p.evaluate(() => scrollTo(0, 0)); await p.screenshot({ path: CAPTURAS + '/escritorio-panel.png' }); }
   await p.click('#tabs [data-v=calendario]');

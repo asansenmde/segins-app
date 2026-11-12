@@ -293,7 +293,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-12 · 4';
+  var VERSION = '2026-11-12 · 5';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -2877,7 +2877,7 @@
       ['Creado', new Date(t.creada).toLocaleString('es-ES') + (t.autor ? ' por ' + t.autor : '')], ['Modificado', new Date(t.modificada).toLocaleString('es-ES') + (t.editor ? ' por ' + t.editor : '')]];
     var dlg = $('#dlg');
     dlg.innerHTML = '<div class="dh"><h2>' + esc(t.asunto) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db ficha"><div class="ficha-datos">' +
-      (PROPIO ? '<div class="pasos elegir"><b class="small">Estado:</b> ' + FASES.map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<button type="button" class="c-' + f[0] + (t.clase === f[0] ? ' on' : '') + '" data-fase="' + f[0] + '" data-id="' + t.id + '" title="' + (t.clase === f[0] ? 'Estado actual: ' + esc(t.estado) : 'Pasar a «' + esc(estadoDe(f[0]) || CLASES[f[0]]) + '»') + '">' + f[1] + ' ' + CLASES[f[0]] + '</button>'; }).join('') + '<span id="estMsg" class="small"></span></div>' :
+      (PROPIO ? '<div class="pasos elegir"><b class="small">Estado:</b> ' + FASES.filter(function (f) { return f[0] === 'curso' || f[0] === 'hecha'; }).map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<button type="button" class="c-' + f[0] + (t.clase === f[0] ? ' on' : '') + '" data-fase="' + f[0] + '" data-id="' + t.id + '" title="' + (t.clase === f[0] ? 'Estado actual: ' + esc(t.estado) : 'Pasar a «' + esc(estadoDe(f[0]) || CLASES[f[0]]) + '»') + '">' + f[1] + ' ' + CLASES[f[0]] + '</button>'; }).join('') + '<span id="estMsg" class="small"></span></div>' :
       '<div class="pasos" title="Fase del asunto (se ajusta en Ajustes)">' + FASES.map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<span class="c-' + f[0] + (t.clase === f[0] ? ' on' : '') + '">' + f[1] + ' ' + CLASES[f[0]] + '</span>'; }).join('') + '</div>') +
       c.filter(function (x) { return x[0] && x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       '<div class="tratar"><b class="small">Para tratar en:</b> ' + (hayTratar() ? TRATAR.map(function (x) { var on = tieneTratar(t, x[0]);

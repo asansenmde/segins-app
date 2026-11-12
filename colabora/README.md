@@ -35,6 +35,8 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-12 · 5 (META):** en la ficha el estado se elige solo entre ⚙️ En curso y ✅ Terminada (Pendiente y
+  En espera no tienen estado propio en la lista y no hacían nada).
 - **Versión 2026-11-12 · 4 (solo META; el Gestor común sigue igual):**
   - Ficha: el estado se elige pulsando los pasos de arriba (Pendiente › En curso › En espera › Terminada); al pasar a
     Terminada se pone la fecha de finalización y al salir se quita. Ya no están «Finalizar», «Cambiar estado» ni «Ver en Colabora».
