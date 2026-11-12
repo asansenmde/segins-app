@@ -92,3 +92,7 @@ autoría.
     usuario suba META, cree la lista desde Ajustes y dé de alta a cada uno en su negociado. Siguiente paso posible: que
     SENDERO pase el negociado y el responsable al abrir la tarea (se hace en la sesión de SENDERO). `importar.mjs` no
     sirve con la copia de META (ya pasaba con la · 2): adaptarlo si se toca la importación.
+18. **Incidentes 2026-11-12 · 1** (12/11/2026): unificada (11-03 · 3 de la otra sesión + 11-05 · 1 de esta) y responsables de
+    los avisos por escalón (lista «INCIDENTES RESPONSABLES»). Pendiente del usuario: subirla, crear la lista desde Ajustes,
+    poner al menos un responsable por SUIGE, DIACU e IGE, y dejar la lista en solo lectura para los demás. Permisos: en la
+    otra sesión hay una 2026-11-05 · 2 que esta rama no tiene (pendiente de que el usuario diga si se unifica).

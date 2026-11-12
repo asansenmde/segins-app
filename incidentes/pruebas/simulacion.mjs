@@ -15,6 +15,8 @@ let biblioOculta = false;
 // Colabora que rechaza direcciones («destinatario válido»): buzonMal = direcciones o cuentas rechazadas; enviados = las que acepta
 let buzonMal = [], enviados = [], correoDenegado = false;
 let reciclados = [];
+// Responsables de los avisos: null = falta la lista; gruposOcultos = quien tramita no puede ver los integrantes de los grupos
+let respLista = null, gruposOcultos = false;
 const NOMBRE_DE = { 'sur1@et.mde.es': 'SUR UNO', 'sur2@et.mde.es': 'SUR DOS', 'nor1@et.mde.es': 'NOR UNO', 'can1@et.mde.es': 'CAN UNO', 'diacu1@et.mde.es': 'DIACU UNO', 'ige1@et.mde.es': 'IGE UNO', 'admin1@et.mde.es': 'ADMIN UNO' };
 const CUENTAS_NUEVAS = [{ Id: 301, Title: 'Uno, Ige', Email: 'ige1b@et.mde.es' }];   // otra cuenta (con buzón) de IGE UNO
 let expandRoto = false, faltaCampo = null, items, misGrupos = [], admin = false, sinSubstringof = false, ultimoFiltro = '', lecturaMinima = '';
@@ -30,6 +32,9 @@ const AUXL = {
   PROVINCIAS: [{ Id: 1, Title: 'SEVILLA' }, { Id: 2, Title: 'LEÓN' }, { Id: 3, Title: 'BURGOS' }],
   empleos: [{ Id: 1, Title: 'CORONEL' }, { Id: 2, Title: 'COMANDANTE' }, { Id: 3, Title: 'SARGENTO' }]
 };
+// Permisos de la lista de incidentes: los grupos SEGURIDAD_* con Colaborar; INCIDENTES_UNIDADES solo con Leer (como en
+// Colabora el 01/11/2026: las unidades acreditadas entraban pero Colabora les rechazaba el borrador con «Acceso denegado»)
+let cortarAlta = false, fallaRecarga = false, soloLectura = false, rolesInc = { SEGURIDAD_SUIGESUR: 3, SEGURIDAD_IGE: 3, INCIDENTES_UNIDADES: 2 }, permisosDados = [];
 let sols = [], unidades = [], anadidos = [], sinEmpleos = false, rechazaFrom = false, grupoUnico = false;
 const sur = { MANDO2N: '1', MANDO3N: '1', OData__x004d_N2: 'SUIGESUR', OData__x004d_N3: 'ACUARTELAMIENTO X' };
 const nor = { MANDO2N: '2', MANDO3N: '2', OData__x004d_N2: 'SUIGENOR', OData__x004d_N3: 'BASE NORTE' };
@@ -48,7 +53,7 @@ const nuevoStore = () => {
     { Id: 9, ESTADO: 'REMITIDO A SUIGE', TipoDeIncidente: 'Pintadas', ...nor, grupo: [P[62], YO], PROBABILIDADES: 'BAJO', FechaNotificacion: d(-4), Created: d(-4), Author: P[62] },
     // MADOC: el InfoPath lo envía a la SUIGESUR
     { Id: 10, ESTADO: 'REMITIDO A SUIGE', TipoDeIncidente: 'Otro', MANDO2N: '9', OData__x004d_N2: 'MADOC', OData__x004d_N3: 'ACADEMIA', PROBABILIDADES: 'MEDIO', FechaNotificacion: d(-5), Created: d(-5), Author: P[62] },
-  ].map(x => ({ ...base, Title: '2026-01-01', Modified: d(-1), Editor: { Id: 61, Title: 'JEFE UNIDAD A' }, Attachments: x.Id === 1, ...x }));
+  ].map(x => ({ ...base, Title: '2026-01-01', Modified: d(-1), Editor: { Id: 61, Title: 'JEFE UNIDAD A' }, Attachments: x.Id === 1 || x.Id === 3, ...x }));
 };
 // Evalúa el $filter de alcance (or de igualdades de persona, SUIGES y substringof)
 // Al escribir, las personas llegan por su número (XId); se guardan como objetos para leerlas después
@@ -68,9 +73,11 @@ const cumple = (it, filtro) => filtro.split(' or ').some(c => {
   return false;
 });
 async function prueba(verbose, escenario) {
+  if (process.env.SOLO && escenario !== process.env.SOLO) return;
   nuevoStore();
   biblioOculta = false;
   sols = [{ Id: 1, Title: 'JEFE UNIDAD B', Solicitante: P[62], Correo: P[62].EMail, Empleo: 'CAPITAN', MandoSegundo: 'SUIGENOR', Unidad: 'BASE NORTE', Telefono: '600', Papel: 'Unidad: notificar incidentes de seguridad', Motivo: 'Jefe de seguridad', Aplicacion: 'INCIDENTES', EstadoSolicitud: 'PENDIENTE', Created: d(-1), Modified: d(-1) },
+    { Id: 3, Title: 'JEFE UNIDAD A', Solicitante: P[61], Correo: P[61].EMail, Empleo: 'TENIENTE', MandoSegundo: 'SUIGESUR', Unidad: 'ACUARTELAMIENTO X', Telefono: '601', Papel: 'Unidad: notificar incidentes de seguridad', Motivo: 'Curiosidad', Aplicacion: 'INCIDENTES', EstadoSolicitud: 'PENDIENTE', Created: d(-2), Modified: d(-2) },
     { Id: 2, Title: 'OTRO', Solicitante: P[61], Correo: P[61].EMail, Papel: 'x', Aplicacion: 'VSA', EstadoSolicitud: 'PENDIENTE', Created: d(-1), Modified: d(-1) }];
   unidades = [{ Id: 61, Title: P[61].Title, Email: P[61].EMail, LoginName: 'i:0#.w|et\\jefea' }]; anadidos = [];
   if (escenario === 'sin acceso' || escenario === 'solo información') items = items.filter(x => !(x.Author && x.Author.Id === YO.Id) && !(x.ResponsableDeLaInformacion && x.ResponsableDeLaInformacion.Id === YO.Id));
@@ -92,7 +99,9 @@ async function prueba(verbose, escenario) {
     if (u.includes('/SitePages/Incidentes.aspx')) return r.fulfill({ contentType: 'text/html', body: '<!doctype html><html><body><iframe id="app" style="width:100%;height:800px;border:0"></iframe><script>var m=(location.search+location.hash).match(/[?&]id=(\\d+)/);document.getElementById("app").src="/et/jige/colaborativo/Documentos%20compartidos/incidentes.html"+(m?"?id="+m[1]:"");</script></body></html>' });
     if (!u.includes('/_api/')) {
       if (/\.png$/.test(u)) return r.fulfill({ status: 404, body: '' });
-      return r.fulfill({ body: html, contentType: 'text/html' });
+      // PROXY=1: imita el filtro de la red de Defensa (03/11/2026), que mete su código delante de cada «</head>» que encuentra,
+      // también dentro del programa; si el programa contiene «</head>» literal, se parte y sale como texto
+      return r.fulfill({ body: process.env.PROXY ? html.replace(/<\/head>/gi, '<script>/*filtro*/</script></head>') : html, contentType: 'text/html' });
     }
     if (verbose && req.method() === 'GET' && (req.headers()['accept'] || '').includes('nometadata')) return r.fulfill({ status: 415, body: '' });
     const J = x => r.fulfill({ json: verbose ? { d: Array.isArray(x.value) ? { results: x.value, __next: x['odata.nextLink'] } : x } : x });
@@ -101,6 +110,16 @@ async function prueba(verbose, escenario) {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
       if (resto.startsWith("web/lists(guid'lib1')")) { biblioOculta = JSON.parse(req.postData()).Hidden; return r.fulfill({ status: 204, body: '' }); }
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
+      if (resto === 'web/lists' && /INCIDENTES RESPONSABLES/.test(req.postData())) { respLista = []; return r.fulfill({ status: 201, json: { d: { Id: 'rl' } } }); }
+      if (resto.startsWith("web/lists/getbytitle('INCIDENTES RESPONSABLES')")) {
+        if (resto.includes('createfieldasxml')) return r.fulfill({ json: { d: {} } });
+        if (!admin) return r.fulfill({ status: 403, json: { error: { message: { value: 'Acceso denegado.' } } } });
+        const c = JSON.parse(req.postData()); delete c.__metadata;
+        const per = (c.ResponsablesId && c.ResponsablesId.results || []).map(id => P[id] || (id === YO.Id ? YO : { Id: id, Title: 'Usuario ' + id, EMail: '' }));
+        const mm = resto.match(/items\((\d+)\)$/);
+        if (mm) { Object.assign(respLista.find(x => x.Id === +mm[1]), { Title: c.Title, Correos: c.Correos, Responsables: per }); return r.fulfill({ status: 204, body: '' }); }
+        const it = { Id: respLista.length + 1, Title: c.Title, Correos: c.Correos, Responsables: per }; respLista.push(it); return r.fulfill({ status: 201, json: { d: it } });
+      }
       if (resto.startsWith('SP.Utilities.Utility.SendEmail') && correoDenegado) return r.fulfill({ status: 401, json: { error: { message: { value: 'Acceso denegado. No tiene el permiso necesario para realizar esta acción o tener acceso a este recurso.' } } } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = JSON.parse(req.postData()).properties, dest = [].concat(pr.To.results, pr.CC.results, pr.BCC ? pr.BCC.results : []);
@@ -115,6 +134,10 @@ async function prueba(verbose, escenario) {
         if (resto.endsWith('/items')) { const it = { Id: sols.length + 1, ...c, Solicitante: quien(c.SolicitanteId), Created: new Date().toISOString() }; sols.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } }); }
         return r.fulfill({ status: 204, body: '' });
       }
+      if (resto.includes("getbytitle('INCIDENTES DE SEGURIDAD')/breakroleinheritance")) return r.fulfill({ status: 200, json: { d: {} } });
+      const ra = resto.match(/getbytitle\('INCIDENTES DE SEGURIDAD'\)\/roleassignments\/addroleassignment\(principalid=(\d+),roledefid=(\d+)\)/);
+      if (ra) { const nom = Object.keys(GRUPOS).concat(['INCIDENTES_UNIDADES', 'Propietarios Colaborativo'])[+ra[1] - 1]; rolesInc[nom] = 3; permisosDados.push(nom + ':' + ra[2]); return r.fulfill({ status: 200, json: { d: {} } }); }
+      if (soloLectura && resto.includes("getbytitle('INCIDENTES DE SEGURIDAD')/items")) return r.fulfill({ status: 401, json: { error: { message: { value: 'Acceso denegado. No tiene el permiso necesario para realizar esta acción o tener acceso a este recurso.' } } } });
       const gu = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users(\/removebyid\((\d+)\))?/);
       if (gu) { if (gu[3]) unidades = unidades.filter(x => x.Id !== +gu[3]); else anadidos.push({ grupo: gu[1], login: JSON.parse(req.postData()).LoginName }); return r.fulfill({ status: 200, json: { d: {} } }); }
       const ad = resto.match(/items\((\d+)\)\/AttachmentFiles\/add\(FileName='([^']+)'\)/);
@@ -134,7 +157,10 @@ async function prueba(verbose, escenario) {
       if (resto.endsWith('/items')) {
         const c = personasDe(JSON.parse(req.postData())); delete c.__metadata;
         const it = { ...base, Id: Math.max(...items.map(x => x.Id)) + 1, Created: new Date().toISOString(), Modified: new Date().toISOString(), Author: { Id: YO.Id, Title: YO.Title, EMail: YO.EMail }, Editor: { Id: YO.Id, Title: YO.Title }, Attachments: false, ...c };
-        items.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } });
+        items.push(it);
+        // Respuesta cortada: Colabora crea el parte pero la página no recibe la respuesta
+        if (cortarAlta) { cortarAlta = false; return r.fulfill({ status: 500, body: '' }); }
+        return r.fulfill({ status: 201, json: { d: { Id: it.Id } } });
       }
       return r.fulfill({ status: 400, body: '' });
     }
@@ -147,6 +173,9 @@ async function prueba(verbose, escenario) {
     const gid = resto.match(/web\/getuserbyid\((\d+)\)/);
     if (gid) return J({ LoginName: 'i:0#.w|et\\usuario' + gid[1] });
     if (resto.startsWith('web/sitegroups?')) return J({ value: Object.keys(GRUPOS).concat(['INCIDENTES_UNIDADES', 'Propietarios Colaborativo']).map((t, i) => ({ Id: i + 1, Title: t })) });
+    { const gi = resto.match(/^web\/sitegroups\/getbyname\('([^']+)'\)\?/); if (gi) return J({ Id: Object.keys(GRUPOS).concat(['INCIDENTES_UNIDADES', 'Propietarios Colaborativo']).indexOf(decodeURIComponent(gi[1])) + 1 }); }
+    if (resto.startsWith('web/roledefinitions/getbytype(3)')) return J({ Id: 1073741827 });
+    if (resto.includes("getbytitle('INCIDENTES DE SEGURIDAD')/roleassignments")) return J({ value: Object.keys(rolesInc).map((g, i) => ({ PrincipalId: 500 + i, Member: { Id: 500 + i, Title: g, LoginName: g }, RoleDefinitionBindings: verbose ? { results: [{ RoleTypeKind: rolesInc[g] }] } : [{ RoleTypeKind: rolesInc[g] }] })) });
     if (resto.startsWith("web/sitegroups/getbyname('INCIDENTES_UNIDADES')/users")) return J({ value: unidades });
     if (resto.startsWith("web/lists/getbytitle('SOLICITUDES ACCESO APLICACIONES')")) {
       if (resto.includes('/roleassignments')) return J({ value: [{ PrincipalId: 7, Member: { Id: 7, Title: 'MDEF\\usuarios del dominio', LoginName: 'c:0+.w|s-1-5-21-513' }, RoleDefinitionBindings: verbose ? { results: [{ RoleTypeKind: 3 }] } : [{ RoleTypeKind: 3 }] }] });
@@ -156,7 +185,13 @@ async function prueba(verbose, escenario) {
       const fl = decodeURIComponent((u.match(/\$filter=([^&]*)/) || [])[1] || ''), me = fl.match(/SolicitanteId eq (\d+)/), app = fl.match(/Aplicacion eq '([^']+)'/);
       return J({ value: sols.filter(x => (!me || x.Solicitante.Id === +me[1]) && (!app || x.Aplicacion === app[1])) });
     }
+    if (resto.startsWith("web/lists/getbytitle('INCIDENTES RESPONSABLES')")) {
+      if (!respLista) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
+      if (!resto.includes('/items')) return J({ Id: 'rl', ListItemEntityTypeFullName: 'SP.Data.INCIDENTES_x0020_RESPONSABLESListItem' });
+      return J({ value: respLista.map(x => ({ ...x, Responsables: verbose ? { results: x.Responsables } : x.Responsables })) });
+    }
     const g = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users/);
+    if (g && gruposOcultos && MIEMBROS[g[1]]) return r.fulfill({ status: 403, json: { error: { message: { value: 'Acceso denegado.' } } } });
     if (g) return MIEMBROS[g[1]] ? J({ value: MIEMBROS[g[1]].map(e => ({ Id: 200 + Object.keys(NOMBRE_DE).indexOf(e), Title: NOMBRE_DE[e] || e, Email: e })) }) : r.fulfill({ status: 404, body: '' });
     { const af = resto.match(/items\((\d+)\)\/AttachmentFiles/); if (af) { const it = items.find(x => x.Id === +af[1]); return J({ value: ((it && it.Adjuntos) || []).map(n => ({ FileName: n, ServerRelativeUrl: WEB + '/Lists/INTRUSIONES/Attachments/' + it.Id + '/' + n })) }); } }
     const mi = resto.match(/items\((\d+)\)/);
@@ -172,6 +207,7 @@ async function prueba(verbose, escenario) {
       { InternalName: 'PROBABILIDADES', Choices: ch(['MUY BAJO', 'BAJO', 'MEDIO', 'ALTO', 'MUY ALTO']) }, { InternalName: 'SUIGES', Choices: ch(['JEFATURA DE IGE', 'SECOORCEN', 'SUIGESUR', 'SUIGEPIR', 'SUIGENOR', 'SUIGECAN', 'DIIN']) },
       { InternalName: 'A_x00f1_o', Choices: ch(['2025', '2026', '2027']) }].concat(grupoUnico ? [] : [{ InternalName: 'grupo', TypeAsString: 'UserMulti' }], [{ InternalName: 'DIACU', TypeAsString: 'MultiChoice' }]) }); }
     if (resto.includes('/items') && expandRoto && u.includes('$expand')) return r.fulfill({ status: 400, body: '' });
+    if (resto.includes('/items') && fallaRecarga && u.includes('Title')) { fallaRecarga = false; return r.fulfill({ status: 500, body: '' }); }
     if (resto.includes('/items')) {
       const selRaw = ((u.match(/\$select=([^&]*)/) || [])[1] || '').split(',').filter(Boolean);
       const exp = ((u.match(/\$expand=([^&]*)/) || [])[1] || '').split(',');
@@ -190,7 +226,7 @@ async function prueba(verbose, escenario) {
       return J({ value: verbose ? lista.map(it => ({ ...it, grupo: { results: it.grupo } })) : lista });
     }
     if (resto.includes("getbytitle('INCIDENTES DE SEGURIDAD')")) return J({ Id: 'g', Title: 'INCIDENTES DE SEGURIDAD', ListItemEntityTypeFullName: 'SP.Data.INTRUSIONESListItem',
-      EffectiveBasePermissions: { High: '0', Low: String(admin ? 0x2000BFF : 0x7) }, DefaultNewFormUrl: WEB + '/Lists/INTRUSIONES/NewForm.aspx', DefaultEditFormUrl: WEB + '/Lists/INTRUSIONES/EditForm.aspx', DefaultDisplayFormUrl: WEB + '/Lists/INTRUSIONES/DispForm.aspx' });
+      EffectiveBasePermissions: { High: '0', Low: String(admin ? 0x2000BFF : soloLectura ? 0x21 : 0x7) }, DefaultNewFormUrl: WEB + '/Lists/INTRUSIONES/NewForm.aspx', DefaultEditFormUrl: WEB + '/Lists/INTRUSIONES/EditForm.aspx', DefaultDisplayFormUrl: WEB + '/Lists/INTRUSIONES/DispForm.aspx' });
     return r.fulfill({ status: 404, body: '' });
   });
   const tag = (verbose ? '[verbose] ' : '[ligero] ') + escenario;
@@ -219,6 +255,64 @@ async function prueba(verbose, escenario) {
     console.log(tag, '| después:', (await p.$$eval('#vista .okmsg, #vista .aviso', n => n.map(x => x.textContent).join(' / '))).replace(/\s+/g, ' ').slice(0, 330), '| errores:', errs);
     await b.close(); return;
   }
+  if (escenario === 'unidad sin permiso') {
+    console.log(tag, '| nuevo visible:', await p.$eval('#nuevo', b => !b.hidden), '| vista:', (await p.textContent('#vista')).replace(/\s+/g, ' ').slice(0, 120));
+    await p.click('#nuevo'); await p.waitForTimeout(900);
+    console.log(tag, '| aviso en el formulario:', (await p.textContent('#fSinPermiso').catch(() => 'SIN AVISO')).replace(/\s+/g, ' ').slice(0, 160));
+    await p.fill('#fParte [name=fecha]', new Date(Date.now() - 864e5).toISOString().slice(0, 10));
+    await p.click('#fBorrador'); await p.waitForTimeout(1200);
+    console.log(tag, '| al guardar:', (await p.textContent('#fError')).replace(/\s+/g, ' ').slice(0, 200), '| errores:', errs);
+    await b.close(); return;
+  }
+  if (escenario === 'ciclo') {
+    const rellenar = async (hora) => {
+      await p.click('#nuevo'); await p.waitForTimeout(900);
+      await p.fill('#fParte [name=fecha]', new Date(Date.now() - 864e5).toISOString().slice(0, 10)); await p.fill('#fParte [name=hora]', hora);
+      await p.selectOption('#fParte [name=m2]', '1'); await p.selectOption('#fParte [name=m3]', '1'); await p.selectOption('#fParte [name=tipo]', 'Pintadas');
+    };
+    const altas = () => posts.filter(x => x.ruta.endsWith("getbytitle('INCIDENTES DE SEGURIDAD')/items")).length;
+    const merges = () => posts.filter(x => /items\(\d+\)$/.test(x.ruta) && x.cab['x-http-method'] === 'MERGE').length;
+    // 1) Doble clic en «Guardar borrador»: un solo alta
+    await rellenar('08:10'); posts.length = 0; const n0 = items.length;
+    await p.evaluate(() => { const b = document.querySelector('#fBorrador'); b.click(); b.click(); b.click(); }); await p.waitForTimeout(2000);
+    console.log(tag, '| triple clic: altas', altas(), '| partes nuevos', items.length - n0, '| ficha:', await p.textContent('#dlg h2').catch(() => '-'));
+    await p.click('[data-acc=anotar]').catch(() => {}); await p.waitForTimeout(200);
+    console.log(tag, '| ficha tras guardar responde:', (await p.textContent('#accMsg').catch(() => '')).trim() || 'NO RESPONDE');
+    await p.click('#dlg [data-cerrar]').catch(() => {});
+    // 2) Respuesta cortada: el parte se crea pero la página no lo sabe; al repetir, se reutiliza (no se duplica)
+    await rellenar('09:20'); posts.length = 0; const n1 = items.length; cortarAlta = true;
+    await p.click('#fBorrador'); await p.waitForTimeout(1500);
+    console.log(tag, '| corte: mensaje', (await p.textContent('#fError')).replace(/\s+/g, ' ').slice(0, 110), '| botones activos:', !(await p.$eval('#fBorrador', b => b.disabled)));
+    await p.click('#fBorrador'); await p.waitForTimeout(2000);
+    console.log(tag, '| corte y repetir: altas', altas(), '| actualizaciones', merges(), '| partes nuevos', items.length - n1, '| ficha:', await p.textContent('#dlg h2').catch(() => '-'));
+    await p.click('#dlg [data-cerrar]').catch(() => {});
+    // 3) Falla un paso DESPUÉS de guardar (la recarga): no dice «No se pudo guardar»
+    await rellenar('10:30'); posts.length = 0; const n2 = items.length; fallaRecarga = true;
+    await p.click('#fBorrador'); await p.waitForTimeout(2000);
+    const tx = (await p.textContent('#dlg').catch(() => '')) + ' ' + (await p.textContent('#estadoCarga').catch(() => ''));
+    console.log(tag, '| fallo tras guardar: partes nuevos', items.length - n2, '| «No se pudo guardar»:', /No se pudo guardar/.test(tx), '| dice guardado:', /guardado|Borrador nº/.test(tx), '| errores:', errs);
+    await b.close(); return;
+  }
+  if (escenario === 'suige rechaza') {
+    const abrir = async id => { await p.evaluate(i => { const a = document.createElement('a'); a.className = 'inc'; a.dataset.id = String(i); document.body.append(a); a.click(); a.remove(); }, id); await p.waitForTimeout(800); };
+    // 1) Devolver el nº 1 a la unidad
+    await abrir(1);
+    console.log(tag, '| botones de la SUIGE:', await p.$$eval('#detAcc button[data-acc]', b => b.map(x => x.textContent).join(' | ')));
+    await p.click('[data-acc=suigeDevolver]'); await p.waitForTimeout(200);
+    console.log(tag, '| devolver sin motivo:', (await p.textContent('#accMsg')).trim());
+    await p.fill('#vRechazo', 'Falta la hora y la unidad exacta'); posts.length = 0; await p.click('[data-acc=suigeDevolver]'); await p.waitForTimeout(200);
+    await p.click('[data-accok]'); await p.waitForTimeout(2500);
+    const c1 = merge(1), m1 = correos().pop();
+    console.log(tag, '| devuelto:', JSON.stringify(c1 && { ESTADO: c1.ESTADO }), '| historial:', anotacion(1) || (items.find(x => x.Id === 1).ObservacionesDelExpediente || '').split('\n').filter(l => /DEVUELTO/.test(l)).pop(), '| correo:', m1 && m1.Subject, '→', m1 && m1.To.results.join(','), '| motivo en el correo:', !!(m1 && /Falta la hora/.test(m1.Body)));
+    await abrir(1); await p.waitForTimeout(500); console.log(tag, '| ficha del devuelto:', (await p.textContent('#detAcc .aviso').catch(() => 'SIN AVISO')).replace(/\s+/g, ' ').slice(0, 160));
+    await p.click('#dlg [data-cerrar]').catch(() => {});
+    // 2) «No procede» el nº 8
+    await abrir(8); await p.fill('#vRechazo', 'No es un incidente de seguridad: obra autorizada'); posts.length = 0;
+    await p.click('[data-acc=suigeNoProcede]'); await p.waitForTimeout(300); await p.click('[data-accok]'); await p.waitForTimeout(2500);
+    const c8 = merge(8), m8 = correos().pop();
+    console.log(tag, '| no procede:', JSON.stringify(c8 && { ESTADO: c8.ESTADO, ValoradoPorSUIGE: c8.ValoradoPorSUIGE, val: String(c8.VALORACIONSUIGES || '').replace(/<[^>]+>/g, '').slice(0, 60) }), '| correo:', m8 && m8.Subject, '→', m8 && m8.To.results.length, 'destinatarios', '| errores:', errs);
+    await b.close(); return;
+  }
   if (escenario === 'portal') {
     await p.goto(O + '/et/jige/colaborativo/SitePages/Incidentes.aspx?id=7'); await p.waitForTimeout(2500);
     const fr = p.frames().find(x => x.url().includes('incidentes.html'));
@@ -228,6 +322,26 @@ async function prueba(verbose, escenario) {
     console.log(tag, '| enlace del correo:', enl && enl.replace(O, ''), '| errores:', errs);
     await b.close(); return;
   }
+  if (escenario === 'responsables') {
+    await p.click('#tabs a[data-v=ajustes]'); await p.waitForTimeout(500);
+    console.log(tag, '| sin lista:', (await p.textContent('#vista')).includes('Falta la lista «INCIDENTES RESPONSABLES»'));
+    posts.length = 0; await p.click('[data-respcrear]'); await p.waitForTimeout(1500);
+    console.log(tag, '| crear lista:', posts.some(x => x.ruta === 'web/lists'), posts.filter(x => x.ruta.includes('createfieldasxml')).length, 'columnas | escalones:', await p.$$eval('[data-respeditar]', n => n.map(x => x.dataset.respeditar).join(',')));
+    await p.click('[data-respeditar="SUIGESUR"]'); await p.waitForTimeout(300);
+    await p.fill('#respPersonas input', 'JEFE UNIDAD A'); await p.waitForTimeout(700); await p.click('#respPersonas .sugs button'); await p.waitForTimeout(300);
+    await p.fill('#respCorreos', 'negsur@et.mde.es; mal-correo'); await p.click('[data-respguardar]'); await p.waitForTimeout(300);
+    console.log(tag, '| dirección mal escrita:', (await p.textContent('#respMsg')).slice(0, 60));
+    await p.fill('#respCorreos', 'negsur@et.mde.es'); await p.click('[data-respguardar]'); await p.waitForTimeout(1200);
+    console.log(tag, '| guardado:', JSON.stringify(respLista.map(x => ({ T: x.Title, P: x.Responsables.map(u => u.Title), C: x.Correos }))));
+    console.log(tag, '| fila SUIGESUR:', (await p.$eval('[data-respeditar="SUIGESUR"]', b => b.closest('tr').innerText)).replace(/\s+/g, ' '));
+    gruposOcultos = true; posts.length = 0; await p.click('[data-respprobar="SUIGESUR"]'); await p.waitForTimeout(900);
+    { const m = correos().pop(); console.log(tag, '| probar SUIGESUR (grupos ocultos):', m && m.To.results.join(','), '|', (await p.textContent('#respPrueba')).replace(/\s+/g, ' ').slice(0, 90)); }
+    posts.length = 0; await p.click('[data-respprobar="SUIGENOR"]'); await p.waitForTimeout(700);
+    console.log(tag, '| probar SUIGENOR sin responsable:', (await p.textContent('#respPrueba')).replace(/\s+/g, ' ').slice(0, 80), '| correos:', correos().length);
+    gruposOcultos = false;
+    console.log(tag, '| autoría en la cabecera:', (await p.textContent('header .sub')).includes('Cte. Alfredo Sánchez Sender'), '| pie:', (await p.textContent('footer.autor')).replace(/\s+/g, ' ').slice(0, 80));
+    console.log(tag, '| errores:', errs); await b.close(); return;
+  }
   if (escenario === 'accesos') {
     await p.click('#tabs a[data-v=accesos]'); await p.waitForTimeout(800);
     console.log(tag, '| enlaces de la lista:', await p.$$eval('#vista a[href*="SubNew.aspx"], #vista a[href*="/Lists/"]', n => n.map(x => x.textContent.slice(0, 40) + ' → ' + x.getAttribute('href').replace(/^https:\/\/colabora\.mdef\.es/, '').slice(0, 90)).join(' · ')));
@@ -236,8 +350,19 @@ async function prueba(verbose, escenario) {
     { const m = correos().pop(); console.log(tag, '| prueba del aviso:', m && m.To.results, '|', m && m.Subject, '|', (await p.textContent('#accPrueba')).replace(/\s+/g, ' ').slice(0, 110)); }
     posts.length = 0; await p.click('[data-accaprobar]'); await p.waitForTimeout(1500);
     const m = correos().pop(); console.log(tag, '| aprobar:', JSON.stringify(anadidos), '| correo:', m && m.To.results, m && m.Subject, '| errores:', errs);
+    if (await p.$('[data-accdenegar]')) {
+      await p.click('[data-accdenegar]'); await p.waitForTimeout(300);
+      console.log(tag, '| denegar sin motivo:', (await p.textContent('[data-sol] .accMsg')).trim());
+      await p.fill('[data-sol] .accMotivo', 'No pertenece a una unidad de la cadena IGE'); posts.length = 0; await p.click('[data-accdenegar]'); await p.waitForTimeout(1500);
+      const den = sols.find(x => x.EstadoSolicitud === 'DENEGADA'), md = correos().pop();
+      console.log(tag, '| denegada con motivo:', den && den.Resolucion, '| correo:', md && md.Subject, '| motivo en el correo:', !!(md && /Motivo del rechazo/.test(md.Body) && /cadena IGE/.test(md.Body)));
+    } else console.log(tag, '| (no queda otra solicitud pendiente para denegar)');
     biblioOculta = false; await p.click('#tabs a[data-v=panel]'); await p.click('#tabs a[data-v=accesos]'); await p.waitForTimeout(800);
     let dlgTxt = ''; p.once('dialog', dd => { dlgTxt = dd.message(); dd.accept().catch(() => {}); }); await p.click('[data-accbiblio="1"]'); await p.waitForTimeout(1200);
+    console.log(tag, '| permiso para guardar partes:', (await p.textContent('#vista p:has([data-accescritura])').catch(() => 'SIN LÍNEA')).replace(/\s+/g, ' ').slice(0, 220));
+    p.once('dialog', dd => dd.accept().catch(() => {})); posts.length = 0; await p.click('[data-accescritura]'); await p.waitForTimeout(1500);
+    console.log(tag, '| dado:', permisosDados.join(', '), '| herencia rota:', posts.some(x => x.ruta.includes('breakroleinheritance')), '| línea después:', (await p.$$eval('#vista p.small', n => (n.find(x => /Permiso para guardar partes/.test(x.textContent)) || { textContent: '-' }).textContent)).replace(/\s+/g, ' ').slice(0, 160));
+    rolesInc.INCIDENTES_UNIDADES = 2; permisosDados = [];
     console.log(tag, '| ocultar biblioteca:', biblioOculta, '| aviso:', dlgTxt.slice(0, 60), '|', (await p.textContent('[data-accbiblio]').catch(() => '')));
     await b.close(); return;
   }
@@ -274,7 +399,8 @@ async function prueba(verbose, escenario) {
     await b.close(); return;
   }
   if (escenario === 'columna inexistente') { console.log(tag, '| carga:', await p.textContent('#estadoCarga'), '| aviso:', await p.textContent('#vista .aviso').catch(() => 'ninguno'), '| errores:', errs); await b.close(); return; }
-  if (escenario === 'enlace') { console.log(tag, '| ficha abierta:', await p.textContent('#dlg h2').catch(() => 'nada'), '| URL limpia:', p.url().endsWith('incidentes.html')); await b.close(); return; }
+  if (escenario === 'enlace') { await p.waitForTimeout(500); console.log(tag, '| adjuntos en la ficha:', await p.$$eval('#detAdj a', n => n.map(a => a.textContent + ' → ' + a.getAttribute('href').replace(/^https:\/\/colabora\.mdef\.es/, '')).join(' · ')), '| botones de Colabora:', await p.$$eval('#dlg a.btn', n => n.map(a => a.textContent).join(',') || 'ninguno'), '| errores:', errs);
+    console.log(tag, '| ficha abierta:', await p.textContent('#dlg h2').catch(() => 'nada'), '| URL limpia:', p.url().endsWith('incidentes.html')); await b.close(); return; }
   console.log(tag, '| pestañas:', pestañas, '| filtro:', ultimoFiltro ? (ultimoFiltro.includes('substringof') ? 'con cadena de mando' : 'sin cadena de mando') : 'ninguno (ve todo)');
   console.log(tag, '| panel:', (await p.$$eval('.mini > div', k => k.map(x => x.textContent.replace(/^\D*?(\d+)/, '$1 ')))).join(' · '), '| circuito:', (await p.$$eval('.flujo .fp', k => k.map(x => x.textContent.replace(/^\S+/, '').replace(/(\d+)$/, ':$1')))).join(' › '));
   if (!verbose && escenario === 'control total') await p.screenshot({ path: new URL('panel.png', import.meta.url).pathname, fullPage: true });
@@ -356,8 +482,8 @@ async function prueba(verbose, escenario) {
   await p.click('[data-acc=suigeDiacu]'); await ok(); await p.waitForTimeout(1400);
   let c = merge(1), m = correos().pop();
   console.log(tag, '| SUIGE › DIACU:', JSON.stringify({ ESTADO: c.ESTADO, ValoradoPorSUIGE: c.ValoradoPorSUIGE, VALORACIONSUIGES: c.VALORACIONSUIGES, Obs: (c.ObservacionesDelExpediente || '').slice(-50), Mod: c.ModificadoPorTEXTO }));
-  console.log(tag, '| correo:', m.To.results, 'cc', m.CC.results, 'cco', (m.BCC ? m.BCC.results : []), '|', m.Subject, '| sin texto del parte:', !m.Body.includes('TEXTO RESERVADO'), '| enlace:', (m.Body.match(/href="([^"]+)"/) || [])[1]);
-  if (!verbose) fs.writeFileSync(new URL('correo.html', import.meta.url), m.Body);
+  console.log(tag, '| correo:', (m ? m.To.results : '(sin correo)'), 'cc', (m ? m.CC.results : []), 'cco', (m && m.BCC ? m.BCC.results : []), '|', (m && m.Subject), '| sin texto del parte:', !(m ? m.Body : '').includes('TEXTO RESERVADO'), '| enlace:', ((m ? m.Body : '').match(/href="([^"]+)"/) || [])[1]);
+  if (!verbose && m) fs.writeFileSync(new URL('correo.html', import.meta.url), m.Body);
   console.log(tag, '| confirmación:', dialogos.pop(), '| ficha cerrada:', !(await p.evaluate(() => document.querySelector('#dlg').open)), '| resultado:', (await p.textContent('#vista .resultado')).slice(0, 90));
   await p.evaluate(() => { const a = document.createElement('a'); a.className = 'inc'; a.dataset.id = '1'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(700); console.log(tag, '| pasos:', (await p.textContent('#dlg .pasos')).replace(/\s+/g, ' '));
   await p.click('#dlg [data-cerrar]');
@@ -368,17 +494,17 @@ async function prueba(verbose, escenario) {
   console.log(tag, '| informar a IGE sin texto:', await p.textContent('#accMsg'));
   await p.fill('#vDiacu', 'Se informa a IGE por reincidencia.'); posts.length = 0; await p.click('[data-acc=diacuIge]'); await ok(); await p.waitForTimeout(1400);
   c = merge(2); m = correos().pop();
-  console.log(tag, '| DIACU › IGE:', JSON.stringify({ ESTADO: c.ESTADO, DIACU: c.DIACU, ValoradoPorDIACU: c.ValoradoPorDIACU, VALORACIONDIACU: c.VALORACIONDIACU }), '| correo a:', m.To.results, 'cc:', m.CC.results, '|', m.Subject);
+  console.log(tag, '| DIACU › IGE:', JSON.stringify({ ESTADO: c.ESTADO, DIACU: c.DIACU, ValoradoPorDIACU: c.ValoradoPorDIACU, VALORACIONDIACU: c.VALORACIONDIACU }), '| correo a:', (m ? m.To.results : '(sin correo)'), 'cc:', (m ? m.CC.results : []), '|', (m && m.Subject));
   // 3) IGE valora el 3
   await p.click('#tabs a[data-v=pendientes]'); await p.click('.inc[data-id="3"]'); await p.waitForTimeout(600);
   await p.fill('#vIge', 'Conforme con las medidas.'); posts.length = 0; await p.click('[data-acc=valIge]'); await ok(); await p.waitForTimeout(1400);
   c = merge(3); m = correos().pop();
-  console.log(tag, '| IGE:', JSON.stringify({ ESTADO: c.ESTADO, ValoradoPorIGE: c.ValoradoPorIGE, valoracionIGE: c.valoracionIGE }), '| correo a:', m.To.results, 'cc:', m.CC.results, '|', m.Subject, '| ficha cerrada:', !(await p.evaluate(() => document.querySelector('#dlg').open)));
+  console.log(tag, '| IGE:', JSON.stringify({ ESTADO: c.ESTADO, ValoradoPorIGE: c.ValoradoPorIGE, valoracionIGE: c.valoracionIGE }), '| correo a:', (m ? m.To.results : '(sin correo)'), 'cc:', (m ? m.CC.results : []), '|', (m && m.Subject), '| ficha cerrada:', !(await p.evaluate(() => document.querySelector('#dlg').open)));
   await p.evaluate(() => { const a = document.createElement('a'); a.className = 'inc'; a.dataset.id = '3'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(700); console.log(tag, '| reabierta, paneles:', await p.$$eval('#detAcc h3', h => h.map(x => x.textContent).join(' | ')));
   // 4) Cierre del 3
   await p.fill('#vCierre', 'Medidas implantadas.'); posts.length = 0; await p.click('[data-acc=cerrar]'); await ok(); await p.waitForTimeout(1400);
   c = merge(3); m = correos().pop();
-  console.log(tag, '| cerrar:', JSON.stringify({ ESTADO: c.ESTADO, Obs: (c.ObservacionesDelExpediente || '').split('\n').length + ' líneas' }), '| correo a:', m.To.results, 'cc:', m.CC.results);
+  console.log(tag, '| cerrar:', JSON.stringify({ ESTADO: c.ESTADO, Obs: (c.ObservacionesDelExpediente || '').split('\n').length + ' líneas' }), '| correo a:', (m ? m.To.results : '(sin correo)'), 'cc:', (m ? m.CC.results : []));
   if (!verbose) await p.screenshot({ path: new URL('ficha.png', import.meta.url).pathname });
   // 5) Reabrir exige motivo; anotar; recordatorio
   await p.evaluate(() => { const a = document.createElement('a'); a.className = 'inc'; a.dataset.id = '3'; document.body.append(a); a.click(); a.remove(); }); await p.waitForTimeout(700);
@@ -478,8 +604,12 @@ async function prueba(verbose, escenario) {
   await b.close();
 }
 const TODOS = ['SEGURIDAD_SUIGESUR', 'SEGURIDAD_SUIGENOR', 'SEGURIDAD_SUIGECAN', 'SEGURIDAD_DIAPER', 'SEGURIDAD_IGE', 'Integrantes de la Colaborativo'];
+misGrupos = TODOS; admin = true; respLista = null; await prueba(false, 'responsables'); respLista = null; await prueba(true, 'responsables');
+// La unidad no ve los integrantes de los grupos: sin responsables el aviso a la SUIGE no llega; con ellos, sí
+gruposOcultos = true; respLista = null; await prueba(false, 'control total');
+respLista = [{ Id: 1, Title: 'SUIGESUR', Correos: 'negsur@et.mde.es', Responsables: [P[61]] }, { Id: 2, Title: 'DIACU', Correos: 'diacu.resp@et.mde.es', Responsables: [] }, { Id: 3, Title: 'IGE', Correos: 'ige.resp@et.mde.es', Responsables: [] }]; await prueba(false, 'control total'); gruposOcultos = false; respLista = null;
 misGrupos = TODOS; admin = true; await prueba(false, 'control total'); sinEmpleos = true; rechazaFrom = true; grupoUnico = true; await prueba(true, 'control total'); sinEmpleos = false; rechazaFrom = false; grupoUnico = false;
-misGrupos = ['SEGURIDAD_SUIGESUR', 'Integrantes de la Colaborativo']; admin = false; await prueba(false, 'solo SUIGESUR'); await prueba(true, 'plazo DIACU');
+misGrupos = ['SEGURIDAD_SUIGESUR', 'Integrantes de la Colaborativo']; admin = false; await prueba(false, 'suige rechaza'); await prueba(true, 'suige rechaza'); await prueba(false, 'solo SUIGESUR'); await prueba(true, 'plazo DIACU');
 sinSubstringof = true; await prueba(true, 'SUIGESUR sin substringof'); sinSubstringof = false;
 misGrupos = ['SEGURIDAD_IGE']; admin = false; await prueba(false, 'adjuntos y eliminar'); admin = true; await prueba(false, 'adjuntos y eliminar'); await prueba(true, 'adjuntos y eliminar'); admin = false; await prueba(false, 'IGE valora'); await prueba(true, 'IGE valora'); if (process.env.SOLO_IGE) process.exit(0); await prueba(false, 'solo SEGURIDAD_IGE'); await prueba(false, 'informe'); await prueba(true, 'informe');
 misGrupos = ['SEGURIDAD_SUIGESUR']; admin = true; await prueba(false, 'Control total y solo SUIGESUR'); admin = false;
@@ -487,6 +617,7 @@ misGrupos = []; await prueba(false, 'solo información'); await prueba(true, 'so
 misGrupos = TODOS; admin = true; await prueba(false, 'correo rechazado'); await prueba(true, 'correo rechazado'); admin = false;
 misGrupos = []; buzonMal = ['admin1@et.mde.es', 'asansen@et.mde.es', 'i:0#.w|et\\usuario206']; enviados = []; await prueba(false, 'sin acceso'); buzonMal = [];
 misGrupos = TODOS; admin = true; await prueba(false, 'portal'); await prueba(false, 'accesos'); await prueba(true, 'accesos'); admin = false;
-misGrupos = TODOS; admin = true; await prueba(false, 'enlace');
+misGrupos = TODOS; admin = true; await prueba(false, 'enlace'); await prueba(false, 'ciclo'); await prueba(true, 'ciclo');
+misGrupos = ['INCIDENTES_UNIDADES']; admin = false; soloLectura = true; await prueba(false, 'unidad sin permiso'); await prueba(true, 'unidad sin permiso'); soloLectura = false;
 faltaCampo = 'ResponsableDelParte'; await prueba(true, 'columna inexistente'); faltaCampo = null;
 expandRoto = true; await prueba(false, 'columna inexistente'); expandRoto = false;

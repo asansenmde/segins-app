@@ -8,6 +8,38 @@ Página para la lista de incidentes de seguridad que usa la página del sitio
   si tiene una cuenta antigua sin buzón, a su otra cuenta con su mismo nombre. Quien tramita ve a quién llegó y a quién
   no, y cada aviso queda anotado en «Observaciones del expediente». La solicitud de acceso avisa si el correo a los responsables no ha salido. En *Ajustes*, «Correo de prueba».
 
+- **Permiso para guardar partes** (versión 2026-11-01 · 1): aprobar una solicitud mete a la persona en el grupo
+  `INCIDENTES_UNIDADES`, pero eso solo da acceso a la página. Para guardar el borrador hace falta además el permiso
+  **«Colaborar» en la lista** de incidentes. Si el grupo no lo tiene, Colabora contesta «Acceso denegado» al guardar.
+  Ahora el formulario avisa antes de rellenarlo si la cuenta no puede guardar, el error se explica, y en *Ajustes ›
+  Accesos* la línea «Permiso para guardar partes» dice qué grupos (`INCIDENTES_UNIDADES` y `SEGURIDAD_*`) lo tienen.
+  El botón «Dar «Colaborar»…» se lo da en la lista; si la lista hereda los permisos del sitio, antes los independiza
+  copiando los que ya tiene.
+
+- **Sin «Abrir en Colabora» ni «Formulario InfoPath»** (versión 2026-11-03 · 1, a petición del usuario: daban problemas y
+  todo el circuito se hace en la página). Los adjuntos del parte se ven y descargan en la ficha («📎 Adjuntos»).
+
+- **Guardado robusto** (versión 2026-11-03 · 2). Un solo guardado a la vez: «Guardar borrador» e «Informar a SUIGE»
+  se bloquean mientras dura. Si algo falla *después* de escribir en la lista (adjuntos, correo, recarga), dice que está
+  guardado y que no hace falta repetir. Si se repite tras un fallo, se actualiza el parte ya creado. Antes de crear uno
+  nuevo, mira si diste de alta el mismo parte (fecha y hora, unidad y tipo) en los últimos 30 minutos; así no se duplica
+  si se cortó la respuesta de Colabora. El formulario vuelve a leer el permiso al abrirse y, si falta, dice con qué
+  cuenta se ha entrado. Pruebas: escenario «ciclo» (triple clic, respuesta cortada, fallo tras guardar).
+- **Motivo del rechazo** en las solicitudes de acceso: campo propio, obligatorio para denegar. Va en el correo
+  («Motivo del rechazo») y el solicitante lo ve al entrar.
+
+- **Copia protegida sin las marcas del ofuscador** (03/11/2026): ver `SHAREPOINT.md`, «Si la copia protegida sale como
+  código». Compactada como un minificado normal, con bloqueo propio a `*.mdef.es`; `FUERTE=1` para la ofuscación anterior.
+
+- **La SUIGE puede devolver o descartar un parte** (versión 2026-11-03 · 3), en la fase REMITIDO A SUIGE y siempre con
+  motivo:
+  - **↩ Devolver a la unidad para corregir**: vuelve a BORRADOR. Se avisa al responsable, al autor y al personal que puede
+    visualizarlo, y la ficha muestra «Devuelto por la SUIGE para corregir» con el motivo.
+  - **✕ No procede · archivar**: EXP CERRADO, con «NO PROCEDE: motivo» como valoración de la SUIGE. Se avisa a la unidad
+    con copia a IGE.
+
+  En los dos casos queda anotado en el historial. No se borra ningún parte, para que quede constancia.
+
 ## Estado
 
 1. Diagnóstico (`prueba-incidentes.html`): hecho. Lista «INCIDENTES DE SEGURIDAD» (URL `Lists/INTRUSIONES`).
@@ -192,3 +224,20 @@ En la ficha, panel rojo **«Eliminar el registro»**, solo para quien tiene perm
 lo manda a la **papelera de reciclaje** de Colabora (`items(n)/recycle()`), desde donde se puede restaurar. Ojo: con el
 nivel «Colaborar» Colabora deja eliminar a todos los miembros; para que solo eliminen algunos, darles a los demás un
 nivel de permiso sin «Eliminar elementos». Prueba: escenario «adjuntos y eliminar» de la simulación.
+
+## Versión 2026-11-12 · 1: unificada y responsables de los avisos por escalón
+
+- **Unificada:** junta la 2026-11-03 · 3 (otra sesión: devolver a la unidad o «No procede», guardado sin duplicados, aviso de
+  permisos, sin «Abrir en Colabora» ni InfoPath, protección nueva con `\x3c`) y la 2026-11-05 · 1 (esta: «Documentos
+  adjuntos» y botón rojo «Eliminar» solo con permiso). La 11-05 · 1 se hizo por error sobre la base del 27/10.
+- **Por qué no llegaban los avisos a la SUIGE:** los destinatarios salían de los integrantes del grupo (SEGURIDAD_SUIGESUR…),
+  leídos con la cuenta de quien tramita. Una unidad no puede verlos, así que el parte llegaba a la SUIGE sin aviso.
+- **Responsables por escalón** (*Ajustes › ✉ Responsables de los avisos por escalón*, solo Control total): lista
+  **«INCIDENTES RESPONSABLES»** (`Title` = escalón: SUIGESUR, SUIGENOR, SUIGECAN, SUIGEPIR, SECOORCEN, DIIN, DIAPER,
+  JEFATURA DE IGE, DIACU, IGE; `Responsables` = personas; `Correos` = otras direcciones). Cada aviso va al grupo del
+  escalón (si se puede leer) **y además a sus responsables**. Un parte sin SUIGE va a los responsables de IGE.
+  «✉ Probar» manda un aviso de prueba a quien lo recibiría; si nadie, lo dice.
+  La lista la tiene que poder **leer todo el mundo** y modificar solo el administrador.
+- Autoría también en la cabecera («— Cte. Alfredo Sánchez Sender»), además del pie.
+- Pruebas: escenarios «responsables» (crear la lista, alta, dirección mal escrita, probar con grupos ocultos) y «control
+  total» con los grupos ocultos, sin y con responsables.
