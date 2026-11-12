@@ -35,6 +35,16 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-12 · 2: cerrar la carpeta.** Ocultar no impide abrir la dirección de la biblioteca y ver lo que
+  hay dentro. Para eso, en Ajustes › «Cerrar la carpeta» (Control total):
+  - la biblioteca deja de heredar los permisos del sitio;
+  - quien tenía Leer, Colaborar o Editar pasa a «Lectura restringida». Si el sitio no tiene ese nivel, se crea
+    «META solo abrir», con ver y abrir elementos y ver páginas, pero sin ver formularios ni vistas;
+  - Control total, Diseño y quien la cierra no cambian;
+  - con eso se puede abrir `META.html` con su dirección, pero no la carpeta;
+  - «Volver a abrirla» la deja heredando otra vez los permisos del sitio.
+
+  Ajustes dice si la carpeta está abierta (y para quién) o cerrada. Prueba: `meta-acceso.mjs`.
 - **Versión 2026-11-12 · 1: ocultar la biblioteca.** En Ajustes › Lista de SharePoint se dice en qué biblioteca está
   la página (p. ej. «aplicaciones») y se puede ocultar de «Contenido del sitio» o volver a mostrarla. Es un MERGE
   `Hidden`, igual que en Incidentes y VSA. La página sigue funcionando con su dirección. Prueba: `meta-acceso.mjs`.

@@ -287,7 +287,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-12 · 1';
+  var VERSION = '2026-11-12 · 2';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -1438,8 +1438,60 @@
   function vistaBiblioteca() {
     if (biblio === undefined) { leerBiblioteca().then(function () { if (pref.vista === 'ajustes') render(); }); return '<p class="small muted">📁 Comprobando la biblioteca de esta página…</p>'; }
     if (!biblio) return '<p class="small muted">📁 No se pudo leer la biblioteca donde está esta página.</p>';
-    return '<p class="small">📁 Esta página está en la biblioteca «' + esc(biblio.Title) + '», que ' + (biblio.Hidden ? '<b>está oculta</b> en «Contenido del sitio». <button type="button" class="btn" data-biblio="0">Volver a mostrarla</button>'
+    if (biblioPerm === undefined) leerPermisosBiblio().then(function () { if (pref.vista === 'ajustes') render(); });
+    var perm = biblioPerm === undefined ? '<p class="small muted">🔒 Comprobando quién puede ver la carpeta…</p>' : !biblioPerm ? '<p class="small muted">🔒 No se pudieron leer los permisos de la biblioteca.</p>' :
+      biblioPerm.cerrada ? '<p class="small">🔒 <b>Carpeta cerrada:</b> la gente puede abrir META con su dirección, pero no ver lo que hay en «' + esc(biblio.Title) + '». <button type="button" class="btn" data-biblioabrir="1">Volver a abrirla</button></p>'
+        : '<p class="small">🔓 Quien escriba la dirección de «' + esc(biblio.Title) + '» <b>ve todo lo que hay dentro</b>' + (biblioPerm.abiertos.length ? ' (' + esc(biblioPerm.abiertos.map(function (a) { return a.nombre; }).filter(Boolean).slice(0, 4).join(', ')) + (biblioPerm.abiertos.length > 4 ? '…' : '') + ')' : '') +
+          '. <button type="button" class="btn prim" data-bibliocerrar="1">Cerrar la carpeta</button> <span class="small muted">(seguirán pudiendo abrir META; Control total y Diseño no cambian)</span></p>';
+    return perm + '<p class="small">📁 Esta página está en la biblioteca «' + esc(biblio.Title) + '», que ' + (biblio.Hidden ? '<b>está oculta</b> en «Contenido del sitio». <button type="button" class="btn" data-biblio="0">Volver a mostrarla</button>'
       : '<b>se ve</b> en «Contenido del sitio». <button type="button" class="btn prim" data-biblio="1">Ocultar la biblioteca</button>') + '</p>';
+  }
+  // Cerrar la biblioteca (12/11/2026): ocultarla no impide abrir su dirección y ver lo que hay. Para eso, en la biblioteca la
+  // gente pasa a «Lectura restringida» (abrir archivos sí; ver la carpeta, sus vistas y formularios, no). Se quedan como
+  // están Control total, Diseño y quien la cierra. Si el sitio no tiene ese nivel, se crea «META solo abrir» con los mismos
+  // permisos (ver elementos, abrir elementos, ver páginas, abrir). «Volver a abrirla» hereda otra vez los permisos del sitio.
+  var biblioPerm;   // undefined = sin leer
+  var ROL_ABRIR = 0x1 | 0x20 | 0x10000 | 0x20000;   // ViewListItems, OpenItems, Open, ViewPages (sin ViewFormPages)
+  var urlBiblio = function () { return web.url + "/_api/web/lists(guid'" + String(biblio.Id).replace(/[{}]/g, '') + "')"; };
+  function leerPermisosBiblio() {
+    if (!biblio) { biblioPerm = null; return Promise.resolve(); }
+    return Promise.all([api(urlBiblio() + '?$select=HasUniqueRoleAssignments'),
+      api(urlBiblio() + '/roleassignments?$expand=Member,RoleDefinitionBindings&$select=PrincipalId,Member/Title,Member/Id,RoleDefinitionBindings/Id,RoleDefinitionBindings/Name,RoleDefinitionBindings/RoleTypeKind')])
+      .then(function (r) {
+        var asig = lista(r[1].value).map(function (a) { return { id: a.PrincipalId, nombre: a.Member && a.Member.Title, roles: lista(a.RoleDefinitionBindings) }; });
+        var abiertos = asig.filter(function (a) { return (!yo || a.id !== yo.Id) && a.roles.some(function (x) { return [2, 3, 6].indexOf(Number(x.RoleTypeKind)) >= 0 && !/restringid|restricted|solo abrir/i.test(x.Name || ''); }); });
+        biblioPerm = { propios: !!r[0].HasUniqueRoleAssignments, asig: asig, abiertos: abiertos, cerrada: !!r[0].HasUniqueRoleAssignments && !abiertos.length };
+      }, function () { biblioPerm = null; });
+  }
+  function rolRestringido() {
+    return api(web.url + '/_api/web/roledefinitions?$select=Id,Name,RoleTypeKind').then(function (d) {
+      var r = lista(d.value).find(function (x) { return /lectura restringida|restricted read|meta solo abrir/i.test(x.Name || ''); });
+      if (r) return r.Id;
+      return enviarSP(web.url + '/_api/web/roledefinitions', { __metadata: { type: 'SP.RoleDefinition' }, Name: 'META solo abrir', Description: 'Abrir archivos de la biblioteca de aplicaciones sin ver la carpeta (META)',
+        BasePermissions: { __metadata: { type: 'SP.BasePermissions' }, High: '0', Low: String(ROL_ABRIR) } }, 'No tienes permiso para crear niveles de permiso en el sitio').then(function (x) { return x.Id; });
+    });
+  }
+  function cerrarBiblioteca(boton) {
+    if (!biblio) return;
+    if (!boton.dataset.seguro) { boton.dataset.seguro = '1'; boton.textContent = '¿Cerrar la biblioteca? Pulsa otra vez'; return; }
+    boton.disabled = true; aviso('Cerrando la biblioteca…');
+    var paso = biblioPerm && biblioPerm.propios ? Promise.resolve() : enviarSP(urlBiblio() + '/breakroleinheritance(copyRoleAssignments=true,clearSubscopes=true)', {}, 'No tienes permiso para cambiar los permisos de la biblioteca');
+    paso.then(leerPermisosBiblio).then(rolRestringido).then(function (rid) {
+      return biblioPerm.abiertos.filter(function (a) { return !yo || a.id !== yo.Id; }).reduce(function (p, a) {
+        return p.then(function () { return enviarSP(urlBiblio() + '/roleassignments/addroleassignment(principalid=' + Number(a.id) + ',roledefid=' + Number(rid) + ')', {}, 'No tienes permiso para cambiar los permisos de la biblioteca'); })
+          .then(function () { return a.roles.filter(function (x) { return [2, 3, 6].indexOf(Number(x.RoleTypeKind)) >= 0; }).reduce(function (q, x) {
+            return q.then(function () { return enviarSP(urlBiblio() + '/roleassignments/removeroleassignment(principalid=' + Number(a.id) + ',roledefid=' + Number(x.Id) + ')', {}, 'No tienes permiso para cambiar los permisos de la biblioteca'); });
+          }, Promise.resolve()); });
+      }, Promise.resolve());
+    }).then(leerPermisosBiblio).then(function () { aviso('Biblioteca cerrada: se puede abrir META con su dirección, pero no ver la carpeta'); render(); })
+      .catch(function (e) { boton.disabled = false; aviso('No se pudo cerrar: ' + (e.message || e)); leerPermisosBiblio().then(render); });
+  }
+  function abrirBiblioteca(boton) {
+    if (!boton.dataset.seguro) { boton.dataset.seguro = '1'; boton.textContent = '¿Volver a abrirla? Pulsa otra vez'; return; }
+    boton.disabled = true;
+    enviarSP(urlBiblio() + '/resetroleinheritance', {}, 'No tienes permiso para cambiar los permisos de la biblioteca')
+      .then(leerPermisosBiblio).then(function () { aviso('La biblioteca vuelve a tener los permisos del sitio'); render(); })
+      .catch(function (e) { boton.disabled = false; aviso('No se pudo: ' + (e.message || e)); });
   }
   function ocultarBiblioteca(boton, ocultar) {
     if (!biblio) return;
@@ -2876,6 +2928,8 @@
     var pso = el.closest('[data-psok]');
     if (pso) { psGuardar(tareas.find(function (x) { return x.id === Number(pso.dataset.psok); }), pso); return; }
     if (el.closest('[data-creartratar]')) { crearColumnaTratar(el.closest('[data-creartratar]')); return; }
+    if (el.closest('[data-bibliocerrar]')) { cerrarBiblioteca(el.closest('[data-bibliocerrar]')); return; }
+    if (el.closest('[data-biblioabrir]')) { abrirBiblioteca(el.closest('[data-biblioabrir]')); return; }
     if (el.closest('[data-biblio]')) { ocultarBiblioteca(el.closest('[data-biblio]'), el.closest('[data-biblio]').dataset.biblio === '1'); return; }
     if (el.closest('[data-departamentos]')) { admitirDepartamentos(el.closest('[data-departamentos]')); return; }
     if (el.closest('[data-catsuigesur]')) { var bs = el.closest('[data-catsuigesur]');

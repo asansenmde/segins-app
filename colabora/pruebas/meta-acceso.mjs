@@ -25,6 +25,10 @@ const items = [
 ].map(x => ({ ESTADO: 'EN CURSO', Prioridad: 'Media', DescripcionDelAsunto: 'Texto ficticio', Comentarios: '', Created: h(-48), Modified: h(-24), Editor: OTRO,
   PersonalImplicado0: [], NegociadosImplicados: [], ...x }));
 let biblioOculta = false;
+// Permisos de la biblioteca «aplicaciones»: hereda del sitio (Propietarios Control total, Miembros Colaborar, Usuarios del dominio Leer)
+const ROLES = { 1073741826: ['Leer', 2], 1073741827: ['Colaborar', 3], 1073741829: ['Control total', 5] };
+const asigSitio = () => [{ id: 3, nombre: 'Propietarios', roles: [1073741829] }, { id: 4, nombre: 'Miembros', roles: [1073741827] }, { id: 99, nombre: 'usuarios del dominio', roles: [1073741826] }];
+let bUnica = false, bAsig = asigSitio(), rolCreado = null;
 let admin = false, hayMiembros = true, filas = [], haySolic = false, solicitudes = [], correos = []; const SOL = 'META SOLICITUDES';
 const posts = [];
 let ok = true; const comprueba = (txt, c, extra) => { console.log((c ? '✔ ' : '✘ ') + txt + (extra !== undefined ? ': ' + extra : '')); if (!c) ok = false; };
@@ -45,6 +49,12 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
     if (resto === 'contextinfo') return ful({ json: { d: { GetContextWebInformation: { FormDigestValue: 'D', FormDigestTimeoutSeconds: 1800 } } } });
     const c = JSON.parse(req.postData() || '{}');
     if (resto === 'web/lists') { if (c.Title === MIEM) hayMiembros = true; if (c.Title === SOL) haySolic = true; return ful({ status: 201, json: { d: { Id: 'm' } } }); }
+    if (/^web\/lists\(guid'b1'\)\/breakroleinheritance/.test(resto)) { bUnica = true; return ful({ status: 200, json: { d: {} } }); }
+    if (/^web\/lists\(guid'b1'\)\/resetroleinheritance/.test(resto)) { bUnica = false; bAsig = asigSitio(); return ful({ status: 200, json: { d: {} } }); }
+    { const m = resto.match(/^web\/lists\(guid'b1'\)\/roleassignments\/(add|remove)roleassignment\(principalid=(\d+),roledefid=(\d+)\)/);
+      if (m) { let a = bAsig.find(x => x.id === +m[2]); if (!a && m[1] === 'add') { a = { id: +m[2], nombre: '?', roles: [] }; bAsig.push(a); }
+        if (m[1] === 'add') a.roles.push(+m[3]); else a.roles = a.roles.filter(r => r !== +m[3]); return ful({ status: 200, json: { d: {} } }); } }
+    if (resto === 'web/roledefinitions') { ROLES[1500] = [c.Name, 0]; rolCreado = c; return ful({ status: 201, json: { d: { Id: 1500, Name: c.Name } } }); }
     if (/^web\/lists\(guid'b1'\)$/.test(resto)) { biblioOculta = !!c.Hidden; return ful({ status: 204, body: '' }); }
     if (resto === 'SP.Utilities.Utility.SendEmail') { correos.push(c.properties); return ful({ json: { d: {} } }); }
     if (lst === SOL) {
@@ -73,6 +83,9 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
     if (!resto.includes('/items')) return ful({ json: { Id: '{5a1}', Title: SOL, ListItemEntityTypeFullName: 'SP.Data.META_x0020_SOLICITUDESListItem', ReadSecurity: 2, WriteSecurity: 2 } });
     return ful({ json: { value: solicitudes.filter(f => admin || f.PersonaId === 7).map(f => ({ ...f })).reverse() } });
   }
+  if (/^web\/lists\(guid'b1'\)\?\$select=HasUniqueRoleAssignments/.test(resto)) return ful({ json: { HasUniqueRoleAssignments: bUnica } });
+  if (/^web\/lists\(guid'b1'\)\/roleassignments/.test(resto)) return ful({ json: { value: bAsig.map(a => ({ PrincipalId: a.id, Member: { Id: a.id, Title: a.nombre }, RoleDefinitionBindings: per(a.roles.map(r => ({ Id: r, Name: ROLES[r][0], RoleTypeKind: ROLES[r][1] }))) })) } });
+  if (resto.startsWith('web/roledefinitions?')) return ful({ json: { value: Object.entries(ROLES).filter(([k]) => k !== '1500' || rolCreado).map(([k, v]) => ({ Id: +k, Name: v[0], RoleTypeKind: v[1] })) } });
   if (resto.includes('GetFileByServerRelativeUrl') && resto.includes('ParentList')) return ful({ json: { Id: 'b1', Title: 'aplicaciones', Hidden: biblioOculta, BaseTemplate: 101 } });
   if (resto.startsWith('web/associatedownergroup/users')) return ful({ json: { value: [{ Title: 'ADMINISTRADOR', Email: 'admin@et.mde.es' }] } });
   if (resto.startsWith('web/roleassignments')) return ful({ json: { value: [{ PrincipalId: 99, Member: { Id: 99, Title: 'MDEF\\usuarios del dominio', LoginName: 'c:0-.f|rolemanager|usuarios del dominio' } }] } });
@@ -124,6 +137,16 @@ comprueba('dice en qué biblioteca está y ofrece ocultarla', /biblioteca «apli
 await p.click('[data-biblio="1"]'); await p.waitForTimeout(1200);
 comprueba('biblioteca oculta (Hidden = true) y lo dice', biblioOculta && /está oculta/.test(await p.textContent('#vista')));
 await p.click('[data-biblio="0"]'); await p.waitForTimeout(1200); comprueba('y se puede volver a mostrar', !biblioOculta);
+// Cerrar la carpeta: la gente pasa a «solo abrir» (sin ver la carpeta); Control total no cambia
+await p.waitForSelector('[data-bibliocerrar]', { timeout: 5000 }).catch(() => 0);
+comprueba('avisa de que la carpeta se ve entera y ofrece cerrarla', /ve todo lo que hay dentro/.test(await p.textContent('#vista')) && !!(await p.$('[data-bibliocerrar]')));
+await p.click('[data-bibliocerrar]'); await p.click('[data-bibliocerrar]'); await p.waitForTimeout(2500);
+{ const r = id => (bAsig.find(a => a.id === id) || { roles: [] }).roles;
+  comprueba('cerrada: permisos propios, Miembros y Usuarios del dominio solo abrir, Propietarios Control total', bUnica && JSON.stringify(r(4)) === '[1500]' && JSON.stringify(r(99)) === '[1500]' && JSON.stringify(r(3)) === '[1073741829]', JSON.stringify(bAsig));
+  comprueba('nivel «META solo abrir» sin ver formularios ni vistas', rolCreado && rolCreado.BasePermissions.Low === String(0x1 | 0x20 | 0x10000 | 0x20000));
+  comprueba('lo dice', /Carpeta cerrada/.test(await p.textContent('#vista'))); }
+await p.click('[data-biblioabrir]'); await p.click('[data-biblioabrir]'); await p.waitForTimeout(1500);
+comprueba('se puede volver a abrir (hereda del sitio)', !bUnica && /ve todo lo que hay dentro/.test(await p.textContent('#vista')));
 posts.length = 0; await p.click('[data-mmcrear]'); await p.waitForTimeout(1500);
 comprueba('crea la lista y sus 3 columnas', posts.some(x => x.ruta === 'web/lists' && /META MIEMBROS/.test(x.cuerpo)) && posts.filter(x => x.ruta.includes('createfieldasxml')).length === 3);
 comprueba('después muestra el alta', !!(await p.$('#mmPersona')));
