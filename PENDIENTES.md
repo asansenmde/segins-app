@@ -167,4 +167,15 @@ autoría.
     expedientes», crear «META SOLICITUDES» (y la alerta), dar de alta a la gente o atender sus solicitudes.
     11/11/2026: META 2026-11-11 · 11 (solicitud de acceso como Incidentes, sin menús sin alta) y SENDERO 2026-11-11 · 6
     (PSIT en el definitivo, botón arreglado). Pendiente: probarlos.
+    12/11/2026: implantación en otros ámbitos (IGE, MAPER, MALE…). Decidido con el usuario:
+    - SENDERO único con una tabla ámbito → META, y portal con los ámbitos del usuario.
+    - Una META por organización, en su sitio de Colabora (`…/aplicaciones/META.html`), con la lista «META
+      CONFIGURACIÓN» (organización, ámbito, correo de avisos, Punto de Situación) y el asistente «Instalar META» en
+      Ajustes.
+    - Candados: instalar solo con la cuenta asansen y Control total en el sitio; META solo arranca en los sitios
+      autorizados (lista dentro del código cifrado); SENDERO solo manda a esas META.
+    - Día a día de cada organización: su administrador local (opción a).
+    - Quitar lo fijo de SUIGESUR: 12 células → «Cargar mis células desde SENDERO»; correo de avisos y franja desde la
+      configuración.
+    - Pendiente: esperar a las pruebas del usuario antes de empezar.
 
