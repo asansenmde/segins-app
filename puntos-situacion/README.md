@@ -18,6 +18,20 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-12 · 2: sin la pantalla de identificarse al quitar
+
+- **Caso real:** al pulsar quitar, al usuario le salía la pantalla para identificarse en Colabora. Así contesta Colabora
+  cuando se intenta borrar **sin permiso de eliminar en ese elemento**, aunque la lista diga «Colaborar».
+- Ahora, antes de quitar, se pregunta a Colabora qué puede hacer el usuario con esa entrada
+  (`items(id)?$select=EffectiveBasePermissions`, solo lectura):
+  - **eliminar** → a la papelera;
+  - **solo editar** → se aparta del punto (`PuntoId = 0`);
+  - **ninguna de las dos** → se le dice que pida a PROCOR que la quite o que le dé «Colaborar» en «PS Aportaciones».
+  - En ningún caso se manda una orden sin permiso.
+- **Para el administrador:** si a alguien con «Colaborar» le pasa, ese usuario no tiene «eliminar» en ese elemento.
+  Puede ser por permisos propios del elemento, por otro grupo con menos permisos o por «Crear y editar: solo sus
+  elementos» en la configuración avanzada de la lista.
+
 ## Versión 2026-11-12 · 1: quitar lo escrito
 
 - **Problema:** un usuario con «Colaborar» marcaba «Sin novedad» (o escribía una entrada) y luego no podía quitarlo.

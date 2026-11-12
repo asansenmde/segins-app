@@ -1,4 +1,4 @@
-let sinBorrar = false;
+let sinBorrar = false, sinEditar = false;
 // Prueba de Puntos de Situación contra un Colabora simulado (todo en memoria, datos ficticios).
 // node puntos-situacion/pruebas/simulacion.mjs · VERBOSE=1 (SharePoint 2013) · PS_HTML=puntos-situacion/colabora/puntos-situacion.html (copia protegida)
 // CAPTURAS=carpeta guarda capturas de pantalla.
@@ -103,6 +103,7 @@ await ctx.route(ORIGEN + '/**', async r0 => {
     const it = l.items.find(x => x.Id === Number(mi[1]));
     if (!it) return ful({ status: 404, body: '' });
     const sub = mi[2];
+    if (m === 'GET' && /EffectiveBasePermissions/.test(sub)) { const low = sinEditar ? 0x1 : sinBorrar ? 0x1 | 0x2 | 0x4 : 0x1 | 0x2 | 0x4 | 0x8; return json({ d: { EffectiveBasePermissions: { High: '0', Low: String(low) } } }); }
     if (m === 'GET') { const o = exportar(l, it); return ful({ status: 200, contentType: 'application/json', body: JSON.stringify({ d: { __metadata: { etag: '"' + it.Modified + '"' }, ...(VERBOSE ? conResults(o) : o) } }) }); }
     // Como (se sospecha que) Colabora: sin cuerpo con Content-Type JSON lo rechaza; con sinBorrar, sin permiso de eliminar
     if (sub === '/recycle()') { if (!req.postData()) return json({ error: { message: { value: 'Invalid JSON. The request body is empty.' } } }, 400);
@@ -284,6 +285,10 @@ await p.click('[data-quitarsn]'); await p.waitForTimeout(900);
 comprueba('se puede quitar el «Sin novedad»', !LP('Aportaciones').items.some(x => x.Negociado === 'Seguridad' && x.Tipo === 'Sin novedad'));
 sinBorrar = true; await p.click('[data-sinnovedad]'); await p.waitForTimeout(800); await p.click('[data-quitarsn]'); await p.waitForTimeout(1200);
 comprueba('sin permiso de eliminar: se aparta del punto y ya no cuenta', LP('Aportaciones').items.some(x => x.Negociado === 'Seguridad' && x.Tipo === 'Sin novedad' && Number(x.PuntoId) === 0) && !!(await p.$('[data-sinnovedad]')));
+sinEditar = true; await p.click('[data-sinnovedad]'); await p.waitForTimeout(800);
+{ await p.evaluate(() => { window.__al = []; window.alert = m => window.__al.push(String(m)); }); await p.click('[data-quitarsn]'); await p.waitForTimeout(1200); const msg = (await p.evaluate(() => window.__al.join(' | ')));
+  comprueba('sin permiso ni de editar: no intenta borrar (no sale la pantalla de identificarse) y lo explica', /no te deja ni eliminar ni modificar/.test(msg) && !posts.slice(-3).some(x => /recycle/.test(x.ruta))); }
+sinEditar = false; await p.click('[data-quitarsn]'); await p.waitForTimeout(1000);
 sinBorrar = false; await p.click('[data-sinnovedad]'); await p.waitForTimeout(800);
 await p.click('nav.tabs a[data-v=seguimiento]');
 const seg = await txt('#vista');

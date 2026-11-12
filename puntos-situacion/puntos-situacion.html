@@ -154,7 +154,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-12 · 1';
+  var VERSION = '2026-11-12 · 2';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -291,7 +291,21 @@
   var papelera = function (k, id) { return enviarSP(U(k) + '/items(' + Number(id) + ')/recycle()', {}, 'No tienes permiso para quitarlo'); };
   // Quitar una entrada o el «Sin novedad»: a la papelera y, si Colabora no lo deja, se aparta del punto (PuntoId = 0), que
   // solo necesita poder editar (lo mismo que para escribirla). Así desaparece del negociado, del seguimiento y del informe.
+  // Antes de nada se pregunta a Colabora qué puede hacer el usuario con esa entrada (EffectiveBasePermissions, solo lectura):
+  // si se intenta borrar sin permiso, Colabora no da un error, sino que pide volver a identificarse (12/11/2026, caso real)
+  function permisosEntrada(id) {
+    return fetch(U('aport') + '/items(' + Number(id) + ')?$select=EffectiveBasePermissions', { credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) { d = d.d || d; var low = Number(d.EffectiveBasePermissions && d.EffectiveBasePermissions.Low) || 0; return { borrar: !!(low & 0x8), editar: !!(low & 0x4) }; });
+  }
   function quitarAport(id) {
+    return permisosEntrada(id).then(function (pm) {
+      if (pm.borrar) return papelera('aport', id);
+      if (pm.editar) return merge(U('aport') + '/items(' + Number(id) + ')', { __metadata: tipo('aport'), PuntoId: 0 }, 'No tienes permiso para modificarla').then(function () { return 'apartada'; });
+      throw new Error('Colabora no te deja ni eliminar ni modificar esta entrada (tus permisos en «' + L.aport + '» no lo permiten para ella). Pide a PROCOR que la quite o que te dé «Colaborar» en esa lista.');
+    }, function () { return intentarQuitar(id); });
+  }
+  function intentarQuitar(id) {
     return papelera('aport', id).catch(function (e1) {
       return merge(U('aport') + '/items(' + Number(id) + ')', { __metadata: tipo('aport'), PuntoId: 0 }, 'No tienes permiso para modificarla').then(function () { return 'apartada'; },
         function (e2) { throw new Error('No se pudo quitar. Al llevarla a la papelera: ' + (e1.message || e1) + '. Al apartarla del punto: ' + (e2.message || e2) + '. Avisa a PROCOR.'); });
