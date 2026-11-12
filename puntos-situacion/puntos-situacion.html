@@ -154,7 +154,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-12 · 4';
+  var VERSION = '2026-11-12 · 5';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -965,7 +965,9 @@
       if (sn) return quitarAport(sn.id).catch(function (e) { avisos.push('no se pudo quitar el «Sin novedad» (' + (e.message || e) + ')'); });
     }).then(function () {
       $('#dlg').close();
-      aviso(avisos.length ? 'Guardado con avisos: ' + avisos.join('; ') : 'Entrada guardada');
+      // Incluida desde Seguimiento en otro negociado: se abre «Mi negociado» en ese negociado para verla
+      if (o.incluidaEn) { pref.neg = o.incluidaEn; pref.vista = 'negociado'; guardarPref(); }
+      aviso(avisos.length ? 'Guardado con avisos: ' + avisos.join('; ') : o.incluidaEn ? 'Incluida en ' + o.incluidaEn : 'Entrada guardada');
       if (avisos.length) alert('La entrada se ha guardado, pero:\n' + avisos.join('\n'));
       return cargar();
     }).catch(function (e) { boton.textContent = 'Guardar'; fallo(e.message || String(e)); if (id && !a) { ed.entrada = null; } });
@@ -1041,7 +1043,7 @@
     var t = metaTareas.find(function (x) { return x.Id === id; }), p = puntoPorId(sel);
     if (!t || !p) return;
     abrirEditor(p, neg || pref.neg, null, { titulo: t.Title || '', sit: texto(t.DescripcionDelAsunto) || texto(t.Descripcion) || '', prio: /(alta|urgent|critic|inmediat)/i.test(sinTildes(t.Prioridad)) ? 'Alta' : 'Normal',
-      origen: 'META', origenLista: META, origenId: t.Id, origenUrl: metaRaiz ? metaRaiz + '/DispForm.aspx?ID=' + t.Id : '' });
+      origen: 'META', origenLista: META, origenId: t.Id, origenUrl: metaRaiz ? metaRaiz + '/DispForm.aspx?ID=' + t.Id : '', incluidaEn: neg || '' });
   }
 
   // ---------- Puntos (alta, cierre, recordatorio, entrega, archivo y borrado) ----------

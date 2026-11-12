@@ -25,7 +25,7 @@ nuevaLista('Gestor de Tareas' + SUF, ['NegociadoAsignado']);
 const meta = nuevaLista(PRUEBAS ? 'Gestor de Tareas PRUEBAS' : 'Gestor de Tareas MENSADEF', ['TratarEn']);
 meta.items.push({ Id: 31, Title: 'Asunto ficticio para el General', ESTADO: 'EN CURSO', Prioridad: 'Alta', NegociadoAsignado: 'PRL', DescripcionDelAsunto: '<p>Descripción <b>ficticia</b> del asunto</p>', TratarEn: ['TRATAR CON EL GENERAL'] },
   { Id: 32, Title: 'Asunto sin marca', ESTADO: 'EN CURSO', NegociadoAsignado: 'PRL', TratarEn: [] }, { Id: 33, Title: 'Asunto terminado', ESTADO: 'FINALIZADO', NegociadoAsignado: 'PRL', TratarEn: ['TRATAR CON EL GENERAL'], fECHAFINALIZACION: iso(-D) },
-  { Id: 34, Title: 'Asunto sin negociado ficticio', ESTADO: 'EN CURSO', NegociadoAsignado: '', TratarEn: ['TRATAR CON EL GENERAL'] },
+  { Id: 34, Title: 'Asunto sin negociado ficticio', ESTADO: 'EN CURSO', NegociadoAsignado: '', DescripcionDelAsunto: '<p>Texto ficticio sin negociado</p>', TratarEn: ['TRATAR CON EL GENERAL'] },
   { Id: 35, Title: 'Asunto de departamento desconocido', ESTADO: 'EN CURSO', NegociadoAsignado: 'DEPARTAMENTO FICTICIO', TratarEn: ['TRATAR CON EL GENERAL'] });
 const CHOICES = ['PROCOR', 'INFRAESTRUCTURA', 'SEGURIDAD', 'P.R.L.', 'CALIDAD DE VIDA', 'ACUARTELAMIENTO', 'JEFATURA'];
 const adjuntos = {};   // url → Buffer
@@ -182,9 +182,19 @@ await foto('03-seguimiento');
 // Propuestas sin negociado: PROCOR elige dónde incluirlas (no se quedan en el limbo)
 { const t = await txt('#vista');
   comprueba('sin negociado: se dice el motivo', /sin negociado en META/.test(t) && /«DEPARTAMENTO FICTICIO» no está en Ajustes/.test(t) && (await p.$$('[data-incluiren]')).length === 2 && !(await p.$('[data-incluiren="31"]')));
-  await p.selectOption('[data-negpara="34"]', 'Seguridad'); await p.click('[data-incluiren="34"]'); await p.waitForSelector('#edSit');
-  comprueba('«Incluir en…» abre el editor del negociado elegido: ' + await p.$eval('#dlg h2', e => e.textContent), /Nueva entrada · Seguridad/.test(await p.$eval('#dlg h2', e => e.textContent)) && await p.inputValue('#edTit') === 'Asunto sin negociado ficticio');
-  await p.click('#dlg [data-cerrar]'); await esperaDlgCerrado(); }
+  await p.selectOption('[data-negpara="34"]', 'Infraestructura'); await p.click('[data-incluiren="34"]'); await p.waitForSelector('#edSit');
+  comprueba('«Incluir en…» abre el editor del negociado elegido: ' + await p.$eval('#dlg h2', e => e.textContent), /Nueva entrada · Infraestructura/.test(await p.$eval('#dlg h2', e => e.textContent)) && await p.inputValue('#edTit') === 'Asunto sin negociado ficticio');
+  await p.click('[data-guardarent]'); await esperaDlgCerrado(); await p.waitForTimeout(500);
+  const ei = LP('Aportaciones').items.find(x => x.OrigenId === 34);
+  comprueba('guardada en Infraestructura: ' + (ei && ei.Negociado), ei && ei.Negociado === 'Infraestructura');
+  comprueba('al guardar se abre «Mi negociado» en Infraestructura y se ve', await p.$eval('nav.tabs a.on', e => e.dataset.v) === 'negociado' && await p.inputValue('#selNeg') === 'Infraestructura' && /Asunto sin negociado ficticio/.test(await txt('#vista')));
+  await p.click('nav.tabs a[data-v=seguimiento]'); await p.waitForTimeout(300);
+  comprueba('ya no sale entre las propuestas', !(await p.$('[data-incluiren="34"]')));
+  await p.click('nav.tabs a[data-v=negociado]'); await p.waitForTimeout(300);
+  await p.click(`[data-borrar="${ei.Id}"]`); await p.click(`[data-borrar="${ei.Id}"]`); await p.waitForTimeout(1200);
+  comprueba('y se puede quitar', !LP('Aportaciones').items.some(x => x.OrigenId === 34 && x.PuntoId));
+  await p.click('nav.tabs a[data-v=seguimiento]'); await p.waitForTimeout(300);
+  comprueba('al quitarla vuelve a las propuestas', !!(await p.$('[data-incluiren="34"]'))); }
 
 // 3b. Modificar el punto (fecha, bloqueo y convocados) y eliminar uno creado por error
 const local = ms => p.evaluate(ms => { const d = new Date(Date.now() + ms); const z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + 'T' + z(d.getHours()) + ':' + z(d.getMinutes()); }, ms);

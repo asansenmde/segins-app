@@ -228,4 +228,5 @@ autoría.
     12/11/2026: Puntos de Situación 2026-11-12 · 2 (quitar «Sin novedad» y entradas sin pantalla de identificarse) confirmado por el usuario.
     12/11/2026: Puntos de Situación 2026-11-12 · 3 (asunto en su línea y texto debajo en el informe, Word y PDF): entregado, pendiente de que lo pruebe el usuario.
     12/11/2026: Puntos de Situación 2026-11-12 · 4 (propuestas de META sin negociado: motivo e «Incluir en…» para PROCOR): entregado, pendiente de que lo pruebe el usuario.
+    12/11/2026: Puntos de Situación 2026-11-12 · 5 (tras «Incluir en…» se abre «Mi negociado» en ese negociado): entregado, pendiente de que lo pruebe el usuario.
 
