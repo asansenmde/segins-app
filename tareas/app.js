@@ -3,9 +3,10 @@
 // del usuario entre todos sus dispositivos (capacidad "db" del visor).
 
 import { interpretar } from './fechas.js?v=12';
+import { leerCorreo, nombreRemitente, asuntoLimpio } from './correo.js?v=1';
 
 const CLAVE = 'tareas-nlt-v1';
-const VERSION_APP = '15 · 16 oct 2026'; // súbela en cada publicación (y el ?v= de index.html)
+const VERSION_APP = '16 · 12 nov 2026'; // súbela en cada publicación (y el ?v= de index.html)
 const ESTADOS = [['pendiente', 'Pendiente'], ['curso', 'En curso'], ['espera', 'En espera'], ['hecha', 'Hecha']];
 const NOMBRE_ESTADO = Object.fromEntries(ESTADOS);
 const PRIOS = { critica: 'Crítica', alta: 'Alta', media: 'Media', baja: 'Baja' };
@@ -475,31 +476,51 @@ function tarjeta(t, extra = '') {
 function vistaNlt() {
   const abiertas = datos.tareas.filter(t => t.estado !== 'hecha');
   const cuenta = g => abiertas.filter(t => urgencia(t).grupo === g).length;
-  const n = { vencidas: cuenta('vencidas'), hoy: cuenta('hoy'), semana: cuenta('semana'), abiertas: abiertas.length };
-  const kpi = (k, l, cls) => `<button class="kpi ${cls} ${filtro.kpi === k ? 'on' : ''}" data-kpi="${k}">
-    <div class="kpi-l">${l}</div><div class="kpi-v">${n[k]}</div></button>`;
+  const mes = hoy().slice(0, 7);
+  const hechaMes = t => t.estado === 'hecha' && iso(new Date(t.hecha || t.creada)).slice(0, 7) === mes;
+  const n = { vencidas: cuenta('vencidas'), hoy: cuenta('hoy'), semana: cuenta('semana'), abiertas: abiertas.length, hechas: datos.tareas.filter(hechaMes).length };
+  const fk = filtro.kpi;
+  // Recuadros con icono, como en META: pulsar uno filtra (otra vez, lo quita)
+  const kpi = (k, l, ico, cls, icls) => `<button class="kpi ${cls} ${fk === k ? 'on' : ''}" data-kpi="${k}">
+    <span class="kpi-i ${icls}">${ico}</span><span><span class="kpi-v">${n[k]}</span><span class="kpi-l">${l}</span></span></button>`;
+  // Recorrido por estados
+  const porEstado = e => datos.tareas.filter(t => t.estado === e).length;
+  const paso = (e, ico) => `<button class="paso p-${e} ${fk === 'e:' + e ? 'on' : ''}" data-kpi="e:${e}"><span class="pl">${NOMBRE_ESTADO[e]}${e === 'hecha' ? 's' : ''}</span><span class="pv">${porEstado(e)}</span><span class="pi">${ico}</span></button>`;
+  const nombre = datos.ajustes.miNombre || nube.miNombre || '';
+  const fecha = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const hero = `<div class="hero"><div class="hola">Tareas NLT · Gestor personal</div><div class="nom">👤 ${esc(nombre || 'Mis tareas')}</div>
+    <span class="rolh">${n.abiertas} abierta${n.abiertas === 1 ? '' : 's'}</span>${n.vencidas ? `<span class="rolh bad">${n.vencidas} fuera de plazo</span>` : ''}
+    ${n.hoy ? `<span class="rolh">${n.hoy} vence${n.hoy === 1 ? '' : 'n'} hoy</span>` : ''}<span class="rolh">${n.hechas} hecha${n.hechas === 1 ? '' : 's'} este mes</span>
+    <p>${esc(fecha[0].toUpperCase() + fecha.slice(1))} <span class="sinmovil"> · ✉ Arrastra aquí un correo de Outlook para convertirlo en tarea.</span></p></div>`;
 
-  const lista = filtrar(datos.tareas);
-  const grupos = [
+  let lista = filtrar(datos.tareas);
+  if (fk.startsWith('e:')) lista = lista.filter(t => t.estado === fk.slice(2));
+  const soloHechas = fk === 'hechas' || fk === 'e:hecha';
+  const grupos = soloHechas ? [] : [
     ['vencidas', 'NLT vencidas'], ['hoy', 'Vencen hoy'], ['semana', 'Próximos 7 días'],
     ['despues', 'Más adelante'], ['sin', 'Sin NLT'],
-  ].filter(([g]) => !filtro.kpi || filtro.kpi === 'abiertas' || filtro.kpi === g);
+  ].filter(([g]) => !fk || fk === 'abiertas' || fk.startsWith('e:') || fk === g);
 
   const bloques = grupos.map(([g, titulo]) => {
     const ts = lista.filter(t => urgencia(t).grupo === g).sort(ordenar);
     if (!ts.length) return '';
     return `<h2 class="sec"><span>${titulo}</span><span>${ts.length}</span></h2>${ts.map(t => tarjeta(t)).join('')}`;
-  }).join('');
+  }).join('') + (soloHechas ? (() => {
+    const ts = lista.filter(t => t.estado === 'hecha' && (fk === 'e:hecha' || hechaMes(t))).sort((a, b) => (b.hecha || '').localeCompare(a.hecha || ''));
+    return ts.length ? `<h2 class="sec"><span>${fk === 'hechas' ? 'Hechas este mes' : 'Hechas'}</span><span>${ts.length}</span></h2>${ts.slice(0, 200).map(t => tarjeta(t)).join('')}` : '';
+  })() : '');
 
   const avisos = filtrar(datos.tareas).filter(avisoActivo).sort(ordenar);
   const asignadas = datos.tareas.filter(t => t.responsableId === nube.uid && pendienteEnterado(t)).sort(ordenar);
   const hechas = lista.filter(t => t.estado === 'hecha').sort((a, b) => (b.hecha || '').localeCompare(a.hecha || ''));
 
-  return `
+  return `${hero}
     <div class="kpis">
-      ${kpi('vencidas', 'Vencidas', n.vencidas ? 'bad' : '')}${kpi('hoy', 'Hoy', n.hoy ? 'warn' : '')}
-      ${kpi('semana', '7 días', '')}${kpi('abiertas', 'Abiertas', '')}
+      ${kpi('vencidas', 'Fuera de plazo', '🔴', n.vencidas ? 'bad' : '', 'r')}${kpi('hoy', 'Vencen hoy', '⏰', n.hoy ? 'warn' : '', 'n')}
+      ${kpi('semana', 'Próximos 7 días', '📅', '', 'a')}${kpi('abiertas', 'Abiertas', '⚙️', '', 'b')}${kpi('hechas', 'Hechas este mes', '✅', '', 'v')}
     </div>
+    <div class="recorrido-t"><span>Recorrido de las tareas</span><span>pendiente › en curso › en espera › hecha</span></div>
+    <div class="recorrido">${paso('pendiente', '📝')}<span class="fl">›</span>${paso('curso', '⚙️')}<span class="fl">›</span>${paso('espera', '⏸️')}<span class="fl">›</span>${paso('hecha', '✅')}</div>
     ${barraFiltros()}
     ${asignadas.length ? `<section class="card asignadas"><h3>📥 Te han asignado (${asignadas.length})</h3>
       <p class="small muted">Confirma con «Enterado» para que quien la encargó sepa que la has recibido.</p>
@@ -519,7 +540,7 @@ function vistaNlt() {
         Opcional: <b>#categoría</b>, <b>urgente</b> o <b>!!</b> para crítica.</div>
     </form>
     ${bloques || (datos.tareas.length
-      ? '<div class="empty">No hay tareas pendientes con este filtro. 🎉</div>'
+      ? `<div class="empty">${soloHechas ? 'No hay tareas hechas con este filtro.' : 'No hay tareas pendientes con este filtro. 🎉'}</div>`
       : `<div class="empty"><p>Aún no tienes tareas.</p><p class="small">Pulsa <b>+</b> para crear una, o carga unos ejemplos para ver cómo funciona.</p>
          <button class="btn" data-accion="ejemplos">Cargar ejemplos</button></div>`)}
     ${hechas.length && !filtro.kpi ? `<details class="card"><summary><b>Hechas</b> <span class="muted">(${hechas.length})</span></summary>
@@ -3119,6 +3140,56 @@ function tarjetaGcal() {
 mcpVisor().then(m => { gcal.disponible = !!m; if (location.hash === '#ajustes') render(true); });
 
 // ---------- Navegación ----------
+// ---------- Tareas desde correos de Outlook (arrastrar o «✉ Desde correo») ----------
+// El correo (.msg o .eml) se lee en este dispositivo; se abre la ficha de una tarea nueva ya rellena para revisarla y guardarla.
+const marcaCorreo = c => c.id ? `Id. correo: ${c.id}` : '';
+function baseDesdeCorreo(c) {
+  const asunto = asuntoLimpio(c.asunto);
+  const r = interpretar(asunto);
+  const f = c.fecha && !isNaN(new Date(c.fecha)) ? new Date(c.fecha) : null;
+  const origen = ['Origen: correo electrónico', c.de && `De: ${c.de}`, c.para && `Para: ${c.para}`,
+    f && `Fecha: ${f.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
+    c.adjuntos.length && `Adjuntos: ${c.adjuntos.join(', ')}`, marcaCorreo(c)].filter(Boolean).join('\n');
+  const cuerpo = c.texto.length > 8000 ? c.texto.slice(0, 8000) + '…' : c.texto;
+  return { titulo: (r.nlt ? r.titulo : asunto).slice(0, 250) || '(sin asunto)', nlt: r.nlt || '', hora: r.hora || '', ...(r.prioridad ? { prioridad: r.prioridad } : {}),
+    ordenadaPor: nombreRemitente(c.de), fechaOrden: f ? iso(f) : hoy(), descripcion: cuerpo, notas: origen };
+}
+async function tareaDesdeCorreo(f) {
+  if (!f) return;
+  let c;
+  try { c = await leerCorreo(f); }
+  catch (e) {
+    toast('No se pudo leer el correo');
+    await preguntar(`No se pudo leer el correo: ${e.message || e}. Admite correos de Outlook de escritorio (.msg: arrastra el correo desde Outlook o guárdalo con Archivo › Guardar como) y de Outlook en la web (.eml: ⋯ › Descargar).`, { ok: 'Entendido' });
+    return;
+  }
+  const marca = marcaCorreo(c);
+  const ya = marca ? datos.tareas.filter(t => (t.notas || '').includes(marca)) : [];
+  if (ya.length && !(await preguntar(`Este correo ya tiene ${ya.length === 1 ? 'una tarea' : ya.length + ' tareas'}: ${ya.map(t => `${t.referencia} · ${t.titulo}`).join('; ')}. ¿Crear otra igualmente?`, { ok: 'Crear otra' }))) {
+    if (ya.length === 1) abrirEditor(ya[0].id);
+    return;
+  }
+  if (dlg.open) dlg.close();
+  abrirEditor(null, baseDesdeCorreo(c));
+  sucio = true; // viene rellena: al cerrar sin guardar, pregunta antes de descartarla
+  toast('Tarea preparada desde el correo: revísala y guárdala');
+}
+$('#btnCorreo').addEventListener('click', () => $('#ficheroCorreo').click());
+$('#ficheroCorreo').addEventListener('change', e => { tareaDesdeCorreo(e.target.files[0]); e.target.value = ''; });
+// Arrastrar el correo desde Outlook (o el archivo) a cualquier parte de la app. Las tarjetas también se arrastran (tablero):
+// solo cuenta si lo que se arrastra son archivos.
+const conArchivos = e => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+document.addEventListener('dragover', e => { if (conArchivos(e)) { e.preventDefault(); document.body.classList.add('soltando'); } });
+document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('soltando'); });
+document.addEventListener('drop', e => {
+  document.body.classList.remove('soltando');
+  if (!conArchivos(e)) return;
+  e.preventDefault();
+  const fs = [...e.dataTransfer.files];
+  if (fs.length > 1) toast('Se crea la tarea del primer correo; arrastra los demás uno a uno');
+  tareaDesdeCorreo(fs[0]);
+});
+
 function aplicarTema() {
   const t = datos.ajustes.tema;
   if (t === 'auto') delete document.documentElement.dataset.theme;

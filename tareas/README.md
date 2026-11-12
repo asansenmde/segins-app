@@ -78,6 +78,20 @@ App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber 
   Google Calendar/Outlook (.ics, con aviso el día anterior), categorías, tema claro/oscuro, copia de
   seguridad (.json), restaurar y exportar a Excel (.csv).
 
+## Tareas desde correos y aspecto como META (versión 16 · 12/11/2026)
+
+- **Arrastra un correo de Outlook** (.msg de Outlook de escritorio o .eml de Outlook en la web) a cualquier parte de la
+  app, o pulsa **«✉ Desde correo»** arriba: se abre la ficha de una tarea nueva ya rellena para revisarla y guardarla.
+  - Asunto sin «RE:/RV:/FW:» como título; si el asunto dice el plazo («antes del viernes»), la NLT.
+  - «Ordenada por» el remitente y la fecha de la orden la del correo; el texto en la descripción y el origen (de, para,
+    fecha, adjuntos e identificador del correo) en las observaciones.
+  - Si ese correo ya tiene tarea, lo avisa y ofrece abrirla o crear otra. Al cerrar sin guardar, pregunta antes de descartarla.
+  - El correo se lee en el dispositivo (`correo.js`, copiado del lector de Tareas Colabora / META): no se envía a ningún sitio.
+- **Aspecto como META** (sin controles de acceso: es personal): cabecera con escudo y filo dorado, bienvenida con el
+  resumen del día, recuadros con icono (fuera de plazo, vencen hoy, próximos 7 días, abiertas, hechas este mes) y
+  **recorrido por estados** (pendiente › en curso › en espera › hecha) que filtra al pulsarlo.
+- Prueba: `node tareas/pruebas/correo.mjs` (Playwright, datos ficticios).
+
 ## Sincronización entre dispositivos
 
 La versión publicada en claude.ai (https://claude.ai/artifact/9Qqg68wrV3upUSdjZWwZWU) guarda las
