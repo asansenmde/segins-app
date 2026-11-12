@@ -178,4 +178,5 @@ autoría.
     - Quitar lo fijo de SUIGESUR: 12 células → «Cargar mis células desde SENDERO»; correo de avisos y franja desde la
       configuración.
     - Pendiente: esperar a las pruebas del usuario antes de empezar.
+    12/11/2026: publicados y confirmados por el usuario: SENDERO 2026-11-11 · 6 (SENDERO.html) y META 2026-11-12 · 3 (META.html).
 
