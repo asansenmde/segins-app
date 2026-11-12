@@ -90,6 +90,11 @@ App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber 
 - **Aspecto como META** (sin controles de acceso: es personal): cabecera con escudo y filo dorado, bienvenida con el
   resumen del día, recuadros con icono (fuera de plazo, vencen hoy, próximos 7 días, abiertas, hechas este mes) y
   **recorrido por estados** (pendiente › en curso › en espera › hecha) que filtra al pulsarlo.
+- **➜ Pasar a META** (ficha de la tarea): abre META en Colabora con un expediente nuevo relleno (asunto, fecha, «ordenada por»
+  y, en la descripción, la referencia T-…, NLT, prioridad, estado, categoría, responsable, descripción y observaciones);
+  se revisa y se pulsa «Crear» allí. Usa el `#importar=` que META ya entiende (como SENDERO): **no se cambia META**, por eso
+  allí sale como «Nuevo asunto desde correo» y la NLT se pone a mano. META avisa si esa tarea ya se pasó (`Id. correo: NLT T-…`).
+  La dirección de META se pide la primera vez y queda en *Ajustes*; en la bitácora queda «Pasada a META».
 - Prueba: `node tareas/pruebas/correo.mjs` (Playwright, datos ficticios).
 
 ## Sincronización entre dispositivos

@@ -128,6 +128,34 @@ await p.setInputFiles('#ficheroCorreo', malo); await p.waitForTimeout(500);
 comprueba('archivo no válido: lo explica', /No se pudo leer el correo/.test(await p.textContent('#dlg2')));
 await p.click('#dlg2 [data-r=si]');
 
+// Pasar a META: la primera vez pide la dirección; abre META con «#importar=…» y lo anota en la bitácora
+await p.goto(URL_); await p.waitForTimeout(500);
+await p.evaluate(() => { window.__abiertas = []; window.open = (u) => { window.__abiertas.push(u); return null; }; });
+const idNave = await p.evaluate(() => JSON.parse(localStorage.getItem('tareas-nlt-v1')).tareas.find(t => /Nave 3/.test(t.titulo)).id);
+await p.click(`main .tarea[data-id="${idNave}"] .tit`).catch(async () => { await p.evaluate(id => document.querySelector(`.tarea[data-id="${id}"]`).click(), idNave); });
+await p.waitForTimeout(400);
+comprueba('botón «Pasar a META» en la ficha', !!(await p.$('#dlg [data-meta]')));
+await p.click('#dlg [data-meta]'); await p.waitForTimeout(300);
+comprueba('la primera vez pide la dirección de META', /Dirección de META/.test(await p.textContent('#dlg2')));
+await p.fill('#dlg2 [name=v]', 'https://www.google.com/x.html'); await p.click('#dlg2 [data-r=si]'); await p.waitForTimeout(300);
+comprueba('rechaza una dirección que no es de Colabora', (await p.evaluate(() => window.__abiertas.length)) === 0);
+await p.click('#dlg [data-meta]'); await p.waitForTimeout(300);
+await p.fill('#dlg2 [name=v]', 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/Documentos%20compartidos/meta.html'); await p.click('#dlg2 [data-r=si]'); await p.waitForTimeout(400);
+const abierta = await p.evaluate(() => window.__abiertas[0] || '');
+comprueba('abre META con el expediente', abierta.startsWith('https://colabora.mdef.es/et/SUIGESUR/JSUIGE/Documentos%20compartidos/meta.html#importar='), abierta.slice(0, 90));
+const dMeta = JSON.parse(decodeURIComponent(abierta.split('#importar=')[1] || '{}'));
+comprueba('datos para META', dMeta.asunto === 'Revista de extintores · Nave 3' && /^NLT T-\d{4}-\d{3}$/.test(dMeta.id) && /NLT: /.test(dMeta.texto) && /Prioridad: /.test(dMeta.texto) && /Hay que revisar los extintores/.test(dMeta.texto), JSON.stringify({ asunto: dMeta.asunto, id: dMeta.id, de: dMeta.de }));
+if (process.env.ULTIMO_META) fs.writeFileSync(process.env.ULTIMO_META, abierta); // para abrirlo en el META simulado
+comprueba('NLT con fecha completa', /NLT: \d{2}\/\d{2}\/\d{4}/.test(dMeta.texto));
+comprueba('el botón queda marcado ✓', /✓/.test(await p.textContent('#dlg [data-meta]')));
+const reg = await p.evaluate(id => JSON.parse(localStorage.getItem('tareas-nlt-v1')).tareas.find(t => t.id === id).registro.map(r => r.texto), idNave);
+comprueba('anotado en la bitácora', reg.some(r => /^Pasada a META/.test(r)));
+await p.evaluate(() => { const b = document.querySelector('#dlg [data-cerrar]'); b && b.click(); }); await p.waitForTimeout(300);
+const pr3 = await p.$('#dlg2[open] [data-r=si]'); if (pr3) await pr3.click();
+await p.click('#dlg [data-meta]').catch(() => {});
+await p.goto(URL_ + '#ajustes'); await p.waitForTimeout(400);
+comprueba('Ajustes recuerda la dirección de META', /meta\.html/.test(await p.inputValue('#urlMeta')));
+
 // Móvil
 await p.setViewportSize({ width: 390, height: 800 }); await p.goto(URL_); await p.waitForTimeout(600);
 comprueba('en el móvil sin desbordar', await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));

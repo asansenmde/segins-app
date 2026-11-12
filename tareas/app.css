@@ -294,3 +294,6 @@ output { font-weight: 700; color: var(--text); }
 .reu-red { margin-top: 8px; background: var(--surface-2); border-radius: 10px; padding: 8px 10px; }
 .reu-red summary { cursor: pointer; font-weight: 650; }
 .reu-red textarea { font-size: .92rem; }
+
+/* Pasar a META: azul marino como META */
+.btn.meta { background: #163b6b; color: #fff; border-color: #163b6b; }

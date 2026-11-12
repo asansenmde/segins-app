@@ -71,7 +71,7 @@ function normalizar(d) {
     avisosPropios: d.avisosPropios && typeof d.avisosPropios === 'object' ? d.avisosPropios : {},
     reuniones: Array.isArray(d.reuniones) ? d.reuniones : [],
     ajustes: { avisoDias: 3, tema: 'auto', ultimoAviso: '', miNombre: '', avisoAntes: 1, avisoHora: '09:00', gcal: false, gcalCal: '',
-      jefe: '', diasDespacho: [2, 5], diasPs: [5], ...(d.ajustes || {}) },
+      jefe: '', diasDespacho: [2, 5], diasPs: [5], urlMeta: '', ...(d.ajustes || {}) },
     activo: d.activo || null,
   };
 }
@@ -1459,6 +1459,7 @@ function cambioReunion(el) {
   if (el.id === 'reuAdd') { if (el.value) { marcarReunion(buscar(el.value), reuVista, true); guardar(); render(); } return true; }
   if (el.id === 'reuFecha') { if (el.value) reuFecha[reuVista] = el.value; else delete reuFecha[reuVista]; render(); return true; }
   if (el.id === 'jefe') { a.jefe = el.value; guardar(); render(); return true; }
+  if (el.id === 'urlMeta') { const u = el.value.trim(); if (u && !urlMetaValida(u)) { toast('Pega la dirección de META en Colabora (https://…mdef.es/…html)'); return true; } a.urlMeta = u; guardar(); toast(u ? 'Dirección de META guardada' : 'Dirección de META borrada'); return true; }
   if (el.dataset.reudia) {
     const k = el.dataset.reudia;
     a[k] = [...document.querySelectorAll(`[data-reudia="${k}"]:checked`)].map(x => +x.value);
@@ -1754,6 +1755,13 @@ function vistaAjustes() {
   const pe = datos.personas[personaEdit] || {};
   return `
     <div class="card">
+      <h3>➜ Pasar tareas a META</h3>
+      <p class="small muted">Desde la ficha de una tarea, «➜ Pasar a META» abre META en Colabora con un expediente nuevo ya relleno (asunto, NLT, prioridad, descripción y la referencia T-…). Lo revisas y pulsas «Crear» allí, con tu usuario de Colabora. META avisa si esa tarea ya se pasó.</p>
+      <label class="lbl">Dirección de META en Colabora
+        <input class="input" id="urlMeta" type="url" placeholder="https://colabora.mdef.es/…/tareas-nlt-colabora-mensadef.html" value="${esc(a.urlMeta || '')}"></label>
+      <p class="small muted">Ábrela en Colabora y copia la dirección de la barra del navegador. Si la dejas vacía, te la pedirá la primera vez que pases una tarea.</p>
+    </div>
+    <div class="card">
       <h3>Categorías</h3>
       <p class="small muted">Organiza todo lo que haces. Para renombrar una, cambia el nombre y pulsa Intro o sal del campo: sus tareas se actualizan.</p>
       <ul class="cats">${datos.categorias.map((c, i) => {
@@ -1949,7 +1957,7 @@ function abrirEditor(id, base = {}) {
       <datalist id="dlcats2">${categoriasUsadas().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
       <datalist id="dlper">${nombres.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
     </div>
-    <div class="dlg-f">${bloqueada ? '<button type="button" class="btn" data-cerrar>Cerrar</button>' : '<button type="button" class="btn primary" data-guardar>Guardar</button>'}</div></form>`;
+    <div class="dlg-f">${t ? `<button type="button" class="btn meta" data-meta="${t.id}" title="Abrir META (Colabora) con un expediente nuevo relleno con esta tarea">➜ Pasar a META${(t.registro || []).some(r => /^Pasada a META/.test(r.texto)) ? ' ✓' : ''}</button>` : ''}${bloqueada ? '<button type="button" class="btn" data-cerrar>Cerrar</button>' : '<button type="button" class="btn primary" data-guardar>Guardar</button>'}</div></form>`;
   pintarColabs(); pintarAvisos(); pintarSubs(); pintarDeps(); pintarTiempo(); pintarRegs(); pintarEnlaces(); pintarProgreso();
   dlg.showModal();
   if (!t) $('[name=titulo]', dlg).focus();
@@ -2112,6 +2120,7 @@ dlg.addEventListener('click', e => {
   if (!d) return;
   const ds = d.dataset;
   if (d.hasAttribute('data-guardar')) { guardarEditor(); return; }
+  if (ds.meta) { pasarAMeta(ds.meta); return; }
   if (d.hasAttribute('data-cerrar')) { cerrarEditor(); return; }
   if (ds.rapido !== undefined) {
     $('[name=nlt]', dlg).value = ds.rapido === '' ? '' : sumarDias(hoy(), +ds.rapido);
@@ -3141,6 +3150,37 @@ function tarjetaGcal() {
 mcpVisor().then(m => { gcal.disponible = !!m; if (location.hash === '#ajustes') render(true); });
 
 // ---------- Navegación ----------
+// ---------- Pasar una tarea a META (Gestor de expedientes MENSADEF en Colabora) ----------
+// META abre su formulario de expediente nuevo con «#importar=<datos>», lo mismo que usa SENDERO: el fragmento (tras «#») no se
+// envía a ningún servidor. No se toca META: se le pasan los campos que ya entiende (asunto, fecha, «de», referencia, texto e
+// identificador para no duplicar). La NLT y la prioridad van en el texto; se ponen en el formulario de META.
+const urlMetaValida = u => /^https:\/\/[^/]*\.mdef\.es\/.+/i.test(u);
+async function pasarAMeta(id) {
+  const t = buscar(id);
+  if (!t) { toast('Guarda la tarea antes de pasarla a META'); return; }
+  let url = datos.ajustes.urlMeta;
+  if (!url) {
+    url = await preguntar('Dirección de META en Colabora (ábrela en Colabora y copia la de la barra del navegador). Se recuerda para las próximas veces.', { ok: 'Guardar y abrir META', valor: '' });
+    if (url === null) return;
+    url = url.trim();
+    if (!urlMetaValida(url)) { toast('Esa dirección no es de Colabora (https://…mdef.es/…)'); return; }
+    datos.ajustes.urlMeta = url; guardar();
+  }
+  const f = s => s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+  const lineas = [`Tarea ${t.referencia} de Tareas NLT (gestor personal)`,
+    t.nlt && `NLT: ${f(t.nlt)}${t.hora ? ' a las ' + t.hora : ''}`, `Prioridad: ${PRIOS[t.prioridad] || t.prioridad}`, `Estado: ${NOMBRE_ESTADO[t.estado] || t.estado}`,
+    t.categoria && `Categoría: ${t.categoria}`, t.lugar && `Lugar: ${t.lugar}`, t.ordenadaPor && `Ordenada por: ${t.ordenadaPor}${t.fechaOrden ? ' (' + f(t.fechaOrden) + ')' : ''}`,
+    nombreResp(t) && `Responsable: ${nombreResp(t)}`, t.colaboradores.length && `Colaboradores: ${t.colaboradores.join(', ')}`].filter(Boolean);
+  const cuerpo = [lineas.join('\n'), t.descripcion, t.notas && `Observaciones:\n${t.notas}`].filter(Boolean).join('\n\n');
+  const d = { v: 1, origen: 'NLT', id: `NLT ${t.referencia}`, asunto: t.titulo || '(sin asunto)', fecha: t.fechaOrden ? aFecha(t.fechaOrden).toISOString() : t.creada,
+    de: t.ordenadaPor || 'Tareas NLT', referencia: t.referencia, texto: cuerpo.length > 6000 ? cuerpo.slice(0, 6000) + '…' : cuerpo };
+  window.open(url.replace(/#.*$/, '') + '#importar=' + encodeURIComponent(JSON.stringify(d)), '_blank', 'noopener');
+  anotar(t, 'Pasada a META para crear el expediente');
+  guardar();
+  const b = $('[data-meta]', dlg); if (b) b.textContent = '➜ Pasar a META ✓';
+  toast('Abriendo META: revisa el expediente y pulsa «Crear» allí');
+}
+
 // ---------- Tareas desde correos de Outlook (arrastrar o «✉ Desde correo») ----------
 // El correo (.msg o .eml) se lee en este dispositivo; se abre la ficha de una tarea nueva ya rellena para revisarla y guardarla.
 const marcaCorreo = c => c.id ? `Id. correo: ${c.id}` : '';
