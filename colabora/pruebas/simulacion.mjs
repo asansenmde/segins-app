@@ -29,7 +29,7 @@ const items = Array.from({ length: 706 }, (_, i) => {
 items[2].fECHAFINALIZACION = d(-3); items[18].fECHAFINALIZACION = null;
 // Colabora que rechaza direcciones («destinatario válido»): buzonMal = direcciones rechazadas; enviados = las que acepta
 let buzonMal = [], enviados = [];
-let conTratar = false, papelera = [];   // asuntos «eliminados» (se restauran tras comprobarlo)   // columna «TratarEn» (se crea desde Ajustes)
+let conTratar = false, papelera = [], sinBorrar = false;   // asuntos «eliminados» (se restauran tras comprobarlo)   // columna «TratarEn» (se crea desde Ajustes)
 let denegar = false, correoFalla = false, anexar = true, versiones = {};
 async function prueba() {
   const b = await chromium.launch();
@@ -51,6 +51,7 @@ async function prueba() {
     const [base, resto] = u.split('/_api/');
     if (base.replace('https://colabora.mdef.es', '') !== WEB) return r.fulfill({ status: 404, body: '' });
     const mItem = resto.match(/\/items\((\d+)\)/);
+    if (mItem && req.method() === 'POST' && resto.endsWith('/recycle()') && sinBorrar) { posts.push({ ruta: resto, cab: req.headers(), cuerpo: '' }); return r.fulfill({ status: 401, body: '' }); }
     if (mItem && req.method() === 'POST' && resto.endsWith('/recycle()')) { posts.push({ ruta: resto, cab: req.headers(), cuerpo: '' }); const i = items.findIndex(x => x.Id === Number(mItem[1])); if (i >= 0) papelera.push([i, items.splice(i, 1)[0]]); return r.fulfill({ json: { d: { Recycle: '00000000-0000-0000-0000-000000000001' } } }); }
     if (mItem && req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
@@ -66,6 +67,7 @@ async function prueba() {
     }
     if (mItem) {
       const it = items.find(x => x.Id === Number(mItem[1]));
+      if (/EffectiveBasePermissions/.test(resto)) return r.fulfill({ json: { d: { EffectiveBasePermissions: { High: '0', Low: String(sinBorrar ? 0x7 : 0xF) } } } });
       return r.fulfill({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, Id: it.Id, Modified: it.Modified, Comentarios: it.Comentarios || '' } } });
     }
     if (resto.includes('getbyinternalnameortitle')) {
@@ -192,6 +194,13 @@ async function prueba() {
         await p.click('[data-reabrir]'); await p.waitForTimeout(1500); e2 = est(id);
         await p.selectOption('#selEstado', 'EN ESPERA DE RESPUESTA'); await p.click('[data-cambiarestado]'); await p.waitForTimeout(1500); e3 = est(id);
       }
+      // Sin permiso de eliminar: lo dice y no envía el POST (que sacaría la pantalla de identificarse)
+      sinBorrar = true; const nP = posts.length;
+      await p.click('[data-eliminar]'); await p.click('[data-eliminar]'); await p.waitForTimeout(1200);
+      const msgNo = (await p.textContent('#estMsg')).trim();
+      console.log('eliminar sin permiso:', msgNo.slice(0, 90), '| sin POST:', !posts.slice(nP).some(x => /recycle/.test(x.ruta)), '| sigue el asunto:', est(id) !== 'ELIMINADO');
+      if (!/no te deja eliminar/.test(msgNo) || posts.slice(nP).some(x => /recycle/.test(x.ruta)) || est(id) === 'ELIMINADO') console.log('HAY FALLOS: eliminar sin permiso');
+      sinBorrar = false; await p.click('#dlg [data-cerrar]'); await p.evaluate(i => { const a = document.createElement('a'); a.dataset.abrir = String(i); document.body.append(a); a.click(); a.remove(); }, id); await p.waitForTimeout(300);
       await p.click('[data-eliminar]'); const txt = (await p.textContent('[data-eliminar]')).trim(); await p.click('[data-eliminar]'); await p.waitForTimeout(1500);
       const elim = est(id); papelera.forEach(([i, x]) => items.splice(i, 0, x)); papelera = []; await p.click('#recargar'); await p.waitForTimeout(1200);
       console.log('estados nº', id, ':', e1, '→ reabrir:', e2, '→ cambiar:', e3, '| eliminar pide confirmar:', txt, '→', elim, '| ficha cerrada:', !(await p.evaluate(() => document.querySelector('#dlg').open)));

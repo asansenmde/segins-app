@@ -293,7 +293,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-12 · 5';
+  var VERSION = '2026-11-12 · 6';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -2077,6 +2077,14 @@
       var m = $('#estMsg'); if (m && $('#dlg').open) m.innerHTML = ' <span class="error">' + esc(e.message || e) + '</span>'; else aviso('No se pudo cambiar el nº ' + id + ': ' + (e.message || e));
     });
   }
+  // 12/11/2026: antes de eliminar se miran los permisos del asunto (GET). Si se envía el POST sin permiso, Colabora saca la
+  // pantalla de identificarse en vez de un error; así se dice claramente y no se envía nada.
+  function permisosAsunto(id) {
+    return fetch(urlLista() + '/items(' + Number(id) + ')?$select=EffectiveBasePermissions', { credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) { d = d.d || d; if (!d.EffectiveBasePermissions) throw new Error('sin permisos en la respuesta'); var low = Number(d.EffectiveBasePermissions.Low) || 0; return { borrar: !!(low & 0x8), editar: !!(low & 0x4) }; });
+  }
+  var NO_ELIMINAR = 'Colabora no te deja eliminar este asunto: tus permisos en la lista no incluyen «Eliminar elementos» (o solo puedes eliminar los que has creado tú). Pide a quien tenga Control total que lo elimine o que te dé «Colaborar» en la lista.';
   // Eliminar: va a la papelera de reciclaje de Colabora (se puede recuperar desde allí)
   function eliminarAsunto(id, boton) {
     if (!boton.dataset.seguro) {
@@ -2085,7 +2093,8 @@
       return;
     }
     boton.disabled = true;
-    enviarSP(urlLista() + '/items(' + id + ')/recycle()', {}, 'No tienes permiso para eliminar asuntos en esta lista')
+    permisosAsunto(id).then(function (pm) { if (!pm.borrar) throw new Error(NO_ELIMINAR); }, function () { /* si no se pueden leer, se intenta */ })
+      .then(function () { return enviarSP(urlLista() + '/items(' + id + ')/recycle()', {}, NO_ELIMINAR); })
       .then(function () { $('#dlg').close(); return cargar(); })
       .then(function () { aviso('Nº ' + id + ' eliminado: está en la papelera de reciclaje de Colabora, de donde se puede recuperar'); })
       .catch(function (e) { boton.disabled = false; var m = $('#estMsg'); if (m) m.innerHTML = ' <span class="error">' + esc(e.message || e) + '</span>'; });
