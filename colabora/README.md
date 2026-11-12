@@ -35,6 +35,14 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-12 · 4 (solo META; el Gestor común sigue igual):**
+  - Ficha: el estado se elige pulsando los pasos de arriba (Pendiente › En curso › En espera › Terminada); al pasar a
+    Terminada se pone la fecha de finalización y al salir se quita. Ya no están «Finalizar», «Cambiar estado» ni «Ver en Colabora».
+  - Botones de la ficha: Modificar, Recordar por correo, 🔔 Recordar asignación (antes «Enviar aviso de asignación») y Eliminar.
+  - Los correos que se preparan en Outlook (mailto) se abren en una ventana nueva y META no se pierde.
+  - Marcas «Para tratar en»: 📋 «Reunión de entradas» (antes «Punto de situación») y ⭐ «Punto Situación semanal» (antes
+    «Tratar con el General»). Solo cambia el nombre que se ve: en la lista se guarda lo mismo y el Punto de Situación sigue igual.
+  - Filtros (Tareas, Informes y Avisos): cada uno solo ve sus departamentos; Control total, todos.
 - **Versión 2026-11-12 · 3:**
   - En las solicitudes de acceso salía «fecha no válida»: `fCorta` solo entiende «aaaa-mm-dd» y `Created` trae la hora.
     Ahora se usa `fSol`, con día y hora.

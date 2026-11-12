@@ -136,6 +136,10 @@
   .pasos span { padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-weight: 600; }
   .pasos span.on { color: #fff; } .pasos span.on.c-pendiente { background: #5f6975; } .pasos span.on.c-curso { background: var(--info); }
   .pasos span.on.c-espera { background: var(--esp); } .pasos span.on.c-hecha { background: var(--ok); } .pasos .fl { background: none; padding: 0; color: #9aa59a; }
+  .pasos.elegir button { padding: 4px 12px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-weight: 600; border: 1px solid var(--line); cursor: pointer; font-size: .82rem; }
+  .pasos.elegir button:hover:not(.on) { border-color: var(--info); color: var(--info); }
+  .pasos.elegir button.on { color: #fff; cursor: default; } .pasos.elegir button.on.c-pendiente { background: #5f6975; } .pasos.elegir button.on.c-curso { background: var(--info); }
+  .pasos.elegir button.on.c-espera { background: var(--esp); } .pasos.elegir button.on.c-hecha { background: var(--ok); }
   /* Estadísticas */
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 8px 0 12px; }
   .kpi { background: var(--surface); border: 1px solid var(--line); border-top: 5px solid var(--line); border-radius: 12px; padding: 10px; text-align: center; font-size: .8rem; color: var(--muted); }
@@ -289,7 +293,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-12 · 3';
+  var VERSION = '2026-11-12 · 4';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -377,6 +381,11 @@
   // Marcas para tratar en reuniones (04/11/2026): columna de opción múltiple «TratarEn» de la lista. Se ven en la tarjeta, se
   // marcan en la ficha, tienen su recuadro en la pantalla inicial y su relación imprimible. Si falta la columna, Ajustes la crea.
   var TRATAR = [['ps', 'PUNTO DE SITUACIÓN', '📋', 'Punto de situación'], ['gen', 'TRATAR CON EL GENERAL', '⭐', 'Tratar con el General']];
+  // 12/11/2026 (META): solo cambian los nombres que se ven; en la lista se guarda lo mismo
+  if (PROPIO) { TRATAR[0][3] = 'Reunión de entradas'; TRATAR[1][3] = 'Punto Situación semanal'; }
+  var GEN = TRATAR[1][3];
+  // En META los correos (mailto) se abren en una ventana nueva y la página no se pierde
+  var NUEVA = PROPIO ? ' target="_blank" rel="noopener"' : '';
   var hayTratar = function () { return !!(infoCampo.TratarEn && infoCampo.TratarEn.existe); };
   var tieneTratar = function (t, k) { var x = TRATAR.filter(function (y) { return y[0] === k; })[0]; return !!x && t.tratar.indexOf(x[1]) >= 0; };
   var chipTratar = function (t) { return TRATAR.filter(function (x) { return t.tratar.indexOf(x[1]) >= 0; }).map(function (x) { return '<span class="badge tr-' + x[0] + '" title="Para tratar: ' + x[3] + '">' + x[2] + ' ' + x[3] + '</span>'; }).join(''); };
@@ -885,7 +894,8 @@
     return ts.filter(function (t) {
       if (pref.quien === 'mias' && !esMia(t)) return false;
       if (pref.quien === 'implicado' && !meImplica(t)) return false;
-      if (pref.negociado && t.negociado !== pref.negociado && t.negociados.indexOf(pref.negociado) < 0) return false;
+      var fn = depF(pref.negociado);
+      if (fn && t.negociado !== fn && t.negociados.indexOf(fn) < 0) return false;
       if (pref.estado && t.estado !== pref.estado) return false;
       if (pref.prio && t.prioridad !== pref.prio) return false;
       if (pref.resp && (t.responsable || 'Sin responsable') !== pref.resp) return false;
@@ -902,7 +912,7 @@
     return '<option value="">' + esc(vacio) + '</option>' + lista.map(function (v) { return '<option' + (v === sel ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
   };
 
-  var hayFiltros = function () { return !!(pref.q || pref.negociado || pref.estado || pref.prio || pref.resp || pref.terDesde || pref.terHasta); };
+  var hayFiltros = function () { return !!(pref.q || depF(pref.negociado) || pref.estado || pref.prio || pref.resp || pref.terDesde || pref.terHasta); };
   // Terminados: por la fecha en que se terminaron (fecha de fin o, si no hay, la de la última modificación)
   var enRangoTer = function (t) { var f = String(terminadaEn(t) || '').slice(0, 10); return (!pref.terDesde || (f && f >= pref.terDesde)) && (!pref.terHasta || (f && f <= pref.terHasta)); };
   var verHechas = 200;
@@ -1132,7 +1142,7 @@
   }
   var filtrosVistaTxt = function () {
     var f = [{ mias: 'Asuntos de ' + (yo ? yo.Title : 'mi responsabilidad'), implicado: 'Asuntos en los que intervengo', todos: 'Todos los asuntos' }[pref.quien]];
-    if (pref.negociado) f.push(tx('Departamento: ') + pref.negociado);
+    if (depF(pref.negociado)) f.push(tx('Departamento: ') + pref.negociado);
     if (pref.resp) f.push('Responsable: ' + pref.resp);
     if (pref.estado) f.push('Estado: ' + pref.estado);
     if (pref.prio) f.push('Prioridad: ' + pref.prio);
@@ -1211,7 +1221,8 @@
       if (o.soloVencidas && !(urgencia(t).grupo === 'vencidas' || urgencia(t).txt === 'Terminada fuera de NLT')) return false;
       if (o.quien === 'mias' && !esMia(t)) return false;
       if (o.quien === 'implicado' && !meImplica(t)) return false;
-      if (o.negociado && t.negociado !== o.negociado && t.negociados.indexOf(o.negociado) < 0) return false;
+      var on = depF(o.negociado);
+      if (on && t.negociado !== on && t.negociados.indexOf(on) < 0) return false;
       if (o.prio && t.prioridad !== o.prio) return false;
       return true;
     }).sort(ordenar);
@@ -1248,7 +1259,7 @@
     if (o.estados.length) f.push('Estados: ' + o.estados.join(', '));
     if (o.soloVencidas) f.push('Solo vencidos o terminados fuera de NLT');
     if (o.quien !== 'todos') f.push(o.quien === 'mias' ? 'Asuntos de ' + (yo ? yo.Title : 'mi responsabilidad') : 'Asuntos en los que intervengo');
-    if (o.negociado) f.push(tx('Departamento: ') + o.negociado);
+    if (depF(o.negociado)) f.push(tx('Departamento: ') + o.negociado);
     if (o.prio) f.push('Prioridad: ' + o.prio);
     return f.join(' · ');
   }
@@ -1426,7 +1437,7 @@
   function imprimirTratar(k) {
     var x = TRATAR.filter(function (y) { return y[0] === k; })[0];
     var ts = filtrar(tareas).filter(function (t) { return t.clase !== 'hecha' && tieneTratar(t, k); }).sort(ordenar);
-    var cuerpo = '<h2>' + x[2] + ' ASUNTOS PARA TRATAR: ' + esc(x[1]) + '</h2><p>' + esc(new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) + ' · ' + ts.length + ' asunto' + (ts.length === 1 ? '' : 's') + '</p>' +
+    var cuerpo = '<h2>' + x[2] + ' ASUNTOS PARA TRATAR: ' + esc(x[3].toUpperCase()) + '</h2><p>' + esc(new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) + ' · ' + ts.length + ' asunto' + (ts.length === 1 ? '' : 's') + '</p>' +
       '<table class="cal" style="table-layout:auto"><tr><th>Nº</th><th>Exp.</th><th>Asunto</th><th>Estado</th><th>Prioridad</th><th>NLT</th><th>Responsable</th><th>Último comentario / situación</th></tr>' +
       ts.map(function (t, i) { var ult = String(t.observaciones || t.resumenDesc || '').split('\n').filter(Boolean).pop() || '';
         return '<tr><td>' + (i + 1) + '</td><td>' + esc(t.expediente) + '</td><td><b>' + esc(t.asunto) + '</b></td><td>' + esc(t.estado) + '</td><td>' + esc(t.prioridad) + '</td><td>' + esc(fCorta(t.nlt)) + '</td><td>' + esc(t.responsable) + '</td><td>' + esc(ult.slice(0, 300)) + '</td></tr>'; }).join('') +
@@ -1638,8 +1649,8 @@
         var libres = ps.abiertos.filter(function (p) { return !ya.some(function (a) { return a.PuntoId === p.Id; }); });
         var marcado = !hayTratar() || tieneTratar(t, 'gen');
         if (!ps.abiertos.length) html += '<div class="small muted">No hay ningún punto de situación abierto. Lo abre PROCOR en la aplicación «Puntos de Situación»' +
-          (hayTratar() ? (marcado ? '; el asunto está marcado ⭐ Tratar con el General y lo verán allí como propuesta.' : '.') : '.') + '</div>';
-        else if (libres.length && !marcado && !ya.length) html += '<div class="small muted">Pasan al punto de situación los asuntos para <b>⭐ Tratar con el General</b>: márcalo arriba y podrás incluirlo.</div>';
+          (hayTratar() ? (marcado ? '; el asunto está marcado ⭐ ' + GEN + ' y lo verán allí como propuesta.' : '.') : '.') + '</div>';
+        else if (libres.length && !marcado && !ya.length) html += '<div class="small muted">Pasan al punto de situación los asuntos marcados <b>⭐ ' + GEN + '</b>: márcalo arriba y podrás incluirlo.</div>';
         else if (libres.length && marcado) html += '<div><button type="button" class="btn prim" data-psform="' + t.id + '">📋 Incluir en ' + esc(psRef(libres[0])) + '</button> <span class="small muted">cierra el ' + esc(psCierre(libres[0])) + '</span></div>';
         caja.innerHTML = html + '<div id="psForm"></div>' + (msg ? '<div class="small">' + msg + '</div>' : '');
       });
@@ -1654,7 +1665,7 @@
       var caja = $('#psBox');
       if (Date.now() - t0 > 15000 || (caja && /no está instalada|ningún punto de situación abierto/.test(caja.textContent))) {
         if (caja && caja.scrollIntoView) caja.scrollIntoView({ block: 'center' });
-        return aviso('Asunto creado y marcado ⭐ Tratar con el General. ' + (caja && /ningún punto/.test(caja.textContent) ? 'No hay un punto de situación abierto: lo verán allí como propuesta.' : 'Mira el recuadro del Punto de Situación en la ficha.'));
+        return aviso('Asunto creado y marcado ⭐ ' + GEN + '. ' + (caja && /ningún punto/.test(caja.textContent) ? 'No hay un punto de situación abierto: lo verán allí como propuesta.' : 'Mira el recuadro del Punto de Situación en la ficha.'));
       }
       setTimeout(mirar, 400);
     };
@@ -1672,7 +1683,7 @@
       var prio = a ? a.Prioridad : (t.prio === 'critica' || t.prio === 'alta' ? 'Alta' : 'Normal');
       var negsPuedo = ps.negs.filter(function (n) { return ps.puedo(n.Title); });
       if (!a && !negsPuedo.length) { f.innerHTML = '<div class="aviso small">Solo los miembros del negociado o de PROCOR pueden incluir asuntos en el punto de situación. ' +
-        'Está marcado ⭐ Tratar con el General: PROCOR lo verá como propuesta.</div>'; return; }
+        'Está marcado ⭐ ' + GEN + ': PROCOR lo verá como propuesta.</div>'; return; }
       var libres = ps.abiertos;
       f.innerHTML = '<div class="psform">' +
         (a ? '<input type="hidden" id="psAport" value="' + a.Id + '">' :
@@ -1761,7 +1772,7 @@
     var f = [];
     if (pref.quien === 'mias') f.push('Asuntos de ' + (yo ? yo.Title : 'mi responsabilidad'));
     if (pref.quien === 'implicado') f.push('Asuntos en los que intervengo');
-    if (pref.negociado) f.push(tx('Departamento: ') + pref.negociado);
+    if (depF(pref.negociado)) f.push(tx('Departamento: ') + pref.negociado);
     if (pref.estado) f.push('Estado: ' + pref.estado);
     if (pref.prio) f.push('Prioridad: ' + pref.prio);
     if (pref.q) f.push('Búsqueda: «' + pref.q + '»');
@@ -1782,7 +1793,8 @@
       if (d > o.dias || (d < 0 && !o.vencidos)) return false;
       if (o.quien === 'mias' && !esMia(t)) return false;
       if (o.quien === 'implicado' && !meImplica(t)) return false;
-      if (o.negociado && t.negociado !== o.negociado && t.negociados.indexOf(o.negociado) < 0) return false;
+      var on = depF(o.negociado);
+      if (on && t.negociado !== on && t.negociados.indexOf(on) < 0) return false;
       return true;
     }).sort(ordenar);
   }
@@ -1872,7 +1884,7 @@
         var k = e[0], g = e[1], enviado = !!(pref.enviados || {})[claveEnviado(k)];
         return '<div class="card"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><div><b>' + esc(g.nombre) + '</b> <span class="muted small">' +
           esc(g.correos.join('; ') || 'sin correo en la lista') + '</span></div><div>' + (enviado ? '<span class="badge ok">Preparado hoy ✓</span> ' : '') +
-          (g.correos.length ? '<a class="btn prim" data-enviado="' + esc(k) + '" href="' + esc(correoGrupo(g, o)) + '">✉ Preparar correo</a>' : '<span class="badge warn">Sin correo: avisa en persona</span>') + '</div></div>' +
+          (g.correos.length ? '<a class="btn prim" data-enviado="' + esc(k) + '"' + NUEVA + ' href="' + esc(correoGrupo(g, o)) + '">✉ Preparar correo</a>' : '<span class="badge warn">Sin correo: avisa en persona</span>') + '</div></div>' +
           '<div class="small" style="margin-top:6px">' + g.tareas.map(function (t) { var u = urgencia(t); return '<div>• <a href="#" data-abrir="' + t.id + '">' + esc(t.asunto) + '</a> — <span class="badge ' + u.cls + '">' + esc(u.txt) + '</span></div>'; }).join('') + '</div></div>';
       }).join('') +
       '<div class="card"><h3 style="margin-top:0">Alarmas en tu Outlook</h3><p class="small">Descarga tus asuntos abiertos con NLT como citas de calendario, con alarma. Ábrelo con doble clic para importarlo en Outlook.</p>' +
@@ -2266,7 +2278,7 @@
     if (caja()) caja().innerHTML = '<span class="small muted">Enviando correo de asignación…</span>';
     (t.usuarios || []).forEach(apuntarPersona);
     return enviarCorreo({ to: d.para, cc: d.cc, bcc: [], asunto: c.asunto, html: c.html, texto: c.texto }).then(function (r) {
-      var outlook = '<div class="acciones"><a class="btn prim" href="' + esc(mailto(d.para, d.cc, c.asunto, c.texto)) + '">✉ Preparar correo de asignación</a></div>';
+      var outlook = '<div class="acciones"><a class="btn prim"' + NUEVA + ' href="' + esc(mailto(d.para, d.cc, c.asunto, c.texto)) + '">✉ Preparar correo de asignación</a></div>';
       if (caja()) caja().innerHTML = r.ok ? '<span class="badge ' + (claseCorreo(r) === 'okmsg' ? 'ok' : 'warn') + '">✓ Correo de asignación enviado</span> <span class="small muted">a ' + esc(r.llegaron.join('; ')) + '.' + detalleCorreo(r) + '</span>' + (r.rechazados.length ? outlook : '') :
         '<div class="small">No se ha podido enviar desde Colabora (' + esc(r.motivo) + ').' + detalleCorreo(r) + ' Prepáralo en Outlook y pulsa Enviar:</div>' + outlook;
       return anotarAviso(t, r);
@@ -2405,8 +2417,17 @@
     (pref.departamentos || []).concat(extra || []).forEach(function (d) { if (d && esCelula(d)) s[d] = 1; });
     return Object.keys(s).sort(function (a, b) { return a.localeCompare(b, 'es'); });
   }
+  // 12/11/2026 (META): en los filtros cada uno ve solo sus departamentos; Control total, todos
+  function depsPermitidos() {
+    if (!PROPIO || esAdmin) return null;
+    var mia = yo ? acceso.filas.find(function (f) { return f.personaId === yo.Id; }) : null;
+    return mia ? mia.negs.slice().sort(function (a, b) { return a.localeCompare(b, 'es'); }) : [];
+  }
+  var depF = function (v) { var lim = depsPermitidos(); return !v || !lim || lim.map(sinTildes).indexOf(sinTildes(v)) >= 0 ? (v || '') : ''; };
   // Para los filtros: los departamentos y, aparte, los negociados antiguos que aún tienen expedientes
   function opcionesDep(sel) {
+    var lim = depsPermitidos();
+    if (lim) return '<option value="">Todos</option>' + lim.map(function (v) { return '<option' + (v === sel ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
     if (!DEP) { var todos = valores('NegociadoAsignado', 'negociado'); tareas.forEach(function (t) { t.negociados.forEach(function (n) { if (todos.indexOf(n) < 0) todos.push(n); }); }); return opciones(todos.sort(), sel, 'Todos'); }
     var deps = departamentos(), viejos = {};
     tareas.forEach(function (t) { [t.negociado].concat(t.negociados || []).forEach(function (d) { if (d && deps.indexOf(d) < 0) viejos[d] = 1; }); });
@@ -2819,7 +2840,7 @@
       '<p class="small muted">Sitio: ' + esc(web ? (web.titulo || '') + ' (' + web.url + ')' : '—') + '<br>Usuario: ' + esc(yo ? yo.Title : '—') +
       (listaInfo ? '<br>Lista: «' + esc(listaInfo.Title) + '», ' + listaInfo.ItemCount + ' elementos' : '') + (cargadoEn ? '<br>Leída a las ' + cargadoEn.toLocaleTimeString('es-ES') : '') + '<br>Versión de la página: ' + esc(VERSION) + '</p>' +
       '<label class="lbl">Nombre de la lista</label><input id="aLista" value="' + esc(pref.lista) + '">' + vistaBiblioteca() +
-      '<p class="small">' + (hayTratar() ? '✔ Columna «Tratar en» (marcas «Punto de situación» y «Tratar con el General»).' : '✕ Falta la columna «Tratar en» para marcar asuntos para el punto de situación o para tratar con el General. <button type="button" class="btn prim" data-creartratar="1">Crear la columna</button> <span class="muted">(hace falta poder administrar la lista)</span>') + '</p>' +
+      '<p class="small">' + (hayTratar() ? '✔ Columna «Tratar en» (marcas «' + TRATAR[0][3] + '» y «' + GEN + '»).' : '✕ Falta la columna «Tratar en» para marcar asuntos para el punto de situación o para tratar con el General. <button type="button" class="btn prim" data-creartratar="1">Crear la columna</button> <span class="muted">(hace falta poder administrar la lista)</span>') + '</p>' +
       vistaCatalogo() +
       '<label class="lbl">Actualizar la lista automáticamente cada (minutos; 0 = no)</label><input id="aAuto" type="number" min="0" max="60" value="' + minutosAuto() + '">' +
       '<label class="lbl">Marcar en naranja cuando queden (días)</label><input id="aDias" type="number" min="1" max="30" value="' + pref.avisoDias + '">' +
@@ -2856,13 +2877,18 @@
       ['Creado', new Date(t.creada).toLocaleString('es-ES') + (t.autor ? ' por ' + t.autor : '')], ['Modificado', new Date(t.modificada).toLocaleString('es-ES') + (t.editor ? ' por ' + t.editor : '')]];
     var dlg = $('#dlg');
     dlg.innerHTML = '<div class="dh"><h2>' + esc(t.asunto) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db ficha"><div class="ficha-datos">' +
-      '<div class="pasos" title="Fase del asunto (se ajusta en Ajustes)">' + FASES.map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<span class="c-' + f[0] + (t.clase === f[0] ? ' on' : '') + '">' + f[1] + ' ' + CLASES[f[0]] + '</span>'; }).join('') + '</div>' +
+      (PROPIO ? '<div class="pasos elegir"><b class="small">Estado:</b> ' + FASES.map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<button type="button" class="c-' + f[0] + (t.clase === f[0] ? ' on' : '') + '" data-fase="' + f[0] + '" data-id="' + t.id + '" title="' + (t.clase === f[0] ? 'Estado actual: ' + esc(t.estado) : 'Pasar a «' + esc(estadoDe(f[0]) || CLASES[f[0]]) + '»') + '">' + f[1] + ' ' + CLASES[f[0]] + '</button>'; }).join('') + '<span id="estMsg" class="small"></span></div>' :
+      '<div class="pasos" title="Fase del asunto (se ajusta en Ajustes)">' + FASES.map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<span class="c-' + f[0] + (t.clase === f[0] ? ' on' : '') + '">' + f[1] + ' ' + CLASES[f[0]] + '</span>'; }).join('') + '</div>') +
       c.filter(function (x) { return x[0] && x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       '<div class="tratar"><b class="small">Para tratar en:</b> ' + (hayTratar() ? TRATAR.map(function (x) { var on = tieneTratar(t, x[0]);
         return '<button type="button" class="btn' + (on ? ' on tr-' + x[0] : '') + '" data-tratar="' + x[0] + '" data-id="' + t.id + '" title="' + (on ? 'Quitar la marca' : 'Marcar para tratar') + '">' + (on ? '✓ ' : '') + x[2] + ' ' + x[3] + '</button>'; }).join(' ') :
         '<span class="small muted">falta la columna «Tratar en» en la lista; la crea quien administre la lista en Ajustes.</span>') + '<span id="trMsg" class="small"></span></div>' +
       '<div id="psBox" class="psbox" data-id="' + t.id + '"></div>' +
-      '<div class="estadoacc"><b class="small">Estado:</b> ' +
+      (PROPIO ? '<div class="acciones"><button type="button" class="btn prim" data-modificar="' + t.id + '">✎ Modificar</button>' +
+        (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
+        (t.clase !== 'hecha' && destinatarios(t).para.length ? '<button type="button" class="btn" data-asignar="' + t.id + '">🔔 Recordar asignación</button>' : '') +
+        '<span class="sep"></span><button type="button" class="btn rojo" data-eliminar="' + t.id + '">🗑 Eliminar</button></div><div id="correoAsig"></div></div><div class="ficha-com">' : '') +
+      (PROPIO ? '' : '<div class="estadoacc"><b class="small">Estado:</b> ' +
         (t.clase !== 'hecha' ? '<button type="button" class="btn verde" data-finalizar="' + t.id + '">✅ Finalizar</button>' : '<button type="button" class="btn" data-reabrir="' + t.id + '">↺ Reabrir</button>') +
         '<select id="selEstado">' + valores('ESTADO', 'estado').map(function (e) { return '<option' + (e === t.estado ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select>' +
         '<button type="button" class="btn" data-cambiarestado="' + t.id + '">Cambiar estado</button>' +
@@ -2870,7 +2896,7 @@
       '<div class="acciones"><button type="button" class="btn prim" data-modificar="' + t.id + '">✎ Modificar</button>' +
         (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
         (base ? '<a class="btn" target="_top" href="' + esc(base + '/DispForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Ver en Colabora</a>' : '') + '</div>' +
-      (t.clase !== 'hecha' && destinatarios(t).para.length ? '<div id="correoAsig" style="margin-top:10px"><button type="button" data-asignar="' + t.id + '">✉ Enviar aviso de asignación</button></div>' : '<div id="correoAsig"></div>') + '</div><div class="ficha-com">' +
+      (t.clase !== 'hecha' && destinatarios(t).para.length ? '<div id="correoAsig" style="margin-top:10px"><button type="button" data-asignar="' + t.id + '">✉ Enviar aviso de asignación</button></div>' : '<div id="correoAsig"></div>') + '</div><div class="ficha-com">') +
       '<h3 style="margin:0 0 6px">Comentarios <span class="small muted">(' + esc(NOMBRE_CAMPO[campoComentarios()]) + ')</span></h3>' +
       '<textarea id="comTxt" rows="6" placeholder="Escribe un comentario…" ' + AREA + '></textarea>' +
       '<div class="error" id="comError" hidden></div>' +
@@ -3013,6 +3039,8 @@
     if (br) { ponerEstado(Number(br.dataset.reabrir), estadoDe('curso') || estadoDe('pendiente'), br); return; }
     if (bc) { ponerEstado(Number(bc.dataset.cambiarestado), $('#selEstado').value, bc); return; }
     if (be) { eliminarAsunto(Number(be.dataset.eliminar), be); return; }
+    var bfa = el.closest('[data-fase]');
+    if (bfa) { var tf = tareas.find(function (x) { return x.id === Number(bfa.dataset.id); }); if (tf && tf.clase !== bfa.dataset.fase) ponerEstado(tf.id, estadoDe(bfa.dataset.fase), bfa); return; }
     var t = el.closest('.tarea');
     if (t) abrir(Number(t.dataset.id));
   });

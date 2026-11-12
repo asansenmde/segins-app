@@ -123,12 +123,15 @@ hayMiembros = true; filas = [{ Id: 1, Title: 'USUARIO DE PRUEBA', Persona: YO, N
 await recargar();
 comprueba('con PRL ve también los de PRL (asignado o implicado)', (await vistos()) === '1,2,3,4,5', await vistos());
 comprueba('la bienvenida nombra sus negociados', /y los de PRL/.test(await p.textContent('.hero')));
+// 12/11/2026: en los filtros solo sus departamentos (Control total, todos)
+comprueba('filtro de departamento solo con los suyos', (await p.$$eval('#fneg option', o => o.map(x => x.textContent))).join() === 'Todos,PRL', (await p.$$eval('#fneg option', o => o.map(x => x.textContent))).join());
 // 3. Lo ve todo
 filas[0].VeTodo = true; await recargar();
 comprueba('«Lo ve todo» ve los 6', (await vistos()) === '1,2,3,4,5,6', await vistos());
 // 4. Control total: todo, y Ajustes con el alta
 filas = []; hayMiembros = false; admin = true; await recargar();
 comprueba('Control total ve los 6', (await vistos()) === '1,2,3,4,5,6');
+comprueba('Control total ve todos los departamentos en el filtro', (await p.$$eval('#fneg option', o => o.length)) > 3);
 comprueba('Control total ve Ajustes', await ajVisible());
 await p.click('#tabs a[data-v="ajustes"]'); await p.waitForTimeout(400);
 comprueba('Ajustes ofrece crear la lista', !!(await p.$('[data-mmcrear]')));

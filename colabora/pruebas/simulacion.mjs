@@ -169,10 +169,29 @@ async function prueba() {
     await p.click('[data-kpi="tr:gen"]');
     // Estado desde la ficha: finalizar, reabrir, cambiar a cualquiera y eliminar (a la papelera)
     { const est = id => { const x = items.find(y => y.Id === id); return x ? x.ESTADO + (x.fECHAFINALIZACION ? ' (fin ' + String(x.fECHAFINALIZACION).slice(0, 10) + ')' : ' (sin fin)') : 'ELIMINADO'; };
-      await p.click('details.grupo .tarea >> nth=0'); await p.waitForTimeout(300); const id = Number(await p.$eval('[data-finalizar]', b => b.dataset.finalizar));
-      await p.click('[data-finalizar]'); await p.waitForTimeout(1500); const e1 = est(id);
-      await p.click('[data-reabrir]'); await p.waitForTimeout(1500); const e2 = est(id);
-      await p.selectOption('#selEstado', 'EN ESPERA DE RESPUESTA'); await p.click('[data-cambiarestado]'); await p.waitForTimeout(1500); const e3 = est(id);
+      await p.click('details.grupo .tarea >> nth=0'); await p.waitForTimeout(300);
+      // META (12/11/2026): el estado se elige en los pasos de arriba de la ficha; Gestor común: Finalizar / Reabrir / Cambiar estado
+      const enMeta = !!(await p.$('[data-fase]'));
+      let id, e1, e2, e3;
+      if (enMeta) {
+        id = Number(await p.$eval('[data-fase]', b => b.dataset.id));
+        const botones = (await p.$$eval('#dlg .ficha-datos .acciones .btn', n => n.map(x => x.textContent.trim()))).join(' | ');
+        const sinViejo = !(await p.$('#selEstado')) && !(await p.$('[data-finalizar]')) && !(await p.$('#dlg a[href*="DispForm.aspx"]'));
+        const nombres = (await p.textContent('#dlg .tratar')).replace(/\s+/g, ' ');
+        const correoNueva = await p.$$eval('#dlg a[href^="mailto:"]', n => n.every(x => x.target === '_blank'));
+        console.log('META ficha | pasos:', (await p.$$eval('[data-fase]', n => n.map(x => x.textContent.trim()))).join(' › '), '| botones:', botones, '| sin Finalizar/Cambiar estado/Ver en Colabora:', sinViejo,
+          '| marcas:', /Reunión de entradas/.test(nombres) && /Punto Situación semanal/.test(nombres) && !/Tratar con el General/.test(nombres), '| correo en ventana nueva:', correoNueva);
+        if (!sinViejo || !/Modificar/.test(botones) || !/Eliminar/.test(botones) || /Ver en Colabora/.test(botones)) console.log('HAY FALLOS: ficha de META');
+        await p.click('[data-fase="hecha"]'); await p.waitForTimeout(1500); e1 = est(id);
+        await p.click('[data-fase="curso"]'); await p.waitForTimeout(1500); e2 = est(id);
+        await p.click('[data-fase="espera"]'); await p.waitForTimeout(1500); e3 = est(id);
+        if (!/\(fin /.test(e1) || /\(fin /.test(e2) || !/ESPERA/.test(e3)) console.log('HAY FALLOS: estados desde los pasos', e1, e2, e3);
+      } else {
+        id = Number(await p.$eval('[data-finalizar]', b => b.dataset.finalizar));
+        await p.click('[data-finalizar]'); await p.waitForTimeout(1500); e1 = est(id);
+        await p.click('[data-reabrir]'); await p.waitForTimeout(1500); e2 = est(id);
+        await p.selectOption('#selEstado', 'EN ESPERA DE RESPUESTA'); await p.click('[data-cambiarestado]'); await p.waitForTimeout(1500); e3 = est(id);
+      }
       await p.click('[data-eliminar]'); const txt = (await p.textContent('[data-eliminar]')).trim(); await p.click('[data-eliminar]'); await p.waitForTimeout(1500);
       const elim = est(id); papelera.forEach(([i, x]) => items.splice(i, 0, x)); papelera = []; await p.click('#recargar'); await p.waitForTimeout(1200);
       console.log('estados nº', id, ':', e1, '→ reabrir:', e2, '→ cambiar:', e3, '| eliminar pide confirmar:', txt, '→', elim, '| ficha cerrada:', !(await p.evaluate(() => document.querySelector('#dlg').open)));
@@ -195,7 +214,7 @@ async function prueba() {
   console.log('solo en espera:', (await p.$$eval('details.grupo', ds => ds.map(d => d.dataset.grupo + ':' + d.querySelector('.n').textContent))).join(' '),
     '| todas en espera:', await p.$$eval('details.grupo .tarea .badge[class*=st-]', bs => bs.every(b => b.classList.contains('st-espera'))));
   await p.click('details.grupo .tarea'); await p.waitForTimeout(200);
-  console.log('fase en ficha:', await p.textContent('#dlg .pasos span.on'));
+  console.log('fase en ficha:', await p.textContent('#dlg .pasos .on'));
   await p.click('#dlg [data-cerrar]'); await p.click('.flujo [data-kpi="c:espera"]');
   if (CAPTURAS) { await p.evaluate(() => scrollTo(0, 0)); await p.screenshot({ path: CAPTURAS + '/escritorio-panel.png' }); }
   await p.click('#tabs [data-v=calendario]');
