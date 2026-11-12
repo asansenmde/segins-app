@@ -1476,7 +1476,7 @@ function tarjetaReuniones() {
     <label class="lbl">Jefe directo (para «Despacho con…» y el informe)
       <select class="input" id="jefe"><option value="">— Elegir del directorio —</option>
       ${nombres.map(n => `<option value="${esc(n)}" ${n === a.jefe ? 'selected' : ''}>${esc(n)}${persona(n)?.cargo ? ' · ' + esc(persona(n).cargo) : ''}</option>`).join('')}</select></label>
-    <p class="small muted">Añádelo en el directorio de abajo con su empleo y cargo (p. ej. «Coronel Jefe de la SUIGESUR»). Si cambia, elige el nuevo: el historial conserva quién era en cada reunión.</p>
+    <p class="small muted">Añádelo en el directorio de abajo con su empleo y cargo (p. ej. «Cte. Sender»). Si cambia, elige el nuevo: el historial conserva quién era en cada reunión.</p>
     <div class="lbl">Días habituales de despacho</div><div>${dias('diasDespacho')}</div>
     <div class="lbl">Días habituales del punto de situación</div><div>${dias('diasPs')}</div>
     <p class="small muted">Sirven para proponer la fecha de la próxima reunión; siempre se puede cambiar en la pestaña Despacho.</p></div>`;
