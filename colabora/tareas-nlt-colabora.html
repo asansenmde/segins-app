@@ -293,7 +293,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-12 · 6';
+  var VERSION = '2026-11-12 · 7';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -2082,7 +2082,19 @@
   function permisosAsunto(id) {
     return fetch(urlLista() + '/items(' + Number(id) + ')?$select=EffectiveBasePermissions', { credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(function (d) { d = d.d || d; if (!d.EffectiveBasePermissions) throw new Error('sin permisos en la respuesta'); var low = Number(d.EffectiveBasePermissions.Low) || 0; return { borrar: !!(low & 0x8), editar: !!(low & 0x4) }; });
+      .then(function (d) { d = d.d || d; if (!d.EffectiveBasePermissions) throw new Error('sin permisos en la respuesta'); var low = Number(d.EffectiveBasePermissions.Low) || 0; return { borrar: !!(low & 0x8), editar: !!(low & 0x4) }; })
+      .then(function (pm) {
+        if (pm.borrar) return pm;
+        // Para explicar el motivo: ¿la lista solo deja tocar lo que cada uno creó? (Configuración avanzada › Acceso a elementos)
+        return api(urlLista() + '?$select=WriteSecurity').then(function (l) { pm.soloSuyos = Number(l.WriteSecurity) === 2; return pm; }, function () { return pm; });
+      });
+  }
+  // 12/11/2026: el motivo concreto por el que Colabora no deja eliminar (para saber qué tocar en la lista)
+  function motivoNoEliminar(t, pm) {
+    var mio = t && yo && t.autorId === yo.Id;
+    if (pm.soloSuyos && !mio) return 'Colabora no te deja eliminar este asunto: la lista está configurada para que cada uno solo modifique y elimine lo que ha creado él (Configuración de la lista › Configuración avanzada › Acceso a elementos de lista › Editar: «Solo los suyos»), y este lo creó ' + (t.autor || 'otra persona') + '.';
+    if (pm.editar) return 'Colabora no te deja eliminar este asunto: puedes modificarlo, pero tu nivel de permiso en la lista no incluye «Eliminar elementos» (no es «Colaborar» completo; puede ser «Editar sin eliminar» u otro nivel propio). Pide a quien tenga Control total que lo elimine o que te dé «Colaborar».';
+    return 'Colabora no te deja eliminar este asunto: con tu cuenta solo tienes lectura en la lista (por ejemplo, entras por «Usuarios del dominio» con «Leer» y no estás en el grupo que tiene «Colaborar»). Pide a quien tenga Control total que te añada a ese grupo.';
   }
   var NO_ELIMINAR = 'Colabora no te deja eliminar este asunto: tus permisos en la lista no incluyen «Eliminar elementos» (o solo puedes eliminar los que has creado tú). Pide a quien tenga Control total que lo elimine o que te dé «Colaborar» en la lista.';
   // Eliminar: va a la papelera de reciclaje de Colabora (se puede recuperar desde allí)
@@ -2093,7 +2105,7 @@
       return;
     }
     boton.disabled = true;
-    permisosAsunto(id).then(function (pm) { if (!pm.borrar) throw new Error(NO_ELIMINAR); }, function () { /* si no se pueden leer, se intenta */ })
+    permisosAsunto(id).then(function (pm) { if (!pm.borrar) throw new Error(motivoNoEliminar(tareas.find(function (x) { return x.id === id; }), pm)); }, function (e) { if (e && /no te deja/.test(e.message)) throw e; /* si no se pueden leer, se intenta */ })
       .then(function () { return enviarSP(urlLista() + '/items(' + id + ')/recycle()', {}, NO_ELIMINAR); })
       .then(function () { $('#dlg').close(); return cargar(); })
       .then(function () { aviso('Nº ' + id + ' eliminado: está en la papelera de reciclaje de Colabora, de donde se puede recuperar'); })
