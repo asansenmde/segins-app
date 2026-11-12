@@ -229,4 +229,10 @@ autoría.
     12/11/2026: Puntos de Situación 2026-11-12 · 3 (asunto en su línea y texto debajo en el informe, Word y PDF) confirmado por el usuario.
     12/11/2026: Puntos de Situación 2026-11-12 · 4 (propuestas de META sin negociado: motivo e «Incluir en…» para PROCOR) confirmado por el usuario.
     12/11/2026: Puntos de Situación 2026-11-12 · 5 (tras «Incluir en…» se abre «Mi negociado» en ese negociado) confirmado por el usuario.
+    12/11/2026: Puntos de Situación 2026-11-12 · 6 (informe completo en PDF para todos los negociados en «Informe»): entregado.
+    12/11/2026: META 2026-11-12 · 7 confirmado (estado solo En curso/Terminada, nombres «Reunión de entradas» y «Punto Situación
+      semanal», Recordar asignación, correos en ventana nueva, filtros con los departamentos propios, eliminar con aviso del motivo).
+      Eliminar no funcionaba porque el nivel «Colaborar» del sitio JSUIGE no tiene «Eliminar elementos»: el usuario creó un nivel
+      propio «META» (Colaborar + Eliminar elementos) para la lista «Gestor de Tareas MENSADEF» y ya funciona. No dar Control total
+      para esto (en META, Control total = administrador: ve todo y Ajustes).
 
