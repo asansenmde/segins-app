@@ -486,9 +486,10 @@ function vistaNlt() {
   // Recorrido por estados
   const porEstado = e => datos.tareas.filter(t => t.estado === e).length;
   const paso = (e, ico) => `<button class="paso p-${e} ${fk === 'e:' + e ? 'on' : ''}" data-kpi="e:${e}"><span class="pl">${NOMBRE_ESTADO[e]}${e === 'hecha' ? 's' : ''}</span><span class="pv">${porEstado(e)}</span><span class="pi">${ico}</span></button>`;
-  const nombre = datos.ajustes.miNombre || nube.miNombre || '';
+  // Gestor personal: la bienvenida siempre a nombre del Cte. Sender (no el «Mi nombre» de Ajustes, que firma otras cosas)
+  const nombre = 'Cte. Sender';
   const fecha = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  const hero = `<div class="hero"><div class="hola">Tareas NLT · Gestor personal</div><div class="nom">👤 ${esc(nombre || 'Mis tareas')}</div>
+  const hero = `<div class="hero"><div class="hola">Tareas NLT · Gestor personal</div><div class="nom">👤 ${esc(nombre)}</div>
     <span class="rolh">${n.abiertas} abierta${n.abiertas === 1 ? '' : 's'}</span>${n.vencidas ? `<span class="rolh bad">${n.vencidas} fuera de plazo</span>` : ''}
     ${n.hoy ? `<span class="rolh">${n.hoy} vence${n.hoy === 1 ? '' : 'n'} hoy</span>` : ''}<span class="rolh">${n.hechas} hecha${n.hechas === 1 ? '' : 's'} este mes</span>
     <p>${esc(fecha[0].toUpperCase() + fecha.slice(1))} <span class="sinmovil"> · ✉ Arrastra aquí un correo de Outlook para convertirlo en tarea.</span></p></div>`;
