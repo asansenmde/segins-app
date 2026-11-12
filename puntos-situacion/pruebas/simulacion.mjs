@@ -24,7 +24,9 @@ const nuevaLista = (t, campos = []) => (listas[t.toLowerCase()] = { titulo: t, e
 nuevaLista('Gestor de Tareas' + SUF, ['NegociadoAsignado']);
 const meta = nuevaLista(PRUEBAS ? 'Gestor de Tareas PRUEBAS' : 'Gestor de Tareas MENSADEF', ['TratarEn']);
 meta.items.push({ Id: 31, Title: 'Asunto ficticio para el General', ESTADO: 'EN CURSO', Prioridad: 'Alta', NegociadoAsignado: 'PRL', DescripcionDelAsunto: '<p>Descripción <b>ficticia</b> del asunto</p>', TratarEn: ['TRATAR CON EL GENERAL'] },
-  { Id: 32, Title: 'Asunto sin marca', ESTADO: 'EN CURSO', NegociadoAsignado: 'PRL', TratarEn: [] }, { Id: 33, Title: 'Asunto terminado', ESTADO: 'FINALIZADO', NegociadoAsignado: 'PRL', TratarEn: ['TRATAR CON EL GENERAL'], fECHAFINALIZACION: iso(-D) });
+  { Id: 32, Title: 'Asunto sin marca', ESTADO: 'EN CURSO', NegociadoAsignado: 'PRL', TratarEn: [] }, { Id: 33, Title: 'Asunto terminado', ESTADO: 'FINALIZADO', NegociadoAsignado: 'PRL', TratarEn: ['TRATAR CON EL GENERAL'], fECHAFINALIZACION: iso(-D) },
+  { Id: 34, Title: 'Asunto sin negociado ficticio', ESTADO: 'EN CURSO', NegociadoAsignado: '', TratarEn: ['TRATAR CON EL GENERAL'] },
+  { Id: 35, Title: 'Asunto de departamento desconocido', ESTADO: 'EN CURSO', NegociadoAsignado: 'DEPARTAMENTO FICTICIO', TratarEn: ['TRATAR CON EL GENERAL'] });
 const CHOICES = ['PROCOR', 'INFRAESTRUCTURA', 'SEGURIDAD', 'P.R.L.', 'CALIDAD DE VIDA', 'ACUARTELAMIENTO', 'JEFATURA'];
 const adjuntos = {};   // url → Buffer
 const L = n => listas[n.toLowerCase()];
@@ -177,6 +179,12 @@ comprueba('historial del punto: ' + LP('Puntos').items[0].Historial.split('\n')[
 await p.click('#dlg [data-cerrar]');
 comprueba('seguimiento: 0 de 6 y 6 pendientes', /0 de 6 negociados/.test(await txt('#vista')) && (await p.$$('.neg.r')).length === 6);
 await foto('03-seguimiento');
+// Propuestas sin negociado: PROCOR elige dónde incluirlas (no se quedan en el limbo)
+{ const t = await txt('#vista');
+  comprueba('sin negociado: se dice el motivo', /sin negociado en META/.test(t) && /«DEPARTAMENTO FICTICIO» no está en Ajustes/.test(t) && (await p.$$('[data-incluiren]')).length === 2 && !(await p.$('[data-incluiren="31"]')));
+  await p.selectOption('[data-negpara="34"]', 'Seguridad'); await p.click('[data-incluiren="34"]'); await p.waitForSelector('#edSit');
+  comprueba('«Incluir en…» abre el editor del negociado elegido: ' + await p.$eval('#dlg h2', e => e.textContent), /Nueva entrada · Seguridad/.test(await p.$eval('#dlg h2', e => e.textContent)) && await p.inputValue('#edTit') === 'Asunto sin negociado ficticio');
+  await p.click('#dlg [data-cerrar]'); await esperaDlgCerrado(); }
 
 // 3b. Modificar el punto (fecha, bloqueo y convocados) y eliminar uno creado por error
 const local = ms => p.evaluate(ms => { const d = new Date(Date.now() + ms); const z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + 'T' + z(d.getHours()) + ':' + z(d.getMinutes()); }, ms);

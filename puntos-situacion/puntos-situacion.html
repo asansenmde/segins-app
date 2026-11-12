@@ -154,7 +154,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-12 · 3';
+  var VERSION = '2026-11-12 · 4';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -530,9 +530,15 @@
         '<button class="rojo" data-eliminarpunto="' + p.id + '">🗑 Eliminar punto</button>' +
         '<span class="sep"></span>' + (p.estado !== 'Contenido borrado' ? '<button class="prim" data-word="' + p.id + '">📄 Generar informe Word</button>' : '') + '</div>';
       var props = propuestas(p);
+      // 12/11/2026: las que no casan con ningún negociado no se quedan en el limbo: PROCOR elige dónde incluirlas
       if (props.length) h += '<h2 class="sec">⭐ Propuestas de META (Tratar con el General) · ' + props.length + '</h2><div class="card">' + props.map(function (x) {
-        return '<div class="fila small" style="border-bottom:1px solid var(--line);padding:4px 0"><span class="crece"><b>' + esc(x.t.Title) + '</b> <span class="muted">· Exp. ' + x.t.Id + '</span></span><span class="badge info">' + esc(x.neg || 'sin negociado') + '</span></div>';
-      }).join('') + '<p class="small muted">Cada negociado las ve en «Mi negociado» y decide si las incluye.</p></div>';
+        var dueno = String(x.t.NegociadoAsignado || '').trim();
+        if (x.neg) return '<div class="fila small" style="border-bottom:1px solid var(--line);padding:4px 0"><span class="crece"><b>' + esc(x.t.Title) + '</b> <span class="muted">· Exp. ' + x.t.Id + '</span></span><span class="badge info">' + esc(x.neg) + '</span></div>';
+        return '<div class="fila small" style="border-bottom:1px solid var(--line);padding:4px 0;flex-wrap:wrap"><span class="crece"><b>' + esc(x.t.Title) + '</b> <span class="muted">· Exp. ' + x.t.Id + '</span></span>' +
+          '<span class="badge warn" data-sinneg title="' + (dueno ? 'Añade este nombre en Ajustes («Negociado en el Gestor») para que se reparta solo' : 'El expediente no tiene negociado asignado en META') + '">' + (dueno ? '«' + esc(dueno) + '» no está en Ajustes' : 'sin negociado en META') + '</span>' +
+          '<select data-negpara="' + x.t.Id + '" style="max-width:200px">' + cs.map(function (n) { return '<option>' + esc(n.titulo) + '</option>'; }).join('') + '</select>' +
+          '<button class="small" data-incluiren="' + x.t.Id + '">📋 Incluir en…</button></div>';
+      }).join('') + '<p class="small muted">Las que tienen negociado las ve ese negociado en «Mi negociado» y decide si las incluye. Las que no, las incluyes tú eligiendo el negociado.</p></div>';
       var sig = siguientePeriodico();
       if (sig) h += '<div class="card fila"><span class="crece small">El último punto se repite cada <b>' + sig.dias + ' día' + (sig.dias === 1 ? '' : 's') + '</b>. Siguiente: <b>' + esc(fLarga(sig.fecha)) + '</b></span><button data-siguiente>＋ Crear el siguiente punto</button></div>';
     }
@@ -1030,10 +1036,11 @@
       cargar();
     });
   }
-  function incluirMeta(id) {
+  // neg: negociado donde se incluye (desde Seguimiento, PROCOR lo elige para las que no tienen negociado)
+  function incluirMeta(id, neg) {
     var t = metaTareas.find(function (x) { return x.Id === id; }), p = puntoPorId(sel);
     if (!t || !p) return;
-    abrirEditor(p, pref.neg, null, { titulo: t.Title || '', sit: texto(t.DescripcionDelAsunto) || texto(t.Descripcion) || '', prio: /(alta|urgent|critic|inmediat)/i.test(sinTildes(t.Prioridad)) ? 'Alta' : 'Normal',
+    abrirEditor(p, neg || pref.neg, null, { titulo: t.Title || '', sit: texto(t.DescripcionDelAsunto) || texto(t.Descripcion) || '', prio: /(alta|urgent|critic|inmediat)/i.test(sinTildes(t.Prioridad)) ? 'Alta' : 'Normal',
       origen: 'META', origenLista: META, origenId: t.Id, origenUrl: metaRaiz ? metaRaiz + '/DispForm.aspx?ID=' + t.Id : '' });
   }
 
@@ -1740,6 +1747,7 @@
     if (el.closest('[data-traer]')) { traerAnterior(p, pref.neg); return; }
     if ((b = el.closest('[data-traerok]'))) { traerOk(b); return; }
     if ((b = el.closest('[data-incluirmeta]'))) { incluirMeta(Number(b.dataset.incluirmeta)); return; }
+    if ((b = el.closest('[data-incluiren]'))) { var sn = $('[data-negpara="' + b.dataset.incluiren + '"]'); if (sn && sn.value) incluirMeta(Number(b.dataset.incluiren), sn.value); return; }
     // Ajustes
     if ((b = el.closest('[data-guardarneg]'))) { guardarNeg(b, Number(b.dataset.guardarneg)); return; }
     if ((b = el.closest('[data-quitarmiembro]'))) {

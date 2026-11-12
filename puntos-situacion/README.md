@@ -18,6 +18,13 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-12 · 4: las propuestas de META sin negociado ya no se quedan en el limbo
+
+- En «Seguimiento», las propuestas de META que no casan con ningún negociado dicen por qué:
+  «sin negociado en META» (el expediente no tiene negociado asignado) o ««X» no está en Ajustes» (el negociado de
+  META no figura en «Negociado en el Gestor»; al añadirlo, se reparten solas).
+- PROCOR las incluye con «📋 Incluir en…», eligiendo el negociado convocado en el desplegable.
+
 ## Versión 2026-11-12 · 3: el asunto en su línea y el texto debajo en el informe
 
 - En la vista previa, el PDF y el Word, cada asunto sale en negrita en su propia línea (con su viñeta) y lo que
