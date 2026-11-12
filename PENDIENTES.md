@@ -180,3 +180,48 @@ autoría.
     - Pendiente: esperar a las pruebas del usuario antes de empezar.
     12/11/2026: publicados y confirmados por el usuario: SENDERO 2026-11-11 · 6 (SENDERO.html) y META 2026-11-12 · 3 (META.html).
 
+<!-- Traído de la rama claude/modest-fermat-9zf46n (Puntos de Situación) el 12/11/2026 -->
+
+16. **Nuevo proyecto: Puntos de Situación de SUIGESUR** (`puntos-situacion/`, etiqueta `[PUNTOS]`; acordado el 09/11/2026,
+    se hace el 10/11/2026). Sustituye al Word de Colabora donde cada negociado aporta lo suyo. Decisiones del usuario:
+    - Un solo HTML para el sitio `/et/SUIGESUR/JSUIGE` (el usuario puede crear listas). La primera vez crea las listas
+      «PS Negociados», «PS Puntos» y «PS Aportaciones» (contrato de columnas en `colabora/README.md`, versión 2026-11-09 · 2)
+      y la validación del bloqueo; activa versiones.
+    - Negociados copiados de `NegociadoAsignado` de «Gestor de Tareas», en este orden: PROCOR, Infraestructura,
+      Seguridad, PRL, Calidad de Vida, Acuartelamiento (confirmar emparejamiento al instalar).
+    - Varias entradas por negociado (asunto, situación, prioridad, orden arrastrando), «Sin novedad», «Traer del punto
+      anterior»; **imágenes dentro del texto** (insertar, pegar, arrastrar; reducidas a ~1600 px; adjuntos del elemento;
+      pie «Figura n»).
+    - Permisos: cada negociado da de alta y edita lo suyo; **PROCOR** gestiona los puntos y puede retocar cualquier
+      entrada; el usuario, control total (fila de coordinación en «PS Negociados»).
+    - Bloqueo real por fecha y hora: `CierrePunto` en cada entrada + validación de lista; solo PROCOR reabre o cambia la
+      hora (y entonces actualiza `CierrePunto` de todas las entradas). Comprobar en la instalación si la validación con la
+      hora actual funciona y si frena los adjuntos.
+    - Panel de seguimiento (cuenta atrás, quién ha aportado, recordar a pendientes), correo al abrir y recordatorio
+      (envío robusto), siguiente punto periódico con un clic.
+    - Informe Word .docx «PUNTO DE SITUACIÓN DE SUIGESUR» con el membrete de Incidentes (escudo, USO OFICIAL, banda azul y
+      oro «EJÉRCITO DE TIERRA · INSPECCIÓN GENERAL DEL EJÉRCITO · SUIGESUR»), referencia **PS-año-número** (correlativo por
+      año), fecha del punto, de elaboración y de cierre; todos los negociados («Sin novedad» / «No ha aportado
+      información»); firma; pie con quién lo emite y página. Archivo `PS-2026-045 Punto de Situación 2026-11-10.docx`.
+    - Histórico: «Archivar en…» (descargar Word y .zip de imágenes, ruta de red, confirmación; anota quién y cuándo) y,
+      pasados 30 días del archivo, «Borrar contenido» a la **papelera** (solo PROCOR y el usuario, doble confirmación); la
+      ficha del punto se conserva siempre. Ocupación en Colabora a la vista.
+    - Desde META: hecho y preparado (Gestor 2026-11-09 · 2, «📋 Incluir en el Punto de Situación»). En la aplicación,
+      mostrar «Desde META» con enlace a la tarea y, como **propuestas**, los asuntos marcados **⭐ Tratar con el General** en
+      META que aún no estén en el punto abierto.
+    - Autoría y copia protegida, control de acceso y pruebas simuladas como en las demás páginas.
+    Maquetas enseñadas y aprobadas el 09/11/2026 (con datos ficticios).
+    09/11/2026: Gestor de Tareas / META 2026-11-09 · 2 con «📋 Incluir en el Punto de Situación», probado en simulación
+    (original y protegidas, ligero y verbose). Pendiente: que suba las copias; funcionará cuando se instale Puntos de Situación.
+    09/11/2026: 2026-11-09 · 3: solo se incluyen los asuntos marcados ⭐ Tratar con el General (petición del usuario).
+    09/11/2026: **hecha la aplicación** (`puntos-situacion/`, versión 2026-11-09 · 1), probada en simulación (original,
+    protegida y de pruebas; ligero y verbose; Word comprobado con LibreOffice). Pendiente del usuario: subir
+    `puntos-situacion/colabora/puntos-situacion.html` (o primero la de pruebas) a una biblioteca de `/et/SUIGESUR/JSUIGE`,
+    abrirla para la puesta en marcha, revisar el emparejamiento de negociados, añadir miembros en Ajustes y contar si la
+    validación del bloqueo quedó activa («Comprobar la instalación»).
+    10/11/2026: Puntos de Situación **2026-11-10 · 1**: «✎ Modificar punto» y «🗑 Eliminar punto» (a la papelera) para la
+    coordinación, pedido por el usuario al probar la copia de pruebas. Pendiente: que suba la nueva copia de pruebas.
+    10/11/2026: Puntos de Situación **2026-11-10 · 2**: editor ampliable y la parte de cada negociado en Word o PDF
+    (petición del usuario). Pendiente: que suba la copia de pruebas y lo pruebe.
+    10/11/2026: Gestor común, META y pruebas **2026-11-10 · 1**: unidas la · 2 confirmada (Ajustes solo con Control total) y
+    el enlace con el Punto de Situación (solo ⭐ Tratar con el General). Pendiente: que suba las tres copias.
