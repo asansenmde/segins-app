@@ -191,6 +191,8 @@
   table.tt .nw { white-space: nowrap; }
   @media (max-width: 640px) { table.tt .opc { display: none; } }
   .meta { display: flex; flex-wrap: wrap; gap: 5px 8px; margin-top: 4px; font-size: .82rem; align-items: center; }
+  .req { color: #b3261e; font-weight: 800; }
+  .falta { outline: 2px solid #b3261e; outline-offset: 1px; border-radius: 6px; }
   .okmsg { background: #e8f5ec; border: 1px solid #9fd3b0; border-radius: 10px; padding: 8px 12px; color: #1d5a32; }
   .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .74rem; font-weight: 700; white-space: nowrap; }
   .badge.ok { background: var(--ok-bg); color: var(--ok); } .badge.warn { background: var(--warn-bg); color: var(--warn); }
@@ -287,7 +289,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-12 · 2';
+  var VERSION = '2026-11-12 · 3';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -578,6 +580,7 @@
       });
     }).catch(function (e) { solic.info = e.status === 404 ? null : solic.info; solic.filas = []; solic.error = e.status === 404 ? '' : (e.message || String(e)); });
   }
+  var fSol = function (x) { var d = new Date(x); return isNaN(d) ? '' : d.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); };
   var pendientes = function () { return solic.filas.filter(function (f) { return f.estado === 'Pendiente'; }); };
   // Pantalla de quien aún no está dado de alta: como la de Incidentes (datos de la cuenta, empleo, teléfono, departamento,
   // motivo, historial de sus solicitudes y aviso por correo al responsable de los accesos)
@@ -601,22 +604,23 @@
       'Si lo necesitas, solicita el acceso: se revisará y recibirás un correo con la respuesta.</p>' +
       '<p class="small muted">Sesión: <b>' + esc(yo.Title) + '</b>' + (yo.Email ? ' · ' + esc(yo.Email) : '') + '</p></div>';
     var hist = mias.length ? '<div class="card"><h3 style="margin-top:0">Tus solicitudes</h3>' + mias.map(function (f) {
-      return '<div class="small" style="margin:4px 0"><b>' + esc(fCorta(f.fecha)) + '</b> · ' + esc(f.deps.join(', ')) + ' <span class="badge">' + esc(f.estado.toUpperCase()) + '</span>' +
+      return '<div class="small" style="margin:4px 0"><b>' + esc(fSol(f.fecha)) + '</b> · ' + esc(f.deps.join(', ')) + ' <span class="badge">' + esc(f.estado.toUpperCase()) + '</span>' +
         (f.respuesta ? '<br>' + (f.estado === 'Denegada' ? '<b>Motivo del rechazo:</b> ' : '') + esc(f.respuesta) : '') + '</div>';
     }).join('') + '</div>' : '';
-    if (pend) return cab + '<div class="aviso">Tu solicitud del ' + esc(fCorta(pend.fecha)) + ' está <b>PENDIENTE</b> de revisión. Recibirás un correo cuando se resuelva.</div>' + msgSolic + hist;
+    if (pend) return cab + '<div class="aviso">Tu solicitud del ' + esc(fSol(pend.fecha)) + ' está <b>PENDIENTE</b> de revisión. Recibirás un correo cuando se resuelva.</div>' + msgSolic + hist;
     if (solic.porCorreo && !solic.info) return cab + '<div class="aviso">Tu solicitud se ha enviado por correo al responsable de los accesos (' + esc(solic.porCorreo.deps.join(', ')) + '). Recibirás la respuesta por correo.</div>' + msgSolic;
     if (ult && ult.estado === 'Denegada') cab += '<div class="aviso">Tu última solicitud se denegó' + (ult.respuesta ? ': «' + esc(ult.respuesta) + '»' : '') + '. Puedes pedirlo otra vez.</div>';
     var deps = departamentos(), cargo = sinTildes(P.cargo || '').toUpperCase();
     return cab + '<div class="card" id="fSolic"><h3 style="margin-top:0">Solicitar acceso</h3>' +
       '<div class="grid"><div><label class="lbl">Apellidos y nombre</label><input value="' + esc(yo.Title) + '" disabled></div>' +
       '<div><label class="lbl">Correo</label><input value="' + esc(yo.Email || '') + '" disabled></div>' +
-      '<div><label class="lbl">Empleo *</label><select id="solEmpleo"><option value="">Seleccionar…</option>' + EMPLEOS.map(function (e) { return '<option' + (cargo && cargo === sinTildes(e).toUpperCase() ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select></div>' +
-      '<div><label class="lbl">Teléfono</label><input id="solTel" value="' + esc(P.telefono || '') + '" placeholder="RPV o fijo"></div></div>' +
-      '<label class="lbl">Tu departamento * <span class="small muted">(tu célula de MENSADEF; puedes marcar varios)</span></label><div id="solDeps">' + deps.map(function (d) {
+      '<div><label class="lbl">Empleo <span class="req">*</span></label><select id="solEmpleo"><option value="">Seleccionar…</option>' + EMPLEOS.map(function (e) { return '<option' + (cargo && cargo === sinTildes(e).toUpperCase() ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="lbl">Teléfono <span class="req">*</span></label><input id="solTel" value="' + esc(P.telefono || '') + '" placeholder="RPV o fijo"></div></div>' +
+      '<label class="lbl">Tu departamento <span class="req">*</span> <span class="small muted">(tu célula de MENSADEF; puedes marcar varios)</span></label><div id="solDeps">' + deps.map(function (d) {
         return '<label class="check"><input type="checkbox" value="' + esc(d) + '"> ' + esc(d) + '</label>'; }).join('') + '</div>' +
       '<input id="solOtro" placeholder="' + (deps.length ? 'Otro (escríbelo como en MENSADEF)' : 'Escribe tu célula como en MENSADEF, p. ej. ET 2SUIGE SETEC SEGURIDAD') + '" autocomplete="off" style="margin-top:4px">' +
-      '<label class="lbl">Motivo / observaciones</label><textarea id="solMotivo" rows="3" placeholder="Por ejemplo: destino nuevo en la sección; tengo que llevar los expedientes de…"></textarea>' +
+      '<p class="small muted" style="margin:6px 0 0">Los campos con <span class="req">*</span> son obligatorios.</p>' +
+      '<label class="lbl">Para qué necesitas el acceso <span class="req">*</span></label><textarea id="solMotivo" rows="3" placeholder="Por ejemplo: destino nuevo en la sección; tengo que llevar los expedientes de…"></textarea>' +
       '<div id="solMsg"></div><div class="acciones"><button class="btn prim" data-solpedir="1">📨 Enviar solicitud de acceso</button></div></div>' + msgSolic + hist;
   }
   function pedirAcceso(boton) {
@@ -624,8 +628,10 @@
     var deps = Array.prototype.filter.call(document.querySelectorAll('#solDeps input'), function (x) { return x.checked; }).map(function (x) { return x.value; });
     var otro = ($('#solOtro') && $('#solOtro').value || '').trim().replace(/\s+/g, ' ').toUpperCase(); if (otro && deps.indexOf(otro) < 0) deps.push(otro);
     var empleo = $('#solEmpleo') ? $('#solEmpleo').value : '', tel = ($('#solTel') && $('#solTel').value || '').trim(), motivo = ($('#solMotivo').value || '').trim();
-    var faltan = []; if (!empleo) faltan.push('empleo'); if (!deps.length) faltan.push('departamento');
-    if (faltan.length) return msg('<div class="error">Falta: ' + faltan.join(', ') + '. Marca tu departamento' + (faltan.length > 1 ? ' y tu empleo' : '') + '.</div>');
+    var faltan = [], marca = function (id, mal) { var el = $(id); if (el) el.classList.toggle('falta', !!mal); };
+    if (!empleo) faltan.push('empleo'); if (!tel) faltan.push('teléfono'); if (!deps.length) faltan.push('departamento'); if (!motivo) faltan.push('para qué necesitas el acceso');
+    marca('#solEmpleo', !empleo); marca('#solTel', !tel); marca('#solDeps', !deps.length); marca('#solMotivo', !motivo);
+    if (faltan.length) return msg('<div class="error">Completa los campos obligatorios: ' + faltan.join(', ') + '.</div>');
     boton.disabled = true;
     // Aviso por correo: solo al responsable de los accesos (AVISAR_SOLIC), como en Incidentes (envío robusto; la solicitud queda guardada igualmente)
     var avisar = function () {
@@ -667,7 +673,7 @@
       ' · <a target="_blank" rel="noopener" href="' + esc(web.url + '/_layouts/15/SubNew.aspx?List=' + encodeURIComponent('{' + String(solic.info.Id).replace(/[{}]/g, '') + '}')) + '">🔔 Avisarme por correo de cada solicitud nueva</a></p>';
     if (!p.length) return h + '<p class="small">No hay solicitudes pendientes.</p><div id="solAdmMsg"></div>';
     return h + '<table class="t"><tr><th>Persona</th><th>Pide</th><th>Motivo</th><th>Fecha</th><th></th></tr>' + p.map(function (f) {
-      return '<tr><td>' + esc([f.empleo, f.nombre].filter(Boolean).join(' ')) + (f.correo || f.tel ? '<br><span class="small muted">' + esc([f.correo, f.tel && 'tel. ' + f.tel].filter(Boolean).join(' · ')) + '</span>' : '') + '</td><td>' + esc(f.deps.join(', ')) + '</td><td class="small">' + esc(f.motivo || '—') + '</td><td class="small">' + esc(fCorta(f.fecha)) + '</td>' +
+      return '<tr><td>' + esc([f.empleo, f.nombre].filter(Boolean).join(' ')) + (f.correo || f.tel ? '<br><span class="small muted">' + esc([f.correo, f.tel && 'tel. ' + f.tel].filter(Boolean).join(' · ')) + '</span>' : '') + '</td><td>' + esc(f.deps.join(', ')) + '</td><td class="small">' + esc(f.motivo || '—') + '</td><td class="small">' + esc(fSol(f.fecha)) + '</td>' +
         '<td style="white-space:nowrap"><button class="btn prim" data-solalta="' + f.id + '">Dar de alta</button> <button class="btn" data-soldeny="' + f.id + '">Denegar</button></td></tr>';
     }).join('') + '</table><div id="solAdmMsg"></div>';
   }
