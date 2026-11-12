@@ -18,6 +18,12 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-12 · 3: el asunto en su línea y el texto debajo en el informe
+
+- En la vista previa, el PDF y el Word, cada asunto sale en negrita en su propia línea (con su viñeta) y lo que
+  se escribe va debajo, con sus saltos de línea, en vez de salir pegado («RDO: SOLICITUD GAR. PARECER: …»).
+- Ya no se añade un punto detrás del asunto.
+
 ## Versión 2026-11-12 · 2: sin la pantalla de identificarse al quitar
 
 - **Caso real:** al pulsar quitar, al usuario le salía la pantalla para identificarse en Colabora. Así contesta Colabora

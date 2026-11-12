@@ -324,6 +324,7 @@ comprueba('cierre cambiado en el punto y en las ' + LP('Aportaciones').items.fil
 await ir(9); await p.click('nav.tabs a[data-v=informe]');
 const prev = await txt('.hoja');
 comprueba('vista previa en orden y con estados: ' + prev.slice(0, 80), /1\. PROCOR.*2\. INFRAESTRUCTURA.*3\. SEGURIDAD.*Sin novedad.*4\. PRL.*Segunda entrada ficticia.*Revisión ficticia.*5\. CALIDAD DE VIDA.*No ha aportado información/.test(prev));
+comprueba('asunto en su línea y el texto debajo (vista previa)', await p.$$eval('.hoja .item', l => l.length > 0 && l.every(it => it.firstElementChild.classList.contains('asunto') && it.firstElementChild.textContent.trim() && (!it.children[1] || !it.firstElementChild.textContent.includes(it.children[1].textContent.trim().slice(0, 12))))));
 await foto('06-informe');
 const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-word]')]);
 const ruta = await dl.path(), nombre = dl.suggestedFilename();
@@ -335,9 +336,12 @@ z=zipfile.ZipFile(sys.argv[1]); n=z.namelist()
 for f in n:
   if f.endswith('.xml') or f.endswith('.rels'): m.parseString(z.read(f))
 d=z.read('word/document.xml').decode()
-print(len([x for x in n if x.startswith('word/media/')]), 'PROCOR' in d, 'No ha aportado información.' in d, 'Sin novedad.' in d, 'PUNTO DE SITUACIÓN DE SUIGESUR' in d, 'PRIORIDAD ALTA' in d)
+import re
+viñetas=[p for p in re.findall(r'<w:p>.*?</w:p>', d) if '•' in p]
+solo=all(len(re.findall(r'<w:t[ >]', p))==2 for p in viñetas)
+print(len([x for x in n if x.startswith('word/media/')]), 'PROCOR' in d, 'No ha aportado información.' in d, 'Sin novedad.' in d, 'PUNTO DE SITUACIÓN DE SUIGESUR' in d, 'PRIORIDAD ALTA' in d, bool(viñetas) and solo)
 `, path.join(dir, 'informe.docx')]).toString().trim();
-comprueba('Word válido (XML bien formado), membrete y contenido: ' + rev, rev === '4 True True True True True');
+comprueba('Word válido (XML bien formado), membrete, contenido y asunto solo en su línea: ' + rev, rev === '4 True True True True True True');
 try { execFileSync('python3', ['-c', 'import docx,sys; d=docx.Document(sys.argv[1]); print(len(d.paragraphs))', path.join(dir, 'informe.docx')]); comprueba('python-docx lo abre', true); } catch (e) { console.log('(python-docx no disponible o no lo abre: ' + String(e.stderr || e).slice(0, 120) + ')'); }
 let soffice = ''; try { soffice = execFileSync('bash', ['-lc', 'command -v soffice || command -v libreoffice']).toString().trim(); } catch (e) { /* sin LibreOffice */ }
 if (soffice) { try { execFileSync(soffice, ['--headless', '--convert-to', 'pdf', '--outdir', dir, path.join(dir, 'informe.docx')], { timeout: 120000 }); comprueba('LibreOffice lo convierte a PDF', fs.existsSync(path.join(dir, 'informe.pdf'))); if (CAPT) fs.copyFileSync(path.join(dir, 'informe.pdf'), path.join(CAPT, 'informe.pdf')); } catch (e) { comprueba('LibreOffice lo convierte a PDF', false); } }

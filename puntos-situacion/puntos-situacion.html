@@ -122,7 +122,7 @@
   .hoja .banda .o { font-size: 10px; letter-spacing: 1.5px; color: #e6d9a8; } .hoja .banda .t { font-size: 17px; font-weight: 700; } .hoja .banda .f { font-size: 12px; }
   .hoja .subt { text-align: center; margin: 6px 0 10px; font-size: 11.5px; color: #333; }
   .hoja h3 { color: #1b3a5c; border-bottom: 1px solid #b8962e; font-size: 14px; margin: 16px 0 6px; padding-bottom: 2px; }
-  .hoja .item { margin: 4px 0 8px 18px; } .hoja .item > b:first-child::before { content: '• '; margin-left: -12px; }
+  .hoja .item { margin: 4px 0 10px 18px; } .hoja .item .asunto::before { content: '• '; margin-left: -12px; } .hoja .item .asunto { margin-bottom: 2px; }
   .hoja figure { text-align: center; margin: 8px 0; } .hoja figure img { max-width: 100%; } .hoja figcaption { font-size: 11px; font-style: italic; }
   .hoja .firma { margin: 26px 0 0 auto; width: 50%; border-top: 1px solid #555; padding-top: 4px; text-align: center; font-size: 12px; }
   .hoja .pie { text-align: center; font-size: 10px; color: #555; border-top: 1px solid #ccc; margin-top: 18px; padding-top: 4px; }
@@ -154,7 +154,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-12 · 2';
+  var VERSION = '2026-11-12 · 3';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -622,9 +622,8 @@
         if (soloNeg && n.titulo !== soloNeg) return '';
         var es = entradas(p, n.titulo);
         return '<h3>' + (i + 1) + '. ' + esc(n.titulo.toUpperCase()) + '</h3>' + (es.length ? es.map(function (a) {
-          var tr = trozos(a.sit), primero = tr.length && tr[0].t != null ? tr.shift().t : '';
-          var resto = { sit: tr.map(function (x) { return x.t != null ? x.t : marcaImg(x.img); }).join('\n'), adjuntos: a.adjuntos };
-          return '<div class="item"><b>' + esc(a.titulo) + (a.prio === 'Alta' ? ' (PRIORIDAD ALTA)' : '') + '.</b> <span class="texto" style="display:inline">' + esc(primero) + '</span>' + htmlSit(resto, nFig) + '</div>';
+          // 12/11/2026: el asunto en su propia línea y el texto debajo, como se escribe (antes iban seguidos en la misma línea)
+          return '<div class="item"><div class="asunto"><b>' + esc(a.titulo) + (a.prio === 'Alta' ? ' (PRIORIDAD ALTA)' : '') + '</b></div>' + htmlSit(a, nFig) + '</div>';
         }).join('') : '<p><i>' + (sinNovedad(p, n.titulo) ? 'Sin novedad.' : 'No ha aportado información.') + '</i></p>');
       }).join('') +
       (soloNeg ? '' : '<div class="firma">EL JEFE DE LA SUIGESUR<br><br><br>Fdo.: ……………………………</div>') +
@@ -1547,10 +1546,9 @@
         if (!es.length) { cuerpo.push(par(run(sinNovedad(p, n.titulo) ? 'Sin novedad.' : 'No ha aportado información.', { i: true }), { ind: 284 })); return; }
         return es.reduce(function (q, a) {
           return q.then(function () {
-            var tr = trozos(a.sit), primero = tr.length && tr[0].t != null ? tr.shift().t : '';
-            var lin = String(primero).split('\n');
-            cuerpo.push(par(run('•\t') + run(a.titulo + (a.prio === 'Alta' ? ' (PRIORIDAD ALTA)' : '') + '.', { b: true }) + run(lin[0] ? ' ' + lin[0] : ''), { ind: 568, colgante: 284, despues: 60 }));
-            lin.slice(1).forEach(function (l) { cuerpo.push(par(run(l), { ind: 568, despues: 60 })); });
+            var tr = trozos(a.sit);
+            // El asunto en su propia línea (con la viñeta) y el texto en las siguientes
+            cuerpo.push(par(run('•\t') + run(a.titulo + (a.prio === 'Alta' ? ' (PRIORIDAD ALTA)' : ''), { b: true }), { ind: 568, colgante: 284, despues: 40, keep: true }));
             return tr.reduce(function (q2, x) {
               return q2.then(function () {
                 if (x.t != null) { x.t.split('\n').forEach(function (l) { cuerpo.push(par(run(l), { ind: 568, despues: 60 })); }); return; }
