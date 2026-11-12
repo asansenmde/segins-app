@@ -291,7 +291,8 @@ print('APORTACIÓN DE PRL' in d, 'PROCOR' in d, 'Revisión ficticia' in d, 'EL J
   comprueba('en Informe, Luis saca la parte de PRL y el completo solo en PDF (no en Word)', (await p.$$eval('#selParte option', o => o.map(x => x.textContent))).join() === 'PRL' && !(await p.$('[data-word]')) && !!(await p.$('[data-pdf]')));
   await p.click('[data-pdf]'); await p.waitForTimeout(800);
   { const hc = await p.$eval('#marcoPdf', f => f.contentDocument.body.innerText);
-    comprueba('PDF completo descargado por un miembro de PRL', /PROCOR/.test(hc) && /PRL/.test(hc) && /SEGURIDAD/i.test(hc)); }
+    comprueba('PDF completo descargado por un miembro de PRL', /PROCOR/.test(hc) && /PRL/.test(hc) && /SEGURIDAD/i.test(hc));
+    if (process.env.PDF_OUT) fs.writeFileSync(process.env.PDF_OUT, await p.$eval('#marcoPdf', f => '<!doctype html>' + f.contentDocument.documentElement.outerHTML)); }
   await p.click('nav.tabs a[data-v=negociado]'); }
 
 // 5. Coordinación: Sin novedad en Seguridad, seguimiento, recordatorio
