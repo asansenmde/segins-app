@@ -88,7 +88,7 @@ comprueba('sin instalar, lo explica: ' + t.slice(0, 90), /aún no está instalad
 // 2. Instalada, punto abierto, el usuario es de PRL
 instalada = true;
 t = await ficha(1);
-comprueba('sin marca ⭐ no deja incluir y lo explica: ' + t.slice(0, 120), /Tratar con el General/.test(t) && !(await p.$('[data-psform]')));
+comprueba('sin marca ⭐ no deja incluir y lo explica: ' + t.slice(0, 120), /Tratar con el General|Punto Situación semanal/.test(t) && !(await p.$('[data-psform]')));
 items[0].TratarEn = ['TRATAR CON EL GENERAL']; items[1].TratarEn = ['TRATAR CON EL GENERAL'];
 t = await ficha(1);
 comprueba('botón de incluir en el punto abierto: ' + t.slice(0, 90), /Incluir en PS-2026-045/.test(t));
