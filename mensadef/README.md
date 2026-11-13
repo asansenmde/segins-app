@@ -420,4 +420,10 @@ con el formato *verbose* de SharePoint 2013.
   Portafirmas v2) filtrada por el asunto del mensaje (`&titulo=`, sin RE:/SDO., sin comillas, 60 letras). Pendiente de probar en
   real si el Portafirmas acepta el filtro en la dirección y si conserva la dirección tras identificarse. El Portafirmas exige
   abrir («leer») cada documento antes de firmarlo; casillas `chkDoc`, «Firmar» = `firmarServDocs()`, AutoFirma por conexión local.
+- **2026-11-13 · 13:**
+  - «➜ Tarea» (y «✍ Rúbrica») junto al asunto, siempre a la vista: en la última columna quedaban fuera con la ficha abierta.
+    «Pasado a tarea» es lo marcado en este navegador **o** el comentario «Añadido como tarea en META» en MENSADEF, así se ve
+    también lo que pasó otra persona u otro ordenador (también en la tarjeta «Pasados a tarea», informes y CSV).
+  - Rúbrica: o **«Pasar a rúbrica»** (enviable o en validación, sin pasar) o **«Ir a Rúbrica · firmar»** (ya pendiente de firma:
+    pendiente de firma, en firma, en rúbrica, portafirmas o pasado desde SENDERO); nunca los dos.
 

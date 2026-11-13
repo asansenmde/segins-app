@@ -26,7 +26,7 @@ const bandeja = (cel, es, pag, tam) => {
     Cuerpo: process.env.PRESENTA ? '<p>Se remite para su conocimiento y efectos la documentación adjunta. Se ruega acuse de recibo y, en su caso, la designación de un punto de contacto antes del próximo viernes.</p>' : '<p>Texto del mensaje ' + i + '</p><script>alert(1)</script>', Fecha: hace(i < 130 ? i * 0.3 : 24 * 40 + i), FechaRegistroEntrada: hace(i), IdEstadoMensaje: 3,
     NombreEstadoUltimaDistribucionSalida: es === '2' && i === 0 ? 'Pendiente de Validar' : '', EstadoMensaje: es === '2' && i === 0 ? 'Borrador' : es === '2' && i === 2 ? 'Enviado' : es === '2' && i === 1 ? 'Pendiente de firma' : i === 7 ? 'Pendiente de firma' : i % 3 ? 'Pendiente' : 'Leído', EstadoParaUsuario: i % 2 ? 'No leído' : 'Leído', TipoES: es === '1' ? 'E' : 'S', TipoMensaje: i % 4 ? 'Informe' : 'Orden', CodigoPrioridad: i % 9 ? 'R' : 'U',
     CelulaRemitente: i % 2 ? 'ET 2SUIGE JEFATURA' : 'ET 2SUIGE REGISTRO', CelulaDestinataria: 'ET 2SUIGE SETEC SEGURIDAD', NumeroRegistroEntrada: 'RE-' + i, Sref: 'SREF-' + i,
-    ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 3 === 0 ? 'ACCIÓN' : i % 3 === 1 ? 'INFORMACIÓN' : '', UltimoComentario: i % 4 === 0 ? 'Comentario ficticio ' + i : '', Firma: i % 2 ? (process.env.PRESENTA ? 'GENERAL JEFE DE LA SUIGE' : 'GENERAL JEFE <b>A</b>') : '', MotivoDistribucion: i % 3 ? 'Para conocimiento' : 'Para actuación', EnviableARubrica: es === '2' ? 'Sí' : 'No', BuzonPersonal: false, IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
+    ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 3 === 0 ? 'ACCIÓN' : i % 3 === 1 ? 'INFORMACIÓN' : '', UltimoComentario: i % 10 === 5 ? 'Añadido como tarea en META (META) por OTRA PERSONA el 12/11/2026, 10:00:00 · SENDERO' : i % 4 === 0 ? 'Comentario ficticio ' + i : '', Firma: i % 2 ? (process.env.PRESENTA ? 'GENERAL JEFE DE LA SUIGE' : 'GENERAL JEFE <b>A</b>') : '', MotivoDistribucion: i % 3 ? 'Para conocimiento' : 'Para actuación', EnviableARubrica: es === '2' ? 'Sí' : 'No', BuzonPersonal: false, IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
   return { ListaElementos: els, ListaAgrupaciones: [], IndicePagina: pag, TamanoPagina: tam, TotalRegistros: total };
 };
 const b = await chromium.launch();
@@ -239,6 +239,12 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
       const ancho = await p.evaluate(() => Math.round(document.querySelector('main').getBoundingClientRect().width / window.innerWidth * 100));
       console.log('bajo el asunto: acción/info y último comentario:', ok2, '| la fila muestra el comentario de META:', / por PERSONA el /.test(fila), '| ancho de la zona de trabajo:', ancho + '%');
       if (!ok2 || !/ por PERSONA el /.test(fila) || ancho < 95) console.log('Error: línea bajo el asunto o ancho');
+      const tareaJunto = await p.$$eval('td.asunto .t-tarea', n => n.length);
+      console.log('«➜ Tarea» junto al asunto:', tareaJunto, '| última columna sin etiquetas:', !(await p.$('td.nowrap .t-tarea')));
+      if (!tareaJunto || await p.$('td.nowrap .t-tarea')) console.log('Error: etiqueta Tarea');
+      const deOtro = await p.$$eval('td.asunto', n => n.filter(x => /por OTRA PERSONA/.test(x.textContent)).map(x => !!x.querySelector('.t-tarea')));
+      console.log('pasado a tarea por otra persona (por el comentario):', deOtro.length, 'filas, todas con «➜ Tarea»:', deOtro.every(Boolean));
+      if (!deOtro.length || !deOtro.every(Boolean)) console.log('Error: tarea por comentario');
       const cabs = await p.$$eval('#lista thead th, table thead th', n => n.map(x => x.textContent.replace(/[▾▴]/g, '').trim()));
       const firmas = await p.$$eval('td.firma', n => n.map(x => x.textContent.trim()).filter(t => t.startsWith('✍')).length);
       console.log('columna Firma en lugar de Tipo:', cabs.includes('Firma') && !cabs.includes('Tipo'), '| filas con firma:', firmas, '| sin HTML del servidor:', !(await p.$('td.firma b')));
@@ -272,7 +278,7 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
     console.log('bandera quitada: idEtiqueta=' + (banderasPuestas[banderasPuestas.length - 1] || {}).idEtiqueta, '| en la ficha:', !!(await p.$('#detalle .cab-msg .bandera')), '| selector:', await p.$eval('#selBandera', x => x.options[x.selectedIndex].textContent));
     // Pasar a rúbrica: solo en los «Enviable a rúbrica»; dos pulsaciones; si MENSADEF dice que no, se ve su motivo
     console.log('rúbrica en uno de entrada:', !!(await p.$('#aRubrica')));
-    console.log('«Ir a Rúbrica» siempre (también en uno de entrada):', !!(await p.$('#irRubrica'))); if (!(await p.$('#irRubrica'))) console.log('Error: falta Ir a Rúbrica');
+    console.log('rúbrica: o pasar o firmar (nunca los dos) en uno de entrada:', !((await p.$('#irRubrica')) && (await p.$('#aRubrica'))));
     { const orden = await p.$$eval('#detalle .grandes .gr', n => n.map(b => b.textContent.trim().slice(0, 8))); console.log('orden de los botones grandes:', orden.join(' | ')); }
     {
     await p.fill('#buscar', ''); await p.selectOption('#fSitio', ''); await p.selectOption('[data-x="EnviableARubrica"]', 'Sí'); await p.waitForTimeout(300);
@@ -291,7 +297,7 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
     console.log('enlace a Rúbrica:', await p.getAttribute('#irRubrica', 'href').catch(() => 'no hay'), '| nueva pestaña:', await p.getAttribute('#irRubrica', 'target').catch(() => '-'));
     await p.selectOption('[data-x="EnviableARubrica"]', ''); await p.fill('#buscar', 'RE-7'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(300);
     if (process.env.CAPTURA_RUBRICA) await (await p.$('#detalle .barra-ficha')).screenshot({ path: process.env.CAPTURA_RUBRICA + '-ir.png' });
-    console.log('pendiente de firma → enlace a Rúbrica:', !!(await p.$('#irRubrica')), '| pasar a rúbrica:', !!(await p.$('#aRubrica'))); await p.fill('#buscar', '');
+    console.log('pendiente de firma → enlace a Rúbrica:', !!(await p.$('#irRubrica')), '| pasar a rúbrica:', !!(await p.$('#aRubrica'))); if (!(await p.$('#irRubrica')) || (await p.$('#aRubrica'))) console.log('Error: pendiente de firma sin «Ir a Rúbrica» o con «Pasar»'); await p.fill('#buscar', '');
     }
     await p.selectOption('[data-x="EnviableARubrica"]', ''); await p.waitForTimeout(300);
   }

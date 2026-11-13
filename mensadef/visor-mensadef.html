@@ -517,7 +517,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-13 · 12';
+  var VERSION = '2026-11-13 · 13';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -621,6 +621,9 @@
     ks.slice(5000).forEach(function (x) { delete vistos[x]; });
     guardar('vistos', vistos);
   }
+  // 13/11/2026: «pasado a tarea» = marcado en este navegador o con el comentario «Añadido como tarea en META» en MENSADEF
+  // (así se ve también lo que pasó otra persona o desde otro ordenador)
+  var pasadoATarea = function (m) { return enviados[claveMensaje(m)] || (/a(ñ|n)adido como tarea en meta/i.test(String((m._x && m._x.UltimoComentario) || '')) ? 'MENSADEF' : ''); };
   var claveMensaje = function (m) { return m.MensajeId || (m._lista.titulo + ':' + m.ID); };
   function cambiarVisto(m, si) {
     var i = filtrados.indexOf(m);
@@ -1652,7 +1655,7 @@
     entrada: { t: 'Entrada', c: 'k-azul', f: function (m) { return m._x.__es === 'Entrada'; } },
     salida: { t: 'Salida', c: 'k-verde', f: function (m) { return m._x.__es === 'Salida'; } },
     sinver: { t: 'Sin revisar', c: 'k-ambar', f: function (m) { return !vistos[claveMensaje(m)]; } },
-    tarea: { t: 'Pasados a tarea', c: 'k-morado', f: function (m) { return !!enviados[claveMensaje(m)]; } }
+    tarea: { t: 'Pasados a tarea', c: 'k-morado', f: function (m) { return !!pasadoATarea(m); } }
   };
   function pintarKpis() {
     var st = $('fSitio').value, base = mensajes.filter(function (m) { return !st || sitioDe(m) === st; });
@@ -1712,6 +1715,9 @@
     if (c.length > 160) c = c.slice(0, 157) + '…';
     return (a ? '<span class="act ' + a.cls + '">' + esc(a.txt) + '</span>' : '') + (c ? '<span class="com">💬 ' + esc(c) + '</span>' : (a ? '' : ''));
   }
+  function etiquetasFila(m) {
+    return (pasadoATarea(m) ? ' <span class="tag t-tarea" title="Pasado a tarea en META">➜ Tarea</span>' : '') + (m._rubrica && m._rubrica.enviado ? ' <span class="tag t-tarea" title="Pasado a rúbrica desde SENDERO">✍ Rúbrica</span>' : '');
+  }
   function tablaBandejas(filas) {
     // 13/11/2026: la columna «Tipo» (casi siempre «Oficio») pasa a ser «Firma»: quién firma el mensaje
     var cab = [['fecha', 'Hora'], ['bandeja', ''], ['asunto', 'Asunto'], ['firma', 'Firma'], ['estado', 'Estado'], ['prioridad', 'Prio.'], ['celula', 'Célula']];
@@ -1727,12 +1733,12 @@
         var pr = m._x.CodigoPrioridad, sub = lineaSub(m);
         return cabDia + '<tr data-i="' + i + '"' + (cls ? ' class="' + cls + '"' : '') + '><td class="ver"><input type="checkbox" data-visto="' + i + '" title="Marcar como visto"' + (vis ? ' checked' : '') + '></td>' +
           '<td class="hora">' + (f ? (porDia && agr === 'dia' ? '' : '<span class="dfecha">' + esc(verFecha(f).slice(0, agr === 'mes' && porDia ? 5 : 10)) + '</span> ') + esc(verFecha(f).slice(11)) : '') + '</td><td class="es">' + es + '</td>' +
-          '<td class="asunto">' + (m._leido === false ? '<span class="punto" title="No leído"></span>' : '') + htmlBandera(m._bandera) + esc(m._asunto || '(sin asunto)') + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</td>' +
+          '<td class="asunto">' + (m._leido === false ? '<span class="punto" title="No leído"></span>' : '') + htmlBandera(m._bandera) + esc(m._asunto || '(sin asunto)') + etiquetasFila(m) + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</td>' +
           '<td class="firma"' + (m.MensajeTipo_es ? ' title="' + esc('Tipo: ' + m.MensajeTipo_es) + '"' : '') + '>' + (m._x.Firma ? '✍ ' + esc(m._x.Firma) : '<span class="muted">—</span>') + '</td>' +
           '<td>' + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') + '</td>' +
           '<td>' + (pr ? '<span class="prio' + (prioAlta(pr) ? ' alta' : '') + '">' + esc(pr) + '</span>' : '') + '</td>' +
           '<td><span class="celtag">' + esc(sitioDe(m).replace(/^ET \w+ /, '')) + '</span></td>' +
-          '<td class="nowrap">' + (m.Attachments ? '📎' : '') + (enviados[claveMensaje(m)] ? ' <span class="tag t-tarea" title="Pasado a Tareas Colabora">➜ Tarea</span>' : '') + (m._rubrica && m._rubrica.enviado ? ' <span class="tag t-tarea" title="Pasado a rúbrica desde SENDERO">✍ Rúbrica</span>' : '') + '</td></tr>';
+          '<td class="nowrap">' + (m.Attachments ? '📎' : '') + '</td></tr>';
       }).join('') + '</tbody></table>';
   }
   function pintarTabla() {
@@ -1745,7 +1751,7 @@
         var vis = !!vistos[claveMensaje(m)], cls = [m === abierto ? 'sel' : '', m._leido === false ? 'noleido' : '', vis ? 'visto' : ''].filter(Boolean).join(' ');
         return '<tr data-i="' + i + '"' + (cls ? ' class="' + cls + '"' : '') + '><td class="ver"><input type="checkbox" data-visto="' + i + '" title="Marcar como visto"' + (vis ? ' checked' : '') + '></td><td class="fecha">' + esc(verFecha(fechaDe(m))) + '</td><td>' + (m.MensajeTipo_es ? '<span class="tag">' + esc(m.MensajeTipo_es) + '</span>' : '') +
           '</td><td class="nowrap">' + esc(m.MensajeEstado) + '</td><td>' + esc(autoridad(m)) + '</td><td class="asunto">' + esc(m._asunto) + '</td><td class="nowrap">' + esc(m.MensajeNum_referencia) +
-          '</td><td>' + esc(organo(m)) + '</td><td class="nowrap">' + (m.Attachments ? '📎' : '') + (enviados[claveMensaje(m)] ? ' <span class="tag t-tarea" title="Pasado a Tareas Colabora">➜ Tarea</span>' : '') + (m._rubrica && m._rubrica.enviado ? ' <span class="tag t-tarea" title="Pasado a rúbrica desde SENDERO">✍ Rúbrica</span>' : '') + '</td></tr>';
+          '</td><td>' + esc(organo(m)) + '</td><td class="nowrap">' + (m.Attachments ? '📎' : '') + (pasadoATarea(m) ? ' <span class="tag t-tarea" title="Pasado a Tareas Colabora">➜ Tarea</span>' : '') + (m._rubrica && m._rubrica.enviado ? ' <span class="tag t-tarea" title="Pasado a rúbrica desde SENDERO">✍ Rúbrica</span>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>' +
       (filtrados.length > mostrar ? '<p style="margin-top:8px"><button type="button" id="mas">Mostrar ' + Math.min(300, filtrados.length - mostrar) + ' más (quedan ' + (filtrados.length - mostrar) + ')</button></p>' : '');
     Array.prototype.forEach.call($('lista').querySelectorAll('th[data-orden]'), function (th) {
@@ -1922,8 +1928,8 @@
   var urlColabora = function () { var x = gestorElegido(); return x ? x.url : ''; };
   var enviadosA = leer('enviadosA', {});
   function pintarColabora(m) {
-    var caja = $('colabora'), g = gestores(), sel = Number(leer('gestorSel', 0)) || 0, env = enviados[claveMensaje(m)];
-    caja.innerHTML = (env ? '<p class="muted">➜ Pasado a ' + esc(enviadosA[claveMensaje(m)] || 'Tareas Colabora') + ' el ' + esc(verFecha(new Date(env))) + ' desde este navegador.</p>' : '') +
+    var caja = $('colabora'), g = gestores(), sel = Number(leer('gestorSel', 0)) || 0, env = pasadoATarea(m);
+    caja.innerHTML = (env ? '<p class="muted">➜ ' + (env === 'MENSADEF' ? 'Ya está pasado a tarea en META (según el comentario de MENSADEF).' : 'Pasado a ' + esc(enviadosA[claveMensaje(m)] || 'Tareas Colabora') + ' el ' + esc(verFecha(new Date(env))) + ' desde este navegador.') + '</p>' : '') +
       (g.length ? '<div class="fila" style="margin:4px 0"><label style="flex:1;min-width:220px">Crear la tarea en<select id="gestorSel">' +
         g.map(function (x, i) { return '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + esc(x.nombre) + '</option>'; }).join('') + '</select></label>' +
         '<a href="#" id="cambiarColabora" class="muted">gestionar gestores</a></div>' +
@@ -2011,12 +2017,14 @@
     var t = String((m && m._asunto) || '').replace(/^\s*((re|rv|fw|fwd|sdo|ref)\s*[:.]\s*)+/i, '').replace(/["'<>%&#]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
     return 'https://portafirmas.mdef.es/ePortafirmas/Firmantes.do?operacion=ListaPendientes' + (t ? '&titulo=' + encodeURIComponent(t) : '');
   }
+  // 13/11/2026: «Ir a Rúbrica · firmar» solo cuando ya está pendiente de firma (pasado a rúbrica); antes, «Pasar a rúbrica»
+  function enFirma(m) { var r = m._rubrica; return !!(r && (r.enviado || /pendiente\s*(de\s*)?firma|firma\s+pendiente|en\s+firma|en\s+r[uú]brica|portafirmas/i.test(r.estado || ''))); }
   function conRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && r && (puedeRubrica(m) || r.enviado || /firma|r[uú]brica|portafirmas|validaci/i.test(r.estado || ''))); }
   var HTML_PASAR = '<span class="i">✍</span><span>Pasar a rúbrica<small>enviarlo al portafirmas</small></span>';
   function botonRubrica(m) {
     return (puedeRubrica(m) ? '<button type="button" class="gr gr-rub" id="aRubrica" title="Envía el mensaje al portafirmas (rúbrica) en MENSADEF">' + HTML_PASAR + '</button>' : '') +
       // 13/11/2026: «Ir a Rúbrica» siempre (acceso al portafirmas para firmar); «Pasar a rúbrica» solo cuando procede
-      (RUBRICA && m._api ? '<a href="' + esc(urlRubrica(m)) + '" target="_blank" rel="noopener" id="irRubrica" class="gr-a"><button type="button" class="gr gr-rub" title="Abre en otra pestaña tu lista de documentos para firmar del Portafirmas, filtrada por el asunto de este mensaje"><span class="i">✍</span><span>Ir a Rúbrica<small>lista para firmar, filtrada</small></span></button></a>' : '');
+      (RUBRICA && m._api && !puedeRubrica(m) && enFirma(m) ? '<a href="' + esc(urlRubrica(m)) + '" target="_blank" rel="noopener" id="irRubrica" class="gr-a"><button type="button" class="gr gr-rub" title="Abre en otra pestaña tu lista de documentos para firmar del Portafirmas, filtrada por el asunto de este mensaje"><span class="i">✍</span><span>Ir a Rúbrica<small>firmarlo en el portafirmas</small></span></button></a>' : '');
   }
   function pasarARubrica(m) {
     if (!apiCtx || !m.MensajeId) return Promise.reject(new Error('este mensaje no viene del servicio de MENSADEF'));
@@ -2209,7 +2217,7 @@
       ['Prioridad', x.CodigoPrioridad], ['Bandera', x.Bandera], ['Tipo de mensaje', m.MensajeTipo_es], ['Estado', m.MensajeEstado], ['Último comentario', x.UltimoComentario], ['Usuario remitente', x.UsuarioRemitente], ['Célula', sitioDe(m)]]
       : [['Fecha', verFecha(fechaDe(m))], ['Autoridad', autoridad(m)], ['Referencia', m.MensajeNum_referencia], ['Su referencia', m.MensajeSu_referencia], ['Expediente', m.MensajeNum_expediente],
       ['Tipo', m.MensajeTipo_es], ['Estado', m.MensajeEstado], ['Canal', m.MensajeCanal], ['Órgano', organo(m)], ['Sitio', sitioDe(m)]];
-    c.push(['Adjuntos', m.Attachments ? 'Sí' : ''], ['Visto', vistos[claveMensaje(m)] ? verFecha(new Date(vistos[claveMensaje(m)])) : ''], ['Pasado a tarea', enviados[claveMensaje(m)] ? verFecha(new Date(enviados[claveMensaje(m)])) : '']);
+    c.push(['Adjuntos', m.Attachments ? 'Sí' : ''], ['Visto', vistos[claveMensaje(m)] ? verFecha(new Date(vistos[claveMensaje(m)])) : ''], ['Pasado a tarea', pasadoATarea(m) ? (pasadoATarea(m) === 'MENSADEF' ? 'Sí (según MENSADEF)' : verFecha(new Date(pasadoATarea(m)))) : '']);
     return c.filter(function (v) { return v[1] != null && String(v[1]).trim() !== ''; }).map(function (v) { return [v[0], String(v[1])]; });
   }
   var OPC_INF = { titulo: 'Relación de mensajes de MENSADEF', unidad: '', destinatario: '', marca: '', agrupar: '', resumen: true, relacion: true, extracto: true, detalle: false };
@@ -2222,7 +2230,7 @@
     var cols = [['Fecha', function (m) { return verFecha(fechaDe(m)); }], ['Célula', celCorta], ['E/S', function (m) { return xDe(m).__es === 'Entrada' ? 'E' : xDe(m).__es === 'Salida' ? 'S' : ''; }],
       ['Tipo', function (m) { return m.MensajeTipo_es; }], ['Prio.', function (m) { return xDe(m).CodigoPrioridad; }], ['Bandera', function (m) { return xDe(m).Bandera; }], ['Asunto', function (m) { return m._asunto; }],
       ['Remitente', function (m) { return autoridad(m); }], ['Firma', function (m) { return xDe(m).Firma; }], ['Motivo', function (m) { return xDe(m).MotivoDistribucion; }], ['N.º ref.', function (m) { return m.MensajeNum_referencia; }], ['Estado', function (m) { return m.MensajeEstado; }],
-      ['Leído', function (m) { return m._leido === true ? 'Sí' : m._leido === false ? 'No' : ''; }], ['Tarea', function (m) { return enviados[claveMensaje(m)] ? 'Sí' : ''; }]];
+      ['Leído', function (m) { return m._leido === true ? 'Sí' : m._leido === false ? 'No' : ''; }], ['Tarea', function (m) { return pasadoATarea(m) ? 'Sí' : ''; }]];
     // Columnas sin ningún dato fuera
     cols = cols.filter(function (c) { return ms.some(function (m) { var v = c[1](m); return v != null && String(v) !== ''; }); });
     var grupos = [['', ms]];
@@ -2237,7 +2245,7 @@
       periodo: $('desde').value.split('-').reverse().join('/') + ' al ' + $('hasta').value.split('-').reverse().join('/'),
       quien: ($('quien').textContent || '').split(' · ').pop(),
       cifras: [['Mensajes', ms.length], ['Sin leer', cuenta(function (m) { return m._leido === false; })], ['Entrada', cuenta(function (m) { return xDe(m).__es === 'Entrada'; })],
-        ['Salida', cuenta(function (m) { return xDe(m).__es === 'Salida'; })], ['Vistos', cuenta(function (m) { return !!vistos[claveMensaje(m)]; })], ['Pasados a tarea', cuenta(function (m) { return !!enviados[claveMensaje(m)]; })]]
+        ['Salida', cuenta(function (m) { return xDe(m).__es === 'Salida'; })], ['Vistos', cuenta(function (m) { return !!vistos[claveMensaje(m)]; })], ['Pasados a tarea', cuenta(function (m) { return !!pasadoATarea(m); })]]
         .filter(function (c, i) { return i === 0 || c[1]; }),
       sinTexto: ms.filter(function (m) { return !textoDe(m); }).length };
   }
@@ -2365,7 +2373,7 @@
   $('csv').addEventListener('click', function () {
     var cols = [['Fecha', function (m) { return verFecha(fechaDe(m)); }], ['Tipo', 'MensajeTipo_es'], ['Estado', 'MensajeEstado'], ['Canal', 'MensajeCanal'], ['Autoridad', autoridad],
       ['Asunto', function (m) { return m._asunto; }], ['Referencia', 'MensajeNum_referencia'], ['Su referencia', 'MensajeSu_referencia'], ['Expediente', 'MensajeNum_expediente'], ['Órgano', organo], ['Adjuntos', function (m) { return m.Attachments ? 'sí' : ''; }],
-      ['Pasado a Colabora', function (m) { return enviados[claveMensaje(m)] ? verFecha(new Date(enviados[claveMensaje(m)])) : ''; }], ['Sitio', sitioDe], ['Visto', function (m) { return vistos[claveMensaje(m)] ? verFecha(new Date(vistos[claveMensaje(m)])) : ''; }]]
+      ['Pasado a Colabora', function (m) { return pasadoATarea(m) ? (pasadoATarea(m) === 'MENSADEF' ? 'Sí (según MENSADEF)' : verFecha(new Date(pasadoATarea(m)))) : ''; }], ['Sitio', sitioDe], ['Visto', function (m) { return vistos[claveMensaje(m)] ? verFecha(new Date(vistos[claveMensaje(m)])) : ''; }]]
       .concat(Object.keys(EXTRA).map(function (k) { return [EXTRA[k].titulo, function (m) { return m._x[k]; }]; }));
     var celda = function (v) { v = String(v == null ? '' : v); return /[";\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
     var csv = '﻿' + cols.map(function (c) { return c[0]; }).join(';') + '\r\n' + filtrados.map(function (m) {
