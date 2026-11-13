@@ -406,6 +406,11 @@ con el formato *verbose* de SharePoint 2013.
   (envíos, peticiones, ventanas, AutoFirma por protocolo o conexión local). Tapa números e identificadores; no copia asuntos ni
   nombres. Lo anotado se guarda en la pestaña para seguir tras un cambio de página. Objetivo: llevar desde SENDERO a la
   petición en el Portafirmas, lista para firmar.
+  - **Primera pasada (13/11/2026):** acceso `Inicio.do` (formLogin) → «Firmante» `Inicio.do?rol` → página de firma
+    `Firmantes.do?oa` con «Firmar» (`firmaAutofirma()`), formulario `formFirmantes` → `SelMecFirma.do` (campo `docsAFirmar`) y
+    AutoFirma por conexión local (websocket, `autoscript.js`). No salió cómo se marcan los documentos.
+  - **v2:** casillas en cualquier sitio (nombre con números tapados, contenedor y atributos), listas repetidas que no son tablas y
+    el código de las funciones de los botones con sus textos tapados (solo quedan selectores y nombres de campos).
 - **2026-11-13 · 10:** «↩ Responder» abre directamente la pantalla de respuesta de MENSADEF (dirección dada por el usuario):
   `<ámbito>/SitePages/ambito.aspx#/responder_mensaje/<IdMensaje>?idBuzonCelula=<IdBuzonCelula>`. Si faltan los datos, abre el
   mensaje y pulsa «Responder» como en la · 8.
