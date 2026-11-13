@@ -517,7 +517,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-13 · 11';
+  var VERSION = '2026-11-13 · 12';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -2005,12 +2005,18 @@
   function puedeRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && m.MensajeId && r && !r.enviado && !yaEnviado(m) && (siTexto(r.enviable) || /validaci|validar/i.test(r.estado || ''))); }
   // Enlace fijo al portafirmas (dirección dada por el usuario) para no tener que buscarlo; la firma se hace allí
   var URL_RUBRICA = 'https://portafirmas.mdef.es/ePortafirmas/Inicio.do?cr=&btnLogout=Entrar';
+  // 13/11/2026 (Explorar Portafirmas v2): la lista del firmante es Firmantes.do?operacion=ListaPendientes y se filtra por
+  // «titulo». Se abre ya filtrada por el asunto del mensaje (sin RE:/SDO. delante y sin comillas, como mucho 60 letras).
+  function urlRubrica(m) {
+    var t = String((m && m._asunto) || '').replace(/^\s*((re|rv|fw|fwd|sdo|ref)\s*[:.]\s*)+/i, '').replace(/["'<>%&#]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+    return 'https://portafirmas.mdef.es/ePortafirmas/Firmantes.do?operacion=ListaPendientes' + (t ? '&titulo=' + encodeURIComponent(t) : '');
+  }
   function conRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && r && (puedeRubrica(m) || r.enviado || /firma|r[uú]brica|portafirmas|validaci/i.test(r.estado || ''))); }
   var HTML_PASAR = '<span class="i">✍</span><span>Pasar a rúbrica<small>enviarlo al portafirmas</small></span>';
   function botonRubrica(m) {
     return (puedeRubrica(m) ? '<button type="button" class="gr gr-rub" id="aRubrica" title="Envía el mensaje al portafirmas (rúbrica) en MENSADEF">' + HTML_PASAR + '</button>' : '') +
       // 13/11/2026: «Ir a Rúbrica» siempre (acceso al portafirmas para firmar); «Pasar a rúbrica» solo cuando procede
-      (RUBRICA && m._api ? '<a href="' + esc(URL_RUBRICA) + '" target="_blank" rel="noopener" id="irRubrica" class="gr-a"><button type="button" class="gr gr-rub" title="Abre el portafirmas (Rúbrica) en otra pestaña"><span class="i">✍</span><span>Ir a Rúbrica<small>firmar en el portafirmas</small></span></button></a>' : '');
+      (RUBRICA && m._api ? '<a href="' + esc(urlRubrica(m)) + '" target="_blank" rel="noopener" id="irRubrica" class="gr-a"><button type="button" class="gr gr-rub" title="Abre en otra pestaña tu lista de documentos para firmar del Portafirmas, filtrada por el asunto de este mensaje"><span class="i">✍</span><span>Ir a Rúbrica<small>lista para firmar, filtrada</small></span></button></a>' : '');
   }
   function pasarARubrica(m) {
     if (!apiCtx || !m.MensajeId) return Promise.reject(new Error('este mensaje no viene del servicio de MENSADEF'));

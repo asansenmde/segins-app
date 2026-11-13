@@ -416,4 +416,8 @@ con el formato *verbose* de SharePoint 2013.
   mensaje y pulsa «Responder» como en la · 8.
 - **2026-11-13 · 11:** «Ir a Rúbrica» sale **siempre** en la ficha (acceso al portafirmas para firmar); «Pasar a rúbrica»
   sigue saliendo solo cuando procede. Orden fijo de los botones grandes también con la ficha ampliada: META, Responder, PSIT, Rúbrica.
+- **2026-11-13 · 12:** «Ir a Rúbrica» abre la lista del firmante (`Firmantes.do?operacion=ListaPendientes`, vista con Explorar
+  Portafirmas v2) filtrada por el asunto del mensaje (`&titulo=`, sin RE:/SDO., sin comillas, 60 letras). Pendiente de probar en
+  real si el Portafirmas acepta el filtro en la dirección y si conserva la dirección tras identificarse. El Portafirmas exige
+  abrir («leer») cada documento antes de firmarlo; casillas `chkDoc`, «Firmar» = `firmarServDocs()`, AutoFirma por conexión local.
 
