@@ -516,7 +516,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-13 · 8';
+  var VERSION = '2026-11-13 · 9';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1838,7 +1838,7 @@
       if (!b.dataset.seguro) { b.dataset.seguro = '1'; b.textContent = '¿Pasar a rúbrica? Pulsa otra vez'; b.classList.add('seguro'); avisoBandera(m, 'Se enviará al portafirmas de MENSADEF con tu usuario.', false); return; }
       b.disabled = true; b.textContent = 'Enviando a rúbrica…';
       pasarARubrica(m).then(function (info) { pintarTabla(); if (abierto === m) { abrir(m); avisoBandera(m, '✓ Pasado a rúbrica en MENSADEF' + (info ? ': ' + info : ''), false); } },
-        function (e) { b.disabled = false; delete b.dataset.seguro; b.classList.remove('seguro'); b.textContent = '✍ Pasar a rúbrica'; avisoBandera(m, 'No se pudo pasar a rúbrica: ' + (e.message || e), true); });
+        function (e) { b.disabled = false; delete b.dataset.seguro; b.classList.remove('seguro'); b.innerHTML = HTML_PASAR; avisoBandera(m, 'No se pudo pasar a rúbrica: ' + (e.message || e), true); });
     });
     if ($('selBandera')) $('selBandera').addEventListener('change', function () {
       var sel = this, id = sel.value; sel.disabled = true;
@@ -1994,8 +1994,9 @@
   // Enlace fijo al portafirmas (dirección dada por el usuario) para no tener que buscarlo; la firma se hace allí
   var URL_RUBRICA = 'https://portafirmas.mdef.es/ePortafirmas/Inicio.do?cr=&btnLogout=Entrar';
   function conRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && r && (puedeRubrica(m) || r.enviado || /firma|r[uú]brica|portafirmas|validaci/i.test(r.estado || ''))); }
+  var HTML_PASAR = '<span class="i">✍</span><span>Pasar a rúbrica<small>enviarlo al portafirmas</small></span>';
   function botonRubrica(m) {
-    return (puedeRubrica(m) ? '<button type="button" class="gr gr-rub" id="aRubrica" title="Envía el mensaje al portafirmas (rúbrica) en MENSADEF">✍ Pasar a rúbrica</button>' : '') +
+    return (puedeRubrica(m) ? '<button type="button" class="gr gr-rub" id="aRubrica" title="Envía el mensaje al portafirmas (rúbrica) en MENSADEF">' + HTML_PASAR + '</button>' : '') +
       (conRubrica(m) ? '<a href="' + esc(URL_RUBRICA) + '" target="_blank" rel="noopener" id="irRubrica" class="gr-a"><button type="button" class="gr gr-rub" title="Abre el portafirmas (Rúbrica) en otra pestaña"><span class="i">✍</span><span>Ir a Rúbrica<small>firmar en el portafirmas</small></span></button></a>' : '');
   }
   function pasarARubrica(m) {

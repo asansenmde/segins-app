@@ -398,4 +398,6 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-13 · 8:** botón **«↩ Responder»** en la ficha (mensajes de entrada): abre MENSADEF en otra pestaña, localiza el
   mensaje como «Abrir en MENSADEF», lo abre y pulsa su botón «Responder» (no «Responder a todos» ni «Reenviar»). Si en 15 s
   no encuentra el botón, deja el mensaje abierto y avisa de que se pulse «Responder». La respuesta se escribe y envía en MENSADEF.
+- **2026-11-13 · 9:** «Pasar a rúbrica» con icono y explicación, como los demás botones grandes. Siguen las dos acciones de
+  rúbrica: «Pasar a rúbrica» (enviables o en validación) e «Ir a Rúbrica» (cuando procede).
 

@@ -279,6 +279,7 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
     { const con = []; for (let k2 = 0; k2 < conR; k2++) { await p.click('#lista tbody tr[data-i] >> nth=' + k2); await p.waitForTimeout(250); { const t = await p.textContent('#detalle .cab-msg'); con.push((/Pendiente de firma/.test(t) ? 'pendiente de firma' : /Enviado/.test(t) ? 'enviado' : 'en validación') + '→' + (await p.$('#aRubrica') ? 'botón' : 'sin botón')); } }
       console.log('enviables (estado Enviado:botón):', con.join(' ')); await p.click('#lista tbody tr[data-i] >> nth=' + k); await p.waitForTimeout(250); }
     console.log('estado en la tabla del que está en validación:', await p.$$eval('#lista tbody tr[data-i]', l => l.map(t => t.textContent).filter(x => /Pendiente de Validar/.test(x)).length), '| ocultos como borrador:', /borradores ocultos/.test(await p.textContent('#chips')));
+    if (process.env.CAPTURA_RUBRICA) { await p.setViewportSize({ width: 1500, height: 900 }); await p.evaluate(() => scrollTo(0, 0)); const dt = await p.$('#detalle'); await dt.evaluate(e => e.scrollTop = 0); await (await p.$('#detalle .barra-ficha')).screenshot({ path: process.env.CAPTURA_RUBRICA + '-pasar.png' }); }
     console.log('salida:', conR, '| con botón rúbrica en la fila', k, '| filtro «Enviable a rúbrica»:', await p.$$eval('[data-x="EnviableARubrica"] option', o => o.map(x => x.textContent).join(', ')).catch(() => 'no hay'));
     await p.click('#aRubrica'); await p.waitForTimeout(200); console.log('1.ª pulsación:', (await p.textContent('#aRubrica')).trim(), '| enviados:', rubricas.length);
     await p.click('#aRubrica'); await p.waitForTimeout(500); console.log('MENSADEF dice que no:', (await p.textContent('#colabora p')).trim(), '| ¿HTML?', !!(await p.$('#colabora p b')), '| botón vuelve:', (await p.textContent('#aRubrica')).trim());
@@ -287,6 +288,7 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
     console.log('rúbrica:', rr.metodo, rr.q, '| id:', !!rr.id, '| buzonPersonal=' + rr.personal, '| sin cuerpo:', rr.cuerpo === '', '| passcode:', rr.passcode, '|', (await p.textContent('#colabora p')).trim(), '| botón tras enviar:', !!(await p.$('#aRubrica')), '| marca en la tabla:', await p.$$eval('#lista tr[data-i] .tag', l => l.some(x => /Rúbrica/.test(x.textContent))));
     console.log('enlace a Rúbrica:', await p.getAttribute('#irRubrica', 'href').catch(() => 'no hay'), '| nueva pestaña:', await p.getAttribute('#irRubrica', 'target').catch(() => '-'));
     await p.selectOption('[data-x="EnviableARubrica"]', ''); await p.fill('#buscar', 'RE-7'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(300);
+    if (process.env.CAPTURA_RUBRICA) await (await p.$('#detalle .barra-ficha')).screenshot({ path: process.env.CAPTURA_RUBRICA + '-ir.png' });
     console.log('pendiente de firma → enlace a Rúbrica:', !!(await p.$('#irRubrica')), '| pasar a rúbrica:', !!(await p.$('#aRubrica'))); await p.fill('#buscar', '');
     }
     await p.selectOption('[data-x="EnviableARubrica"]', ''); await p.waitForTimeout(300);
