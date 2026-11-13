@@ -85,8 +85,8 @@ await ctx.route(O + '/**', r => {
   if (u.includes('/_layouts/15/Defensa/Default.aspx')) return r.fulfill({ contentType: 'text/html', body: '<html><body><h1>Inicio de sesión</h1><button id="entrar">Iniciar sesión</button><script>entrar.onclick=function(){fetch("/login-ok").then(function(){location.href=new URLSearchParams(location.search).get("Source")+"/SitePages/ambito.aspx";});};</script></body></html>' });
   if (u.endsWith('/login-ok')) { sesion = true; return r.fulfill({ body: 'ok' }); }
   if (!sesion && u.includes(WEB + '/_api/')) return r.fulfill({ status: 403, contentType: 'text/html', body: 'sin sesión' });
-  if (!u.includes('/_api/') && u.includes('?app=1')) return r.fulfill({ contentType: 'text/html', body: '<html><body><h1>MENSADEF</h1><input placeholder="Buscar mensajes"><table id="t"></table><script>' +
-    'function fila(i){return "<tr class=\\"ms-Row\\" onclick=\\"window.abierto=\\x27RE-"+i+"\\x27\\"><td>RE-"+i+"</td><td><span>Mensaje "+i+" de 8d71</span></td></tr>";}' +
+  if (!u.includes('/_api/') && u.includes('?app=1')) return r.fulfill({ contentType: 'text/html', body: '<html><body><h1>MENSADEF</h1><div id="bar"></div><input placeholder="Buscar mensajes"><table id="t"></table><script>' +
+    'function fila(i){return "<tr class=\\"ms-Row\\" onclick=\\"window.abierto=\\x27RE-"+i+"\\x27;setTimeout(function(){bar.innerHTML=\\x27<button onclick=window.respondido=1>Responder</button><button onclick=window.respondidoTodos=1>Responder a todos</button>\\x27;},700)\\"><td>RE-"+i+"</td><td><span>Mensaje "+i+" de 8d71</span></td></tr>";}' +
     'setTimeout(function(){t.innerHTML=[0,1,2,3,4].map(fila).join("");},1500);' +
     'document.querySelector("input").addEventListener("keyup",function(e){if(e.key!=="Enter")return;var n=/RE-(\\d+)/.exec(this.value);window.buscado=this.value;setTimeout(function(){t.innerHTML=n?fila(n[1]):"";},600);});' +
     '</script></body></html>' });
@@ -355,6 +355,17 @@ for (const n of [0, 40]) {
   console.log('localizar RE-' + n + ':', await pest.evaluate(() => ({ abierto: window.abierto || '', buscado: window.buscado || '', aviso: (document.getElementById('avisoVisor') || {}).textContent || '', resaltada: !!document.querySelector('tr[style*="outline"]'), url: location.hash.slice(0, 20) })));
   await pest.close(); await p.bringToFront();
 }
+// «Responder» (13/11/2026): abre el mensaje en MENSADEF y pulsa su «Responder» (no «Responder a todos»)
+{ await p.fill('#buscar', 'RE-0'); await p.waitForTimeout(400);
+  await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(200);
+  if (await p.$('#aResponder')) {
+    const [pest] = await Promise.all([ctx.waitForEvent('page'), p.click('#aResponder')]);
+    await pest.waitForFunction(() => window.respondido || window.respondidoTodos, null, { timeout: 30000 }).catch(() => 0);
+    const r = await pest.evaluate(() => ({ abierto: window.abierto || '', resp: !!window.respondido, todos: !!window.respondidoTodos }));
+    console.log('responder en MENSADEF:', JSON.stringify(r));
+    if (!r.abierto || !r.resp || r.todos) console.log('Error: responder');
+    await pest.close(); await p.bringToFront();
+  } else console.log('Error: no hay botón Responder'); }
 await p.fill('#buscar', ''); await p.waitForTimeout(300);
 // Informe con los filtros
 await p.selectOption('#fSitio', 'SETEC SEGURIDAD'); await p.click('#kpis [data-kpi="noleidos"]');

@@ -395,4 +395,7 @@ con el formato *verbose* de SharePoint 2013.
   «↗ MENSADEF», «Ampliar» y «Cerrar» en pequeño; debajo, en grande, «Tarea en META», «Al PSIT» y «Ir a Rúbrica» (o «Pasar a
   rúbrica»), con su explicación; al final, pequeñas, Visto, No leído, Correo, Copiar y la bandera. Ampliada y fija arriba al
   bajar se compacta (sin las explicaciones).
+- **2026-11-13 · 8:** botón **«↩ Responder»** en la ficha (mensajes de entrada): abre MENSADEF en otra pestaña, localiza el
+  mensaje como «Abrir en MENSADEF», lo abre y pulsa su botón «Responder» (no «Responder a todos» ni «Reenviar»). Si en 15 s
+  no encuentra el botón, deja el mensaje abierto y avisa de que se pulse «Responder». La respuesta se escribe y envía en MENSADEF.
 
