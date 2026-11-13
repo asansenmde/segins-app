@@ -4,6 +4,7 @@
 // © 2026 Cte. Alfredo Sánchez Sender. Todos los derechos reservados.
 import fs from 'fs';
 import JavaScriptObfuscator from 'javascript-obfuscator';
+import * as acorn from 'acorn';
 
 const origen = new URL('../incidentes.html', import.meta.url), destino = new URL('../colabora/incidentes.html', import.meta.url);
 let html = fs.readFileSync(origen, 'utf8');
@@ -20,15 +21,37 @@ const version = (codigo.match(/var VERSION = '([^']+)'/) || [])[1] || '?';
 // legible nunca falla. Ahora se hace como un compactado normal: nombres internos cambiados y sin espacios ni comentarios,
 // sin las marcas del ofuscador. El bloqueo a los dominios de Defensa se hace con una comprobación propia, que también queda
 // compactada. FUERTE=1 vuelve a la ofuscación anterior (SEMILLA=n para cambiar la semilla).
-const fuerte = !!process.env.FUERTE;
+// 13/11/2026: el usuario pide que TODO vaya cifrado. Resuelta la causa real del «código como texto» (las etiquetas </head>…
+// dentro del programa, que ahora se escriben \x3c en los dos modos), vuelve la ofuscación fuerte por defecto y con TODOS los
+// textos cifrados (stringArrayThreshold 1; antes quedaba un 25 % legible). LIGERO=1 vuelve al compactado si algún día hiciera falta.
+const fuerte = !process.env.LIGERO;
 const guardia = "if (!/(^|\\.)mdef\\.es$/i.test(location.hostname)) { document.documentElement.innerHTML = '<p style=\"font:16px sans-serif;margin:40px\">Esta aplicación solo funciona en Colabora (mdef.es). © 2026 Cte. Alfredo Sánchez Sender.</p>'; throw new Error('dominio'); }\n";
-const ofuscado = JavaScriptObfuscator.obfuscate(fuerte ? codigo : guardia + codigo, fuerte ? {
+// Las expresiones regulares escritas tal cual (/^SEGURIDAD_IGE$/i…) el ofuscador no las cifra: se pasan a
+// new RegExp("…", "i") para que su texto vaya también a la tabla cifrada. Mismo comportamiento.
+function regexATexto(js) {
+  // Además, los nombres de campo de los objetos ({ ESTADO: … }) pasan a ['ESTADO'] para que también vayan cifrados
+  const cambios = [];
+  const recorrer = n => {
+    if (!n || typeof n.type !== 'string') return;
+    if (n.type === 'Literal' && n.regex) cambios.push({ ini: n.start, fin: n.end, txt: '(new RegExp(' + JSON.stringify(n.regex.pattern) + ', ' + JSON.stringify(n.regex.flags) + '))' });
+    if (n.type === 'Property' && !n.computed && !n.shorthand && !n.method && n.kind === 'init') {
+      const k = n.key, nombre = k.type === 'Identifier' ? k.name : typeof k.value === 'string' ? k.value : null;
+      if (nombre !== null && nombre !== '__proto__') cambios.push({ ini: k.start, fin: k.end, txt: '[' + JSON.stringify(nombre) + ']' });
+    }
+    for (const c in n) { const v = n[c]; if (Array.isArray(v)) v.forEach(recorrer); else if (v && typeof v === 'object' && typeof v.type === 'string') recorrer(v); }
+  };
+  recorrer(acorn.parse(js, { ecmaVersion: 'latest', sourceType: 'script' }));
+  cambios.sort((a, b) => b.ini - a.ini).forEach(c => { js = js.slice(0, c.ini) + c.txt + js.slice(c.fin); });
+  return js;
+}
+const ofuscado = JavaScriptObfuscator.obfuscate(fuerte ? regexATexto(codigo) : guardia + codigo, fuerte ? {
   compact: true,
   identifierNamesGenerator: 'hexadecimal',
   renameGlobals: false,
   stringArray: true,
   stringArrayEncoding: ['base64'],
-  stringArrayThreshold: 0.75,
+  stringArrayThreshold: 1,
+  transformObjectKeys: true,   // también los nombres de los campos de los objetos ('VALORACIONSUIGES'…)
   stringArrayRotate: true,
   stringArrayShuffle: true,
   splitStrings: false,

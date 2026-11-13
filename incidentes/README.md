@@ -241,3 +241,6 @@ nivel de permiso sin «Eliminar elementos». Prueba: escenario «adjuntos y elim
 - Autoría también en la cabecera («— Cte. Alfredo Sánchez Sender»), además del pie.
 - Pruebas: escenarios «responsables» (crear la lista, alta, dirección mal escrita, probar con grupos ocultos) y «control
   total» con los grupos ocultos, sin y con responsables.
+- **Copia cifrada entera** (13/11/2026): vuelve la ofuscación fuerte por defecto (`LIGERO=1` para el compactado), con todos
+  los textos cifrados, también los nombres de campo y las expresiones regulares (se pasan a texto antes de ofuscar). Probada
+  con la simulación completa normal y con `PROXY=1` (filtro de la red).
