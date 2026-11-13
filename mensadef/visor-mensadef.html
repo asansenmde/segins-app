@@ -516,7 +516,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-13 · 9';
+  var VERSION = '2026-11-13 · 10';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1215,6 +1215,10 @@
   // mirar en ella) y, cuando la aplicación pinta la bandeja, busca la fila por su n.º de registro o su asunto; si no
   // está a la vista, usa el buscador de la propia bandeja. Al encontrarla la resalta y la abre (como hacer clic en ella).
   // Si no la encuentra, deja un aviso con lo que hay que buscar (y lo copia).
+  function urlResponder(m) {
+    if (!m || !m.MensajeId || !m._idBuzon) return '';
+    return paginaAmbito() + '#/responder_mensaje/' + encodeURIComponent(m.MensajeId) + '?idBuzonCelula=' + encodeURIComponent(m._idBuzon);
+  }
   // accion = 'responder' (13/11/2026): tras abrir el mensaje en MENSADEF, pulsa allí su botón «Responder»
   function localizarEnMensadef(m, accion) {
     var ref = String(m.MensajeNum_referencia || '').trim(), asunto = String(m._asunto || '').trim(), salida = m._x && m._x.__es === 'Salida';
@@ -1806,7 +1810,7 @@
       '<button type="button" id="ampliar" title="Ver la ficha a toda la pantalla">' + (maxi ? '⤡ Reducir' : '⛶ Ampliar') + '</button><button type="button" id="cerrar" title="Cerrar la ficha">✕ Cerrar</button></div><div class="piso2">' +
       // 13/11/2026 (propuesta A): las tres acciones de tramitar en grande y, debajo, las utilidades pequeñas
       '<div class="grandes"><button type="button" class="gr gr-meta" id="aColabora" disabled title="Abre el Gestor de Tareas (META) con el alta rellena"><span class="i">➜</span><span>Tarea en META<small>expediente y responsable</small></span></button>' +
-      (m._api && m._x && m._x.__es !== 'Salida' ? '<button type="button" class="gr gr-resp" id="aResponder" title="Abre el mensaje en MENSADEF y pulsa «Responder»"><span class="i">↩</span><span>Responder<small>en MENSADEF</small></span></button>' : '') +
+      (m._api && m._x && m._x.__es !== 'Salida' ? '<button type="button" class="gr gr-resp" id="aResponder" title="Abre en MENSADEF la pantalla para responder a este mensaje"><span class="i">↩</span><span>Responder<small>en MENSADEF</small></span></button>' : '') +
       (PUNTO ? '<button type="button" class="gr gr-psit" id="aPunto" disabled title="Lo pasa al Punto de Situación (PSIT); también queda registrado en META"><span class="i">★</span><span>Al PSIT<small>punto de situación</small></span></button>' : '') + botonRubrica(m) + '</div>' +
       '<div class="utiles"><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + botonLeido(m) + '<span class="sepu"></span>' +
       '<button type="button" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Correo</button>' +
@@ -1828,7 +1832,14 @@
     });
     if ($('msgAnt')) { $('msgAnt').addEventListener('click', function () { irMensaje(-1); }); $('msgSig').addEventListener('click', function () { irMensaje(1); }); }
     if ($('abrirMensadef')) $('abrirMensadef').addEventListener('click', function () { localizarEnMensadef(m); });
-    if ($('aResponder')) $('aResponder').addEventListener('click', function () { localizarEnMensadef(m, 'responder'); });
+    if ($('aResponder')) $('aResponder').addEventListener('click', function () {
+      // 13/11/2026: la pantalla de respuesta de MENSADEF tiene su dirección (dada por el usuario):
+      // <ámbito>/SitePages/ambito.aspx#/responder_mensaje/<IdMensaje>?idBuzonCelula=<IdBuzonCelula>. Si falta algún dato,
+      // se abre el mensaje y se pulsa «Responder» en la pantalla.
+      var u = urlResponder(m);
+      if (!u) return localizarEnMensadef(m, 'responder');
+      if (!window.open(u, '_blank')) alert('El navegador ha bloqueado la pestaña nueva. Permite las ventanas emergentes de MENSADEF.');
+    });
     pintarColabora(m); pintarComentario(m); setTimeout(fijarBarra, 0);
     if ($('leidoBtn')) $('leidoBtn').addEventListener('click', function () { cambiarLeido(m, m._leido === false); });
     // Al abrir un mensaje no leído se marca leído también en MENSADEF (como al abrirlo allí)

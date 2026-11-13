@@ -406,4 +406,7 @@ con el formato *verbose* de SharePoint 2013.
   (envíos, peticiones, ventanas, AutoFirma por protocolo o conexión local). Tapa números e identificadores; no copia asuntos ni
   nombres. Lo anotado se guarda en la pestaña para seguir tras un cambio de página. Objetivo: llevar desde SENDERO a la
   petición en el Portafirmas, lista para firmar.
+- **2026-11-13 · 10:** «↩ Responder» abre directamente la pantalla de respuesta de MENSADEF (dirección dada por el usuario):
+  `<ámbito>/SitePages/ambito.aspx#/responder_mensaje/<IdMensaje>?idBuzonCelula=<IdBuzonCelula>`. Si faltan los datos, abre el
+  mensaje y pulsa «Responder» como en la · 8.
 

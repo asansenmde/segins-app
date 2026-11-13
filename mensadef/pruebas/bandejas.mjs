@@ -361,11 +361,12 @@ for (const n of [0, 40]) {
 { await p.fill('#buscar', 'RE-0'); await p.waitForTimeout(400);
   await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(200);
   if (await p.$('#aResponder')) {
+    await p.evaluate(() => { window.__urlResp = ''; const o = window.open; window.open = function (u) { window.__urlResp = u; return o.apply(this, arguments); }; });
     const [pest] = await Promise.all([ctx.waitForEvent('page'), p.click('#aResponder')]);
-    await pest.waitForFunction(() => window.respondido || window.respondidoTodos, null, { timeout: 30000 }).catch(() => 0);
-    const r = await pest.evaluate(() => ({ abierto: window.abierto || '', resp: !!window.respondido, todos: !!window.respondidoTodos }));
-    console.log('responder en MENSADEF:', JSON.stringify(r));
-    if (!r.abierto || !r.resp || r.todos) console.log('Error: responder');
+    const u = await p.evaluate(() => window.__urlResp);
+    const ok = /\/SitePages\/ambito\.aspx(\?app=1)?#\/responder_mensaje\/[0-9a-f-]{36}\?idBuzonCelula=[^&]+$/i.test(u);
+    console.log('responder en MENSADEF: pantalla de respuesta directa:', ok, '|', u.replace(/[0-9a-f-]{36}/gi, 'GUID').replace(/^https:\/\/[^/]+/, ''));
+    if (!ok) console.log('Error: responder');
     await pest.close(); await p.bringToFront();
   } else console.log('Error: no hay botón Responder'); }
 await p.fill('#buscar', ''); await p.waitForTimeout(300);
