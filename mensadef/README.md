@@ -382,4 +382,7 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-13 · 2:** la zona de trabajo ocupa toda la pantalla (sin ancho máximo) y la ficha crece con ella (420–760 px).
   Bajo el asunto ya no sale autoridad · firma · motivo (siempre igual; sigue en la ficha) sino si es de **ACCIÓN** o **INFO**
   (campo `Actuacion` de la bandeja) y el **último comentario**, que se actualiza al comentar o al pasar a META.
+- **2026-11-13 · 3:** MENSADEF solo da el texto del último comentario, sin su autor. Los comentarios escritos desde SENDERO
+  se firman al final con el nombre de quien los escribe («texto — NOMBRE»), igual que el de «Añadido como tarea en META».
+  Para ver el autor de los comentarios hechos en MENSADEF haría falta escuchar qué consulta usa MENSADEF para su historial.
 

@@ -477,7 +477,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-13 · 2';
+  var VERSION = '2026-11-13 · 3';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1992,9 +1992,10 @@
     $('guardarComentario').addEventListener('click', function () {
       var b = this, t = $('txtComentario').value.trim(), msg = $('msgComentario');
       if (!t) { msg.textContent = 'Escribe el comentario.'; return; }
-      if (!b.dataset.seguro) { b.dataset.seguro = '1'; b.textContent = '¿Guardar en MENSADEF? Pulsa otra vez'; b.classList.add('naranja'); msg.textContent = 'Se guardará en MENSADEF con tu usuario y lo verán los demás.'; return; }
+      if (!b.dataset.seguro) { b.dataset.seguro = '1'; b.textContent = '¿Guardar en MENSADEF? Pulsa otra vez'; b.classList.add('naranja'); msg.textContent = 'Se guardará en MENSADEF firmado con tu nombre y lo verán los demás.'; return; }
       b.disabled = true; msg.textContent = 'Guardando…';
-      comentarEnMensadef(m, t).then(function () {
+      // 13/11/2026: MENSADEF no devuelve quién hizo el último comentario: se firma con el nombre de quien lo escribe
+      miNombre().then(function (quien) { t = t + ' — ' + quien; return comentarEnMensadef(m, t); }).then(function () {
         if (abierto !== m) return;
         msg.innerHTML = '<b style="color:#2e7d4f">✓ Guardado en MENSADEF</b>'; $('txtComentario').value = ''; delete b.dataset.seguro; b.textContent = 'Guardar en MENSADEF'; b.classList.remove('naranja'); b.disabled = false;
         var dd = Array.prototype.filter.call(document.querySelectorAll('#detalle .ficha-campos dt'), function (d) { return d.textContent === 'Último comentario'; })[0];

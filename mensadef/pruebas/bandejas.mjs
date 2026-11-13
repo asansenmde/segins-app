@@ -230,6 +230,7 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
     const c = comentarios[comentarios.length - 1] || {};
     console.log('comentario:', c.metodo, c.params, JSON.stringify(c.cuerpo), '| passcode:', c.passcode, '|', (await p.textContent('#msgComentario')).trim(),
       '| último comentario en la ficha:', await p.$$eval('#detalle .ficha-campos dt', l => (l.find(d => d.textContent === 'Último comentario') || {}).nextElementSibling?.textContent));
+    if (!/— PERSONA"$/.test(JSON.stringify(c.cuerpo.Comentario || ''))) console.log('Error: el comentario no va firmado con el nombre');
     const n0 = comentarios.length; const [n4] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n4.close(); await p.waitForTimeout(500); await p.bringToFront();
     console.log('al añadir a META:', comentarios.length - n0, '→', (comentarios[comentarios.length - 1] || {}).cuerpo?.Comentario?.replace(/el .* ·/, 'el (fecha) ·'), '|', (await p.textContent('#colabora')).includes('Comentario añadido en MENSADEF'));
     { const subs = await p.$$eval('td.asunto .sub', n => n.map(x => x.innerHTML));
