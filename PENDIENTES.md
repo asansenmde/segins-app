@@ -235,4 +235,9 @@ autoría.
       Eliminar no funcionaba porque el nivel «Colaborar» del sitio JSUIGE no tiene «Eliminar elementos»: el usuario creó un nivel
       propio «META» (Colaborar + Eliminar elementos) para la lista «Gestor de Tareas MENSADEF» y ya funciona. No dar Control total
       para esto (en META, Control total = administrador: ve todo y Ajustes).
-
+    13/11/2026: SENDERO 2026-11-13 · 9 entregado (pantalla completa, acción/info y último comentario, columna Firma, «Sin bandera»,
+      agrupar por días/meses, barra de la ficha con la propuesta A, «↩ Responder» en MENSADEF, comentarios firmados con el nombre).
+    PENDIENTE DEL USUARIO: pasar el favorito «Explorar Portafirmas» en portafirmas.mdef.es (lista de pendientes, marcar una y pulsar
+      Firmar, cancelar AutoFirma) y pegar lo que copia (solo estructura). Con eso: que SENDERO abra la petición en el Portafirmas
+      lista para firmar. Firmar (identificarse, AutoFirma y PIN) lo sigue haciendo el usuario.
+    PENDIENTE (opcional): autor de los comentarios hechos en MENSADEF, con «Escuchar MENSADEF» sobre el historial de comentarios.
