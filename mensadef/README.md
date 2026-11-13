@@ -387,4 +387,6 @@ con el formato *verbose* de SharePoint 2013.
   Para ver el autor de los comentarios hechos en MENSADEF haría falta escuchar qué consulta usa MENSADEF para su historial.
 - **2026-11-13 · 4:** en la lista, la columna «Tipo» (casi siempre «Oficio») pasa a ser **«Firma»**: quién firma el
   mensaje (campo `Firma` de la bandeja), y se puede ordenar por ella. El tipo sigue en la ficha y al pasar el ratón.
+- **2026-11-13 · 5:** el filtro de **Bandera** tiene «— Sin bandera —» para ver los mensajes sin marca. Igual en los demás
+  filtros de columnas de MENSADEF cuando hay mensajes sin valor («— Sin prioridad —»…).
 

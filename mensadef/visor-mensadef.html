@@ -478,7 +478,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-13 · 4';
+  var VERSION = '2026-11-13 · 5';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1523,6 +1523,8 @@
     cols.forEach(function (k) {
       var sel = $('masFiltros').querySelector('[data-x="' + k + '"]');
       sel.id = 'fx_' + k; opciones(sel.id, mensajes.map(function (m) { return m._x[k]; }), 'Todos');
+      // 13/11/2026: «Sin bandera» (y, en las demás columnas, «Sin …») para elegir los que no tienen valor
+      if (mensajes.some(function (m) { return !m._x[k]; })) { var o0 = document.createElement('option'); o0.value = SIN_VALOR; o0.textContent = '— Sin ' + EXTRA[k].titulo.toLowerCase() + ' —'; sel.insertBefore(o0, sel.options[1] || null); }
       if (fx[k]) { sel.value = fx[k]; if (sel.value !== fx[k]) delete fx[k]; }
       sel.addEventListener('change', function () { if (sel.value) fx[k] = sel.value; else delete fx[k]; mostrar = 300; filtrar(); });
     });
@@ -1530,7 +1532,7 @@
     $('nColumnas').textContent = (CAMPOS.length + Object.keys(EXTRA).length) + ' leídas (' + Object.keys(EXTRA).length + ' propias de MENSADEF además de las habituales; ' + cols.length + ' con filtro)';
     filtrar();
   }
-  var fx = {};
+  var fx = {}, SIN_VALOR = '\u0001sin';
   var sitioDe = function (m) { return m._lista.sitio ? m._lista.sitio.titulo : ''; };
   $('fBorrador').checked = leer('ocultarBorradores', true);
   $('fBorrador').addEventListener('change', function () { guardar('ocultarBorradores', $('fBorrador').checked); });
@@ -1551,7 +1553,7 @@
       // «Ocultar vistos» vale también con una tarjeta elegida (No leídos, Entrada…): antes solo sin tarjeta (10/11/2026)
       if (sinVistos && vistos[claveMensaje(m)]) return false;
       if (sinBorr && !e && /borrador/i.test(m.MensajeEstado || '')) return false;
-      for (var j = 0; j < xs.length; j++) if (m._x[xs[j]] !== fx[xs[j]]) return false;
+      for (var j = 0; j < xs.length; j++) if (fx[xs[j]] === SIN_VALOR ? !!m._x[xs[j]] : m._x[xs[j]] !== fx[xs[j]]) return false;
       if (t && m.MensajeTipo_es !== t) return false;
       if (e && m.MensajeEstado !== e) return false;
       if (c && m.MensajeCanal !== c) return false;
@@ -2090,7 +2092,7 @@
     var sel = function (id, nom) { var e = $(id); if (e && e.value && e.parentNode.style.display !== 'none') f.push(nom + ': ' + e.value); };
     if ($('buscar').value.trim()) f.push('Búsqueda: «' + $('buscar').value.trim() + '»');
     sel('fSitio', modoApi ? 'Célula' : 'Sitio'); sel('fTipo', 'Tipo'); sel('fEstado', 'Estado'); sel('fCanal', 'Canal'); sel('fOrgano', 'Órgano'); sel('fAutoridad', modoApi ? 'Remitente' : 'Autoridad');
-    Object.keys(fx).forEach(function (k) { f.push(EXTRA[k].titulo + ': ' + fx[k]); });
+    Object.keys(fx).forEach(function (k) { f.push(fx[k] === SIN_VALOR ? 'Sin ' + EXTRA[k].titulo.toLowerCase() : EXTRA[k].titulo + ': ' + fx[k]); });
     if (kpiSel) f.push('Solo: ' + KPIS[kpiSel].t.toLowerCase());
     if ($('fAdjuntos').checked) f.push('Con adjuntos');
     if ($('fBorrador').checked) f.push('Sin borradores');

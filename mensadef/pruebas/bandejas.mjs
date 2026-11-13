@@ -242,7 +242,15 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
       const cabs = await p.$$eval('#lista thead th, table thead th', n => n.map(x => x.textContent.replace(/[▾▴]/g, '').trim()));
       const firmas = await p.$$eval('td.firma', n => n.map(x => x.textContent.trim()).filter(t => t.startsWith('✍')).length);
       console.log('columna Firma en lugar de Tipo:', cabs.includes('Firma') && !cabs.includes('Tipo'), '| filas con firma:', firmas, '| sin HTML del servidor:', !(await p.$('td.firma b')));
-      if (!cabs.includes('Firma') || cabs.includes('Tipo') || !firmas || await p.$('td.firma b')) console.log('Error: columna Firma'); }
+      if (!cabs.includes('Firma') || cabs.includes('Tipo') || !firmas || await p.$('td.firma b')) console.log('Error: columna Firma');
+      const opSin = await p.$$eval('#fx_Bandera option', o => o.map(x => x.textContent));
+      if (opSin.length) {
+        await p.selectOption('#fx_Bandera', { label: '— Sin bandera —' }); await p.waitForTimeout(300);
+        const conBandera = await p.$$eval('tbody tr[data-i] td.asunto', n => n.filter(x => /⚑/.test(x.textContent)).length), filas = await p.$$eval('tbody tr[data-i]', n => n.length);
+        console.log('filtro «Sin bandera»:', opSin.includes('— Sin bandera —'), '| filas:', filas, '| con bandera entre ellas:', conBandera);
+        if (!opSin.includes('— Sin bandera —') || !filas || conBandera) console.log('Error: filtro sin bandera');
+        await p.selectOption('#fx_Bandera', ''); await p.waitForTimeout(300);
+      } else console.log('Error: no hay filtro de bandera'); }
     if (process.env.CAPTURA_ANCHA) { const v = p.viewportSize(); await p.setViewportSize({ width: 1920, height: 1000 }); await p.evaluate(() => { const l = document.querySelector('#layout'); scrollTo(0, l.getBoundingClientRect().top + scrollY - 80); }); await p.waitForTimeout(400); await p.screenshot({ path: process.env.CAPTURA_ANCHA }); await p.setViewportSize(v); }
     if (!/ por PERSONA el /.test((comentarios[comentarios.length - 1] || {}).cuerpo?.Comentario || '')) console.log('Error: el comentario de META no lleva el nombre de quien lo añade');
     await p.uncheck('#anotarMeta'); const n1 = comentarios.length; const [n5] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n5.close(); await p.waitForTimeout(400); await p.bringToFront();
