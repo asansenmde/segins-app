@@ -293,7 +293,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-13 · 1';
+  var VERSION = '2026-11-13 · 2';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -2031,7 +2031,15 @@
         return digest;
       });
   }
+  // 13/11/2026: sin «Agregar elementos» o «Editar elementos» en la lista, se dice antes de enviar (si no, Colabora pide usuario y contraseña)
+  function permisoLista(bit) {
+    var e = listaInfo && listaInfo.EffectiveBasePermissions;
+    return !e || !!((Number(e.Low) || 0) & bit);
+  }
   function enviarSP(url, cuerpo, sinPermiso, extra) {
+    var deLista = listaInfo && String(url).indexOf(urlLista() + '/items') === 0, met = extra && extra['X-HTTP-Method'];
+    if (deLista && met === 'MERGE' && !permisoLista(0x4)) return Promise.reject(new Error('Colabora no te deja modificar asuntos: tu nivel de permiso en la lista de META no incluye «Editar elementos». Pide a quien tenga Control total que lo marque en tu nivel (por ejemplo, en el nivel «META»).'));
+    if (deLista && !met && /\/items$/.test(url) && !permisoLista(0x2)) return Promise.reject(new Error('Colabora no te deja crear asuntos: tu nivel de permiso en la lista de META no incluye «Agregar elementos».'));
     return obtenerDigest().then(function (dg) {
       return fetch(url, { method: 'POST', credentials: 'same-origin', body: JSON.stringify(cuerpo),
         headers: Object.assign({ Accept: 'application/json;odata=verbose', 'Content-Type': 'application/json;odata=verbose', 'X-RequestDigest': dg }, extra || {}) });
@@ -2219,7 +2227,25 @@
   var apuntarPersona = function (u) { var e = u && (u.Email || u.EMail); if (e && (u.Id || u.Title)) quienEs[String(e).toLowerCase()] = { Id: u.Id, Title: u.Title }; return u; };
   var palabrasNombre = function (n) { return sinTildes(n).replace(/[^a-zñ ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 3 && ['del', 'las', 'los'].indexOf(w) < 0; }); };
   var mismasPalabras = function (a, b) { var x = palabrasNombre(a).sort().join(' '), y = palabrasNombre(b).sort().join(' '); return !!x && x === y; };
+  // 13/11/2026: quien solo tiene permiso en la lista (en el sitio, «Acceso limitado») no puede enviar correos desde la página,
+  // ni buscar en el directorio, ni dar de alta personas en el sitio: esas peticiones son del sitio y, sin permiso, Colabora
+  // saca la pantalla de usuario y contraseña. Se mira antes (permiso «Ver páginas» en el sitio) y no se envían.
+  var permSitio = null;
+  function sitioLimitado() {
+    if (!permSitio) permSitio = !web ? Promise.resolve(false) : api(web.url + '/_api/web?$select=EffectiveBasePermissions').then(function (w) {
+      var e = w.EffectiveBasePermissions; if (!e) return false;
+      return !((Number(e.Low) || 0) & 0x20000);
+    }, function () { return false; });
+    return permSitio;
+  }
+  var SOLO_LISTA = 'tu cuenta solo tiene permiso en la lista de META, no en el sitio (allí tiene «Acceso limitado»)';
   function enviarUno(to, cc, bcc, c) {
+    return sitioLimitado().then(function (lim) {
+      if (lim) throw new Error('Colabora no te deja enviar correos desde la página: ' + SOLO_LISTA);
+      return enviarUnoSP(to, cc, bcc, c);
+    });
+  }
+  function enviarUnoSP(to, cc, bcc, c) {
     var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, CC: { results: cc || [] }, Subject: (PRUEBAS ? '[PRUEBAS] ' : '') + c.asunto, Body: c.html };
     if (bcc && bcc.length) pr.BCC = { results: bcc };
     return enviarSP(web.url + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página');
@@ -2342,6 +2368,9 @@
   // (quien nunca ha entrado al sitio no está en su lista de usuarios). Al elegir a alguien del directorio se
   // le da de alta en el sitio con ensureuser, igual que hace el formulario de Colabora.
   function buscarDirectorio(q) {
+    return sitioLimitado().then(function (lim) { return lim ? [] : buscarDirectorioSP(q); });
+  }
+  function buscarDirectorioSP(q) {
     return enviarSP(web.url + '/_api/SP.UI.ApplicationPages.ClientPeoplePickerWebServiceInterface.clientPeoplePickerSearchUser', { queryParams: {
       __metadata: { type: 'SP.UI.ApplicationPages.ClientPeoplePickerQueryParameters' }, QueryString: q, MaximumEntitySuggestions: 15,
       AllowEmailAddresses: false, AllowMultipleEntities: false, AllUrlZones: false, ForceClaims: false, PrincipalSource: 15, PrincipalType: 1 } }, 'Sin permiso para buscar en el directorio')
@@ -2354,6 +2383,12 @@
   }
   function asegurarUsuario(u) {
     if (u.Id) return Promise.resolve(u);
+    return sitioLimitado().then(function (lim) {
+      if (lim) throw new Error('No puedes dar de alta en el sitio a una persona que aún no ha entrado en él: ' + SOLO_LISTA + '. Elige a alguien que ya esté en la lista de personas.');
+      return asegurarUsuarioSP(u);
+    });
+  }
+  function asegurarUsuarioSP(u) {
     return enviarSP(web.url + '/_api/web/ensureuser', { logonName: u.clave }, 'No tienes permiso para añadir a esa persona al sitio').then(function (r) {
       var x = { Id: r.Id, Title: r.Title || u.Title, Email: r.Email || '' };
       // Cuenta sin correo en Colabora: si la misma persona tiene otra cuenta del sitio con correo, se usa esa (si no, sus avisos no llegan)

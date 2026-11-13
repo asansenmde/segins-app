@@ -35,6 +35,12 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-13 · 2:** sin «Agregar elementos» o «Editar elementos» en la lista, META lo dice antes de escribir (al
+  crear se escribe también el nº de expediente, que necesita «Editar elementos»). Quien solo tiene permiso en la lista
+  («Acceso limitado» en el sitio) no envía correos desde Colabora (se le prepara en Outlook), no busca en el directorio ni da de
+  alta personas en el sitio: esas peticiones sacaban la pantalla de usuario y contraseña. El nivel propio «META» debe ser una
+  copia de «Colaborar» con «Eliminar elementos» (con «Editar elementos», «Ver versiones», «Examinar información de usuario»,
+  «Utilizar interfaces remotas», etc.).
 - **Versión 2026-11-13 · 1:** al pasar un asunto al Punto de Situación, META mira antes los permisos en «PS Aportaciones»
   (añadir, o modificar la entrada). Si no los hay, lo dice y no envía nada: antes Colabora sacaba la pantalla de identificarse.
 - **Versión 2026-11-12 · 7:** En el sitio JSUIGE el nivel «Colaborar» no incluye «Eliminar elementos»: para la lista

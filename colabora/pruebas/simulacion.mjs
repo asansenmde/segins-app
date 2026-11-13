@@ -30,7 +30,7 @@ items[2].fECHAFINALIZACION = d(-3); items[18].fECHAFINALIZACION = null;
 // Colabora que rechaza direcciones («destinatario válido»): buzonMal = direcciones rechazadas; enviados = las que acepta
 let buzonMal = [], enviados = [];
 let conTratar = false, papelera = [], sinBorrar = false;   // asuntos «eliminados» (se restauran tras comprobarlo)   // columna «TratarEn» (se crea desde Ajustes)
-let denegar = false, correoFalla = false, anexar = true, versiones = {};
+let sinEditarLista = false, soloLista = false, denegar = false, correoFalla = false, anexar = true, versiones = {};
 async function prueba() {
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 420, height: 900 } });
@@ -104,7 +104,7 @@ async function prueba() {
       }
       return r.fulfill({ status: 400, body: '' });
     }
-    if (resto.startsWith('web?')) return r.fulfill({ json: { Url: 'https://colabora.mdef.es' + WEB, Title: 'JSUIGE' } });
+    if (resto.startsWith('web?')) return r.fulfill({ json: { Url: 'https://colabora.mdef.es' + WEB, Title: 'JSUIGE', ...(soloLista ? { EffectiveBasePermissions: { High: '0', Low: String(0x1000 | 0x10000) } } : {}) } });
     if (resto.startsWith('web/currentuser')) return r.fulfill({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' } });
     if (resto.startsWith('web/siteusers')) return r.fulfill({ json: { value: [{ Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' }, { Id: 31, Title: 'GARCIA LOPEZ ANA', Email: 'agarcia@et.mde.es' }, { Id: 32, Title: 'PEREZ RUIZ LUIS', Email: 'lperez@et.mde.es' }, { Id: 41, Title: 'Garcia Lopez, Ana', Email: 'agarcia2@et.mde.es' }] } });
     if (resto.includes("/fields")) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'Prioridad', Choices: PRIOS }, { InternalName: 'NegociadoAsignado', Choices: NEGS, FillInChoice: !process.env.SINCELULAS },
@@ -114,7 +114,7 @@ async function prueba() {
       const next = skip + 500 < items.length ? `https://colabora.mdef.es${WEB}/_api/web/lists/getbytitle('Gestor de Tareas')/items?skip=${skip + 500}` : undefined;
       return r.fulfill({ json: { value: items.slice(skip, skip + 500), 'odata.nextLink': next } });
     }
-    if (/^web\/lists\/getbytitle\('Gestor de Tareas[^']*'\)\?/.test(resto)) return r.fulfill({ json: { Id: 'g', Title: resto.match(/getbytitle\('([^']*)'/)[1], ItemCount: items.length, EffectiveBasePermissions: { High: '0', Low: String(admin ? 0x7FFFFFFF : 0x1F) }, ListItemEntityTypeFullName: 'SP.Data.Gestor_x0020_de_x0020_TareasListItem', RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor de Tareas' } } });
+    if (/^web\/lists\/getbytitle\('Gestor de Tareas[^']*'\)\?/.test(resto)) return r.fulfill({ json: { Id: 'g', Title: resto.match(/getbytitle\('([^']*)'/)[1], ItemCount: items.length, EffectiveBasePermissions: { High: '0', Low: String(admin ? 0x7FFFFFFF : sinEditarLista ? 0x1B : 0x1F) }, ListItemEntityTypeFullName: 'SP.Data.Gestor_x0020_de_x0020_TareasListItem', RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor de Tareas' } } });
     return r.fulfill({ status: 404, body: '' });
   });
   await p.goto('https://colabora.mdef.es' + WEB + '/seguridad/Documentos%20compartidos/tareas-nlt-colabora.html'); await p.waitForTimeout(1500);
@@ -357,6 +357,25 @@ async function prueba() {
   console.log('buscar «exp 3»:', (await p.$$eval('.tarea', n => n.map(x => x.innerText.replace(/\s+/g, ' ').slice(0, 160)))).slice(0, 3).join(' || '));
   await p.fill('#fq', ''); await p.waitForTimeout(300);
   console.log('avisos ⚠ en pantalla:', await p.$$eval('.badge.warn', n => [...new Set(n.map(x => x.textContent))].join(' / ')));
+  // 13/11/2026: cuenta con permiso solo en la lista («Acceso limitado» en el sitio): ni correo desde Colabora ni directorio (sin pantalla de identificarse)
+  { soloLista = true; denegar = false; const nP = posts.length;
+    await p.goto('https://colabora.mdef.es' + WEB + '/seguridad/Documentos%20compartidos/tareas-nlt-colabora.html?id=707'); await p.waitForTimeout(1800);
+    if (await p.$('[data-asignar]')) { await p.click('[data-asignar]'); await p.waitForTimeout(800); }
+    const caja = (await p.textContent('#correoAsig').catch(() => '')).replace(/\s+/g, ' ');
+    const sinPost = !posts.slice(nP).some(x => /SendEmail|clientPeoplePicker|ensureuser/.test(x.ruta));
+    console.log('solo permiso en la lista: correo', /Acceso limitado/.test(caja) && !!(await p.$('#correoAsig a[href^="mailto:"]')) ? 'preparado en Outlook' : 'MAL', '| sin peticiones al sitio:', sinPost, '|', caja.slice(0, 120));
+    if (!sinPost || !/Acceso limitado/.test(caja)) console.log('HAY FALLOS: cuenta solo de lista');
+    soloLista = false; }
+  // 13/11/2026: nivel de permiso sin «Editar elementos»: lo dice y no envía el MERGE (no sale la pantalla de identificarse)
+  { sinEditarLista = true; const adminAntes = admin; admin = false; const nP = posts.length;
+    await p.goto('https://colabora.mdef.es' + WEB + '/seguridad/Documentos%20compartidos/tareas-nlt-colabora.html?id=707'); await p.waitForTimeout(1800);
+    const b = (await p.$('[data-fase]:not(.on)')) || (await p.$('[data-reabrir]')) || (await p.$('[data-finalizar]'));
+    if (b) { await b.click(); await p.waitForTimeout(800); }
+    const msg = (await p.textContent('#estMsg').catch(() => '')).trim();
+    const sinMerge = !posts.slice(nP).some(x => /items\(707\)$/.test(x.ruta));
+    console.log('sin «Editar elementos»:', msg.slice(0, 90), '| sin MERGE:', sinMerge, posts.slice(nP).map(x => x.ruta + ' ' + (x.cab['x-http-method'] || '')).join(', '), !!b);
+    if (!/Editar elementos/.test(msg) || !sinMerge) console.log('HAY FALLOS: sin editar');
+    sinEditarLista = false; admin = adminAntes; }
   console.log('errores:', errs);
   await b.close();
 }
