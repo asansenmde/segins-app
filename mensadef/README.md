@@ -377,4 +377,6 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-11 · 6:** «Pasar directamente al PSIT» también en el **definitivo**. El botón es azul marino con filo dorado y
   del mismo tamaño que «Añadir tarea en META». Antes salía aplastado porque usaba la clase `punto`, la del puntito de
   «no leído»; ahora usa `psit`.
+- **2026-11-13 · 1:** el comentario que se deja en MENSADEF al añadir la tarea en META lleva el nombre de quien la añade
+  («Añadido como tarea en META (META) por NOMBRE el fecha · SENDERO»). El nombre es el de su cuenta de Colabora/MENSADEF.
 

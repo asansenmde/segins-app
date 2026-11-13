@@ -473,7 +473,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-11 · 6';
+  var VERSION = '2026-11-13 · 1';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -736,7 +736,7 @@
   function arrancar(ruta) {
   webDe(ruta).then(function (w) {
     web = w;
-    api('web/currentuser?$select=Title', w.url).then(function (u) { $('quien').textContent = [w.titulo, u.Title].filter(Boolean).join(' · '); }).catch(function () { $('quien').textContent = w.titulo || ''; });
+    api('web/currentuser?$select=Title', w.url).then(function (u) { nombreYo = u.Title || ''; $('quien').textContent = [w.titulo, u.Title].filter(Boolean).join(' · '); }).catch(function () { $('quien').textContent = w.titulo || ''; });
     $('estado').textContent = 'Buscando tus células y bandejas en MENSADEF…';
     return iniciarApi(w).then(function () {
       modoApi = true;
@@ -1947,6 +1947,14 @@
       return b;
     });
   }
+  // 13/11/2026: nombre de quien usa SENDERO (para firmar el comentario «Añadido como tarea en META»)
+  var nombreYo = '';
+  function miNombre() {
+    if (nombreYo) return Promise.resolve(nombreYo);
+    var porCorreo = function () { return apiCtx && apiCtx.email ? apiCtx.email : 'usuario de SENDERO'; };
+    if (!web) return Promise.resolve(porCorreo());
+    return api('web/currentuser?$select=Title', web.url).then(function (u) { nombreYo = u.Title || ''; return nombreYo || porCorreo(); }, porCorreo);
+  }
   function comentarEnMensadef(m, texto) {
     if (!apiCtx || !m.MensajeId) return Promise.reject(new Error('este mensaje no viene del servicio de MENSADEF'));
     var q = qUsuario();
@@ -1998,8 +2006,11 @@
     guardar('enviados', enviados);
     pintarColabora(m); pintarTabla();
     if (ESCRIBIR && m._api && leer('anotarMeta', true)) {
-      var nota = 'Añadido como tarea en META' + (punto ? ' para el Punto de Situación' : '') + ' (' + ((gestorElegido() || {}).nombre || 'Gestor de Tareas') + ') el ' + new Date().toLocaleString('es-ES') + ' · SENDERO';
-      comentarEnMensadef(m, nota).then(function () {
+      var nota;
+      miNombre().then(function (quien) {
+        nota = 'Añadido como tarea en META' + (punto ? ' para el Punto de Situación' : '') + ' (' + ((gestorElegido() || {}).nombre || 'Gestor de Tareas') + ') por ' + quien + ' el ' + new Date().toLocaleString('es-ES') + ' · SENDERO';
+        return comentarEnMensadef(m, nota);
+      }).then(function () {
         if (abierto !== m) return;
         $('colabora').insertAdjacentHTML('beforeend', '<p class="small" style="color:#2e7d4f">✓ Comentario añadido en MENSADEF: «' + esc(nota) + '»</p>');
         var dd = Array.prototype.filter.call(document.querySelectorAll('#detalle .ficha-campos dt'), function (d) { return d.textContent === 'Último comentario'; })[0];

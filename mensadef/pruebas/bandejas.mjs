@@ -232,6 +232,7 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
       '| último comentario en la ficha:', await p.$$eval('#detalle .ficha-campos dt', l => (l.find(d => d.textContent === 'Último comentario') || {}).nextElementSibling?.textContent));
     const n0 = comentarios.length; const [n4] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n4.close(); await p.waitForTimeout(500); await p.bringToFront();
     console.log('al añadir a META:', comentarios.length - n0, '→', (comentarios[comentarios.length - 1] || {}).cuerpo?.Comentario?.replace(/el .* ·/, 'el (fecha) ·'), '|', (await p.textContent('#colabora')).includes('Comentario añadido en MENSADEF'));
+    if (!/ por PERSONA el /.test((comentarios[comentarios.length - 1] || {}).cuerpo?.Comentario || '')) console.log('Error: el comentario de META no lleva el nombre de quien lo añade');
     await p.uncheck('#anotarMeta'); const n1 = comentarios.length; const [n5] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n5.close(); await p.waitForTimeout(400); await p.bringToFront();
     console.log('casilla desmarcada → sin comentario:', comentarios.length === n1); await p.check('#anotarMeta');
     // Bandera: poner «Seguimiento» y quitarla
