@@ -4,7 +4,7 @@
 //      node proteger.mjs --pruebas  → ../colabora/tareas-nlt-colabora-pruebas.html (copia de pruebas: lista «Gestor de Tareas PRUEBAS», banda roja)
 // © 2026 Cte. Alfredo Sánchez Sender. Todos los derechos reservados.
 import fs from 'fs';
-import JavaScriptObfuscator from 'javascript-obfuscator';
+import { cifrar } from './cifrado.mjs';   // todo cifrado: textos, campos y expresiones (13/11/2026)
 
 const PRUEBAS = process.argv.includes('--pruebas');
 //      node proteger.mjs --propio   → ../colabora/tareas-nlt-colabora-mensadef.html (Gestor propio de MENSADEF: lista «Gestor de Tareas MENSADEF»)
@@ -27,30 +27,10 @@ const ini = html.lastIndexOf('<script>'), fin = html.lastIndexOf('</script>');
 if (ini < 0 || fin < ini) throw new Error('No encuentro el <script> de la aplicación');
 const codigo = html.slice(ini + 8, fin);
 const version = (codigo.match(/var VERSION = '([^']+)'/) || [])[1] || '?';
-// Protección (04/11/2026, como Incidentes; ver SHAREPOINT.md «Si la copia protegida sale como código»):
-// - Compactado normal (nombres internos cambiados, sin espacios ni comentarios), sin las marcas de la ofuscación fuerte.
-// - Bloqueo propio a *.mdef.es al principio del código.
-// - CAUSA REAL del «código como texto»: algo en la red de Defensa mete su código buscando etiquetas como </head> o <body>,
-//   y las encontraba también DENTRO del programa (plantillas de impresión o de Word), partiéndolo en dos. Aquí el «<» de
-//   esas etiquetas se escribe \x3c (el navegador lo lee igual) y se niega a generar la copia si queda alguna.
-// FUERTE=1 vuelve a la ofuscación anterior (SEMILLA=n para la semilla).
-const fuerte = !!process.env.FUERTE;
-const guardia = "if (!/(^|\\.)mdef\\.es$/i.test(location.hostname)) { document.documentElement.innerHTML = '<p style=\"font:16px sans-serif;margin:40px\">Esta aplicación solo funciona en Colabora (mdef.es). © 2026 Cte. Alfredo Sánchez Sender.</p>'; throw new Error('dominio'); }\n";
-const ofuscado = JavaScriptObfuscator.obfuscate(fuerte ? codigo : guardia + codigo, fuerte ? {
-  compact: true, identifierNamesGenerator: 'hexadecimal', renameGlobals: false, stringArray: true, stringArrayEncoding: ['base64'],
-  stringArrayThreshold: 0.75, stringArrayRotate: true, stringArrayShuffle: true, splitStrings: false, controlFlowFlattening: false,
-  deadCodeInjection: false, selfDefending: true, domainLock: ['.mdef.es'], seed: Number(process.env.SEMILLA || 20261027), unicodeEscapeSequence: false
-} : {
-  compact: true, identifierNamesGenerator: 'mangled', renameGlobals: false, stringArray: false, selfDefending: false, debugProtection: false,
-  disableConsoleOutput: false, controlFlowFlattening: false, deadCodeInjection: false, numbersToExpressions: false, simplify: true,
-  splitStrings: false, transformObjectKeys: false, unicodeEscapeSequence: false, seed: 20261103
-}).getObfuscatedCode();
-// Espacios y comillas dobles de los textos tal cual (el generador los pone como \x20 y \x22), si la barra no está escapada
-const codigoCompacto = fuerte ? ofuscado : ofuscado.replace(/(^|[^\\])((?:\\\\)*)\\x20/g, '$1$2 ').replace(/(^|[^\\])((?:\\\\)*)\\x20/g, '$1$2 ')
-  .replace(/(^|[^\\])((?:\\\\)*)\\x22/g, '$1$2"').replace(/(^|[^\\])((?:\\\\)*)\\x22/g, '$1$2"');
-const ETIQUETAS = /<(?=\/?(?:!doctype|html|head|body|meta|title|style|link|base|script)\b|!--)/gi;   // también «<!--» (comentarios de Word)
-const codigoFinal = codigoCompacto.replace(ETIQUETAS, '\\x3c');
-if (/<\/script|<!--|<\/?(?:!doctype|html|head|body)\b/i.test(codigoFinal)) throw new Error('El código protegido contiene etiquetas de página («</head>», «<body>»…): no se puede pegar en la página');
+// Protección (13/11/2026): todo cifrado con cifrado.mjs (textos, nombres de campo y expresiones; etiquetas </head>… como
+// \x3c para el filtro de la red). Sustituye al compactado del 04/11 y a la ofuscación fuerte que dejaba el 25 % de los textos.
+const { codigo: ofuscado } = cifrar(codigo, Number(process.env.SEMILLA || 20261027));
+const codigoFinal = ofuscado;
 
 const aviso = '<!--\n  Gestor de tareas de la Jefatura de SUIGESUR · versión ' + version + ' (protegida' + (PRUEBAS ? ', COPIA DE PRUEBAS' : PROPIO ? ', META · GESTOR PROPIO DE MENSADEF' : '') + ')\n' +
   '  © 2026 Cte. Alfredo Sánchez Sender. Desarrollador y autor de esta aplicación. Todos los derechos reservados.\n' +

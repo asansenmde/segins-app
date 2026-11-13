@@ -169,6 +169,15 @@ del pie y la página se queda en «Cargando…»): a algunas copias, según cóm
 y Pérdidas 27/10 · 2. Arreglo: generar otra copia con otra `seed` del ofuscador y probarla con otro nombre; en
 `perdidas/proteger` la semilla ya es fija (`SEMILLA=n` para cambiarla). La variante sin cifrar los textos
 (`stringArrayEncoding: []`) tampoco pasó.
+**Causa real (03/11/2026):** el filtro de la red mete su código delante de cada `</head>`, `<body>`… que encuentra, también
+**dentro** del programa (plantillas de impresión o de Word), y lo parte. Por eso fallaba «al azar» según qué textos salieran
+cifrados.
+
+**Desde el 13/11/2026 todo va cifrado** (petición del usuario) con `proteger/cifrado.mjs`, copiado igual en cada proyecto:
+todos los textos a la tabla cifrada (`stringArrayThreshold: 1`), y antes de ofuscar los nombres de campo (`{ ESTADO: … }`
+→ `['ESTADO']`) y las expresiones regulares (`/…/` → `new RegExp("…")`) se pasan a texto para que también se cifren;
+después, el `<` de esas etiquetas se escribe `\x3c` y no se genera la copia si queda alguna. Comprobar que no se lee ningún
+nombre de lista, grupo ni mensaje, y pasar las pruebas contra la copia (en Incidentes, también con `PROXY=1`).
 
 ## Ocultar la ruleta y la cinta en el portal (Editor de scripts) · 20/10/2026
 

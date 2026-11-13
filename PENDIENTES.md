@@ -96,3 +96,6 @@ autoría.
     los avisos por escalón (lista «INCIDENTES RESPONSABLES»). Pendiente del usuario: subirla, crear la lista desde Ajustes,
     poner al menos un responsable por SUIGE, DIACU e IGE, y dejar la lista en solo lectura para los demás. Permisos: en la
     otra sesión hay una 2026-11-05 · 2 que esta rama no tiene (pendiente de que el usuario diga si se unifica).
+19. **Todo cifrado** (13/11/2026, petición del usuario): copias de Incidentes, Pérdidas, VSA, Permisos (traída la 2026-11-05 · 2
+    de la otra sesión) y Gestor de Tareas / META / pruebas con `proteger/cifrado.mjs` (textos, campos y expresiones; `\x3c`).
+    Pendiente del usuario: subir todas y abrir cada una en Edge para confirmar que no sale el código como texto.

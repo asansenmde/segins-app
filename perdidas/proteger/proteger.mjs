@@ -3,7 +3,7 @@
 // Uso: cd perdidas/proteger && npm install && node proteger.mjs
 // © 2026 Cte. Alfredo Sánchez Sender. Todos los derechos reservados.
 import fs from 'fs';
-import JavaScriptObfuscator from 'javascript-obfuscator';
+import { cifrar } from './cifrado.mjs';   // todo cifrado: textos, campos y expresiones (13/11/2026)
 
 const origen = new URL('../perdidas.html', import.meta.url), destino = new URL('../colabora/perdidas.html', import.meta.url);
 let html = fs.readFileSync(origen, 'utf8');
@@ -14,30 +14,13 @@ const ini = html.lastIndexOf('<script>'), fin = html.lastIndexOf('</script>');
 if (ini < 0 || fin < ini) throw new Error('No encuentro el <script> de la aplicación');
 const codigo = html.slice(ini + 8, fin);
 const version = (codigo.match(/var VERSION = '([^']+)'/) || [])[1] || '?';
-const ofuscado = JavaScriptObfuscator.obfuscate(codigo, {
-  compact: true,
-  identifierNamesGenerator: 'hexadecimal',
-  renameGlobals: false,
-  stringArray: true,
-  stringArrayEncoding: ['base64'],
-  stringArrayThreshold: 0.75,
-  stringArrayRotate: true,
-  stringArrayShuffle: true,
-  splitStrings: false,
-  controlFlowFlattening: false,   // más lento y no aporta mucho aquí
-  deadCodeInjection: false,
-  selfDefending: true,            // deja de funcionar si alguien lo reformatea para leerlo
-  domainLock: ['.mdef.es'],       // solo funciona dentro de los dominios de Defensa (colabora.mdef.es…)
-  unicodeEscapeSequence: false,
-  // Semilla fija: la misma página da siempre la misma copia. Algunas copias (al azar) llegaban a Edge con el programa anulado
-  // y salía el código como texto (la del 27/10 · 2); con esta semilla funciona. Si vuelve a pasar: SEMILLA=otro número.
-  seed: Number(process.env.SEMILLA || 20261027)
-}).getObfuscatedCode();
+const { codigo: ofuscado } = cifrar(codigo, Number(process.env.SEMILLA || 20261027));
+const codigoFinal = ofuscado;
 
 const aviso = '<!--\n  Pérdida de documentación · Inspección General del Ejército · versión ' + version + ' (protegida)\n' +
   '  © 2026 Cte. Alfredo Sánchez Sender. Desarrollador y autor de esta aplicación. Todos los derechos reservados.\n' +
   '  Prohibida su copia, modificación o redistribución sin autorización del autor.\n-->\n';
-let salida = html.slice(0, ini + 8) + '\n' + ofuscado + '\n' + html.slice(fin);
+let salida = html.slice(0, ini + 8) + '\n' + codigoFinal + '\n' + html.slice(fin);
 salida = salida.replace(/^<!doctype html>\n<!--[\s\S]*?-->\n/i, '<!doctype html>\n' + aviso);         // aviso con la versión
 // Fuera los comentarios internos del HTML y del estilo (se queda solo el aviso de autoría del principio)
 const [cab, resto] = [salida.slice(0, salida.indexOf('-->') + 3), salida.slice(salida.indexOf('-->') + 3)];

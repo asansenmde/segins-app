@@ -4,7 +4,7 @@
 //      node proteger.mjs --pruebas  → ../colabora/permisos-pruebas.html (copia de pruebas: listas «… PRUEBAS», banda roja)
 // © 2026 Cte. Alfredo Sánchez Sender. Todos los derechos reservados.
 import fs from 'fs';
-import JavaScriptObfuscator from 'javascript-obfuscator';
+import { cifrar } from './cifrado.mjs';   // todo cifrado: textos, campos y expresiones (13/11/2026)
 
 const PRUEBAS = process.argv.includes('--pruebas');
 const origen = new URL('../permisos.html', import.meta.url), destino = new URL(PRUEBAS ? '../colabora/permisos-pruebas.html' : '../colabora/permisos.html', import.meta.url);
@@ -20,27 +20,15 @@ const ini = html.lastIndexOf('<script>'), fin = html.lastIndexOf('</script>');
 if (ini < 0 || fin < ini) throw new Error('No encuentro el <script> de la aplicación');
 const codigo = html.slice(ini + 8, fin);
 const version = (codigo.match(/var VERSION = '([^']+)'/) || [])[1] || '?';
-const ofuscado = JavaScriptObfuscator.obfuscate(codigo, {
-  compact: true,
-  identifierNamesGenerator: 'hexadecimal',
-  renameGlobals: false,
-  stringArray: true,
-  stringArrayEncoding: ['base64'],
-  stringArrayThreshold: 0.75,
-  stringArrayRotate: true,
-  stringArrayShuffle: true,
-  splitStrings: false,
-  controlFlowFlattening: false,   // más lento y no aporta mucho aquí
-  deadCodeInjection: false,
-  selfDefending: true,            // deja de funcionar si alguien lo reformatea para leerlo
-  domainLock: ['.mdef.es'],       // solo funciona dentro de los dominios de Defensa (colabora.mdef.es…)
-  unicodeEscapeSequence: false
-}).getObfuscatedCode();
+// Protección (13/11/2026): todo cifrado con cifrado.mjs (textos, nombres de campo y expresiones; etiquetas </head>… como
+// \x3c para el filtro de la red). Sustituye al compactado del 04/11 y a la ofuscación fuerte que dejaba el 25 % de los textos.
+const { codigo: ofuscado } = cifrar(codigo, Number(process.env.SEMILLA || 20261027));
+const codigoFinal = ofuscado;
 
 const aviso = '<!--\n  Solicitud de permisos · SUIGESUR · versión ' + version + ' (protegida' + (PRUEBAS ? ', COPIA DE PRUEBAS' : '') + ')\n' +
   '  © 2026 Cte. Alfredo Sánchez Sender. Desarrollador y autor de esta aplicación. Todos los derechos reservados.\n' +
   '  Prohibida su copia, modificación o redistribución sin autorización del autor.\n-->\n';
-let salida = html.slice(0, ini + 8) + '\n' + ofuscado + '\n' + html.slice(fin);
+let salida = html.slice(0, ini + 8) + '\n' + codigoFinal + '\n' + html.slice(fin);
 salida = salida.replace(/^<!doctype html>\n<!--[\s\S]*?-->\n/i, '<!doctype html>\n' + aviso);         // aviso con la versión
 // Fuera los comentarios internos del HTML y del estilo (se queda solo el aviso de autoría del principio)
 const [cab, resto] = [salida.slice(0, salida.indexOf('-->') + 3), salida.slice(salida.indexOf('-->') + 3)];
