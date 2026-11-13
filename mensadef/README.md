@@ -389,4 +389,6 @@ con el formato *verbose* de SharePoint 2013.
   mensaje (campo `Firma` de la bandeja), y se puede ordenar por ella. El tipo sigue en la ficha y al pasar el ratón.
 - **2026-11-13 · 5:** el filtro de **Bandera** tiene «— Sin bandera —» para ver los mensajes sin marca. Igual en los demás
   filtros de columnas de MENSADEF cuando hay mensajes sin valor («— Sin prioridad —»…).
+- **2026-11-13 · 6:** «Agrupar» en los filtros: por días (como antes), por meses o sin agrupar. Cada grupo dice cuántos
+  mensajes tiene. Se recuerda en el navegador; al agrupar se ordena por fecha.
 

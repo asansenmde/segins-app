@@ -50,6 +50,8 @@
   tbody tr:hover { background: #f7f8f4; }
   tbody tr.sel { background: var(--sel); }
   td.asunto { min-width: 280px; }
+  .dia-cab .ngrupo { display: inline-block; margin-left: 6px; font-size: .7rem; font-weight: 800; padding: 0 7px; border-radius: 999px; background: #e6ecdf; color: #3d4f2c; }
+  td.hora .dfecha { color: var(--muted); font-size: .76rem; }
   td.firma { font-size: .78rem; color: #3c4a5c; min-width: 140px; max-width: 260px; }
   td.fecha, td.nowrap { white-space: nowrap; }
   .tag { display: inline-block; font-size: .72rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #dde8f7; color: #1d4f91; white-space: nowrap; }
@@ -415,6 +417,7 @@
       <label class="check"><input type="checkbox" id="fAdjuntos"> Con adjuntos</label>
       <label class="check"><input type="checkbox" id="fBorrador"> Ocultar borradores</label>
       <label class="check"><input type="checkbox" id="fVistos"> Ocultar vistos</label>
+      <label>Agrupar <select id="fAgrupar" style="width:auto"><option value="dia">Por días</option><option value="mes">Por meses</option><option value="no">Sin agrupar</option></select></label>
       <button type="button" id="limpiar">Quitar filtros</button>
       <button type="button" id="informe" class="prim">📄 Informe</button>
       <button type="button" id="csv">Exportar CSV</button>
@@ -478,7 +481,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-13 · 5';
+  var VERSION = '2026-11-13 · 6';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1537,6 +1540,8 @@
   $('fBorrador').checked = leer('ocultarBorradores', true);
   $('fBorrador').addEventListener('change', function () { guardar('ocultarBorradores', $('fBorrador').checked); });
   $('fVistos').checked = leer('ocultarVistos', false);
+  $('fAgrupar').value = leer('agrupar', 'dia');
+  $('fAgrupar').addEventListener('change', function () { guardar('agrupar', $('fAgrupar').value); if ($('fAgrupar').value !== 'no' && orden.campo !== 'fecha') { orden = { campo: 'fecha', desc: true }; ordenar(); } pintarTabla(); });
   $('fVistos').addEventListener('change', function () { guardar('ocultarVistos', $('fVistos').checked); });
   ['fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad', 'fSitio', 'fAdjuntos', 'fBorrador', 'fVistos'].forEach(function (id) { $(id).addEventListener('change', function () { mostrar = 300; filtrar(); }); });
   var espera; $('buscar').addEventListener('input', function () { clearTimeout(espera); espera = setTimeout(function () { mostrar = 300; filtrar(); }, 200); });
@@ -1626,6 +1631,12 @@
     var h = new Date(), ini = function (x) { return new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(); }, dd = Math.round((ini(h) - ini(d)) / 864e5);
     return dd === 0 ? 'Hoy' : dd === 1 ? 'Ayer' : d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
   };
+  // 13/11/2026: agrupar la lista por días (como antes), por meses o sin agrupar (solo al ordenar por fecha)
+  var nomMes = function (d) {
+    if (!d) return 'Sin fecha';
+    var h = new Date(), t = d.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    return (d.getFullYear() === h.getFullYear() && d.getMonth() === h.getMonth() ? 'Este mes · ' : '') + t;
+  };
   // 13/11/2026: bajo el asunto, si es de acción o de información y el último comentario (lo de antes —autoridad, firma,
   // motivo— era siempre lo mismo y sigue en la ficha). Devuelve HTML ya escapado.
   function actuacionDe(m) {
@@ -1644,16 +1655,18 @@
   function tablaBandejas(filas) {
     // 13/11/2026: la columna «Tipo» (casi siempre «Oficio») pasa a ser «Firma»: quién firma el mensaje
     var cab = [['fecha', 'Hora'], ['bandeja', ''], ['asunto', 'Asunto'], ['firma', 'Firma'], ['estado', 'Estado'], ['prioridad', 'Prio.'], ['celula', 'Célula']];
-    var dia = null, porDia = orden.campo === 'fecha';
+    var agr = $('fAgrupar') ? $('fAgrupar').value : 'dia', porDia = orden.campo === 'fecha' && agr !== 'no', dia = null;
+    var grupoDe = function (f) { return agr === 'mes' ? nomMes(f) : nomDia(f); }, nGrupo = {};
+    if (porDia) filas.forEach(function (m) { var g = grupoDe(fechaDe(m)); nGrupo[g] = (nGrupo[g] || 0) + 1; });
     return '<table><thead><tr><th title="Visto">✓</th>' + cab.map(function (c) { return '<th data-orden="' + c[0] + '">' + c[1] + (orden.campo === c[0] ? (orden.desc ? ' ▾' : ' ▴') : '') + '</th>'; }).join('') + '<th></th></tr></thead><tbody>' +
       filas.map(function (m, i) {
-        var f = fechaDe(m), nd = nomDia(f), cabDia = '';
-        if (porDia && nd !== dia) { dia = nd; cabDia = '<tr class="dia-cab"><td colspan="9">' + esc(nd) + '</td></tr>'; }
+        var f = fechaDe(m), nd = porDia ? grupoDe(f) : '', cabDia = '';
+        if (porDia && nd !== dia) { dia = nd; cabDia = '<tr class="dia-cab"><td colspan="9">' + esc(nd) + ' <span class="ngrupo">' + nGrupo[nd] + '</span></td></tr>'; }
         var vis = !!vistos[claveMensaje(m)], cls = [m === abierto ? 'sel' : '', m._leido === false ? 'noleido' : '', vis ? 'visto' : ''].filter(Boolean).join(' ');
         var es = m._x.__es === 'Entrada' ? '<span title="Entrada">📥</span>' : m._x.__es === 'Salida' ? '<span title="Salida">📤</span>' : '';
         var pr = m._x.CodigoPrioridad, sub = lineaSub(m);
         return cabDia + '<tr data-i="' + i + '"' + (cls ? ' class="' + cls + '"' : '') + '><td class="ver"><input type="checkbox" data-visto="' + i + '" title="Marcar como visto"' + (vis ? ' checked' : '') + '></td>' +
-          '<td class="hora">' + (f ? (porDia ? '' : esc(verFecha(f).slice(0, 10)) + ' ') + esc(verFecha(f).slice(11)) : '') + '</td><td class="es">' + es + '</td>' +
+          '<td class="hora">' + (f ? (porDia && agr === 'dia' ? '' : '<span class="dfecha">' + esc(verFecha(f).slice(0, agr === 'mes' && porDia ? 5 : 10)) + '</span> ') + esc(verFecha(f).slice(11)) : '') + '</td><td class="es">' + es + '</td>' +
           '<td class="asunto">' + (m._leido === false ? '<span class="punto" title="No leído"></span>' : '') + htmlBandera(m._bandera) + esc(m._asunto || '(sin asunto)') + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</td>' +
           '<td class="firma"' + (m.MensajeTipo_es ? ' title="' + esc('Tipo: ' + m.MensajeTipo_es) + '"' : '') + '>' + (m._x.Firma ? '✍ ' + esc(m._x.Firma) : '<span class="muted">—</span>') + '</td>' +
           '<td>' + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') + '</td>' +

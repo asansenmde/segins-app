@@ -250,7 +250,15 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
         console.log('filtro «Sin bandera»:', opSin.includes('— Sin bandera —'), '| filas:', filas, '| con bandera entre ellas:', conBandera);
         if (!opSin.includes('— Sin bandera —') || !filas || conBandera) console.log('Error: filtro sin bandera');
         await p.selectOption('#fx_Bandera', ''); await p.waitForTimeout(300);
-      } else console.log('Error: no hay filtro de bandera'); }
+       } else console.log('Error: no hay filtro de bandera');
+      const cabs0 = await p.$$eval('tr.dia-cab', n => n.length);
+      await p.selectOption('#fAgrupar', 'mes'); await p.waitForTimeout(300);
+      const meses = await p.$$eval('tr.dia-cab td', n => n.map(x => x.textContent.trim()));
+      await p.selectOption('#fAgrupar', 'no'); await p.waitForTimeout(300);
+      const sinCab = await p.$$eval('tr.dia-cab', n => n.length);
+      await p.selectOption('#fAgrupar', 'dia'); await p.waitForTimeout(300);
+      console.log('agrupar: por días', cabs0, 'grupos | por meses:', meses.join(' / '), '| sin agrupar:', sinCab, 'grupos');
+      if (!cabs0 || !meses.length || !meses.every(t => /\d{4}/.test(t)) || sinCab) console.log('Error: agrupar'); }
     if (process.env.CAPTURA_ANCHA) { const v = p.viewportSize(); await p.setViewportSize({ width: 1920, height: 1000 }); await p.evaluate(() => { const l = document.querySelector('#layout'); scrollTo(0, l.getBoundingClientRect().top + scrollY - 80); }); await p.waitForTimeout(400); await p.screenshot({ path: process.env.CAPTURA_ANCHA }); await p.setViewportSize(v); }
     if (!/ por PERSONA el /.test((comentarios[comentarios.length - 1] || {}).cuerpo?.Comentario || '')) console.log('Error: el comentario de META no lleva el nombre de quien lo añade');
     await p.uncheck('#anotarMeta'); const n1 = comentarios.length; const [n5] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n5.close(); await p.waitForTimeout(400); await p.bringToFront();
