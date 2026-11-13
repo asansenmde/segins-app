@@ -257,6 +257,7 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
         if (!opSin.includes('— Sin bandera —') || !filas || conBandera) console.log('Error: filtro sin bandera');
         await p.selectOption('#fx_Bandera', ''); await p.waitForTimeout(300);
        } else console.log('Error: no hay filtro de bandera');
+      if (process.env.CAPTURA_FILTROS) { const v = p.viewportSize(); await p.setViewportSize({ width: 1366, height: 800 }); const f = await p.$('#fAgrupar'); await f.scrollIntoViewIfNeeded(); await (await f.evaluateHandle(e => e.closest('.card') || e.parentNode.parentNode)).asElement().screenshot({ path: process.env.CAPTURA_FILTROS }); console.log('Agrupar visible:', await f.isVisible()); await p.setViewportSize(v); }
       const cabs0 = await p.$$eval('tr.dia-cab', n => n.length);
       await p.selectOption('#fAgrupar', 'mes'); await p.waitForTimeout(300);
       const meses = await p.$$eval('tr.dia-cab td', n => n.map(x => x.textContent.trim()));
