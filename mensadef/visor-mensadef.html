@@ -50,6 +50,7 @@
   tbody tr:hover { background: #f7f8f4; }
   tbody tr.sel { background: var(--sel); }
   td.asunto { min-width: 280px; }
+  td.firma { font-size: .78rem; color: #3c4a5c; min-width: 140px; max-width: 260px; }
   td.fecha, td.nowrap { white-space: nowrap; }
   .tag { display: inline-block; font-size: .72rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #dde8f7; color: #1d4f91; white-space: nowrap; }
   .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
@@ -477,7 +478,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-13 · 3';
+  var VERSION = '2026-11-13 · 4';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1568,7 +1569,7 @@
     if (sinBorr && borr && !e) $('chips').insertAdjacentHTML('beforeend', '<span class="chip" title="Desmarca «Ocultar borradores» para verlos">' + borr + ' borradores ocultos' + (borr === mensajes.length ? ' (todo lo cargado es borrador)' : '') + '</span>');
   }
 
-  var CLAVES = { fecha: function (m) { var d = fechaDe(m); return d ? d.getTime() : 0; }, tipo: function (m) { return m.MensajeTipo_es || ''; }, estado: function (m) { return m.MensajeEstado || ''; },
+  var CLAVES = { fecha: function (m) { var d = fechaDe(m); return d ? d.getTime() : 0; }, tipo: function (m) { return m.MensajeTipo_es || ''; }, firma: function (m) { return (m._x && m._x.Firma) || ''; }, estado: function (m) { return m.MensajeEstado || ''; },
     autoridad: autoridad, asunto: function (m) { return normal(m._asunto); }, referencia: function (m) { return m.MensajeNum_referencia || ''; }, organo: organo,
     prioridad: function (m) { return m._x ? m._x.CodigoPrioridad || '' : ''; }, celula: function (m) { return sitioDe(m); }, bandeja: function (m) { return m._x ? m._x.__es || '' : ''; } };
   function ordenar() {
@@ -1639,7 +1640,8 @@
     return (a ? '<span class="act ' + a.cls + '">' + esc(a.txt) + '</span>' : '') + (c ? '<span class="com">💬 ' + esc(c) + '</span>' : (a ? '' : ''));
   }
   function tablaBandejas(filas) {
-    var cab = [['fecha', 'Hora'], ['bandeja', ''], ['asunto', 'Asunto'], ['tipo', 'Tipo'], ['estado', 'Estado'], ['prioridad', 'Prio.'], ['celula', 'Célula']];
+    // 13/11/2026: la columna «Tipo» (casi siempre «Oficio») pasa a ser «Firma»: quién firma el mensaje
+    var cab = [['fecha', 'Hora'], ['bandeja', ''], ['asunto', 'Asunto'], ['firma', 'Firma'], ['estado', 'Estado'], ['prioridad', 'Prio.'], ['celula', 'Célula']];
     var dia = null, porDia = orden.campo === 'fecha';
     return '<table><thead><tr><th title="Visto">✓</th>' + cab.map(function (c) { return '<th data-orden="' + c[0] + '">' + c[1] + (orden.campo === c[0] ? (orden.desc ? ' ▾' : ' ▴') : '') + '</th>'; }).join('') + '<th></th></tr></thead><tbody>' +
       filas.map(function (m, i) {
@@ -1651,7 +1653,7 @@
         return cabDia + '<tr data-i="' + i + '"' + (cls ? ' class="' + cls + '"' : '') + '><td class="ver"><input type="checkbox" data-visto="' + i + '" title="Marcar como visto"' + (vis ? ' checked' : '') + '></td>' +
           '<td class="hora">' + (f ? (porDia ? '' : esc(verFecha(f).slice(0, 10)) + ' ') + esc(verFecha(f).slice(11)) : '') + '</td><td class="es">' + es + '</td>' +
           '<td class="asunto">' + (m._leido === false ? '<span class="punto" title="No leído"></span>' : '') + htmlBandera(m._bandera) + esc(m._asunto || '(sin asunto)') + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</td>' +
-          '<td>' + (m.MensajeTipo_es ? '<span class="tag t-tipo">' + esc(m.MensajeTipo_es) + '</span>' : '') + '</td>' +
+          '<td class="firma"' + (m.MensajeTipo_es ? ' title="' + esc('Tipo: ' + m.MensajeTipo_es) + '"' : '') + '>' + (m._x.Firma ? '✍ ' + esc(m._x.Firma) : '<span class="muted">—</span>') + '</td>' +
           '<td>' + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') + '</td>' +
           '<td>' + (pr ? '<span class="prio' + (prioAlta(pr) ? ' alta' : '') + '">' + esc(pr) + '</span>' : '') + '</td>' +
           '<td><span class="celtag">' + esc(sitioDe(m).replace(/^ET \w+ /, '')) + '</span></td>' +

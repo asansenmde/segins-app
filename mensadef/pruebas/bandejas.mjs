@@ -238,7 +238,11 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
       const fila = await p.$eval('tr.sel td.asunto', e => e.textContent).catch(() => '');
       const ancho = await p.evaluate(() => Math.round(document.querySelector('main').getBoundingClientRect().width / window.innerWidth * 100));
       console.log('bajo el asunto: acción/info y último comentario:', ok2, '| la fila muestra el comentario de META:', / por PERSONA el /.test(fila), '| ancho de la zona de trabajo:', ancho + '%');
-      if (!ok2 || !/ por PERSONA el /.test(fila) || ancho < 95) console.log('Error: línea bajo el asunto o ancho'); }
+      if (!ok2 || !/ por PERSONA el /.test(fila) || ancho < 95) console.log('Error: línea bajo el asunto o ancho');
+      const cabs = await p.$$eval('#lista thead th, table thead th', n => n.map(x => x.textContent.replace(/[▾▴]/g, '').trim()));
+      const firmas = await p.$$eval('td.firma', n => n.map(x => x.textContent.trim()).filter(t => t.startsWith('✍')).length);
+      console.log('columna Firma en lugar de Tipo:', cabs.includes('Firma') && !cabs.includes('Tipo'), '| filas con firma:', firmas, '| sin HTML del servidor:', !(await p.$('td.firma b')));
+      if (!cabs.includes('Firma') || cabs.includes('Tipo') || !firmas || await p.$('td.firma b')) console.log('Error: columna Firma'); }
     if (process.env.CAPTURA_ANCHA) { const v = p.viewportSize(); await p.setViewportSize({ width: 1920, height: 1000 }); await p.evaluate(() => { const l = document.querySelector('#layout'); scrollTo(0, l.getBoundingClientRect().top + scrollY - 80); }); await p.waitForTimeout(400); await p.screenshot({ path: process.env.CAPTURA_ANCHA }); await p.setViewportSize(v); }
     if (!/ por PERSONA el /.test((comentarios[comentarios.length - 1] || {}).cuerpo?.Comentario || '')) console.log('Error: el comentario de META no lleva el nombre de quien lo añade');
     await p.uncheck('#anotarMeta'); const n1 = comentarios.length; const [n5] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n5.close(); await p.waitForTimeout(400); await p.bringToFront();

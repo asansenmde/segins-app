@@ -385,4 +385,6 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-13 · 3:** MENSADEF solo da el texto del último comentario, sin su autor. Los comentarios escritos desde SENDERO
   se firman al final con el nombre de quien los escribe («texto — NOMBRE»), igual que el de «Añadido como tarea en META».
   Para ver el autor de los comentarios hechos en MENSADEF haría falta escuchar qué consulta usa MENSADEF para su historial.
+- **2026-11-13 · 4:** en la lista, la columna «Tipo» (casi siempre «Oficio») pasa a ser **«Firma»**: quién firma el
+  mensaje (campo `Firma` de la bandeja), y se puede ordenar por ella. El tipo sigue en la ficha y al pasar el ratón.
 
