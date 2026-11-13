@@ -15,7 +15,7 @@ const items = [
   { Id: 1, Title: 'Revisión de extintores del edificio B', ESTADO: 'EN CURSO', Prioridad: 'Alta', NegociadoAsignado: 'PRL', DescripcionDelAsunto: '<p>Descripción ficticia</p>', Comentarios: '', TratarEn: [] },
   { Id: 2, Title: 'Asunto de infraestructura', ESTADO: 'EN CURSO', Prioridad: 'Media', NegociadoAsignado: 'Infraestructura', DescripcionDelAsunto: 'Otra descripción', Comentarios: '', TratarEn: [] },
 ].map(x => ({ ...x, Created: h(-48), Modified: h(-24), Author: { Title: 'AUTOR' }, Editor: { Title: 'EDITOR' }, ResponsableDeLaInformacion: { Id: 7, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.es' }, PersonalImplicado0: [], NegociadosImplicados: [] }));
-let instalada = false, validacion = false, soyPRL = true;
+let instalada = false, validacion = false, soyPRL = true, sinAnadir = false;
 const puntos = [{ Id: 45, Title: 'Punto de Situación 10/11/2026', Referencia: 'PS-2026-045', FechaPunto: h(24), Apertura: h(-20), Cierre: h(4), EstadoPunto: 'Abierto' },
   { Id: 44, Title: 'Punto de Situación 03/11/2026', Referencia: 'PS-2026-044', FechaPunto: h(-150), Apertura: h(-200), Cierre: h(-148), EstadoPunto: 'Cerrado' }];
 const miembros = ids => VERBOSE ? { results: ids.map(Id => ({ Id })) } : ids.map(Id => ({ Id }));
@@ -55,7 +55,7 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
   if (resto.startsWith('web/currentuser')) return ful({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' } });
   if (lst.startsWith('PS ')) {
     if (!instalada) return ful({ status: 404, body: '' });
-    if (lst === 'PS Aportaciones' + SUF && !resto.includes('/items')) return ful({ json: { Id: 'a', ListItemEntityTypeFullName: 'SP.Data.PS_x0020_AportacionesListItem' } });
+    if (lst === 'PS Aportaciones' + SUF && !resto.includes('/items')) return ful({ json: { Id: 'a', ListItemEntityTypeFullName: 'SP.Data.PS_x0020_AportacionesListItem', EffectiveBasePermissions: { High: '0', Low: sinAnadir ? '1' : '4095' } } });
     if (lst === 'PS Puntos' + SUF) return ful({ json: { value: puntos } });
     if (lst === 'PS Negociados' + SUF) return ful({ json: { value: negs() } });
     if (lst === 'PS Aportaciones' + SUF) {
@@ -90,6 +90,11 @@ instalada = true;
 t = await ficha(1);
 comprueba('sin marca ⭐ no deja incluir y lo explica: ' + t.slice(0, 120), /Tratar con el General|Punto Situación semanal/.test(t) && !(await p.$('[data-psform]')));
 items[0].TratarEn = ['TRATAR CON EL GENERAL']; items[1].TratarEn = ['TRATAR CON EL GENERAL'];
+// 13/11/2026: sin permiso para añadir en «PS Aportaciones» lo dice y no envía nada (no sale la pantalla de identificarse)
+sinAnadir = true; t = await ficha(1);
+{ const nP = posts.length; await p.click('[data-psform]'); await p.waitForSelector('#psSit'); await p.fill('#psSit', 'Sin permiso.'); await p.click('[data-psok]'); await p.waitForTimeout(300);
+  comprueba('sin permiso en PS Aportaciones: ' + (await p.textContent('#psErr')).slice(0, 90), /no te deja añadir entradas/.test(await p.textContent('#psErr')) && !posts.slice(nP).some(x => /PS Aportaciones/.test(x.ruta))); }
+sinAnadir = false;
 t = await ficha(1);
 comprueba('botón de incluir en el punto abierto: ' + t.slice(0, 90), /Incluir en PS-2026-045/.test(t));
 await p.click('[data-psform]'); await p.waitForSelector('#psSit');

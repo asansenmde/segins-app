@@ -293,7 +293,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-12 · 7';
+  var VERSION = '2026-11-13 · 1';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -1588,7 +1588,7 @@
       return pag(url);
     };
     return Promise.all([
-      api(psUrl('aport') + '?$select=Id,ListItemEntityTypeFullName'),
+      api(psUrl('aport') + '?$select=Id,ListItemEntityTypeFullName,EffectiveBasePermissions'),
       todos(psUrl('puntos') + '/items?$top=500&$select=Id,Title,Referencia,FechaPunto,Apertura,Cierre,EstadoPunto&$orderby=Id desc'),
       todos(psUrl('negs') + '/items?$top=500&$select=Id,Title,Orden,NombreGestor,Coordina,EnInforme,Miembros/Id&$expand=Miembros'),
     ]).then(function (r) {
@@ -1601,7 +1601,9 @@
       var soyDe = function (n) { return yo && lista(n.Miembros).some(function (m) { return m.Id === yo.Id; }); };
       var coordino = r[2].some(function (n) { return n.Coordina && soyDe(n); });
       var cierres = {}; r[1].forEach(function (p) { cierres[p.Id] = p.Cierre; });
-      psCache = { instalada: true, tipo: r[0].ListItemEntityTypeFullName, abiertos: abiertos, negs: negs, cierres: cierres,
+      // 13/11/2026: si Colabora no deja añadir en «PS Aportaciones», se dice antes de enviar (el POST sin permiso saca la pantalla de identificarse)
+      var ebp = r[0].EffectiveBasePermissions, bajo = ebp ? Number(ebp.Low) || 0 : -1;
+      psCache = { instalada: true, tipo: r[0].ListItemEntityTypeFullName, anadir: bajo < 0 || !!(bajo & 0x2), abiertos: abiertos, negs: negs, cierres: cierres,
         puedo: function (nombre) { return coordino || negs.some(function (n) { return n.Title === nombre && soyDe(n); }); }, coordino: coordino };
       psCacheEn = Date.now();
       return psCache;
@@ -1698,6 +1700,7 @@
         '<div class="acciones"><button type="button" class="btn" data-psno="' + t.id + '">Cancelar</button><button type="button" class="btn prim" data-psok="' + t.id + '">' + (a ? 'Guardar la situación' : '📋 Incluir en el punto') + '</button></div></div>';
     }).catch(function (e) { f.innerHTML = '<div class="error">' + esc(e.message || e) + '</div>'; });
   }
+  var PS_SIN_PERMISO = 'Colabora no te deja añadir entradas en la lista «PS Aportaciones» del Punto de Situación: tu nivel de permiso en esa lista no lo permite (es distinta de la de META). Pide a quien tenga Control total que te dé en «PS Aportaciones» el nivel «META» o «Colaborar».';
   function psGuardar(t, boton) {
     var ps = psCache, err = $('#psErr');
     var fallo = function (m) { err.textContent = m; err.hidden = false; boton.disabled = false; };
@@ -1709,13 +1712,14 @@
     var hecho;
     if (aport) {
       // Actualizar: se relee para no pisar cambios y la validación de la lista impide escribir tras el cierre
-      hecho = fetch(psUrl('aport') + '/items(' + Number(aport.value) + ')?$select=Id,PuntoId,Negociado,CierrePunto', { credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+      hecho = fetch(psUrl('aport') + '/items(' + Number(aport.value) + ')?$select=Id,PuntoId,Negociado,CierrePunto,EffectiveBasePermissions', { credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
         .then(function (r) { if (!r.ok) throw new Error(r.status === 404 ? 'La entrada ya no existe en el punto de situación' : 'HTTP ' + r.status); return r.json(); })
         .then(function (d) {
           d = d.d || d;
           var ci = ps.cierres[d.PuntoId] || d.CierrePunto;
           if (!ci || Date.parse(ci) <= Date.now()) throw new Error('El punto de situación ya está cerrado: no admite cambios');
           if (!ps.puedo(d.Negociado)) throw new Error('No puedes escribir en el negociado ' + d.Negociado);
+          if (d.EffectiveBasePermissions && !((Number(d.EffectiveBasePermissions.Low) || 0) & 0x4)) throw new Error(PS_SIN_PERMISO.replace('añadir entradas', 'modificar esta entrada'));
           return enviarSP(psUrl('aport') + '/items(' + d.Id + ')', Object.assign(tipo, { Title: tit, Situacion: sit, Prioridad: prio }),
             'No tienes permiso para modificar el punto de situación', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': (d.__metadata && d.__metadata.etag) || '*' });
         }).then(function () { return 'Situación actualizada en el punto de situación'; });
@@ -1725,6 +1729,7 @@
       if (!neg) return fallo('Elige el negociado');
       if (!ps.puedo(neg)) return fallo('No puedes escribir en el negociado ' + neg);
       if (Date.parse(p.Cierre) <= Date.now()) return fallo('Ese punto de situación acaba de cerrarse');
+      if (ps.anadir === false) return fallo(PS_SIN_PERMISO);
       // Va al final de las entradas de su negociado; si ya estaba incluido en ese punto, no se duplica
       hecho = Promise.all([
         api(psUrl('aport') + '/items?$top=500&$select=Id,Orden,OrigenId,OrigenLista,Negociado&$filter=PuntoId eq ' + p.Id),

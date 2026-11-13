@@ -35,6 +35,8 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-13 · 1:** al pasar un asunto al Punto de Situación, META mira antes los permisos en «PS Aportaciones»
+  (añadir, o modificar la entrada). Si no los hay, lo dice y no envía nada: antes Colabora sacaba la pantalla de identificarse.
 - **Versión 2026-11-12 · 7:** En el sitio JSUIGE el nivel «Colaborar» no incluye «Eliminar elementos»: para la lista
   «Gestor de Tareas MENSADEF» se usa un nivel propio «META» (copia de Colaborar con «Eliminar elementos»). No dar Control total
   para eliminar: en META, Control total es administrador (ve todos los expedientes y Ajustes). si no deja eliminar, el aviso dice el motivo concreto: la lista solo deja tocar lo que
