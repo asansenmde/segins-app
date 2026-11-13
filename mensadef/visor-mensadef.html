@@ -387,6 +387,7 @@
   .barra-ficha .piso2 { display: block !important; padding: 12px 12px 10px; }
   .barra-ficha .grandes { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px; margin-bottom: 9px; }
   .barra-ficha .grandes .gr-a { display: block; text-decoration: none; }
+  .barra-ficha .grandes > *, .barra-ficha .utiles > * { order: 0 !important; }
   .barra-ficha .gr { width: 100%; min-height: 50px; display: flex; align-items: center; gap: 9px; text-align: left; padding: 8px 11px; border-radius: 12px; border: 0 !important; color: #fff !important; font-weight: 800; font-size: .86rem; line-height: 1.2; box-shadow: 0 3px 8px rgba(0,0,0,.14); white-space: normal !important; }
   .barra-ficha .gr .i { font-size: 1.25rem; flex: none; }
   .barra-ficha .gr small { display: block; font-weight: 600; font-size: .68rem; opacity: .88; }
@@ -516,7 +517,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-13 · 10';
+  var VERSION = '2026-11-13 · 11';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -2008,7 +2009,8 @@
   var HTML_PASAR = '<span class="i">✍</span><span>Pasar a rúbrica<small>enviarlo al portafirmas</small></span>';
   function botonRubrica(m) {
     return (puedeRubrica(m) ? '<button type="button" class="gr gr-rub" id="aRubrica" title="Envía el mensaje al portafirmas (rúbrica) en MENSADEF">' + HTML_PASAR + '</button>' : '') +
-      (conRubrica(m) ? '<a href="' + esc(URL_RUBRICA) + '" target="_blank" rel="noopener" id="irRubrica" class="gr-a"><button type="button" class="gr gr-rub" title="Abre el portafirmas (Rúbrica) en otra pestaña"><span class="i">✍</span><span>Ir a Rúbrica<small>firmar en el portafirmas</small></span></button></a>' : '');
+      // 13/11/2026: «Ir a Rúbrica» siempre (acceso al portafirmas para firmar); «Pasar a rúbrica» solo cuando procede
+      (RUBRICA && m._api ? '<a href="' + esc(URL_RUBRICA) + '" target="_blank" rel="noopener" id="irRubrica" class="gr-a"><button type="button" class="gr gr-rub" title="Abre el portafirmas (Rúbrica) en otra pestaña"><span class="i">✍</span><span>Ir a Rúbrica<small>firmar en el portafirmas</small></span></button></a>' : '');
   }
   function pasarARubrica(m) {
     if (!apiCtx || !m.MensajeId) return Promise.reject(new Error('este mensaje no viene del servicio de MENSADEF'));

@@ -272,6 +272,8 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
     console.log('bandera quitada: idEtiqueta=' + (banderasPuestas[banderasPuestas.length - 1] || {}).idEtiqueta, '| en la ficha:', !!(await p.$('#detalle .cab-msg .bandera')), '| selector:', await p.$eval('#selBandera', x => x.options[x.selectedIndex].textContent));
     // Pasar a rúbrica: solo en los «Enviable a rúbrica»; dos pulsaciones; si MENSADEF dice que no, se ve su motivo
     console.log('rúbrica en uno de entrada:', !!(await p.$('#aRubrica')));
+    console.log('«Ir a Rúbrica» siempre (también en uno de entrada):', !!(await p.$('#irRubrica'))); if (!(await p.$('#irRubrica'))) console.log('Error: falta Ir a Rúbrica');
+    { const orden = await p.$$eval('#detalle .grandes .gr', n => n.map(b => b.textContent.trim().slice(0, 8))); console.log('orden de los botones grandes:', orden.join(' | ')); }
     {
     await p.fill('#buscar', ''); await p.selectOption('#fSitio', ''); await p.selectOption('[data-x="EnviableARubrica"]', 'Sí'); await p.waitForTimeout(300);
     const conR = await p.$$eval('#lista tbody tr[data-i]', l => l.length); let k = 0;

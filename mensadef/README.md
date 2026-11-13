@@ -409,4 +409,6 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-13 · 10:** «↩ Responder» abre directamente la pantalla de respuesta de MENSADEF (dirección dada por el usuario):
   `<ámbito>/SitePages/ambito.aspx#/responder_mensaje/<IdMensaje>?idBuzonCelula=<IdBuzonCelula>`. Si faltan los datos, abre el
   mensaje y pulsa «Responder» como en la · 8.
+- **2026-11-13 · 11:** «Ir a Rúbrica» sale **siempre** en la ficha (acceso al portafirmas para firmar); «Pasar a rúbrica»
+  sigue saliendo solo cuando procede. Orden fijo de los botones grandes también con la ficha ampliada: META, Responder, PSIT, Rúbrica.
 
