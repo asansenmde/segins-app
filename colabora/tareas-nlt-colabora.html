@@ -69,6 +69,14 @@
   label.check { display: inline-flex; gap: 6px; align-items: center; margin: 4px 12px 4px 0; font-size: .9rem; }
   label.check input { width: auto; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+  /* Alta (11/11/2026): departamento y responsable en dos columnas anchas, con su ayuda debajo (sin solaparse) */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 6px 0 10px; padding: 10px 12px; border: 1px solid var(--line, #d3dce8); border-radius: 12px; background: rgba(29,95,168,.04); }
+  .grid2 .lbl { white-space: normal; }
+  .grid2 .ayuda { margin: 3px 0 0; line-height: 1.25; }
+  .chipdep { display: inline-flex; align-items: center; gap: 4px; margin: 3px 4px 3px 0; padding: 3px 4px 3px 10px; border-radius: 999px; background: rgba(29,95,168,.08); border: 1px solid rgba(29,95,168,.25); font-size: .85rem; }
+  .chipdep .x { border: 0; background: transparent; cursor: pointer; color: #8a1c1c; padding: 0 6px; font-weight: 700; }
+  .conboton { display: flex; gap: 6px; } .conboton input { flex: 1; min-width: 0; } .conboton .btn { white-space: nowrap; }
+  @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } }
   /* Cabecera de bienvenida y tarjetas de resumen (como en Incidentes) */
   .hero { background: linear-gradient(120deg, #26331d 0%, #3b4a2f 55%, #56693f 100%); color: #fff; border-radius: 16px; padding: 16px 20px; margin: 12px 0; position: relative; overflow: hidden; box-shadow: 0 6px 18px rgba(38,51,29,.2); }
   .hero::after { content: ''; position: absolute; right: -40px; top: -40px; width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, rgba(201,168,76,.35), transparent 70%); }
@@ -128,6 +136,10 @@
   .pasos span { padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-weight: 600; }
   .pasos span.on { color: #fff; } .pasos span.on.c-pendiente { background: #5f6975; } .pasos span.on.c-curso { background: var(--info); }
   .pasos span.on.c-espera { background: var(--esp); } .pasos span.on.c-hecha { background: var(--ok); } .pasos .fl { background: none; padding: 0; color: #9aa59a; }
+  .pasos.elegir button { padding: 4px 12px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-weight: 600; border: 1px solid var(--line); cursor: pointer; font-size: .82rem; }
+  .pasos.elegir button:hover:not(.on) { border-color: var(--info); color: var(--info); }
+  .pasos.elegir button.on { color: #fff; cursor: default; } .pasos.elegir button.on.c-pendiente { background: #5f6975; } .pasos.elegir button.on.c-curso { background: var(--info); }
+  .pasos.elegir button.on.c-espera { background: var(--esp); } .pasos.elegir button.on.c-hecha { background: var(--ok); }
   /* Estadísticas */
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 8px 0 12px; }
   .kpi { background: var(--surface); border: 1px solid var(--line); border-top: 5px solid var(--line); border-radius: 12px; padding: 10px; text-align: center; font-size: .8rem; color: var(--muted); }
@@ -183,6 +195,9 @@
   table.tt .nw { white-space: nowrap; }
   @media (max-width: 640px) { table.tt .opc { display: none; } }
   .meta { display: flex; flex-wrap: wrap; gap: 5px 8px; margin-top: 4px; font-size: .82rem; align-items: center; }
+  .req { color: #b3261e; font-weight: 800; }
+  .falta { outline: 2px solid #b3261e; outline-offset: 1px; border-radius: 6px; }
+  .okmsg { background: #e8f5ec; border: 1px solid #9fd3b0; border-radius: 10px; padding: 8px 12px; color: #1d5a32; }
   .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .74rem; font-weight: 700; white-space: nowrap; }
   .badge.ok { background: var(--ok-bg); color: var(--ok); } .badge.warn { background: var(--warn-bg); color: var(--warn); }
   .badge.bad { background: var(--bad-bg); color: var(--bad); } .badge.info { background: var(--info-bg); color: var(--info); }
@@ -278,7 +293,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-10 · 2';
+  var VERSION = '2026-11-13 · 2';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -291,6 +306,9 @@
   // Gestor propio de MENSADEF («node proteger.mjs --propio» genera tareas-nlt-colabora-mensadef.html con PROPIO = true): las
   // tareas de trabajo que llegan de MENSADEF, en la lista «Gestor de Tareas MENSADEF», nunca en la común. Sin banda roja.
   var PROPIO = false;
+  // Departamentos = células de MENSADEF solo en META (11/11/2026). El Gestor común sigue con sus negociados de siempre.
+  var DEP = PROPIO;
+  var tx = function (x) { return DEP ? x : String(x).replace(/Departamentos/g, 'Negociados').replace(/Departamento/g, 'Negociado').replace(/departamentos/g, 'negociados').replace(/departamento/g, 'negociado'); };
   var LISTA = 'Gestor de Tareas' + (PRUEBAS ? ' PRUEBAS' : PROPIO ? ' MENSADEF' : '');
   var listaPermitida = function (n) { n = String(n || '').trim(); return !n ? LISTA : PRUEBAS && !/PRUEBAS$/i.test(n) ? LISTA : PROPIO && /^gestor de tareas$/i.test(n) ? LISTA : n; };
   var CLAVE = 'tareas-nlt-colabora' + (PRUEBAS ? '-pruebas' : PROPIO ? '-mensadef' : '');
@@ -363,6 +381,11 @@
   // Marcas para tratar en reuniones (04/11/2026): columna de opción múltiple «TratarEn» de la lista. Se ven en la tarjeta, se
   // marcan en la ficha, tienen su recuadro en la pantalla inicial y su relación imprimible. Si falta la columna, Ajustes la crea.
   var TRATAR = [['ps', 'PUNTO DE SITUACIÓN', '📋', 'Punto de situación'], ['gen', 'TRATAR CON EL GENERAL', '⭐', 'Tratar con el General']];
+  // 12/11/2026 (META): solo cambian los nombres que se ven; en la lista se guarda lo mismo
+  if (PROPIO) { TRATAR[0][3] = 'Reunión de entradas'; TRATAR[1][3] = 'Punto Situación semanal'; }
+  var GEN = TRATAR[1][3];
+  // En META los correos (mailto) se abren en una ventana nueva y la página no se pierde
+  var NUEVA = PROPIO ? ' target="_blank" rel="noopener"' : '';
   var hayTratar = function () { return !!(infoCampo.TratarEn && infoCampo.TratarEn.existe); };
   var tieneTratar = function (t, k) { var x = TRATAR.filter(function (y) { return y[0] === k; })[0]; return !!x && t.tratar.indexOf(x[1]) >= 0; };
   var chipTratar = function (t) { return TRATAR.filter(function (x) { return t.tratar.indexOf(x[1]) >= 0; }).map(function (x) { return '<span class="badge tr-' + x[0] + '" title="Para tratar: ' + x[3] + '">' + x[2] + ' ' + x[3] + '</span>'; }).join(''); };
@@ -464,11 +487,14 @@
     acceso.misNegs = mia ? mia.negs.map(sinTildes) : [];
     acceso.veTodo = !!(mia && mia.todo);
     acceso.total = ts.length;
+    // 11/11/2026: quien no está dado de alta (con la lista «META MIEMBROS» ya creada) no entra: pide acceso
+    acceso.sinAlta = PROPIO && !esAdmin && !!acceso.info && !!yo && !mia;
+    if (acceso.sinAlta) return [];
     return ts.filter(puedeVer);
   }
   var textoAcceso = function () {
     if (!PROPIO) return '';
-    if (esAdmin) return 'Ves todos los expedientes (Control total).';
+    if (esAdmin) return 'Ves todos los expedientes (Control total).' + (pendientes().length ? ' · 📨 ' + pendientes().length + ' solicitud' + (pendientes().length === 1 ? '' : 'es') + ' de acceso pendiente' + (pendientes().length === 1 ? '' : 's') + ' (Ajustes)' : '');
     if (acceso.veTodo) return 'Ves todos los expedientes (dado de alta para verlo todo).';
     var mia = yo ? acceso.filas.find(function (f) { return f.personaId === yo.Id; }) : null;
     return 'Ves los expedientes que has creado, de los que eres responsable o en los que estás implicado' + (mia && mia.negs.length ? ' y los de ' + mia.negs.join(', ') : '') + '.';
@@ -477,10 +503,14 @@
   var mmEditando = null, mmPersona = null;
   function vistaAccesoMeta() {
     if (!PROPIO) return '';
-    var negs = valores('NegociadoAsignado', 'negociado');
-    (campos.NegociadosImplicados || []).forEach(function (n) { if (negs.indexOf(n) < 0) negs.push(n); });
-    negs.sort(function (a, b) { return a.localeCompare(b, 'es'); });
-    var cab = '<div class="card"><h3 style="margin-top:0">👥 Quién ve los expedientes de META</h3><p class="small">Cada persona ve los expedientes que ha creado, de los que es responsable, en los que está implicada y los de <b>sus negociados</b> (asignado o implicado). ' +
+    // Departamentos: las células de MENSADEF
+    var celulas = departamentos(acceso.filas.reduce(function (a, f) { return a.concat(f.negs); }, []).filter(function (n) { return (campos.NegociadoAsignado || []).concat(campos.NegociadosImplicados || []).map(sinTildes).indexOf(sinTildes(n)) < 0; }));
+    // 11/11/2026: ya no se ofrecen los negociados antiguos (PROCOR, SEGURIDAD…): solo células de MENSADEF
+    var antiguos = [].sort(function (a, b) { return a.localeCompare(b, 'es'); });
+    var negs = celulas.concat(antiguos);
+    // Al modificar a alguien, sus departamentos actuales siempre salen (aunque sean de antes), para no perderlos sin querer
+    if (mmEditando) (acceso.filas.find(function (f) { return f.id === mmEditando; }) || { negs: [] }).negs.forEach(function (n) { if (negs.indexOf(n) < 0) negs.push(n); });
+    var cab = '<div class="card"><h3 style="margin-top:0">👥 Quién ve los expedientes de META</h3><p class="small">Cada persona ve los expedientes que ha creado, de los que es responsable, en los que está implicada y los de <b>sus departamentos (células de MENSADEF) o negociados</b> (asignado o implicado). ' +
       'Los ve todos quien tiene Control total (tú) y quien marques «Lo ve todo».</p>' +
       '<p class="small muted">Es un filtro de esta página: quien abra la lista «' + esc(pref.lista) + '» directamente en Colabora la verá entera. Para que no pase, en Colabora deja la lista solo para los que usan META.</p>';
     if (!acceso.info) return cab + (acceso.error ? '<div class="error">No se pudo leer la lista «' + esc(MIEMBROS) + '»: ' + esc(acceso.error) + '</div>' :
@@ -491,20 +521,22 @@
       return '<tr><td>' + esc(f.nombre) + (f.correo ? '<br><span class="small muted">' + esc(f.correo) + '</span>' : '') + '</td><td>' + (f.negs.length ? esc(f.negs.join(', ')) : '<span class="muted">—</span>') + '</td><td>' + (f.todo ? '✔' : '') + '</td>' +
         '<td style="white-space:nowrap"><button class="btn" data-mmeditar="' + f.id + '">✎</button> <button class="btn" data-mmquitar="' + f.id + '">Quitar</button></td></tr>';
     }).join('');
-    return cab + '<table class="t"><tr><th>Persona</th><th>Negociados</th><th>Lo ve todo</th><th></th></tr>' + (filas || '<tr><td colspan="4" class="muted">Nadie dado de alta todavía.</td></tr>') + '</table>' +
+    return cab + '<table class="t"><tr><th>Persona</th><th>Departamentos</th><th>Lo ve todo</th><th></th></tr>' + (filas || '<tr><td colspan="4" class="muted">Nadie dado de alta todavía.</td></tr>') + '</table>' +
       '<h4 style="margin:14px 0 4px">' + (ed ? 'Modificar a ' + esc(ed.nombre) : 'Dar de alta a una persona') + '</h4>' +
       (ed ? '' : '<label class="lbl">Persona</label><input id="mmPersona" placeholder="Escribe nombre o apellido"><div class="sugs" id="mmSug" hidden></div>') +
-      '<label class="lbl">Negociados que ve</label><div id="mmNegs">' + (negs.length ? negs.map(function (n) {
-        return '<label class="check"><input type="checkbox" value="' + esc(n) + '"' + (ed && ed.negs.map(sinTildes).indexOf(sinTildes(n)) >= 0 ? ' checked' : '') + '> ' + esc(n) + '</label>';
-      }).join('') : '<span class="small muted">Aún no hay negociados en los expedientes.</span>') + '</div>' +
+      '<label class="lbl">Departamentos que ve <span class="small muted">(células de MENSADEF' + (antiguos.length ? '; al final, los negociados antiguos' : '') + ')</span></label><div id="mmNegs">' + (negs.length ? negs.map(function (n) {
+        return '<label class="check"' + (antiguos.indexOf(n) >= 0 ? ' style="opacity:.75"' : '') + '><input type="checkbox" value="' + esc(n) + '"' + (ed && ed.negs.map(sinTildes).indexOf(sinTildes(n)) >= 0 ? ' checked' : '') + '> ' + esc(n) + '</label>';
+      }).join('') : '<span class="small muted">Aún no hay departamentos en los expedientes.</span>') + '</div>' +
+      '<div style="display:flex;gap:6px;margin-top:4px"><input id="mmDepTxt" list="mmDeps" placeholder="Añadir otra célula de MENSADEF (p. ej. ET 2SUIGE SEGURIDAD)" autocomplete="off"><button type="button" class="btn" data-mmdep="1">＋</button></div>' +
+      '<datalist id="mmDeps">' + celulas.map(function (d) { return '<option value="' + esc(d) + '">'; }).join('') + '</datalist>' +
       '<label class="check"><input type="checkbox" id="mmTodo"' + (ed && ed.todo ? ' checked' : '') + '> <b>Lo ve todo</b> (todos los expedientes, como tú)</label>' +
-      '<div class="acciones"><button class="btn prim" data-mmguardar="1">' + (ed ? 'Guardar cambios' : 'Dar de alta') + '</button>' + (ed ? '<button class="btn" data-mmcancelar="1">Cancelar</button>' : '') + '</div><div id="mmMsg"></div></div>';
+      '<div class="acciones"><button class="btn prim" data-mmguardar="1">' + (ed ? 'Guardar cambios' : 'Dar de alta') + '</button>' + (ed ? '<button class="btn" data-mmcancelar="1">Cancelar</button>' : '') + '</div><div id="mmMsg"></div>' + vistaSolicitudes() + '</div>';
   }
   function crearListaMiembros(boton) {
     var msg = function (t) { var el = $('#mmMsg'); if (el) el.innerHTML = t; };
     boton.disabled = true; msg('<p class="small muted">Creando la lista…</p>');
     var campo = function (xml) { return enviarSP(urlMiembros() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas'); };
-    enviarSP(web.url + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: MIEMBROS, Description: 'Negociados de cada persona en META (página tareas-nlt-colabora-mensadef.html)' }, 'No tienes permiso para crear listas en el sitio')
+    enviarSP(web.url + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: MIEMBROS, Description: 'Negociados de cada persona en META (página META.html)' }, 'No tienes permiso para crear listas en el sitio')
       .then(function () { return campo('<Field Type="User" Name="Persona" StaticName="Persona" DisplayName="Persona" UserSelectionMode="PeopleOnly" />'); })
       .then(function () { return campo('<Field Type="Note" Name="Negociados" StaticName="Negociados" DisplayName="Negociados" NumLines="3" RichText="FALSE" />'); })
       .then(function () { return campo('<Field Type="Boolean" Name="VeTodo" StaticName="VeTodo" DisplayName="Lo ve todo"><Default>0</Default></Field>'); })
@@ -517,7 +549,7 @@
     var negs = Array.prototype.filter.call(document.querySelectorAll('#mmNegs input'), function (x) { return x.checked; }).map(function (x) { return x.value; });
     var todo = $('#mmTodo').checked;
     if (!ed && !mmPersona) return msg('<div class="error">Elige la persona de la lista de sugerencias.</div>');
-    if (!negs.length && !todo) return msg('<div class="error">Marca al menos un negociado o «Lo ve todo».</div>');
+    if (!negs.length && !todo) return msg('<div class="error">Marca al menos un departamento o «Lo ve todo».</div>');
     var ya = !ed && acceso.filas.find(function (f) { return f.personaId === mmPersona.Id; });
     var fila = ed || ya;
     boton.disabled = true;
@@ -537,6 +569,183 @@
       .then(function () { if (mmEditando === f.id) mmEditando = null; return cargarMiembros().then(function () { render(); aviso('✓ ' + f.nombre + ' quitado: ya solo ve lo suyo'); }); })
       .catch(function (e) { boton.disabled = false; aviso('No se pudo quitar: ' + (e.message || e)); });
   }
+  // ---------- META: solicitudes de acceso (11/11/2026), como en el resto de aplicaciones (receta de VSA) ----------
+  // Quien no está dado de alta pide acceso eligiendo su departamento; el administrador (Control total) lo da de alta desde
+  // Ajustes › «Quién ve los expedientes» o lo deniega con un motivo, y se le avisa por correo. Lista «META SOLICITUDES»: cada
+  // uno ve y edita solo las suyas (ReadSecurity/WriteSecurity = 2) y está abierta a «Usuarios del dominio» para poder pedir.
+  var SOLIC = 'META SOLICITUDES';
+  var solic = { info: null, filas: [], error: '' };
+  var urlSolic = function () { return web.url + "/_api/web/lists/getbytitle('" + encodeURIComponent(SOLIC) + "')"; };
+  function cargarSolicitudes() {
+    if (!PROPIO) return Promise.resolve();
+    return api(urlSolic() + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity').then(function (l) {
+      solic.info = l;
+      return api(urlSolic() + '/items?$top=500&$orderby=Id desc&$select=*,Persona/Id,Persona/Title,Persona/EMail&$expand=Persona');
+    }).then(function (d) {
+      solic.error = '';
+      solic.filas = lista(d.value).map(function (x) {
+        return { id: x.Id, personaId: x.Persona && x.Persona.Id, nombre: (x.Persona && x.Persona.Title) || x.Title || '', correo: (x.Persona && x.Persona.EMail) || '', deps: negsDe(x.Departamentos),
+          motivo: x.Motivo || '', estado: x.Estado || 'Pendiente', respuesta: x.Respuesta || '', fecha: x.Created, empleo: x.Empleo || '', tel: x.Telefono || '' };
+      });
+    }).catch(function (e) { solic.info = e.status === 404 ? null : solic.info; solic.filas = []; solic.error = e.status === 404 ? '' : (e.message || String(e)); });
+  }
+  var fSol = function (x) { var d = new Date(x); return isNaN(d) ? '' : d.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); };
+  var pendientes = function () { return solic.filas.filter(function (f) { return f.estado === 'Pendiente'; }); };
+  // Pantalla de quien aún no está dado de alta: como la de Incidentes (datos de la cuenta, empleo, teléfono, departamento,
+  // motivo, historial de sus solicitudes y aviso por correo al responsable de los accesos)
+  var AVISAR_SOLIC = ['asansen@et.mde.es'];   // a quién avisa cada solicitud de acceso (solo aquí, como en Incidentes)
+  var EMPLEOS = ['CORONEL', 'TENIENTE CORONEL', 'COMANDANTE', 'CAPITAN', 'TENIENTE', 'SUBOFICIAL MAYOR', 'SUBTENIENTE', 'BRIGADA', 'SARGENTO PRIMERO', 'SARGENTO',
+    'CABO MAYOR', 'CABO PRIMERO', 'CABO', 'SOLDADO', 'CIVIL FUNCIONARIO', 'CIVIL LABORAL'];
+  var perfilMeta = null, msgSolic = '';
+  function leerPerfilMeta() {
+    if (perfilMeta) return Promise.resolve(perfilMeta);
+    return api(web.url + '/_api/SP.UserProfiles.PeopleManager/GetMyProperties?$select=DisplayName,Title,Email,UserProfileProperties').then(function (d) {
+      var props = {}; lista(d.UserProfileProperties).forEach(function (x) { props[x.Key] = x.Value; });
+      perfilMeta = { cargo: d.Title || props.Title || '', telefono: props.WorkPhone || '' }; return perfilMeta;
+    }).catch(function () { perfilMeta = {}; return perfilMeta; });
+  }
+  function pantallaSolicitud() {
+    if (!perfilMeta) { leerPerfilMeta().then(function () { if (acceso.sinAlta) render(); }); return '<div class="card"><p class="muted">Comprobando tus solicitudes…</p></div>'; }
+    var P = perfilMeta, mias = solic.filas.filter(function (f) { return yo && f.personaId === yo.Id; });
+    var pend = mias.filter(function (f) { return f.estado === 'Pendiente'; })[0], ult = mias[0];
+    var cab = '<div class="card" style="border-left:5px solid #b3261e"><h3 style="margin-top:0">🔒 No tienes acceso a META</h3>' +
+      '<p class="small">META es la gestión de expedientes de los mensajes de MENSADEF. Para ver los expedientes hay que estar dado de alta en tu <b>departamento</b> (tu célula de MENSADEF). ' +
+      'Si lo necesitas, solicita el acceso: se revisará y recibirás un correo con la respuesta.</p>' +
+      '<p class="small muted">Sesión: <b>' + esc(yo.Title) + '</b>' + (yo.Email ? ' · ' + esc(yo.Email) : '') + '</p></div>';
+    var hist = mias.length ? '<div class="card"><h3 style="margin-top:0">Tus solicitudes</h3>' + mias.map(function (f) {
+      return '<div class="small" style="margin:4px 0"><b>' + esc(fSol(f.fecha)) + '</b> · ' + esc(f.deps.join(', ')) + ' <span class="badge">' + esc(f.estado.toUpperCase()) + '</span>' +
+        (f.respuesta ? '<br>' + (f.estado === 'Denegada' ? '<b>Motivo del rechazo:</b> ' : '') + esc(f.respuesta) : '') + '</div>';
+    }).join('') + '</div>' : '';
+    if (pend) return cab + '<div class="aviso">Tu solicitud del ' + esc(fSol(pend.fecha)) + ' está <b>PENDIENTE</b> de revisión. Recibirás un correo cuando se resuelva.</div>' + msgSolic + hist;
+    if (solic.porCorreo && !solic.info) return cab + '<div class="aviso">Tu solicitud se ha enviado por correo al responsable de los accesos (' + esc(solic.porCorreo.deps.join(', ')) + '). Recibirás la respuesta por correo.</div>' + msgSolic;
+    if (ult && ult.estado === 'Denegada') cab += '<div class="aviso">Tu última solicitud se denegó' + (ult.respuesta ? ': «' + esc(ult.respuesta) + '»' : '') + '. Puedes pedirlo otra vez.</div>';
+    var deps = departamentos(), cargo = sinTildes(P.cargo || '').toUpperCase();
+    return cab + '<div class="card" id="fSolic"><h3 style="margin-top:0">Solicitar acceso</h3>' +
+      '<div class="grid"><div><label class="lbl">Apellidos y nombre</label><input value="' + esc(yo.Title) + '" disabled></div>' +
+      '<div><label class="lbl">Correo</label><input value="' + esc(yo.Email || '') + '" disabled></div>' +
+      '<div><label class="lbl">Empleo <span class="req">*</span></label><select id="solEmpleo"><option value="">Seleccionar…</option>' + EMPLEOS.map(function (e) { return '<option' + (cargo && cargo === sinTildes(e).toUpperCase() ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="lbl">Teléfono <span class="req">*</span></label><input id="solTel" value="' + esc(P.telefono || '') + '" placeholder="RPV o fijo"></div></div>' +
+      '<label class="lbl">Tu departamento <span class="req">*</span> <span class="small muted">(tu célula de MENSADEF; puedes marcar varios)</span></label><div id="solDeps">' + deps.map(function (d) {
+        return '<label class="check"><input type="checkbox" value="' + esc(d) + '"> ' + esc(d) + '</label>'; }).join('') + '</div>' +
+      '<input id="solOtro" placeholder="' + (deps.length ? 'Otro (escríbelo como en MENSADEF)' : 'Escribe tu célula como en MENSADEF, p. ej. ET 2SUIGE SETEC SEGURIDAD') + '" autocomplete="off" style="margin-top:4px">' +
+      '<p class="small muted" style="margin:6px 0 0">Los campos con <span class="req">*</span> son obligatorios.</p>' +
+      '<label class="lbl">Para qué necesitas el acceso <span class="req">*</span></label><textarea id="solMotivo" rows="3" placeholder="Por ejemplo: destino nuevo en la sección; tengo que llevar los expedientes de…"></textarea>' +
+      '<div id="solMsg"></div><div class="acciones"><button class="btn prim" data-solpedir="1">📨 Enviar solicitud de acceso</button></div></div>' + msgSolic + hist;
+  }
+  function pedirAcceso(boton) {
+    var msg = function (t) { var el = $('#solMsg'); if (el) el.innerHTML = t; };
+    var deps = Array.prototype.filter.call(document.querySelectorAll('#solDeps input'), function (x) { return x.checked; }).map(function (x) { return x.value; });
+    var otro = ($('#solOtro') && $('#solOtro').value || '').trim().replace(/\s+/g, ' ').toUpperCase(); if (otro && deps.indexOf(otro) < 0) deps.push(otro);
+    var empleo = $('#solEmpleo') ? $('#solEmpleo').value : '', tel = ($('#solTel') && $('#solTel').value || '').trim(), motivo = ($('#solMotivo').value || '').trim();
+    var faltan = [], marca = function (id, mal) { var el = $(id); if (el) el.classList.toggle('falta', !!mal); };
+    if (!empleo) faltan.push('empleo'); if (!tel) faltan.push('teléfono'); if (!deps.length) faltan.push('departamento'); if (!motivo) faltan.push('para qué necesitas el acceso');
+    marca('#solEmpleo', !empleo); marca('#solTel', !tel); marca('#solDeps', !deps.length); marca('#solMotivo', !motivo);
+    if (faltan.length) return msg('<div class="error">Completa los campos obligatorios: ' + faltan.join(', ') + '.</div>');
+    boton.disabled = true;
+    // Aviso por correo: solo al responsable de los accesos (AVISAR_SOLIC), como en Incidentes (envío robusto; la solicitud queda guardada igualmente)
+    var avisar = function () {
+      return Promise.resolve().then(function () {
+        var to = AVISAR_SOLIC.slice();
+        var html = '<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px"><p><b>' + esc(empleo + ' ' + yo.Title) + '</b>' + (yo.Email ? ' (' + esc(yo.Email) + ')' : '') + (tel ? ' · tel. ' + esc(tel) : '') + ' pide acceso a <b>META</b>.</p>' +
+          '<p>Departamento: <b>' + esc(deps.join(', ')) + '</b></p>' + (motivo ? '<p>Motivo: ' + esc(motivo) + '</p>' : '') +
+          '<p>Para darle de alta: <a href="' + esc(location.origin + location.pathname) + '">META</a> › Ajustes › «Quién ve los expedientes de META» › Solicitudes de acceso.</p><p style="color:#666;font-size:12px">META · © 2026 Cte. Alfredo Sánchez Sender</p></div>';
+        return enviarCorreo({ to: to, cc: [], asunto: 'META: solicitud de acceso de ' + yo.Title, html: html });
+      }).catch(function (e) { return { ok: false, motivo: e.message || String(e) }; });
+    };
+    var cuerpo = { __metadata: { type: solic.info ? solic.info.ListItemEntityTypeFullName : '' }, Title: yo.Title, PersonaId: yo.Id, Departamentos: deps.join('; '), Motivo: motivo, Estado: 'Pendiente', Empleo: empleo, Telefono: tel };
+    var guardar = !solic.info ? Promise.resolve(false) : enviarSP(urlSolic() + '/items', cuerpo, 'No tienes permiso para pedir acceso').then(function () { return true; }, function (e) {
+      // Lista creada antes de que tuviera Empleo y Teléfono: van en el motivo
+      if (e.status !== 400) throw e;
+      var c2 = Object.assign({}, cuerpo); delete c2.Empleo; delete c2.Telefono; c2.Motivo = [empleo, tel && 'Tel. ' + tel, motivo].filter(Boolean).join(' · ');
+      return enviarSP(urlSolic() + '/items', c2, 'No tienes permiso para pedir acceso').then(function () { return true; });
+    }).catch(function () { return false; });
+    guardar.then(function (enLista) {
+      return avisar().then(function (r) {
+        var ok = r && r.ok !== false;
+        if (!enLista && !ok) throw new Error('no se pudo guardar la solicitud ni avisar por correo' + (r && r.motivo ? ' (' + r.motivo + ')' : ''));
+        msgSolic = '<div class="' + (ok ? 'okmsg' : 'aviso') + '" style="margin-top:8px">' + (ok ? '✓ Se ha avisado por correo al responsable de los accesos.' : 'No se pudo avisar por correo' + (r && r.motivo ? ' (' + esc(r.motivo) + ')' : '') + '. La solicitud está guardada; si puedes, avisa también a ' + esc(AVISAR_SOLIC.join(', ')) + '.') + '</div>';
+        if (!enLista) solic.porCorreo = { fecha: new Date().toISOString(), deps: deps };
+        return cargarSolicitudes();
+      });
+    }).then(function () { render(); aviso('Solicitud de acceso enviada'); })
+      .catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo enviar: ' + esc(e.message || e) + '. Pide el acceso directamente a ' + esc(AVISAR_SOLIC.join(', ')) + '.</div>'); });
+  }
+  // Administrador: preparar la lista, dar de alta o denegar
+  function vistaSolicitudes() {
+    if (!PROPIO) return '';
+    var h = '<h4 style="margin:16px 0 4px">📨 Solicitudes de acceso</h4>';
+    if (!solic.info) return h + (solic.error ? '<div class="error">No se pudo leer «' + esc(SOLIC) + '»: ' + esc(solic.error) + '</div>' :
+      '<p class="small">✕ Falta la lista «' + esc(SOLIC) + '». Sin ella, quien no esté dado de alta no puede pedir acceso. <button class="btn prim" data-solcrear="1">Crear la lista de solicitudes</button></p>') + '<div id="solAdmMsg"></div>';
+    var seg = Number(solic.info.ReadSecurity) === 2 && Number(solic.info.WriteSecurity) === 2;
+    var p = pendientes();
+    h += '<p class="small muted">' + (seg ? '✔ Cada uno ve solo sus solicitudes.' : '✕ Todos pueden ver todas las solicitudes. <button class="btn" data-solseg="1">Que cada uno vea solo las suyas</button>') +
+      ' · <a target="_blank" rel="noopener" href="' + esc(web.url + '/_layouts/15/SubNew.aspx?List=' + encodeURIComponent('{' + String(solic.info.Id).replace(/[{}]/g, '') + '}')) + '">🔔 Avisarme por correo de cada solicitud nueva</a></p>';
+    if (!p.length) return h + '<p class="small">No hay solicitudes pendientes.</p><div id="solAdmMsg"></div>';
+    return h + '<table class="t"><tr><th>Persona</th><th>Pide</th><th>Motivo</th><th>Fecha</th><th></th></tr>' + p.map(function (f) {
+      return '<tr><td>' + esc([f.empleo, f.nombre].filter(Boolean).join(' ')) + (f.correo || f.tel ? '<br><span class="small muted">' + esc([f.correo, f.tel && 'tel. ' + f.tel].filter(Boolean).join(' · ')) + '</span>' : '') + '</td><td>' + esc(f.deps.join(', ')) + '</td><td class="small">' + esc(f.motivo || '—') + '</td><td class="small">' + esc(fSol(f.fecha)) + '</td>' +
+        '<td style="white-space:nowrap"><button class="btn prim" data-solalta="' + f.id + '">Dar de alta</button> <button class="btn" data-soldeny="' + f.id + '">Denegar</button></td></tr>';
+    }).join('') + '</table><div id="solAdmMsg"></div>';
+  }
+  function crearListaSolicitudes(boton) {
+    var msg = function (t) { var el = $('#solAdmMsg'); if (el) el.innerHTML = t; };
+    boton.disabled = true; msg('<p class="small muted">Creando la lista…</p>');
+    var campo = function (xml) { return enviarSP(urlSolic() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas'); };
+    enviarSP(web.url + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: SOLIC, Description: 'Solicitudes de acceso a META (página META.html)' }, 'No tienes permiso para crear listas en el sitio')
+      .then(function () { return campo('<Field Type="User" Name="Persona" StaticName="Persona" DisplayName="Persona" UserSelectionMode="PeopleOnly" />'); })
+      .then(function () { return campo('<Field Type="Note" Name="Departamentos" StaticName="Departamentos" DisplayName="Departamentos" NumLines="3" RichText="FALSE" />'); })
+      .then(function () { return campo('<Field Type="Note" Name="Motivo" StaticName="Motivo" DisplayName="Motivo" NumLines="4" RichText="FALSE" />'); })
+      .then(function () { return campo('<Field Type="Text" Name="Estado" StaticName="Estado" DisplayName="Estado" />'); })
+      .then(function () { return campo('<Field Type="Text" Name="Empleo" StaticName="Empleo" DisplayName="Empleo" />'); })
+      .then(function () { return campo('<Field Type="Text" Name="Telefono" StaticName="Telefono" DisplayName="Teléfono" />'); })
+      .then(function () { return campo('<Field Type="Note" Name="Respuesta" StaticName="Respuesta" DisplayName="Respuesta" NumLines="3" RichText="FALSE" />'); })
+      .then(function () { return enviarSP(urlSolic(), { __metadata: { type: 'SP.List' }, ReadSecurity: 2, WriteSecurity: 2 }, 'No se pudo poner «solo sus elementos»', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }).catch(function () { /* se ofrece después */ }); })
+      .then(function () { return abrirSolicitudesATodos().catch(function (e) { aviso('Lista creada, pero no se pudo abrir a todos: ' + (e.message || e) + '. Dale «Colaborar» a Usuarios del dominio a mano.'); }); })
+      .then(function () { return cargarSolicitudes(); }).then(function () { render(); aviso('Lista de solicitudes creada'); })
+      .catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo crear: ' + esc(e.message || e) + '</div>'); });
+  }
+  // Permiso «Colaborar» para «Usuarios del dominio» (o «Todos») solo en la lista de solicitudes, para que cualquiera pueda pedir
+  var TODOS_RE = /usuarios del dominio|domain users|usuarios autenticados|authenticated users|^todos\b|everyone|todos los usuarios/i;
+  function abrirSolicitudesATodos() {
+    var esTodos = function (m) { return m && (TODOS_RE.test(m.Title || '') || TODOS_RE.test(m.LoginName || '') || /^c:0\(\.s\|true$/i.test(m.LoginName || '')); };
+    return enviarSP(urlSolic() + '/breakroleinheritance(copyRoleAssignments=true,clearSubscopes=true)', {}, 'No tienes permiso para cambiar los permisos de la lista')
+      .then(function () { return api(web.url + '/_api/web/roleassignments?$expand=Member&$select=PrincipalId,Member/Title,Member/LoginName,Member/Id').catch(function () { return { value: [] }; }); })
+      .then(function (d) {
+        var m = lista(d.value).map(function (x) { return x.Member; }).filter(esTodos)[0];
+        return Promise.all([m ? m.Id : enviarSP(web.url + '/_api/web/ensureuser', { logonName: 'c:0(.s|true' }, 'No tienes permiso para añadir usuarios al sitio').then(function (u) { return u.Id; }),
+          api(web.url + '/_api/web/roledefinitions/getbytype(3)?$select=Id')]);
+      }).then(function (r) { return enviarSP(urlSolic() + '/roleassignments/addroleassignment(principalid=' + Number(r[0]) + ',roledefid=' + Number(r[1].Id) + ')', {}, 'No tienes permiso para cambiar los permisos de la lista'); });
+  }
+  function correoSolicitud(f, aprobada, texto) {
+    if (!f.correo) return Promise.resolve();
+    var html = '<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px"><p>' + (aprobada ? 'Ya tienes acceso a <b>META</b>. Departamentos: <b>' + esc(texto) + '</b>.' : 'Tu solicitud de acceso a <b>META</b> se ha denegado' + (texto ? ': «' + esc(texto) + '»' : '.')) + '</p>' +
+      '<p><a href="' + esc(location.origin + location.pathname) + '">Abrir META</a></p><p style="color:#666;font-size:12px">META · © 2026 Cte. Alfredo Sánchez Sender</p></div>';
+    return enviarCorreo({ to: [f.correo], cc: [], asunto: 'META: ' + (aprobada ? 'acceso concedido' : 'solicitud de acceso denegada'), html: html }).catch(function () { /* el correo es un aviso: no impide el alta */ });
+  }
+  function darAltaSolicitud(boton) {
+    var f = solic.filas.find(function (x) { return x.id === Number(boton.dataset.solalta); }); if (!f) return;
+    if (!acceso.info) return aviso('Crea antes la lista «' + MIEMBROS + '» (arriba)');
+    boton.disabled = true;
+    var ya = acceso.filas.find(function (x) { return x.personaId === f.personaId; });
+    var negs = (ya ? ya.negs : []).concat(f.deps).filter(function (d, i, l) { return d && l.indexOf(d) === i; });
+    var cuerpo = { __metadata: { type: acceso.info.ListItemEntityTypeFullName }, Title: f.nombre, Negociados: negs.join('; ') };
+    if (!ya) { cuerpo.PersonaId = f.personaId; cuerpo.VeTodo = false; }
+    (ya ? enviarSP(urlMiembros() + '/items(' + ya.id + ')', cuerpo, 'No tienes permiso para modificar la lista ' + MIEMBROS, { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
+      : enviarSP(urlMiembros() + '/items', cuerpo, 'No tienes permiso para escribir en la lista ' + MIEMBROS))
+      .then(function () { return enviarSP(urlSolic() + '/items(' + f.id + ')', { __metadata: { type: solic.info.ListItemEntityTypeFullName }, Estado: 'Aprobada', Respuesta: 'Dado de alta en ' + negs.join(', ') }, 'No se pudo anotar la solicitud', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }); })
+      .then(function () { return correoSolicitud(f, true, negs.join(', ')); })
+      .then(function () { return Promise.all([cargarMiembros(), cargarSolicitudes()]); }).then(function () { render(); aviso('✓ ' + f.nombre + ' dado de alta en ' + negs.join(', ')); })
+      .catch(function (e) { boton.disabled = false; aviso('No se pudo dar de alta: ' + (e.message || e)); });
+  }
+  function denegarSolicitud(boton) {
+    var f = solic.filas.find(function (x) { return x.id === Number(boton.dataset.soldeny); }); if (!f) return;
+    var motivo = window.prompt('Motivo de la denegación (lo verá ' + f.nombre + '):', '');
+    if (motivo === null) return;
+    boton.disabled = true;
+    enviarSP(urlSolic() + '/items(' + f.id + ')', { __metadata: { type: solic.info.ListItemEntityTypeFullName }, Estado: 'Denegada', Respuesta: motivo.trim() }, 'No se pudo anotar la solicitud', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
+      .then(function () { return correoSolicitud(f, false, motivo.trim()); })
+      .then(function () { return cargarSolicitudes(); }).then(function () { render(); aviso('Solicitud de ' + f.nombre + ' denegada'); })
+      .catch(function (e) { boton.disabled = false; aviso('No se pudo: ' + (e.message || e)); });
+  }
   function cargar(silencioso) {
     // Si ya hay una lectura en curso: la automática se une a ella; la pedida (tras guardar) lee otra vez al terminar
     if (cargando) return silencioso ? cargando : cargando.then(function () { return cargar(); });
@@ -548,12 +757,12 @@
         api(urlLista() + '?$select=Id,Title,ItemCount,ListItemEntityTypeFullName,EffectiveBasePermissions,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) {
           listaInfo = l; esAdmin = ((Number(l.EffectiveBasePermissions && l.EffectiveBasePermissions.Low) || 0) & 0x2000000) !== 0; mostrarAjustes();
         }),
-        cargarMiembros(),
-        api(urlLista() + "/fields?$select=InternalName,Title,Choices,RichText,Required,TypeAsString&$filter=(InternalName eq 'ESTADO') or (InternalName eq 'PersonalImplicado0') or (InternalName eq 'Prioridad') or (InternalName eq 'NegociadoAsignado')" +
+        cargarMiembros(), cargarSolicitudes(),
+        api(urlLista() + "/fields?$select=InternalName,Title,Choices,RichText,Required,TypeAsString,FillInChoice&$filter=(InternalName eq 'ESTADO') or (InternalName eq 'PersonalImplicado0') or (InternalName eq 'Prioridad') or (InternalName eq 'NegociadoAsignado')" +
           " or (InternalName eq 'NegociadosImplicados') or (InternalName eq 'DescripcionDelAsunto') or (InternalName eq 'Comentarios') or (InternalName eq 'ControlExpediente') or (InternalName eq 'FechaVencimiento') or (InternalName eq 'TratarEn')")
           .then(function (d) { lista(d.value).forEach(function (f) {
             campos[f.InternalName] = lista(f.Choices).length ? lista(f.Choices) : (f.Choices || []);
-            infoCampo[f.InternalName] = Object.assign(infoCampo[f.InternalName] || {}, { rico: !!f.RichText, obligatorio: !!f.Required, tipo: f.TypeAsString || '', existe: true });
+            infoCampo[f.InternalName] = Object.assign(infoCampo[f.InternalName] || {}, { rico: !!f.RichText, obligatorio: !!f.Required, tipo: f.TypeAsString || '', abierto: !!f.FillInChoice, existe: true });
           }); })
           .catch(function () { /* las opciones se deducen de los datos */ }),
       ].concat(['Comentarios', 'REGISTRODEACTIVIDAD'].map(function (k) {
@@ -633,7 +842,7 @@
     var fallos = [];
     api(real + '/fields?$select=InternalName,SchemaXml,Hidden,ReadOnlyField,FromBaseType&$top=500').then(function (d) {
       var propias = lista(d.value).filter(function (f) { return !f.Hidden && !f.ReadOnlyField && !f.FromBaseType && f.InternalName !== 'Title' && f.SchemaXml; });
-      return enviarSP(web.url + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: pref.lista, Description: PROPIO ? 'Tareas de MENSADEF (página tareas-nlt-colabora-mensadef.html)' : 'Copia de pruebas de «Gestor de Tareas» (página tareas-nlt-colabora-pruebas.html)' }, 'No tienes permiso para crear listas en el sitio')
+      return enviarSP(web.url + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: pref.lista, Description: PROPIO ? 'Tareas de MENSADEF (página META.html)' : 'Copia de pruebas de «Gestor de Tareas» (página tareas-nlt-colabora-pruebas.html)' }, 'No tienes permiso para crear listas en el sitio')
         .then(function () {
           return propias.reduce(function (p, f, i) {
             return p.then(function () {
@@ -655,7 +864,7 @@
     var msg = function (t) { var el = $('#prMsg'); if (el) el.innerHTML = t; };
     if (!PROPIO) return;
     boton.disabled = true; msg('<p class="small muted">Cambiando el nombre de la lista…</p>');
-    enviarSP(web.url + "/_api/web/lists/getbytitle('Gestor%20de%20Tareas%20PRUEBAS')", { __metadata: { type: 'SP.List' }, Title: pref.lista, Description: 'Tareas de MENSADEF (página tareas-nlt-colabora-mensadef.html)' },
+    enviarSP(web.url + "/_api/web/lists/getbytitle('Gestor%20de%20Tareas%20PRUEBAS')", { __metadata: { type: 'SP.List' }, Title: pref.lista, Description: 'Tareas de MENSADEF (página META.html)' },
       'No tienes permiso para cambiar la lista', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
       .then(function () { msg('<div class="small">✓ La lista «Gestor de Tareas PRUEBAS» ahora es «' + esc(pref.lista) + '», con todas sus tareas. Cargando…</div>'); setTimeout(cargar, 800); })
       .catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo: ' + esc(/404|no existe|does not exist/i.test(e.message || '') ? 'no existe la lista «Gestor de Tareas PRUEBAS» en este sitio' : (e.message || e)) + '</div>'); });
@@ -685,7 +894,8 @@
     return ts.filter(function (t) {
       if (pref.quien === 'mias' && !esMia(t)) return false;
       if (pref.quien === 'implicado' && !meImplica(t)) return false;
-      if (pref.negociado && t.negociado !== pref.negociado && t.negociados.indexOf(pref.negociado) < 0) return false;
+      var fn = depF(pref.negociado);
+      if (fn && t.negociado !== fn && t.negociados.indexOf(fn) < 0) return false;
       if (pref.estado && t.estado !== pref.estado) return false;
       if (pref.prio && t.prioridad !== pref.prio) return false;
       if (pref.resp && (t.responsable || 'Sin responsable') !== pref.resp) return false;
@@ -702,7 +912,7 @@
     return '<option value="">' + esc(vacio) + '</option>' + lista.map(function (v) { return '<option' + (v === sel ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
   };
 
-  var hayFiltros = function () { return !!(pref.q || pref.negociado || pref.estado || pref.prio || pref.resp || pref.terDesde || pref.terHasta); };
+  var hayFiltros = function () { return !!(pref.q || depF(pref.negociado) || pref.estado || pref.prio || pref.resp || pref.terDesde || pref.terHasta); };
   // Terminados: por la fecha en que se terminaron (fecha de fin o, si no hay, la de la última modificación)
   var enRangoTer = function (t) { var f = String(terminadaEn(t) || '').slice(0, 10); return (!pref.terDesde || (f && f >= pref.terDesde)) && (!pref.terHasta || (f && f <= pref.terHasta)); };
   var verHechas = 200;
@@ -714,7 +924,7 @@
       '<div class="q"><label class="lbl">Buscar</label><input id="fq" type="search" value="' + esc(pref.q) + '" placeholder="Asunto, nº de expediente, persona…"></div>' +
       '<div><label class="lbl">Qué asuntos</label><select id="fquien">' +
         [['mias', 'Soy responsable'], ['implicado', 'Responsable o implicado'], ['todos', 'Todos']].map(function (o) { return '<option value="' + o[0] + '"' + (pref.quien === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
-      '<div><label class="lbl">Negociado</label><select id="fneg">' + opciones(negs.sort(), pref.negociado, 'Todos') + '</select></div>' +
+      '<div><label class="lbl">' + tx('Departamento') + '</label><select id="fneg">' + opcionesDep(pref.negociado) + '</select></div>' +
       '<div><label class="lbl">Responsable</label><select id="fresp">' + opciones(resps, pref.resp, 'Todos') + '</select></div>' +
       '<div><label class="lbl">Estado</label><select id="fest">' + opciones(valores('ESTADO', 'estado'), pref.estado, 'Todos') + '</select></div>' +
       '<div><label class="lbl">Prioridad</label><select id="fprio">' + opciones(valores('Prioridad', 'prioridad'), pref.prio, 'Todas') + '</select></div>' +
@@ -744,7 +954,7 @@
       (t.negociado ? '<span class="chip">' + esc(t.negociado) + '</span>' : '') + '</div></div>';
   }
   function tablaTareas(ts) {
-    return '<div class="tabla-wrap"><table class="tt"><tr><th>Plazo</th><th>Asunto</th><th>Estado</th><th class="opc">Prioridad</th><th class="opc">Responsable</th><th class="opc">Negociado</th></tr>' +
+    return '<div class="tabla-wrap"><table class="tt"><tr><th>Plazo</th><th>Asunto</th><th>Estado</th><th class="opc">Prioridad</th><th class="opc">Responsable</th><th class="opc">' + tx('Departamento') + '</th></tr>' +
       ts.map(function (t) {
         var u = urgencia(t);
         return '<tr class="tarea ' + colorU(t, u) + '" data-id="' + t.id + '"><td class="nw">' + chipPlazo(t, u) + botonFin(t) + (t.nlt ? '<div class="small muted">' + esc(fCorta(t.nlt)) + '</div>' : '') + '</td>' +
@@ -932,7 +1142,7 @@
   }
   var filtrosVistaTxt = function () {
     var f = [{ mias: 'Asuntos de ' + (yo ? yo.Title : 'mi responsabilidad'), implicado: 'Asuntos en los que intervengo', todos: 'Todos los asuntos' }[pref.quien]];
-    if (pref.negociado) f.push('Negociado: ' + pref.negociado);
+    if (depF(pref.negociado)) f.push(tx('Departamento: ') + pref.negociado);
     if (pref.resp) f.push('Responsable: ' + pref.resp);
     if (pref.estado) f.push('Estado: ' + pref.estado);
     if (pref.prio) f.push('Prioridad: ' + pref.prio);
@@ -969,7 +1179,7 @@
         }).join('') + '</div><div class="ejex">' + ms.map(function (m) { return '<span>' + esc(m.nom) + '</span>'; }).join('') + '</div>' +
         '<details style="margin-top:8px"><summary class="small" style="cursor:pointer">Ver en tabla</summary><table class="t" style="margin-top:6px"><tr><th>Mes</th><th>Creados</th><th>Terminados</th><th>NLT cumplida</th></tr>' +
         ms.map(function (m) { return '<tr><td>' + esc(m.nom) + '</td><td>' + m.creados + '</td><td>' + m.hechas + '</td><td>' + nd(m.pct, ' %') + '</td></tr>'; }).join('') + '</table></details>') +
-      bloque('Por negociado', 'Abiertos hoy (barra), terminados en el periodo y porcentaje de NLT cumplida.', leyAb + barrasGrupo(porClave(d, CLAVES_EST.negociado), 30)) +
+      bloque(tx('Por departamento'), 'Abiertos hoy (barra), terminados en el periodo y porcentaje de NLT cumplida.', leyAb + barrasGrupo(porClave(d, CLAVES_EST.negociado), 30)) +
       bloque('Por responsable', 'Los 15 con más asuntos abiertos.', leyAb + barrasGrupo(porClave(d, CLAVES_EST.responsable), 15)) +
       bloque('Por prioridad', 'Abiertos hoy y terminados en el periodo.', leyAb + barrasGrupo(porClave(d, CLAVES_EST.prioridad), 10)) + '</div>';
   }
@@ -989,7 +1199,7 @@
 
   // ---------- Informes ----------
   var CRITERIOS = { actividad: 'Con actividad en el periodo (creados, modificados o terminados)', nlt: 'Con NLT dentro del periodo', creadas: 'Creados en el periodo', hechas: 'Terminados en el periodo', abiertas: 'Abiertos al final del periodo' };
-  var AGRUPAR = { estado: 'Estado', negociado: 'Negociado asignado', responsable: 'Responsable', prioridad: 'Prioridad', ninguno: 'Sin agrupar' };
+  var AGRUPAR = { estado: 'Estado', negociado: tx('Departamento asignado'), responsable: 'Responsable', prioridad: 'Prioridad', ninguno: 'Sin agrupar' };
   function infDef() {
     var h = new Date();
     return { desde: iso(new Date(h.getFullYear(), h.getMonth(), 1)), hasta: hoy(), criterio: 'actividad', estados: [], soloVencidas: false,
@@ -1011,7 +1221,8 @@
       if (o.soloVencidas && !(urgencia(t).grupo === 'vencidas' || urgencia(t).txt === 'Terminada fuera de NLT')) return false;
       if (o.quien === 'mias' && !esMia(t)) return false;
       if (o.quien === 'implicado' && !meImplica(t)) return false;
-      if (o.negociado && t.negociado !== o.negociado && t.negociados.indexOf(o.negociado) < 0) return false;
+      var on = depF(o.negociado);
+      if (on && t.negociado !== on && t.negociados.indexOf(on) < 0) return false;
       if (o.prio && t.prioridad !== o.prio) return false;
       return true;
     }).sort(ordenar);
@@ -1048,7 +1259,7 @@
     if (o.estados.length) f.push('Estados: ' + o.estados.join(', '));
     if (o.soloVencidas) f.push('Solo vencidos o terminados fuera de NLT');
     if (o.quien !== 'todos') f.push(o.quien === 'mias' ? 'Asuntos de ' + (yo ? yo.Title : 'mi responsabilidad') : 'Asuntos en los que intervengo');
-    if (o.negociado) f.push('Negociado: ' + o.negociado);
+    if (depF(o.negociado)) f.push(tx('Departamento: ') + o.negociado);
     if (o.prio) f.push('Prioridad: ' + o.prio);
     return f.join(' · ');
   }
@@ -1076,7 +1287,7 @@
       grupos(ts, o).forEach(function (g) {
         if (g[0]) h += '<p style="font-weight:bold;margin:12px 0 4px">' + esc(g[0]) + ' (' + g[1].length + ')</p>';
         var conEstado = o.agrupar !== 'estado';
-        h += '<table class="t" style="border-collapse:collapse;width:100%;font-size:9pt"><tr><th ' + th + '>Expediente</th><th ' + th + '>Asunto</th><th ' + th + '>Responsable</th><th ' + th + '>Negociado</th><th ' + th + '>Prior.</th><th ' + th + '>NLT</th>' +
+        h += '<table class="t" style="border-collapse:collapse;width:100%;font-size:9pt"><tr><th ' + th + '>Expediente</th><th ' + th + '>Asunto</th><th ' + th + '>Responsable</th><th ' + th + '>' + tx('Departamento') + '</th><th ' + th + '>Prior.</th><th ' + th + '>NLT</th>' +
           (conEstado ? '<th ' + th + '>Estado</th>' : '') + '<th ' + th + '>Situación</th></tr>' +
           g[1].map(fila).map(function (f) {
             return '<tr><td ' + td + '>' + esc(f.exp) + '</td><td ' + td + '>' + esc(f.asunto) + '</td><td ' + td + '>' + esc(f.resp) + '</td><td ' + td + '>' + esc(f.neg) + '</td><td ' + td + '>' + esc(f.prio) +
@@ -1090,7 +1301,7 @@
         var f = fila(t);
         h += '<p style="font-weight:bold;color:#3b4a2f;margin:14px 0 2px">' + esc(t.asunto) + '</p><p style="margin:0 0 4px;font-size:9pt">' +
           esc([f.resp, f.neg, f.prio, 'NLT ' + f.nlt, f.estado, f.situacion].filter(Boolean).join(' · ')) + '</p><table class="t" style="border-collapse:collapse;width:100%;font-size:9pt">' +
-          [['Expediente', t.expediente], ['Descripción', t.descripcion], ['Personal implicado', t.implicados.join(', ')], ['Negociados implicados', t.negociados.join(', ')],
+          [['Expediente', t.expediente], ['Descripción', t.descripcion], ['Personal implicado', t.implicados.join(', ')], [tx('Departamentos implicados'), t.negociados.join(', ')],
             ['Fecha de inicio', fCorta(t.inicio)], ['Observaciones', t.observaciones], ['Registro de actividad', t.registro]]
             .filter(function (x) { return x[1]; })
             .map(function (x) { return '<tr><td ' + td + ' width="25%"><b>' + esc(x[0]) + '</b></td><td ' + td + '>' + esc(x[1]).replace(/\n/g, '<br>') + '</td></tr>'; }).join('') + '</table>';
@@ -1121,7 +1332,7 @@
   }
   function csvInforme(o) {
     var c = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
-    var filas = [['Id', 'Expediente', 'Asunto', 'Estado', 'Prioridad', 'Responsable', 'Negociado', 'Negociados implicados', 'Personal implicado', 'Fecha inicio', 'NLT', 'Fecha finalización', 'Situación', 'Descripción', 'Observaciones']];
+    var filas = [['Id', 'Expediente', 'Asunto', 'Estado', 'Prioridad', 'Responsable', tx('Departamento'), tx('Departamentos implicados'), 'Personal implicado', 'Fecha inicio', 'NLT', 'Fecha finalización', 'Situación', 'Descripción', 'Observaciones']];
     seleccion(o).forEach(function (t) {
       filas.push([t.id, t.expediente, t.asunto, t.estado, t.prioridad, t.responsable, t.negociado, t.negociados.join(', '), t.implicados.join(', '), fCorta(t.inicio), fCorta(t.nlt), fCorta(t.fin), urgencia(t).txt, t.descripcion, t.observaciones]);
     });
@@ -1138,7 +1349,7 @@
       '<div class="grid"><div><label class="lbl">Desde</label><input type="date" name="desde" value="' + o.desde + '"></div><div><label class="lbl">Hasta</label><input type="date" name="hasta" value="' + o.hasta + '"></div>' +
       '<div><label class="lbl">Qué asuntos</label>' + sel('criterio', CRITERIOS, o.criterio) + '</div>' +
       '<div><label class="lbl">De quién</label>' + sel('quien', { todos: 'Todos', mias: 'Soy responsable', implicado: 'Responsable o implicado' }, o.quien) + '</div>' +
-      '<div><label class="lbl">Negociado</label><select name="negociado">' + opciones(negs, o.negociado, 'Todos') + '</select></div>' +
+      '<div><label class="lbl">' + tx('Departamento') + '</label><select name="negociado">' + opcionesDep(o.negociado) + '</select></div>' +
       '<div><label class="lbl">Prioridad</label><select name="prio">' + opciones(valores('Prioridad', 'prioridad'), o.prio, 'Todas') + '</select></div>' +
       '<div><label class="lbl">Agrupar por</label>' + sel('agrupar', AGRUPAR, o.agrupar) + '</div></div>' +
       '<label class="lbl">Estados (ninguno marcado = todos)</label><div>' + ests.map(function (e) { return '<label class="check"><input type="checkbox" name="estados" value="' + esc(e) + '"' + (o.estados.indexOf(e) >= 0 ? ' checked' : '') + '> ' + esc(e) + '</label>'; }).join('') +
@@ -1226,12 +1437,124 @@
   function imprimirTratar(k) {
     var x = TRATAR.filter(function (y) { return y[0] === k; })[0];
     var ts = filtrar(tareas).filter(function (t) { return t.clase !== 'hecha' && tieneTratar(t, k); }).sort(ordenar);
-    var cuerpo = '<h2>' + x[2] + ' ASUNTOS PARA TRATAR: ' + esc(x[1]) + '</h2><p>' + esc(new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) + ' · ' + ts.length + ' asunto' + (ts.length === 1 ? '' : 's') + '</p>' +
+    var cuerpo = '<h2>' + x[2] + ' ASUNTOS PARA TRATAR: ' + esc(x[3].toUpperCase()) + '</h2><p>' + esc(new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) + ' · ' + ts.length + ' asunto' + (ts.length === 1 ? '' : 's') + '</p>' +
       '<table class="cal" style="table-layout:auto"><tr><th>Nº</th><th>Exp.</th><th>Asunto</th><th>Estado</th><th>Prioridad</th><th>NLT</th><th>Responsable</th><th>Último comentario / situación</th></tr>' +
       ts.map(function (t, i) { var ult = String(t.observaciones || t.resumenDesc || '').split('\n').filter(Boolean).pop() || '';
         return '<tr><td>' + (i + 1) + '</td><td>' + esc(t.expediente) + '</td><td><b>' + esc(t.asunto) + '</b></td><td>' + esc(t.estado) + '</td><td>' + esc(t.prioridad) + '</td><td>' + esc(fCorta(t.nlt)) + '</td><td>' + esc(t.responsable) + '</td><td>' + esc(ult.slice(0, 300)) + '</td></tr>'; }).join('') +
       '</table><p style="font-size:8pt;color:#555;margin-top:12px">' + esc(listaInfo ? listaInfo.Title : pref.lista) + ' · ' + (PROPIO ? 'META · Gestión de expedientes MENSADEF' : 'Gestor de tareas') + ' · © 2026 Cte. Alfredo Sánchez Sender</p>';
     imprimirHtml('Para tratar: ' + x[3], cuerpo.replace(/<td>/g, '<td style="border:1px solid #bbb;padding:3px 5px;vertical-align:top;font-size:9pt">'), 'para-tratar-' + k);
+  }
+  // Que «Negociado asignado» y «Negociados implicados» admitan valores propios (las células de MENSADEF): FillInChoice
+  // Biblioteca donde está esta página (p. ej. «aplicaciones»): ocultarla de «Contenido del sitio», como en Incidentes y VSA
+  // (12/11/2026). La página sigue funcionando con su dirección; solo deja de verse la biblioteca en el sitio.
+  var biblio;   // undefined = sin leer; null = no se pudo leer
+  function leerBiblioteca() {
+    return api(web.url + "/_api/web/GetFileByServerRelativeUrl('" + encodeURIComponent(decodeURIComponent(location.pathname).replace(/'/g, "''")) + "')/ListItemAllFields/ParentList?$select=Id,Title,Hidden,BaseTemplate")
+      .then(function (l) { biblio = l; }, function () { biblio = null; });
+  }
+  function vistaBiblioteca() {
+    if (biblio === undefined) { leerBiblioteca().then(function () { if (pref.vista === 'ajustes') render(); }); return '<p class="small muted">📁 Comprobando la biblioteca de esta página…</p>'; }
+    if (!biblio) return '<p class="small muted">📁 No se pudo leer la biblioteca donde está esta página.</p>';
+    if (biblioPerm === undefined) leerPermisosBiblio().then(function () { if (pref.vista === 'ajustes') render(); });
+    var perm = biblioPerm === undefined ? '<p class="small muted">🔒 Comprobando quién puede ver la carpeta…</p>' : !biblioPerm ? '<p class="small muted">🔒 No se pudieron leer los permisos de la biblioteca.</p>' :
+      biblioPerm.cerrada ? '<p class="small">🔒 <b>Carpeta cerrada:</b> la gente puede abrir META con su dirección, pero no ver lo que hay en «' + esc(biblio.Title) + '». <button type="button" class="btn" data-biblioabrir="1">Volver a abrirla</button></p>'
+        : '<p class="small">🔓 Quien escriba la dirección de «' + esc(biblio.Title) + '» <b>ve todo lo que hay dentro</b>' + (biblioPerm.abiertos.length ? ' (' + esc(biblioPerm.abiertos.map(function (a) { return a.nombre; }).filter(Boolean).slice(0, 4).join(', ')) + (biblioPerm.abiertos.length > 4 ? '…' : '') + ')' : '') +
+          '. <button type="button" class="btn prim" data-bibliocerrar="1">Cerrar la carpeta</button> <span class="small muted">(seguirán pudiendo abrir META; Control total y Diseño no cambian)</span></p>';
+    return perm + '<p class="small">📁 Esta página está en la biblioteca «' + esc(biblio.Title) + '», que ' + (biblio.Hidden ? '<b>está oculta</b> en «Contenido del sitio». <button type="button" class="btn" data-biblio="0">Volver a mostrarla</button>'
+      : '<b>se ve</b> en «Contenido del sitio». <button type="button" class="btn prim" data-biblio="1">Ocultar la biblioteca</button>') + '</p>';
+  }
+  // Cerrar la biblioteca (12/11/2026): ocultarla no impide abrir su dirección y ver lo que hay. Para eso, en la biblioteca la
+  // gente pasa a «Lectura restringida» (abrir archivos sí; ver la carpeta, sus vistas y formularios, no). Se quedan como
+  // están Control total, Diseño y quien la cierra. Si el sitio no tiene ese nivel, se crea «META solo abrir» con los mismos
+  // permisos (ver elementos, abrir elementos, ver páginas, abrir). «Volver a abrirla» hereda otra vez los permisos del sitio.
+  var biblioPerm;   // undefined = sin leer
+  var ROL_ABRIR = 0x1 | 0x20 | 0x10000 | 0x20000;   // ViewListItems, OpenItems, Open, ViewPages (sin ViewFormPages)
+  var urlBiblio = function () { return web.url + "/_api/web/lists(guid'" + String(biblio.Id).replace(/[{}]/g, '') + "')"; };
+  function leerPermisosBiblio() {
+    if (!biblio) { biblioPerm = null; return Promise.resolve(); }
+    return Promise.all([api(urlBiblio() + '?$select=HasUniqueRoleAssignments'),
+      api(urlBiblio() + '/roleassignments?$expand=Member,RoleDefinitionBindings&$select=PrincipalId,Member/Title,Member/Id,RoleDefinitionBindings/Id,RoleDefinitionBindings/Name,RoleDefinitionBindings/RoleTypeKind')])
+      .then(function (r) {
+        var asig = lista(r[1].value).map(function (a) { return { id: a.PrincipalId, nombre: a.Member && a.Member.Title, roles: lista(a.RoleDefinitionBindings) }; });
+        var abiertos = asig.filter(function (a) { return (!yo || a.id !== yo.Id) && a.roles.some(function (x) { return [2, 3, 6].indexOf(Number(x.RoleTypeKind)) >= 0 && !/restringid|restricted|solo abrir/i.test(x.Name || ''); }); });
+        biblioPerm = { propios: !!r[0].HasUniqueRoleAssignments, asig: asig, abiertos: abiertos, cerrada: !!r[0].HasUniqueRoleAssignments && !abiertos.length };
+      }, function () { biblioPerm = null; });
+  }
+  function rolRestringido() {
+    return api(web.url + '/_api/web/roledefinitions?$select=Id,Name,RoleTypeKind').then(function (d) {
+      var r = lista(d.value).find(function (x) { return /lectura restringida|restricted read|meta solo abrir/i.test(x.Name || ''); });
+      if (r) return r.Id;
+      return enviarSP(web.url + '/_api/web/roledefinitions', { __metadata: { type: 'SP.RoleDefinition' }, Name: 'META solo abrir', Description: 'Abrir archivos de la biblioteca de aplicaciones sin ver la carpeta (META)',
+        BasePermissions: { __metadata: { type: 'SP.BasePermissions' }, High: '0', Low: String(ROL_ABRIR) } }, 'No tienes permiso para crear niveles de permiso en el sitio').then(function (x) { return x.Id; });
+    });
+  }
+  function cerrarBiblioteca(boton) {
+    if (!biblio) return;
+    if (!boton.dataset.seguro) { boton.dataset.seguro = '1'; boton.textContent = '¿Cerrar la biblioteca? Pulsa otra vez'; return; }
+    boton.disabled = true; aviso('Cerrando la biblioteca…');
+    var paso = biblioPerm && biblioPerm.propios ? Promise.resolve() : enviarSP(urlBiblio() + '/breakroleinheritance(copyRoleAssignments=true,clearSubscopes=true)', {}, 'No tienes permiso para cambiar los permisos de la biblioteca');
+    paso.then(leerPermisosBiblio).then(rolRestringido).then(function (rid) {
+      return biblioPerm.abiertos.filter(function (a) { return !yo || a.id !== yo.Id; }).reduce(function (p, a) {
+        return p.then(function () { return enviarSP(urlBiblio() + '/roleassignments/addroleassignment(principalid=' + Number(a.id) + ',roledefid=' + Number(rid) + ')', {}, 'No tienes permiso para cambiar los permisos de la biblioteca'); })
+          .then(function () { return a.roles.filter(function (x) { return [2, 3, 6].indexOf(Number(x.RoleTypeKind)) >= 0; }).reduce(function (q, x) {
+            return q.then(function () { return enviarSP(urlBiblio() + '/roleassignments/removeroleassignment(principalid=' + Number(a.id) + ',roledefid=' + Number(x.Id) + ')', {}, 'No tienes permiso para cambiar los permisos de la biblioteca'); });
+          }, Promise.resolve()); });
+      }, Promise.resolve());
+    }).then(leerPermisosBiblio).then(function () { aviso('Biblioteca cerrada: se puede abrir META con su dirección, pero no ver la carpeta'); render(); })
+      .catch(function (e) { boton.disabled = false; aviso('No se pudo cerrar: ' + (e.message || e)); leerPermisosBiblio().then(render); });
+  }
+  function abrirBiblioteca(boton) {
+    if (!boton.dataset.seguro) { boton.dataset.seguro = '1'; boton.textContent = '¿Volver a abrirla? Pulsa otra vez'; return; }
+    boton.disabled = true;
+    enviarSP(urlBiblio() + '/resetroleinheritance', {}, 'No tienes permiso para cambiar los permisos de la biblioteca')
+      .then(leerPermisosBiblio).then(function () { aviso('La biblioteca vuelve a tener los permisos del sitio'); render(); })
+      .catch(function (e) { boton.disabled = false; aviso('No se pudo: ' + (e.message || e)); });
+  }
+  function ocultarBiblioteca(boton, ocultar) {
+    if (!biblio) return;
+    if (ocultar && /^(Documentos compartidos|Documentos|Shared Documents)$/i.test(biblio.Title) &&
+      !window.confirm('«' + biblio.Title + '» es la biblioteca general de documentos del sitio: al ocultarla dejará de verse en «Contenido del sitio» para todos. Lo recomendable es tener los .html en una biblioteca propia (p. ej. «aplicaciones»). ¿Ocultarla igualmente?')) return;
+    boton.disabled = true;
+    enviarSP(web.url + "/_api/web/lists(guid'" + biblio.Id + "')", { __metadata: { type: 'SP.List' }, Hidden: !!ocultar }, 'No tienes permiso para cambiar la biblioteca', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
+      .then(function () { return leerBiblioteca(); }).then(function () { aviso(ocultar ? 'Biblioteca oculta en «Contenido del sitio»' : 'Biblioteca visible de nuevo'); render(); })
+      .catch(function (e) { boton.disabled = false; aviso('No se pudo: ' + (e.message || e)); });
+  }
+  // Ajustes › Departamentos: catálogo (opciones de las dos columnas) con las células de MENSADEF, altas y bajas
+  function vistaCatalogo() {
+    if (!DEP) return '';
+    var cat = catalogo(), viejos = (campos.NegociadoAsignado || []).filter(function (d) { return !esCelula(d); });
+    return '<div class="card" style="margin:10px 0"><h3 style="margin-top:0">🏢 Departamentos (células de MENSADEF)</h3>' +
+      '<p class="small muted">Son las opciones de «Departamento asignado» e «implicados» para todos. Los expedientes que ya tienen un negociado antiguo lo conservan.</p>' +
+      (cat.length ? '<div id="catDeps">' + cat.map(function (d) { return '<span class="chipdep">' + esc(d) + ' <button type="button" class="x" data-catquitar="' + esc(d) + '" title="Quitar del catálogo">✕</button></span>'; }).join('') + '</div>'
+        : '<p class="small">Aún no hay células en el catálogo.</p>') +
+      (viejos.length ? '<p class="small muted">Negociados antiguos en la columna: ' + esc(viejos.join(', ')) + '. Se quitan al poner las células.</p>' : '') +
+      '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><input id="catNueva" style="flex:1;min-width:240px" placeholder="Nueva célula, tal como sale en MENSADEF (p. ej. ET 2SUIGE SETEC SEGURIDAD)" autocomplete="off">' +
+      '<button type="button" class="btn" data-catanadir="1">＋ Dar de alta</button></div>' +
+      '<div class="acciones" style="margin-top:8px">' + (CELULAS_SUIGESUR.some(function (d) { return cat.indexOf(d) < 0; }) ? '<button type="button" class="btn prim" data-catsuigesur="1">Poner las ' + CELULAS_SUIGESUR.length + ' células de SUIGESUR</button>' : '') +
+      '<span class="small muted" id="catMsg"></span></div></div>';
+  }
+  // Guarda el catálogo en las dos columnas (opciones) y deja que admitan otros valores (FillInChoice)
+  function guardarCatalogo(lista, boton, hecho) {
+    if (boton) boton.disabled = true;
+    var vals = lista.filter(function (d, i, l) { return d && l.indexOf(d) === i; }).sort(function (a, b) { return a.localeCompare(b, 'es'); });
+    var pon = function (campo, tipo) {
+      if (!infoCampo[campo] || !infoCampo[campo].existe) return Promise.resolve();
+      return enviarSP(urlLista() + "/fields/getbyinternalnameortitle('" + campo + "')", { __metadata: { type: tipo }, FillInChoice: true, Choices: { __metadata: { type: 'Collection(Edm.String)' }, results: vals } },
+        'No tienes permiso para cambiar las columnas de la lista', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' });
+    };
+    return pon('NegociadoAsignado', 'SP.FieldChoice').then(function () { return pon('NegociadosImplicados', 'SP.FieldMultiChoice'); })
+      .then(function () { return cargar(); }).then(function () { aviso(hecho || 'Departamentos guardados'); render(); })
+      .catch(function (e) { if (boton) boton.disabled = false; aviso('No se pudo: ' + (e.message || e)); });
+  }
+  function admitirDepartamentos(boton) {
+    boton.disabled = true;
+    var pon = function (campo, tipo) {
+      if (!infoCampo[campo] || !infoCampo[campo].existe || infoCampo[campo].abierto) return Promise.resolve();
+      return enviarSP(urlLista() + "/fields/getbyinternalnameortitle('" + campo + "')", { __metadata: { type: tipo }, FillInChoice: true }, 'No tienes permiso para cambiar las columnas de la lista', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' });
+    };
+    pon('NegociadoAsignado', 'SP.FieldChoice').then(function () { return pon('NegociadosImplicados', 'SP.FieldMultiChoice'); })
+      .then(function () { return cargar(); }).then(function () { aviso('La lista ya admite las células de MENSADEF como departamento'); render(); })
+      .catch(function (e) { boton.disabled = false; aviso('No se pudo: ' + (e.message || e)); });
   }
   // Crear la columna «Tratar en» (Ajustes)
   function crearColumnaTratar(boton) {
@@ -1265,7 +1588,7 @@
       return pag(url);
     };
     return Promise.all([
-      api(psUrl('aport') + '?$select=Id,ListItemEntityTypeFullName'),
+      api(psUrl('aport') + '?$select=Id,ListItemEntityTypeFullName,EffectiveBasePermissions'),
       todos(psUrl('puntos') + '/items?$top=500&$select=Id,Title,Referencia,FechaPunto,Apertura,Cierre,EstadoPunto&$orderby=Id desc'),
       todos(psUrl('negs') + '/items?$top=500&$select=Id,Title,Orden,NombreGestor,Coordina,EnInforme,Miembros/Id&$expand=Miembros'),
     ]).then(function (r) {
@@ -1278,7 +1601,9 @@
       var soyDe = function (n) { return yo && lista(n.Miembros).some(function (m) { return m.Id === yo.Id; }); };
       var coordino = r[2].some(function (n) { return n.Coordina && soyDe(n); });
       var cierres = {}; r[1].forEach(function (p) { cierres[p.Id] = p.Cierre; });
-      psCache = { instalada: true, tipo: r[0].ListItemEntityTypeFullName, abiertos: abiertos, negs: negs, cierres: cierres,
+      // 13/11/2026: si Colabora no deja añadir en «PS Aportaciones», se dice antes de enviar (el POST sin permiso saca la pantalla de identificarse)
+      var ebp = r[0].EffectiveBasePermissions, bajo = ebp ? Number(ebp.Low) || 0 : -1;
+      psCache = { instalada: true, tipo: r[0].ListItemEntityTypeFullName, anadir: bajo < 0 || !!(bajo & 0x2), abiertos: abiertos, negs: negs, cierres: cierres,
         puedo: function (nombre) { return coordino || negs.some(function (n) { return n.Title === nombre && soyDe(n); }); }, coordino: coordino };
       psCacheEn = Date.now();
       return psCache;
@@ -1326,12 +1651,27 @@
         var libres = ps.abiertos.filter(function (p) { return !ya.some(function (a) { return a.PuntoId === p.Id; }); });
         var marcado = !hayTratar() || tieneTratar(t, 'gen');
         if (!ps.abiertos.length) html += '<div class="small muted">No hay ningún punto de situación abierto. Lo abre PROCOR en la aplicación «Puntos de Situación»' +
-          (hayTratar() ? (marcado ? '; el asunto está marcado ⭐ Tratar con el General y lo verán allí como propuesta.' : '.') : '.') + '</div>';
-        else if (libres.length && !marcado && !ya.length) html += '<div class="small muted">Pasan al punto de situación los asuntos para <b>⭐ Tratar con el General</b>: márcalo arriba y podrás incluirlo.</div>';
+          (hayTratar() ? (marcado ? '; el asunto está marcado ⭐ ' + GEN + ' y lo verán allí como propuesta.' : '.') : '.') + '</div>';
+        else if (libres.length && !marcado && !ya.length) html += '<div class="small muted">Pasan al punto de situación los asuntos marcados <b>⭐ ' + GEN + '</b>: márcalo arriba y podrás incluirlo.</div>';
         else if (libres.length && marcado) html += '<div><button type="button" class="btn prim" data-psform="' + t.id + '">📋 Incluir en ' + esc(psRef(libres[0])) + '</button> <span class="small muted">cierra el ' + esc(psCierre(libres[0])) + '</span></div>';
         caja.innerHTML = html + '<div id="psForm"></div>' + (msg ? '<div class="small">' + msg + '</div>' : '');
       });
     }).catch(function (e) { caja.innerHTML = '<b class="small">📋 Punto de Situación SUIGESUR:</b> <span class="error">no se pudo consultar (' + esc(e.message || e) + ')</span>'; });
+  }
+  // Recién creado desde SENDERO «Al Punto de Situación»: en cuanto la ficha enseña el botón de incluir, se abre su formulario
+  function psAbrirAlCrear(id) {
+    var t0 = Date.now();
+    var mirar = function () {
+      var b = document.querySelector('[data-psform="' + id + '"]:not([data-psaport])');
+      if (b) { b.click(); var c = $('#psBox'); if (c && c.scrollIntoView) c.scrollIntoView({ block: 'center' }); return; }
+      var caja = $('#psBox');
+      if (Date.now() - t0 > 15000 || (caja && /no está instalada|ningún punto de situación abierto/.test(caja.textContent))) {
+        if (caja && caja.scrollIntoView) caja.scrollIntoView({ block: 'center' });
+        return aviso('Asunto creado y marcado ⭐ ' + GEN + '. ' + (caja && /ningún punto/.test(caja.textContent) ? 'No hay un punto de situación abierto: lo verán allí como propuesta.' : 'Mira el recuadro del Punto de Situación en la ficha.'));
+      }
+      setTimeout(mirar, 400);
+    };
+    setTimeout(mirar, 400);
   }
   // Formulario para incluir (o actualizar) el asunto en el punto abierto
   function psFormulario(t, aportId) {
@@ -1345,7 +1685,7 @@
       var prio = a ? a.Prioridad : (t.prio === 'critica' || t.prio === 'alta' ? 'Alta' : 'Normal');
       var negsPuedo = ps.negs.filter(function (n) { return ps.puedo(n.Title); });
       if (!a && !negsPuedo.length) { f.innerHTML = '<div class="aviso small">Solo los miembros del negociado o de PROCOR pueden incluir asuntos en el punto de situación. ' +
-        'Está marcado ⭐ Tratar con el General: PROCOR lo verá como propuesta.</div>'; return; }
+        'Está marcado ⭐ ' + GEN + ': PROCOR lo verá como propuesta.</div>'; return; }
       var libres = ps.abiertos;
       f.innerHTML = '<div class="psform">' +
         (a ? '<input type="hidden" id="psAport" value="' + a.Id + '">' :
@@ -1360,6 +1700,7 @@
         '<div class="acciones"><button type="button" class="btn" data-psno="' + t.id + '">Cancelar</button><button type="button" class="btn prim" data-psok="' + t.id + '">' + (a ? 'Guardar la situación' : '📋 Incluir en el punto') + '</button></div></div>';
     }).catch(function (e) { f.innerHTML = '<div class="error">' + esc(e.message || e) + '</div>'; });
   }
+  var PS_SIN_PERMISO = 'Colabora no te deja añadir entradas en la lista «PS Aportaciones» del Punto de Situación: tu nivel de permiso en esa lista no lo permite (es distinta de la de META). Pide a quien tenga Control total que te dé en «PS Aportaciones» el nivel «META» o «Colaborar».';
   function psGuardar(t, boton) {
     var ps = psCache, err = $('#psErr');
     var fallo = function (m) { err.textContent = m; err.hidden = false; boton.disabled = false; };
@@ -1371,13 +1712,14 @@
     var hecho;
     if (aport) {
       // Actualizar: se relee para no pisar cambios y la validación de la lista impide escribir tras el cierre
-      hecho = fetch(psUrl('aport') + '/items(' + Number(aport.value) + ')?$select=Id,PuntoId,Negociado,CierrePunto', { credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+      hecho = fetch(psUrl('aport') + '/items(' + Number(aport.value) + ')?$select=Id,PuntoId,Negociado,CierrePunto,EffectiveBasePermissions', { credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
         .then(function (r) { if (!r.ok) throw new Error(r.status === 404 ? 'La entrada ya no existe en el punto de situación' : 'HTTP ' + r.status); return r.json(); })
         .then(function (d) {
           d = d.d || d;
           var ci = ps.cierres[d.PuntoId] || d.CierrePunto;
           if (!ci || Date.parse(ci) <= Date.now()) throw new Error('El punto de situación ya está cerrado: no admite cambios');
           if (!ps.puedo(d.Negociado)) throw new Error('No puedes escribir en el negociado ' + d.Negociado);
+          if (d.EffectiveBasePermissions && !((Number(d.EffectiveBasePermissions.Low) || 0) & 0x4)) throw new Error(PS_SIN_PERMISO.replace('añadir entradas', 'modificar esta entrada'));
           return enviarSP(psUrl('aport') + '/items(' + d.Id + ')', Object.assign(tipo, { Title: tit, Situacion: sit, Prioridad: prio }),
             'No tienes permiso para modificar el punto de situación', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': (d.__metadata && d.__metadata.etag) || '*' });
         }).then(function () { return 'Situación actualizada en el punto de situación'; });
@@ -1387,6 +1729,7 @@
       if (!neg) return fallo('Elige el negociado');
       if (!ps.puedo(neg)) return fallo('No puedes escribir en el negociado ' + neg);
       if (Date.parse(p.Cierre) <= Date.now()) return fallo('Ese punto de situación acaba de cerrarse');
+      if (ps.anadir === false) return fallo(PS_SIN_PERMISO);
       // Va al final de las entradas de su negociado; si ya estaba incluido en ese punto, no se duplica
       hecho = Promise.all([
         api(psUrl('aport') + '/items?$top=500&$select=Id,Orden,OrigenId,OrigenLista,Negociado&$filter=PuntoId eq ' + p.Id),
@@ -1434,7 +1777,7 @@
     var f = [];
     if (pref.quien === 'mias') f.push('Asuntos de ' + (yo ? yo.Title : 'mi responsabilidad'));
     if (pref.quien === 'implicado') f.push('Asuntos en los que intervengo');
-    if (pref.negociado) f.push('Negociado: ' + pref.negociado);
+    if (depF(pref.negociado)) f.push(tx('Departamento: ') + pref.negociado);
     if (pref.estado) f.push('Estado: ' + pref.estado);
     if (pref.prio) f.push('Prioridad: ' + pref.prio);
     if (pref.q) f.push('Búsqueda: «' + pref.q + '»');
@@ -1455,7 +1798,8 @@
       if (d > o.dias || (d < 0 && !o.vencidos)) return false;
       if (o.quien === 'mias' && !esMia(t)) return false;
       if (o.quien === 'implicado' && !meImplica(t)) return false;
-      if (o.negociado && t.negociado !== o.negociado && t.negociados.indexOf(o.negociado) < 0) return false;
+      var on = depF(o.negociado);
+      if (on && t.negociado !== on && t.negociados.indexOf(on) < 0) return false;
       return true;
     }).sort(ordenar);
   }
@@ -1536,7 +1880,7 @@
       '<div><label class="lbl">Avisar de lo que vence en los próximos (días)</label><input type="number" name="dias" min="0" max="60" value="' + o.dias + '"></div>' +
       '<div><label class="lbl">De quién</label><select name="quien">' + [['todos', 'Todos los responsables'], ['mias', 'Solo mis asuntos'], ['implicado', 'Míos o en los que intervengo']]
         .map(function (x) { return '<option value="' + x[0] + '"' + (o.quien === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>' +
-      '<div><label class="lbl">Negociado</label><select name="negociado">' + opciones(negs, o.negociado, 'Todos') + '</select></div></div>' +
+      '<div><label class="lbl">' + tx('Departamento') + '</label><select name="negociado">' + opcionesDep(o.negociado) + '</select></div></div>' +
       '<label class="check"><input type="checkbox" name="vencidos"' + (o.vencidos ? ' checked' : '') + '> Incluir los ya vencidos</label>' +
       '<label class="check"><input type="checkbox" name="cc"' + (o.cc ? ' checked' : '') + '> Copia al personal implicado</label></div>' +
       '<p class="small muted">' + total + ' asunto' + (total === 1 ? '' : 's') + ' para avisar, a ' + gs.length + ' responsable' + (gs.length === 1 ? '' : 's') +
@@ -1545,7 +1889,7 @@
         var k = e[0], g = e[1], enviado = !!(pref.enviados || {})[claveEnviado(k)];
         return '<div class="card"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><div><b>' + esc(g.nombre) + '</b> <span class="muted small">' +
           esc(g.correos.join('; ') || 'sin correo en la lista') + '</span></div><div>' + (enviado ? '<span class="badge ok">Preparado hoy ✓</span> ' : '') +
-          (g.correos.length ? '<a class="btn prim" data-enviado="' + esc(k) + '" href="' + esc(correoGrupo(g, o)) + '">✉ Preparar correo</a>' : '<span class="badge warn">Sin correo: avisa en persona</span>') + '</div></div>' +
+          (g.correos.length ? '<a class="btn prim" data-enviado="' + esc(k) + '"' + NUEVA + ' href="' + esc(correoGrupo(g, o)) + '">✉ Preparar correo</a>' : '<span class="badge warn">Sin correo: avisa en persona</span>') + '</div></div>' +
           '<div class="small" style="margin-top:6px">' + g.tareas.map(function (t) { var u = urgencia(t); return '<div>• <a href="#" data-abrir="' + t.id + '">' + esc(t.asunto) + '</a> — <span class="badge ' + u.cls + '">' + esc(u.txt) + '</span></div>'; }).join('') + '</div></div>';
       }).join('') +
       '<div class="card"><h3 style="margin-top:0">Alarmas en tu Outlook</h3><p class="small">Descarga tus asuntos abiertos con NLT como citas de calendario, con alarma. Ábrelo con doble clic para importarlo en Outlook.</p>' +
@@ -1687,7 +2031,15 @@
         return digest;
       });
   }
+  // 13/11/2026: sin «Agregar elementos» o «Editar elementos» en la lista, se dice antes de enviar (si no, Colabora pide usuario y contraseña)
+  function permisoLista(bit) {
+    var e = listaInfo && listaInfo.EffectiveBasePermissions;
+    return !e || !!((Number(e.Low) || 0) & bit);
+  }
   function enviarSP(url, cuerpo, sinPermiso, extra) {
+    var deLista = listaInfo && String(url).indexOf(urlLista() + '/items') === 0, met = extra && extra['X-HTTP-Method'];
+    if (deLista && met === 'MERGE' && !permisoLista(0x4)) return Promise.reject(new Error('Colabora no te deja modificar asuntos: tu nivel de permiso en la lista de META no incluye «Editar elementos». Pide a quien tenga Control total que lo marque en tu nivel (por ejemplo, en el nivel «META»).'));
+    if (deLista && !met && /\/items$/.test(url) && !permisoLista(0x2)) return Promise.reject(new Error('Colabora no te deja crear asuntos: tu nivel de permiso en la lista de META no incluye «Agregar elementos».'));
     return obtenerDigest().then(function (dg) {
       return fetch(url, { method: 'POST', credentials: 'same-origin', body: JSON.stringify(cuerpo),
         headers: Object.assign({ Accept: 'application/json;odata=verbose', 'Content-Type': 'application/json;odata=verbose', 'X-RequestDigest': dg }, extra || {}) });
@@ -1738,6 +2090,26 @@
       var m = $('#estMsg'); if (m && $('#dlg').open) m.innerHTML = ' <span class="error">' + esc(e.message || e) + '</span>'; else aviso('No se pudo cambiar el nº ' + id + ': ' + (e.message || e));
     });
   }
+  // 12/11/2026: antes de eliminar se miran los permisos del asunto (GET). Si se envía el POST sin permiso, Colabora saca la
+  // pantalla de identificarse en vez de un error; así se dice claramente y no se envía nada.
+  function permisosAsunto(id) {
+    return fetch(urlLista() + '/items(' + Number(id) + ')?$select=EffectiveBasePermissions', { credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) { d = d.d || d; if (!d.EffectiveBasePermissions) throw new Error('sin permisos en la respuesta'); var low = Number(d.EffectiveBasePermissions.Low) || 0; return { borrar: !!(low & 0x8), editar: !!(low & 0x4) }; })
+      .then(function (pm) {
+        if (pm.borrar) return pm;
+        // Para explicar el motivo: ¿la lista solo deja tocar lo que cada uno creó? (Configuración avanzada › Acceso a elementos)
+        return api(urlLista() + '?$select=WriteSecurity').then(function (l) { pm.soloSuyos = Number(l.WriteSecurity) === 2; return pm; }, function () { return pm; });
+      });
+  }
+  // 12/11/2026: el motivo concreto por el que Colabora no deja eliminar (para saber qué tocar en la lista)
+  function motivoNoEliminar(t, pm) {
+    var mio = t && yo && t.autorId === yo.Id;
+    if (pm.soloSuyos && !mio) return 'Colabora no te deja eliminar este asunto: la lista está configurada para que cada uno solo modifique y elimine lo que ha creado él (Configuración de la lista › Configuración avanzada › Acceso a elementos de lista › Editar: «Solo los suyos»), y este lo creó ' + (t.autor || 'otra persona') + '.';
+    if (pm.editar) return 'Colabora no te deja eliminar este asunto: puedes modificarlo, pero tu nivel de permiso en la lista no incluye «Eliminar elementos» (no es «Colaborar» completo; puede ser «Editar sin eliminar» u otro nivel propio). Pide a quien tenga Control total que lo elimine o que te dé «Colaborar».';
+    return 'Colabora no te deja eliminar este asunto: con tu cuenta solo tienes lectura en la lista (por ejemplo, entras por «Usuarios del dominio» con «Leer» y no estás en el grupo que tiene «Colaborar»). Pide a quien tenga Control total que te añada a ese grupo.';
+  }
+  var NO_ELIMINAR = 'Colabora no te deja eliminar este asunto: tus permisos en la lista no incluyen «Eliminar elementos» (o solo puedes eliminar los que has creado tú). Pide a quien tenga Control total que lo elimine o que te dé «Colaborar» en la lista.';
   // Eliminar: va a la papelera de reciclaje de Colabora (se puede recuperar desde allí)
   function eliminarAsunto(id, boton) {
     if (!boton.dataset.seguro) {
@@ -1746,7 +2118,8 @@
       return;
     }
     boton.disabled = true;
-    enviarSP(urlLista() + '/items(' + id + ')/recycle()', {}, 'No tienes permiso para eliminar asuntos en esta lista')
+    permisosAsunto(id).then(function (pm) { if (!pm.borrar) throw new Error(motivoNoEliminar(tareas.find(function (x) { return x.id === id; }), pm)); }, function (e) { if (e && /no te deja/.test(e.message)) throw e; /* si no se pueden leer, se intenta */ })
+      .then(function () { return enviarSP(urlLista() + '/items(' + id + ')/recycle()', {}, NO_ELIMINAR); })
       .then(function () { $('#dlg').close(); return cargar(); })
       .then(function () { aviso('Nº ' + id + ' eliminado: está en la papelera de reciclaje de Colabora, de donde se puede recuperar'); })
       .catch(function (e) { boton.disabled = false; var m = $('#estMsg'); if (m) m.innerHTML = ' <span class="error">' + esc(e.message || e) + '</span>'; });
@@ -1832,8 +2205,8 @@
   function datosAsignacion(t) {
     var disp = enlaceAsunto(t);
     var filas = [['Asunto', t.asunto], ['NLT (fecha vencimiento)', t.nlt ? fLarga(t.nlt) : 'Sin fecha'], ['Prioridad', t.prioridad], ['Estado', t.estado],
-      ['Responsable de la información', t.responsable], ['Personal implicado', t.implicados.join(', ')], ['Negociado asignado', t.negociado],
-      ['Negociados implicados', t.negociados.join(', ')], ['Expediente (nº de Colabora)', t.expediente], ['Descripción del asunto', t.descripcion]].filter(function (x) { return x[1]; });
+      ['Responsable de la información', t.responsable], ['Personal implicado', t.implicados.join(', ')], [tx('Departamento asignado'), t.negociado],
+      [tx('Departamentos implicados'), t.negociados.join(', ')], ['Expediente (nº de Colabora)', t.expediente], ['Descripción del asunto', t.descripcion]].filter(function (x) { return x[1]; });
     var quien = yo ? yo.Title : '';
     return {
       asunto: 'Asunto asignado: ' + t.asunto,
@@ -1854,7 +2227,25 @@
   var apuntarPersona = function (u) { var e = u && (u.Email || u.EMail); if (e && (u.Id || u.Title)) quienEs[String(e).toLowerCase()] = { Id: u.Id, Title: u.Title }; return u; };
   var palabrasNombre = function (n) { return sinTildes(n).replace(/[^a-zñ ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 3 && ['del', 'las', 'los'].indexOf(w) < 0; }); };
   var mismasPalabras = function (a, b) { var x = palabrasNombre(a).sort().join(' '), y = palabrasNombre(b).sort().join(' '); return !!x && x === y; };
+  // 13/11/2026: quien solo tiene permiso en la lista (en el sitio, «Acceso limitado») no puede enviar correos desde la página,
+  // ni buscar en el directorio, ni dar de alta personas en el sitio: esas peticiones son del sitio y, sin permiso, Colabora
+  // saca la pantalla de usuario y contraseña. Se mira antes (permiso «Ver páginas» en el sitio) y no se envían.
+  var permSitio = null;
+  function sitioLimitado() {
+    if (!permSitio) permSitio = !web ? Promise.resolve(false) : api(web.url + '/_api/web?$select=EffectiveBasePermissions').then(function (w) {
+      var e = w.EffectiveBasePermissions; if (!e) return false;
+      return !((Number(e.Low) || 0) & 0x20000);
+    }, function () { return false; });
+    return permSitio;
+  }
+  var SOLO_LISTA = 'tu cuenta solo tiene permiso en la lista de META, no en el sitio (allí tiene «Acceso limitado»)';
   function enviarUno(to, cc, bcc, c) {
+    return sitioLimitado().then(function (lim) {
+      if (lim) throw new Error('Colabora no te deja enviar correos desde la página: ' + SOLO_LISTA);
+      return enviarUnoSP(to, cc, bcc, c);
+    });
+  }
+  function enviarUnoSP(to, cc, bcc, c) {
     var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, CC: { results: cc || [] }, Subject: (PRUEBAS ? '[PRUEBAS] ' : '') + c.asunto, Body: c.html };
     if (bcc && bcc.length) pr.BCC = { results: bcc };
     return enviarSP(web.url + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página');
@@ -1939,7 +2330,7 @@
     if (caja()) caja().innerHTML = '<span class="small muted">Enviando correo de asignación…</span>';
     (t.usuarios || []).forEach(apuntarPersona);
     return enviarCorreo({ to: d.para, cc: d.cc, bcc: [], asunto: c.asunto, html: c.html, texto: c.texto }).then(function (r) {
-      var outlook = '<div class="acciones"><a class="btn prim" href="' + esc(mailto(d.para, d.cc, c.asunto, c.texto)) + '">✉ Preparar correo de asignación</a></div>';
+      var outlook = '<div class="acciones"><a class="btn prim"' + NUEVA + ' href="' + esc(mailto(d.para, d.cc, c.asunto, c.texto)) + '">✉ Preparar correo de asignación</a></div>';
       if (caja()) caja().innerHTML = r.ok ? '<span class="badge ' + (claseCorreo(r) === 'okmsg' ? 'ok' : 'warn') + '">✓ Correo de asignación enviado</span> <span class="small muted">a ' + esc(r.llegaron.join('; ')) + '.' + detalleCorreo(r) + '</span>' + (r.rechazados.length ? outlook : '') :
         '<div class="small">No se ha podido enviar desde Colabora (' + esc(r.motivo) + ').' + detalleCorreo(r) + ' Prepáralo en Outlook y pulsa Enviar:</div>' + outlook;
       return anotarAviso(t, r);
@@ -1961,12 +2352,12 @@
     var poner = function (u) {
       if (!u || !u.Id || !u.Title) return;
       var x = m.get(u.Id);
-      if (!x) m.set(u.Id, { Id: u.Id, Title: u.Title, Email: u.Email || u.EMail || '' });
-      else if (!x.Email) x.Email = u.Email || u.EMail || '';
+      if (!x) m.set(u.Id, { Id: u.Id, Title: u.Title, Email: u.Email || u.EMail || '', LoginName: u.LoginName || '' });
+      else { if (!x.Email) x.Email = u.Email || u.EMail || ''; if (!x.LoginName && u.LoginName) x.LoginName = u.LoginName; }
     };
     if (yo) poner(yo);
     tareas.forEach(function (t) { t.usuarios.forEach(poner); });
-    return api(web.url + '/_api/web/siteusers?$select=Id,Title,Email,PrincipalType&$filter=PrincipalType eq 1&$top=5000')
+    return api(web.url + '/_api/web/siteusers?$select=Id,Title,Email,LoginName,PrincipalType&$filter=PrincipalType eq 1&$top=5000')
       .then(function (d) { lista(d.value).forEach(poner); }).catch(function () { /* solo los que ya aparecen en la lista */ })
       .then(function () { usuariosSitio = Array.from(m.values()).sort(function (a, b) { return a.Title.localeCompare(b.Title, 'es'); }); return usuariosSitio; });
   }
@@ -1977,6 +2368,9 @@
   // (quien nunca ha entrado al sitio no está en su lista de usuarios). Al elegir a alguien del directorio se
   // le da de alta en el sitio con ensureuser, igual que hace el formulario de Colabora.
   function buscarDirectorio(q) {
+    return sitioLimitado().then(function (lim) { return lim ? [] : buscarDirectorioSP(q); });
+  }
+  function buscarDirectorioSP(q) {
     return enviarSP(web.url + '/_api/SP.UI.ApplicationPages.ClientPeoplePickerWebServiceInterface.clientPeoplePickerSearchUser', { queryParams: {
       __metadata: { type: 'SP.UI.ApplicationPages.ClientPeoplePickerQueryParameters' }, QueryString: q, MaximumEntitySuggestions: 15,
       AllowEmailAddresses: false, AllowMultipleEntities: false, AllUrlZones: false, ForceClaims: false, PrincipalSource: 15, PrincipalType: 1 } }, 'Sin permiso para buscar en el directorio')
@@ -1989,6 +2383,12 @@
   }
   function asegurarUsuario(u) {
     if (u.Id) return Promise.resolve(u);
+    return sitioLimitado().then(function (lim) {
+      if (lim) throw new Error('No puedes dar de alta en el sitio a una persona que aún no ha entrado en él: ' + SOLO_LISTA + '. Elige a alguien que ya esté en la lista de personas.');
+      return asegurarUsuarioSP(u);
+    });
+  }
+  function asegurarUsuarioSP(u) {
     return enviarSP(web.url + '/_api/web/ensureuser', { logonName: u.clave }, 'No tienes permiso para añadir a esa persona al sitio').then(function (r) {
       var x = { Id: r.Id, Title: r.Title || u.Title, Email: r.Email || '' };
       // Cuenta sin correo en Colabora: si la misma persona tiene otra cuenta del sitio con correo, se usa esa (si no, sus avisos no llegan)
@@ -2007,7 +2407,9 @@
     var pintar = function (lst, buscando) {
       caja.lista = lst;
       caja.innerHTML = lst.map(function (u, i) {
-        return '<button type="button" data-sug="' + i + '">' + esc(u.Title) + (u.Email ? ' <span class="small muted">' + esc(u.Email) + '</span>' : '') + '</button>';
+        // Con la cuenta del dominio (et\usuario), como en el control de acceso, para distinguir a quien se llama igual
+        var cta = String(u.LoginName || u.clave || '').split('|').pop();
+        return '<button type="button" data-sug="' + i + '">' + esc(u.Title) + (cta || u.Email ? ' <span class="small muted">' + esc([cta, u.Email].filter(Boolean).join(' · ')) + '</span>' : '') + '</button>';
       }).join('') + (buscando ? '<div class="small muted">Buscando en el directorio…</div>' : '');
       caja.hidden = !lst.length && !buscando;
     };
@@ -2058,37 +2460,82 @@
   }
   // Alta (t vacío) o modificación (t = asunto existente). Al modificar solo se envían los campos cambiados.
   // pre: datos de un mensaje de MENSADEF o de un correo para rellenar el alta (asunto literal, sin interpretar)
+  // Departamentos (11/11/2026): son las células de MENSADEF («ET 2SUIGE SEGURIDAD»…), que llegan desde SENDERO. Se ofrecen solo
+  // ellas: las que ya están en los asuntos (las que no son las opciones antiguas de la columna) y las que se han visto
+  // llegar en este navegador. Los asuntos antiguos conservan su negociado (PROCOR, SEGURIDAD…) y se siguen viendo.
+  // Catálogo (11/11/2026): las opciones de la columna «Negociado asignado» son el catálogo de departamentos, igual para todos.
+  // Se gestiona en Ajustes (Control total): poner las células de SUIGESUR, añadir o quitar. Si aún no se ha cambiado (solo
+  // hay negociados antiguos), se ofrecen las células que manda SENDERO y las que hay en los expedientes.
+  var CELULAS_SUIGESUR = ['ET 2SUIGE SETEC CALIDAD VIDA', 'ET 2SUIGE SETEC INFRAPROP', 'ET 2SUIGE SETEC INFRAPROP MAMBIENTAL', 'ET 2SUIGE SETEC INFRAPROP MANTO',
+    'ET 2SUIGE SETEC INFRAPROP OBRAS', 'ET 2SUIGE SETEC INFRAPROP PROPIEDADES', 'ET 2SUIGE SETEC JEFATURA', 'ET 2SUIGE SETEC PRL', 'ET 2SUIGE SETEC PROGCOORD',
+    'ET 2SUIGE SETEC SECRETARIA', 'ET 2SUIGE SETEC SEGURIDAD', 'ET 2SUIGE SETEC SVC ACTO'];
+  var esCelula = function (d) { return /^[A-Z]{2,4}\s+\S+\s+\S/.test(String(d || '').trim()); };   // «ET 2SUIGE …»
+  var catalogo = function () { return (campos.NegociadoAsignado || []).filter(esCelula); };
+  function departamentos(extra) {
+    var s = {};
+    catalogo().forEach(function (d) { s[d] = 1; });
+    tareas.forEach(function (t) { [t.negociado].concat(t.negociados || []).forEach(function (d) { if (esCelula(d)) s[d] = 1; }); });
+    (pref.departamentos || []).concat(extra || []).forEach(function (d) { if (d && esCelula(d)) s[d] = 1; });
+    return Object.keys(s).sort(function (a, b) { return a.localeCompare(b, 'es'); });
+  }
+  // 12/11/2026 (META): en los filtros cada uno ve solo sus departamentos; Control total, todos
+  function depsPermitidos() {
+    if (!PROPIO || esAdmin) return null;
+    var mia = yo ? acceso.filas.find(function (f) { return f.personaId === yo.Id; }) : null;
+    return mia ? mia.negs.slice().sort(function (a, b) { return a.localeCompare(b, 'es'); }) : [];
+  }
+  var depF = function (v) { var lim = depsPermitidos(); return !v || !lim || lim.map(sinTildes).indexOf(sinTildes(v)) >= 0 ? (v || '') : ''; };
+  // Para los filtros: los departamentos y, aparte, los negociados antiguos que aún tienen expedientes
+  function opcionesDep(sel) {
+    var lim = depsPermitidos();
+    if (lim) return '<option value="">Todos</option>' + lim.map(function (v) { return '<option' + (v === sel ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
+    if (!DEP) { var todos = valores('NegociadoAsignado', 'negociado'); tareas.forEach(function (t) { t.negociados.forEach(function (n) { if (todos.indexOf(n) < 0) todos.push(n); }); }); return opciones(todos.sort(), sel, 'Todos'); }
+    var deps = departamentos(), viejos = {};
+    tareas.forEach(function (t) { [t.negociado].concat(t.negociados || []).forEach(function (d) { if (d && deps.indexOf(d) < 0) viejos[d] = 1; }); });
+    var vs = Object.keys(viejos).sort(function (a, b) { return a.localeCompare(b, 'es'); });
+    var op = function (v) { return '<option' + (v === sel ? ' selected' : '') + '>' + esc(v) + '</option>'; };
+    return '<option value="">Todos</option>' + deps.map(op).join('') + (vs.length ? '<optgroup label="Antiguos (en expedientes anteriores)">' + vs.map(op).join('') + '</optgroup>' : '');
+  }
+  // Se pueden guardar células de MENSADEF si la columna admite valores propios (se activa en Ajustes, con Control total)
+  var admiteDep = function (campo, v) { return !v || (infoCampo[campo] && infoCampo[campo].abierto) || (campos[campo] || []).indexOf(v) >= 0; };
   function formularioNuevo(texto, t, pre) {
+    if (acceso.sinAlta) { aviso('Aún no tienes acceso a META: pide acceso y, cuando te den de alta, podrás crear asuntos'); render(); return; }
     var r = !t && texto ? interpretar(texto) : { titulo: '', nlt: '', prioridad: '' };
     if (pre) r = { titulo: pre.asunto || '', nlt: interpretar(pre.asunto || '').nlt, prioridad: '' };
     var con = function (lst, v) { return v && lst.indexOf(v) < 0 ? lst.concat(v) : lst; };
     var ests = valores('ESTADO', 'estado'), prios = valores('Prioridad', 'prioridad');
     var estIni = t ? t.estado : estadoAlta(ests);
     var prioIni = t ? t.prioridad : r.prioridad ? (prios.find(function (p) { return clasePrio(p) === r.prioridad; }) || '') : '';
-    var negs = valores('NegociadoAsignado', 'negociado').sort();
-    var negsImpl = campos.NegociadosImplicados && campos.NegociadosImplicados.length ? campos.NegociadosImplicados : negs;
+    var depIni = t ? t.negociado : DEP ? (pre && pre.departamento ? pre.departamento : '') : (pref.negociado || '');
+    var deps = DEP ? departamentos([depIni]) : valores('NegociadoAsignado', 'negociado').sort();
+    var negsImpl = DEP ? deps : (campos.NegociadosImplicados && campos.NegociadosImplicados.length ? campos.NegociadosImplicados.slice() : deps.slice());
     if (t) negsImpl = t.negociados.reduce(function (a, n) { return con(a, n); }, negsImpl);
     var base = listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl : '';
     var obligNlt = infoCampo.FechaVencimiento && infoCampo.FechaVencimiento.obligatorio;
     var campoCom = campoComentarios();
     var conObs = !t || campoCom !== 'Comentarios';
     var dlg = $('#dlg');
-    dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Modificar asunto' : pre ? 'Nuevo asunto desde ' + (pre.origen === 'MENSADEF' ? 'MENSADEF' : 'correo') : 'Nuevo asunto en «' + esc(pref.lista) + '»') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db" id="fNuevo">' +
+    dlg.innerHTML = '<div class="dh"><h2>' + (t ? 'Modificar asunto' : pre && pre.punto ? 'Pasar directamente al PSIT (queda registrado en META)' : pre ? 'Nuevo asunto desde ' + (pre.origen === 'MENSADEF' ? 'MENSADEF' : 'correo') : 'Nuevo asunto en «' + esc(pref.lista) + '»') + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db" id="fNuevo">' +
       '<label class="lbl">Asunto *</label><input name="Title" value="' + esc(t ? t.asunto : r.titulo || texto || '') + '">' +
       '<p class="small muted" id="nDetect">' + (pre && r.nlt ? 'Fecha detectada en el asunto: ' + esc(fLarga(r.nlt)) + ' (puesta como NLT; cámbiala si no lo es)' : '') + '</p>' +
+      // 11/11/2026: después del asunto, departamento y responsable en su propia fila (antes iban apretados con las fechas)
+      '<div class="grid2"><div><label class="lbl">' + tx('Departamento asignado') + '</label>' + (DEP ? '<input name="NegociadoAsignado" list="nDeps" value="' + esc(depIni) + '" placeholder="Elige o escribe la célula de MENSADEF" autocomplete="off">' +
+        '<datalist id="nDeps">' + deps.map(function (d) { return '<option value="' + esc(d) + '">'; }).join('') + '</datalist><p class="small muted ayuda">Célula de MENSADEF (p. ej. ET 2SUIGE SEGURIDAD)</p>'
+        : '<select name="NegociadoAsignado">' + opciones(con(deps, depIni), depIni, '—') + '</select>') + '</div>' +
+      '<div><label class="lbl">Responsable de la información</label><div class="conboton"><input name="resp" value="' + esc(t ? t.responsable : yo ? yo.Title : '') + '" placeholder="Escribe nombre, apellido o cuenta (et\\usuario)" autocomplete="off">' +
+        '<button type="button" class="btn" id="nRespCambiar" title="Poner a otra persona">✎ Cambiar</button></div><div class="sugs" id="nRespSug" hidden></div>' +
+        '<p class="small muted ayuda">Quien crea el asunto; para cambiarlo, escribe y elige de la lista</p></div></div>' +
       '<div class="grid"><div><label class="lbl">Fecha vencimiento (NLT)' + (obligNlt ? ' *' : '') + '</label><input type="date" name="nlt" value="' + ((t ? t.nlt : r.nlt) || '') + '"></div>' +
       '<div><label class="lbl">Fecha de inicio</label><input type="date" name="inicio" value="' + (t ? t.inicio : hoy()) + '"></div>' +
       '<div><label class="lbl">Estado</label><select name="ESTADO">' + opciones(con(ests, estIni), estIni, '—') + '</select></div>' +
       '<div><label class="lbl">Prioridad</label><select name="Prioridad">' + opciones(con(prios, prioIni), prioIni, '—') + '</select></div>' +
-      '<div><label class="lbl">Negociado asignado</label><select name="NegociadoAsignado">' + opciones(con(negs, t ? t.negociado : ''), t ? t.negociado : pref.negociado, '—') + '</select></div>' +
-      '<div><label class="lbl">Responsable de la información</label><input name="resp" value="' + esc(t ? t.responsable : yo ? yo.Title : '') + '" placeholder="Escribe nombre o apellido"><div class="sugs" id="nRespSug" hidden></div></div>' +
-      '<div><label class="lbl">Fecha finalización <span class="small muted">(obligatoria si el estado es terminado)</span></label><input type="date" name="fin" value="' + (t ? t.fin || '' : '') + '"></div></div>' +
+      '<div><label class="lbl" title="Obligatoria si el estado es de asunto terminado">Fecha finalización</label><input type="date" name="fin" value="' + (t ? t.fin || '' : '') + '"></div></div>' +
       '<label class="lbl">Personal implicado</label><div id="nImpl" class="meta"></div>' +
       '<div style="display:flex;gap:6px;margin-top:4px"><input id="nImplTxt" placeholder="Escribe nombre o apellido y elige (puedes añadir varias)"><button type="button" id="nImplAdd">＋</button></div>' +
       '<div class="sugs" id="nImplSug" hidden></div>' +
-      (negsImpl.length ? '<label class="lbl">Negociados implicados</label><div>' + negsImpl.map(function (n) {
+      '<label class="lbl">' + tx('Departamentos implicados') + '</label><div id="nDepImpl">' + negsImpl.map(function (n) {
         return '<label class="check"><input type="checkbox" name="negImpl" value="' + esc(n) + '"' + (t && t.negociados.indexOf(n) >= 0 ? ' checked' : '') + '> ' + esc(n) + '</label>';
-      }).join('') + '</div>' : '') +
+      }).join('') + '</div>' + (DEP ? '<div style="display:flex;gap:6px;margin-top:4px"><input id="nDepTxt" list="nDeps" placeholder="Añadir otra célula de MENSADEF" autocomplete="off"><button type="button" id="nDepAdd">＋</button></div>' : '') +
       '<label class="lbl">Expediente</label><input value="' + (t ? 'Nº ' + esc(t.expediente) + ' (número de Colabora)' : 'Se asigna al crearlo: el número de Colabora') + '" data-exp disabled>' +
       (t && t.ctrlExp && t.ctrlExp !== t.expediente ? '<p class="small muted">Texto anterior de «Control expediente»: ' + esc(t.ctrlExp.split('\n')[0].slice(0, 120)) + ' (se sustituirá por el número al guardar)</p>' : '') +
       '<label class="lbl">Descripción del asunto</label><textarea name="DescripcionDelAsunto" rows="8" ' + AREA + '>' + esc(t ? t.descripcion : pre ? pre.descripcion : '') + '</textarea>' +
@@ -2116,6 +2563,14 @@
       respElegido = u; $('#fNuevo [name=resp]').value = u.Title; $('#nError').hidden = true;
     });
     $('#fNuevo [name=resp]').onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); elegirResp(); } };
+    $('#nRespCambiar').onclick = function () { var i = $('#fNuevo [name=resp]'); respElegido = null; i.value = ''; i.focus(); };
+    // Añadir un departamento implicado que no está en la lista
+    if ($('#nDepAdd')) $('#nDepAdd').onclick = function () {
+      var d = $('#nDepTxt').value.trim(); if (!d) return;
+      var ya = Array.from(document.querySelectorAll('#nDepImpl [name=negImpl]')).filter(function (c) { return c.value === d; })[0];
+      if (ya) ya.checked = true; else $('#nDepImpl').insertAdjacentHTML('beforeend', '<label class="check"><input type="checkbox" name="negImpl" value="' + esc(d) + '" checked> ' + esc(d) + '</label>');
+      $('#nDepTxt').value = '';
+    };
     var ponerImpl = function (u, e) {
       if (!u) return err('No se pudo añadir a esa persona: ' + ((e && e.message) || e));
       $('#nError').hidden = true;
@@ -2166,8 +2621,13 @@
       poner('fECHAFINALIZACION', v('fin'), t && t.fin, fecha(v('fin')));
       poner('ESTADO', v('ESTADO'), t && t.estado);
       poner('Prioridad', v('Prioridad'), t && t.prioridad);
-      poner('NegociadoAsignado', v('NegociadoAsignado'), t && t.negociado);
       var negImpl = Array.from(f.querySelectorAll('[name=negImpl]:checked')).map(function (c) { return c.value; });
+      // Desde SENDERO «Al Punto de Situación»: el asunto nace marcado ⭐ Tratar con el General (si la lista tiene la columna)
+      if (!t && pre && pre.punto && hayTratar()) cuerpo.TratarEn = { __metadata: { type: 'Collection(Edm.String)' }, results: [TRATAR[1][1]] };
+      var noAdmite = !DEP ? [] : [v('NegociadoAsignado')].filter(function (d) { return d && d !== (t && t.negociado) && !admiteDep('NegociadoAsignado', d); })
+        .concat(negImpl.filter(function (d) { return (!t || t.negociados.indexOf(d) < 0) && !admiteDep('NegociadosImplicados', d); }));
+      if (noAdmite.length) return err('La lista aún no admite las células de MENSADEF como departamento (' + noAdmite.join(', ') + '). Quien tenga Control total tiene que activarlo una vez en Ajustes → «Departamentos de MENSADEF».');
+      poner('NegociadoAsignado', v('NegociadoAsignado'), t && t.negociado);
       if (t ? negImpl.join('|') !== t.negociados.join('|') : negImpl.length) cuerpo.NegociadosImplicados = { __metadata: { type: 'Collection(Edm.String)' }, results: negImpl };
       // Expediente = nº de Colabora: al modificar un asunto antiguo se deja escrito en «Control expediente» (en el alta, al crearlo)
       if (t && t.ctrlExp !== t.expediente) cuerpo.ControlExpediente = comoTexto('ControlExpediente', t.expediente);
@@ -2208,6 +2668,7 @@
         return cargar().then(function () {
           if (!id) return;
           abrir(id);
+          if (!t && pre && pre.punto) psAbrirAlCrear(id);
           var tt = tareas.find(function (y) { return y.id === id; });
           if (!conCorreo || !tt) return;
           if (!t) return avisarAsignacion(tt);
@@ -2252,6 +2713,9 @@
       origen: d.origen === 'MENSADEF' ? 'MENSADEF' : 'correo', asunto: recortar(d.asunto, 255),
       descripcion: lineas.join('\n') + (d.texto ? '\n\n' + recortar(d.texto, 8000) : ''),
       marca: marcaOrigen(d), referencia: d.referencia || '',
+      // Propuestos desde SENDERO (11/11/2026): se ponen en el alta y se pueden cambiar
+      departamento: recortar(d.departamento || d.celula || '', 120), punto: !!d.punto,
+      departamentos: Array.isArray(d.departamentos) ? d.departamentos.map(function (x) { return recortar(x, 120); }).filter(Boolean).slice(0, 150) : [],
     };
   }
   function duplicados(pre) {
@@ -2263,6 +2727,9 @@
   }
   function ofrecerImportacion(d) {
     var pre = datosImportados(d), ya = duplicados(pre);
+    // Las células que manda SENDERO (la del mensaje y todas las del usuario) quedan como departamentos para elegir
+    var nuevos = !DEP ? [] : [pre.departamento].concat(pre.departamentos || []).filter(function (x) { return x && (pref.departamentos || []).indexOf(x) < 0; });
+    if (nuevos.length) { pref.departamentos = (pref.departamentos || []).concat(nuevos).slice(-300); guardarPref(); }
     if (!ya.length) return formularioNuevo('', null, pre);
     var dlg = $('#dlg');
     dlg.innerHTML = '<div class="dh"><h2>Ya está en Colabora</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db">' +
@@ -2433,8 +2900,9 @@
     return '<div class="card"><h3 style="margin-top:0">Lista de SharePoint</h3>' +
       '<p class="small muted">Sitio: ' + esc(web ? (web.titulo || '') + ' (' + web.url + ')' : '—') + '<br>Usuario: ' + esc(yo ? yo.Title : '—') +
       (listaInfo ? '<br>Lista: «' + esc(listaInfo.Title) + '», ' + listaInfo.ItemCount + ' elementos' : '') + (cargadoEn ? '<br>Leída a las ' + cargadoEn.toLocaleTimeString('es-ES') : '') + '<br>Versión de la página: ' + esc(VERSION) + '</p>' +
-      '<label class="lbl">Nombre de la lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
-      '<p class="small">' + (hayTratar() ? '✔ Columna «Tratar en» (marcas «Punto de situación» y «Tratar con el General»).' : '✕ Falta la columna «Tratar en» para marcar asuntos para el punto de situación o para tratar con el General. <button type="button" class="btn prim" data-creartratar="1">Crear la columna</button> <span class="muted">(hace falta poder administrar la lista)</span>') + '</p>' +
+      '<label class="lbl">Nombre de la lista</label><input id="aLista" value="' + esc(pref.lista) + '">' + vistaBiblioteca() +
+      '<p class="small">' + (hayTratar() ? '✔ Columna «Tratar en» (marcas «' + TRATAR[0][3] + '» y «' + GEN + '»).' : '✕ Falta la columna «Tratar en» para marcar asuntos para el punto de situación o para tratar con el General. <button type="button" class="btn prim" data-creartratar="1">Crear la columna</button> <span class="muted">(hace falta poder administrar la lista)</span>') + '</p>' +
+      vistaCatalogo() +
       '<label class="lbl">Actualizar la lista automáticamente cada (minutos; 0 = no)</label><input id="aAuto" type="number" min="0" max="60" value="' + minutosAuto() + '">' +
       '<label class="lbl">Marcar en naranja cuando queden (días)</label><input id="aDias" type="number" min="1" max="30" value="' + pref.avisoDias + '">' +
       '<label class="lbl">Estado con el que se crean los asuntos</label><select id="aEstAlta">' +
@@ -2464,19 +2932,24 @@
     var u = urgencia(t);
     var c = [['Estado', t.estado], ['Prioridad', t.prioridad], ['NLT (fecha vencimiento)', t.nlt ? fLarga(t.nlt) + ' · ' + u.txt : '—'], ['Fecha de inicio', t.inicio && fLarga(t.inicio)],
       ['Fecha finalización', t.fin && fLarga(t.fin)], ['Responsable de la información', t.responsable], ['Personal implicado', t.implicados.join(', ')],
-      ['Negociado asignado', t.negociado], ['Negociados implicados', t.negociados.join(', ')], ['Expediente (nº de Colabora)', t.expediente],
+      [tx('Departamento asignado'), t.negociado], [tx('Departamentos implicados'), t.negociados.join(', ')], ['Expediente (nº de Colabora)', t.expediente],
       ['Control expediente (texto anterior)', t.ctrlExp && t.ctrlExp !== t.expediente ? t.ctrlExp : ''], ['Descripción del asunto', t.descripcion],
       [campoComentarios() === 'Comentarios' ? '' : 'Observaciones', t.observaciones], [campoComentarios() === 'REGISTRODEACTIVIDAD' ? '' : 'Registro de actividad', t.registro],
       ['Creado', new Date(t.creada).toLocaleString('es-ES') + (t.autor ? ' por ' + t.autor : '')], ['Modificado', new Date(t.modificada).toLocaleString('es-ES') + (t.editor ? ' por ' + t.editor : '')]];
     var dlg = $('#dlg');
     dlg.innerHTML = '<div class="dh"><h2>' + esc(t.asunto) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db ficha"><div class="ficha-datos">' +
-      '<div class="pasos" title="Fase del asunto (se ajusta en Ajustes)">' + FASES.map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<span class="c-' + f[0] + (t.clase === f[0] ? ' on' : '') + '">' + f[1] + ' ' + CLASES[f[0]] + '</span>'; }).join('') + '</div>' +
+      (PROPIO ? '<div class="pasos elegir"><b class="small">Estado:</b> ' + FASES.filter(function (f) { return f[0] === 'curso' || f[0] === 'hecha'; }).map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<button type="button" class="c-' + f[0] + (t.clase === f[0] ? ' on' : '') + '" data-fase="' + f[0] + '" data-id="' + t.id + '" title="' + (t.clase === f[0] ? 'Estado actual: ' + esc(t.estado) : 'Pasar a «' + esc(estadoDe(f[0]) || CLASES[f[0]]) + '»') + '">' + f[1] + ' ' + CLASES[f[0]] + '</button>'; }).join('') + '<span id="estMsg" class="small"></span></div>' :
+      '<div class="pasos" title="Fase del asunto (se ajusta en Ajustes)">' + FASES.map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<span class="c-' + f[0] + (t.clase === f[0] ? ' on' : '') + '">' + f[1] + ' ' + CLASES[f[0]] + '</span>'; }).join('') + '</div>') +
       c.filter(function (x) { return x[0] && x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       '<div class="tratar"><b class="small">Para tratar en:</b> ' + (hayTratar() ? TRATAR.map(function (x) { var on = tieneTratar(t, x[0]);
         return '<button type="button" class="btn' + (on ? ' on tr-' + x[0] : '') + '" data-tratar="' + x[0] + '" data-id="' + t.id + '" title="' + (on ? 'Quitar la marca' : 'Marcar para tratar') + '">' + (on ? '✓ ' : '') + x[2] + ' ' + x[3] + '</button>'; }).join(' ') :
         '<span class="small muted">falta la columna «Tratar en» en la lista; la crea quien administre la lista en Ajustes.</span>') + '<span id="trMsg" class="small"></span></div>' +
       '<div id="psBox" class="psbox" data-id="' + t.id + '"></div>' +
-      '<div class="estadoacc"><b class="small">Estado:</b> ' +
+      (PROPIO ? '<div class="acciones"><button type="button" class="btn prim" data-modificar="' + t.id + '">✎ Modificar</button>' +
+        (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
+        (t.clase !== 'hecha' && destinatarios(t).para.length ? '<button type="button" class="btn" data-asignar="' + t.id + '">🔔 Recordar asignación</button>' : '') +
+        '<span class="sep"></span><button type="button" class="btn rojo" data-eliminar="' + t.id + '">🗑 Eliminar</button></div><div id="correoAsig"></div></div><div class="ficha-com">' : '') +
+      (PROPIO ? '' : '<div class="estadoacc"><b class="small">Estado:</b> ' +
         (t.clase !== 'hecha' ? '<button type="button" class="btn verde" data-finalizar="' + t.id + '">✅ Finalizar</button>' : '<button type="button" class="btn" data-reabrir="' + t.id + '">↺ Reabrir</button>') +
         '<select id="selEstado">' + valores('ESTADO', 'estado').map(function (e) { return '<option' + (e === t.estado ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select>' +
         '<button type="button" class="btn" data-cambiarestado="' + t.id + '">Cambiar estado</button>' +
@@ -2484,7 +2957,7 @@
       '<div class="acciones"><button type="button" class="btn prim" data-modificar="' + t.id + '">✎ Modificar</button>' +
         (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
         (base ? '<a class="btn" target="_top" href="' + esc(base + '/DispForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Ver en Colabora</a>' : '') + '</div>' +
-      (t.clase !== 'hecha' && destinatarios(t).para.length ? '<div id="correoAsig" style="margin-top:10px"><button type="button" data-asignar="' + t.id + '">✉ Enviar aviso de asignación</button></div>' : '<div id="correoAsig"></div>') + '</div><div class="ficha-com">' +
+      (t.clase !== 'hecha' && destinatarios(t).para.length ? '<div id="correoAsig" style="margin-top:10px"><button type="button" data-asignar="' + t.id + '">✉ Enviar aviso de asignación</button></div>' : '<div id="correoAsig"></div>') + '</div><div class="ficha-com">') +
       '<h3 style="margin:0 0 6px">Comentarios <span class="small muted">(' + esc(NOMBRE_CAMPO[campoComentarios()]) + ')</span></h3>' +
       '<textarea id="comTxt" rows="6" placeholder="Escribe un comentario…" ' + AREA + '></textarea>' +
       '<div class="error" id="comError" hidden></div>' +
@@ -2503,6 +2976,9 @@
     document.querySelectorAll('#tabs a').forEach(function (a) { a.classList.toggle('on', a.dataset.v === pref.vista); });
     var v = { nlt: vistaNlt, calendario: vistaCalendario, estadisticas: vistaEstadisticas, avisos: vistaAvisos, informes: vistaInformes, ajustes: vistaAjustes }[pref.vista] || vistaNlt;
     if (!cargadoEn && pref.vista !== 'ajustes') return;
+    $('#tabs').style.display = acceso.sinAlta ? 'none' : '';
+    ['#nuevo', '#desdeCorreo'].forEach(function (q) { var b = $(q); if (b) b.style.display = acceso.sinAlta ? 'none' : ''; });
+    if (acceso.sinAlta) { $('#vista').innerHTML = pantallaSolicitud(); return; }
     $('#vista').innerHTML = v();
     // Selector de personas del alta de META (Ajustes)
     if ($('#mmPersona')) {
@@ -2524,6 +3000,13 @@
     if (el.closest('#recargar')) { psCache = null; cargar(); return; }
     if (el.closest('[data-mmcrear]')) { crearListaMiembros(el.closest('[data-mmcrear]')); return; }
     if (el.closest('[data-mmguardar]')) { guardarMiembro(el.closest('[data-mmguardar]')); return; }
+    if (el.closest('[data-solpedir]')) { pedirAcceso(el.closest('[data-solpedir]')); return; }
+    if (el.closest('[data-solcrear]')) { crearListaSolicitudes(el.closest('[data-solcrear]')); return; }
+    if (el.closest('[data-solalta]')) { darAltaSolicitud(el.closest('[data-solalta]')); return; }
+    if (el.closest('[data-soldeny]')) { denegarSolicitud(el.closest('[data-soldeny]')); return; }
+    if (el.closest('[data-solseg]')) { var bsg = el.closest('[data-solseg]'); bsg.disabled = true; enviarSP(urlSolic(), { __metadata: { type: 'SP.List' }, ReadSecurity: 2, WriteSecurity: 2 }, 'No tienes permiso', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }).then(cargarSolicitudes).then(render, function (e) { bsg.disabled = false; aviso('No se pudo: ' + (e.message || e)); }); return; }
+    if (el.closest('[data-mmdep]')) { var dv = $('#mmDepTxt').value.trim(); if (!dv) return; var ya = Array.prototype.filter.call(document.querySelectorAll('#mmNegs input'), function (x) { return x.value === dv; })[0];
+      if (ya) ya.checked = true; else $('#mmNegs').insertAdjacentHTML('afterbegin', '<label class="check"><input type="checkbox" value="' + esc(dv) + '" checked> ' + esc(dv) + '</label>'); $('#mmDepTxt').value = ''; return; }
     if (el.closest('[data-mmquitar]')) { quitarMiembro(el.closest('[data-mmquitar]')); return; }
     if (el.closest('[data-mmeditar]')) { mmEditando = Number(el.closest('[data-mmeditar]').dataset.mmeditar); mmPersona = null; render(); return; }
     if (el.closest('[data-mmcancelar]')) { mmEditando = null; mmPersona = null; render(); return; }
@@ -2538,6 +3021,19 @@
     var pso = el.closest('[data-psok]');
     if (pso) { psGuardar(tareas.find(function (x) { return x.id === Number(pso.dataset.psok); }), pso); return; }
     if (el.closest('[data-creartratar]')) { crearColumnaTratar(el.closest('[data-creartratar]')); return; }
+    if (el.closest('[data-bibliocerrar]')) { cerrarBiblioteca(el.closest('[data-bibliocerrar]')); return; }
+    if (el.closest('[data-biblioabrir]')) { abrirBiblioteca(el.closest('[data-biblioabrir]')); return; }
+    if (el.closest('[data-biblio]')) { ocultarBiblioteca(el.closest('[data-biblio]'), el.closest('[data-biblio]').dataset.biblio === '1'); return; }
+    if (el.closest('[data-departamentos]')) { admitirDepartamentos(el.closest('[data-departamentos]')); return; }
+    if (el.closest('[data-catsuigesur]')) { var bs = el.closest('[data-catsuigesur]');
+      if (!bs.dataset.seguro) { bs.dataset.seguro = '1'; bs.textContent = '¿Poner las ' + CELULAS_SUIGESUR.length + ' células? Pulsa otra vez'; return; }
+      guardarCatalogo(catalogo().concat(CELULAS_SUIGESUR), bs, 'Puestas las células de SUIGESUR como departamentos'); return; }
+    if (el.closest('[data-catanadir]')) { var nv = ($('#catNueva').value || '').trim().replace(/\s+/g, ' ').toUpperCase();
+      if (!esCelula(nv)) { $('#catMsg').textContent = 'Escríbela como en MENSADEF, p. ej. «ET 2SUIGE SETEC SEGURIDAD».'; return; }
+      guardarCatalogo(catalogo().concat(nv), el.closest('[data-catanadir]'), 'Dado de alta: ' + nv); return; }
+    if (el.closest('[data-catquitar]')) { var bq = el.closest('[data-catquitar]'), dq = bq.getAttribute('data-catquitar');
+      if (!bq.dataset.seguro) { bq.dataset.seguro = '1'; bq.textContent = '¿Quitar?'; return; }
+      guardarCatalogo(catalogo().filter(function (d) { return d !== dq; }), bq, 'Quitado: ' + dq); return; }
     if (el.closest('[data-renombrarpruebas]')) { renombrarListaPruebas(el.closest('[data-renombrarpruebas]')); return; }
     if (el.closest('[data-pruebacorreo]')) { correoPrueba(el.closest('[data-pruebacorreo]')); return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); return; }
@@ -2604,6 +3100,8 @@
     if (br) { ponerEstado(Number(br.dataset.reabrir), estadoDe('curso') || estadoDe('pendiente'), br); return; }
     if (bc) { ponerEstado(Number(bc.dataset.cambiarestado), $('#selEstado').value, bc); return; }
     if (be) { eliminarAsunto(Number(be.dataset.eliminar), be); return; }
+    var bfa = el.closest('[data-fase]');
+    if (bfa) { var tf = tareas.find(function (x) { return x.id === Number(bfa.dataset.id); }); if (tf && tf.clase !== bfa.dataset.fase) ponerEstado(tf.id, estadoDe(bfa.dataset.fase), bfa); return; }
     var t = el.closest('.tarea');
     if (t) abrir(Number(t.dataset.id));
   });

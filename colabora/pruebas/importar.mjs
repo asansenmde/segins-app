@@ -6,9 +6,9 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
 const fs = require('fs');
-const html = fs.readFileSync(process.env.TAREAS_HTML ? process.env.TAREAS_HTML : new URL('../tareas-nlt-colabora.html', import.meta.url), 'utf8');
+const html = fs.readFileSync(process.env.TAREAS_HTML ? process.env.TAREAS_HTML : new URL('../tareas-nlt-colabora.html', import.meta.url), 'utf8').replace(process.env.PROPIO ? 'var PROPIO = false;' : '\u0000', 'var PROPIO = true;');
 const WEB = '/et/SUIGESUR/JSUIGE', O = 'https://colabora.mdef.es';
-const PRUEBAS = !!process.env.PRUEBAS, LISTA = 'Gestor de Tareas' + (PRUEBAS ? ' PRUEBAS' : '');
+const PRUEBAS = !!process.env.PRUEBAS, PROPIO = !!process.env.PROPIO || /mensadef|META\.html/.test(process.env.TAREAS_HTML || ''), LISTA = 'Gestor de Tareas' + (PRUEBAS ? ' PRUEBAS' : PROPIO ? ' MENSADEF' : '');
 let listaCreada = !PRUEBAS; const creadas = [], asuntosCorreo = [], tocadas = new Set();
 const PAGINA = O + WEB + '/Documentos%20compartidos/tareas-nlt-colabora.html';
 const ESTADOS = ['REMITIDO AL NEGOCIADO', 'EN CURSO', 'FINALIZADO'];
@@ -89,6 +89,7 @@ await p.route(O + '/**', async r => {
   if (req.method() === 'POST') {
     if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'D', FormDigestTimeoutSeconds: 1800 } } } });
     if (resto === 'SP.Utilities.Utility.SendEmail') { asuntosCorreo.push(JSON.parse(req.postData()).properties.Subject); return r.fulfill({ json: { d: {} } }); }
+    if (resto.includes('/fields/getbyinternalnameortitle')) { const c = JSON.parse(req.postData()); camposCambiados.push(resto.match(/'([^']+)'\)$/)[1] + ' ' + c.__metadata.type + ' FillInChoice=' + c.FillInChoice + ' opciones=' + (c.Choices ? c.Choices.results.length : '-') + ' ' + (req.headers()['x-http-method'] || '')); abiertos = true; if (c.Choices) opcionesDep = c.Choices.results; return r.fulfill({ status: 204, body: '' }); }
     if (resto.endsWith('/items')) {
       const c = JSON.parse(req.postData()); altas.push(c);
       items.push({ Id: items.length + 1, Title: c.Title, ESTADO: c.ESTADO, Prioridad: c.Prioridad || '', FechaVencimiento: c.FechaVencimiento, DescripcionDelAsunto: c.DescripcionDelAsunto, ControlExpediente: c.ControlExpediente,
@@ -99,11 +100,11 @@ await p.route(O + '/**', async r => {
   }
   if (resto.startsWith('web?')) return r.fulfill({ json: { Url: O + WEB, Title: 'JSUIGE' } });
   if (resto.startsWith('web/currentuser')) return r.fulfill({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' } });
-  if (resto.startsWith('web/siteusers')) return r.fulfill({ json: { value: [{ Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' }] } });
+  if (resto.startsWith('web/siteusers')) return r.fulfill({ json: { value: [{ Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' }, { Id: 31, Title: 'GARCIA LOPEZ ANA', Email: 'agarcia@et.mde.es' }] } });
   if (resto.includes('getbyinternalnameortitle')) return r.fulfill({ json: { AppendOnly: false, RichText: false } });
-  if (resto.includes('/fields')) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'DescripcionDelAsunto', RichText: false }] } });
+  if (resto.includes('/fields')) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'NegociadoAsignado', Choices: opcionesDep, FillInChoice: abiertos }, { InternalName: 'NegociadosImplicados', Choices: opcionesDep, FillInChoice: abiertos }, { InternalName: 'DescripcionDelAsunto', RichText: false }] } });
   if (resto.includes('/items')) { lecturas++; return r.fulfill({ json: { value: items } }); }
-  if (resto.startsWith("web/lists/getbytitle('" + LISTA + "')?")) return r.fulfill({ json: { Title: LISTA, ItemCount: items.length, ListItemEntityTypeFullName: 'SP.Data.GestorListItem', RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor' } } });
+  if (resto.startsWith("web/lists/getbytitle('" + LISTA + "')?")) return r.fulfill({ json: { Title: LISTA, ItemCount: items.length, ListItemEntityTypeFullName: 'SP.Data.GestorListItem', EffectiveBasePermissions: { High: '0', Low: String(0x7FFFFFFF) }, RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor' } } });
   return r.fulfill({ status: 404, body: '' });
 });
 
@@ -118,15 +119,34 @@ if (PRUEBAS) {
 }
 
 // 1. Desde MENSADEF
+let abiertos = false; const camposCambiados = []; let opcionesDep = ['PROCOR', 'SEGURIDAD', 'SETEC'];
 const datos = { v: 1, origen: 'MENSADEF', id: 'MSG-2026-0042', asunto: 'Inspección de seguridad 3 de noviembre', fecha: '2026-10-20T08:00:00Z', de: 'Jefe A', tipo: 'Orden',
-  referencia: 'REF-77', suReferencia: 'SU-1', expediente: 'EXP-2026/55', enlace: 'https://mensadef.mdef.es/ambito/2SUIGE/Lists/X/DispForm.aspx?ID=4', texto: 'Cuerpo <b>con</b> marcas & símbolos' };
+  referencia: 'REF-77', suReferencia: 'SU-1', expediente: 'EXP-2026/55', enlace: 'https://mensadef.mdef.es/ambito/2SUIGE/Lists/X/DispForm.aspx?ID=4', texto: 'Cuerpo <b>con</b> marcas & símbolos', departamento: 'ET 2SUIGE SEGURIDAD', departamentos: ['ET 2SUIGE JEFSERVICIO', 'ET 2SUIGE SEGURIDAD', 'ET 2SUIGE SECRETARIA'] };
 const conDatos = PAGINA + '#importar=' + encodeURIComponent(JSON.stringify(datos));
 await p.goto(conDatos); await p.waitForTimeout(1200);
 console.log('dirección limpia:', !p.url().includes('#'), '| título:', await p.textContent('#dlg h2'));
 console.log('asunto:', await p.inputValue('#fNuevo [name=Title]'), '| NLT:', await p.inputValue('#fNuevo [name=nlt]'), '| exp.:', await p.inputValue('#fNuevo [data-exp]'));
 console.log('descripción:\n' + await p.inputValue('#fNuevo [name=DescripcionDelAsunto]'));
+if (PROPIO) {
+  console.log('departamentos para elegir:', await p.$$eval('#nDeps option', o => o.map(x => x.value).join(', ')));
+  await p.setViewportSize({ width: 1200, height: 900 }); await p.screenshot({ path: new URL('alta-nueva.png', import.meta.url).pathname });
+  console.log('desde SENDERO: departamento', await p.inputValue('#fNuevo [name=NegociadoAsignado]'), '| responsable (quien crea)', await p.inputValue('#fNuevo [name=resp]'));
+  // La lista aún no admite células: avisa; se activa en Ajustes (Control total) y ya se crea
+  await p.click('#nCrear'); await p.waitForTimeout(600); console.log('sin activar:', (await p.textContent('#nError')).slice(0, 90));
+  await p.click('#dlg [data-cerrar]'); await p.click('#tabs [data-v=ajustes]'); await p.waitForTimeout(300);
+  console.log('Ajustes:', (await p.textContent('.card:has([data-catsuigesur])')).replace(/\s+/g, ' ').slice(0, 160)); await p.click('[data-catsuigesur]'); await p.click('[data-catsuigesur]'); await p.waitForTimeout(1500);
+  console.log('catálogo tras poner SUIGESUR:', await p.$$eval('#catDeps .chipdep', l => l.length), 'células'); await p.fill('#catNueva', 'et 2suige setec nueva'); await p.click('[data-catanadir]'); await p.waitForTimeout(1500); console.log('alta nueva:', await p.$$eval('#catDeps .chipdep', l => l.map(x => x.textContent).filter(t => /NUEVA/.test(t)).join()));
+  console.log('columnas cambiadas:', camposCambiados.join(' | '));
+  await p.click('#tabs [data-v=nlt]'); await p.waitForTimeout(400); console.log('filtro Departamento:', await p.$$eval('#fneg option', o => o.length - 1), 'opciones · antiguos aparte:', await p.$$eval('#fneg optgroup option', o => o.map(x => x.value).join(', ') || '(ninguno)'));
+  await p.click('#tabs [data-v=ajustes]'); await p.waitForTimeout(300); await p.locator('[data-catanadir]').scrollIntoViewIfNeeded(); await p.screenshot({ path: new URL('catalogo.png', import.meta.url).pathname });
+  await p.goto(conDatos); await p.waitForTimeout(1200);
+} else {
+  console.log('Gestor común: negociado como antes:', (await p.$eval('#fNuevo [name=NegociadoAsignado]', e => e.tagName)) === 'SELECT', '| etiqueta:', await p.$eval('#fNuevo [name=NegociadoAsignado]', e => e.closest('div').querySelector('.lbl').textContent), '| responsable:', await p.inputValue('#fNuevo [name=resp]'));
+  await p.click('#dlg [data-cerrar]'); await p.click('#tabs [data-v=ajustes]'); await p.waitForTimeout(300); console.log('Gestor común: sin catálogo de departamentos:', !(await p.$('[data-catsuigesur]')));
+  await p.goto(conDatos); await p.waitForTimeout(1200);
+}
 await p.click('#nCrear'); await p.waitForTimeout(1200);
-console.log('alta MENSADEF:', JSON.stringify({ Title: altas[0].Title, NLT: altas[0].FechaVencimiento, Estado: altas[0].ESTADO }), '| expediente escrito después:', items[3].ControlExpediente);
+console.log('alta MENSADEF:', JSON.stringify({ Title: altas[0].Title, NLT: altas[0].FechaVencimiento, Estado: altas[0].ESTADO, Negociado: altas[0].NegociadoAsignado, Resp: altas[0].ResponsableDeLaInformacionId }), '| expediente escrito después:', items[3].ControlExpediente);
 await p.goto(conDatos); await p.waitForTimeout(1200);
 console.log('segunda vez:', await p.textContent('#dlg h2'), '|', (await p.textContent('#dlg .db')).replace(/\s+/g, ' ').slice(0, 140));
 await p.click('#impOtro'); console.log('crear otro igualmente abre:', await p.textContent('#dlg h2')); await p.click('#dlg [data-cerrar]');
@@ -166,7 +186,7 @@ fs.unlinkSync(malo);
 
 // 4. Actualización automática: otra persona cambia un asunto y crea otro
 await p.goto(PAGINA); await p.waitForTimeout(1000);
-await p.evaluate(k => { const s = JSON.parse(localStorage.getItem(k)); s.quien = 'todos'; localStorage.setItem(k, JSON.stringify(s)); }, PRUEBAS ? 'tareas-nlt-colabora-pruebas' : 'tareas-nlt-colabora');
+await p.evaluate(k => { const s = JSON.parse(localStorage.getItem(k)); s.quien = 'todos'; localStorage.setItem(k, JSON.stringify(s)); }, PRUEBAS ? 'tareas-nlt-colabora-pruebas' : PROPIO ? 'tareas-nlt-colabora-mensadef' : 'tareas-nlt-colabora');
 await p.clock.install(); await p.goto(PAGINA); await p.waitForTimeout(1000);
 items[0].Modified = ahora(); items[0].Editor = { Title: 'OTRA PERSONA' };
 items.push(Object.assign({}, items[1], { Id: 99, Title: 'Asunto creado por otro', Modified: ahora(), Created: ahora() }));

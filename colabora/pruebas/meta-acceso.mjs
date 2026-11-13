@@ -1,5 +1,5 @@
 // Prueba de «Quién ve los expedientes de META» (solo en META, la copia --propio) contra un Colabora simulado.
-// node colabora/pruebas/meta-acceso.mjs   ·   VERBOSE=1 (SharePoint 2013)   ·   TAREAS_HTML=colabora/colabora/tareas-nlt-colabora-mensadef.html (copia protegida)
+// node colabora/pruebas/meta-acceso.mjs   ·   VERBOSE=1 (SharePoint 2013)   ·   TAREAS_HTML=colabora/colabora/META.html (copia protegida)
 // Datos ficticios. Usuario 7 (USUARIO DE PRUEBA).
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
@@ -24,7 +24,12 @@ const items = [
   { Id: 6, Title: 'Ajeno de Seguridad', Author: OTRO, ResponsableDeLaInformacion: OTRO, NegociadoAsignado: 'Seguridad' },
 ].map(x => ({ ESTADO: 'EN CURSO', Prioridad: 'Media', DescripcionDelAsunto: 'Texto ficticio', Comentarios: '', Created: h(-48), Modified: h(-24), Editor: OTRO,
   PersonalImplicado0: [], NegociadosImplicados: [], ...x }));
-let admin = false, hayMiembros = true, filas = [];
+let biblioOculta = false;
+// Permisos de la biblioteca «aplicaciones»: hereda del sitio (Propietarios Control total, Miembros Colaborar, Usuarios del dominio Leer)
+const ROLES = { 1073741826: ['Leer', 2], 1073741827: ['Colaborar', 3], 1073741829: ['Control total', 5] };
+const asigSitio = () => [{ id: 3, nombre: 'Propietarios', roles: [1073741829] }, { id: 4, nombre: 'Miembros', roles: [1073741827] }, { id: 99, nombre: 'usuarios del dominio', roles: [1073741826] }];
+let bUnica = false, bAsig = asigSitio(), rolCreado = null;
+let admin = false, hayMiembros = true, filas = [], haySolic = false, solicitudes = [], correos = []; const SOL = 'META SOLICITUDES';
 const posts = [];
 let ok = true; const comprueba = (txt, c, extra) => { console.log((c ? '✔ ' : '✘ ') + txt + (extra !== undefined ? ': ' + extra : '')); if (!c) ok = false; };
 
@@ -43,7 +48,21 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
     posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
     if (resto === 'contextinfo') return ful({ json: { d: { GetContextWebInformation: { FormDigestValue: 'D', FormDigestTimeoutSeconds: 1800 } } } });
     const c = JSON.parse(req.postData() || '{}');
-    if (resto === 'web/lists') { if (c.Title === MIEM) hayMiembros = true; return ful({ status: 201, json: { d: { Id: 'm' } } }); }
+    if (resto === 'web/lists') { if (c.Title === MIEM) hayMiembros = true; if (c.Title === SOL) haySolic = true; return ful({ status: 201, json: { d: { Id: 'm' } } }); }
+    if (/^web\/lists\(guid'b1'\)\/breakroleinheritance/.test(resto)) { bUnica = true; return ful({ status: 200, json: { d: {} } }); }
+    if (/^web\/lists\(guid'b1'\)\/resetroleinheritance/.test(resto)) { bUnica = false; bAsig = asigSitio(); return ful({ status: 200, json: { d: {} } }); }
+    { const m = resto.match(/^web\/lists\(guid'b1'\)\/roleassignments\/(add|remove)roleassignment\(principalid=(\d+),roledefid=(\d+)\)/);
+      if (m) { let a = bAsig.find(x => x.id === +m[2]); if (!a && m[1] === 'add') { a = { id: +m[2], nombre: '?', roles: [] }; bAsig.push(a); }
+        if (m[1] === 'add') a.roles.push(+m[3]); else a.roles = a.roles.filter(r => r !== +m[3]); return ful({ status: 200, json: { d: {} } }); } }
+    if (resto === 'web/roledefinitions') { ROLES[1500] = [c.Name, 0]; rolCreado = c; return ful({ status: 201, json: { d: { Id: 1500, Name: c.Name } } }); }
+    if (/^web\/lists\(guid'b1'\)$/.test(resto)) { biblioOculta = !!c.Hidden; return ful({ status: 204, body: '' }); }
+    if (resto === 'SP.Utilities.Utility.SendEmail') { correos.push(c.properties); return ful({ json: { d: {} } }); }
+    if (lst === SOL) {
+      if (/createfieldasxml|breakroleinheritance|addroleassignment/.test(resto) || !resto.includes('/items')) return ful({ json: { d: {} } });
+      const m = resto.match(/items\((\d+)\)$/); delete c.__metadata;
+      if (m) { Object.assign(solicitudes.find(f => f.Id === +m[1]), c); return ful({ status: 204, body: '' }); }
+      const quien = [YO, OTRO].find(x => x.Id === c.PersonaId); const f = { Id: solicitudes.length + 1, ...c, Persona: quien, Created: new Date().toISOString() }; solicitudes.push(f); return ful({ status: 201, json: { d: f } });
+    }
     if (resto === 'web/ensureuser') return ful({ json: { d: { Id: 30, Title: 'NUEVA PERSONA', Email: 'nueva@et.mde.es' } } });
     if (resto.includes('clientPeoplePickerSearchUser')) return ful({ json: { d: { ClientPeoplePickerSearchUser: JSON.stringify([{ Key: 'i:0#.w|et\\nueva', DisplayText: 'NUEVA PERSONA', EntityType: 'User', EntityData: { Email: 'nueva@et.mde.es' } }]) } } });
     if (lst === MIEM) {
@@ -59,13 +78,25 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
   }
   if (resto.startsWith('web?')) return ful({ json: { Url: 'https://colabora.mdef.es' + WEB, Title: 'JSUIGE' } });
   if (resto.startsWith('web/currentuser')) return ful({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' } });
+  if (lst === SOL) {
+    if (!haySolic) return ful({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
+    if (!resto.includes('/items')) return ful({ json: { Id: '{5a1}', Title: SOL, ListItemEntityTypeFullName: 'SP.Data.META_x0020_SOLICITUDESListItem', ReadSecurity: 2, WriteSecurity: 2 } });
+    return ful({ json: { value: solicitudes.filter(f => admin || f.PersonaId === 7).map(f => ({ ...f })).reverse() } });
+  }
+  if (/^web\/lists\(guid'b1'\)\?\$select=HasUniqueRoleAssignments/.test(resto)) return ful({ json: { HasUniqueRoleAssignments: bUnica } });
+  if (/^web\/lists\(guid'b1'\)\/roleassignments/.test(resto)) return ful({ json: { value: bAsig.map(a => ({ PrincipalId: a.id, Member: { Id: a.id, Title: a.nombre }, RoleDefinitionBindings: per(a.roles.map(r => ({ Id: r, Name: ROLES[r][0], RoleTypeKind: ROLES[r][1] }))) })) } });
+  if (resto.startsWith('web/roledefinitions?')) return ful({ json: { value: Object.entries(ROLES).filter(([k]) => k !== '1500' || rolCreado).map(([k, v]) => ({ Id: +k, Name: v[0], RoleTypeKind: v[1] })) } });
+  if (resto.includes('GetFileByServerRelativeUrl') && resto.includes('ParentList')) return ful({ json: { Id: 'b1', Title: 'aplicaciones', Hidden: biblioOculta, BaseTemplate: 101 } });
+  if (resto.startsWith('web/associatedownergroup/users')) return ful({ json: { value: [{ Title: 'ADMINISTRADOR', Email: 'admin@et.mde.es' }] } });
+  if (resto.startsWith('web/roleassignments')) return ful({ json: { value: [{ PrincipalId: 99, Member: { Id: 99, Title: 'MDEF\\usuarios del dominio', LoginName: 'c:0-.f|rolemanager|usuarios del dominio' } }] } });
+  if (resto.startsWith('web/roledefinitions/getbytype(3)')) return ful({ json: { Id: 1073741827 } });
   if (lst === MIEM) {
     if (!hayMiembros) return ful({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
     if (!resto.includes('/items')) return ful({ json: { Id: 'm', Title: MIEM, ListItemEntityTypeFullName: 'SP.Data.META_x0020_MIEMBROSListItem' } });
     return ful({ json: { value: filas.map(f => ({ Id: f.Id, Title: f.Title, Negociados: f.Negociados, VeTodo: f.VeTodo, Persona: f.Persona })) } });
   }
   if (lst === LISTA) {
-    if (resto.includes('/fields?')) return ful({ json: { value: [{ InternalName: 'ESTADO', Choices: per(['EN CURSO', 'FINALIZADO']) }, { InternalName: 'NegociadoAsignado', Choices: per(['Seguridad', 'PRL', 'Infraestructura']) }, { InternalName: 'NegociadosImplicados', Choices: per(['Seguridad', 'PRL', 'Infraestructura']) }] } });
+    if (resto.includes('/fields?')) return ful({ json: { value: [{ InternalName: 'ESTADO', Choices: per(['EN CURSO', 'FINALIZADO']) }, { InternalName: 'NegociadoAsignado', Choices: per(['Seguridad', 'PRL', 'Infraestructura', 'ET 2SUIGE SETEC PRL']) }, { InternalName: 'NegociadosImplicados', Choices: per(['Seguridad', 'PRL', 'Infraestructura']) }] } });
     if (resto.includes('getbyinternalnameortitle')) return ful({ json: { InternalName: 'Comentarios', AppendOnly: false } });
     if (resto.includes('/items')) return ful({ json: { value: items.map(x => ({ ...x, PersonalImplicado0: per(x.PersonalImplicado0), NegociadosImplicados: per(x.NegociadosImplicados) })) } });
     return ful({ json: { Id: 'g', Title: LISTA, ItemCount: items.length, ListItemEntityTypeFullName: 'SP.Data.GestorListItem', EffectiveBasePermissions: { High: '0', Low: String(admin ? 0x7FFFFFFF : 0x7) }, RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor' } } });
@@ -92,15 +123,33 @@ hayMiembros = true; filas = [{ Id: 1, Title: 'USUARIO DE PRUEBA', Persona: YO, N
 await recargar();
 comprueba('con PRL ve también los de PRL (asignado o implicado)', (await vistos()) === '1,2,3,4,5', await vistos());
 comprueba('la bienvenida nombra sus negociados', /y los de PRL/.test(await p.textContent('.hero')));
+// 12/11/2026: en los filtros solo sus departamentos (Control total, todos)
+comprueba('filtro de departamento solo con los suyos', (await p.$$eval('#fneg option', o => o.map(x => x.textContent))).join() === 'Todos,PRL', (await p.$$eval('#fneg option', o => o.map(x => x.textContent))).join());
 // 3. Lo ve todo
 filas[0].VeTodo = true; await recargar();
 comprueba('«Lo ve todo» ve los 6', (await vistos()) === '1,2,3,4,5,6', await vistos());
 // 4. Control total: todo, y Ajustes con el alta
 filas = []; hayMiembros = false; admin = true; await recargar();
 comprueba('Control total ve los 6', (await vistos()) === '1,2,3,4,5,6');
+comprueba('Control total ve todos los departamentos en el filtro', (await p.$$eval('#fneg option', o => o.length)) > 3);
 comprueba('Control total ve Ajustes', await ajVisible());
 await p.click('#tabs a[data-v="ajustes"]'); await p.waitForTimeout(400);
 comprueba('Ajustes ofrece crear la lista', !!(await p.$('[data-mmcrear]')));
+await p.waitForSelector('[data-biblio]', { timeout: 5000 }).catch(() => 0);
+comprueba('dice en qué biblioteca está y ofrece ocultarla', /biblioteca «aplicaciones», que se ve/.test(await p.textContent('#vista')) && !!(await p.$('[data-biblio="1"]')));
+await p.click('[data-biblio="1"]'); await p.waitForTimeout(1200);
+comprueba('biblioteca oculta (Hidden = true) y lo dice', biblioOculta && /está oculta/.test(await p.textContent('#vista')));
+await p.click('[data-biblio="0"]'); await p.waitForTimeout(1200); comprueba('y se puede volver a mostrar', !biblioOculta);
+// Cerrar la carpeta: la gente pasa a «solo abrir» (sin ver la carpeta); Control total no cambia
+await p.waitForSelector('[data-bibliocerrar]', { timeout: 5000 }).catch(() => 0);
+comprueba('avisa de que la carpeta se ve entera y ofrece cerrarla', /ve todo lo que hay dentro/.test(await p.textContent('#vista')) && !!(await p.$('[data-bibliocerrar]')));
+await p.click('[data-bibliocerrar]'); await p.click('[data-bibliocerrar]'); await p.waitForTimeout(2500);
+{ const r = id => (bAsig.find(a => a.id === id) || { roles: [] }).roles;
+  comprueba('cerrada: permisos propios, Miembros y Usuarios del dominio solo abrir, Propietarios Control total', bUnica && JSON.stringify(r(4)) === '[1500]' && JSON.stringify(r(99)) === '[1500]' && JSON.stringify(r(3)) === '[1073741829]', JSON.stringify(bAsig));
+  comprueba('nivel «META solo abrir» sin ver formularios ni vistas', rolCreado && rolCreado.BasePermissions.Low === String(0x1 | 0x20 | 0x10000 | 0x20000));
+  comprueba('lo dice', /Carpeta cerrada/.test(await p.textContent('#vista'))); }
+await p.click('[data-biblioabrir]'); await p.click('[data-biblioabrir]'); await p.waitForTimeout(1500);
+comprueba('se puede volver a abrir (hereda del sitio)', !bUnica && /ve todo lo que hay dentro/.test(await p.textContent('#vista')));
 posts.length = 0; await p.click('[data-mmcrear]'); await p.waitForTimeout(1500);
 comprueba('crea la lista y sus 3 columnas', posts.some(x => x.ruta === 'web/lists' && /META MIEMBROS/.test(x.cuerpo)) && posts.filter(x => x.ruta.includes('createfieldasxml')).length === 3);
 comprueba('después muestra el alta', !!(await p.$('#mmPersona')));
@@ -110,8 +159,10 @@ comprueba('sin persona lo pide', /Elige la persona/.test(await p.textContent('#m
 await p.fill('#mmPersona', 'OTRA'); await p.waitForTimeout(400);
 await p.click('#mmSug [data-sug="0"]'); await p.waitForTimeout(500);
 await p.click('[data-mmguardar]'); await p.waitForTimeout(200);
-comprueba('sin negociados ni «lo ve todo» lo pide', /al menos un negociado/.test(await p.textContent('#mmMsg')));
-await p.check('#mmNegs input[value="PRL"]'); await p.check('#mmNegs input[value="Infraestructura"]');
+comprueba('sin negociados ni «lo ve todo» lo pide', /al menos un (departamento|negociado)/.test(await p.textContent('#mmMsg')));
+// Solo se ofrecen células de MENSADEF; los nombres de esta prueba se añaden con el campo «Añadir otra célula»
+comprueba('no ofrece negociados antiguos', !(await p.$('#mmNegs input[value="PRL"]')));
+for (const n of ['PRL', 'Infraestructura']) { await p.fill('#mmDepTxt', n); await p.click('[data-mmdep]'); }
 await p.click('[data-mmguardar]'); await p.waitForTimeout(1200);
 comprueba('alta guardada', filas.length === 1 && filas[0].PersonaId === 20 && filas[0].Negociados === 'Infraestructura; PRL' && filas[0].VeTodo === false, JSON.stringify(filas[0] && { P: filas[0].PersonaId, N: filas[0].Negociados, T: filas[0].VeTodo }));
 comprueba('sale en la tabla', /OTRA PERSONA.*Infraestructura, PRL/.test((await p.textContent('#vista table.t')).replace(/\s+/g, ' ')));
@@ -138,6 +189,43 @@ comprueba('quitado (a la papelera)', filas.length === 1 && !filas.some(f => f.Id
 // 5. Sin Control total no puede escribir aunque fuerce
 admin = false; await recargar();
 comprueba('sin Control total vuelve a Tareas y no ve Ajustes', !(await ajVisible()) && !(await p.$('#mmPersona')));
+// 6. Sin alta (con la lista de miembros creada): no ve nada y pide acceso
+filas = filas.filter(f => f.PersonaId !== 7 && (!f.Persona || f.Persona.Id !== 7)); await recargar();
+let t6 = (await p.textContent('#vista')).replace(/\s+/g, ' ');
+comprueba('sin alta: no ve expedientes, ni pestañas, ni «Nuevo asunto» / «Desde correo»', /No tienes acceso a META/.test(t6) && !(await p.$('.tarea[data-id]')) && await p.isHidden('#tabs') && await p.isHidden('#nuevo') && await p.isHidden('#desdeCorreo'), t6.slice(0, 120));
+comprueba('sin la lista de solicitudes también sale el formulario, como en Incidentes', !!(await p.$('[data-solpedir]')) && !!(await p.$('#solEmpleo')) && /No tienes acceso a META/.test(t6));
+await p.selectOption('#solEmpleo', 'COMANDANTE'); await p.fill('#solTel', '600111222'); await p.fill('#solMotivo', 'Destino nuevo'); await p.check('#solDeps input >> nth=0'); correos.length = 0; await p.click('[data-solpedir]'); await p.waitForTimeout(1200);
+comprueba('la solicitud llega por correo solo a asansen@et.mde.es', correos.some(c => /solicitud de acceso de USUARIO DE PRUEBA/.test(c.Subject) && JSON.stringify(c.To) === JSON.stringify({ results: ['asansen@et.mde.es'] }) && /COMANDANTE/.test(c.Body)) && /enviado por correo al responsable/.test(await p.textContent('#vista')));
+await p.evaluate(() => { location.hash = '#importar=' + encodeURIComponent(JSON.stringify({ v: 1, origen: 'MENSADEF', id: 'X1', asunto: 'Intento desde SENDERO' })); }); await p.waitForTimeout(800);
+comprueba('sin acceso tampoco se abre el alta desde SENDERO', !(await p.$('#dlg[open] #nCrear')));
+// el administrador crea la lista de solicitudes
+admin = true; await recargar(); await p.click('#tabs a[data-v="ajustes"]'); await p.waitForTimeout(400);
+posts.length = 0; await p.click('[data-solcrear]'); await p.waitForTimeout(2000);
+comprueba('crea la lista de solicitudes, sus 7 columnas, solo sus elementos y abierta a todos', posts.some(x => x.ruta === 'web/lists' && /META SOLICITUDES/.test(x.cuerpo)) && posts.filter(x => x.ruta.includes(SOL) && x.ruta.includes('createfieldasxml')).length === 7
+  && posts.some(x => /breakroleinheritance/.test(x.ruta)) && posts.some(x => /addroleassignment\(principalid=99,roledefid=1073741827\)/.test(x.ruta)) && posts.some(x => /ReadSecurity/.test(x.cuerpo || '')));
+// el usuario pide acceso
+admin = false; await recargar(); t6 = (await p.textContent('#vista')).replace(/\s+/g, ' ');
+comprueba('ofrece pedir acceso con los departamentos', /Solicitar acceso/.test(t6) && !!(await p.$('#solDeps input')), t6.slice(0, 100));
+await p.click('[data-solpedir]'); await p.waitForTimeout(200); comprueba('pide todos los campos obligatorios y los marca', /Completa los campos obligatorios: empleo, teléfono, departamento, para qué/.test(await p.textContent('#solMsg')) && await p.$$eval('.falta', l => l.length) === 4);
+await p.selectOption('#solEmpleo', 'COMANDANTE'); await p.fill('#solTel', '600111222'); await p.check('#solDeps input >> nth=0'); await p.fill('#solMotivo', 'Destino nuevo'); await p.click('[data-solpedir]'); await p.waitForTimeout(1200);
+comprueba('solicitud guardada con empleo y teléfono', solicitudes.length === 1 && solicitudes[0].PersonaId === 7 && solicitudes[0].Estado === 'Pendiente' && !!solicitudes[0].Departamentos && solicitudes[0].Empleo === 'COMANDANTE' && solicitudes[0].Telefono === '600111222', JSON.stringify(solicitudes[0]));
+comprueba('la fecha de la solicitud es válida', !/Invalid|NaN/.test(await p.textContent('#vista')) && /\d{2}\/\d{2}\/\d{4}/.test(await p.textContent('#vista')));
+comprueba('luego ve que está PENDIENTE y su historial', /está PENDIENTE de revisión/.test(await p.textContent('#vista')) && /Tus solicitudes/.test(await p.textContent('#vista')));
+// el administrador la ve y lo da de alta
+admin = true; await recargar();
+comprueba('aviso de solicitudes pendientes en la bienvenida', /1 solicitud de acceso pendiente/.test(await p.textContent('.hero')));
+await p.click('#tabs a[data-v="ajustes"]'); await p.waitForTimeout(400);
+comprueba('la solicitud sale en Ajustes', /USUARIO DE PRUEBA/.test(await p.textContent('#vista table.t:last-of-type')));
+await p.click('[data-solalta="1"]'); await p.waitForTimeout(1500);
+comprueba('dado de alta en su departamento y solicitud aprobada', filas.some(f => f.PersonaId === 7 && f.Negociados === solicitudes[0].Departamentos) && solicitudes[0].Estado === 'Aprobada');
+comprueba('correo de acceso concedido', correos.some(c => /acceso concedido/.test(c.Subject)));
+admin = false; await recargar(); comprueba('ya entra en META', !(await p.isHidden('#tabs')) && !/No tienes acceso a META/.test(await p.textContent('#vista')));
+// denegar: otra solicitud
+filas = filas.filter(f => f.PersonaId !== 7); await recargar(); await p.selectOption('#solEmpleo', 'COMANDANTE'); await p.fill('#solTel', '600111222'); await p.fill('#solMotivo', 'Otra vez'); await p.check('#solDeps input >> nth=0'); await p.click('[data-solpedir]'); await p.waitForTimeout(1000);
+admin = true; await recargar(); await p.click('#tabs a[data-v="ajustes"]'); await p.waitForTimeout(400);
+p.once('dialog', d => d.accept('No corresponde a la sección')); await p.click('[data-soldeny="2"]'); await p.waitForTimeout(1200);
+comprueba('denegada con motivo y correo', solicitudes[1].Estado === 'Denegada' && solicitudes[1].Respuesta === 'No corresponde a la sección' && correos.some(c => /denegada/.test(c.Subject)));
+admin = false; await recargar(); comprueba('el usuario ve el motivo y puede pedir otra vez', /se denegó: «No corresponde a la sección»/.test(await p.textContent('#vista')) && !!(await p.$('[data-solpedir]')));
 comprueba('errores de página', errs.length === 0, JSON.stringify(errs));
 await b.close();
 console.log(ok ? 'TODO BIEN' : 'HAY FALLOS');
