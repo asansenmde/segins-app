@@ -147,12 +147,25 @@ const dMeta = JSON.parse(decodeURIComponent(abierta.split('#importar=')[1] || '{
 comprueba('datos para META', dMeta.asunto === 'Revista de extintores · Nave 3' && /^NLT T-\d{4}-\d{3}$/.test(dMeta.id) && /NLT: /.test(dMeta.texto) && /Prioridad: /.test(dMeta.texto) && /Hay que revisar los extintores/.test(dMeta.texto), JSON.stringify({ asunto: dMeta.asunto, id: dMeta.id, de: dMeta.de }));
 if (process.env.ULTIMO_META) fs.writeFileSync(process.env.ULTIMO_META, abierta); // para abrirlo en el META simulado
 comprueba('NLT con fecha completa', /NLT: \d{2}\/\d{2}\/\d{4}/.test(dMeta.texto));
+comprueba('después pregunta si quitarla de aquí', /quítala de Tareas NLT/.test(await p.textContent('#dlg2')) && /Ya está en META/.test(await p.textContent('#dlg2 [data-r=si]')));
+await p.click('#dlg2 [data-r=no]'); await p.waitForTimeout(300);
+comprueba('si no, sigue en Tareas NLT', await p.evaluate(id => JSON.parse(localStorage.getItem('tareas-nlt-v1')).tareas.some(t => t.id === id), idNave));
 comprueba('el botón queda marcado ✓', /✓/.test(await p.textContent('#dlg [data-meta]')));
 const reg = await p.evaluate(id => JSON.parse(localStorage.getItem('tareas-nlt-v1')).tareas.find(t => t.id === id).registro.map(r => r.texto), idNave);
 comprueba('anotado en la bitácora', reg.some(r => /^Pasada a META/.test(r)));
-await p.evaluate(() => { const b = document.querySelector('#dlg [data-cerrar]'); b && b.click(); }); await p.waitForTimeout(300);
-const pr3 = await p.$('#dlg2[open] [data-r=si]'); if (pr3) await pr3.click();
-await p.click('#dlg [data-meta]').catch(() => {});
+await p.click('#dlg [data-cerrar]').catch(() => {}); await p.waitForTimeout(300);
+{ const d2 = await p.$('#dlg2[open] [data-r=si]'); if (d2) { await d2.click(); await p.waitForTimeout(300); } }
+await p.evaluate(id => document.querySelector(`.tarea[data-id="${id}"]`).click(), idNave); await p.waitForTimeout(400);
+comprueba('la ficha ofrece «Ya en META: quitar de aquí»', !!(await p.$('#dlg [data-quitarmeta]')));
+await p.click('#dlg [data-quitarmeta]'); await p.waitForTimeout(300);
+comprueba('pide confirmación', /Ya has pulsado «Crear» en META/.test(await p.textContent('#dlg2')));
+await p.click('#dlg2 [data-r=si]'); await p.waitForTimeout(500);
+comprueba('quitada de Tareas NLT', !(await p.evaluate(id => JSON.parse(localStorage.getItem('tareas-nlt-v1')).tareas.some(t => t.id === id), idNave)) && !(await p.$(`main .tarea[data-id="${idNave}"]`)));
+// Pasar otra y decir «Ya está en META» en el momento: se quita al instante
+const idOtra = await p.evaluate(() => JSON.parse(localStorage.getItem('tareas-nlt-v1')).tareas.find(t => t.estado !== 'hecha').id);
+await p.evaluate(id => document.querySelector(`.tarea[data-id="${id}"]`).click(), idOtra); await p.waitForTimeout(400);
+await p.click('#dlg [data-meta]'); await p.waitForTimeout(400); await p.click('#dlg2 [data-r=si]'); await p.waitForTimeout(500);
+comprueba('«Ya está en META» al momento: quitada', !(await p.evaluate(id => JSON.parse(localStorage.getItem('tareas-nlt-v1')).tareas.some(t => t.id === id), idOtra)) && !(await p.evaluate(() => document.querySelector('#dlg').open)));
 await p.goto(URL_ + '#ajustes'); await p.waitForTimeout(400);
 comprueba('Ajustes recuerda la dirección de META', /meta\.html/.test(await p.inputValue('#urlMeta')));
 

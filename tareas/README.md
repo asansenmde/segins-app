@@ -95,6 +95,9 @@ App web (PWA, funciona sin conexión) para llevar **todo lo que haces** y saber 
   se revisa y se pulsa «Crear» allí. Usa el `#importar=` que META ya entiende (como SENDERO): **no se cambia META**, por eso
   allí sale como «Nuevo asunto desde correo» y la NLT se pone a mano. META avisa si esa tarea ya se pasó (`Id. correo: NLT T-…`).
   La dirección de META se pide la primera vez y queda en *Ajustes*; en la bitácora queda «Pasada a META».
+  Después pregunta **«Ya está en META: quitarla de aquí»**: al confirmarlo (tras pulsar «Crear» en META) la tarea se quita de
+  Tareas NLT, también en los otros dispositivos, para no llevar el asunto duplicado. Si se cancela, sigue aquí y su ficha
+  ofrece «✓ Ya en META: quitar de aquí» (petición del usuario, 13/11/2026).
 - Prueba: `node tareas/pruebas/correo.mjs` (Playwright, datos ficticios).
 
 ## Sincronización entre dispositivos

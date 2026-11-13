@@ -1957,7 +1957,7 @@ function abrirEditor(id, base = {}) {
       <datalist id="dlcats2">${categoriasUsadas().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
       <datalist id="dlper">${nombres.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
     </div>
-    <div class="dlg-f">${t ? `<button type="button" class="btn meta" data-meta="${t.id}" title="Abrir META (Colabora) con un expediente nuevo relleno con esta tarea">➜ Pasar a META${(t.registro || []).some(r => /^Pasada a META/.test(r.texto)) ? ' ✓' : ''}</button>` : ''}${bloqueada ? '<button type="button" class="btn" data-cerrar>Cerrar</button>' : '<button type="button" class="btn primary" data-guardar>Guardar</button>'}</div></form>`;
+    <div class="dlg-f">${t ? `<button type="button" class="btn meta" data-meta="${t.id}" title="Abrir META (Colabora) con un expediente nuevo relleno con esta tarea">➜ Pasar a META${(t.registro || []).some(r => /^Pasada a META/.test(r.texto)) ? ' ✓' : ''}</button>${(t.registro || []).some(r => /^Pasada a META/.test(r.texto)) && !bloqueada ? `<button type="button" class="btn" data-quitarmeta="${t.id}" title="Ya está en META: quitarla de Tareas NLT">✓ Ya en META: quitar de aquí</button>` : ''}` : ''}${bloqueada ? '<button type="button" class="btn" data-cerrar>Cerrar</button>' : '<button type="button" class="btn primary" data-guardar>Guardar</button>'}</div></form>`;
   pintarColabs(); pintarAvisos(); pintarSubs(); pintarDeps(); pintarTiempo(); pintarRegs(); pintarEnlaces(); pintarProgreso();
   dlg.showModal();
   if (!t) $('[name=titulo]', dlg).focus();
@@ -2121,6 +2121,7 @@ dlg.addEventListener('click', e => {
   const ds = d.dataset;
   if (d.hasAttribute('data-guardar')) { guardarEditor(); return; }
   if (ds.meta) { pasarAMeta(ds.meta); return; }
+  if (ds.quitarmeta) { quitarPorMeta(ds.quitarmeta); return; }
   if (d.hasAttribute('data-cerrar')) { cerrarEditor(); return; }
   if (ds.rapido !== undefined) {
     $('[name=nlt]', dlg).value = ds.rapido === '' ? '' : sumarDias(hoy(), +ds.rapido);
@@ -2172,11 +2173,7 @@ dlg.addEventListener('click', e => {
     const id = borrador.id;
     preguntar(enEquipo(borrador) ? '¿Eliminar esta tarea para TODO el equipo?' : '¿Eliminar esta tarea?', { ok: 'Eliminar', peligro: true }).then(si => {
       if (!si) return;
-      if (datos.activo?.id === id) datos.activo = null;
-      borrarEventosDe(datos.tareas.filter(t => t.id === id));
-      datos.tareas = datos.tareas.filter(t => t.id !== id);
-      datos.tareas.forEach(t => { t.dependeDe = t.dependeDe.filter(x => x !== id); });
-      guardar(); dlg.close(); render(); pintarCrono();
+      quitarTarea(id); dlg.close(); render(); pintarCrono();
     });
   } else if (d.hasAttribute('data-duplicar')) {
     leerFormulario();
@@ -3155,6 +3152,21 @@ mcpVisor().then(m => { gcal.disponible = !!m; if (location.hash === '#ajustes') 
 // envía a ningún servidor. No se toca META: se le pasan los campos que ya entiende (asunto, fecha, «de», referencia, texto e
 // identificador para no duplicar). La NLT y la prioridad van en el texto; se ponen en el formulario de META.
 const urlMetaValida = u => /^https:\/\/[^/]*\.mdef\.es\/.+/i.test(u);
+// Quita una tarea (y lo que dependía de ella) de todos los dispositivos
+function quitarTarea(id) {
+  if (datos.activo?.id === id) datos.activo = null;
+  borrarEventosDe(datos.tareas.filter(t => t.id === id));
+  datos.tareas = datos.tareas.filter(t => t.id !== id);
+  datos.tareas.forEach(t => { t.dependeDe = t.dependeDe.filter(x => x !== id); });
+  guardar();
+}
+// Ya está en META: se quita de aquí para no llevar el asunto duplicado (petición del usuario, 13/11/2026)
+async function quitarPorMeta(id, preguntarAntes = true) {
+  const t = buscar(id); if (!t) return;
+  if (preguntarAntes && !(await preguntar(`¿Ya has pulsado «Crear» en META? «${t.titulo}» se quitará de Tareas NLT${enEquipo(t) ? ' para TODO el equipo' : ''} (también en tus otros dispositivos) y la seguirás en META.`, { ok: 'Quitarla de aquí' }))) return;
+  quitarTarea(id); if (dlg.open) dlg.close(); render(); pintarCrono();
+  toast('Quitada de Tareas NLT: la llevas en META');
+}
 async function pasarAMeta(id) {
   const t = buscar(id);
   if (!t) { toast('Guarda la tarea antes de pasarla a META'); return; }
@@ -3178,7 +3190,9 @@ async function pasarAMeta(id) {
   anotar(t, 'Pasada a META para crear el expediente');
   guardar();
   const b = $('[data-meta]', dlg); if (b) b.textContent = '➜ Pasar a META ✓';
-  toast('Abriendo META: revisa el expediente y pulsa «Crear» allí');
+  // Cuando lo haya creado en META, se quita de aquí (si cancela en META, la tarea sigue aquí)
+  if (await preguntar(`Se ha abierto META con «${t.titulo}». Revisa el expediente y pulsa «Crear» allí; después vuelve y quítala de Tareas NLT para no tenerla duplicada.`, { ok: 'Ya está en META: quitarla de aquí' })) quitarPorMeta(id, false);
+  else toast('Sigue en Tareas NLT. Cuando la crees en META, quítala desde su ficha');
 }
 
 // ---------- Tareas desde correos de Outlook (arrastrar o «✉ Desde correo») ----------
