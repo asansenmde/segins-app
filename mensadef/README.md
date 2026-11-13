@@ -391,4 +391,8 @@ con el formato *verbose* de SharePoint 2013.
   filtros de columnas de MENSADEF cuando hay mensajes sin valor («— Sin prioridad —»…).
 - **2026-11-13 · 6:** «Agrupar» en los filtros: por días (como antes), por meses o sin agrupar. Cada grupo dice cuántos
   mensajes tiene. Se recuerda en el navegador; al agrupar se ordena por fecha.
+- **2026-11-13 · 7:** barra de la ficha con la **propuesta A** (elegida por el usuario): cabecera azul con el asunto y
+  «↗ MENSADEF», «Ampliar» y «Cerrar» en pequeño; debajo, en grande, «Tarea en META», «Al PSIT» y «Ir a Rúbrica» (o «Pasar a
+  rúbrica»), con su explicación; al final, pequeñas, Visto, No leído, Correo, Copiar y la bandera. Ampliada y fija arriba al
+  bajar se compacta (sin las explicaciones).
 

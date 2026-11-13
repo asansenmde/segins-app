@@ -333,7 +333,7 @@ await p.click('#ampliar'); console.log('ampliada: tabla oculta', await p.isHidde
 for (const roto of [false, true]) {
   if (roto) await p.addStyleTag({ content: '#layout { overflow: hidden; }' });
   await p.setViewportSize({ width: 1300, height: 420 }); await p.evaluate(() => scrollTo(0, document.body.scrollHeight)); await p.waitForTimeout(300);
-  console.log('ampliada y abajo' + (roto ? ' (sticky roto)' : '') + ': barra a la vista:', await p.evaluate(() => { const r = document.querySelector('#detalle .barra-ficha').getBoundingClientRect(), h = document.querySelector('header').getBoundingClientRect(); return r.top >= h.bottom - 2 && r.top < h.bottom + 30 && r.bottom <= innerHeight; }), '| scroll:', await p.evaluate(() => scrollY));
+  console.log('ampliada y abajo' + (roto ? ' (sticky roto)' : '') + ': barra a la vista:', await p.evaluate(() => { const r = document.querySelector('#detalle .barra-ficha').getBoundingClientRect(), h = document.querySelector('header').getBoundingClientRect(); return (r.top >= h.bottom - 2 && r.top < h.bottom + 30 && r.bottom <= innerHeight) + ' (' + Math.round(r.top) + '/' + Math.round(h.bottom) + '/' + Math.round(r.bottom) + '/' + innerHeight + ')'; }), '| scroll:', await p.evaluate(() => scrollY));
   if (roto) { await p.screenshot({ path: new URL('barra-fija.png', import.meta.url).pathname }); await p.evaluate(() => document.querySelectorAll('style').forEach(x => x.textContent === '#layout { overflow: hidden; }' && x.remove())); }
 }
 await p.evaluate(() => scrollTo(0, 0)); await p.setViewportSize({ width: 1300, height: 900 });
