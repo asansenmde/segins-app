@@ -400,4 +400,10 @@ con el formato *verbose* de SharePoint 2013.
   no encuentra el botón, deja el mensaje abierto y avisa de que se pulse «Responder». La respuesta se escribe y envía en MENSADEF.
 - **2026-11-13 · 9:** «Pasar a rúbrica» con icono y explicación, como los demás botones grandes. Siguen las dos acciones de
   rúbrica: «Pasar a rúbrica» (enviables o en validación) e «Ir a Rúbrica» (cuando procede).
+- **Explorar Portafirmas (13/11/2026):** favorito de diagnóstico (`explorar-portafirmas.js` → `marcador-explorar-portafirmas.html`)
+  para `portafirmas.mdef.es`. Anota solo estructura: ruta y nombres de parámetros, formularios (acción y nombres de campos),
+  botones (texto si es corto y sin números), cabeceras de tablas, formas de los enlaces, scripts, y lo que pasa al pulsar
+  (envíos, peticiones, ventanas, AutoFirma por protocolo o conexión local). Tapa números e identificadores; no copia asuntos ni
+  nombres. Lo anotado se guarda en la pestaña para seguir tras un cambio de página. Objetivo: llevar desde SENDERO a la
+  petición en el Portafirmas, lista para firmar.
 

@@ -69,7 +69,7 @@ PLANTILLA = '''<!doctype html>
 <footer class="autor">© 2026 · Diseñado y desarrollado por el <b>Cte. Alfredo Sánchez Sender</b> · Todos los derechos reservados</footer>
 <script>
   document.getElementById('marcador').addEventListener('click', function (e) {{
-    if (location.hostname !== 'mensadef.mdef.es') {{ e.preventDefault(); alert('Arrástralo a la barra de favoritos y púlsalo estando en MENSADEF.'); }}
+    if (location.hostname !== 'mensadef.mdef.es') {{ e.preventDefault(); alert('Arrástralo a la barra de favoritos y púlsalo en la página donde se usa (MENSADEF o el Portafirmas).'); }}
   }});
   document.getElementById('copiar').addEventListener('click', function () {{
     var b = this, t = document.getElementById('marcador').getAttribute('href');
@@ -131,8 +131,19 @@ ESCUCHAR = ('escuchar-mensadef.js', 'marcador-escuchar-mensadef.html', 'Escuchar
              'Cuando hayas terminado, pulsa <b>Copiar</b> en el recuadro y pégalo en la conversación.',
              'Para quitarlo, recarga la página (F5).'])
 
+EXPLORAR_PF = ('explorar-portafirmas.js', 'marcador-explorar-portafirmas.html', 'Explorar Portafirmas', 'Explorar Portafirmas (diagnóstico)',
+               'Un <b>favorito de diagnóstico</b> para <b>portafirmas.mdef.es</b>: anota cómo está hecha la página (rutas, nombres de '
+               'parámetros, formularios, botones, cabeceras de tablas y cómo se llama a AutoFirma), <b>nunca su contenido</b>: ni asuntos, '
+               'ni nombres, ni números. Sirve para que SENDERO pueda llevarte a la petición lista para firmar. No envía nada a ningún sitio.',
+               ['Entra en el Portafirmas e identifícate como siempre.',
+                'Ve a la lista de peticiones <b>pendientes</b> y pulsa el favorito <b>Explorar Portafirmas</b>: sale un recuadro con borde rojo abajo a la derecha.',
+                'Abre una petición, márcala y pulsa <b>Firmar</b>. Cuando salga AutoFirma, <b>cancela</b> (no hace falta firmar).',
+                'Si la página cambia, pulsa otra vez el favorito: conserva lo anotado.',
+                'Pulsa <b>Copiar</b> en el recuadro y pégalo en la conversación. Para quitarlo, recarga (F5).'])
+
 if '--pruebas' in sys.argv:
     generar(*ESCUCHAR)
+    generar(*EXPLORAR_PF)
     generar('visor-mensadef.html', 'marcador-visor-mensadef-pruebas.html', 'SENDERO (pruebas)',
             'SENDERO · Visor de mensajes de MENSADEF · VERSIÓN DE PRUEBAS',
             'Copia de pruebas de SENDERO, para probar las novedades sin tocar el favorito bueno. Lleva una banda roja, '
