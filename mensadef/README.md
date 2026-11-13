@@ -379,4 +379,7 @@ con el formato *verbose* de SharePoint 2013.
   «no leído»; ahora usa `psit`.
 - **2026-11-13 · 1:** el comentario que se deja en MENSADEF al añadir la tarea en META lleva el nombre de quien la añade
   («Añadido como tarea en META (META) por NOMBRE el fecha · SENDERO»). El nombre es el de su cuenta de Colabora/MENSADEF.
+- **2026-11-13 · 2:** la zona de trabajo ocupa toda la pantalla (sin ancho máximo) y la ficha crece con ella (420–760 px).
+  Bajo el asunto ya no sale autoridad · firma · motivo (siempre igual; sigue en la ficha) sino si es de **ACCIÓN** o **INFO**
+  (campo `Actuacion` de la bandeja) y el **último comentario**, que se actualiza al comentar o al pasar a META.
 
