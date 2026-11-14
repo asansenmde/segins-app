@@ -1,11 +1,11 @@
 // Prueba de «📋 Incluir en el Punto de Situación» (META / Gestor de Tareas → aplicación Puntos de Situación) contra un Colabora simulado.
-// node colabora/pruebas/punto-situacion.mjs   ·   VERBOSE=1 (SharePoint 2013)   ·   TAREAS_HTML=colabora/colabora/tareas-nlt-colabora-mensadef.html (copia protegida)
+// node colabora/pruebas/punto-situacion.mjs   ·   VERBOSE=1 (SharePoint 2013)   ·   TAREAS_HTML=colabora/colabora/META.html (copia protegida)
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
 const fs = require('fs');
 const html = fs.readFileSync(process.env.TAREAS_HTML || new URL('../tareas-nlt-colabora.html', import.meta.url), 'utf8');
-const LISTA = /mensadef/.test(process.env.TAREAS_HTML || '') ? 'Gestor de Tareas MENSADEF' : /pruebas/.test(process.env.TAREAS_HTML || '') ? 'Gestor de Tareas PRUEBAS' : 'Gestor de Tareas';
+const LISTA = /mensadef|META\.html/.test(process.env.TAREAS_HTML || '') ? 'Gestor de Tareas MENSADEF' : /pruebas/.test(process.env.TAREAS_HTML || '') ? 'Gestor de Tareas PRUEBAS' : 'Gestor de Tareas';
 const SUF = /PRUEBAS$/.test(LISTA) ? ' PRUEBAS' : '';
 const VERBOSE = !!process.env.VERBOSE;
 const aVerbose = j => j && !j.d && !j.error ? (Array.isArray(j.value) ? { d: { results: j.value, __next: j['odata.nextLink'] } } : { d: j }) : j;
@@ -15,7 +15,7 @@ const items = [
   { Id: 1, Title: 'Revisión de extintores del edificio B', ESTADO: 'EN CURSO', Prioridad: 'Alta', NegociadoAsignado: 'PRL', DescripcionDelAsunto: '<p>Descripción ficticia</p>', Comentarios: '', TratarEn: [] },
   { Id: 2, Title: 'Asunto de infraestructura', ESTADO: 'EN CURSO', Prioridad: 'Media', NegociadoAsignado: 'Infraestructura', DescripcionDelAsunto: 'Otra descripción', Comentarios: '', TratarEn: [] },
 ].map(x => ({ ...x, Created: h(-48), Modified: h(-24), Author: { Title: 'AUTOR' }, Editor: { Title: 'EDITOR' }, ResponsableDeLaInformacion: { Id: 7, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.es' }, PersonalImplicado0: [], NegociadosImplicados: [] }));
-let instalada = false, validacion = false, soyPRL = true;
+let instalada = false, validacion = false, soyPRL = true, sinAnadir = false;
 const puntos = [{ Id: 45, Title: 'Punto de Situación 10/11/2026', Referencia: 'PS-2026-045', FechaPunto: h(24), Apertura: h(-20), Cierre: h(4), EstadoPunto: 'Abierto' },
   { Id: 44, Title: 'Punto de Situación 03/11/2026', Referencia: 'PS-2026-044', FechaPunto: h(-150), Apertura: h(-200), Cierre: h(-148), EstadoPunto: 'Cerrado' }];
 const miembros = ids => VERBOSE ? { results: ids.map(Id => ({ Id })) } : ids.map(Id => ({ Id }));
@@ -47,6 +47,7 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
       if (m) { Object.assign(aport.find(a => a.Id === Number(m[1])), c, { Modified: new Date().toISOString() }); return ful({ status: 204, body: '' }); }
       const a = { Id: aport.length + 1, ...c, Modified: new Date().toISOString() }; aport.push(a); return ful({ status: 201, json: { d: a } });
     }
+    if (lst === LISTA && /\/items$/.test(resto)) { const n = { Id: items.length + 1, ...c, TratarEn: c.TratarEn ? c.TratarEn.results : [], Created: new Date().toISOString(), Modified: new Date().toISOString(), Author: { Title: 'USUARIO DE PRUEBA' }, Editor: { Title: 'USUARIO DE PRUEBA' }, ResponsableDeLaInformacion: { Id: 7, Title: 'USUARIO DE PRUEBA', EMail: 'usuario@et.mde.es' }, PersonalImplicado0: VERBOSE ? { results: [] } : [] }; delete n.ResponsableDeLaInformacionId; delete n.PersonalImplicado0Id; items.push(n); return ful({ status: 201, json: { d: { Id: n.Id } } }); }
     if (lst === LISTA) { const it = items.find(x => x.Id === Number(resto.match(/items\((\d+)\)/)[1])); if (c.TratarEn) it.TratarEn = c.TratarEn.results; it.Modified = new Date().toISOString(); return ful({ status: 204, body: '' }); }
     return ful({ status: 400, body: '' });
   }
@@ -54,7 +55,7 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
   if (resto.startsWith('web/currentuser')) return ful({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' } });
   if (lst.startsWith('PS ')) {
     if (!instalada) return ful({ status: 404, body: '' });
-    if (lst === 'PS Aportaciones' + SUF && !resto.includes('/items')) return ful({ json: { Id: 'a', ListItemEntityTypeFullName: 'SP.Data.PS_x0020_AportacionesListItem' } });
+    if (lst === 'PS Aportaciones' + SUF && !resto.includes('/items')) return ful({ json: { Id: 'a', ListItemEntityTypeFullName: 'SP.Data.PS_x0020_AportacionesListItem', EffectiveBasePermissions: { High: '0', Low: sinAnadir ? '1' : '4095' } } });
     if (lst === 'PS Puntos' + SUF) return ful({ json: { value: puntos } });
     if (lst === 'PS Negociados' + SUF) return ful({ json: { value: negs() } });
     if (lst === 'PS Aportaciones' + SUF) {
@@ -68,7 +69,7 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
     return ful({ status: 404, body: '' });
   }
   if (lst === LISTA) {
-    if (resto.includes('/fields?')) return ful({ json: { value: [{ InternalName: 'ESTADO', Choices: ['EN CURSO', 'FINALIZADO'] }, { InternalName: 'TratarEn', Choices: ['PUNTO DE SITUACIÓN', 'TRATAR CON EL GENERAL'], TypeAsString: 'MultiChoice' }] } });
+    if (resto.includes('/fields?')) return ful({ json: { value: [{ InternalName: 'ESTADO', Choices: ['EN CURSO', 'FINALIZADO'] }, { InternalName: 'TratarEn', Choices: ['PUNTO DE SITUACIÓN', 'TRATAR CON EL GENERAL'], TypeAsString: 'MultiChoice' }, { InternalName: 'NegociadoAsignado', Choices: ['PRL', 'Infraestructura'], FillInChoice: true }] } });
     if (resto.includes('getbyinternalnameortitle')) return ful({ json: { InternalName: 'Comentarios', AppendOnly: false } });
     const m = resto.match(/items\((\d+)\)/);
     if (m) { const it = items.find(x => x.Id === Number(m[1])); return ful({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, Id: it.Id, Modified: it.Modified } } }); }
@@ -87,8 +88,13 @@ comprueba('sin instalar, lo explica: ' + t.slice(0, 90), /aún no está instalad
 // 2. Instalada, punto abierto, el usuario es de PRL
 instalada = true;
 t = await ficha(1);
-comprueba('sin marca ⭐ no deja incluir y lo explica: ' + t.slice(0, 120), /Tratar con el General/.test(t) && !(await p.$('[data-psform]')));
+comprueba('sin marca ⭐ no deja incluir y lo explica: ' + t.slice(0, 120), /Tratar con el General|Punto Situación semanal/.test(t) && !(await p.$('[data-psform]')));
 items[0].TratarEn = ['TRATAR CON EL GENERAL']; items[1].TratarEn = ['TRATAR CON EL GENERAL'];
+// 13/11/2026: sin permiso para añadir en «PS Aportaciones» lo dice y no envía nada (no sale la pantalla de identificarse)
+sinAnadir = true; t = await ficha(1);
+{ const nP = posts.length; await p.click('[data-psform]'); await p.waitForSelector('#psSit'); await p.fill('#psSit', 'Sin permiso.'); await p.click('[data-psok]'); await p.waitForTimeout(300);
+  comprueba('sin permiso en PS Aportaciones: ' + (await p.textContent('#psErr')).slice(0, 90), /no te deja añadir entradas/.test(await p.textContent('#psErr')) && !posts.slice(nP).some(x => /PS Aportaciones/.test(x.ruta))); }
+sinAnadir = false;
 t = await ficha(1);
 comprueba('botón de incluir en el punto abierto: ' + t.slice(0, 90), /Incluir en PS-2026-045/.test(t));
 await p.click('[data-psform]'); await p.waitForSelector('#psSit');
@@ -133,6 +139,14 @@ soyPRL = false;
 t = await ficha(2); await p.click('[data-psform]'); await p.waitForSelector('#psForm .aviso');
 comprueba('sin negociado: ' + (await p.textContent('#psForm')).slice(0, 80), /Solo los miembros/.test(await p.textContent('#psForm')));
 soyPRL = true;
+// 6b. Desde SENDERO «📋 Al Punto de Situación»: el asunto nace marcado ⭐ y se abre «Incluir en el punto»
+await p.goto(URL0 + '#importar=' + encodeURIComponent(JSON.stringify({ v: 1, origen: 'MENSADEF', id: 'MSG-PS-1', asunto: 'Mensaje para el punto de situación', texto: 'Texto del mensaje', punto: true, departamento: 'ET 2SUIGE SETEC PRL' })));
+await p.waitForSelector('#dlg[open] #nCrear', { timeout: 15000 });
+comprueba('alta titulada para el Punto de Situación: ' + await p.textContent('#dlg h2'), /PSIT/.test(await p.textContent('#dlg h2')));
+await p.click('#nCrear'); await p.waitForSelector('#psForm #psSit, #psForm .aviso', { timeout: 20000 }).catch(() => 0);
+{ const n = items.find(x => x.Title === 'Mensaje para el punto de situación') || {};
+  comprueba('creado marcado ⭐ Tratar con el General: ' + JSON.stringify(n.TratarEn), (n.TratarEn || []).indexOf('TRATAR CON EL GENERAL') >= 0);
+  comprueba('se abre solo el formulario de incluir en el punto (o su aviso de permisos)', !!(await p.$('#psForm #psSit, #psForm .aviso'))); }
 // 7. Sin punto abierto
 puntos[0].Cierre = h(-1);
 t = await ficha(2);

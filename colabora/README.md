@@ -35,19 +35,160 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
-- **Versión 2026-11-10 · 1: une las dos últimas.** Lleva «Ajustes solo con Control total» (la 2026-11-09 · 2 que el
-  usuario subió y confirmó) y el enlace con el **Punto de Situación** (hecho el 09/11 en la rama
-  `claude/modest-fermat-9zf46n`, numerado allí también · 2 y · 3 porque se hizo en paralelo). Mismas listas y datos.
+- **Versión 2026-11-13 · 2:** sin «Agregar elementos» o «Editar elementos» en la lista, META lo dice antes de escribir (al
+  crear se escribe también el nº de expediente, que necesita «Editar elementos»). Quien solo tiene permiso en la lista
+  («Acceso limitado» en el sitio) no envía correos desde Colabora (se le prepara en Outlook), no busca en el directorio ni da de
+  alta personas en el sitio: esas peticiones sacaban la pantalla de usuario y contraseña. El nivel propio «META» debe ser una
+  copia de «Colaborar» con «Eliminar elementos» (con «Editar elementos», «Ver versiones», «Examinar información de usuario»,
+  «Utilizar interfaces remotas», etc.).
+- **Versión 2026-11-13 · 1:** al pasar un asunto al Punto de Situación, META mira antes los permisos en «PS Aportaciones»
+  (añadir, o modificar la entrada). Si no los hay, lo dice y no envía nada: antes Colabora sacaba la pantalla de identificarse.
+- **Versión 2026-11-12 · 7:** En el sitio JSUIGE el nivel «Colaborar» no incluye «Eliminar elementos»: para la lista
+  «Gestor de Tareas MENSADEF» se usa un nivel propio «META» (copia de Colaborar con «Eliminar elementos»). No dar Control total
+  para eliminar: en META, Control total es administrador (ve todos los expedientes y Ajustes). si no deja eliminar, el aviso dice el motivo concreto: la lista solo deja tocar lo que
+  cada uno creó (Acceso a elementos), el nivel permite modificar pero no eliminar, o la cuenta solo tiene lectura.
+- **Versión 2026-11-12 · 6:** antes de eliminar un asunto se leen sus permisos (GET). Si quien lo intenta no puede
+  eliminarlo, se le dice claramente y no se envía nada: antes Colabora sacaba la pantalla de identificarse (como pasaba
+  en el Punto de Situación). Vale para META y para el Gestor común (es la misma función).
+- **Versión 2026-11-12 · 5 (META):** en la ficha el estado se elige solo entre ⚙️ En curso y ✅ Terminada (Pendiente y
+  En espera no tienen estado propio en la lista y no hacían nada).
+- **Versión 2026-11-12 · 4 (solo META; el Gestor común sigue igual):**
+  - Ficha: el estado se elige pulsando los pasos de arriba (Pendiente › En curso › En espera › Terminada); al pasar a
+    Terminada se pone la fecha de finalización y al salir se quita. Ya no están «Finalizar», «Cambiar estado» ni «Ver en Colabora».
+  - Botones de la ficha: Modificar, Recordar por correo, 🔔 Recordar asignación (antes «Enviar aviso de asignación») y Eliminar.
+  - Los correos que se preparan en Outlook (mailto) se abren en una ventana nueva y META no se pierde.
+  - Marcas «Para tratar en»: 📋 «Reunión de entradas» (antes «Punto de situación») y ⭐ «Punto Situación semanal» (antes
+    «Tratar con el General»). Solo cambia el nombre que se ve: en la lista se guarda lo mismo y el Punto de Situación sigue igual.
+  - Filtros (Tareas, Informes y Avisos): cada uno solo ve sus departamentos; Control total, todos.
+- **Versión 2026-11-12 · 3:**
+  - En las solicitudes de acceso salía «fecha no válida»: `fCorta` solo entiende «aaaa-mm-dd» y `Created` trae la hora.
+    Ahora se usa `fSol`, con día y hora.
+  - Campos obligatorios marcados con un asterisco rojo: empleo, teléfono, departamento y «para qué necesitas el
+    acceso». Si falta alguno, se dice cuál y se marca en rojo.
+- **Versión 2026-11-12 · 2: cerrar la carpeta.** Ocultar no impide abrir la dirección de la biblioteca y ver lo que
+  hay dentro. Para eso, en Ajustes › «Cerrar la carpeta» (Control total):
+  - la biblioteca deja de heredar los permisos del sitio;
+  - quien tenía Leer, Colaborar o Editar pasa a «Lectura restringida». Si el sitio no tiene ese nivel, se crea
+    «META solo abrir», con ver y abrir elementos y ver páginas, pero sin ver formularios ni vistas;
+  - Control total, Diseño y quien la cierra no cambian;
+  - con eso se puede abrir `META.html` con su dirección, pero no la carpeta;
+  - «Volver a abrirla» la deja heredando otra vez los permisos del sitio.
+
+  Ajustes dice si la carpeta está abierta (y para quién) o cerrada. Prueba: `meta-acceso.mjs`.
+- **Versión 2026-11-12 · 1: ocultar la biblioteca.** En Ajustes › Lista de SharePoint se dice en qué biblioteca está
+  la página (p. ej. «aplicaciones») y se puede ocultar de «Contenido del sitio» o volver a mostrarla. Es un MERGE
+  `Hidden`, igual que en Incidentes y VSA. La página sigue funcionando con su dirección. Prueba: `meta-acceso.mjs`.
+- **Versiones 2026-11-11 · 10 y · 11: solicitud de acceso como en Incidentes.**
+  - Sin alta no se ven las pestañas ni «Nuevo asunto» / «Desde correo». Tampoco se abre ningún alta, ni siquiera la
+    que llega desde SENDERO.
+  - Pantalla «🔒 No tienes acceso a META» con:
+    - la sesión;
+    - el formulario «Solicitar acceso»: nombre y correo de la cuenta, empleo (propuesto del perfil), teléfono,
+      departamento (catálogo u «Otro») y motivo;
+    - el botón «📨 Enviar solicitud de acceso»;
+    - «Tus solicitudes», con su estado y el motivo del rechazo.
+  - El formulario sale siempre. Si «META SOLICITUDES» no existe o no deja escribir, la solicitud va solo por correo.
+  - Cada solicitud **avisa por correo solo a `AVISAR_SOLIC`** (asansen@et.mde.es), como en Incidentes, y dice si el
+    aviso ha salido. En la · 11 iba también a los propietarios del sitio; el usuario lo quitó en la · 12.
+  - Columnas nuevas: `Empleo` y `Telefono`. Si la lista es anterior, esos datos van en el motivo.
+- **Versión 2026-11-11 · 9: solicitud de acceso en META** (como en el resto de aplicaciones; receta de VSA).
+  - **Quien no está dado de alta** (con «META MIEMBROS» ya creada) no ve ningún expediente. Ve «🔒 Aún no tienes acceso
+    a META» y el formulario: marca su departamento (catálogo o «Otro», escrito como en MENSADEF), escribe el motivo y
+    pulsa «Solicitar acceso». Después ve si está pendiente, o el motivo si se le denegó, y puede pedirlo otra vez.
+  - **Lista «META SOLICITUDES»** (Persona, Departamentos, Motivo, Estado, Respuesta). La crea el administrador en Ajustes
+    › «Quién ve los expedientes» › «📨 Solicitudes de acceso»:
+    - con «solo sus elementos» (`ReadSecurity`/`WriteSecurity` = 2);
+    - abierta con «Colaborar» a «Usuarios del dominio» (`breakroleinheritance` + `addroleassignment`), para que
+      cualquiera pueda pedir.
+  - Hay enlace para la **alerta de SharePoint** de solicitudes nuevas, y la bienvenida del administrador avisa de las
+    pendientes.
+  - **Dar de alta:** crea o completa su fila de «META MIEMBROS» con los departamentos pedidos, marca la solicitud
+    «Aprobada» y le manda un correo (envío robusto).
+  - **Denegar:** pide el motivo, marca «Denegada» y manda un correo.
+  - Si aún no existe «META MIEMBROS», no se bloquea a nadie (cada uno ve lo suyo, como antes).
+  - Prueba: escenario 6 de `meta-acceso.mjs`.
+- **Versión 2026-11-11 · 8:** la copia protegida de META se llama **`colabora/colabora/META.html`** (antes
+  `tareas-nlt-colabora-mensadef.html`) y se sube a `…/JSUIGE/aplicaciones/META.html`, la dirección que SENDERO trae por
+  defecto. El alta desde SENDERO para el PSIT se titula «Pasar directamente al PSIT (queda registrado en META)».
+- **Versión 2026-11-11 · 7: Punto de Situación desde SENDERO.** Si `#importar` trae `punto: true`:
+  - el alta se titula «📋 Nuevo asunto para el Punto de Situación»;
+  - el asunto se crea con `TratarEn = TRATAR CON EL GENERAL` (si la lista tiene la columna);
+  - al abrirse la ficha se pulsa solo «📋 Incluir en …» (`psAbrirAlCrear`).
+
+  Si no hay punto abierto o la aplicación no está instalada, lo avisa y el asunto queda marcado como propuesta.
+  Prueba: escenario 6b de `punto-situacion.mjs`.
+- **Versión 2026-11-11 · 6: departamentos solo en META.** El Gestor común es para otros asuntos y vuelve a sus
+  negociados de siempre: «Negociado asignado» (desplegable con las opciones de la lista), «Negociados implicados»,
+  filtros con todos los negociados y sin el catálogo de Ajustes. Lo de SENDERO le llega sin departamento. Todo lo de
+  departamentos depende de `DEP = PROPIO`; los textos pasan por `tx()`. Del cambio solo le queda el orden nuevo del
+  alta (asunto; negociado y responsable con «✎ Cambiar»; lo demás).
+- **Versión 2026-11-11 · 5: catálogo de departamentos.**
+  - Las opciones de las columnas «Negociado asignado» e «implicados» son el **catálogo de departamentos**, el mismo
+    para todos.
+  - Se gestiona en Ajustes (Control total) › «🏢 Departamentos (células de MENSADEF)»:
+    - «Poner las 12 células de SUIGESUR» (lista dada por el usuario, `CELULAS_SUIGESUR`). Pide confirmar y quita las
+      opciones antiguas de la columna.
+    - «＋ Dar de alta» otra célula, escrita como en MENSADEF.
+    - ✕ para quitar una.
+  - Se guarda con MERGE en las dos columnas (`Choices` + `FillInChoice=true`). Para instalarlo en otro sitio, se ponen
+    allí sus células.
+  - Los filtros (pantalla e informes) muestran el catálogo, más las células que manda SENDERO y las que hay en los
+    expedientes. Los negociados antiguos que aún tienen expedientes salen aparte («Antiguos (en expedientes
+    anteriores)»).
+- **Versión 2026-11-11 · 4:**
+  - **Fuera lo antiguo:** solo se ofrecen células de MENSADEF, también en «Quién ve los expedientes». Al modificar a
+    alguien, sus departamentos actuales siguen saliendo, para no perderlos.
+  - **Alta más clara:** asunto; después, en su propio recuadro, «Departamento asignado» y «Responsable de la
+    información», con la ayuda debajo (ya no se solapan); después las fechas, el estado y lo demás. El responsable
+    tiene «✎ Cambiar» para poner a otra persona (búsqueda con la cuenta del dominio).
+  - **Células automáticas:** SENDERO manda, con cada mensaje, todas las células del usuario (`departamentos`). META
+    las guarda en el navegador y las ofrece al elegir el departamento, sin escribirlas.
+- **Versión 2026-11-11 · 3: todo junto.** Se juntan dos líneas de trabajo que iban por separado:
+  - la de la rama `claude/task-manager-web-nlt-n7elx4` (2026-11-10 · 2): en META cada uno ve sus expedientes y los de
+    su negociado (lista «META MIEMBROS», Ajustes › «Quién ve los expedientes de META») e «Incluir en el Punto de
+    Situación»;
+  - la de esta rama: negociado/responsable desde SENDERO y departamentos = células de MENSADEF.
+
+  Fusión a tres bandas desde la base común (2026-11-09 · 2). En «Quién ve los expedientes», los negociados pasan a
+  ser **departamentos**: primero las células de MENSADEF, después los negociados antiguos, y un campo para añadir otra
+  célula. El control de acceso compara el nombre tal cual, así que una persona dada de alta en «ET 2SUIGE SEGURIDAD» ve
+  los expedientes con ese departamento.
+  **Batería:** `sh colabora/pruebas/todas.sh` (simulación, importar, quién ve, punto de situación; original, verbose y
+  protegidas). Hay que pasarla antes de entregar.
+- **Versión 2026-11-11 · 2: departamentos = células de MENSADEF.**
+  - En pantalla, «Negociado asignado / implicados» pasa a **«Departamento asignado / implicados»**. Las columnas de la
+    lista son las mismas (`NegociadoAsignado`, `NegociadosImplicados`).
+  - **Se ofrecen solo células de MENSADEF:** las que ya están en los asuntos (las que no son opciones antiguas de la
+    columna) y las que han llegado desde SENDERO a este navegador. El asignado se escribe o se elige (lista
+    desplegable); para los implicados hay casillas y «Añadir otra célula de MENSADEF». Los asuntos antiguos conservan su
+    negociado (PROCOR, SEGURIDAD…) y se siguen viendo y filtrando.
+  - **Activar una vez (Control total):** Ajustes → «Departamentos de MENSADEF» → «Admitir las células de MENSADEF». Pone
+    `FillInChoice=true` en las dos columnas (MERGE en `/fields/getbyinternalnameortitle`). No borra ni cambia nada.
+    Mientras no esté activado, al guardar una célula se avisa de que hay que activarlo.
+  - **Desde SENDERO:** llega `departamento` (la célula del mensaje) y queda puesto como asignado.
+  - **Responsable:** siempre quien crea la tarea (también desde SENDERO). Se cambia buscando en el directorio; las
+    sugerencias muestran la cuenta del dominio (`et\usuario`) además del correo.
+- **Versión 2026-11-10 · 2: en META, cada uno ve solo lo suyo** (solo META; el Gestor común no cambia salvo el número).
+  - Ve un expediente quien lo creó, su responsable, el personal implicado y los miembros de **su negociado** (asignado o
+    implicado). Lo ven todos quien tiene Control total y quien se marque «Lo ve todo».
+  - Los negociados de cada persona se dan de alta en *Ajustes › Quién ve los expedientes de META* (lista **«META MIEMBROS»**:
+    `Persona`, `Negociados` separados por «;», `VeTodo`; la página la crea con «Crear la lista»). Alta buscando en el sitio o
+    en el directorio, modificar y quitar (a la papelera). Sin la lista, cada uno ve solo lo que creó, lleva o en lo que interviene.
+  - La cabecera dice «3 de 6 asuntos» y la bienvenida qué ve cada uno. Es un **filtro de la página**: quien abra la lista
+    directamente en Colabora la ve entera (para eso, permisos de la lista en Colabora).
+  - Prueba: `node colabora/pruebas/meta-acceso.mjs` (también `VERBOSE=1` y `TAREAS_HTML=colabora/colabora/META.html`).
+- **Versión 2026-11-10 · 1: se juntan la · 2 y la · 3**, que se hicieron por separado en dos sesiones: Ajustes solo con
+  Control total (· 2) y «📋 Incluir en el Punto de Situación» solo para los asuntos ⭐ Tratar con el General (· 3).
 - **Versión 2026-11-09 · 2: Ajustes solo con Control total**, en el Gestor común y en META.
   - La pestaña Ajustes sale solo a quien tiene «Control total» (permiso «Administrar permisos») en la lista o, si la
     lista no se puede leer, en el sitio. A los demás no les aparece y, si la tenían abierta, vuelven a «Tareas».
   - Esto se hizo la mañana del 09/11 en otra rama (`claude/task-manager-web-nlt-n7elx4`, commit 8fca758), pero sobre
     la versión 2026-10-23 · 3. La copia que salió de allí no tenía Finalizar, Eliminar, Tratar en, etc. Ahora está
     portado a la versión buena.
-- **Enlace con el Punto de Situación (2) · ⭐:** pasan al punto de situación los asuntos marcados **⭐ Tratar con el General** (decisión del
+- **Versión 2026-11-09 · 3:** pasan al punto de situación los asuntos marcados **⭐ Tratar con el General** (decisión del
   usuario): sin esa marca la ficha lo explica y no ofrece incluirlo; incluir no cambia las marcas del asunto. Las
   propuestas para PROCOR serán los asuntos ⭐ que aún no estén en el punto abierto.
-- **Enlace con el Punto de Situación (1): «📋 Incluir en el Punto de Situación».** Un asunto importante (llegado de SENDERO y dado de
+- **Versión 2026-11-09 · 2: «📋 Incluir en el Punto de Situación».** Un asunto importante (llegado de SENDERO y dado de
   alta en META) se incluye desde su ficha en el punto de situación abierto de la aplicación **Puntos de Situación de
   SUIGESUR** (proyecto aparte, mismo sitio; ver `PENDIENTES.md`).
   - Recuadro azul en la ficha, bajo «Para tratar en». Si la aplicación aún no está instalada (faltan sus listas), lo dice y
@@ -93,7 +234,7 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   la columna» quien pueda administrar la lista. Hay que crearla en cada lista: común, MENSADEF y pruebas.
 - **Versión 2026-11-04 · 2:** en la pantalla inicial se ven todos los terminados (antes solo los 200 últimos), de 200 en 200
   con «Mostrar más», y hay filtro «Terminados desde / hasta» (por la fecha de fin). Nueva copia **Gestor propio de
-  MENSADEF** (`node proteger.mjs --propio` → `colabora/tareas-nlt-colabora-mensadef.html`): lista «Gestor de Tareas
+  MENSADEF** (`node proteger.mjs --propio` → `colabora/META.html` (antes `tareas-nlt-colabora-mensadef.html`)): lista «Gestor de Tareas
   MENSADEF», sin banda roja ni [PRUEBAS]; si falta la lista, ofrece usar la de pruebas cambiándole el nombre (conserva sus
   tareas) o crear una vacía.
 - **Versión 2026-11-04 · 1 (buena):** pasan a la copia buena las novedades que estaban solo en la de pruebas (recibir

@@ -64,12 +64,16 @@ Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`
 13. **Solicitudes de acceso del sitio JIGE** (27/10/2026): Incidentes y Pérdidas usaban por error la lista interna oculta
     «Solicitudes de acceso» de SharePoint; ahora «SOLICITUDES ACCESO APLICACIONES» (Incidentes 2026-10-27 · 1, Pérdidas · 2).
     Hecho (27/10/2026, confirmado en Preparación): lista creada, solo sus elementos, abierta a «usuarios del dominio» y
-    grupo INCIDENTES_UNIDADES (8 personas). Queda confirmar la alerta «Avisarme» con una solicitud de prueba. **VSA tiene el mismo fallo** (sigue con «SOLICITUDES DE
-    ACCESO»): corregirlo cuando el usuario diga.
-    **01/11/2026**: una unidad acreditada no podía guardar el borrador («Acceso denegado»): `INCIDENTES_UNIDADES` sin
-    «Colaborar» en la lista de incidentes. Incidentes 2026-11-01 · 1 lo avisa y en Ajustes › Accesos lo da con un botón.
-    Copia protegida (semilla fija 20261027) subida y funcionando (01/11/2026). Pendiente: pulsar «Dar «Colaborar»…» en
-    Ajustes › Accesos y confirmar con la unidad. Revisar Pérdidas y VSA igual.
+    grupo INCIDENTES_UNIDADES (8 personas). Queda confirmar la alerta «Avisarme» con una solicitud de prueba. VSA tenía el mismo fallo: corregido el
+    06/11/2026 (VSA 2026-11-06 · 1, misma lista y aviso a asansen@et.mde.es; lee también las solicitudes antiguas). Queda
+    que el usuario suba la versión, resuelva las solicitudes 📦 y cree la alerta «Avisarme» si no la tiene.
+14. **Buscar en todos los campos** (regla del usuario, 05/11/2026, ya en `CLAUDE.md`): revisar los campos «Buscar» de
+    cada aplicación (Tareas Colabora, Permisos, Incidentes, VSA, Pérdidas…) para que busquen en todos los campos. Pendiente
+    de que el usuario diga si se hace ya en todas o al tocar cada una.
+15. **Eliminar registros y adjuntos** (05/11/2026, hecho en Incidentes 2026-11-05 · 1 y Pérdidas 2026-11-05 · 3): botón
+    rojo «Eliminar» en la ficha solo para quien tiene permiso de eliminar en la lista (va a la papelera). Falta que el
+    usuario decida si quita «Eliminar elementos» a unidades y SUIGE (con «Colaborar» pueden todos) con un nivel de permiso
+    propio en Colabora.
 
 Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar por la que diga).
 
@@ -121,6 +125,62 @@ autoría.
     claude/task-manager-web-nlt-n7elx4, que partía de una versión vieja sin Finalizar/Eliminar). Subidos y confirmados
     por el usuario el mismo día.
     09/11/2026: SENDERO 2026-11-09 · 10 con la barra en dos pisos, probado por el usuario y pasado al definitivo.
+    10/11/2026: SENDERO 2026-11-10 · 1 (pruebas): portal de inicio desde la portada de MENSADEF (Landing), con el inicio
+    de sesión del ámbito en una ventana pequeña. Probado por el usuario; versión definitiva 2026-11-10 · 2 con el portal rediseñado.
+    10/11/2026: SENDERO 2026-11-10 · 3 (portal sin caer a borradores) confirmado por el usuario.
+    10/11/2026: SENDERO 2026-11-10 · 4 (pruebas): marca leído en MENSADEF al abrir y «Marcar no leído». Pendiente: que
+    lo pruebe (la negrita debe desaparecer también en MENSADEF). Analizado crear mensajes: ver respuesta del 10/11.
+    10/11/2026: SENDERO 2026-11-10 · 5: leído en el definitivo; entrada automática desde la portada en pruebas.
+    Pendiente: que pruebe la entrada automática sin sesión abierta.
+    10/11/2026: SENDERO 2026-11-10 · 8: entrada automática en el definitivo; «Visto» se quita también con una tarjeta
+    elegida; batería `mensadef/pruebas/todas.sh` para no repetir errores ya resueltos.
+    11/11/2026: SENDERO 2026-11-11 · 1 manda a META el negociado y el responsable (se recuerdan por célula y negociado);
+    Gestor común y META 2026-11-11 · 1 los ponen en el alta. Pendiente: que suba los dos Gestores y pruebe.
+    11/11/2026: departamentos = células de MENSADEF (SENDERO 2026-11-11 · 2 manda la célula; Gestor común y META
+    2026-11-11 · 2 la ponen como departamento; responsable = quien crea). Pendiente: subir los Gestores y, con Control
+    total, activar una vez Ajustes → «Departamentos de MENSADEF» en cada lista (META y común).
+
+16. **Gestor de Tareas / META 2026-11-10 · 1** (10/11/2026): junta la · 2 (Ajustes solo con Control total, rama
+    `claude/mensadef-outlook-tasks-sync-vozg8g`) y la · 3 («📋 Incluir en el Punto de Situación», rama
+    `claude/modest-fermat-9zf46n`), hechas por separado. Probado en simulación (original y protegida, ligero y verbose).
+    Pendiente: que el usuario suba el Gestor común; META se regenera igual por si la quiere. Ojo: las sesiones de SENDERO
+    y de Puntos de Situación siguen con su versión; si vuelven a tocar el Gestor, que partan de esta.
+17. **META: quién ve cada expediente** (10/11/2026, META 2026-11-10 · 2): autor, responsable, implicados y su negociado; todo
+    con Control total o «Lo ve todo»; altas en Ajustes (lista «META MIEMBROS»). Probado en simulación. Pendiente: que el
+    usuario suba META, cree la lista desde Ajustes y dé de alta a cada uno en su negociado. Siguiente paso posible: que
+    SENDERO pase el negociado y el responsable al abrir la tarea (se hace en la sesión de SENDERO). `importar.mjs` no
+    sirve con la copia de META (ya pasaba con la · 2): adaptarlo si se toca la importación.
+    11/11/2026: Gestor común y META 2026-11-11 · 3 = control de acceso de META (rama task-manager, 10/11 · 2) + Punto de
+    Situación + departamentos = células de MENSADEF. Pendiente: subir los dos y, en Ajustes (Control total), activar
+    «Departamentos de MENSADEF» y dar de alta a la gente con sus células en «Quién ve los expedientes de META».
+    11/11/2026: Gestores 2026-11-11 · 4 (sin negociados antiguos, alta reordenada, células automáticas) y SENDERO
+    2026-11-11 · 3 (manda todas las células). Pendiente: subir los dos Gestores y el favorito.
+    11/11/2026: Gestores 2026-11-11 · 5: catálogo de departamentos (12 células de SUIGESUR, altas y bajas en Ajustes).
+    Pendiente: subirlos y pulsar en Ajustes «Poner las 12 células de SUIGESUR» en META y en el común.
+    11/11/2026: 2026-11-11 · 6: el Gestor común vuelve a sus negociados (departamentos solo en META). Pendiente: subir el
+    común; META puede quedarse en la · 5 o subir la · 6 (igual para META).
+    11/11/2026: «📋 Al Punto de Situación» desde SENDERO (pruebas 2026-11-11 · 4) pasando por META (2026-11-11 · 7).
+    Pendiente: que lo pruebe con el favorito de pruebas y META; luego pasarlo al definitivo.
+    11/11/2026: META se sube como `aplicaciones/META.html` (2026-11-11 · 8); SENDERO 2026-11-11 · 5 la trae por defecto y el
+    botón se llama «Pasar directamente al PSIT» (aún solo en pruebas).
+    11/11/2026: META 2026-11-11 · 9 con solicitud de acceso. Pendiente: subir META.html y, en Ajustes › «Quién ve los
+    expedientes», crear «META SOLICITUDES» (y la alerta), dar de alta a la gente o atender sus solicitudes.
+    11/11/2026: META 2026-11-11 · 11 (solicitud de acceso como Incidentes, sin menús sin alta) y SENDERO 2026-11-11 · 6
+    (PSIT en el definitivo, botón arreglado). Pendiente: probarlos.
+    12/11/2026: implantación en otros ámbitos (IGE, MAPER, MALE…). Decidido con el usuario:
+    - SENDERO único con una tabla ámbito → META, y portal con los ámbitos del usuario.
+    - Una META por organización, en su sitio de Colabora (`…/aplicaciones/META.html`), con la lista «META
+      CONFIGURACIÓN» (organización, ámbito, correo de avisos, Punto de Situación) y el asistente «Instalar META» en
+      Ajustes.
+    - Candados: instalar solo con la cuenta asansen y Control total en el sitio; META solo arranca en los sitios
+      autorizados (lista dentro del código cifrado); SENDERO solo manda a esas META.
+    - Día a día de cada organización: su administrador local (opción a).
+    - Quitar lo fijo de SUIGESUR: 12 células → «Cargar mis células desde SENDERO»; correo de avisos y franja desde la
+      configuración.
+    - Pendiente: esperar a las pruebas del usuario antes de empezar.
+    12/11/2026: publicados y confirmados por el usuario: SENDERO 2026-11-11 · 6 (SENDERO.html) y META 2026-11-12 · 3 (META.html).
+
+<!-- Traído de la rama claude/modest-fermat-9zf46n (Puntos de Situación) el 12/11/2026 -->
 
 16. **Nuevo proyecto: Puntos de Situación de SUIGESUR** (`puntos-situacion/`, etiqueta `[PUNTOS]`; acordado el 09/11/2026,
     se hace el 10/11/2026). Sustituye al Word de Colabora donde cada negociado aporta lo suyo. Decisiones del usuario:
@@ -165,3 +225,19 @@ autoría.
     (petición del usuario). Pendiente: que suba la copia de pruebas y lo pruebe.
     10/11/2026: Gestor común, META y pruebas **2026-11-10 · 1**: unidas la · 2 confirmada (Ajustes solo con Control total) y
     el enlace con el Punto de Situación (solo ⭐ Tratar con el General). Pendiente: que suba las tres copias.
+    12/11/2026: Puntos de Situación 2026-11-12 · 2 (quitar «Sin novedad» y entradas sin pantalla de identificarse) confirmado por el usuario.
+    12/11/2026: Puntos de Situación 2026-11-12 · 3 (asunto en su línea y texto debajo en el informe, Word y PDF) confirmado por el usuario.
+    12/11/2026: Puntos de Situación 2026-11-12 · 4 (propuestas de META sin negociado: motivo e «Incluir en…» para PROCOR) confirmado por el usuario.
+    12/11/2026: Puntos de Situación 2026-11-12 · 5 (tras «Incluir en…» se abre «Mi negociado» en ese negociado) confirmado por el usuario.
+    12/11/2026: Puntos de Situación 2026-11-12 · 6 (informe completo en PDF para todos los negociados en «Informe»): entregado.
+    12/11/2026: META 2026-11-12 · 7 confirmado (estado solo En curso/Terminada, nombres «Reunión de entradas» y «Punto Situación
+      semanal», Recordar asignación, correos en ventana nueva, filtros con los departamentos propios, eliminar con aviso del motivo).
+      Eliminar no funcionaba porque el nivel «Colaborar» del sitio JSUIGE no tiene «Eliminar elementos»: el usuario creó un nivel
+      propio «META» (Colaborar + Eliminar elementos) para la lista «Gestor de Tareas MENSADEF» y ya funciona. No dar Control total
+      para esto (en META, Control total = administrador: ve todo y Ajustes).
+    13/11/2026: SENDERO 2026-11-13 · 9 entregado (pantalla completa, acción/info y último comentario, columna Firma, «Sin bandera»,
+      agrupar por días/meses, barra de la ficha con la propuesta A, «↩ Responder» en MENSADEF, comentarios firmados con el nombre).
+    PENDIENTE DEL USUARIO: pasar el favorito «Explorar Portafirmas» en portafirmas.mdef.es (lista de pendientes, marcar una y pulsar
+      Firmar, cancelar AutoFirma) y pegar lo que copia (solo estructura). Con eso: que SENDERO abra la petición en el Portafirmas
+      lista para firmar. Firmar (identificarse, AutoFirma y PIN) lo sigue haciendo el usuario.
+    PENDIENTE (opcional): autor de los comentarios hechos en MENSADEF, con «Escuchar MENSADEF» sobre el historial de comentarios.

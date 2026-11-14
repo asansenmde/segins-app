@@ -16,7 +16,7 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   header { position: sticky; top: 0; z-index: 20; background: linear-gradient(90deg, #1c2615, var(--brand) 55%, #56693f); color: #fff; border-bottom: 4px solid #c9a84c; box-shadow: 0 2px 6px rgba(0,0,0,.25); }
-  header > div { max-width: 1400px; margin: 0 auto; padding: 8px 16px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  header > div { max-width: none; margin: 0 auto; padding: 8px 16px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
   header .escudo { font-size: 1.7rem; line-height: 1; }
   header .tit { flex: 1; min-width: 220px; }
   header h1 { font-size: 1.25rem; margin: 0; letter-spacing: .05em; font-weight: 800; }
@@ -26,7 +26,7 @@
   header .firma b { color: #fff; font-size: .82rem; }
   @media (max-width: 700px) { header { position: static; } header .firma { display: none; } header h1 { font-size: 1.05rem; } }
   @media print { header { position: static; } }
-  main { max-width: 1400px; margin: 0 auto; padding: 12px 16px 40px; }
+  main { max-width: none; margin: 0 auto; padding: 12px clamp(10px, 1.6vw, 28px) 40px; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 10px 0; }
   .muted { color: var(--muted); font-size: .88rem; }
   .bad { background: var(--badbg); color: var(--bad); font-weight: 600; padding: 8px 10px; border-radius: 8px; }
@@ -50,10 +50,19 @@
   tbody tr:hover { background: #f7f8f4; }
   tbody tr.sel { background: var(--sel); }
   td.asunto { min-width: 280px; }
+  tr.dia-cab[data-grupo] td { cursor: pointer; user-select: none; }
+  tr.dia-cab[data-grupo]:hover td { filter: brightness(.97); }
+  .dia-cab .flg { display: inline-block; width: 16px; font-size: .7rem; color: #5a6b48; }
+  tr.dia-cab.plegado td { opacity: .85; }
+  .plegar { display: inline-flex; gap: 6px; align-items: center; }
+  .dia-cab .ngrupo { display: inline-block; margin-left: 6px; font-size: .7rem; font-weight: 800; padding: 0 7px; border-radius: 999px; background: #e6ecdf; color: #3d4f2c; }
+  td.hora .dfecha { color: var(--muted); font-size: .76rem; }
+  td.firma { font-size: .78rem; color: #3c4a5c; min-width: 140px; max-width: 260px; }
   td.fecha, td.nowrap { white-space: nowrap; }
   .tag { display: inline-block; font-size: .72rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #dde8f7; color: #1d4f91; white-space: nowrap; }
   .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  @media (min-width: 1100px) { .layout.detalle-abierto { grid-template-columns: minmax(0, 1fr) 440px; } }
+  /* 13/11/2026: la zona de trabajo ocupa toda la pantalla; la ficha crece con la pantalla (de 420 a 760 px) */
+  @media (min-width: 1100px) { .layout.detalle-abierto { grid-template-columns: minmax(0, 1fr) clamp(420px, 36vw, 760px); } }
   #detalle { position: sticky; top: calc(var(--cab, 0px) + 10px); align-self: start; max-height: calc(100vh - var(--cab, 0px) - 20px); overflow: auto; }
   /* Barra de botones de la ficha siempre a la vista (09/11/2026): fija arriba dentro de la ficha */
   #detalle .barra-ficha { position: sticky; top: -12px; z-index: 6; background: #fff; margin: -12px -14px 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); box-shadow: 0 4px 10px rgba(18,49,90,.06); }
@@ -67,6 +76,56 @@
   button.rubrica { background: linear-gradient(180deg, #7a4fb5, #4a2a78); color: #fff; border-color: #4a2a78; border-bottom: 3px solid #c9a84c; font-weight: 800; }
   button.rubrica:hover:not(:disabled) { background: linear-gradient(180deg, #8a5fc5, #3d2266); }
   button.rubrica.seguro { background: linear-gradient(180deg, #f08a24, #d96b00); border-color: #c25e00; }
+  /* Portal de inicio (10/11/2026): presentación de SENDERO en la portada de MENSADEF */
+  #aviso.aviso-portal { padding: 0; border: 0; overflow: hidden; border-radius: 22px; box-shadow: 0 18px 50px rgba(10,31,58,.35); }
+  .portal { position: relative; color: #fff; padding: 46px 48px 26px; min-height: 520px; overflow: hidden;
+    background: radial-gradient(900px 420px at 85% -10%, rgba(201,168,76,.28), transparent 60%), linear-gradient(125deg, #0a1f3a 0%, #12315a 38%, #1d3f2a 78%, #2f5a35 100%); }
+  .portal-fondo { position: absolute; inset: 0; pointer-events: none; opacity: .5;
+    background: repeating-linear-gradient(115deg, transparent 0 46px, rgba(255,255,255,.035) 46px 47px), radial-gradient(600px 300px at 0% 110%, rgba(201,168,76,.22), transparent 70%); }
+  .portal > * { position: relative; }
+  .portal-cab { display: flex; align-items: center; gap: 24px; }
+  .portal .escudo { flex: none; width: 104px; height: 104px; display: inline-grid; place-items: center; border-radius: 50%; font: 800 3.3rem/1 Georgia, 'Times New Roman', serif; color: #f2dc96;
+    background: radial-gradient(circle at 32% 28%, #2f7a54, #1d3f2a 72%); border: 3px solid #c9a84c; box-shadow: 0 0 0 7px rgba(201,168,76,.18), 0 0 40px rgba(201,168,76,.35), 0 10px 24px rgba(0,0,0,.45); text-shadow: 0 2px 4px rgba(0,0,0,.5); }
+  .portal-pre { font-size: .72rem; font-weight: 800; letter-spacing: .26em; text-transform: uppercase; color: #c9d8ea; }
+  .portal h2 { margin: 4px 0 2px; font: 800 3.1rem/1 Georgia, 'Times New Roman', serif; letter-spacing: .18em; color: #fff; text-shadow: 0 3px 12px rgba(0,0,0,.4); }
+  .portal-lema { font: italic 600 1.05rem/1.2 Georgia, serif; color: #f2dc96; letter-spacing: .06em; }
+  .portal-txt { max-width: 720px; margin: 26px 0 22px; font-size: 1.05rem; line-height: 1.55; color: #e6edf6; }
+  .portal-txt b { color: #f2dc96; }
+  .portal-caja { max-width: 640px; background: rgba(255,255,255,.08); border: 1px solid rgba(201,168,76,.45); border-radius: 18px; padding: 18px 20px; backdrop-filter: blur(4px); }
+  .portal-caja label { display: block; font-size: .7rem; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: #f2dc96; margin-bottom: 8px; }
+  .portal-fila { display: flex; gap: 12px; flex-wrap: wrap; }
+  .portal-caja input { font: 800 1.15rem system-ui, 'Segoe UI', sans-serif; letter-spacing: .12em; text-transform: uppercase; padding: 10px 14px; width: 170px; border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.35); background: rgba(10,31,58,.55); color: #fff; }
+  .portal-caja input:focus { outline: 2px solid #c9a84c; outline-offset: 1px; }
+  #entrarAmbito { font: 800 1.05rem system-ui, 'Segoe UI', sans-serif; padding: 11px 26px; border-radius: 12px; cursor: pointer; color: #1b1405; border: 1px solid #8a6d1f;
+    background: linear-gradient(180deg, #f6e3a6, #c9a84c 60%, #a8862f); box-shadow: 0 6px 18px rgba(201,168,76,.45), inset 0 1px 0 rgba(255,255,255,.6); transition: transform .12s, box-shadow .12s; }
+  #entrarAmbito:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(201,168,76,.55), inset 0 1px 0 rgba(255,255,255,.6); }
+  #entrarAmbito:disabled { opacity: .65; cursor: progress; }
+  .portal-pasos { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 14px; font-size: .84rem; color: #d6e1ee; }
+  .portal-pasos b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #c9a84c; color: #1b1405; font-size: .72rem; margin-right: 6px; }
+  #msgPortal { margin-top: 10px; color: #f2dc96; font-weight: 700; min-height: 1em; }
+  .portal-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 26px; }
+  .portal-chips span { padding: 6px 12px; border-radius: 999px; font-size: .82rem; font-weight: 700; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); color: #eef3f9; }
+  .portal-camino { position: absolute; top: 46px; right: 48px; width: 300px; list-style: none; margin: 0; padding: 22px 22px 8px; border-radius: 18px;
+    background: rgba(10,31,58,.35); border: 1px solid rgba(201,168,76,.35); }
+  .portal-camino li.tit { display: block; padding: 0 0 14px; font-size: .66rem; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: #f2dc96; }
+  .portal-camino li.tit::after { display: none; }
+  .portal-camino li { position: relative; display: flex; gap: 14px; align-items: flex-start; padding-bottom: 18px; }
+  .portal-camino li:not(:last-child)::after { content: ''; position: absolute; left: 17px; top: 38px; bottom: 2px; border-left: 2px dashed rgba(201,168,76,.6); }
+  .portal-camino i { flex: none; width: 36px; height: 36px; display: inline-grid; place-items: center; border-radius: 50%; font-style: normal; background: rgba(255,255,255,.1); border: 2px solid #c9a84c; }
+  .portal-camino span { font-weight: 800; color: #fff; font-size: .92rem; padding-top: 2px; }
+  .portal-camino small { display: block; font-weight: 600; color: #b9c8da; font-size: .76rem; margin-top: 2px; }
+  @media (max-width: 1100px) { .portal-camino { display: none; } }
+  /* En el portal, el nombre sale una sola vez: se ocultan la cabecera y el pie de la página (la autoría va en el portal) */
+  body.en-portal > header, body.en-portal > footer, body.en-portal header, body.en-portal footer { display: none !important; }
+  body.en-portal main, body.en-portal #aviso { margin-top: 18px; }
+  .portal-pie b { color: #f2dc96; }
+  .portal-pie { margin-top: 26px; padding-top: 14px; border-top: 1px solid rgba(201,168,76,.35); font-size: .78rem; color: #b9c8da; letter-spacing: .04em; }
+  @media (max-width: 700px) { .portal { padding: 28px 20px 20px; } .portal h2 { font-size: 1.7rem; letter-spacing: .06em; } .portal .escudo { width: 70px; height: 70px; font-size: 2.2rem; } .portal-cab { gap: 14px; } }
+  /* «Pasar directamente al PSIT» (11/11/2026): mismo tamaño y forma que «Añadir tarea en META», azul marino con filo dorado */
+  button.psit { background: linear-gradient(180deg, #2a6cb8, #12315a); color: #fff; border: 1px solid #12315a; border-bottom: 3px solid #c9a84c; font-weight: 800; white-space: nowrap; }
+  button.psit:hover:not(:disabled) { background: linear-gradient(180deg, #3478c8, #0e2a4b); }
+  .barra-ficha button, .barra-ficha select { white-space: nowrap; flex-shrink: 0; }
   button.visto-on { background: linear-gradient(180deg, #3a9a5a, #2e7d4f); color: #fff; border-color: #2e7d4f; }
   #detalle h2 { font-size: 1rem; margin: 0 0 8px; }
   dl { display: grid; grid-template-columns: 140px 1fr; gap: 3px 10px; margin: 0; font-size: .86rem; }
@@ -103,6 +162,9 @@
   td.es { width: 30px; text-align: center; font-size: 1.05rem; }
   .punto { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #1d4f91; margin-right: 6px; vertical-align: middle; }
   .sub { display: block; font-size: .76rem; color: var(--muted); font-weight: 400; margin-top: 2px; }
+  .sub .act { display: inline-block; font-size: .68rem; font-weight: 800; letter-spacing: .04em; padding: 0 7px; border-radius: 999px; margin-right: 6px; vertical-align: 1px; }
+  .sub .act.accion { background: #fde7d8; color: #a4400a; } .sub .act.info { background: #e3edf9; color: #1d4f91; } .sub .act.otra { background: #eef0ea; color: #4b5563; }
+  .sub .com { color: #3c4a5c; } .sub .com i { font-style: normal; color: var(--muted); }
   td.hora { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
   .tag.st-pend { background: #fdebc8; color: #9a5b00; } .tag.st-ok { background: var(--okbg); color: var(--ok); } .tag.st-gris { background: #e7e7e7; color: #555; }
   .tag.st-azul { background: #dde8f7; color: #1d4f91; } .tag.t-tipo { background: #efe3fb; color: #6b3fa0; }
@@ -246,7 +308,7 @@
   .autor .sello { display: inline-block; margin-bottom: 6px; padding: 4px 14px; border: 1px solid #c9a84c; border-radius: 999px; background: #fbf6e6; color: #5a4a14; font-size: .82rem; }
   .hero .autoria { position: absolute; right: 16px; bottom: 10px; z-index: 1; font-size: .72rem; color: #e6d9a8; letter-spacing: .5px; }
   @media (max-width: 700px) { .hero .autoria { position: static; display: block; margin-top: 6px; } }
-  .autor { max-width: 1400px; margin: 0 auto; padding: 12px 16px 24px; text-align: center; font-size: .78rem; color: var(--muted); border-top: 1px solid var(--line); }
+  .autor { max-width: none; margin: 0 auto; padding: 12px 16px 24px; text-align: center; font-size: .78rem; color: var(--muted); border-top: 1px solid var(--line); }
   @media print { .autor { display: none; } }
 
   /* ===== Tema 2026-11-05: verde bosque, azul marino y oro, con sombras suaves ===== */
@@ -255,8 +317,12 @@
   body { background: radial-gradient(1200px 400px at 0% 0%, #e3ece6 0%, transparent 60%), radial-gradient(1000px 380px at 100% 0%, #e2e9f3 0%, transparent 55%), var(--bg); }
   header { background: linear-gradient(100deg, #0b2340 0%, var(--navy) 38%, var(--brand) 78%, #2b5e44 100%); border-bottom: 3px solid var(--oro); box-shadow: 0 4px 18px rgba(11,35,64,.35); }
   header .franja { background: rgba(0,0,0,.22); border-bottom: 1px solid rgba(201,168,76,.35); }
-  header .franja > div { max-width: 1400px; margin: 0 auto; padding: 3px 16px; display: flex; justify-content: space-between; gap: 10px; font-size: .64rem; letter-spacing: .18em; color: #d9e3ec; font-weight: 700; }
+  header .franja > div { max-width: none; margin: 0 auto; padding: 3px 16px; display: flex; justify-content: space-between; gap: 10px; font-size: .64rem; letter-spacing: .18em; color: #d9e3ec; font-weight: 700; }
   header .franja span { color: var(--oro); }
+  /* 14/11/2026: Ministerio y Ejército en blanco; sin «Inspección General»; «Mensajería oficial» más grande */
+  header .franja > div { justify-content: center; align-items: center; gap: 18px; padding: 4px 16px; }
+  header .franja .org { color: #fff; font-weight: 800; }
+  header .franja .mo { font-size: .86rem; letter-spacing: .22em; font-weight: 800; }
   header > div:not(.franja) { padding: 10px 16px 11px; }
   header .escudo { width: 46px; height: 46px; display: inline-grid; place-items: center; border-radius: 50%; font-size: 1.35rem; color: #fff;
     background: radial-gradient(circle at 30% 30%, #2f7a54, var(--brand) 70%); border: 2px solid var(--oro); box-shadow: 0 0 0 3px rgba(201,168,76,.18), inset 0 1px 3px rgba(255,255,255,.25); }
@@ -316,10 +382,46 @@
   @media (max-width: 700px) { header h1.sendero { font-size: 1.35rem; letter-spacing: .2em; } }
   .hero .autoria { position: static; display: block; text-align: right; margin-top: 8px; position: relative; z-index: 1; }
   @media (max-width: 700px) { header .franja { display: none; } header .escudo { width: 38px; height: 38px; font-size: 1.1rem; } .hero .autoria { text-align: left; } }
+
+  /* 13/11/2026: barra de la ficha, propuesta A (elegida por el usuario): cabecera azul con el asunto y botones pequeños
+     (MENSADEF, Ampliar, Cerrar); debajo META, PSIT y Rúbrica en grande; al final las utilidades pequeñas. Vale también ampliada. */
+  #detalle .barra-ficha, .layout.max #detalle .barra-ficha { display: block !important; padding: 0 !important; gap: 0; overflow: hidden; border-radius: 14px 14px 0 0; background: #fff; }
+  .layout.max #detalle .barra-ficha { border-radius: 16px; }
+  .barra-ficha .piso1 { display: flex !important; align-items: center; gap: 8px; padding: 9px 10px 9px 14px; background: linear-gradient(100deg, #0a1f3a, #12315a 60%, #1b4a80); border-bottom: 3px solid #c9a84c; color: #fff; }
+  .barra-ficha .piso1 .navmax { display: none; } .layout.max .barra-ficha .piso1 .navmax { display: inline-flex; }
+  .barra-ficha .titmax { display: block !important; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; font-size: .9rem; order: 0 !important; flex-basis: auto !important; }
+  .barra-ficha .titmax small { display: block; margin-left: 0 !important; color: #c9d8ea; font-weight: 600; font-size: .72rem; }
+  .barra-ficha .piso1 > button, .barra-ficha .piso1 > a > button { order: 0 !important; height: 32px; padding: 0 10px; border-radius: 9px; background: rgba(255,255,255,.1) !important; color: #fff !important; border: 1px solid rgba(201,168,76,.5) !important; box-shadow: none !important; font-weight: 700; font-size: .78rem; flex: none; margin: 0 !important; }
+  .barra-ficha .piso1 > button:hover { background: rgba(255,255,255,.22) !important; }
+  .barra-ficha .piso2 { display: block !important; padding: 12px 12px 10px; }
+  .barra-ficha .grandes { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px; margin-bottom: 9px; }
+  .barra-ficha .grandes .gr-a { display: block; text-decoration: none; }
+  .barra-ficha .grandes > *, .barra-ficha .utiles > * { order: 0 !important; }
+  .barra-ficha .gr { width: 100%; min-height: 50px; display: flex; align-items: center; gap: 9px; text-align: left; padding: 8px 11px; border-radius: 12px; border: 0 !important; color: #fff !important; font-weight: 800; font-size: .86rem; line-height: 1.2; box-shadow: 0 3px 8px rgba(0,0,0,.14); white-space: normal !important; }
+  .barra-ficha .gr .i { font-size: 1.25rem; flex: none; }
+  .barra-ficha .gr small { display: block; font-weight: 600; font-size: .68rem; opacity: .88; }
+  .barra-ficha .gr:hover:not(:disabled) { filter: brightness(1.08); }
+  .barra-ficha .gr:disabled { opacity: .55; }
+  .barra-ficha .gr-meta { background: linear-gradient(180deg, #3a7d4f, #24563a) !important; }
+  .barra-ficha .gr-psit { background: linear-gradient(180deg, #1d5fa8, #12315a) !important; border-bottom: 3px solid #c9a84c !important; }
+  .barra-ficha .gr-rub { background: linear-gradient(180deg, #7a4fb5, #4a2a78) !important; }
+  .barra-ficha .gr-resp { background: linear-gradient(180deg, #2f7f8f, #1b5561) !important; }
+  .barra-ficha .gr-rub.seguro { background: linear-gradient(180deg, #d9822b, #a85a12) !important; }
+  .barra-ficha .utiles { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .barra-ficha .utiles > button { height: 32px; padding: 0 10px; border-radius: 9px; border: 1px solid #d3dce8 !important; background: #f7f9fc !important; color: #1c2a3a !important; font-weight: 700; font-size: .8rem; box-shadow: none !important; order: 0 !important; }
+  .barra-ficha .utiles > button:hover { background: #eaf0f7 !important; }
+  .barra-ficha .utiles > button.visto-on { background: #2e7d4f !important; color: #fff !important; border-color: #2e7d4f !important; }
+  .barra-ficha .utiles #selBandera { height: 32px; border-radius: 9px; order: 0 !important; }
+  .barra-ficha .sepu { width: 1px; height: 22px; background: #e1e7ef; margin: 0 2px; }
+  /* Fija arriba al bajar (ampliada): más compacta para dejar sitio al mensaje */
+  .barra-ficha.fija .piso1 { padding: 5px 8px 5px 12px; } .barra-ficha.fija .titmax small { display: none; }
+  .barra-ficha.fija .piso2 { display: flex !important; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 10px; }
+  .barra-ficha.fija .grandes { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; } .barra-ficha.fija .grandes .gr-a { display: inline-block; }
+  .barra-ficha.fija .gr { width: auto; min-height: 32px; padding: 4px 10px; font-size: .8rem; } .barra-ficha.fija .gr small { display: none; } .barra-ficha.fija .gr .i { font-size: 1rem; }
 </style>
 </head>
 <body>
-<header><div class="franja"><div>MINISTERIO DE DEFENSA · EJÉRCITO DE TIERRA · INSPECCIÓN GENERAL DEL EJÉRCITO<span>MENSAJERÍA OFICIAL</span></div></div>
+<header><div class="franja"><div><b class="org">MINISTERIO DE DEFENSA · EJÉRCITO DE TIERRA</b><span class="mo">MENSAJERÍA OFICIAL</span></div></div>
   <div><span class="escudo marca" aria-hidden="true">S</span><div class="tit"><h1 class="sendero">SENDERO<span class="lema">El camino de cada mensaje</span></h1><span class="subt">Visor de mensajes <b>MENSADEF</b> · bandejas · informes · tareas — desarrollado por el Cte. Alfredo Sánchez Sender</span></div>
   <span class="muted" id="quien"></span><div class="firma">© 2026<br><b>Cte. Alfredo Sánchez Sender</b><br><span id="verCab"></span></div></div></header>
 <main>
@@ -360,6 +462,8 @@
       <label class="check"><input type="checkbox" id="fAdjuntos"> Con adjuntos</label>
       <label class="check"><input type="checkbox" id="fBorrador"> Ocultar borradores</label>
       <label class="check"><input type="checkbox" id="fVistos"> Ocultar vistos</label>
+      <label>Agrupar <select id="fAgrupar" style="width:auto"><option value="dia">Por días</option><option value="mes">Por meses</option><option value="no">Sin agrupar</option></select></label>
+      <span class="plegar" id="botonesPlegar"><button type="button" id="plegarTodo" title="Plegar todos los grupos (días o meses)">⊟ Plegar todo</button><button type="button" id="desplegarTodo" title="Desplegar todos los grupos">⊞ Desplegar todo</button></span>
       <button type="button" id="limpiar">Quitar filtros</button>
       <button type="button" id="informe" class="prim">📄 Informe</button>
       <button type="button" id="csv">Exportar CSV</button>
@@ -420,10 +524,10 @@
     document.title = 'PRUEBAS · ' + document.title;
     var bandaP = document.createElement('div');
     bandaP.style.cssText = 'background:#b71c1c;color:#fff;text-align:center;font-weight:800;padding:6px 10px';
-    bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» abre la página de Tareas de pruebas (tareas-nlt-colabora-pruebas.html)';
+    bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-09 · 11';
+  var VERSION = '2026-11-14 · 3';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -527,13 +631,17 @@
     ks.slice(5000).forEach(function (x) { delete vistos[x]; });
     guardar('vistos', vistos);
   }
+  // 13/11/2026: «pasado a tarea» = marcado en este navegador o con el comentario «Añadido como tarea en META» en MENSADEF
+  // (así se ve también lo que pasó otra persona o desde otro ordenador)
+  var pasadoATarea = function (m) { return enviados[claveMensaje(m)] || (/a(ñ|n)adido como tarea en meta/i.test(String((m._x && m._x.UltimoComentario) || '')) ? 'MENSADEF' : ''); };
   var claveMensaje = function (m) { return m.MensajeId || (m._lista.titulo + ':' + m.ID); };
   function cambiarVisto(m, si) {
     var i = filtrados.indexOf(m);
     marcarVisto(m, si); pintarKpis();
     var b = $('verDet');
     if (b && abierto === m) { b.classList.toggle('visto-on', si); b.textContent = si ? '✓ Visto' : '✓ Marcar visto'; b.title = si ? 'Pulsa para quitar la marca' : 'Marcar como visto'; }
-    if (si && $('fVistos').checked && !kpiSel) {
+    // Se quita de la lista al marcarlo con «Ocultar vistos» (con o sin tarjeta elegida) o en la tarjeta «Sin revisar»
+    if (si && ($('fVistos').checked || kpiSel === 'sinver')) {
       filtrar();
       var sig = filtrados[i] || filtrados[i - 1];
       if (abierto === m && $('layout').classList.contains('max') && sig) abrir(sig);
@@ -552,9 +660,140 @@
     });
   });
 
-  webDe(location.pathname).then(function (w) {
+  // ---------- Portal de inicio (10/11/2026) ----------
+  // SENDERO se puede pulsar en la portada de MENSADEF (Landing) o en cualquier página fuera de un ámbito: si ya hay sesión
+  // en el ámbito, arranca directamente; si no, abre el inicio de sesión de MENSADEF en una ventana pequeña y, en cuanto
+  // la sesión está abierta, la cierra y carga las bandejas. Dentro de un ámbito arranca como siempre.
+  var EN_AMBITO = /^\/ambito\/([^/]+)/i.exec(location.pathname);
+  var rutaBase = location.pathname;   // la del ámbito si se entra desde el portal
+  function paginaAmbito() { return location.origin + (EN_AMBITO ? location.pathname : rutaBase.replace(/\/$/, '') + '/SitePages/ambito.aspx'); }
+  if (EN_AMBITO) guardar('ambito', EN_AMBITO[1]);
+  function urlLogin(cod) {
+    var amb = '/ambito/' + cod;
+    return location.origin + '/_layouts/15/Defensa/Default.aspx?ReturnUrl=' + encodeURIComponent(amb + '/_layouts/15/Authenticate.aspx?Source=' + encodeURIComponent(amb)) + '&Source=' + encodeURIComponent(amb);
+  }
+  function haySesion(cod) {
+    return fetch(location.origin + '/ambito/' + cod + '/_api/web?$select=Url', { credentials: 'same-origin', headers: { Accept: 'application/json;odata=nometadata' }, redirect: 'manual' })
+      .then(function (r) { return r.ok && /json/i.test(r.headers.get('content-type') || ''); }, function () { return false; });
+  }
+  function portal() {
+    var cod = String(leer('ambito', '2SUIGE') || '2SUIGE');
+    $('estado').textContent = 'Comprobando tu sesión en el ámbito ' + cod + '…';
+    haySesion(cod).then(function (ok) {
+      if (ok) return entrar(cod);
+      if (AUTOENTRADA && !leer('sinAutoentrada', false)) return autoEntrar(cod);
+      portalManual(cod);
+    });
+  }
+  function portalManual(cod, avisoTxt) {
+    {
+      $('estado').textContent = '';
+      $('aviso').hidden = false;
+      $('aviso').classList.add('aviso-portal');
+      var tarjetaFechas = $('desde').closest('.card'); if (tarjetaFechas) tarjetaFechas.hidden = true;
+      $('aviso').innerHTML = '<div class="portal"><div class="portal-fondo" aria-hidden="true"></div>' +
+        '<div class="portal-cab"><div class="escudo marca" aria-hidden="true">S</div><div><div class="portal-pre">Ministerio de Defensa · Mensajería oficial</div>' +
+        '<h2>S E N D E R O</h2><div class="portal-lema">El camino de cada mensaje</div></div></div>' +
+        '<p class="portal-txt">Tus bandejas de <b>MENSADEF</b>, sus anexos, la rúbrica y el paso a tareas de <b>META</b>, en una sola pantalla. Abre la sesión en tu ámbito y todo lo demás llega solo.</p>' +
+        '<div class="portal-caja"><label for="codAmbito">Tu ámbito</label><div class="portal-fila"><input id="codAmbito" value="' + esc(cod) + '" size="10" autocomplete="off" spellcheck="false">' +
+        '<button type="button" id="entrarAmbito">🔑 Entrar en mi ámbito</button></div>' +
+        '<div class="portal-pasos"><span><b>1</b> Se abre una ventana pequeña de MENSADEF</span><span><b>2</b> Pulsas «Iniciar sesión»</span><span><b>3</b> Se cierra sola y se cargan tus mensajes</span></div>' +
+        '<div class="small" id="msgPortal"></div></div>' +
+        '<div class="portal-chips"><span>📥 Bandejas de tus células</span><span>📎 Anexos sin marcar leído</span><span>✍ Rúbrica</span><span>➜ Tareas en META</span><span>⚑ Banderas y comentarios</span></div>' +
+        '<ol class="portal-camino" aria-hidden="true"><li class="tit">Así trabaja</li><li><i>📥</i><span>Llega el mensaje<small>a las bandejas de tus células</small></span></li><li><i>📎</i><span>Lo lees con sus anexos<small>sin marcarlo como leído</small></span></li>' +
+        '<li><i>⚑</i><span>Lo marcas y comentas<small>bandera y último comentario</small></span></li><li><i>➜</i><span>Tarea en META<small>con su expediente</small></span></li><li><i>✍</i><span>A rúbrica<small>y a la firma</small></span></li></ol>' +
+        '<div class="portal-pie">Diseño, desarrollo y propiedad intelectual: <b>Cte. Alfredo Sánchez Sender</b> · © 2026 · Todos los derechos reservados · versión ' + esc(VERSION) + '</div></div>';
+      document.body.classList.add('en-portal');
+      $('entrarAmbito').addEventListener('click', function () { login(String($('codAmbito').value || '').trim().replace(/[^\w-]/g, '') || '2SUIGE'); });
+      if (avisoTxt) $('msgPortal').textContent = avisoTxt;
+    }
+  }
+  // Entrada automática (10/11/2026, en las dos copias): el inicio de sesión de MENSADEF ya reconoce al usuario y
+  // solo pide pulsar «Iniciar sesión». Se carga en un marco oculto (aislado: no puede cambiar esta página), se pulsa ese
+  // botón y, en cuanto hay sesión en el ámbito, se entra. Si en 25 s no lo consigue, queda el portal con su botón.
+  var AUTOENTRADA = true; // 10/11/2026: probada por el usuario, también en el definitivo
+  function autoEntrar(cod) {
+    portalManual(cod, '🔄 Entrando en tu ámbito ' + cod + ' sin que tengas que pulsar nada…');
+    var f = document.createElement('iframe'), t0 = Date.now(), pulsado = 0, n = 0, fin = false;
+    f.setAttribute('sandbox', 'allow-scripts allow-forms allow-same-origin');
+    f.setAttribute('aria-hidden', 'true'); f.tabIndex = -1;
+    f.style.cssText = 'position:absolute;left:-9999px;top:0;width:1000px;height:700px;border:0;visibility:hidden';
+    var quitar = function () { fin = true; clearInterval(t); setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 0); };
+    var t = setInterval(function () {
+      if (fin) return; n++;
+      try {
+        var d = f.contentDocument, w = f.contentWindow;
+        if (d && d.readyState === 'complete' && /Default\.aspx|login|Authenticate/i.test(w.location.pathname) && pulsado < 3) {
+          var bs = Array.prototype.filter.call(d.querySelectorAll('input[type=submit],input[type=button],button,a'), function (b) {
+            return /iniciar|entrar|acceder|aceptar|login|sign\s*in/i.test(b.value || b.textContent || '') && b.offsetParent !== null;
+          });
+          if (bs.length && !f.dataset.pulsado) { f.dataset.pulsado = '1'; pulsado++; bs[0].click(); }
+        }
+      } catch (e) { /* aún cargando o en otra dirección */ }
+      if (n % 3) return;
+      haySesion(cod).then(function (ok) {
+        if (fin) return;
+        if (ok) { try { recogerDatosApp(f.contentWindow); } catch (e) { /* sin acceso */ } quitar(); entrar(cod); return; }
+        if (Date.now() - t0 > 25000) { quitar(); portalManual(cod, 'No he podido entrar solo. Pulsa «Entrar en mi ámbito».'); }
+      });
+    }, 700);
+    f.addEventListener('load', function () { delete f.dataset.pulsado; });
+    f.src = urlLogin(cod);
+    document.body.appendChild(f);
+  }
+  var vigilando = null;
+  function login(cod) {
+    var msg = $('msgPortal'), b = $('entrarAmbito');
+    var w = window.open(urlLogin(cod), 'senderoLogin', 'width=760,height=640');
+    if (!w) { msg.innerHTML = 'El navegador ha bloqueado la ventana. Se abre el inicio de sesión aquí: al terminar, pulsa <b>SENDERO</b> otra vez.'; setTimeout(function () { location.href = urlLogin(cod); }, 2500); return; }
+    b.disabled = true; msg.textContent = 'Inicia sesión en la ventana de MENSADEF…';
+    var inicio = Date.now(), n = 0;
+    clearInterval(vigilando);
+    vigilando = setInterval(function () {
+      n++;
+      var dentro = false; try { dentro = new RegExp('^/ambito/' + cod + '(/|$)', 'i').test(w.location.pathname) && !/Authenticate\.aspx|Default\.aspx/i.test(w.location.pathname); } catch (e) { /* ventana en otra dirección */ }
+      if (!dentro && n % 3 && !w.closed) return;
+      haySesion(cod).then(function (ok) {
+        if (!vigilando) return;
+        if (ok) { clearInterval(vigilando); vigilando = null; try { w.close(); } catch (e) { /* ya cerrada */ } entrar(cod); return; }
+        if (w.closed || Date.now() - inicio > 300000) { clearInterval(vigilando); vigilando = null; b.disabled = false; msg.textContent = w.closed ? 'Se ha cerrado la ventana sin abrir la sesión. Pulsa otra vez «Entrar en mi ámbito».' : 'No se ha abierto la sesión en 5 minutos. Vuelve a intentarlo.'; }
+      });
+    }, 1000);
+  }
+  function entrar(cod) {
+    guardar('ambito', cod); rutaBase = '/ambito/' + cod + '/';
+    $('aviso').hidden = true; $('aviso').innerHTML = ''; $('aviso').classList.remove('aviso-portal'); document.body.classList.remove('en-portal');
+    var tarjetaFechas = $('desde').closest('.card'); if (tarjetaFechas) tarjetaFechas.hidden = false;
+    prepararApp(rutaBase).then(function () { arrancar(rutaBase); });
+  }
+  // Fuera del ámbito no hay consultas de la aplicación (número de usuario, clave, colección): se abre su página del ámbito
+  // en un marco oculto, se espera a que pida sus células o bandejas (máx. 15 s) y se toman de allí, como dentro de la célula
+  var reintentoPortal = false;
+  function prepararApp(ruta) {
+    // Lo que la portada consultó (con la colección raíz de MENSADEF) no vale para el ámbito: contesta 500 a células y banderas.
+    // Se descarta y se toma todo de la página del ámbito.
+    var origen = datosApp.origen; Object.keys(datosApp).forEach(function (k) { delete datosApp[k]; }); if (origen) datosApp.origen = origen;
+    return new Promise(function (fin) {
+      var f = document.createElement('iframe'), t0 = Date.now(), hecho = false;
+      f.setAttribute('aria-hidden', 'true'); f.tabIndex = -1;
+      f.style.cssText = 'position:absolute;left:-9999px;top:0;width:1200px;height:800px;border:0;visibility:hidden';
+      var acabar = function () { if (hecho) return; hecho = true; clearInterval(t); try { recogerDatosApp(f.contentWindow); } catch (e) { /* sin acceso */ } setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 0); fin(); };
+      var t = setInterval(function () {
+        try { recogerDatosApp(f.contentWindow); } catch (e) { /* aún cargando */ }
+        $('estado').textContent = 'Preparando tu sesión de MENSADEF… (' + Math.round((Date.now() - t0) / 1000) + ' s)';
+        // La página del ámbito tarda en cargar (SharePoint): se espera a que la aplicación pida sus células (máx. 45 s)
+        if ((datosApp.idUsuario && datosApp.validar) || Date.now() - t0 > 45000) acabar();
+      }, 500);
+      f.src = location.origin + ruta.replace(/\/$/, '') + '/SitePages/ambito.aspx';
+      document.body.appendChild(f);
+    });
+  }
+  if (EN_AMBITO) arrancar(location.pathname); else portal();
+
+  function arrancar(ruta) {
+  webDe(ruta).then(function (w) {
     web = w;
-    api('web/currentuser?$select=Title', w.url).then(function (u) { $('quien').textContent = [w.titulo, u.Title].filter(Boolean).join(' · '); }).catch(function () { $('quien').textContent = w.titulo || ''; });
+    api('web/currentuser?$select=Title', w.url).then(function (u) { nombreYo = u.Title || ''; $('quien').textContent = [w.titulo, u.Title].filter(Boolean).join(' · '); }).catch(function () { $('quien').textContent = w.titulo || ''; });
     $('estado').textContent = 'Buscando tus células y bandejas en MENSADEF…';
     return iniciarApi(w).then(function () {
       modoApi = true;
@@ -565,7 +804,17 @@
     }, function (e) {
       errorApi = e;
       var verListas = function () { $('aviso').hidden = true; $('estado').textContent = 'Buscando las listas de mensajes…'; return buscarListas(w).then(seguirConListas); };
-      if (e.status !== 406) return verListas();
+      // Entrando por el portal no se cae a las listas del sitio (solo son borradores): se dice qué ha fallado
+      if (e.status !== 406 && EN_AMBITO) return verListas();
+      // Entrando por el portal, un fallo suele ser que la aplicación aún no había pedido sus datos: se espera otra vez y se repite
+      if (!EN_AMBITO && !reintentoPortal) { reintentoPortal = true; datosApp.idUsuario = ''; datosApp.validar = ''; try { sessionStorage.removeItem(MEMORIA + 'cabecerasApi'); } catch (x) { /* sin memoria */ } return prepararApp(ruta).then(function () { arrancar(ruta); }); }
+      if (e.status !== 406) {
+        $('estado').textContent = ''; $('aviso').hidden = false;
+        $('aviso').innerHTML = '<div class="bad">No he podido leer tus bandejas de MENSADEF: ' + esc(e.message || e) + '</div>' +
+          '<p>Entra en tu célula en MENSADEF y pulsa SENDERO allí. Si así funciona y desde la portada no, mándame la línea «Detalle».</p>' +
+          '<p class="muted">Detalle (sin valores): datos de la aplicación: ' + esc(Object.keys(datosApp).join(', ') || 'ninguno') + ' · respuestas: ' + esc(diagApi.map(function (x) { return x.ruta + ' → ' + x.estado; }).join(', ')) + ' · ' + esc(intentosApi.join(' | ')) + ' · versión ' + esc(VERSION) + '</p>';
+        return;
+      }
       // Falta la clave de MENSADEF (o ha caducado): no se enseñan los borradores del sitio como si fueran la bandeja
       $('estado').textContent = '';
       $('aviso').hidden = false;
@@ -580,6 +829,7 @@
   }).catch(function (e) {
     $('aviso').hidden = false; $('aviso').innerHTML = '<div class="bad">' + esc(e.message || e) + '</div>' + (e.ayuda ? '<p class="muted">' + esc(e.ayuda) + '</p>' : ''); $('estado').textContent = '';
   });
+  }
   function seguirConListas(r) {
     listasDia.sort(function (a, b) { return a.dia < b.dia ? -1 : 1; });
     revisadosTodos = r.revisados;
@@ -640,7 +890,7 @@
         return Object.keys(webs);
       }).catch(function () { return []; });
     };
-    var ambito = /^\/ambito\/[^/]+/i.exec(location.pathname);
+    var ambito = /^\/ambito\/[^/]+/i.exec(rutaBase);
     return api('site/rootweb?$select=Url', w.url).then(function (r) { return r.Url; }, function () { return ''; }).then(function (raizSitio) {
       var inicio = [w.url];
       if (ambito) inicio.push(location.origin + ambito[0]);
@@ -824,10 +1074,14 @@
   var noGuid = function (v) { return typeof v === 'string' && v.trim() && !GUID.test(v) && !/^\d+$/.test(v); };
   // Los mismos datos con los que la aplicación de MENSADEF llamó al servicio en esta página (su correo, su número de
   // usuario y la dirección del sitio), sacados del registro del navegador. Se usan solo aquí: no se muestran ni se guardan.
-  var datosApp = (function () {
-    var r = {};
+  // Datos de las consultas que ya hizo la aplicación de MENSADEF (en esta página o, entrando por el portal, en su página
+  // del ámbito cargada aparte): se juntan en datosApp sin pisar lo que ya hubiera
+  var datosApp = {};
+  function recogerDatosApp(win) {
+    var r = datosApp;
+    if (win === window && !EN_AMBITO) return r;   // en la portada sus consultas no son las del ámbito
     try {
-      performance.getEntriesByType('resource').forEach(function (e) {
+      win.performance.getEntriesByType('resource').forEach(function (e) {
         var u = new URL(e.name, location.href);
         if (u.host.toLowerCase().indexOf('mensadefapi.') !== 0) return;
         if (!r.origen) r.origen = u.origin;
@@ -839,7 +1093,8 @@
       });
     } catch (e) { /* sin registro */ }
     return r;
-  })();
+  }
+  recogerDatosApp(window);
   var esCorreo = function (v) { return typeof v === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v); };
   // Correo del usuario: lo que usó la aplicación, el contexto de la página de SharePoint, su ficha o su perfil
   function correoUsuario(w) {
@@ -857,8 +1112,8 @@
     });
   }
   function iniciarApi(w) {
-    var coleccion = location.origin + ((/^\/ambito\/[^/]+/i.exec(location.pathname) || [''])[0]);
-    return Promise.all([correoUsuario(w), datosApp.urlColeccionSitio ? { Url: datosApp.urlColeccionSitio } : api('site?$select=Url', w.url).catch(function () { return { Url: coleccion }; })]).then(function (r) {
+    var coleccion = location.origin + ((/^\/ambito\/[^/]+/i.exec(rutaBase) || [''])[0]);
+    return Promise.all([correoUsuario(w), datosApp.urlColeccionSitio && (EN_AMBITO || /\/ambito\//i.test(datosApp.urlColeccionSitio)) ? { Url: datosApp.urlColeccionSitio } : api('site?$select=Url', w.url).catch(function () { return { Url: coleccion }; })]).then(function (r) {
       var ctx = { email: r[0].email, url: r[1].Url || coleccion };
       origenCorreo = r[0].de || 'no encontrado';
       if (!ctx.email) throw new Error('no encuentro tu correo (ni en las consultas de MENSADEF ni en SharePoint): abre la portada o tu célula en MENSADEF, espera a que carguen tus mensajes y pulsa el favorito sin recargar');
@@ -900,6 +1155,8 @@
     });
   }
   // Un mensaje de la bandeja: los campos se reconocen por su nombre
+  // Estado (10/11/2026): en las salidas manda el de su último envío (NombreEstadoUltimaDistribucionSalida, «Pendiente de
+  // Validar»…), que es el que enseña MENSADEF; EstadoMensaje se queda en «Borrador» hasta que sale
   var CLAVES_API = { asunto: /^asunto$|asunto|^titulo$|^title$/i, fecha: /fecha.*(registro|recepci|entrada|env|alta|creaci)|^fecha$/i, fecha2: /fecha/i,
     estado: /^estado$|estado/i, tipo: /^tipo(mensaje|documento)?$|clase|naturaleza|^tipo_?mensaje/i, remitente: /remitente|origen|emisor|autoridad|^de$/i,
     referencia: /referencia/i, referencia2: /^n(u|ú)mero|^num_?|registro/i, expediente: /expediente/i, adjuntos: /adjunto/i, id: /^id_?mensaje$|^id$/i };
@@ -910,7 +1167,8 @@
   // Ya tienen su filtro (Estado, Tipo, Bandeja): no se repiten
   var SIN_FILTRO = { EstadoMensaje: 1, TipoMensaje: 1, TipoES: 1 };
   // Con las bandejas, además de buscar, célula, tipo y estado, solo estos filtros (el resto de campos, en el detalle)
-  var FILTROS_API = { CodigoPrioridad: 1, Leido: 1, Bandera: 1, EnviableARubrica: 1 };
+  // 14/11/2026: «Firma» (quién firma) como filtro; «Tipo» y «Remitente» fuera (casi siempre lo mismo / pedido por el usuario)
+  var FILTROS_API = { CodigoPrioridad: 1, Leido: 1, Bandera: 1, EnviableARubrica: 1, Firma: 1 };
   var ETIQUETAS_API = { EnviableARubrica: 'Enviable a rúbrica', Actuacion: 'Actuación', CelulaRemitente: 'Célula remitente', CelulaDestinataria: 'Célula destinataria', CodigoPrioridad: 'Prioridad', ContieneAnexos: 'Anexos',
     EstadoMensaje: 'Estado del mensaje', EstadoParaUsuario: 'Estado para mí', Leido: 'Leído', TipoES: 'Entrada/Salida', TipoMensaje: 'Tipo de mensaje', NumeroRegistroEntrada: 'N.º registro de entrada',
     NumeroRegistroSalida: 'N.º registro de salida', FechaRegistroEntrada: 'Fecha registro de entrada', FechaRegistroSalida: 'Fecha registro de salida', UsuarioRemitente: 'Usuario remitente',
@@ -960,19 +1218,24 @@
     var noFecha = function (v) { return tipoDe(v) !== 'fecha'; };
     var val = function (cl, re, re2) { var k = nombre(cl) || campo(re, noFecha) || (re2 && campo(re2, noFecha)); return k ? comoTexto(e[k]) : ''; };
     var kadj = nombre('adjuntos') || campo(CLAVES_API.adjuntos), kc = nombre('cuerpo');
-    return { _api: true, _x: x, ID: kid ? e[kid] : '', MensajeId: kid ? String(e[kid]) : '', _asunto: val('asunto', CLAVES_API.asunto), MensajeFecha: fecha, MensajeEstado: val('estado', CLAVES_API.estado),
+    return { _api: true, _x: x, ID: kid ? e[kid] : '', MensajeId: kid ? String(e[kid]) : '', _asunto: val('asunto', CLAVES_API.asunto), MensajeFecha: fecha, MensajeEstado: String(e.NombreEstadoUltimaDistribucionSalida || '').trim() || val('estado', CLAVES_API.estado),
       MensajeTipo_es: val('tipo', CLAVES_API.tipo), MensajeNombre_Autoridad: val('remitente', CLAVES_API.remitente), MensajeNum_referencia: val('referencia', CLAVES_API.referencia, CLAVES_API.referencia2),
       MensajeSu_referencia: val('suReferencia', /^sref$|su_?ref/i), MensajeNum_expediente: val('', CLAVES_API.expediente),
       _leido: typeof e.Leido === 'boolean' ? e.Leido : undefined, _bandera: bandera, _idBandera: bandera ? String(idb) : '', _idBuzon: e.IdBuzonCelula || e.idBuzonCelula || '', _rubrica: { enviable: e.EnviableARubrica, estado: [e.EstadoMensaje, e.EstadoParaUsuario, e.NombreEstadoUltimaDistribucionSalida].filter(Boolean).join(' '), personal: e.BuzonPersonal === true },
       Attachments: kadj ? siNo(e[kadj]) : false, _cuerpoApi: kc ? texto(String(e[kc])) : '',
-      _enlace: location.origin + location.pathname + '#/celula/' + encodeURIComponent(celula.nombre) + '/' + celula.id,
+      _enlace: paginaAmbito() + '#/celula/' + encodeURIComponent(celula.nombre) + '/' + celula.id,
       _lista: { id: 'api', sitio: celula, titulo: 'tipoES ' + es + ' de ' + celula.nombre } };
   }
   // «Abrir en MENSADEF» localizando el mensaje: abre la célula en otra pestaña (mismo sitio, así que el visor puede
   // mirar en ella) y, cuando la aplicación pinta la bandeja, busca la fila por su n.º de registro o su asunto; si no
   // está a la vista, usa el buscador de la propia bandeja. Al encontrarla la resalta y la abre (como hacer clic en ella).
   // Si no la encuentra, deja un aviso con lo que hay que buscar (y lo copia).
-  function localizarEnMensadef(m) {
+  function urlResponder(m) {
+    if (!m || !m.MensajeId || !m._idBuzon) return '';
+    return paginaAmbito() + '#/responder_mensaje/' + encodeURIComponent(m.MensajeId) + '?idBuzonCelula=' + encodeURIComponent(m._idBuzon);
+  }
+  // accion = 'responder' (13/11/2026): tras abrir el mensaje en MENSADEF, pulsa allí su botón «Responder»
+  function localizarEnMensadef(m, accion) {
     var ref = String(m.MensajeNum_referencia || '').trim(), asunto = String(m._asunto || '').trim(), salida = m._x && m._x.__es === 'Salida';
     var clave = ref || asunto;
     try { if (navigator.clipboard && clave) navigator.clipboard.writeText(clave).catch(function () {}); } catch (e) { /* sin portapapeles */ }
@@ -1017,6 +1280,24 @@
       for (var i = 0; i < c.length; i++) { var t = normalT(c[i].textContent); if (/^(bandeja de )?(salida|enviados?|mensajes enviados)( \(\d+\))?$/.test(t) && c[i].offsetParent !== null) { c[i].click(); return true; } }
       return false;
     };
+    // El botón «Responder» del mensaje abierto (no «Responder a todos» ni «Reenviar»)
+    var pulsarResponder = function (d, t0) {
+      if (w.closed) return;
+      var cs = d.querySelectorAll('button, a, [role="button"], [role="menuitem"], i, span');
+      for (var i = 0; i < cs.length; i++) {
+        var c = cs[i]; if (c.id === 'avisoVisor' || (c.closest && c.closest('#avisoVisor'))) continue;
+        var t = normalT(c.textContent), et = normalT((c.getAttribute('title') || '') + ' ' + (c.getAttribute('aria-label') || ''));
+        if ((/^[↩↪\s]*responder$/.test(t) || (!t && /^responder$/.test(et))) && (c.offsetParent !== null || c.getClientRects().length)) {
+          var b = c.closest('button, a, [role="button"], [role="menuitem"]') || c;
+          try { b.click(); } catch (e) { /* sin clic */ }
+          aviso(d, '✔ Abierta la respuesta al mensaje' + (ref ? ' <b>' + esc(ref) + '</b>' : '') + '<br><span style="font-size:12px;opacity:.85">Escribe la respuesta y envíala desde MENSADEF</span>');
+          setTimeout(function () { var a = d.getElementById('avisoVisor'); if (a) a.remove(); }, 7000);
+          return;
+        }
+      }
+      if (Date.now() - t0 < 15000) return setTimeout(function () { pulsarResponder(d, t0); }, 600);
+      aviso(d, 'Mensaje abierto. Pulsa <b>«Responder»</b> en MENSADEF para contestarlo.', '#8a5a12');
+    };
     var paso = function () {
       if (w.closed) return;
       var d; try { d = w.document; } catch (e) { return; }
@@ -1027,6 +1308,7 @@
         r.fila.scrollIntoView({ block: 'center' });
         r.fila.style.outline = '3px solid #c9a84c'; r.fila.style.outlineOffset = '-2px'; r.fila.style.background = '#fff6d6';
         try { r.celda.click(); } catch (e) { /* no se puede abrir */ }
+        if (accion === 'responder') { aviso(d, '✔ Mensaje localizado. Abriendo «Responder»…'); return setTimeout(function () { pulsarResponder(d, Date.now()); }, 900); }
         aviso(d, '✔ Mensaje localizado' + (ref ? ': <b>' + esc(ref) + '</b>' : '') + '<br><span style="font-size:12px;opacity:.85">Lo ha buscado el visor de mensajes (Cte. A. Sánchez Sender)</span>');
         setTimeout(function () { var a = d.getElementById('avisoVisor'); if (a) a.remove(); }, 6000);
         return;
@@ -1044,8 +1326,8 @@
   }
   // ---------- Anexos de un mensaje de la bandeja (05/11/2026) ----------
   // Como MENSADEF al abrir un mensaje: GET mensaje/ObtenerCuerpo (id, modoVer) devuelve AnexosDigitales (Titulo, Nombre,
-  // UrlFichero, TipoDocumento, TamanoMB, Firma…) y AnexosFisicos. Solo se lee: el visor NO llama a la función que marca el
-  // mensaje como leído (buzon/BuzonCelulaMensajeLeido). Los archivos están en la biblioteca del ámbito en MENSADEF
+  // UrlFichero, TipoDocumento, TamanoMB, Firma…) y AnexosFisicos. Abrir los anexos no marca nada; el leído lo marca SENDERO
+  // aparte, al abrir la ficha (ver «Leído en MENSADEF», 10/11/2026). Los archivos están en la biblioteca del ámbito en MENSADEF
   // (SMDMDMensajesDocumentos_…): se abren en otra pestaña, como en MENSADEF, o se descargan con la sesión (los cifrados .cif).
   var modoVerBueno = null;
   function cuerpoCompleto(m) {
@@ -1216,6 +1498,8 @@
     if (Array.isArray(v) || v.results) return lista(v).map(function (x) { return comoTexto(x); }).filter(Boolean).join(', ');
     if (typeof v === 'object') return v.Title || '';
     if (tipo === 'Boolean') return v ? 'Sí' : 'No';
+    // 14/11/2026: MENSADEF manda algunos sí/no como texto («true»/«false», p. ej. «Enviable a rúbrica»)
+    if (v === true || v === false || /^(true|false)$/i.test(String(v))) return /^true$/i.test(String(v)) ? 'Sí' : 'No';
     if (tipo === 'DateTime') return verFecha(new Date(v));
     return String(v);
   };
@@ -1307,6 +1591,7 @@
     opciones('fSitio', mensajes.map(sitioDe), 'Todos');
     // Fuera los filtros sin datos (p. ej. canal u órgano en las bandejas)
     ['fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad'].forEach(function (id) { $(id).parentNode.style.display = !modoApi || $(id).options.length > 1 ? '' : 'none'; });
+    if (modoApi) ['fTipo', 'fAutoridad'].forEach(function (id) { $(id).value = ''; $(id).parentNode.style.display = 'none'; });
     $('fSitio').parentNode.style.display = sitios.length < 2 ? 'none' : '';
     // Un desplegable por cada columna de MENSADEF con pocos valores distintos en lo cargado
     var cols = Object.keys(EXTRA).filter(function (k) {
@@ -1318,6 +1603,8 @@
     cols.forEach(function (k) {
       var sel = $('masFiltros').querySelector('[data-x="' + k + '"]');
       sel.id = 'fx_' + k; opciones(sel.id, mensajes.map(function (m) { return m._x[k]; }), 'Todos');
+      // 13/11/2026: «Sin bandera» (y, en las demás columnas, «Sin …») para elegir los que no tienen valor
+      if (mensajes.some(function (m) { return !m._x[k]; })) { var o0 = document.createElement('option'); o0.value = SIN_VALOR; o0.textContent = '— Sin ' + EXTRA[k].titulo.toLowerCase() + ' —'; sel.insertBefore(o0, sel.options[1] || null); }
       if (fx[k]) { sel.value = fx[k]; if (sel.value !== fx[k]) delete fx[k]; }
       sel.addEventListener('change', function () { if (sel.value) fx[k] = sel.value; else delete fx[k]; mostrar = 300; filtrar(); });
     });
@@ -1325,11 +1612,15 @@
     $('nColumnas').textContent = (CAMPOS.length + Object.keys(EXTRA).length) + ' leídas (' + Object.keys(EXTRA).length + ' propias de MENSADEF además de las habituales; ' + cols.length + ' con filtro)';
     filtrar();
   }
-  var fx = {};
+  var fx = {}, SIN_VALOR = '\u0001sin';
   var sitioDe = function (m) { return m._lista.sitio ? m._lista.sitio.titulo : ''; };
   $('fBorrador').checked = leer('ocultarBorradores', true);
   $('fBorrador').addEventListener('change', function () { guardar('ocultarBorradores', $('fBorrador').checked); });
   $('fVistos').checked = leer('ocultarVistos', false);
+  $('fAgrupar').value = leer('agrupar', 'dia');
+  $('plegarTodo').addEventListener('click', function () { plegarTodo(true); });
+  $('desplegarTodo').addEventListener('click', function () { plegarTodo(false); });
+  $('fAgrupar').addEventListener('change', function () { guardar('agrupar', $('fAgrupar').value); if ($('fAgrupar').value !== 'no' && orden.campo !== 'fecha') { orden = { campo: 'fecha', desc: true }; ordenar(); } pintarTabla(); });
   $('fVistos').addEventListener('change', function () { guardar('ocultarVistos', $('fVistos').checked); });
   ['fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad', 'fSitio', 'fAdjuntos', 'fBorrador', 'fVistos'].forEach(function (id) { $(id).addEventListener('change', function () { mostrar = 300; filtrar(); }); });
   var espera; $('buscar').addEventListener('input', function () { clearTimeout(espera); espera = setTimeout(function () { mostrar = 300; filtrar(); }, 200); });
@@ -1343,9 +1634,10 @@
     filtrados = mensajes.filter(function (m) {
       if (st && sitioDe(m) !== st) return false;
       if (kpiSel && !KPIS[kpiSel].f(m)) return false;
-      if (sinVistos && !kpiSel && vistos[claveMensaje(m)]) return false;
+      // «Ocultar vistos» vale también con una tarjeta elegida (No leídos, Entrada…): antes solo sin tarjeta (10/11/2026)
+      if (sinVistos && vistos[claveMensaje(m)]) return false;
       if (sinBorr && !e && /borrador/i.test(m.MensajeEstado || '')) return false;
-      for (var j = 0; j < xs.length; j++) if (m._x[xs[j]] !== fx[xs[j]]) return false;
+      for (var j = 0; j < xs.length; j++) if (fx[xs[j]] === SIN_VALOR ? !!m._x[xs[j]] : m._x[xs[j]] !== fx[xs[j]]) return false;
       if (t && m.MensajeTipo_es !== t) return false;
       if (e && m.MensajeEstado !== e) return false;
       if (c && m.MensajeCanal !== c) return false;
@@ -1363,7 +1655,7 @@
     if (sinBorr && borr && !e) $('chips').insertAdjacentHTML('beforeend', '<span class="chip" title="Desmarca «Ocultar borradores» para verlos">' + borr + ' borradores ocultos' + (borr === mensajes.length ? ' (todo lo cargado es borrador)' : '') + '</span>');
   }
 
-  var CLAVES = { fecha: function (m) { var d = fechaDe(m); return d ? d.getTime() : 0; }, tipo: function (m) { return m.MensajeTipo_es || ''; }, estado: function (m) { return m.MensajeEstado || ''; },
+  var CLAVES = { fecha: function (m) { var d = fechaDe(m); return d ? d.getTime() : 0; }, tipo: function (m) { return m.MensajeTipo_es || ''; }, firma: function (m) { return (m._x && m._x.Firma) || ''; }, estado: function (m) { return m.MensajeEstado || ''; },
     autoridad: autoridad, asunto: function (m) { return normal(m._asunto); }, referencia: function (m) { return m.MensajeNum_referencia || ''; }, organo: organo,
     prioridad: function (m) { return m._x ? m._x.CodigoPrioridad || '' : ''; }, celula: function (m) { return sitioDe(m); }, bandeja: function (m) { return m._x ? m._x.__es || '' : ''; } };
   function ordenar() {
@@ -1379,7 +1671,7 @@
     entrada: { t: 'Entrada', c: 'k-azul', f: function (m) { return m._x.__es === 'Entrada'; } },
     salida: { t: 'Salida', c: 'k-verde', f: function (m) { return m._x.__es === 'Salida'; } },
     sinver: { t: 'Sin revisar', c: 'k-ambar', f: function (m) { return !vistos[claveMensaje(m)]; } },
-    tarea: { t: 'Pasados a tarea', c: 'k-morado', f: function (m) { return !!enviados[claveMensaje(m)]; } }
+    tarea: { t: 'Pasados a tarea', c: 'k-morado', f: function (m) { return !!pasadoATarea(m); } }
   };
   function pintarKpis() {
     var st = $('fSitio').value, base = mensajes.filter(function (m) { return !st || sitioDe(m) === st; });
@@ -1418,37 +1710,75 @@
     var h = new Date(), ini = function (x) { return new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(); }, dd = Math.round((ini(h) - ini(d)) / 864e5);
     return dd === 0 ? 'Hoy' : dd === 1 ? 'Ayer' : d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
   };
+  // 14/11/2026: cada grupo se pliega o despliega pulsando su cabecera; se recuerda por fecha (no por «Hoy»)
+  var plegados = leer('plegados', {}) || {};
+  var dosD = function (n) { return (n < 10 ? '0' : '') + n; };
+  var claveGrupo = function (d, agr) { if (!d) return 'sin'; return agr === 'mes' ? 'm:' + d.getFullYear() + '-' + dosD(d.getMonth() + 1) : 'd:' + d.getFullYear() + '-' + dosD(d.getMonth() + 1) + '-' + dosD(d.getDate()); };
+  function guardarPlegados() { var ks = Object.keys(plegados); if (ks.length > 400) ks.sort().slice(0, ks.length - 400).forEach(function (k) { delete plegados[k]; }); guardar('plegados', plegados); }
+  var recorteBandejas = 0;
+  // 13/11/2026: agrupar la lista por días (como antes), por meses o sin agrupar (solo al ordenar por fecha)
+  var nomMes = function (d) {
+    if (!d) return 'Sin fecha';
+    var h = new Date(), t = d.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    return (d.getFullYear() === h.getFullYear() && d.getMonth() === h.getMonth() ? 'Este mes · ' : '') + t;
+  };
+  // 13/11/2026: bajo el asunto, si es de acción o de información y el último comentario (lo de antes —autoridad, firma,
+  // motivo— era siempre lo mismo y sigue en la ficha). Devuelve HTML ya escapado.
+  function actuacionDe(m) {
+    var x = m._x || {}, v = String(x.Actuacion || x.TipoDestinatario || x.TipoDistribucion || '').trim();
+    if (!v) return null;
+    var n = v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (/accion/.test(n)) return { cls: 'accion', txt: 'ACCIÓN' };
+    if (/info/.test(n)) return { cls: 'info', txt: 'INFO' };
+    return { cls: 'otra', txt: v.toUpperCase() };
+  }
+  function lineaSub(m) {
+    var a = actuacionDe(m), c = String((m._x && m._x.UltimoComentario) || '').replace(/\s+/g, ' ').trim();
+    if (c.length > 160) c = c.slice(0, 157) + '…';
+    return (a ? '<span class="act ' + a.cls + '">' + esc(a.txt) + '</span>' : '') + (c ? '<span class="com">💬 ' + esc(c) + '</span>' : (a ? '' : ''));
+  }
+  function etiquetasFila(m) {
+    return (pasadoATarea(m) ? ' <span class="tag t-tarea" title="Pasado a tarea en META">➜ Tarea</span>' : '') + (m._rubrica && m._rubrica.enviado ? ' <span class="tag t-tarea" title="Pasado a rúbrica desde SENDERO">✍ Rúbrica</span>' : '');
+  }
   function tablaBandejas(filas) {
-    var cab = [['fecha', 'Hora'], ['bandeja', ''], ['asunto', 'Asunto'], ['tipo', 'Tipo'], ['estado', 'Estado'], ['prioridad', 'Prio.'], ['celula', 'Célula']];
-    var dia = null, porDia = orden.campo === 'fecha';
+    // 13/11/2026: la columna «Tipo» (casi siempre «Oficio») pasa a ser «Firma»: quién firma el mensaje
+    var cab = [['fecha', 'Hora'], ['bandeja', ''], ['asunto', 'Asunto'], ['firma', 'Firma'], ['estado', 'Estado'], ['prioridad', 'Prio.'], ['celula', 'Célula']];
+    var agr = $('fAgrupar') ? $('fAgrupar').value : 'dia', porDia = orden.campo === 'fecha' && agr !== 'no', dia = null;
+    var grupoDe = function (f) { return agr === 'mes' ? nomMes(f) : nomDia(f); }, nGrupo = {}, pintadas = 0;
+    recorteBandejas = 0;
+    if (porDia) filas.forEach(function (m) { var g = grupoDe(fechaDe(m)); nGrupo[g] = (nGrupo[g] || 0) + 1; });
     return '<table><thead><tr><th title="Visto">✓</th>' + cab.map(function (c) { return '<th data-orden="' + c[0] + '">' + c[1] + (orden.campo === c[0] ? (orden.desc ? ' ▾' : ' ▴') : '') + '</th>'; }).join('') + '<th></th></tr></thead><tbody>' +
       filas.map(function (m, i) {
-        var f = fechaDe(m), nd = nomDia(f), cabDia = '';
-        if (porDia && nd !== dia) { dia = nd; cabDia = '<tr class="dia-cab"><td colspan="9">' + esc(nd) + '</td></tr>'; }
+        var f = fechaDe(m), nd = porDia ? grupoDe(f) : '', kg = porDia ? claveGrupo(f, agr) : '', cabDia = '';
+        if (porDia && nd !== dia) { dia = nd; var pl = !!plegados[kg]; cabDia = '<tr class="dia-cab' + (pl ? ' plegado' : '') + '" data-grupo="' + esc(kg) + '" title="Pulsa para ' + (pl ? 'desplegar' : 'plegar') + ' este grupo"><td colspan="9"><span class="flg">' + (pl ? '▶' : '▼') + '</span>' + esc(nd) + ' <span class="ngrupo">' + nGrupo[nd] + '</span></td></tr>'; }
+        if (porDia && plegados[kg]) return cabDia;
+        if (pintadas >= mostrar) { recorteBandejas++; return cabDia; }
+        pintadas++;
         var vis = !!vistos[claveMensaje(m)], cls = [m === abierto ? 'sel' : '', m._leido === false ? 'noleido' : '', vis ? 'visto' : ''].filter(Boolean).join(' ');
         var es = m._x.__es === 'Entrada' ? '<span title="Entrada">📥</span>' : m._x.__es === 'Salida' ? '<span title="Salida">📤</span>' : '';
-        var pr = m._x.CodigoPrioridad, sub = [m.MensajeNombre_Autoridad, m.MensajeNum_referencia, m._x.Firma ? '✍ ' + m._x.Firma : '', m._x.MotivoDistribucion ? 'Motivo: ' + m._x.MotivoDistribucion : ''].filter(Boolean).join(' · ');
+        var pr = m._x.CodigoPrioridad, sub = lineaSub(m);
         return cabDia + '<tr data-i="' + i + '"' + (cls ? ' class="' + cls + '"' : '') + '><td class="ver"><input type="checkbox" data-visto="' + i + '" title="Marcar como visto"' + (vis ? ' checked' : '') + '></td>' +
-          '<td class="hora">' + (f ? (porDia ? '' : esc(verFecha(f).slice(0, 10)) + ' ') + esc(verFecha(f).slice(11)) : '') + '</td><td class="es">' + es + '</td>' +
-          '<td class="asunto">' + (m._leido === false ? '<span class="punto" title="No leído"></span>' : '') + htmlBandera(m._bandera) + esc(m._asunto || '(sin asunto)') + (sub ? '<span class="sub">' + esc(sub) + '</span>' : '') + '</td>' +
-          '<td>' + (m.MensajeTipo_es ? '<span class="tag t-tipo">' + esc(m.MensajeTipo_es) + '</span>' : '') + '</td>' +
+          '<td class="hora">' + (f ? (porDia && agr === 'dia' ? '' : '<span class="dfecha">' + esc(verFecha(f).slice(0, agr === 'mes' && porDia ? 5 : 10)) + '</span> ') + esc(verFecha(f).slice(11)) : '') + '</td><td class="es">' + es + '</td>' +
+          '<td class="asunto">' + (m._leido === false ? '<span class="punto" title="No leído"></span>' : '') + htmlBandera(m._bandera) + esc(m._asunto || '(sin asunto)') + etiquetasFila(m) + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</td>' +
+          '<td class="firma"' + (m.MensajeTipo_es ? ' title="' + esc('Tipo: ' + m.MensajeTipo_es) + '"' : '') + '>' + (m._x.Firma ? '✍ ' + esc(m._x.Firma) : '<span class="muted">—</span>') + '</td>' +
           '<td>' + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') + '</td>' +
           '<td>' + (pr ? '<span class="prio' + (prioAlta(pr) ? ' alta' : '') + '">' + esc(pr) + '</span>' : '') + '</td>' +
           '<td><span class="celtag">' + esc(sitioDe(m).replace(/^ET \w+ /, '')) + '</span></td>' +
-          '<td class="nowrap">' + (m.Attachments ? '📎' : '') + (enviados[claveMensaje(m)] ? ' <span class="tag t-tarea" title="Pasado a Tareas Colabora">➜ Tarea</span>' : '') + (m._rubrica && m._rubrica.enviado ? ' <span class="tag t-tarea" title="Pasado a rúbrica desde SENDERO">✍ Rúbrica</span>' : '') + '</td></tr>';
+          '<td class="nowrap">' + (m.Attachments ? '📎' : '') + '</td></tr>';
       }).join('') + '</tbody></table>';
   }
   function pintarTabla() {
     var cab = [['fecha', 'Fecha'], ['tipo', 'Tipo'], ['estado', 'Estado'], ['autoridad', 'Autoridad'], ['asunto', 'Asunto'], ['referencia', 'Referencia'], ['organo', 'Órgano']];
     var filas = filtrados.slice(0, mostrar);
+    if (modoApi) filas = filtrados;
     $('lista').innerHTML = !mensajes.length ? '<p class="muted">No hay mensajes en el periodo elegido.</p>' : modoApi ? tablaBandejas(filas) +
-      (filtrados.length > mostrar ? '<p style="margin-top:8px"><button type="button" id="mas">Mostrar ' + Math.min(300, filtrados.length - mostrar) + ' más (quedan ' + (filtrados.length - mostrar) + ')</button></p>' : '') :
+      (recorteBandejas ? '<p style="margin-top:8px"><button type="button" id="mas">Mostrar ' + Math.min(300, recorteBandejas) + ' más (quedan ' + recorteBandejas + ')</button></p>' : '') :
       '<table><thead><tr><th title="Visto">✓</th>' + cab.map(function (c) { return '<th data-orden="' + c[0] + '">' + c[1] + (orden.campo === c[0] ? (orden.desc ? ' ▾' : ' ▴') : '') + '</th>'; }).join('') + '<th>📎</th></tr></thead><tbody>' +
       filas.map(function (m, i) {
         var vis = !!vistos[claveMensaje(m)], cls = [m === abierto ? 'sel' : '', m._leido === false ? 'noleido' : '', vis ? 'visto' : ''].filter(Boolean).join(' ');
         return '<tr data-i="' + i + '"' + (cls ? ' class="' + cls + '"' : '') + '><td class="ver"><input type="checkbox" data-visto="' + i + '" title="Marcar como visto"' + (vis ? ' checked' : '') + '></td><td class="fecha">' + esc(verFecha(fechaDe(m))) + '</td><td>' + (m.MensajeTipo_es ? '<span class="tag">' + esc(m.MensajeTipo_es) + '</span>' : '') +
           '</td><td class="nowrap">' + esc(m.MensajeEstado) + '</td><td>' + esc(autoridad(m)) + '</td><td class="asunto">' + esc(m._asunto) + '</td><td class="nowrap">' + esc(m.MensajeNum_referencia) +
-          '</td><td>' + esc(organo(m)) + '</td><td class="nowrap">' + (m.Attachments ? '📎' : '') + (enviados[claveMensaje(m)] ? ' <span class="tag t-tarea" title="Pasado a Tareas Colabora">➜ Tarea</span>' : '') + (m._rubrica && m._rubrica.enviado ? ' <span class="tag t-tarea" title="Pasado a rúbrica desde SENDERO">✍ Rúbrica</span>' : '') + '</td></tr>';
+          '</td><td>' + esc(organo(m)) + '</td><td class="nowrap">' + (m.Attachments ? '📎' : '') + (pasadoATarea(m) ? ' <span class="tag t-tarea" title="Pasado a Tareas Colabora">➜ Tarea</span>' : '') + (m._rubrica && m._rubrica.enviado ? ' <span class="tag t-tarea" title="Pasado a rúbrica desde SENDERO">✍ Rúbrica</span>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>' +
       (filtrados.length > mostrar ? '<p style="margin-top:8px"><button type="button" id="mas">Mostrar ' + Math.min(300, filtrados.length - mostrar) + ' más (quedan ' + (filtrados.length - mostrar) + ')</button></p>' : '');
     Array.prototype.forEach.call($('lista').querySelectorAll('th[data-orden]'), function (th) {
@@ -1462,6 +1792,15 @@
       });
     });
     if ($('mas')) $('mas').addEventListener('click', function () { mostrar += 300; pintarTabla(); });
+    Array.prototype.forEach.call($('lista').querySelectorAll('tr.dia-cab[data-grupo]'), function (tr) {
+      tr.addEventListener('click', function () { var k = tr.getAttribute('data-grupo'); if (plegados[k]) delete plegados[k]; else plegados[k] = 1; guardarPlegados(); pintarTabla(); });
+    });
+    if ($('botonesPlegar')) $('botonesPlegar').style.display = modoApi && orden.campo === 'fecha' && $('fAgrupar').value !== 'no' ? '' : 'none';
+  }
+  function plegarTodo(si) {
+    var agr = $('fAgrupar').value;
+    filtrados.forEach(function (m) { var k = claveGrupo(fechaDe(m), agr); if (si) plegados[k] = 1; else delete plegados[k]; });
+    guardarPlegados(); pintarTabla();
   }
 
   // Detalle de un mensaje: metadatos, cuerpo (se pide al abrirlo), adjuntos y documentos
@@ -1510,11 +1849,15 @@
     // abajo las acciones. Con la ficha sin ampliar los pisos no se ven (display: contents) y queda como antes.
     var titMax = '<div class="titmax" title="' + esc(m._asunto || '') + '">' + esc(m._asunto || '(sin asunto)') + '<small>' +
       esc([m._x && m._x.__es ? (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + m._x.__es : '', verFecha(fechaDe(m)), sitioDe(m)].filter(Boolean).join(' · ')) + '</small></div>';
-    $('detalle').innerHTML = '<div class="acciones barra-ficha"><div class="piso1">' + nav + titMax + (m._api ? '<button type="button" id="abrirMensadef" title="Abre tu célula en MENSADEF en otra pestaña y busca este mensaje">↗ Abrir en MENSADEF</button>' : disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
+    $('detalle').innerHTML = '<div class="acciones barra-ficha"><div class="piso1">' + nav + titMax + (m._api ? '<button type="button" id="abrirMensadef" title="Abre tu célula en MENSADEF en otra pestaña y busca este mensaje">↗ MENSADEF</button>' : disp ? '<a href="' + esc(disp) + '" target="_blank" rel="noopener"><button type="button">Abrir en MENSADEF</button></a>' : '') +
       '<button type="button" id="ampliar" title="Ver la ficha a toda la pantalla">' + (maxi ? '⤡ Reducir' : '⛶ Ampliar') + '</button><button type="button" id="cerrar" title="Cerrar la ficha">✕ Cerrar</button></div><div class="piso2">' +
-      '<button type="button" class="prim" id="aColabora" disabled title="Abre el Gestor de Tareas (META) con el alta rellena">➜ Añadir tarea en META</button>' + botonRubrica(m) + '<span class="sepb"></span>' +
-      '<span class="seg"><button type="button" class="naranja" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Enviar por correo</button>' +
-      '<button type="button" id="copiarTarea">📋 Copiar para Gestor</button><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button></span>' + selectorBandera(m) + '</div></div><div id="colabora"></div>' +
+      // 13/11/2026 (propuesta A): las tres acciones de tramitar en grande y, debajo, las utilidades pequeñas
+      '<div class="grandes"><button type="button" class="gr gr-meta" id="aColabora" disabled title="Abre el Gestor de Tareas (META) con el alta rellena"><span class="i">➜</span><span>Tarea en META<small>expediente y responsable</small></span></button>' +
+      (m._api && m._x && m._x.__es !== 'Salida' ? '<button type="button" class="gr gr-resp" id="aResponder" title="Abre en MENSADEF la pantalla para responder a este mensaje"><span class="i">↩</span><span>Responder<small>en MENSADEF</small></span></button>' : '') +
+      (PUNTO ? '<button type="button" class="gr gr-psit" id="aPunto" disabled title="Lo pasa al Punto de Situación (PSIT); también queda registrado en META"><span class="i">★</span><span>Al PSIT<small>punto de situación</small></span></button>' : '') + botonRubrica(m) + '</div>' +
+      '<div class="utiles"><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + botonLeido(m) + '<span class="sepu"></span>' +
+      '<button type="button" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Correo</button>' +
+      '<button type="button" id="copiarTarea" title="Copia asunto, referencia, fecha y autoridad para pegarlos en un gestor">📋 Copiar</button>' + (selectorBandera(m) ? '<span class="sepu"></span>' + selectorBandera(m) : '') + '</div></div></div><div id="colabora"></div>' +
       (m._api ? '<div class="cab-msg">' + (m._x.__es ? '<span class="tag st-azul">' + (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + esc(m._x.__es) + '</span>' : '') +
         (m.MensajeTipo_es ? '<span class="tag t-tipo">' + esc(m.MensajeTipo_es) + '</span>' : '') + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') +
         (m._x.CodigoPrioridad ? '<span class="prio' + (prioAlta(m._x.CodigoPrioridad) ? ' alta' : '') + '">' + esc(m._x.CodigoPrioridad) + '</span>' : '') + htmlBandera(m._bandera) +
@@ -1532,13 +1875,24 @@
     });
     if ($('msgAnt')) { $('msgAnt').addEventListener('click', function () { irMensaje(-1); }); $('msgSig').addEventListener('click', function () { irMensaje(1); }); }
     if ($('abrirMensadef')) $('abrirMensadef').addEventListener('click', function () { localizarEnMensadef(m); });
+    if ($('aResponder')) $('aResponder').addEventListener('click', function () {
+      // 13/11/2026: la pantalla de respuesta de MENSADEF tiene su dirección (dada por el usuario):
+      // <ámbito>/SitePages/ambito.aspx#/responder_mensaje/<IdMensaje>?idBuzonCelula=<IdBuzonCelula>. Si falta algún dato,
+      // se abre el mensaje y se pulsa «Responder» en la pantalla.
+      var u = urlResponder(m);
+      if (!u) return localizarEnMensadef(m, 'responder');
+      if (!window.open(u, '_blank')) alert('El navegador ha bloqueado la pestaña nueva. Permite las ventanas emergentes de MENSADEF.');
+    });
     pintarColabora(m); pintarComentario(m); setTimeout(fijarBarra, 0);
+    if ($('leidoBtn')) $('leidoBtn').addEventListener('click', function () { cambiarLeido(m, m._leido === false); });
+    // Al abrir un mensaje no leído se marca leído también en MENSADEF (como al abrirlo allí)
+    if (LEIDO && m._api && m._idBuzon && m._leido === false) cambiarLeido(m, true);
     if ($('aRubrica')) $('aRubrica').addEventListener('click', function () {
       var b = this;
       if (!b.dataset.seguro) { b.dataset.seguro = '1'; b.textContent = '¿Pasar a rúbrica? Pulsa otra vez'; b.classList.add('seguro'); avisoBandera(m, 'Se enviará al portafirmas de MENSADEF con tu usuario.', false); return; }
       b.disabled = true; b.textContent = 'Enviando a rúbrica…';
       pasarARubrica(m).then(function (info) { pintarTabla(); if (abierto === m) { abrir(m); avisoBandera(m, '✓ Pasado a rúbrica en MENSADEF' + (info ? ': ' + info : ''), false); } },
-        function (e) { b.disabled = false; delete b.dataset.seguro; b.classList.remove('seguro'); b.textContent = '✍ Pasar a rúbrica'; avisoBandera(m, 'No se pudo pasar a rúbrica: ' + (e.message || e), true); });
+        function (e) { b.disabled = false; delete b.dataset.seguro; b.classList.remove('seguro'); b.innerHTML = HTML_PASAR; avisoBandera(m, 'No se pudo pasar a rúbrica: ' + (e.message || e), true); });
     });
     if ($('selBandera')) $('selBandera').addEventListener('change', function () {
       var sel = this, id = sel.value; sel.disabled = true;
@@ -1548,6 +1902,7 @@
     $('verDet').addEventListener('click', function () { cambiarVisto(m, !vistos[claveMensaje(m)]); });
     $('porCorreo').addEventListener('click', function () { correoMensaje(m); });
     $('aColabora').addEventListener('click', function () { pasarAColabora(m, disp); });
+    if ($('aPunto')) $('aPunto').addEventListener('click', function () { pasarAColabora(m, disp, true); });
     $('copiarTarea').addEventListener('click', function () {
       var t = (m._asunto || '') + (m.MensajeNum_referencia ? ' — Ref. ' + m.MensajeNum_referencia : '') + (m.MensajeNum_expediente ? ' — Exp. ' + m.MensajeNum_expediente : '') +
         ' — ' + verFecha(fechaDe(m)) + (autoridad(m) ? ' — ' + autoridad(m) : '');
@@ -1558,7 +1913,7 @@
       // El texto completo del mensaje se ve en MENSADEF (el servicio de la bandeja no lo trae)
       m._cuerpo = m._cuerpoApi || Object.keys(m._x).filter(function (k) { return k !== '__es'; }).map(function (k) { return EXTRA[k].titulo + ': ' + m._x[k]; }).join('\n');
       $('cuerpo').textContent = m._cuerpoApi || '(La bandeja no trae el texto: ábrelo en MENSADEF.)';
-      $('aColabora').disabled = false;
+      $('aColabora').disabled = false; if ($('aPunto')) $('aPunto').disabled = false;
       pintarAnexos(m);   // siempre: la marca de anexos de la bandeja puede venir con otro valor
       return;
     }
@@ -1568,7 +1923,7 @@
       m._cuerpo = c;
       $('cuerpo').textContent = c || '(sin texto)';
     }).catch(function (e) { if (abierto === m) $('cuerpo').textContent = 'No se pudo leer el texto (' + (e.message || e) + ').'; })
-      .then(function () { if (abierto === m && $('aColabora')) $('aColabora').disabled = false; });
+      .then(function () { if (abierto === m && $('aColabora')) { $('aColabora').disabled = false; if ($('aPunto')) $('aPunto').disabled = false; } });
     if (m.Attachments) {
       api(base + '/AttachmentFiles', l.web).then(function (d) {
         if (abierto !== m) return;
@@ -1592,20 +1947,30 @@
   // MENSADEF no puede escribir en Colabora (es otro servidor): el alta la hace Colabora con tu sesión.
   // Varios Gestores de Tareas, cada uno con su nombre (el común de la unidad, el propio…): se elige a cuál va cada mensaje.
   // Se guardan en este navegador. La dirección antigua (una sola) pasa a ser el primero.
+  // META viene ya puesto como Gestor por defecto (11/11/2026): https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/META.html.
+  // La dirección antigua (tareas-nlt-colabora-mensadef.html) se cambia sola por la nueva. Se pueden añadir otros.
+  var META_URL = 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/META.html';
   var gestores = function () {
     var g = leer('gestores', null);
-    if (!g) { var viejo = leer('colabora', ''); g = viejo ? [{ nombre: 'Mi Gestor de Tareas', url: viejo }] : []; if (g.length) guardar('gestores', g); }
+    if (!g) { var viejo = leer('colabora', ''); g = viejo ? [{ nombre: 'Mi Gestor de Tareas', url: viejo }] : []; }
+    var cambio = false;
+    g = g.map(function (x) { if (/\/tareas-nlt-colabora-mensadef\.html$/i.test(x.url)) { cambio = true; return { nombre: 'META', url: META_URL }; } return x; })
+      .filter(function (x, i, l) { return l.map(function (y) { return y.url; }).indexOf(x.url) === i; });
+    if (!leer('sinMetaPorDefecto', false) && !g.some(function (x) { return x.url === META_URL; })) { g.unshift({ nombre: 'META', url: META_URL }); cambio = true; if (leer('gestorSel', null) !== null) guardar('gestorSel', 0); }
+    if (cambio) guardar('gestores', g);
     return g;
   };
   var gestorElegido = function () { var g = gestores(), i = Number(leer('gestorSel', 0)) || 0; return g[i] || g[0] || null; };
   var urlColabora = function () { var x = gestorElegido(); return x ? x.url : ''; };
   var enviadosA = leer('enviadosA', {});
   function pintarColabora(m) {
-    var caja = $('colabora'), g = gestores(), sel = Number(leer('gestorSel', 0)) || 0, env = enviados[claveMensaje(m)];
-    caja.innerHTML = (env ? '<p class="muted">➜ Pasado a ' + esc(enviadosA[claveMensaje(m)] || 'Tareas Colabora') + ' el ' + esc(verFecha(new Date(env))) + ' desde este navegador.</p>' : '') +
+    var caja = $('colabora'), g = gestores(), sel = Number(leer('gestorSel', 0)) || 0, env = pasadoATarea(m);
+    caja.innerHTML = (env ? '<p class="muted">➜ ' + (env === 'MENSADEF' ? 'Ya está pasado a tarea en META (según el comentario de MENSADEF).' : 'Pasado a ' + esc(enviadosA[claveMensaje(m)] || 'Tareas Colabora') + ' el ' + esc(verFecha(new Date(env))) + ' desde este navegador.') + '</p>' : '') +
       (g.length ? '<div class="fila" style="margin:4px 0"><label style="flex:1;min-width:220px">Crear la tarea en<select id="gestorSel">' +
         g.map(function (x, i) { return '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + esc(x.nombre) + '</option>'; }).join('') + '</select></label>' +
-        '<a href="#" id="cambiarColabora" class="muted">gestionar gestores</a></div>' : '') +
+        '<a href="#" id="cambiarColabora" class="muted">gestionar gestores</a></div>' +
+        // Departamento en META = la célula de MENSADEF del mensaje (11/11/2026); el responsable es quien crea la tarea
+        '<p class="small muted" style="margin:2px 0">Departamento en META: <b>' + esc(sitioDe(m) || '—') + '</b> · responsable: quien crea la tarea (se puede cambiar en META)</p>' : '') +
       (ESCRIBIR && m._api ? '<label class="check small"><input type="checkbox" id="anotarMeta"' + (leer('anotarMeta', true) ? ' checked' : '') + '> Al añadir la tarea, dejar en MENSADEF el comentario «Añadido como tarea en META»</label>' : '');
     if ($('anotarMeta')) $('anotarMeta').addEventListener('change', function () { guardar('anotarMeta', this.checked); });
     if ($('gestorSel')) $('gestorSel').addEventListener('change', function () { guardar('gestorSel', Number(this.value)); });
@@ -1613,21 +1978,21 @@
   }
   function configurarColabora(m, despues) {
     var caja = $('colabora'), g = gestores();
-    caja.innerHTML = '<div class="card" style="margin:6px 0"><b>¿A qué Gestor de Tareas quieres llevar los mensajes?</b>' +
-      '<p class="muted">Abre en Colabora la página del Gestor de Tareas (el común de tu unidad, el tuyo…), copia la dirección de la barra del navegador y pégala aquí con un nombre. Puedes guardar varios y elegir en cada mensaje.</p>' +
+    caja.innerHTML = '<div class="card" style="margin:6px 0"><b>Gestores de Tareas</b>' +
+      '<p class="muted">Por defecto los mensajes van a <b>META</b>. Si quieres llevarlos también a otro Gestor de Colabora, abre su página, copia la dirección de la barra del navegador y pégala aquí con un nombre; luego eliges en cada mensaje.</p>' +
       (g.length ? '<table style="margin:6px 0">' + g.map(function (x, i) { return '<tr><td><b>' + esc(x.nombre) + '</b></td><td class="muted" style="word-break:break-all">' + esc(x.url.replace(/^https?:\/\//, '').slice(0, 80)) + '</td><td><button type="button" data-quitargestor="' + i + '">Quitar</button></td></tr>'; }).join('') + '</table>' : '') +
       '<div class="fila"><input id="nomGestor" style="min-width:180px" placeholder="Nombre (p. ej. Gestor común SUIGESUR)">' +
       '<input id="urlColabora" style="flex:1;min-width:240px" placeholder="https://colabora.mdef.es/…/tareas-nlt-colabora' + (PRUEBAS ? '-pruebas' : '') + '.html">' +
       '<button type="button" class="prim" id="guardarColabora">Añadir</button>' + (g.length ? '<button type="button" id="hechoGestores">Hecho</button>' : '') + '</div><div class="muted" id="errColabora"></div></div>';
     Array.prototype.forEach.call(caja.querySelectorAll('[data-quitargestor]'), function (b) {
-      b.addEventListener('click', function () { var l = gestores(); l.splice(Number(b.dataset.quitargestor), 1); guardar('gestores', l); guardar('gestorSel', 0); configurarColabora(m, despues); });
+      b.addEventListener('click', function () { var l = gestores(), q = l.splice(Number(b.dataset.quitargestor), 1)[0]; if (q && q.url === META_URL) guardar('sinMetaPorDefecto', true); guardar('gestores', l); guardar('gestorSel', 0); configurarColabora(m, despues); });
     });
     if ($('hechoGestores')) $('hechoGestores').addEventListener('click', function () { pintarColabora(m); if (despues && gestores().length) despues(); });
     $('guardarColabora').addEventListener('click', function () {
       var v = $('urlColabora').value.trim().replace(/#.*$/, ''), n = $('nomGestor').value.trim();
       if (!/^https?:\/\/[^/]+\/./i.test(v)) { $('errColabora').textContent = 'Pega la dirección completa, empezando por https://'; return; }
       if (v.indexOf(location.origin + '/') === 0) { $('errColabora').textContent = 'Esa dirección es de MENSADEF; tiene que ser la de la página en Colabora.'; return; }
-      if (PRUEBAS && !/pruebas/i.test(v)) { $('errColabora').textContent = 'Esta es la versión de pruebas: pon la dirección de tareas-nlt-colabora-pruebas.html, no la de la buena.'; return; }
+      if (PRUEBAS && !/pruebas/i.test(v) && v !== META_URL) { $('errColabora').textContent = 'Esta es la versión de pruebas: pon la dirección de tareas-nlt-colabora-pruebas.html, no la de la buena.'; return; }
       var l = gestores();
       if (l.some(function (x) { return x.url === v; })) { $('errColabora').textContent = 'Esa dirección ya está guardada.'; return; }
       l.push({ nombre: n || (/pruebas/i.test(v) ? 'Gestor de Tareas (pruebas)' : 'Gestor de Tareas ' + (l.length + 1)), url: v });
@@ -1642,7 +2007,7 @@
   // siempre lo pide el usuario (botón con confirmación) o al pasar un mensaje a META si deja marcada la casilla.
   var ESCRIBIR = true; // 09/11/2026: comentario y bandera dados por buenos, también en el definitivo
   // POST al servicio como la aplicación: cabeceras passcode/user y, si la clave ha caducado (406), se pide otra una vez
-  function escribirApi(ruta, consulta, cuerpo, que) {
+  function escribirApi(ruta, consulta, cuerpo, que, metodo) {
     var x = diagApi.filter(function (y) { return y.ruta === ruta; })[0];
     if (!x) { x = { ruta: ruta, n: 0 }; diagApi.push(x); }
     var url = (datosApp.origen || API) + '/api/' + ruta + '?' + consulta;
@@ -1650,7 +2015,7 @@
       var cab = leer('cabecerasApi', null), hs = { 'Content-Type': 'application/json' };
       if (cab && cab.passcode) { hs.passcode = cab.passcode; if (cab.user) hs.user = cab.user; }
       x.n++;
-      var op = { method: 'POST', credentials: modoApi_fetch || 'omit', headers: hs }; if (cuerpo != null) op.body = cuerpo;
+      var op = { method: metodo || 'POST', credentials: modoApi_fetch || 'omit', headers: hs }; if (cuerpo != null) op.body = cuerpo;
       return fetch(url, op).then(function (r) {
         x.estado = r.status;
         if (r.status === 406 && !otra) return pedirClave(apiCtx.email, apiCtx.url).then(function () { return intento(true); });
@@ -1679,13 +2044,23 @@
   // Si el estado es «Enviado» (ya salió) no se ofrece, aunque MENSADEF siga marcándolo como enviable a rúbrica
   // Ni si ya está en firma (pendiente de firma, en el portafirmas, firmado): pasarlo otra vez no tiene sentido
   function yaEnviado(m) { return /\benviad[oa]s?\b|pendiente\s+de\s+firma|firma\s+pendiente|en\s+firma|firmad[oa]|en\s+r[uú]brica|portafirmas/i.test((m._rubrica && m._rubrica.estado) || ''); }
-  function puedeRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && m.MensajeId && r && !r.enviado && !yaEnviado(m) && (siTexto(r.enviable) || /validaci/i.test(r.estado || ''))); }
+  function puedeRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && m.MensajeId && r && !r.enviado && !yaEnviado(m) && (siTexto(r.enviable) || /validaci|validar/i.test(r.estado || ''))); }
   // Enlace fijo al portafirmas (dirección dada por el usuario) para no tener que buscarlo; la firma se hace allí
   var URL_RUBRICA = 'https://portafirmas.mdef.es/ePortafirmas/Inicio.do?cr=&btnLogout=Entrar';
+  // 13/11/2026 (Explorar Portafirmas v2): la lista del firmante es Firmantes.do?operacion=ListaPendientes y se filtra por
+  // «titulo». Se abre ya filtrada por el asunto del mensaje (sin RE:/SDO. delante y sin comillas, como mucho 60 letras).
+  function urlRubrica(m) {
+    var t = String((m && m._asunto) || '').replace(/^\s*((re|rv|fw|fwd|sdo|ref)\s*[:.]\s*)+/i, '').replace(/["'<>%&#]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+    return 'https://portafirmas.mdef.es/ePortafirmas/Firmantes.do?operacion=ListaPendientes' + (t ? '&titulo=' + encodeURIComponent(t) : '');
+  }
+  // 13/11/2026: «Ir a Rúbrica · firmar» solo cuando ya está pendiente de firma (pasado a rúbrica); antes, «Pasar a rúbrica»
+  function enFirma(m) { var r = m._rubrica; return !!(r && (r.enviado || /pendiente\s*(de\s*)?firma|firma\s+pendiente|en\s+firma|en\s+r[uú]brica|portafirmas/i.test(r.estado || ''))); }
   function conRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && r && (puedeRubrica(m) || r.enviado || /firma|r[uú]brica|portafirmas|validaci/i.test(r.estado || ''))); }
+  var HTML_PASAR = '<span class="i">✍</span><span>Pasar a rúbrica<small>enviarlo al portafirmas</small></span>';
   function botonRubrica(m) {
-    return (puedeRubrica(m) ? '<button type="button" class="rubrica" id="aRubrica" title="Envía el mensaje al portafirmas (rúbrica) en MENSADEF">✍ Pasar a rúbrica</button>' : '') +
-      (conRubrica(m) ? '<a href="' + esc(URL_RUBRICA) + '" target="_blank" rel="noopener" id="irRubrica"><button type="button" title="Abre el portafirmas (Rúbrica) en otra pestaña">🖋 Ir a Rúbrica</button></a>' : '');
+    return (puedeRubrica(m) ? '<button type="button" class="gr gr-rub" id="aRubrica" title="Envía el mensaje al portafirmas (rúbrica) en MENSADEF">' + HTML_PASAR + '</button>' : '') +
+      // 13/11/2026: «Ir a Rúbrica» siempre (acceso al portafirmas para firmar); «Pasar a rúbrica» solo cuando procede
+      (RUBRICA && m._api && !puedeRubrica(m) && enFirma(m) ? '<a href="' + esc(urlRubrica(m)) + '" target="_blank" rel="noopener" id="irRubrica" class="gr-a"><button type="button" class="gr gr-rub" title="Abre en otra pestaña tu lista de documentos para firmar del Portafirmas, filtrada por el asunto de este mensaje"><span class="i">✍</span><span>Ir a Rúbrica<small>firmarlo en el portafirmas</small></span></button></a>' : '');
   }
   function pasarARubrica(m) {
     if (!apiCtx || !m.MensajeId) return Promise.reject(new Error('este mensaje no viene del servicio de MENSADEF'));
@@ -1696,6 +2071,27 @@
       m._rubrica.enviado = true; m._rubrica.info = info;
       return info;
     });
+  }
+  // ---------- Leído en MENSADEF (10/11/2026, en las dos copias) ----------
+  // «Visto» es una marca propia de SENDERO; «Leído» es el de MENSADEF (la negrita). Al abrir un mensaje no leído se marca
+  // leído en MENSADEF como hace la aplicación (escucha): PUT buzon/BuzonCelulaMensajeLeido?emailUsuario&urlColeccionSitio
+  // &idBuzonCelula&estado, sin cuerpo. «Marcar no leído» lo deshace (estado=false).
+  var LEIDO = true; // 10/11/2026: probado por el usuario, también en el definitivo
+  function botonLeido(m) {
+    if (!LEIDO || !m._api || !m._idBuzon) return '';
+    return '<button type="button" id="leidoBtn" title="Cambia el leído en MENSADEF (la negrita)">' + (m._leido === false ? '📖 Marcar leído' : '📩 Marcar no leído') + '</button>';
+  }
+  function cambiarLeido(m, si) {
+    if (!apiCtx || !m._idBuzon) return;
+    var b = $('leidoBtn'); if (b && abierto === m) b.disabled = true;
+    escribirApi('buzon/BuzonCelulaMensajeLeido', qUsuario() + '&idBuzonCelula=' + encodeURIComponent(m._idBuzon) + '&estado=' + (si ? 'true' : 'false'), null, 'marcar como leído este mensaje', 'PUT').then(function () {
+      m._leido = si; if (m._x) m._x.Leido = si ? 'Sí' : 'No';
+      pintarTabla(); pintarKpis();
+      if (abierto !== m) return;
+      var bt = $('leidoBtn'); if (bt) { bt.disabled = false; bt.textContent = si ? '📩 Marcar no leído' : '📖 Marcar leído'; }
+      var dd = Array.prototype.filter.call(document.querySelectorAll('#detalle .ficha-campos dt'), function (d) { return d.textContent === 'Leído'; })[0];
+      if (dd) dd.nextElementSibling.textContent = si ? 'Sí' : 'No';
+    }, function (e) { var bt = $('leidoBtn'); if (bt && abierto === m) bt.disabled = false; avisoBandera(m, 'No se pudo cambiar el leído en MENSADEF: ' + (e.message || e), true); });
   }
   function avisoBandera(m, texto, mal) {
     if (abierto !== m || !$('colabora')) return;
@@ -1710,12 +2106,21 @@
       return b;
     });
   }
+  // 13/11/2026: nombre de quien usa SENDERO (para firmar el comentario «Añadido como tarea en META»)
+  var nombreYo = '';
+  function miNombre() {
+    if (nombreYo) return Promise.resolve(nombreYo);
+    var porCorreo = function () { return apiCtx && apiCtx.email ? apiCtx.email : 'usuario de SENDERO'; };
+    if (!web) return Promise.resolve(porCorreo());
+    return api('web/currentuser?$select=Title', web.url).then(function (u) { nombreYo = u.Title || ''; return nombreYo || porCorreo(); }, porCorreo);
+  }
   function comentarEnMensadef(m, texto) {
     if (!apiCtx || !m.MensajeId) return Promise.reject(new Error('este mensaje no viene del servicio de MENSADEF'));
     var q = qUsuario();
     var cuerpo = JSON.stringify({ Comentario: texto, IdMensaje: m.MensajeId, CreadoPor: apiCtx.idUsuario });
     return escribirApi('mensaje/ComentarioCrear', q + '&' + q, cuerpo, 'comentar este mensaje').then(function () {
       if (m._x) m._x.UltimoComentario = texto;
+      try { pintarTabla(); } catch (e) { /* la lista se repinta al volver */ }
       return true;
     });
   }
@@ -1727,9 +2132,10 @@
     $('guardarComentario').addEventListener('click', function () {
       var b = this, t = $('txtComentario').value.trim(), msg = $('msgComentario');
       if (!t) { msg.textContent = 'Escribe el comentario.'; return; }
-      if (!b.dataset.seguro) { b.dataset.seguro = '1'; b.textContent = '¿Guardar en MENSADEF? Pulsa otra vez'; b.classList.add('naranja'); msg.textContent = 'Se guardará en MENSADEF con tu usuario y lo verán los demás.'; return; }
+      if (!b.dataset.seguro) { b.dataset.seguro = '1'; b.textContent = '¿Guardar en MENSADEF? Pulsa otra vez'; b.classList.add('naranja'); msg.textContent = 'Se guardará en MENSADEF firmado con tu nombre y lo verán los demás.'; return; }
       b.disabled = true; msg.textContent = 'Guardando…';
-      comentarEnMensadef(m, t).then(function () {
+      // 13/11/2026: MENSADEF no devuelve quién hizo el último comentario: se firma con el nombre de quien lo escribe
+      miNombre().then(function (quien) { t = t + ' — ' + quien; return comentarEnMensadef(m, t); }).then(function () {
         if (abierto !== m) return;
         msg.innerHTML = '<b style="color:#2e7d4f">✓ Guardado en MENSADEF</b>'; $('txtComentario').value = ''; delete b.dataset.seguro; b.textContent = 'Guardar en MENSADEF'; b.classList.remove('naranja'); b.disabled = false;
         var dd = Array.prototype.filter.call(document.querySelectorAll('#detalle .ficha-campos dt'), function (d) { return d.textContent === 'Último comentario'; })[0];
@@ -1737,13 +2143,20 @@
       }, function (e) { b.disabled = false; delete b.dataset.seguro; b.textContent = 'Guardar en MENSADEF'; b.classList.remove('naranja'); msg.innerHTML = '<span class="bad">No se pudo guardar: ' + esc(e.message || e) + '</span>'; });
     });
   }
-  function pasarAColabora(m, disp) {
+  // Punto de Situación (11/11/2026, en las dos copias): pasa por META, que crea el asunto marcado ⭐ Tratar con el General
+  // y abre «Incluir en el Punto de Situación»; así el asunto tiene expediente, responsable, departamento e historial
+  var PUNTO = true;   // 11/11/2026: también en el definitivo, como pidió el usuario
+  function pasarAColabora(m, disp, punto) {
     var u = urlColabora();
-    if (!u) return configurarColabora(m, function () { pasarAColabora(m, disp); });
+    if (!u) return configurarColabora(m, function () { pasarAColabora(m, disp, punto); });
     var f = fechaDe(m), cuerpo = m._cuerpo || '';
     var datos = { v: 1, origen: 'MENSADEF', id: claveMensaje(m), asunto: m._asunto || m.Title || '(sin asunto)', fecha: f ? f.toISOString() : '', de: autoridad(m),
       tipo: m.MensajeTipo_es || '', referencia: m.MensajeNum_referencia || '', suReferencia: m.MensajeSu_referencia || '', expediente: m.MensajeNum_expediente || '',
       enlace: disp || '', texto: cuerpo.length > 6000 ? cuerpo.slice(0, 6000) + '…' : cuerpo };
+    if (sitioDe(m)) datos.departamento = sitioDe(m);   // la célula de MENSADEF
+    if (punto) datos.punto = true;
+    // Y todas las células del usuario, para que META las ofrezca como departamentos sin escribirlas (11/11/2026)
+    if (apiCtx && apiCtx.celulas) datos.departamentos = apiCtx.celulas.map(function (c) { return c.nombre; }).filter(Boolean).slice(0, 150);
     window.open(u + '#importar=' + encodeURIComponent(JSON.stringify(datos)), '_blank', 'noopener');
     enviados[claveMensaje(m)] = new Date().toISOString();
     enviadosA[claveMensaje(m)] = (gestorElegido() || {}).nombre || 'Tareas Colabora';
@@ -1754,8 +2167,11 @@
     guardar('enviados', enviados);
     pintarColabora(m); pintarTabla();
     if (ESCRIBIR && m._api && leer('anotarMeta', true)) {
-      var nota = 'Añadido como tarea en META (' + ((gestorElegido() || {}).nombre || 'Gestor de Tareas') + ') el ' + new Date().toLocaleString('es-ES') + ' · SENDERO';
-      comentarEnMensadef(m, nota).then(function () {
+      var nota;
+      miNombre().then(function (quien) {
+        nota = 'Añadido como tarea en META' + (punto ? ' para el Punto de Situación' : '') + ' (' + ((gestorElegido() || {}).nombre || 'Gestor de Tareas') + ') por ' + quien + ' el ' + new Date().toLocaleString('es-ES') + ' · SENDERO';
+        return comentarEnMensadef(m, nota);
+      }).then(function () {
         if (abierto !== m) return;
         $('colabora').insertAdjacentHTML('beforeend', '<p class="small" style="color:#2e7d4f">✓ Comentario añadido en MENSADEF: «' + esc(nota) + '»</p>');
         var dd = Array.prototype.filter.call(document.querySelectorAll('#detalle .ficha-campos dt'), function (d) { return d.textContent === 'Último comentario'; })[0];
@@ -1812,7 +2228,7 @@
     var sel = function (id, nom) { var e = $(id); if (e && e.value && e.parentNode.style.display !== 'none') f.push(nom + ': ' + e.value); };
     if ($('buscar').value.trim()) f.push('Búsqueda: «' + $('buscar').value.trim() + '»');
     sel('fSitio', modoApi ? 'Célula' : 'Sitio'); sel('fTipo', 'Tipo'); sel('fEstado', 'Estado'); sel('fCanal', 'Canal'); sel('fOrgano', 'Órgano'); sel('fAutoridad', modoApi ? 'Remitente' : 'Autoridad');
-    Object.keys(fx).forEach(function (k) { f.push(EXTRA[k].titulo + ': ' + fx[k]); });
+    Object.keys(fx).forEach(function (k) { f.push(fx[k] === SIN_VALOR ? 'Sin ' + EXTRA[k].titulo.toLowerCase() : EXTRA[k].titulo + ': ' + fx[k]); });
     if (kpiSel) f.push('Solo: ' + KPIS[kpiSel].t.toLowerCase());
     if ($('fAdjuntos').checked) f.push('Con adjuntos');
     if ($('fBorrador').checked) f.push('Sin borradores');
@@ -1837,7 +2253,7 @@
       ['Prioridad', x.CodigoPrioridad], ['Bandera', x.Bandera], ['Tipo de mensaje', m.MensajeTipo_es], ['Estado', m.MensajeEstado], ['Último comentario', x.UltimoComentario], ['Usuario remitente', x.UsuarioRemitente], ['Célula', sitioDe(m)]]
       : [['Fecha', verFecha(fechaDe(m))], ['Autoridad', autoridad(m)], ['Referencia', m.MensajeNum_referencia], ['Su referencia', m.MensajeSu_referencia], ['Expediente', m.MensajeNum_expediente],
       ['Tipo', m.MensajeTipo_es], ['Estado', m.MensajeEstado], ['Canal', m.MensajeCanal], ['Órgano', organo(m)], ['Sitio', sitioDe(m)]];
-    c.push(['Adjuntos', m.Attachments ? 'Sí' : ''], ['Visto', vistos[claveMensaje(m)] ? verFecha(new Date(vistos[claveMensaje(m)])) : ''], ['Pasado a tarea', enviados[claveMensaje(m)] ? verFecha(new Date(enviados[claveMensaje(m)])) : '']);
+    c.push(['Adjuntos', m.Attachments ? 'Sí' : ''], ['Visto', vistos[claveMensaje(m)] ? verFecha(new Date(vistos[claveMensaje(m)])) : ''], ['Pasado a tarea', pasadoATarea(m) ? (pasadoATarea(m) === 'MENSADEF' ? 'Sí (según MENSADEF)' : verFecha(new Date(pasadoATarea(m)))) : '']);
     return c.filter(function (v) { return v[1] != null && String(v[1]).trim() !== ''; }).map(function (v) { return [v[0], String(v[1])]; });
   }
   var OPC_INF = { titulo: 'Relación de mensajes de MENSADEF', unidad: '', destinatario: '', marca: '', agrupar: '', resumen: true, relacion: true, extracto: true, detalle: false };
@@ -1850,7 +2266,7 @@
     var cols = [['Fecha', function (m) { return verFecha(fechaDe(m)); }], ['Célula', celCorta], ['E/S', function (m) { return xDe(m).__es === 'Entrada' ? 'E' : xDe(m).__es === 'Salida' ? 'S' : ''; }],
       ['Tipo', function (m) { return m.MensajeTipo_es; }], ['Prio.', function (m) { return xDe(m).CodigoPrioridad; }], ['Bandera', function (m) { return xDe(m).Bandera; }], ['Asunto', function (m) { return m._asunto; }],
       ['Remitente', function (m) { return autoridad(m); }], ['Firma', function (m) { return xDe(m).Firma; }], ['Motivo', function (m) { return xDe(m).MotivoDistribucion; }], ['N.º ref.', function (m) { return m.MensajeNum_referencia; }], ['Estado', function (m) { return m.MensajeEstado; }],
-      ['Leído', function (m) { return m._leido === true ? 'Sí' : m._leido === false ? 'No' : ''; }], ['Tarea', function (m) { return enviados[claveMensaje(m)] ? 'Sí' : ''; }]];
+      ['Leído', function (m) { return m._leido === true ? 'Sí' : m._leido === false ? 'No' : ''; }], ['Tarea', function (m) { return pasadoATarea(m) ? 'Sí' : ''; }]];
     // Columnas sin ningún dato fuera
     cols = cols.filter(function (c) { return ms.some(function (m) { var v = c[1](m); return v != null && String(v) !== ''; }); });
     var grupos = [['', ms]];
@@ -1865,7 +2281,7 @@
       periodo: $('desde').value.split('-').reverse().join('/') + ' al ' + $('hasta').value.split('-').reverse().join('/'),
       quien: ($('quien').textContent || '').split(' · ').pop(),
       cifras: [['Mensajes', ms.length], ['Sin leer', cuenta(function (m) { return m._leido === false; })], ['Entrada', cuenta(function (m) { return xDe(m).__es === 'Entrada'; })],
-        ['Salida', cuenta(function (m) { return xDe(m).__es === 'Salida'; })], ['Vistos', cuenta(function (m) { return !!vistos[claveMensaje(m)]; })], ['Pasados a tarea', cuenta(function (m) { return !!enviados[claveMensaje(m)]; })]]
+        ['Salida', cuenta(function (m) { return xDe(m).__es === 'Salida'; })], ['Vistos', cuenta(function (m) { return !!vistos[claveMensaje(m)]; })], ['Pasados a tarea', cuenta(function (m) { return !!pasadoATarea(m); })]]
         .filter(function (c, i) { return i === 0 || c[1]; }),
       sinTexto: ms.filter(function (m) { return !textoDe(m); }).length };
   }
@@ -1993,7 +2409,7 @@
   $('csv').addEventListener('click', function () {
     var cols = [['Fecha', function (m) { return verFecha(fechaDe(m)); }], ['Tipo', 'MensajeTipo_es'], ['Estado', 'MensajeEstado'], ['Canal', 'MensajeCanal'], ['Autoridad', autoridad],
       ['Asunto', function (m) { return m._asunto; }], ['Referencia', 'MensajeNum_referencia'], ['Su referencia', 'MensajeSu_referencia'], ['Expediente', 'MensajeNum_expediente'], ['Órgano', organo], ['Adjuntos', function (m) { return m.Attachments ? 'sí' : ''; }],
-      ['Pasado a Colabora', function (m) { return enviados[claveMensaje(m)] ? verFecha(new Date(enviados[claveMensaje(m)])) : ''; }], ['Sitio', sitioDe], ['Visto', function (m) { return vistos[claveMensaje(m)] ? verFecha(new Date(vistos[claveMensaje(m)])) : ''; }]]
+      ['Pasado a Colabora', function (m) { return pasadoATarea(m) ? (pasadoATarea(m) === 'MENSADEF' ? 'Sí (según MENSADEF)' : verFecha(new Date(pasadoATarea(m)))) : ''; }], ['Sitio', sitioDe], ['Visto', function (m) { return vistos[claveMensaje(m)] ? verFecha(new Date(vistos[claveMensaje(m)])) : ''; }]]
       .concat(Object.keys(EXTRA).map(function (k) { return [EXTRA[k].titulo, function (m) { return m._x[k]; }]; }));
     var celda = function (v) { v = String(v == null ? '' : v); return /[";\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
     var csv = '﻿' + cols.map(function (c) { return c[0]; }).join(';') + '\r\n' + filtrados.map(function (m) {

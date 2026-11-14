@@ -18,6 +18,55 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-12 · 6: todos los negociados descargan el informe completo en PDF
+
+- En la pestaña «Informe», cada negociado puede descargar el informe completo en PDF, además de la parte de su
+  negociado. El Word completo y «Marcar como entregado» siguen siendo solo de PROCOR. «Mi negociado» no cambia.
+
+## Versión 2026-11-12 · 5: al incluir una propuesta en un negociado se abre ese negociado
+
+- Tras guardar una propuesta incluida con «Incluir en…», la página pasa a «Mi negociado» con ese negociado
+  elegido, para que se vea la entrada (antes se quedaba en Seguimiento y «Mi negociado» seguía en el anterior).
+
+## Versión 2026-11-12 · 4: las propuestas de META sin negociado ya no se quedan en el limbo
+
+- En «Seguimiento», las propuestas de META que no casan con ningún negociado dicen por qué:
+  «sin negociado en META» (el expediente no tiene negociado asignado) o ««X» no está en Ajustes» (el negociado de
+  META no figura en «Negociado en el Gestor»; al añadirlo, se reparten solas).
+- PROCOR las incluye con «📋 Incluir en…», eligiendo el negociado convocado en el desplegable.
+
+## Versión 2026-11-12 · 3: el asunto en su línea y el texto debajo en el informe
+
+- En la vista previa, el PDF y el Word, cada asunto sale en negrita en su propia línea (con su viñeta) y lo que
+  se escribe va debajo, con sus saltos de línea, en vez de salir pegado («RDO: SOLICITUD GAR. PARECER: …»).
+- Ya no se añade un punto detrás del asunto.
+
+## Versión 2026-11-12 · 2: sin la pantalla de identificarse al quitar
+
+- **Caso real:** al pulsar quitar, al usuario le salía la pantalla para identificarse en Colabora. Así contesta Colabora
+  cuando se intenta borrar **sin permiso de eliminar en ese elemento**, aunque la lista diga «Colaborar».
+- Ahora, antes de quitar, se pregunta a Colabora qué puede hacer el usuario con esa entrada
+  (`items(id)?$select=EffectiveBasePermissions`, solo lectura):
+  - **eliminar** → a la papelera;
+  - **solo editar** → se aparta del punto (`PuntoId = 0`);
+  - **ninguna de las dos** → se le dice que pida a PROCOR que la quite o que le dé «Colaborar» en «PS Aportaciones».
+  - En ningún caso se manda una orden sin permiso.
+- **Para el administrador:** si a alguien con «Colaborar» le pasa, ese usuario no tiene «eliminar» en ese elemento.
+  Puede ser por permisos propios del elemento, por otro grupo con menos permisos o por «Crear y editar: solo sus
+  elementos» en la configuración avanzada de la lista.
+
+## Versión 2026-11-12 · 1: quitar lo escrito
+
+- **Problema:** un usuario con «Colaborar» marcaba «Sin novedad» (o escribía una entrada) y luego no podía quitarlo.
+  La orden de mandar a la papelera (`recycle()`) iba **sin cuerpo** y con Content-Type JSON. El resto de aplicaciones
+  la mandan con `{}` y ahí «Eliminar» funciona. Ahora va con `{}`.
+- **Segunda vía:** si Colabora aun así no deja llevarlo a la papelera (por ejemplo, sin permiso de eliminar), la entrada
+  o el «Sin novedad» se **aparta del punto** (`PuntoId = 0`). Eso solo necesita poder editar, como para escribirla.
+  Desaparece del negociado, del seguimiento y del informe.
+- Si no se puede de ninguna de las dos formas, se dice el porqué de cada una. Si al escribir una entrada no se puede
+  quitar el «Sin novedad» anterior, ya no se calla: sale como aviso.
+- Simulación: quitar «Sin novedad» y, con borrado denegado, apartarlo. El simulacro rechaza `recycle()` sin cuerpo.
+
 ## Versión 2026-11-10 · 2: editor ampliable y la parte de cada negociado en Word o PDF
 
 - **Editor**: botón «⛶ Ampliar» (pantalla completa, se recuerda en el navegador; «🗗 Reducir» para volver) y el recuadro

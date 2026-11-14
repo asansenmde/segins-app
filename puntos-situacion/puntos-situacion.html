@@ -122,7 +122,7 @@
   .hoja .banda .o { font-size: 10px; letter-spacing: 1.5px; color: #e6d9a8; } .hoja .banda .t { font-size: 17px; font-weight: 700; } .hoja .banda .f { font-size: 12px; }
   .hoja .subt { text-align: center; margin: 6px 0 10px; font-size: 11.5px; color: #333; }
   .hoja h3 { color: #1b3a5c; border-bottom: 1px solid #b8962e; font-size: 14px; margin: 16px 0 6px; padding-bottom: 2px; }
-  .hoja .item { margin: 4px 0 8px 18px; } .hoja .item > b:first-child::before { content: '• '; margin-left: -12px; }
+  .hoja .item { margin: 4px 0 10px 18px; } .hoja .item .asunto::before { content: '• '; margin-left: -12px; } .hoja .item .asunto { margin-bottom: 2px; }
   .hoja figure { text-align: center; margin: 8px 0; } .hoja figure img { max-width: 100%; } .hoja figcaption { font-size: 11px; font-style: italic; }
   .hoja .firma { margin: 26px 0 0 auto; width: 50%; border-top: 1px solid #555; padding-top: 4px; text-align: center; font-size: 12px; }
   .hoja .pie { text-align: center; font-size: 10px; color: #555; border-top: 1px solid #ccc; margin-top: 18px; padding-top: 4px; }
@@ -154,7 +154,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-10 · 2';
+  var VERSION = '2026-11-12 · 6';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -286,7 +286,31 @@
       .then(function (r) { if (!r.ok) throw new Error(r.status === 404 ? 'Ya no existe en Colabora' : 'HTTP ' + r.status); return r.json(); })
       .then(function (d) { d = d.d || d; return { etag: (d.__metadata && d.__metadata.etag) || '*', datos: d }; });
   }
-  var papelera = function (k, id) { return enviarSP(U(k) + '/items(' + Number(id) + ')/recycle()', null, 'No tienes permiso para quitarlo'); };
+  // A la papelera. El cuerpo va como «{}» (como en el resto de aplicaciones): sin cuerpo, con Content-Type JSON, Colabora
+  // puede rechazarlo y no dejaba quitar entradas ni el «Sin novedad» (12/11/2026)
+  var papelera = function (k, id) { return enviarSP(U(k) + '/items(' + Number(id) + ')/recycle()', {}, 'No tienes permiso para quitarlo'); };
+  // Quitar una entrada o el «Sin novedad»: a la papelera y, si Colabora no lo deja, se aparta del punto (PuntoId = 0), que
+  // solo necesita poder editar (lo mismo que para escribirla). Así desaparece del negociado, del seguimiento y del informe.
+  // Antes de nada se pregunta a Colabora qué puede hacer el usuario con esa entrada (EffectiveBasePermissions, solo lectura):
+  // si se intenta borrar sin permiso, Colabora no da un error, sino que pide volver a identificarse (12/11/2026, caso real)
+  function permisosEntrada(id) {
+    return fetch(U('aport') + '/items(' + Number(id) + ')?$select=EffectiveBasePermissions', { credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) { d = d.d || d; var low = Number(d.EffectiveBasePermissions && d.EffectiveBasePermissions.Low) || 0; return { borrar: !!(low & 0x8), editar: !!(low & 0x4) }; });
+  }
+  function quitarAport(id) {
+    return permisosEntrada(id).then(function (pm) {
+      if (pm.borrar) return papelera('aport', id);
+      if (pm.editar) return merge(U('aport') + '/items(' + Number(id) + ')', { __metadata: tipo('aport'), PuntoId: 0 }, 'No tienes permiso para modificarla').then(function () { return 'apartada'; });
+      throw new Error('Colabora no te deja ni eliminar ni modificar esta entrada (tus permisos en «' + L.aport + '» no lo permiten para ella). Pide a PROCOR que la quite o que te dé «Colaborar» en esa lista.');
+    }, function () { return intentarQuitar(id); });
+  }
+  function intentarQuitar(id) {
+    return papelera('aport', id).catch(function (e1) {
+      return merge(U('aport') + '/items(' + Number(id) + ')', { __metadata: tipo('aport'), PuntoId: 0 }, 'No tienes permiso para modificarla').then(function () { return 'apartada'; },
+        function (e2) { throw new Error('No se pudo quitar. Al llevarla a la papelera: ' + (e1.message || e1) + '. Al apartarla del punto: ' + (e2.message || e2) + '. Avisa a PROCOR.'); });
+    });
+  }
 
   // ---------- Estructura de las listas (la crea la propia página) ----------
   var CAMPOS = {
@@ -506,9 +530,15 @@
         '<button class="rojo" data-eliminarpunto="' + p.id + '">🗑 Eliminar punto</button>' +
         '<span class="sep"></span>' + (p.estado !== 'Contenido borrado' ? '<button class="prim" data-word="' + p.id + '">📄 Generar informe Word</button>' : '') + '</div>';
       var props = propuestas(p);
+      // 12/11/2026: las que no casan con ningún negociado no se quedan en el limbo: PROCOR elige dónde incluirlas
       if (props.length) h += '<h2 class="sec">⭐ Propuestas de META (Tratar con el General) · ' + props.length + '</h2><div class="card">' + props.map(function (x) {
-        return '<div class="fila small" style="border-bottom:1px solid var(--line);padding:4px 0"><span class="crece"><b>' + esc(x.t.Title) + '</b> <span class="muted">· Exp. ' + x.t.Id + '</span></span><span class="badge info">' + esc(x.neg || 'sin negociado') + '</span></div>';
-      }).join('') + '<p class="small muted">Cada negociado las ve en «Mi negociado» y decide si las incluye.</p></div>';
+        var dueno = String(x.t.NegociadoAsignado || '').trim();
+        if (x.neg) return '<div class="fila small" style="border-bottom:1px solid var(--line);padding:4px 0"><span class="crece"><b>' + esc(x.t.Title) + '</b> <span class="muted">· Exp. ' + x.t.Id + '</span></span><span class="badge info">' + esc(x.neg) + '</span></div>';
+        return '<div class="fila small" style="border-bottom:1px solid var(--line);padding:4px 0;flex-wrap:wrap"><span class="crece"><b>' + esc(x.t.Title) + '</b> <span class="muted">· Exp. ' + x.t.Id + '</span></span>' +
+          '<span class="badge warn" data-sinneg title="' + (dueno ? 'Añade este nombre en Ajustes («Negociado en el Gestor») para que se reparta solo' : 'El expediente no tiene negociado asignado en META') + '">' + (dueno ? '«' + esc(dueno) + '» no está en Ajustes' : 'sin negociado en META') + '</span>' +
+          '<select data-negpara="' + x.t.Id + '" style="max-width:200px">' + cs.map(function (n) { return '<option>' + esc(n.titulo) + '</option>'; }).join('') + '</select>' +
+          '<button class="small" data-incluiren="' + x.t.Id + '">📋 Incluir en…</button></div>';
+      }).join('') + '<p class="small muted">Las que tienen negociado las ve ese negociado en «Mi negociado» y decide si las incluye. Las que no, las incluyes tú eligiendo el negociado.</p></div>';
       var sig = siguientePeriodico();
       if (sig) h += '<div class="card fila"><span class="crece small">El último punto se repite cada <b>' + sig.dias + ' día' + (sig.dias === 1 ? '' : 's') + '</b>. Siguiente: <b>' + esc(fLarga(sig.fecha)) + '</b></span><button data-siguiente>＋ Crear el siguiente punto</button></div>';
     }
@@ -598,9 +628,8 @@
         if (soloNeg && n.titulo !== soloNeg) return '';
         var es = entradas(p, n.titulo);
         return '<h3>' + (i + 1) + '. ' + esc(n.titulo.toUpperCase()) + '</h3>' + (es.length ? es.map(function (a) {
-          var tr = trozos(a.sit), primero = tr.length && tr[0].t != null ? tr.shift().t : '';
-          var resto = { sit: tr.map(function (x) { return x.t != null ? x.t : marcaImg(x.img); }).join('\n'), adjuntos: a.adjuntos };
-          return '<div class="item"><b>' + esc(a.titulo) + (a.prio === 'Alta' ? ' (PRIORIDAD ALTA)' : '') + '.</b> <span class="texto" style="display:inline">' + esc(primero) + '</span>' + htmlSit(resto, nFig) + '</div>';
+          // 12/11/2026: el asunto en su propia línea y el texto debajo, como se escribe (antes iban seguidos en la misma línea)
+          return '<div class="item"><div class="asunto"><b>' + esc(a.titulo) + (a.prio === 'Alta' ? ' (PRIORIDAD ALTA)' : '') + '</b></div>' + htmlSit(a, nFig) + '</div>';
         }).join('') : '<p><i>' + (sinNovedad(p, n.titulo) ? 'Sin novedad.' : 'No ha aportado información.') + '</i></p>');
       }).join('') +
       (soloNeg ? '' : '<div class="firma">EL JEFE DE LA SUIGESUR<br><br><br>Fdo.: ……………………………</div>') +
@@ -615,7 +644,7 @@
     if (p.estado === 'Contenido borrado') return '<div class="aviso">El contenido de ' + esc(p.ref) + ' se borró de Colabora. El informe está archivado en: <b>' + esc(p.ruta || '—') + '</b></div>';
     var partes = misNegs().map(function (n) { return '<option>' + esc(n.titulo) + '</option>'; }).join('');
     return '<div class="acciones">' + (coordino() ? '<button class="prim" data-word="' + p.id + '">📄 Informe completo en Word</button><button data-pdf="' + p.id + '">🖨 Informe completo en PDF</button>' +
-        (esCerrado(p) && p.estado === 'Abierto' ? '<button data-entregado="' + p.id + '">✔ Marcar como entregado</button>' : '') : '<span class="small muted" style="align-self:center">El informe completo lo genera PROCOR.</span>') +
+        (esCerrado(p) && p.estado === 'Abierto' ? '<button data-entregado="' + p.id + '">✔ Marcar como entregado</button>' : '') : '<button data-pdf="' + p.id + '">🖨 Informe completo en PDF</button>') +
       '<span class="sep"></span><span class="small muted" style="align-self:center">Parte de</span><select id="selParte" style="width:auto">' + partes + '</select>' +
       '<button data-wordneg="' + p.id + '">📄 Word</button><button data-pdfneg="' + p.id + '">🖨 PDF</button>' +
       (esAbierto(p) ? '<span class="badge warn" style="align-self:center">Borrador: el punto sigue abierto hasta el ' + esc(fFH(p.cierre)) + '</span>' : '') + '</div>' + htmlInforme(p);
@@ -933,10 +962,12 @@
     }).then(function () {
       // Al aportar algo deja de valer el «Sin novedad»
       var sn = sinNovedad(p, ed.neg);
-      if (sn) return papelera('aport', sn.id).catch(function () { /* se queda; no afecta al informe si hay entradas */ });
+      if (sn) return quitarAport(sn.id).catch(function (e) { avisos.push('no se pudo quitar el «Sin novedad» (' + (e.message || e) + ')'); });
     }).then(function () {
       $('#dlg').close();
-      aviso(avisos.length ? 'Guardado con avisos: ' + avisos.join('; ') : 'Entrada guardada');
+      // Incluida desde Seguimiento en otro negociado: se abre «Mi negociado» en ese negociado para verla
+      if (o.incluidaEn) { pref.neg = o.incluidaEn; pref.vista = 'negociado'; guardarPref(); }
+      aviso(avisos.length ? 'Guardado con avisos: ' + avisos.join('; ') : o.incluidaEn ? 'Incluida en ' + o.incluidaEn : 'Entrada guardada');
       if (avisos.length) alert('La entrada se ha guardado, pero:\n' + avisos.join('\n'));
       return cargar();
     }).catch(function (e) { boton.textContent = 'Guardar'; fallo(e.message || String(e)); if (id && !a) { ed.entrada = null; } });
@@ -1007,11 +1038,12 @@
       cargar();
     });
   }
-  function incluirMeta(id) {
+  // neg: negociado donde se incluye (desde Seguimiento, PROCOR lo elige para las que no tienen negociado)
+  function incluirMeta(id, neg) {
     var t = metaTareas.find(function (x) { return x.Id === id; }), p = puntoPorId(sel);
     if (!t || !p) return;
-    abrirEditor(p, pref.neg, null, { titulo: t.Title || '', sit: texto(t.DescripcionDelAsunto) || texto(t.Descripcion) || '', prio: /(alta|urgent|critic|inmediat)/i.test(sinTildes(t.Prioridad)) ? 'Alta' : 'Normal',
-      origen: 'META', origenLista: META, origenId: t.Id, origenUrl: metaRaiz ? metaRaiz + '/DispForm.aspx?ID=' + t.Id : '' });
+    abrirEditor(p, neg || pref.neg, null, { titulo: t.Title || '', sit: texto(t.DescripcionDelAsunto) || texto(t.Descripcion) || '', prio: /(alta|urgent|critic|inmediat)/i.test(sinTildes(t.Prioridad)) ? 'Alta' : 'Normal',
+      origen: 'META', origenLista: META, origenId: t.Id, origenUrl: metaRaiz ? metaRaiz + '/DispForm.aspx?ID=' + t.Id : '', incluidaEn: neg || '' });
   }
 
   // ---------- Puntos (alta, cierre, recordatorio, entrega, archivo y borrado) ----------
@@ -1523,10 +1555,9 @@
         if (!es.length) { cuerpo.push(par(run(sinNovedad(p, n.titulo) ? 'Sin novedad.' : 'No ha aportado información.', { i: true }), { ind: 284 })); return; }
         return es.reduce(function (q, a) {
           return q.then(function () {
-            var tr = trozos(a.sit), primero = tr.length && tr[0].t != null ? tr.shift().t : '';
-            var lin = String(primero).split('\n');
-            cuerpo.push(par(run('•\t') + run(a.titulo + (a.prio === 'Alta' ? ' (PRIORIDAD ALTA)' : '') + '.', { b: true }) + run(lin[0] ? ' ' + lin[0] : ''), { ind: 568, colgante: 284, despues: 60 }));
-            lin.slice(1).forEach(function (l) { cuerpo.push(par(run(l), { ind: 568, despues: 60 })); });
+            var tr = trozos(a.sit);
+            // El asunto en su propia línea (con la viñeta) y el texto en las siguientes
+            cuerpo.push(par(run('•\t') + run(a.titulo + (a.prio === 'Alta' ? ' (PRIORIDAD ALTA)' : ''), { b: true }), { ind: 568, colgante: 284, despues: 40, keep: true }));
             return tr.reduce(function (q2, x) {
               return q2.then(function () {
                 if (x.t != null) { x.t.split('\n').forEach(function (l) { cuerpo.push(par(run(l), { ind: 568, despues: 60 })); }); return; }
@@ -1704,7 +1735,7 @@
       if (!ab || !esAbierto(p)) return;
       if (b.dataset.seguro !== '1') { b.dataset.seguro = '1'; b.textContent = '¿Quitar? Pulsa otra vez'; return; }
       b.disabled = true;
-      papelera('aport', ab.id).then(function () { aviso('Entrada quitada (está en la papelera de Colabora)'); cargar(); }, function (er) { alert(er.message); b.disabled = false; });
+      quitarAport(ab.id).then(function (r) { aviso(r === 'apartada' ? 'Entrada quitada del punto' : 'Entrada quitada (está en la papelera de Colabora)'); cargar(); }, function (er) { alert(er.message); b.disabled = false; });
       return;
     }
     if ((b = el.closest('[data-sinnovedad]'))) {
@@ -1714,10 +1745,11 @@
         .then(function () { aviso('Marcado «Sin novedad»'); cargar(); }, function (er) { alert(er.message); b.disabled = false; });
       return;
     }
-    if ((b = el.closest('[data-quitarsn]'))) { b.disabled = true; papelera('aport', Number(b.dataset.quitarsn)).then(function () { cargar(); }, function (er) { alert(er.message); b.disabled = false; }); return; }
+    if ((b = el.closest('[data-quitarsn]'))) { b.disabled = true; quitarAport(Number(b.dataset.quitarsn)).then(function () { aviso('«Sin novedad» quitado'); cargar(); }, function (er) { alert(er.message); b.disabled = false; }); return; }
     if (el.closest('[data-traer]')) { traerAnterior(p, pref.neg); return; }
     if ((b = el.closest('[data-traerok]'))) { traerOk(b); return; }
     if ((b = el.closest('[data-incluirmeta]'))) { incluirMeta(Number(b.dataset.incluirmeta)); return; }
+    if ((b = el.closest('[data-incluiren]'))) { var sn = $('[data-negpara="' + b.dataset.incluiren + '"]'); if (sn && sn.value) incluirMeta(Number(b.dataset.incluiren), sn.value); return; }
     // Ajustes
     if ((b = el.closest('[data-guardarneg]'))) { guardarNeg(b, Number(b.dataset.guardarneg)); return; }
     if ((b = el.closest('[data-quitarmiembro]'))) {

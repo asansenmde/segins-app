@@ -4,7 +4,7 @@ const { chromium } = require(require('child_process').execSync('npm root -g').to
 const fs = require('fs');
 // TAREAS_HTML=colabora/colabora/tareas-nlt-colabora.html para probar la versión protegida; VERBOSE=1 para SharePoint 2013 (odata=verbose)
 const html0 = fs.readFileSync(process.env.TAREAS_HTML ? process.env.TAREAS_HTML : new URL('../tareas-nlt-colabora.html', import.meta.url), 'utf8'); const html = html0;
-const CLAVE = /mensadef/.test(process.env.TAREAS_HTML || '') ? 'tareas-nlt-colabora-mensadef' : /pruebas/.test(process.env.TAREAS_HTML || '') ? 'tareas-nlt-colabora-pruebas' : 'tareas-nlt-colabora';
+const CLAVE = /mensadef|META\.html/.test(process.env.TAREAS_HTML || '') ? 'tareas-nlt-colabora-mensadef' : /pruebas/.test(process.env.TAREAS_HTML || '') ? 'tareas-nlt-colabora-pruebas' : 'tareas-nlt-colabora';
 let admin = false;   // Control total en la lista (solo entonces sale Ajustes)
 const VERBOSE = !!process.env.VERBOSE, CAPTURAS = process.env.CAPTURAS || '';
 const aVerbose = j => j && !j.d && !j.error ? (Array.isArray(j.value) ? { d: { results: j.value, __next: j['odata.nextLink'] } } : { d: j }) : j;
@@ -29,8 +29,8 @@ const items = Array.from({ length: 706 }, (_, i) => {
 items[2].fECHAFINALIZACION = d(-3); items[18].fECHAFINALIZACION = null;
 // Colabora que rechaza direcciones («destinatario válido»): buzonMal = direcciones rechazadas; enviados = las que acepta
 let buzonMal = [], enviados = [];
-let conTratar = false, papelera = [];   // asuntos «eliminados» (se restauran tras comprobarlo)   // columna «TratarEn» (se crea desde Ajustes)
-let denegar = false, correoFalla = false, anexar = true, versiones = {};
+let conTratar = false, papelera = [], sinBorrar = false;   // asuntos «eliminados» (se restauran tras comprobarlo)   // columna «TratarEn» (se crea desde Ajustes)
+let sinEditarLista = false, soloLista = false, denegar = false, correoFalla = false, anexar = true, versiones = {};
 async function prueba() {
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 420, height: 900 } });
@@ -51,6 +51,7 @@ async function prueba() {
     const [base, resto] = u.split('/_api/');
     if (base.replace('https://colabora.mdef.es', '') !== WEB) return r.fulfill({ status: 404, body: '' });
     const mItem = resto.match(/\/items\((\d+)\)/);
+    if (mItem && req.method() === 'POST' && resto.endsWith('/recycle()') && sinBorrar) { posts.push({ ruta: resto, cab: req.headers(), cuerpo: '' }); return r.fulfill({ status: 401, body: '' }); }
     if (mItem && req.method() === 'POST' && resto.endsWith('/recycle()')) { posts.push({ ruta: resto, cab: req.headers(), cuerpo: '' }); const i = items.findIndex(x => x.Id === Number(mItem[1])); if (i >= 0) papelera.push([i, items.splice(i, 1)[0]]); return r.fulfill({ json: { d: { Recycle: '00000000-0000-0000-0000-000000000001' } } }); }
     if (mItem && req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
@@ -66,6 +67,7 @@ async function prueba() {
     }
     if (mItem) {
       const it = items.find(x => x.Id === Number(mItem[1]));
+      if (/EffectiveBasePermissions/.test(resto)) return r.fulfill({ json: { d: { EffectiveBasePermissions: { High: '0', Low: String(sinBorrar ? 0x7 : 0xF) } } } });
       return r.fulfill({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, Id: it.Id, Modified: it.Modified, Comentarios: it.Comentarios || '' } } });
     }
     if (resto.includes('getbyinternalnameortitle')) {
@@ -102,17 +104,17 @@ async function prueba() {
       }
       return r.fulfill({ status: 400, body: '' });
     }
-    if (resto.startsWith('web?')) return r.fulfill({ json: { Url: 'https://colabora.mdef.es' + WEB, Title: 'JSUIGE' } });
+    if (resto.startsWith('web?')) return r.fulfill({ json: { Url: 'https://colabora.mdef.es' + WEB, Title: 'JSUIGE', ...(soloLista ? { EffectiveBasePermissions: { High: '0', Low: String(0x1000 | 0x10000) } } : {}) } });
     if (resto.startsWith('web/currentuser')) return r.fulfill({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' } });
     if (resto.startsWith('web/siteusers')) return r.fulfill({ json: { value: [{ Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' }, { Id: 31, Title: 'GARCIA LOPEZ ANA', Email: 'agarcia@et.mde.es' }, { Id: 32, Title: 'PEREZ RUIZ LUIS', Email: 'lperez@et.mde.es' }, { Id: 41, Title: 'Garcia Lopez, Ana', Email: 'agarcia2@et.mde.es' }] } });
-    if (resto.includes("/fields")) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'Prioridad', Choices: PRIOS }, { InternalName: 'NegociadoAsignado', Choices: NEGS },
-      { InternalName: 'NegociadosImplicados', Choices: NEGS }, { InternalName: 'DescripcionDelAsunto', RichText: true }, { InternalName: 'Comentarios', RichText: false }, { InternalName: 'FechaVencimiento', Required: false }].concat(conTratar ? [{ InternalName: 'TratarEn', Choices: ['PUNTO DE SITUACIÓN', 'TRATAR CON EL GENERAL'], TypeAsString: 'MultiChoice' }] : []) } });
+    if (resto.includes("/fields")) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'Prioridad', Choices: PRIOS }, { InternalName: 'NegociadoAsignado', Choices: NEGS, FillInChoice: !process.env.SINCELULAS },
+      { InternalName: 'NegociadosImplicados', Choices: NEGS, FillInChoice: !process.env.SINCELULAS }, { InternalName: 'DescripcionDelAsunto', RichText: true }, { InternalName: 'Comentarios', RichText: false }, { InternalName: 'FechaVencimiento', Required: false }].concat(conTratar ? [{ InternalName: 'TratarEn', Choices: ['PUNTO DE SITUACIÓN', 'TRATAR CON EL GENERAL'], TypeAsString: 'MultiChoice' }] : []) } });
     if (resto.includes("/items")) {
       const skip = Number((u.match(/skip=(\d+)/) || [0, 0])[1]);
       const next = skip + 500 < items.length ? `https://colabora.mdef.es${WEB}/_api/web/lists/getbytitle('Gestor de Tareas')/items?skip=${skip + 500}` : undefined;
       return r.fulfill({ json: { value: items.slice(skip, skip + 500), 'odata.nextLink': next } });
     }
-    if (/^web\/lists\/getbytitle\('Gestor de Tareas[^']*'\)\?/.test(resto)) return r.fulfill({ json: { Id: 'g', Title: resto.match(/getbytitle\('([^']*)'/)[1], ItemCount: items.length, EffectiveBasePermissions: { High: '0', Low: String(admin ? 0x7FFFFFFF : 0x1F) }, ListItemEntityTypeFullName: 'SP.Data.Gestor_x0020_de_x0020_TareasListItem', RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor de Tareas' } } });
+    if (/^web\/lists\/getbytitle\('Gestor de Tareas[^']*'\)\?/.test(resto)) return r.fulfill({ json: { Id: 'g', Title: resto.match(/getbytitle\('([^']*)'/)[1], ItemCount: items.length, EffectiveBasePermissions: { High: '0', Low: String(admin ? 0x7FFFFFFF : sinEditarLista ? 0x1B : 0x1F) }, ListItemEntityTypeFullName: 'SP.Data.Gestor_x0020_de_x0020_TareasListItem', RootFolder: { ServerRelativeUrl: WEB + '/Lists/Gestor de Tareas' } } });
     return r.fulfill({ status: 404, body: '' });
   });
   await p.goto('https://colabora.mdef.es' + WEB + '/seguridad/Documentos%20compartidos/tareas-nlt-colabora.html'); await p.waitForTimeout(1500);
@@ -169,10 +171,36 @@ async function prueba() {
     await p.click('[data-kpi="tr:gen"]');
     // Estado desde la ficha: finalizar, reabrir, cambiar a cualquiera y eliminar (a la papelera)
     { const est = id => { const x = items.find(y => y.Id === id); return x ? x.ESTADO + (x.fECHAFINALIZACION ? ' (fin ' + String(x.fECHAFINALIZACION).slice(0, 10) + ')' : ' (sin fin)') : 'ELIMINADO'; };
-      await p.click('details.grupo .tarea >> nth=0'); await p.waitForTimeout(300); const id = Number(await p.$eval('[data-finalizar]', b => b.dataset.finalizar));
-      await p.click('[data-finalizar]'); await p.waitForTimeout(1500); const e1 = est(id);
-      await p.click('[data-reabrir]'); await p.waitForTimeout(1500); const e2 = est(id);
-      await p.selectOption('#selEstado', 'EN ESPERA DE RESPUESTA'); await p.click('[data-cambiarestado]'); await p.waitForTimeout(1500); const e3 = est(id);
+      await p.click('details.grupo .tarea >> nth=0'); await p.waitForTimeout(300);
+      // META (12/11/2026): el estado se elige en los pasos de arriba de la ficha; Gestor común: Finalizar / Reabrir / Cambiar estado
+      const enMeta = !!(await p.$('[data-fase]'));
+      let id, e1, e2, e3;
+      if (enMeta) {
+        id = Number(await p.$eval('[data-fase]', b => b.dataset.id));
+        const botones = (await p.$$eval('#dlg .ficha-datos .acciones .btn', n => n.map(x => x.textContent.trim()))).join(' | ');
+        const sinViejo = !(await p.$('#selEstado')) && !(await p.$('[data-finalizar]')) && !(await p.$('#dlg a[href*="DispForm.aspx"]'));
+        const nombres = (await p.textContent('#dlg .tratar')).replace(/\s+/g, ' ');
+        const correoNueva = await p.$$eval('#dlg a[href^="mailto:"]', n => n.every(x => x.target === '_blank'));
+        console.log('META ficha | pasos:', (await p.$$eval('[data-fase]', n => n.map(x => x.textContent.trim()))).join(' › '), '| botones:', botones, '| sin Finalizar/Cambiar estado/Ver en Colabora:', sinViejo,
+          '| marcas:', /Reunión de entradas/.test(nombres) && /Punto Situación semanal/.test(nombres) && !/Tratar con el General/.test(nombres), '| correo en ventana nueva:', correoNueva);
+        if (!sinViejo || !/Modificar/.test(botones) || !/Eliminar/.test(botones) || /Ver en Colabora/.test(botones)) console.log('HAY FALLOS: ficha de META');
+        await p.click('[data-fase="hecha"]'); await p.waitForTimeout(1500); e1 = est(id);
+        await p.click('[data-fase="curso"]'); await p.waitForTimeout(1500); e2 = est(id);
+        e3 = 'solo En curso y Terminada: ' + ((await p.$$eval('[data-fase]', n => n.map(x => x.dataset.fase))).join() === 'curso,hecha');
+        if (!/\(fin /.test(e1) || /\(fin /.test(e2) || !/true/.test(e3)) console.log('HAY FALLOS: estados desde los pasos', e1, e2, e3);
+      } else {
+        id = Number(await p.$eval('[data-finalizar]', b => b.dataset.finalizar));
+        await p.click('[data-finalizar]'); await p.waitForTimeout(1500); e1 = est(id);
+        await p.click('[data-reabrir]'); await p.waitForTimeout(1500); e2 = est(id);
+        await p.selectOption('#selEstado', 'EN ESPERA DE RESPUESTA'); await p.click('[data-cambiarestado]'); await p.waitForTimeout(1500); e3 = est(id);
+      }
+      // Sin permiso de eliminar: lo dice y no envía el POST (que sacaría la pantalla de identificarse)
+      sinBorrar = true; const nP = posts.length;
+      await p.click('[data-eliminar]'); await p.click('[data-eliminar]'); await p.waitForTimeout(1200);
+      const msgNo = (await p.textContent('#estMsg')).trim();
+      console.log('eliminar sin permiso:', msgNo.slice(0, 90), '| sin POST:', !posts.slice(nP).some(x => /recycle/.test(x.ruta)), '| sigue el asunto:', est(id) !== 'ELIMINADO');
+      if (!/no te deja eliminar/.test(msgNo) || posts.slice(nP).some(x => /recycle/.test(x.ruta)) || est(id) === 'ELIMINADO') console.log('HAY FALLOS: eliminar sin permiso');
+      sinBorrar = false; await p.click('#dlg [data-cerrar]'); await p.evaluate(i => { const a = document.createElement('a'); a.dataset.abrir = String(i); document.body.append(a); a.click(); a.remove(); }, id); await p.waitForTimeout(300);
       await p.click('[data-eliminar]'); const txt = (await p.textContent('[data-eliminar]')).trim(); await p.click('[data-eliminar]'); await p.waitForTimeout(1500);
       const elim = est(id); papelera.forEach(([i, x]) => items.splice(i, 0, x)); papelera = []; await p.click('#recargar'); await p.waitForTimeout(1200);
       console.log('estados nº', id, ':', e1, '→ reabrir:', e2, '→ cambiar:', e3, '| eliminar pide confirmar:', txt, '→', elim, '| ficha cerrada:', !(await p.evaluate(() => document.querySelector('#dlg').open)));
@@ -195,7 +223,7 @@ async function prueba() {
   console.log('solo en espera:', (await p.$$eval('details.grupo', ds => ds.map(d => d.dataset.grupo + ':' + d.querySelector('.n').textContent))).join(' '),
     '| todas en espera:', await p.$$eval('details.grupo .tarea .badge[class*=st-]', bs => bs.every(b => b.classList.contains('st-espera'))));
   await p.click('details.grupo .tarea'); await p.waitForTimeout(200);
-  console.log('fase en ficha:', await p.textContent('#dlg .pasos span.on'));
+  console.log('fase en ficha:', await p.$eval('#dlg .pasos .on', e => e.textContent).catch(() => 'ninguna marcada'));
   await p.click('#dlg [data-cerrar]'); await p.click('.flujo [data-kpi="c:espera"]');
   if (CAPTURAS) { await p.evaluate(() => scrollTo(0, 0)); await p.screenshot({ path: CAPTURAS + '/escritorio-panel.png' }); }
   await p.click('#tabs [data-v=calendario]');
@@ -222,7 +250,11 @@ async function prueba() {
   await p.fill('#altaRapida', 'Preparar informe de visita antes del viernes urgente');
   await p.press('#altaRapida', 'Enter'); await p.waitForTimeout(500);
   console.log('form asunto:', await p.inputValue('#fNuevo [name=Title]'), '| NLT:', await p.inputValue('#fNuevo [name=nlt]'), '| estado:', await p.inputValue('#fNuevo [name=ESTADO]'), '| prioridad:', await p.inputValue('#fNuevo [name=Prioridad]'), '| resp:', await p.inputValue('#fNuevo [name=resp]'));
-  await p.selectOption('#fNuevo [name=NegociadoAsignado]', 'Seguridad');
+  console.log('departamentos ofrecidos (solo células):', await p.$$eval('#nDeps option', o => o.map(x => x.value).join(', ')) || '(ninguno aún)', '| responsable propuesto:', await p.inputValue('#fNuevo [name=resp]'));
+  // META: departamento = célula de MENSADEF (campo de texto); Gestor común: negociado de la lista (desplegable)
+  const esMeta = (await p.$eval('#fNuevo [name=NegociadoAsignado]', e => e.tagName)) === 'INPUT';
+  if (esMeta) await p.fill('#fNuevo [name=NegociadoAsignado]', 'ET 2SUIGE SEGURIDAD'); else await p.selectOption('#fNuevo [name=NegociadoAsignado]', 'Seguridad');
+  console.log('formulario:', esMeta ? 'META (departamentos)' : 'Gestor común (negociados)', '| etiqueta:', await p.$eval('#fNuevo [name=NegociadoAsignado]', e => e.closest('div').querySelector('.lbl').textContent));
   await p.fill('#nImplTxt', 'GARCIA LOPEZ ANA'); await p.press('#nImplTxt', 'Enter');
   await p.type('#nImplTxt', 'perez'); await p.waitForTimeout(700);
   console.log('sugerencias perez:', await p.textContent('#nImplSug'));
@@ -234,7 +266,8 @@ async function prueba() {
   console.log('chips:', await p.textContent('#nImpl'));
   await p.fill('#nImplTxt', 'NADIE INVENTADO'); await p.click('#nImplAdd');
   console.log('error implicado inexistente:', await p.textContent('#nError'));
-  await p.check('#fNuevo [name=negImpl][value=Personal]');
+  if (esMeta) { await p.fill('#nDepTxt', 'ET 2SUIGE PERSONAL'); await p.click('#nDepAdd'); } else await p.check('#fNuevo [name=negImpl][value=Personal]');
+  console.log('departamentos implicados marcados:', await p.$$eval('#nDepImpl [name=negImpl]:checked', c => c.map(x => x.value).join(', ')));
   console.log('expediente en el alta:', await p.isDisabled('#fNuevo [data-exp]'), await p.inputValue('#fNuevo [data-exp]'));
   // Estado y fecha de finalización deben ir de acuerdo
   { const est0 = await p.inputValue('#fNuevo [name=ESTADO]');
@@ -245,6 +278,7 @@ async function prueba() {
     await p.selectOption('#fNuevo [name=ESTADO]', est0); }
   await p.fill('#fNuevo [name=DescripcionDelAsunto]', 'Línea 1\nLínea <2>');
   await p.click('#nCrear'); await p.waitForTimeout(1500);
+  if (process.env.SINCELULAS) { console.log('sin admitir células:', await p.textContent('#nError')); await b.close(); process.exit(0); }
   const alta = posts.find(x => x.ruta.endsWith('/items'));
   console.log('cabeceras:', alta.cab['x-requestdigest'], alta.cab['content-type']);
   console.log('cuerpo:', alta.cuerpo);
@@ -323,6 +357,25 @@ async function prueba() {
   console.log('buscar «exp 3»:', (await p.$$eval('.tarea', n => n.map(x => x.innerText.replace(/\s+/g, ' ').slice(0, 160)))).slice(0, 3).join(' || '));
   await p.fill('#fq', ''); await p.waitForTimeout(300);
   console.log('avisos ⚠ en pantalla:', await p.$$eval('.badge.warn', n => [...new Set(n.map(x => x.textContent))].join(' / ')));
+  // 13/11/2026: cuenta con permiso solo en la lista («Acceso limitado» en el sitio): ni correo desde Colabora ni directorio (sin pantalla de identificarse)
+  { soloLista = true; denegar = false; const nP = posts.length;
+    await p.goto('https://colabora.mdef.es' + WEB + '/seguridad/Documentos%20compartidos/tareas-nlt-colabora.html?id=707'); await p.waitForTimeout(1800);
+    if (await p.$('[data-asignar]')) { await p.click('[data-asignar]'); await p.waitForTimeout(800); }
+    const caja = (await p.textContent('#correoAsig').catch(() => '')).replace(/\s+/g, ' ');
+    const sinPost = !posts.slice(nP).some(x => /SendEmail|clientPeoplePicker|ensureuser/.test(x.ruta));
+    console.log('solo permiso en la lista: correo', /Acceso limitado/.test(caja) && !!(await p.$('#correoAsig a[href^="mailto:"]')) ? 'preparado en Outlook' : 'MAL', '| sin peticiones al sitio:', sinPost, '|', caja.slice(0, 120));
+    if (!sinPost || !/Acceso limitado/.test(caja)) console.log('HAY FALLOS: cuenta solo de lista');
+    soloLista = false; }
+  // 13/11/2026: nivel de permiso sin «Editar elementos»: lo dice y no envía el MERGE (no sale la pantalla de identificarse)
+  { sinEditarLista = true; const adminAntes = admin; admin = false; const nP = posts.length;
+    await p.goto('https://colabora.mdef.es' + WEB + '/seguridad/Documentos%20compartidos/tareas-nlt-colabora.html?id=707'); await p.waitForTimeout(1800);
+    const b = (await p.$('[data-fase]:not(.on)')) || (await p.$('[data-reabrir]')) || (await p.$('[data-finalizar]'));
+    if (b) { await b.click(); await p.waitForTimeout(800); }
+    const msg = (await p.textContent('#estMsg').catch(() => '')).trim();
+    const sinMerge = !posts.slice(nP).some(x => /items\(707\)$/.test(x.ruta));
+    console.log('sin «Editar elementos»:', msg.slice(0, 90), '| sin MERGE:', sinMerge, posts.slice(nP).map(x => x.ruta + ' ' + (x.cab['x-http-method'] || '')).join(', '), !!b);
+    if (!/Editar elementos/.test(msg) || !sinMerge) console.log('HAY FALLOS: sin editar');
+    sinEditarLista = false; admin = adminAntes; }
   console.log('errores:', errs);
   await b.close();
 }

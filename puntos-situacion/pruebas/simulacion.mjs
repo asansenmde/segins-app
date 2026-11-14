@@ -1,3 +1,4 @@
+let sinBorrar = false, sinEditar = false;
 // Prueba de Puntos de Situación contra un Colabora simulado (todo en memoria, datos ficticios).
 // node puntos-situacion/pruebas/simulacion.mjs · VERBOSE=1 (SharePoint 2013) · PS_HTML=puntos-situacion/colabora/puntos-situacion.html (copia protegida)
 // CAPTURAS=carpeta guarda capturas de pantalla.
@@ -23,7 +24,9 @@ const nuevaLista = (t, campos = []) => (listas[t.toLowerCase()] = { titulo: t, e
 nuevaLista('Gestor de Tareas' + SUF, ['NegociadoAsignado']);
 const meta = nuevaLista(PRUEBAS ? 'Gestor de Tareas PRUEBAS' : 'Gestor de Tareas MENSADEF', ['TratarEn']);
 meta.items.push({ Id: 31, Title: 'Asunto ficticio para el General', ESTADO: 'EN CURSO', Prioridad: 'Alta', NegociadoAsignado: 'PRL', DescripcionDelAsunto: '<p>Descripción <b>ficticia</b> del asunto</p>', TratarEn: ['TRATAR CON EL GENERAL'] },
-  { Id: 32, Title: 'Asunto sin marca', ESTADO: 'EN CURSO', NegociadoAsignado: 'PRL', TratarEn: [] }, { Id: 33, Title: 'Asunto terminado', ESTADO: 'FINALIZADO', NegociadoAsignado: 'PRL', TratarEn: ['TRATAR CON EL GENERAL'], fECHAFINALIZACION: iso(-D) });
+  { Id: 32, Title: 'Asunto sin marca', ESTADO: 'EN CURSO', NegociadoAsignado: 'PRL', TratarEn: [] }, { Id: 33, Title: 'Asunto terminado', ESTADO: 'FINALIZADO', NegociadoAsignado: 'PRL', TratarEn: ['TRATAR CON EL GENERAL'], fECHAFINALIZACION: iso(-D) },
+  { Id: 34, Title: 'Asunto sin negociado ficticio', ESTADO: 'EN CURSO', NegociadoAsignado: '', DescripcionDelAsunto: '<p>Texto ficticio sin negociado</p>', TratarEn: ['TRATAR CON EL GENERAL'] },
+  { Id: 35, Title: 'Asunto de departamento desconocido', ESTADO: 'EN CURSO', NegociadoAsignado: 'DEPARTAMENTO FICTICIO', TratarEn: ['TRATAR CON EL GENERAL'] });
 const CHOICES = ['PROCOR', 'INFRAESTRUCTURA', 'SEGURIDAD', 'P.R.L.', 'CALIDAD DE VIDA', 'ACUARTELAMIENTO', 'JEFATURA'];
 const adjuntos = {};   // url → Buffer
 const L = n => listas[n.toLowerCase()];
@@ -102,8 +105,12 @@ await ctx.route(ORIGEN + '/**', async r0 => {
     const it = l.items.find(x => x.Id === Number(mi[1]));
     if (!it) return ful({ status: 404, body: '' });
     const sub = mi[2];
+    if (m === 'GET' && /EffectiveBasePermissions/.test(sub)) { const low = sinEditar ? 0x1 : sinBorrar ? 0x1 | 0x2 | 0x4 : 0x1 | 0x2 | 0x4 | 0x8; return json({ d: { EffectiveBasePermissions: { High: '0', Low: String(low) } } }); }
     if (m === 'GET') { const o = exportar(l, it); return ful({ status: 200, contentType: 'application/json', body: JSON.stringify({ d: { __metadata: { etag: '"' + it.Modified + '"' }, ...(VERBOSE ? conResults(o) : o) } }) }); }
-    if (sub === '/recycle()') { l.items.splice(l.items.indexOf(it), 1); return json({ d: {} }); }
+    // Como (se sospecha que) Colabora: sin cuerpo con Content-Type JSON lo rechaza; con sinBorrar, sin permiso de eliminar
+    if (sub === '/recycle()') { if (!req.postData()) return json({ error: { message: { value: 'Invalid JSON. The request body is empty.' } } }, 400);
+      if (sinBorrar) return json({ error: { message: { value: 'Acceso denegado.' } } }, 403);
+      l.items.splice(l.items.indexOf(it), 1); return json({ d: {} }); }
     const ad = sub.match(/^\/AttachmentFiles\/add\(FileName='([^']+)'\)$/);
     if (ad) { it._adj.push(ad[1]); adjuntos[`${WEB}/Lists/${l.titulo}/Attachments/${it.Id}/${ad[1]}`] = req.postDataBuffer(); it.Modified = new Date(Date.now() + 5).toISOString(); return json({ d: {} }); }
     const bo = sub.match(/^\/AttachmentFiles\/getByFileName\('([^']+)'\)$/);
@@ -172,6 +179,22 @@ comprueba('historial del punto: ' + LP('Puntos').items[0].Historial.split('\n')[
 await p.click('#dlg [data-cerrar]');
 comprueba('seguimiento: 0 de 6 y 6 pendientes', /0 de 6 negociados/.test(await txt('#vista')) && (await p.$$('.neg.r')).length === 6);
 await foto('03-seguimiento');
+// Propuestas sin negociado: PROCOR elige dónde incluirlas (no se quedan en el limbo)
+{ const t = await txt('#vista');
+  comprueba('sin negociado: se dice el motivo', /sin negociado en META/.test(t) && /«DEPARTAMENTO FICTICIO» no está en Ajustes/.test(t) && (await p.$$('[data-incluiren]')).length === 2 && !(await p.$('[data-incluiren="31"]')));
+  await p.selectOption('[data-negpara="34"]', 'Infraestructura'); await p.click('[data-incluiren="34"]'); await p.waitForSelector('#edSit');
+  comprueba('«Incluir en…» abre el editor del negociado elegido: ' + await p.$eval('#dlg h2', e => e.textContent), /Nueva entrada · Infraestructura/.test(await p.$eval('#dlg h2', e => e.textContent)) && await p.inputValue('#edTit') === 'Asunto sin negociado ficticio');
+  await p.click('[data-guardarent]'); await esperaDlgCerrado(); await p.waitForTimeout(500);
+  const ei = LP('Aportaciones').items.find(x => x.OrigenId === 34);
+  comprueba('guardada en Infraestructura: ' + (ei && ei.Negociado), ei && ei.Negociado === 'Infraestructura');
+  comprueba('al guardar se abre «Mi negociado» en Infraestructura y se ve', await p.$eval('nav.tabs a.on', e => e.dataset.v) === 'negociado' && await p.inputValue('#selNeg') === 'Infraestructura' && /Asunto sin negociado ficticio/.test(await txt('#vista')));
+  await p.click('nav.tabs a[data-v=seguimiento]'); await p.waitForTimeout(300);
+  comprueba('ya no sale entre las propuestas', !(await p.$('[data-incluiren="34"]')));
+  await p.click('nav.tabs a[data-v=negociado]'); await p.waitForTimeout(300);
+  await p.click(`[data-borrar="${ei.Id}"]`); await p.click(`[data-borrar="${ei.Id}"]`); await p.waitForTimeout(1200);
+  comprueba('y se puede quitar', !LP('Aportaciones').items.some(x => x.OrigenId === 34 && x.PuntoId));
+  await p.click('nav.tabs a[data-v=seguimiento]'); await p.waitForTimeout(300);
+  comprueba('al quitarla vuelve a las propuestas', !!(await p.$('[data-incluiren="34"]'))); }
 
 // 3b. Modificar el punto (fecha, bloqueo y convocados) y eliminar uno creado por error
 const local = ms => p.evaluate(ms => { const d = new Date(Date.now() + ms); const z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + 'T' + z(d.getHours()) + ':' + z(d.getMinutes()); }, ms);
@@ -265,7 +288,11 @@ print('APORTACIÓN DE PRL' in d, 'PROCOR' in d, 'Revisión ficticia' in d, 'EL J
   const hoja = await p.$eval('#marcoPdf', f => f.contentDocument.body.innerText);
   comprueba('PDF de la parte de PRL (hoja de impresión)', /APORTACIÓN DE PRL/.test(hoja) && /PRL/.test(hoja) && !/PROCOR/.test(hoja) && !/EL JEFE/.test(hoja));
   await p.click('nav.tabs a[data-v=informe]');
-  comprueba('en Informe, Luis solo puede sacar la parte de PRL y no el completo', (await p.$$eval('#selParte option', o => o.map(x => x.textContent))).join() === 'PRL' && !(await p.$('[data-word]')));
+  comprueba('en Informe, Luis saca la parte de PRL y el completo solo en PDF (no en Word)', (await p.$$eval('#selParte option', o => o.map(x => x.textContent))).join() === 'PRL' && !(await p.$('[data-word]')) && !!(await p.$('[data-pdf]')));
+  await p.click('[data-pdf]'); await p.waitForTimeout(800);
+  { const hc = await p.$eval('#marcoPdf', f => f.contentDocument.body.innerText);
+    comprueba('PDF completo descargado por un miembro de PRL', /PROCOR/.test(hc) && /PRL/.test(hc) && /SEGURIDAD/i.test(hc));
+    if (process.env.PDF_OUT) fs.writeFileSync(process.env.PDF_OUT, await p.$eval('#marcoPdf', f => '<!doctype html>' + f.contentDocument.documentElement.outerHTML)); }
   await p.click('nav.tabs a[data-v=negociado]'); }
 
 // 5. Coordinación: Sin novedad en Seguridad, seguimiento, recordatorio
@@ -275,6 +302,16 @@ comprueba('PROCOR puede elegir todos los negociados: ' + (await p.$$eval('#selNe
 await p.selectOption('#selNeg', 'Seguridad'); await p.waitForTimeout(200);
 await p.click('[data-sinnovedad]'); await p.waitForTimeout(800);
 comprueba('Sin novedad en Seguridad', LP('Aportaciones').items.some(x => x.Negociado === 'Seguridad' && x.Tipo === 'Sin novedad'));
+// Quitar el «Sin novedad» (antes Colabora lo rechazaba) y, sin permiso de eliminar, se aparta del punto
+await p.click('[data-quitarsn]'); await p.waitForTimeout(900);
+comprueba('se puede quitar el «Sin novedad»', !LP('Aportaciones').items.some(x => x.Negociado === 'Seguridad' && x.Tipo === 'Sin novedad'));
+sinBorrar = true; await p.click('[data-sinnovedad]'); await p.waitForTimeout(800); await p.click('[data-quitarsn]'); await p.waitForTimeout(1200);
+comprueba('sin permiso de eliminar: se aparta del punto y ya no cuenta', LP('Aportaciones').items.some(x => x.Negociado === 'Seguridad' && x.Tipo === 'Sin novedad' && Number(x.PuntoId) === 0) && !!(await p.$('[data-sinnovedad]')));
+sinEditar = true; await p.click('[data-sinnovedad]'); await p.waitForTimeout(800);
+{ await p.evaluate(() => { window.__al = []; window.alert = m => window.__al.push(String(m)); }); await p.click('[data-quitarsn]'); await p.waitForTimeout(1200); const msg = (await p.evaluate(() => window.__al.join(' | ')));
+  comprueba('sin permiso ni de editar: no intenta borrar (no sale la pantalla de identificarse) y lo explica', /no te deja ni eliminar ni modificar/.test(msg) && !posts.slice(-3).some(x => /recycle/.test(x.ruta))); }
+sinEditar = false; await p.click('[data-quitarsn]'); await p.waitForTimeout(1000);
+sinBorrar = false; await p.click('[data-sinnovedad]'); await p.waitForTimeout(800);
 await p.click('nav.tabs a[data-v=seguimiento]');
 const seg = await txt('#vista');
 comprueba('seguimiento: 2 de 5, 3 entradas, 1 sin novedad, faltan 3', /2 de 5 negociados/.test(seg) && /Entradas ?3/.test(seg) && /«Sin novedad» ?1/.test(seg) && /Faltan ?3/.test(seg));
@@ -301,7 +338,7 @@ await p.click('[data-cambiarcierre]'); await p.waitForSelector('#ciNueva');
 const nueva = await p.evaluate(() => { const d = new Date(Date.now() + 5 * 3600e3); const z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + 'T' + z(d.getHours()) + ':' + z(d.getMinutes()); });
 await p.fill('#ciNueva', nueva); await p.click('[data-cierreok]'); await esperaDlgCerrado(); await p.waitForTimeout(800);
 const nCi = LP('Puntos').items[0].Cierre;
-comprueba('cierre cambiado en el punto y en las ' + LP('Aportaciones').items.length + ' entradas', LP('Aportaciones').items.every(x => x.CierrePunto === nCi) && new Date(nCi) - Date.now() > 4 * H);
+comprueba('cierre cambiado en el punto y en las ' + LP('Aportaciones').items.filter(x => Number(x.PuntoId) !== 0).length + ' entradas', LP('Aportaciones').items.filter(x => Number(x.PuntoId) !== 0).every(x => x.CierrePunto === nCi) && new Date(nCi) - Date.now() > 4 * H);
 
 // 8. Informe Word (con una imagen en una entrada)
 { const e = LP('Aportaciones').items[0]; e._adj = ['img-x-1.jpg']; e.Situacion += '\n[[imagen:img-x-1.jpg|Croquis ficticio|75|1234]]\nTexto después de la imagen.';
@@ -309,6 +346,7 @@ comprueba('cierre cambiado en el punto y en las ' + LP('Aportaciones').items.len
 await ir(9); await p.click('nav.tabs a[data-v=informe]');
 const prev = await txt('.hoja');
 comprueba('vista previa en orden y con estados: ' + prev.slice(0, 80), /1\. PROCOR.*2\. INFRAESTRUCTURA.*3\. SEGURIDAD.*Sin novedad.*4\. PRL.*Segunda entrada ficticia.*Revisión ficticia.*5\. CALIDAD DE VIDA.*No ha aportado información/.test(prev));
+comprueba('asunto en su línea y el texto debajo (vista previa)', await p.$$eval('.hoja .item', l => l.length > 0 && l.every(it => it.firstElementChild.classList.contains('asunto') && it.firstElementChild.textContent.trim() && (!it.children[1] || !it.firstElementChild.textContent.includes(it.children[1].textContent.trim().slice(0, 12))))));
 await foto('06-informe');
 const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-word]')]);
 const ruta = await dl.path(), nombre = dl.suggestedFilename();
@@ -320,9 +358,12 @@ z=zipfile.ZipFile(sys.argv[1]); n=z.namelist()
 for f in n:
   if f.endswith('.xml') or f.endswith('.rels'): m.parseString(z.read(f))
 d=z.read('word/document.xml').decode()
-print(len([x for x in n if x.startswith('word/media/')]), 'PROCOR' in d, 'No ha aportado información.' in d, 'Sin novedad.' in d, 'PUNTO DE SITUACIÓN DE SUIGESUR' in d, 'PRIORIDAD ALTA' in d)
+import re
+viñetas=[p for p in re.findall(r'<w:p>.*?</w:p>', d) if '•' in p]
+solo=all(len(re.findall(r'<w:t[ >]', p))==2 for p in viñetas)
+print(len([x for x in n if x.startswith('word/media/')]), 'PROCOR' in d, 'No ha aportado información.' in d, 'Sin novedad.' in d, 'PUNTO DE SITUACIÓN DE SUIGESUR' in d, 'PRIORIDAD ALTA' in d, bool(viñetas) and solo)
 `, path.join(dir, 'informe.docx')]).toString().trim();
-comprueba('Word válido (XML bien formado), membrete y contenido: ' + rev, rev === '4 True True True True True');
+comprueba('Word válido (XML bien formado), membrete, contenido y asunto solo en su línea: ' + rev, rev === '4 True True True True True True');
 try { execFileSync('python3', ['-c', 'import docx,sys; d=docx.Document(sys.argv[1]); print(len(d.paragraphs))', path.join(dir, 'informe.docx')]); comprueba('python-docx lo abre', true); } catch (e) { console.log('(python-docx no disponible o no lo abre: ' + String(e.stderr || e).slice(0, 120) + ')'); }
 let soffice = ''; try { soffice = execFileSync('bash', ['-lc', 'command -v soffice || command -v libreoffice']).toString().trim(); } catch (e) { /* sin LibreOffice */ }
 if (soffice) { try { execFileSync(soffice, ['--headless', '--convert-to', 'pdf', '--outdir', dir, path.join(dir, 'informe.docx')], { timeout: 120000 }); comprueba('LibreOffice lo convierte a PDF', fs.existsSync(path.join(dir, 'informe.pdf'))); if (CAPT) fs.copyFileSync(path.join(dir, 'informe.pdf'), path.join(CAPT, 'informe.pdf')); } catch (e) { comprueba('LibreOffice lo convierte a PDF', false); } }

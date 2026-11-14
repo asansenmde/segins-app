@@ -69,7 +69,7 @@ PLANTILLA = '''<!doctype html>
 <footer class="autor">© 2026 · Diseñado y desarrollado por el <b>Cte. Alfredo Sánchez Sender</b> · Todos los derechos reservados</footer>
 <script>
   document.getElementById('marcador').addEventListener('click', function (e) {{
-    if (location.hostname !== 'mensadef.mdef.es') {{ e.preventDefault(); alert('Arrástralo a la barra de favoritos y púlsalo estando en MENSADEF.'); }}
+    if (location.hostname !== 'mensadef.mdef.es') {{ e.preventDefault(); alert('Arrástralo a la barra de favoritos y púlsalo en la página donde se usa (MENSADEF o el Portafirmas).'); }}
   }});
   document.getElementById('copiar').addEventListener('click', function () {{
     var b = this, t = document.getElementById('marcador').getAttribute('href');
@@ -106,7 +106,10 @@ def generar(fuente, salida, nombre, titulo, intro, pasos, pruebas=False):
             if r.returncode:
                 sys.exit('No se pudo proteger el visor (¿falta «cd mensadef/proteger && npm install»?):\n' + r.stderr[-800:])
             pagina = sal.read_text(encoding='utf-8')
-    codigo = '(function(){var h=' + json.dumps(pagina) + ';document.open();document.write(h);document.close();})()'
+    # Fuera de MENSADEF (otra web, Colabora, Outlook…) el favorito no puede leer nada: lleva a la portada de MENSADEF, donde
+    # basta con pulsarlo otra vez (10/11/2026)
+    ir = "if(!/^mensadef\\.mdef\\.es$/i.test(location.hostname)){location.href='https://mensadef.mdef.es/SitePages/Landing.aspx#/';return;}"
+    codigo = '(function(){' + (ir if fuente == 'visor-mensadef.html' else '') + 'var h=' + json.dumps(pagina) + ';document.open();document.write(h);document.close();})()'
     marcador = 'javascript:' + urllib.parse.quote(codigo, safe='')
     uso = '\n'.join('      <li>' + p + '</li>' for p in pasos)
     (aqui / salida).write_text(PLANTILLA.format(nombre=nombre, titulo=titulo, intro=intro, uso=uso,
@@ -128,15 +131,25 @@ ESCUCHAR = ('escuchar-mensadef.js', 'marcador-escuchar-mensadef.html', 'Escuchar
              'Cuando hayas terminado, pulsa <b>Copiar</b> en el recuadro y pégalo en la conversación.',
              'Para quitarlo, recarga la página (F5).'])
 
+EXPLORAR_PF = ('explorar-portafirmas.js', 'marcador-explorar-portafirmas.html', 'Explorar Portafirmas', 'Explorar Portafirmas (diagnóstico)',
+               'Un <b>favorito de diagnóstico</b> para <b>portafirmas.mdef.es</b>: anota cómo está hecha la página (rutas, nombres de '
+               'parámetros, formularios, botones, cabeceras de tablas y cómo se llama a AutoFirma), <b>nunca su contenido</b>: ni asuntos, '
+               'ni nombres, ni números. Sirve para que SENDERO pueda llevarte a la petición lista para firmar. No envía nada a ningún sitio.',
+               ['Entra en el Portafirmas e identifícate como siempre.',
+                'Ve a la lista de peticiones <b>pendientes</b> y pulsa el favorito <b>Explorar Portafirmas</b>: sale un recuadro con borde rojo abajo a la derecha.',
+                'Abre una petición, márcala y pulsa <b>Firmar</b>. Cuando salga AutoFirma, <b>cancela</b> (no hace falta firmar).',
+                'Si la página cambia, pulsa otra vez el favorito: conserva lo anotado.',
+                'Pulsa <b>Copiar</b> en el recuadro y pégalo en la conversación. Para quitarlo, recarga (F5).'])
+
 if '--pruebas' in sys.argv:
     generar(*ESCUCHAR)
+    generar(*EXPLORAR_PF)
     generar('visor-mensadef.html', 'marcador-visor-mensadef-pruebas.html', 'SENDERO (pruebas)',
             'SENDERO · Visor de mensajes de MENSADEF · VERSIÓN DE PRUEBAS',
-            'Copia de pruebas del visor, para probar <b>«➜ Añadir tarea en META»</b> sin tocar el favorito bueno. Lleva '
-            'una banda roja, guarda su memoria aparte y solo admite la página de Tareas de pruebas '
-            '(<i>tareas-nlt-colabora-pruebas.html</i>). Solo <b>lee</b> MENSADEF, con tu sesión.',
-            ['Abre MENSADEF en tu célula (por ejemplo SETEC SEGURIDAD).',
-             'Pulsa el favorito <b>SENDERO (pruebas)</b>.',
+            'Copia de pruebas de SENDERO, para probar las novedades sin tocar el favorito bueno. Lleva una banda roja, '
+            'guarda su memoria aparte y solo admite la página de Tareas de pruebas (<i>tareas-nlt-colabora-pruebas.html</i>).',
+            ['Pulsa el favorito <b>SENDERO (pruebas)</b>. Si no estás en MENSADEF, te lleva a su portada: pulsa el favorito otra vez.',
+             'Entra solo en tu ámbito y carga tus bandejas (si no puede, pulsa <b>🔑 Entrar en mi ámbito</b>).',
              'Abre un mensaje y pulsa <b>➜ Añadir tarea en META</b>. La primera vez pega la dirección de '
              '<i>tareas-nlt-colabora-pruebas.html</i> en Colabora.',
              'Para volver a MENSADEF normal, recarga (F5).'], pruebas=True)
@@ -151,16 +164,19 @@ generar('prueba-mensadef.html', 'marcador-mensadef.html', 'Prueba MENSADEF', 'Pr
          'La página se sustituye por la de diagnóstico. Para volver, recarga (F5).'])
 
 generar('visor-mensadef.html', 'marcador-visor-mensadef.html', 'SENDERO', 'SENDERO · Visor de mensajes de MENSADEF',
-        'Un <b>favorito</b> que convierte la página de MENSADEF en un visor de los mensajes de <b>tus células</b> (cada uno ve '
-        'las suyas, con su propia sesión): bandejas de entrada y salida, búsqueda y filtros, ficha con todos los datos y el '
-        'texto, banderas, marcas de «visto», informes para imprimir, PDF o Word, <b>✉ Enviar por correo</b> y <b>➜ Añadir tarea en META</b> en el Gestor de Tareas '
-        'de Colabora que elijas. Solo <b>lee</b> MENSADEF; los datos no salen de los servidores de Defensa.',
-        ['Abre MENSADEF y entra en tu célula; espera a que salgan tus mensajes.',
-         'Pulsa el favorito <b>SENDERO</b>. La primera vez puedes elegir qué células se cargan '
-         '(<b>Células que se cargan…</b>).',
-         'Pulsa un mensaje para ver su ficha. Con <b>➜ Añadir tarea en META</b> se abre el Gestor de Tareas con el alta '
-         'rellena: la primera vez te pide la dirección del Gestor (el común de tu unidad o el tuyo) y un nombre; puedes '
-         'guardar varios y elegir en cada mensaje.',
+        'Un <b>favorito</b> que abre tus bandejas de MENSADEF en una sola pantalla (cada uno ve las de <b>sus células</b>, '
+        'con su propia sesión): entrada y salida, búsqueda y filtros, ficha con los datos, destinatarios, anexos y el texto, '
+        'banderas y comentarios, leído y «visto», paso a rúbrica, informes para imprimir, PDF o Word y '
+        '<b>➜ Añadir tarea en META</b> con el negociado y el responsable. Entra solo en tu ámbito desde la portada de MENSADEF.',
+        ['Pulsa el favorito <b>SENDERO</b>. Si no estás en MENSADEF, te lleva a su portada: pulsa <b>SENDERO</b> otra vez. '
+         '(Para ahorrarte este paso, pon la portada de MENSADEF como página de inicio de Edge.)',
+         'SENDERO entra solo en tu ámbito, sin que tengas que pulsar «Iniciar sesión», y carga tus bandejas. Si no lo '
+         'consigue, pulsa <b>🔑 Entrar en mi ámbito</b> e inicia sesión en la ventana pequeña: se cierra sola.',
+         'La primera vez puedes elegir qué células se cargan (<b>Células que se cargan…</b>). Con <b>⟳ Actualizar</b> vuelves a '
+         'leer MENSADEF sin perder la ficha abierta.',
+         'Pulsa un mensaje para ver su ficha (al abrirlo queda leído también en MENSADEF). Con <b>➜ Añadir tarea en META</b> se '
+         'abre el Gestor de Tareas con el alta rellena, el negociado y el responsable: la primera vez te pide la dirección '
+         'del Gestor y un nombre; puedes guardar varios y elegir en cada mensaje.',
          'Para volver a MENSADEF normal, recarga la página (F5).'])
 
 generar(*ESCUCHAR)

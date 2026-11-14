@@ -274,4 +274,163 @@ con el formato *verbose* de SharePoint 2013.
   - El filtro se llama «Enviable a rúbrica».
 - **2026-11-09 · 11:** «Pasar a rúbrica» tampoco sale si el estado es «Pendiente de firma». Lo mismo con «en firma»,
   «firmado», «en rúbrica» o «portafirmas», como ya pasaba con «Enviado». «Ir a Rúbrica» sí sale en esos casos.
+- **2026-11-10 · 1: portal de inicio.** SENDERO se puede pulsar en la portada (`/SitePages/Landing.aspx`) o en cualquier
+  página de MENSADEF fuera de un ámbito.
+  - Comprueba si ya hay sesión en el ámbito (el último usado; la primera vez, 2SUIGE) leyendo `/ambito/X/_api/web`. Si
+    la hay, arranca directamente.
+  - Si no, muestra «Bienvenido a SENDERO» con el ámbito (se puede cambiar) y el botón «🔑 Entrar en mi ámbito». Abre en
+    una ventana pequeña el inicio de sesión de MENSADEF
+    (`/_layouts/15/Defensa/Default.aspx?ReturnUrl=/ambito/X/_layouts/15/Authenticate.aspx?Source=/ambito/X&Source=/ambito/X`).
+    En cuanto la sesión está abierta, cierra la ventana y carga las bandejas, sin pasar por la página de la célula.
+  - Si el navegador bloquea la ventana, el inicio de sesión se abre en la misma pestaña y luego hay que pulsar SENDERO
+    otra vez. Si no se abre la sesión en 5 minutos, o se cierra la ventana, se puede reintentar.
+  - Dentro de un ámbito arranca como siempre y recuerda ese ámbito. «Abrir en MENSADEF» lleva a la página del ámbito.
+  - La clave del servicio se pide con la cuenta del usuario (`ValidateUser`), porque en la portada no hay consultas
+    previas de la aplicación.
+  - Prueba: `PORTAL=1 node pruebas/bandejas.mjs` (sin sesión) y `PORTAL=1 SESION=1` (con sesión ya abierta).
+- **2026-11-10 · 2: versión definitiva con el portal, rediseñado.**
+  - **Diseño:** tarjeta grande en azul marino y verde con brillo dorado; escudo grande con la «S»; el nombre una sola
+    vez (en el portal se ocultan la cabecera y el pie de la página); lema; texto breve; caja «Tu ámbito» con el botón
+    dorado «🔑 Entrar en mi ámbito» y los 3 pasos; recuadro «Así trabaja» (el camino del mensaje, se oculta en pantallas
+    estrechas); chips de lo que hace; pie con la autoría y la versión.
+  - A petición del usuario, el portal no dice nada de dónde quedan los datos.
+  - **Seguridad, igual que antes:** ofuscación fuerte con bloqueo a *.mdef.es y «self-defending»; botón derecho, F12 y
+    Ctrl+U/Ctrl+Mayús+I/J/C bloqueados; «Ver estructura» oculto (Ctrl+Alt+E); nunca marca como leído. Las escrituras
+    (comentario, bandera, rúbrica) piden confirmación.
+- **2026-11-10 · 3: corrección del portal («me sale todo borrador»).**
+  - **Causa:** entrando desde la portada no había consultas previas de la aplicación. SENDERO tomaba el número de
+    usuario de `ConsultaUsuarioDicodefPorCorreo`, que no es el que sirve para pedir las células. No salían células, el
+    servicio de bandejas fallaba y se caía en silencio a las listas del sitio (los borradores).
+  - **Arreglo:** al entrar por el portal, SENDERO abre la página del ámbito en un marco oculto. Espera a que la
+    aplicación de MENSADEF haga sus consultas (como mucho 15 s) y toma de ellas el número de usuario, la consulta de la
+    clave y la colección, igual que dentro de la célula.
+  - Entrando por el portal ya no se cae a los borradores. Si algo falla, sale un aviso con la línea «Detalle», sin
+    valores.
+  - La simulación (`PORTAL=1`) reproduce el fallo: `ConsultaUsuarioDicodef` devuelve un número que no sirve y la página
+    del ámbito hace sus consultas al cargar.
+- **2026-11-10 · 4 (pruebas): leído en MENSADEF.** A petición del usuario se deja la regla anterior («nunca marcar como
+  leído»).
+  - Al abrir en SENDERO un mensaje no leído, se marca leído también en MENSADEF, como hace la aplicación (escucha):
+    `PUT buzon/BuzonCelulaMensajeLeido?emailUsuario&urlColeccionSitio&idBuzonCelula&estado=true`, sin cuerpo. Desaparece
+    la negrita en SENDERO y en MENSADEF.
+  - Botón **«📩 Marcar no leído» / «📖 Marcar leído»** en la ficha (`estado=false/true`).
+  - «✓ Visto» sigue siendo una marca propia de SENDERO, aparte.
+  - `escribirApi` admite el método (POST por defecto; aquí PUT). Abrir o descargar anexos no marca nada.
+- **2026-11-10 · 5:**
+  - **Leído en el definitivo** (`LEIDO = true`): el usuario lo ha probado y funciona.
+  - **Entrada automática (solo pruebas, `AUTOENTRADA = PRUEBAS`).** Desde la portada, si no hay sesión, SENDERO carga el
+    inicio de sesión de MENSADEF en un marco oculto y aislado (`sandbox` sin permiso para cambiar la página). Allí pulsa
+    el botón de entrar (texto con iniciar, entrar, acceder, aceptar o login) y, en cuanto hay sesión, carga las bandejas.
+    Sin ventanas y sin pulsar nada; mientras, el portal dice «Entrando en tu ámbito…». Si en 25 s no lo consigue, queda
+    el portal con «Entrar en mi ámbito» (ventana pequeña), como antes.
+  - Un favorito no puede arrancar solo: el navegador solo lo ejecuta al pulsarlo, sobre la página abierta. Para un solo
+    clic, se pone la portada de MENSADEF como página de inicio de Edge.
+- **2026-11-10 · 5 (marcadores regenerados): pulsado fuera de MENSADEF.** Si el favorito se pulsa en otra web (Colabora,
+  Outlook en el navegador…), lleva a la portada de MENSADEF (`/SitePages/Landing.aspx#/`); allí se pulsa otra vez. Lo
+  hace un `if` al principio del marcador (`generar-marcador.py`), antes del código protegido.
+- **2026-11-10 · 6:**
+  - **Estado de las salidas como en MENSADEF:** en la tabla, los chips, los filtros y el informe se muestra el estado del
+    último envío (`NombreEstadoUltimaDistribucionSalida`, p. ej. «Pendiente de Validar») si lo hay. Antes se veía
+    `EstadoMensaje`, que sigue en «Borrador» mientras no sale. Así esos mensajes ya no se ocultan como borradores.
+  - **Portal más paciente:** espera hasta 45 s a que la aplicación del ámbito pida sus datos (antes 15 s; con 15 s salía
+    «UsuarioCelulas: HTTP 500»). Si aun así falla, vuelve a preparar y lo intenta otra vez. En la entrada automática,
+    toma ya esos datos del marco del inicio de sesión.
+- **2026-11-10 · 7: «UsuarioCelulas / EtiquetasObtener → 500» entrando por la portada.**
+  - **Causa:** la propia portada consulta el servicio con la colección raíz (`urlColeccionSitio=https://mensadef.mdef.es`).
+    SENDERO tomaba esas consultas como «datos de la aplicación» y no los sustituía por los del ámbito, así que todo lo
+    del ámbito contestaba 500.
+  - **Arreglo:** fuera de un ámbito no se toman las consultas de la página. `prepararApp` borra lo que hubiera y lo toma
+    todo de la página del ámbito. La colección solo se acepta si es de `/ambito/`.
+  - La simulación (`PORTAL=1`) lo reproduce: la portada hace sus consultas con la colección raíz, y el servicio contesta
+    500 a lo del ámbito con esa colección. Comprobado que la versión anterior falla y esta no.
+- **2026-11-10 · 8:**
+  - **Entrada automática en el definitivo** (`AUTOENTRADA = true`), probada por el usuario. Si se quiere la ventana
+    pequeña de antes, se puede guardar `sinAutoentrada` (la simulación lo usa con `VENTANA=1`).
+  - **«Visto» con «Ocultar vistos» y una tarjeta elegida.** Con una tarjeta elegida («No leídos», «Entrada»…) el mensaje
+    marcado no se quitaba de la lista: el filtro solo actuaba sin tarjeta. Al entrar ahora con «No leídos» (porque
+    SENDERO ya marca leído), se notaba. Ahora se quita siempre que esté marcado «Ocultar vistos». En la tarjeta «Sin
+    revisar» se quita aunque no lo esté.
+  - **Batería completa:** `sh mensadef/pruebas/todas.sh` pasa `bandejas.mjs` por las seis formas de entrar (dentro de
+    la célula con los dos favoritos; portada con entrada automática, con ventana, con MENSADEF lento y con sesión ya
+    abierta). Incluye los casos reales de «Visto». Hay que pasarla antes de entregar cualquier cambio de SENDERO.
+- **2026-11-11 · 1: negociado y responsable a META.** En el panel de META de la ficha hay dos campos:
+  - **Negociado**: el último usado con esa célula o, la primera vez, el de su nombre («SETEC SEGURIDAD» → «Seguridad»).
+  - **Responsable**: el último usado con ese negociado.
+  - Los dos tienen lista de los ya usados y se mandan en `#importar` (`negociado`, `responsable`). Se recuerdan por
+    célula y por negociado.
+- **2026-11-11 · 2: departamento = célula de MENSADEF.** Lo pide el usuario, pensando en llevarlo a todo el Ejército.
+  - Se quitan los campos «Negociado» y «Responsable» del panel de META.
+  - SENDERO manda la **célula del mensaje** como `departamento` (p. ej. «ET 2SUIGE SEGURIDAD») y lo dice en la ficha
+    («Departamento en META: …»).
+  - El responsable ya no se manda: en META es quien crea la tarea, y se puede cambiar allí.
+- **2026-11-11 · 3:** con cada paso a META, SENDERO manda también todas las células del usuario (`departamentos`), para
+  que META las ofrezca como departamentos.
+- **2026-11-11 · 4 (pruebas): «📋 Al Punto de Situación».** Botón dorado junto a «➜ Añadir tarea en META». Pasa por
+  META con `punto: true`: META crea el asunto marcado ⭐ «Tratar con el General» y abre «Incluir en el Punto de
+  Situación». El comentario en MENSADEF dice «Añadido como tarea en META para el Punto de Situación».
+- **2026-11-11 · 5:**
+  - El botón pasa a llamarse **«Pasar directamente al PSIT»**, sin icono. Queda registrado también en META.
+  - **META viene puesto por defecto** como Gestor: `https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/META.html`
+    (`META_URL`). La dirección antigua (`…/tareas-nlt-colabora-mensadef.html`) se cambia sola por esta. Se pueden
+    añadir otros Gestores en «gestionar gestores». Si alguien quita META, no vuelve a ponerse (`sinMetaPorDefecto`).
+  - El favorito de pruebas admite META además de la página de pruebas.
+- **2026-11-11 · 6:** «Pasar directamente al PSIT» también en el **definitivo**. El botón es azul marino con filo dorado y
+  del mismo tamaño que «Añadir tarea en META». Antes salía aplastado porque usaba la clase `punto`, la del puntito de
+  «no leído»; ahora usa `psit`.
+- **2026-11-13 · 1:** el comentario que se deja en MENSADEF al añadir la tarea en META lleva el nombre de quien la añade
+  («Añadido como tarea en META (META) por NOMBRE el fecha · SENDERO»). El nombre es el de su cuenta de Colabora/MENSADEF.
+- **2026-11-13 · 2:** la zona de trabajo ocupa toda la pantalla (sin ancho máximo) y la ficha crece con ella (420–760 px).
+  Bajo el asunto ya no sale autoridad · firma · motivo (siempre igual; sigue en la ficha) sino si es de **ACCIÓN** o **INFO**
+  (campo `Actuacion` de la bandeja) y el **último comentario**, que se actualiza al comentar o al pasar a META.
+- **2026-11-13 · 3:** MENSADEF solo da el texto del último comentario, sin su autor. Los comentarios escritos desde SENDERO
+  se firman al final con el nombre de quien los escribe («texto — NOMBRE»), igual que el de «Añadido como tarea en META».
+  Para ver el autor de los comentarios hechos en MENSADEF haría falta escuchar qué consulta usa MENSADEF para su historial.
+- **2026-11-13 · 4:** en la lista, la columna «Tipo» (casi siempre «Oficio») pasa a ser **«Firma»**: quién firma el
+  mensaje (campo `Firma` de la bandeja), y se puede ordenar por ella. El tipo sigue en la ficha y al pasar el ratón.
+- **2026-11-13 · 5:** el filtro de **Bandera** tiene «— Sin bandera —» para ver los mensajes sin marca. Igual en los demás
+  filtros de columnas de MENSADEF cuando hay mensajes sin valor («— Sin prioridad —»…).
+- **2026-11-13 · 6:** «Agrupar» en los filtros: por días (como antes), por meses o sin agrupar. Cada grupo dice cuántos
+  mensajes tiene. Se recuerda en el navegador; al agrupar se ordena por fecha.
+- **2026-11-13 · 7:** barra de la ficha con la **propuesta A** (elegida por el usuario): cabecera azul con el asunto y
+  «↗ MENSADEF», «Ampliar» y «Cerrar» en pequeño; debajo, en grande, «Tarea en META», «Al PSIT» y «Ir a Rúbrica» (o «Pasar a
+  rúbrica»), con su explicación; al final, pequeñas, Visto, No leído, Correo, Copiar y la bandera. Ampliada y fija arriba al
+  bajar se compacta (sin las explicaciones).
+- **2026-11-13 · 8:** botón **«↩ Responder»** en la ficha (mensajes de entrada): abre MENSADEF en otra pestaña, localiza el
+  mensaje como «Abrir en MENSADEF», lo abre y pulsa su botón «Responder» (no «Responder a todos» ni «Reenviar»). Si en 15 s
+  no encuentra el botón, deja el mensaje abierto y avisa de que se pulse «Responder». La respuesta se escribe y envía en MENSADEF.
+- **2026-11-13 · 9:** «Pasar a rúbrica» con icono y explicación, como los demás botones grandes. Siguen las dos acciones de
+  rúbrica: «Pasar a rúbrica» (enviables o en validación) e «Ir a Rúbrica» (cuando procede).
+- **Explorar Portafirmas (13/11/2026):** favorito de diagnóstico (`explorar-portafirmas.js` → `marcador-explorar-portafirmas.html`)
+  para `portafirmas.mdef.es`. Anota solo estructura: ruta y nombres de parámetros, formularios (acción y nombres de campos),
+  botones (texto si es corto y sin números), cabeceras de tablas, formas de los enlaces, scripts, y lo que pasa al pulsar
+  (envíos, peticiones, ventanas, AutoFirma por protocolo o conexión local). Tapa números e identificadores; no copia asuntos ni
+  nombres. Lo anotado se guarda en la pestaña para seguir tras un cambio de página. Objetivo: llevar desde SENDERO a la
+  petición en el Portafirmas, lista para firmar.
+  - **Primera pasada (13/11/2026):** acceso `Inicio.do` (formLogin) → «Firmante» `Inicio.do?rol` → página de firma
+    `Firmantes.do?oa` con «Firmar» (`firmaAutofirma()`), formulario `formFirmantes` → `SelMecFirma.do` (campo `docsAFirmar`) y
+    AutoFirma por conexión local (websocket, `autoscript.js`). No salió cómo se marcan los documentos.
+  - **v2:** casillas en cualquier sitio (nombre con números tapados, contenedor y atributos), listas repetidas que no son tablas y
+    el código de las funciones de los botones con sus textos tapados (solo quedan selectores y nombres de campos).
+- **2026-11-13 · 10:** «↩ Responder» abre directamente la pantalla de respuesta de MENSADEF (dirección dada por el usuario):
+  `<ámbito>/SitePages/ambito.aspx#/responder_mensaje/<IdMensaje>?idBuzonCelula=<IdBuzonCelula>`. Si faltan los datos, abre el
+  mensaje y pulsa «Responder» como en la · 8.
+- **2026-11-13 · 11:** «Ir a Rúbrica» sale **siempre** en la ficha (acceso al portafirmas para firmar); «Pasar a rúbrica»
+  sigue saliendo solo cuando procede. Orden fijo de los botones grandes también con la ficha ampliada: META, Responder, PSIT, Rúbrica.
+- **2026-11-13 · 12:** «Ir a Rúbrica» abre la lista del firmante (`Firmantes.do?operacion=ListaPendientes`, vista con Explorar
+  Portafirmas v2) filtrada por el asunto del mensaje (`&titulo=`, sin RE:/SDO., sin comillas, 60 letras). Pendiente de probar en
+  real si el Portafirmas acepta el filtro en la dirección y si conserva la dirección tras identificarse. El Portafirmas exige
+  abrir («leer») cada documento antes de firmarlo; casillas `chkDoc`, «Firmar» = `firmarServDocs()`, AutoFirma por conexión local.
+- **2026-11-13 · 13:**
+  - «➜ Tarea» (y «✍ Rúbrica») junto al asunto, siempre a la vista: en la última columna quedaban fuera con la ficha abierta.
+    «Pasado a tarea» es lo marcado en este navegador **o** el comentario «Añadido como tarea en META» en MENSADEF, así se ve
+    también lo que pasó otra persona u otro ordenador (también en la tarjeta «Pasados a tarea», informes y CSV).
+  - Rúbrica: o **«Pasar a rúbrica»** (enviable o en validación, sin pasar) o **«Ir a Rúbrica · firmar»** (ya pendiente de firma:
+    pendiente de firma, en firma, en rúbrica, portafirmas o pasado desde SENDERO); nunca los dos.
+- **2026-11-14 · 1:** los grupos (días o meses) se **pliegan y despliegan** pulsando su cabecera (▼/▶, con el número de
+  mensajes), y hay «⊟ Plegar todo» y «⊞ Desplegar todo» junto a «Agrupar». Se recuerda por fecha en el navegador. El límite de
+  300 filas cuenta solo las que se ven («Mostrar más»).
+- **2026-11-14 · 2:** filtros más limpios: fuera «Tipo» (casi siempre Oficio) y «Remitente»; nuevo filtro **«Firma»** (quién
+  firma). Los sí/no que MENSADEF manda como texto («true»/«false», p. ej. «Enviable a rúbrica») se ven como «Sí»/«No».
+- **2026-11-14 · 3:** franja de arriba: «MINISTERIO DE DEFENSA · EJÉRCITO DE TIERRA» en blanco, sin «Inspección General del
+  Ejército», y «MENSAJERÍA OFICIAL» más grande. Se mantiene la cabecera de SENDERO (no se copia la de MENSADEF).
 
