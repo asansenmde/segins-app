@@ -258,6 +258,19 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
         await p.selectOption('#fx_Bandera', ''); await p.waitForTimeout(300);
        } else console.log('Error: no hay filtro de bandera');
       if (process.env.CAPTURA_FILTROS) { const v = p.viewportSize(); await p.setViewportSize({ width: 1366, height: 800 }); const f = await p.$('#fAgrupar'); await f.scrollIntoViewIfNeeded(); await (await f.evaluateHandle(e => e.closest('.card') || e.parentNode.parentNode)).asElement().screenshot({ path: process.env.CAPTURA_FILTROS }); console.log('Agrupar visible:', await f.isVisible()); await p.setViewportSize(v); }
+      // 14/11/2026: plegar y desplegar un grupo pulsando su cabecera; plegar y desplegar todo
+      { const filas0 = await p.$$eval('#lista tbody tr[data-i]', n => n.length);
+        const g0 = await p.$eval('tr.dia-cab[data-grupo]', e => ({ k: e.dataset.grupo, n: Number(e.querySelector('.ngrupo').textContent) }));
+        await p.click('tr.dia-cab[data-grupo] >> nth=0'); await p.waitForTimeout(250);
+        const filas1 = await p.$$eval('#lista tbody tr[data-i]', n => n.length), pleg = await p.$eval('tr.dia-cab[data-grupo]', e => e.classList.contains('plegado') && /▶/.test(e.textContent));
+        await p.click('tr.dia-cab[data-grupo] >> nth=0'); await p.waitForTimeout(250);
+        const filas2 = await p.$$eval('#lista tbody tr[data-i]', n => n.length);
+        await p.click('#plegarTodo'); await p.waitForTimeout(250);
+        const todoPleg = await p.$$eval('#lista tbody tr[data-i]', n => n.length), cabsPleg = await p.$$eval('tr.dia-cab.plegado', n => n.length);
+        await p.click('#desplegarTodo'); await p.waitForTimeout(250);
+        const filas3 = await p.$$eval('#lista tbody tr[data-i]', n => n.length);
+        console.log('plegar grupos: «' + g0.k.replace(/\d/g, 'N') + '» (' + g0.n + ') plegado:', pleg, '| filas', filas0, '→', filas1, '→', filas2, '| plegar todo:', todoPleg, 'filas,', cabsPleg, 'cabeceras | desplegar todo:', filas3);
+        if (!pleg || filas1 !== filas0 - Math.min(g0.n, filas0) || filas2 !== filas0 || todoPleg !== 0 || !cabsPleg || filas3 !== filas0) console.log('Error: plegar grupos'); }
       const cabs0 = await p.$$eval('tr.dia-cab', n => n.length);
       await p.selectOption('#fAgrupar', 'mes'); await p.waitForTimeout(300);
       const meses = await p.$$eval('tr.dia-cab td', n => n.map(x => x.textContent.trim()));

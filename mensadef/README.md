@@ -426,4 +426,7 @@ con el formato *verbose* de SharePoint 2013.
     también lo que pasó otra persona u otro ordenador (también en la tarjeta «Pasados a tarea», informes y CSV).
   - Rúbrica: o **«Pasar a rúbrica»** (enviable o en validación, sin pasar) o **«Ir a Rúbrica · firmar»** (ya pendiente de firma:
     pendiente de firma, en firma, en rúbrica, portafirmas o pasado desde SENDERO); nunca los dos.
+- **2026-11-14 · 1:** los grupos (días o meses) se **pliegan y despliegan** pulsando su cabecera (▼/▶, con el número de
+  mensajes), y hay «⊟ Plegar todo» y «⊞ Desplegar todo» junto a «Agrupar». Se recuerda por fecha en el navegador. El límite de
+  300 filas cuenta solo las que se ven («Mostrar más»).
 

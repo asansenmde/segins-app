@@ -50,6 +50,11 @@
   tbody tr:hover { background: #f7f8f4; }
   tbody tr.sel { background: var(--sel); }
   td.asunto { min-width: 280px; }
+  tr.dia-cab[data-grupo] td { cursor: pointer; user-select: none; }
+  tr.dia-cab[data-grupo]:hover td { filter: brightness(.97); }
+  .dia-cab .flg { display: inline-block; width: 16px; font-size: .7rem; color: #5a6b48; }
+  tr.dia-cab.plegado td { opacity: .85; }
+  .plegar { display: inline-flex; gap: 6px; align-items: center; }
   .dia-cab .ngrupo { display: inline-block; margin-left: 6px; font-size: .7rem; font-weight: 800; padding: 0 7px; border-radius: 999px; background: #e6ecdf; color: #3d4f2c; }
   td.hora .dfecha { color: var(--muted); font-size: .76rem; }
   td.firma { font-size: .78rem; color: #3c4a5c; min-width: 140px; max-width: 260px; }
@@ -454,6 +459,7 @@
       <label class="check"><input type="checkbox" id="fBorrador"> Ocultar borradores</label>
       <label class="check"><input type="checkbox" id="fVistos"> Ocultar vistos</label>
       <label>Agrupar <select id="fAgrupar" style="width:auto"><option value="dia">Por días</option><option value="mes">Por meses</option><option value="no">Sin agrupar</option></select></label>
+      <span class="plegar" id="botonesPlegar"><button type="button" id="plegarTodo" title="Plegar todos los grupos (días o meses)">⊟ Plegar todo</button><button type="button" id="desplegarTodo" title="Desplegar todos los grupos">⊞ Desplegar todo</button></span>
       <button type="button" id="limpiar">Quitar filtros</button>
       <button type="button" id="informe" class="prim">📄 Informe</button>
       <button type="button" id="csv">Exportar CSV</button>
@@ -517,7 +523,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-13 · 13';
+  var VERSION = '2026-11-14 · 1';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1604,6 +1610,8 @@
   $('fBorrador').addEventListener('change', function () { guardar('ocultarBorradores', $('fBorrador').checked); });
   $('fVistos').checked = leer('ocultarVistos', false);
   $('fAgrupar').value = leer('agrupar', 'dia');
+  $('plegarTodo').addEventListener('click', function () { plegarTodo(true); });
+  $('desplegarTodo').addEventListener('click', function () { plegarTodo(false); });
   $('fAgrupar').addEventListener('change', function () { guardar('agrupar', $('fAgrupar').value); if ($('fAgrupar').value !== 'no' && orden.campo !== 'fecha') { orden = { campo: 'fecha', desc: true }; ordenar(); } pintarTabla(); });
   $('fVistos').addEventListener('change', function () { guardar('ocultarVistos', $('fVistos').checked); });
   ['fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad', 'fSitio', 'fAdjuntos', 'fBorrador', 'fVistos'].forEach(function (id) { $(id).addEventListener('change', function () { mostrar = 300; filtrar(); }); });
@@ -1694,6 +1702,12 @@
     var h = new Date(), ini = function (x) { return new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(); }, dd = Math.round((ini(h) - ini(d)) / 864e5);
     return dd === 0 ? 'Hoy' : dd === 1 ? 'Ayer' : d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
   };
+  // 14/11/2026: cada grupo se pliega o despliega pulsando su cabecera; se recuerda por fecha (no por «Hoy»)
+  var plegados = leer('plegados', {}) || {};
+  var dosD = function (n) { return (n < 10 ? '0' : '') + n; };
+  var claveGrupo = function (d, agr) { if (!d) return 'sin'; return agr === 'mes' ? 'm:' + d.getFullYear() + '-' + dosD(d.getMonth() + 1) : 'd:' + d.getFullYear() + '-' + dosD(d.getMonth() + 1) + '-' + dosD(d.getDate()); };
+  function guardarPlegados() { var ks = Object.keys(plegados); if (ks.length > 400) ks.sort().slice(0, ks.length - 400).forEach(function (k) { delete plegados[k]; }); guardar('plegados', plegados); }
+  var recorteBandejas = 0;
   // 13/11/2026: agrupar la lista por días (como antes), por meses o sin agrupar (solo al ordenar por fecha)
   var nomMes = function (d) {
     if (!d) return 'Sin fecha';
@@ -1722,12 +1736,16 @@
     // 13/11/2026: la columna «Tipo» (casi siempre «Oficio») pasa a ser «Firma»: quién firma el mensaje
     var cab = [['fecha', 'Hora'], ['bandeja', ''], ['asunto', 'Asunto'], ['firma', 'Firma'], ['estado', 'Estado'], ['prioridad', 'Prio.'], ['celula', 'Célula']];
     var agr = $('fAgrupar') ? $('fAgrupar').value : 'dia', porDia = orden.campo === 'fecha' && agr !== 'no', dia = null;
-    var grupoDe = function (f) { return agr === 'mes' ? nomMes(f) : nomDia(f); }, nGrupo = {};
+    var grupoDe = function (f) { return agr === 'mes' ? nomMes(f) : nomDia(f); }, nGrupo = {}, pintadas = 0;
+    recorteBandejas = 0;
     if (porDia) filas.forEach(function (m) { var g = grupoDe(fechaDe(m)); nGrupo[g] = (nGrupo[g] || 0) + 1; });
     return '<table><thead><tr><th title="Visto">✓</th>' + cab.map(function (c) { return '<th data-orden="' + c[0] + '">' + c[1] + (orden.campo === c[0] ? (orden.desc ? ' ▾' : ' ▴') : '') + '</th>'; }).join('') + '<th></th></tr></thead><tbody>' +
       filas.map(function (m, i) {
-        var f = fechaDe(m), nd = porDia ? grupoDe(f) : '', cabDia = '';
-        if (porDia && nd !== dia) { dia = nd; cabDia = '<tr class="dia-cab"><td colspan="9">' + esc(nd) + ' <span class="ngrupo">' + nGrupo[nd] + '</span></td></tr>'; }
+        var f = fechaDe(m), nd = porDia ? grupoDe(f) : '', kg = porDia ? claveGrupo(f, agr) : '', cabDia = '';
+        if (porDia && nd !== dia) { dia = nd; var pl = !!plegados[kg]; cabDia = '<tr class="dia-cab' + (pl ? ' plegado' : '') + '" data-grupo="' + esc(kg) + '" title="Pulsa para ' + (pl ? 'desplegar' : 'plegar') + ' este grupo"><td colspan="9"><span class="flg">' + (pl ? '▶' : '▼') + '</span>' + esc(nd) + ' <span class="ngrupo">' + nGrupo[nd] + '</span></td></tr>'; }
+        if (porDia && plegados[kg]) return cabDia;
+        if (pintadas >= mostrar) { recorteBandejas++; return cabDia; }
+        pintadas++;
         var vis = !!vistos[claveMensaje(m)], cls = [m === abierto ? 'sel' : '', m._leido === false ? 'noleido' : '', vis ? 'visto' : ''].filter(Boolean).join(' ');
         var es = m._x.__es === 'Entrada' ? '<span title="Entrada">📥</span>' : m._x.__es === 'Salida' ? '<span title="Salida">📤</span>' : '';
         var pr = m._x.CodigoPrioridad, sub = lineaSub(m);
@@ -1744,8 +1762,9 @@
   function pintarTabla() {
     var cab = [['fecha', 'Fecha'], ['tipo', 'Tipo'], ['estado', 'Estado'], ['autoridad', 'Autoridad'], ['asunto', 'Asunto'], ['referencia', 'Referencia'], ['organo', 'Órgano']];
     var filas = filtrados.slice(0, mostrar);
+    if (modoApi) filas = filtrados;
     $('lista').innerHTML = !mensajes.length ? '<p class="muted">No hay mensajes en el periodo elegido.</p>' : modoApi ? tablaBandejas(filas) +
-      (filtrados.length > mostrar ? '<p style="margin-top:8px"><button type="button" id="mas">Mostrar ' + Math.min(300, filtrados.length - mostrar) + ' más (quedan ' + (filtrados.length - mostrar) + ')</button></p>' : '') :
+      (recorteBandejas ? '<p style="margin-top:8px"><button type="button" id="mas">Mostrar ' + Math.min(300, recorteBandejas) + ' más (quedan ' + recorteBandejas + ')</button></p>' : '') :
       '<table><thead><tr><th title="Visto">✓</th>' + cab.map(function (c) { return '<th data-orden="' + c[0] + '">' + c[1] + (orden.campo === c[0] ? (orden.desc ? ' ▾' : ' ▴') : '') + '</th>'; }).join('') + '<th>📎</th></tr></thead><tbody>' +
       filas.map(function (m, i) {
         var vis = !!vistos[claveMensaje(m)], cls = [m === abierto ? 'sel' : '', m._leido === false ? 'noleido' : '', vis ? 'visto' : ''].filter(Boolean).join(' ');
@@ -1765,6 +1784,15 @@
       });
     });
     if ($('mas')) $('mas').addEventListener('click', function () { mostrar += 300; pintarTabla(); });
+    Array.prototype.forEach.call($('lista').querySelectorAll('tr.dia-cab[data-grupo]'), function (tr) {
+      tr.addEventListener('click', function () { var k = tr.getAttribute('data-grupo'); if (plegados[k]) delete plegados[k]; else plegados[k] = 1; guardarPlegados(); pintarTabla(); });
+    });
+    if ($('botonesPlegar')) $('botonesPlegar').style.display = modoApi && orden.campo === 'fecha' && $('fAgrupar').value !== 'no' ? '' : 'none';
+  }
+  function plegarTodo(si) {
+    var agr = $('fAgrupar').value;
+    filtrados.forEach(function (m) { var k = claveGrupo(fechaDe(m), agr); if (si) plegados[k] = 1; else delete plegados[k]; });
+    guardarPlegados(); pintarTabla();
   }
 
   // Detalle de un mensaje: metadatos, cuerpo (se pide al abrirlo), adjuntos y documentos
