@@ -319,6 +319,10 @@
   header .franja { background: rgba(0,0,0,.22); border-bottom: 1px solid rgba(201,168,76,.35); }
   header .franja > div { max-width: none; margin: 0 auto; padding: 3px 16px; display: flex; justify-content: space-between; gap: 10px; font-size: .64rem; letter-spacing: .18em; color: #d9e3ec; font-weight: 700; }
   header .franja span { color: var(--oro); }
+  /* 14/11/2026: Ministerio y Ejército en blanco; sin «Inspección General»; «Mensajería oficial» más grande */
+  header .franja > div { justify-content: center; align-items: center; gap: 18px; padding: 4px 16px; }
+  header .franja .org { color: #fff; font-weight: 800; }
+  header .franja .mo { font-size: .86rem; letter-spacing: .22em; font-weight: 800; }
   header > div:not(.franja) { padding: 10px 16px 11px; }
   header .escudo { width: 46px; height: 46px; display: inline-grid; place-items: center; border-radius: 50%; font-size: 1.35rem; color: #fff;
     background: radial-gradient(circle at 30% 30%, #2f7a54, var(--brand) 70%); border: 2px solid var(--oro); box-shadow: 0 0 0 3px rgba(201,168,76,.18), inset 0 1px 3px rgba(255,255,255,.25); }
@@ -417,7 +421,7 @@
 </style>
 </head>
 <body>
-<header><div class="franja"><div>MINISTERIO DE DEFENSA · EJÉRCITO DE TIERRA · INSPECCIÓN GENERAL DEL EJÉRCITO<span>MENSAJERÍA OFICIAL</span></div></div>
+<header><div class="franja"><div><b class="org">MINISTERIO DE DEFENSA · EJÉRCITO DE TIERRA</b><span class="mo">MENSAJERÍA OFICIAL</span></div></div>
   <div><span class="escudo marca" aria-hidden="true">S</span><div class="tit"><h1 class="sendero">SENDERO<span class="lema">El camino de cada mensaje</span></h1><span class="subt">Visor de mensajes <b>MENSADEF</b> · bandejas · informes · tareas — desarrollado por el Cte. Alfredo Sánchez Sender</span></div>
   <span class="muted" id="quien"></span><div class="firma">© 2026<br><b>Cte. Alfredo Sánchez Sender</b><br><span id="verCab"></span></div></div></header>
 <main>
@@ -523,7 +527,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-14 · 2';
+  var VERSION = '2026-11-14 · 3';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };

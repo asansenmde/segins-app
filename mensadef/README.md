@@ -431,4 +431,6 @@ con el formato *verbose* de SharePoint 2013.
   300 filas cuenta solo las que se ven («Mostrar más»).
 - **2026-11-14 · 2:** filtros más limpios: fuera «Tipo» (casi siempre Oficio) y «Remitente»; nuevo filtro **«Firma»** (quién
   firma). Los sí/no que MENSADEF manda como texto («true»/«false», p. ej. «Enviable a rúbrica») se ven como «Sí»/«No».
+- **2026-11-14 · 3:** franja de arriba: «MINISTERIO DE DEFENSA · EJÉRCITO DE TIERRA» en blanco, sin «Inspección General del
+  Ejército», y «MENSAJERÍA OFICIAL» más grande. Se mantiene la cabecera de SENDERO (no se copia la de MENSADEF).
 
