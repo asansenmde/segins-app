@@ -26,7 +26,7 @@ const bandeja = (cel, es, pag, tam) => {
     Cuerpo: process.env.PRESENTA ? '<p>Se remite para su conocimiento y efectos la documentación adjunta. Se ruega acuse de recibo y, en su caso, la designación de un punto de contacto antes del próximo viernes.</p>' : '<p>Texto del mensaje ' + i + '</p><script>alert(1)</script>', Fecha: hace(i < 130 ? i * 0.3 : 24 * 40 + i), FechaRegistroEntrada: hace(i), IdEstadoMensaje: 3,
     NombreEstadoUltimaDistribucionSalida: es === '2' && i === 0 ? 'Pendiente de Validar' : '', EstadoMensaje: es === '2' && i === 0 ? 'Borrador' : es === '2' && i === 2 ? 'Enviado' : es === '2' && i === 1 ? 'Pendiente de firma' : i === 7 ? 'Pendiente de firma' : i % 3 ? 'Pendiente' : 'Leído', EstadoParaUsuario: i % 2 ? 'No leído' : 'Leído', TipoES: es === '1' ? 'E' : 'S', TipoMensaje: i % 4 ? 'Informe' : 'Orden', CodigoPrioridad: i % 9 ? 'R' : 'U',
     CelulaRemitente: i % 2 ? 'ET 2SUIGE JEFATURA' : 'ET 2SUIGE REGISTRO', CelulaDestinataria: 'ET 2SUIGE SETEC SEGURIDAD', NumeroRegistroEntrada: 'RE-' + i, Sref: 'SREF-' + i,
-    ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 3 === 0 ? 'ACCIÓN' : i % 3 === 1 ? 'INFORMACIÓN' : '', UltimoComentario: i % 10 === 5 ? 'Añadido como tarea en META (META) por OTRA PERSONA el 12/11/2026, 10:00:00 · SENDERO' : i % 4 === 0 ? 'Comentario ficticio ' + i : '', Firma: i % 2 ? (process.env.PRESENTA ? 'GENERAL JEFE DE LA SUIGE' : 'GENERAL JEFE <b>A</b>') : '', MotivoDistribucion: i % 3 ? 'Para conocimiento' : 'Para actuación', EnviableARubrica: es === '2' ? 'Sí' : 'No', BuzonPersonal: false, IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
+    ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 3 === 0 ? 'ACCIÓN' : i % 3 === 1 ? 'INFORMACIÓN' : '', UltimoComentario: i % 10 === 5 ? 'Añadido como tarea en META (META) por OTRA PERSONA el 12/11/2026, 10:00:00 · SENDERO' : i % 4 === 0 ? 'Comentario ficticio ' + i : '', Firma: i % 2 ? (process.env.PRESENTA ? 'GENERAL JEFE DE LA SUIGE' : 'GENERAL JEFE <b>A</b>') : '', MotivoDistribucion: i % 3 ? 'Para conocimiento' : 'Para actuación', EnviableARubrica: es === '2' ? 'true' : 'false', BuzonPersonal: false, IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
   return { ListaElementos: els, ListaAgrupaciones: [], IndicePagina: pag, TamanoPagina: tam, TotalRegistros: total };
 };
 const b = await chromium.launch();
@@ -152,7 +152,7 @@ await p.click('#kpis [data-kpi="noleidos"]'); console.log('tarjeta No leídos:',
 await p.click('#lista tbody tr[data-i] >> nth=0 >> [data-visto]'); await p.click('#lista tbody tr[data-i] >> nth=1 >> [data-visto]');
 console.log('2 vistos → Sin revisar:', await p.textContent('#kpis [data-kpi="sinver"] b'), '| detalle abierto al marcar?', !(await p.isHidden('#detalle')));
 await p.check('#fVistos'); console.log('ocultar vistos:', await filas()); await p.uncheck('#fVistos');
-await p.selectOption('#fTipo', 'Orden'); console.log('tipo Orden:', await filas()); await p.selectOption('#fTipo', '');
+{ const op = await p.$$eval('[data-x="Firma"] option', o => o.map(x => x.value).filter(Boolean)); if (op[0]) { await p.selectOption('[data-x="Firma"]', op[0]); console.log('filtro Firma:', await filas()); await p.selectOption('[data-x="Firma"]', ''); } else console.log('Error: sin filtro Firma'); }
 await p.selectOption('#fx_CodigoPrioridad', 'U'); console.log('prioridad U:', await filas()); await p.selectOption('#fx_CodigoPrioridad', '');
 await p.click('#kpis [data-kpi="salida"]'); console.log('tarjeta Salida:', await filas()); await p.click('#kpis [data-kpi="todos"]');
 console.log('cabeceras de día:', await p.$$eval('#lista tr.dia-cab', l => l.map(x => x.textContent)));
@@ -271,6 +271,12 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
         const filas3 = await p.$$eval('#lista tbody tr[data-i]', n => n.length);
         console.log('plegar grupos: «' + g0.k.replace(/\d/g, 'N') + '» (' + g0.n + ') plegado:', pleg, '| filas', filas0, '→', filas1, '→', filas2, '| plegar todo:', todoPleg, 'filas,', cabsPleg, 'cabeceras | desplegar todo:', filas3);
         if (!pleg || filas1 !== filas0 - Math.min(g0.n, filas0) || filas2 !== filas0 || todoPleg !== 0 || !cabsPleg || filas3 !== filas0) console.log('Error: plegar grupos'); }
+      // 14/11/2026: filtros: sin Tipo ni Remitente; con Firma; «Enviable a rúbrica» en Sí/No
+      { const vis = async id => p.$eval('#' + id, e => e.parentNode.style.display !== 'none').catch(() => false);
+        const fir = await p.$$eval('[data-x="Firma"] option', o => o.map(x => x.textContent)).catch(() => []);
+        const env = await p.$$eval('[data-x="EnviableARubrica"] option', o => o.map(x => x.textContent)).catch(() => []);
+        console.log('filtros: Tipo visible', await vis('fTipo'), '| Remitente visible', await vis('fAutoridad'), '| Firma:', fir.length, 'opciones | Enviable a rúbrica:', env.join(', '));
+        if (await vis('fTipo') || await vis('fAutoridad') || fir.length < 2 || env.some(t => /true|false/.test(t)) || !env.some(t => /^Sí/.test(t))) console.log('Error: filtros'); }
       const cabs0 = await p.$$eval('tr.dia-cab', n => n.length);
       await p.selectOption('#fAgrupar', 'mes'); await p.waitForTimeout(300);
       const meses = await p.$$eval('tr.dia-cab td', n => n.map(x => x.textContent.trim()));

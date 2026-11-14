@@ -523,7 +523,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-14 · 1';
+  var VERSION = '2026-11-14 · 2';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -1163,7 +1163,8 @@
   // Ya tienen su filtro (Estado, Tipo, Bandeja): no se repiten
   var SIN_FILTRO = { EstadoMensaje: 1, TipoMensaje: 1, TipoES: 1 };
   // Con las bandejas, además de buscar, célula, tipo y estado, solo estos filtros (el resto de campos, en el detalle)
-  var FILTROS_API = { CodigoPrioridad: 1, Leido: 1, Bandera: 1, EnviableARubrica: 1 };
+  // 14/11/2026: «Firma» (quién firma) como filtro; «Tipo» y «Remitente» fuera (casi siempre lo mismo / pedido por el usuario)
+  var FILTROS_API = { CodigoPrioridad: 1, Leido: 1, Bandera: 1, EnviableARubrica: 1, Firma: 1 };
   var ETIQUETAS_API = { EnviableARubrica: 'Enviable a rúbrica', Actuacion: 'Actuación', CelulaRemitente: 'Célula remitente', CelulaDestinataria: 'Célula destinataria', CodigoPrioridad: 'Prioridad', ContieneAnexos: 'Anexos',
     EstadoMensaje: 'Estado del mensaje', EstadoParaUsuario: 'Estado para mí', Leido: 'Leído', TipoES: 'Entrada/Salida', TipoMensaje: 'Tipo de mensaje', NumeroRegistroEntrada: 'N.º registro de entrada',
     NumeroRegistroSalida: 'N.º registro de salida', FechaRegistroEntrada: 'Fecha registro de entrada', FechaRegistroSalida: 'Fecha registro de salida', UsuarioRemitente: 'Usuario remitente',
@@ -1493,6 +1494,8 @@
     if (Array.isArray(v) || v.results) return lista(v).map(function (x) { return comoTexto(x); }).filter(Boolean).join(', ');
     if (typeof v === 'object') return v.Title || '';
     if (tipo === 'Boolean') return v ? 'Sí' : 'No';
+    // 14/11/2026: MENSADEF manda algunos sí/no como texto («true»/«false», p. ej. «Enviable a rúbrica»)
+    if (v === true || v === false || /^(true|false)$/i.test(String(v))) return /^true$/i.test(String(v)) ? 'Sí' : 'No';
     if (tipo === 'DateTime') return verFecha(new Date(v));
     return String(v);
   };
@@ -1584,6 +1587,7 @@
     opciones('fSitio', mensajes.map(sitioDe), 'Todos');
     // Fuera los filtros sin datos (p. ej. canal u órgano en las bandejas)
     ['fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad'].forEach(function (id) { $(id).parentNode.style.display = !modoApi || $(id).options.length > 1 ? '' : 'none'; });
+    if (modoApi) ['fTipo', 'fAutoridad'].forEach(function (id) { $(id).value = ''; $(id).parentNode.style.display = 'none'; });
     $('fSitio').parentNode.style.display = sitios.length < 2 ? 'none' : '';
     // Un desplegable por cada columna de MENSADEF con pocos valores distintos en lo cargado
     var cols = Object.keys(EXTRA).filter(function (k) {

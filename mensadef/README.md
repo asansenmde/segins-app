@@ -429,4 +429,6 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-14 · 1:** los grupos (días o meses) se **pliegan y despliegan** pulsando su cabecera (▼/▶, con el número de
   mensajes), y hay «⊟ Plegar todo» y «⊞ Desplegar todo» junto a «Agrupar». Se recuerda por fecha en el navegador. El límite de
   300 filas cuenta solo las que se ven («Mostrar más»).
+- **2026-11-14 · 2:** filtros más limpios: fuera «Tipo» (casi siempre Oficio) y «Remitente»; nuevo filtro **«Firma»** (quién
+  firma). Los sí/no que MENSADEF manda como texto («true»/«false», p. ej. «Enviable a rúbrica») se ven como «Sí»/«No».
 
