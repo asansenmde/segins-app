@@ -1,101 +1,45 @@
-# Pendientes (encargados por el usuario, a la espera de que diga «adelante»)
+# Pendientes
 
-Lista viva: se tacha (o se borra) cada punto cuando se haga. Modelo de todo: **`vsa/`** (recetas en `SHAREPOINT.md`).
+Lista viva: se borra cada punto cuando se haga. Recetas en `SHAREPOINT.md`; reglas en `CLAUDE.md`.
+Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situación se llevan en sus propias sesiones.
 
-## Para todas las aplicaciones de Colabora (Permisos, Incidentes, Tareas Colabora y las nuevas)
+## Lo que tiene que hacer el usuario en Colabora
 
-1. **Copia protegida + autoría** (como `vsa/proteger/`):
-   - aviso «© 2026 Cte. Alfredo Sánchez Sender» en la cabecera HTML, `meta author/copyright` y pie visible (oculto al
-     imprimir);
-   - original legible en local/repositorio y copia ofuscada `<proyecto>/colabora/<página>.html` con bloqueo de
-     dominio `.mdef.es` para subir a Colabora;
-   - pasar las pruebas simuladas también contra la copia protegida.
-   - **Hecho:** VSA (19/10/2026), Incidentes y Permisos (20/10/2026), Tareas Colabora (22/10/2026, con el nuevo panel de
-     la pestaña Tareas).
-2. **Control de acceso con solicitud** (receta «Control de acceso con solicitud»): pantalla «Solicitar acceso»,
-   lista común «SOLICITUDES DE ACCESO» (columna `Aplicacion`), pestaña «Accesos», grupo propio de cada aplicación.
-   - **Hecho:** VSA (17/10/2026) e Incidentes (20/10/2026, con transición y aviso por correo de cada solicitud).
-     Permisos (20/10/2026): acceso a **Registro SIPERDEF por unidad** (solicitud, asignación de unidades, propietario lo ve
-     todo; transición para los registradores sin unidad). **Falta:** Tareas Colabora; en Permisos, permisos por elemento.
-3. **Firma electrónica con AutoFirma / portafirmas** (receta «Firma electrónica con AutoFirma») donde haya que firmar
-   documentos: PDF generado en la página, firma PAdES visible, adjunto al elemento y segunda firma si procede.
+1. **Subir las copias cifradas** (13/11/2026) y abrir cada una en Edge para ver que no sale el código como texto:
+   Incidentes 2026-11-12 · 1, Pérdidas 2026-11-05 · 3, VSA 2026-11-06 · 1, Permisos 2026-11-05 · 2 (+ copia de pruebas),
+   Gestor de Tareas y **META.html** 2026-11-13 · 2 (META en `…/JSUIGE/aplicaciones/META.html`).
+2. **Borrar lo viejo:** la META antigua `tareas-nlt-colabora-mensadef.html` (ahora es `META.html`) y cualquier copia vieja
+   subida con otro nombre.
+3. **Incidentes · responsables de los avisos:** en Ajustes, «Crear la lista» («INCIDENTES RESPONSABLES»), poner al menos un
+   responsable por SUIGE, DIACU e IGE, probar SUIGESUR con «✉ Probar» y dejar la lista en **Leer** para los demás.
+4. **META · quién ve qué:** crear desde Ajustes la lista «META MIEMBROS», dar de alta a cada uno en su negociado/departamento
+   y dejarla en **Leer** para los demás. La biblioteca del `.html`, solo lectura para los usuarios.
+5. **VSA · solicitudes antiguas:** resolver en Accesos las marcadas con 📦 (quedaron en la lista interna «Solicitudes de
+   acceso») y crear la alerta «🔔 Avisarme» de la lista «SOLICITUDES ACCESO APLICACIONES» si no la tiene.
+6. **Pérdidas:** comprobar con datos reales (34 notificaciones antiguas, casi todas en REMITIDO A M1 sin SUIGES).
+7. **Permisos:** pedir al administrador de Colabora que retire la cuenta antigua del usuario (sale al buscarle).
+8. **Ruleta del portal:** confirmar que el administrador la ve sin `?admin=1`.
 
-4. **Página de diagnóstico de permisos** (solo lectura): por cada lista del subsitio, si hereda o tiene permisos
-   propios y qué grupos tienen qué nivel, marcando en rojo «Usuarios del dominio» / «Todos». Pedida el 20/10/2026 por
-   un usuario con «Lectura restringida» que veía todas las listas (pendiente de hacer).
+## Pendiente de que el usuario decida
 
-5. **Ocultar la ruleta en el portal**: hecho con un Editor de scripts (receta y cómo volver a verla en `SHAREPOINT.md`,
-   «Ocultar la ruleta y la cinta en el portal»). Pendiente de confirmar que el administrador la ve sin `?admin=1`.
+- **Eliminar en Incidentes y Pérdidas:** con «Colaborar» pueden eliminar todos; ¿nivel de permiso propio sin «Eliminar
+  elementos» para unidades y SUIGE, o limitar el botón en la página?
+- **Pérdidas: permisos por elemento** al remitir (cada pérdida visible solo para su unidad, SUIGE e IGE). Aparcado.
+- **Buscar en todos los campos** (regla de `CLAUDE.md`): ¿revisar ya todas las aplicaciones o al tocar cada una?
+- **Gestor de Tareas común:** ¿control de acceso con solicitud, como META, o sigue abierto a quien tenga permiso en la lista?
+- **Página de diagnóstico de permisos** (solo lectura: qué grupos tienen qué nivel en cada lista). Pedida el 20/10/2026.
+- **Nuevo proyecto «Acciones derivadas de inspecciones técnicas»:** esperando la estructura de la plantilla.
 
-6. **Tareas Colabora**: hecha toda la propuesta de visibilidad (22/10/2026). Queda por decidir si lleva **control de
-   acceso con solicitud** (punto 2) o sigue abierta a quien tenga permiso en la lista.
+## Hecho (resumen)
 
-7. **Nuevo proyecto: Acciones derivadas de inspecciones técnicas** (pedido el 22/10/2026, en análisis). Lista abierta
-   en la que los negociados (seguridad, programación y coordinación, riesgos laborales, acuartelamiento,
-   infraestructura…) cargan las acciones derivadas de cada inspección, con número, deficiencia, acción, plazo y
-   responsable. Cada acuartelamiento ve solo lo suyo y lo subsana en plazo; la jefatura controla el cumplimiento.
-   Esperando del usuario la estructura de la plantilla y las decisiones de la propuesta antes de empezar. Irá en su
-   carpeta, con etiqueta propia.
-
-8. **Permisos, avisos por correo** (22/10/2026, versión · 5, confirmado por el usuario): ya llegan aunque la solicitud
-   nombre al autorizador o aprobador con una cuenta antigua sin buzón. Queda pedir al administrador de Colabora que retire
-   la cuenta antigua del usuario para que no aparezca al buscarle.
-9. **Envío robusto de correo en todas las páginas**: hecho el 22/10/2026 en VSA (· 1), Incidentes (· 1), Tareas
-   Colabora (· 3) y Permisos (· 6), probado en simulación (original y protegida). Pendiente de que el usuario suba las
-   cuatro copias protegidas y haga un «Correo de prueba» en cada una.
-
-10. **Permisos: sustituciones de los jefes de unidad** (versión 2026-10-23 · 1, probado en simulación): tipos de sustitución,
-    sin «interino», sustitutos que no pueden estar de permiso; pestaña «Mandos sustitutos». El usuario probó la copia de
-    pruebas (26/10/2026) y pidió la versión 2026-10-26 · 1: pestaña solo para autorizadores (lo que autorizan), jefes (lo
-    suyo) y mando (todo); filtros por fechas y unidad, teléfonos en las barras, detalle, resumen, informe y CSV; eliminar
-    solicitudes solo el administrador; menú más visual. El usuario dio por buena la copia de pruebas y se entregó la
-    original protegida (`permisos/colabora/permisos.html`, 26/10/2026). Pendiente de que la suba a Colabora.
-11. **Tareas Colabora: expediente y estado** (versión 2026-10-23 · 3, probado en simulación): el expediente es el nº de
-    Colabora; estado terminado ⇔ fecha de finalización obligatoria; la situación la marca solo el estado. Los asuntos
-    antiguos incoherentes salen con aviso ⚠ («Fecha de fin sin estado terminado» / «Terminado sin fecha de fin»):
-    corregirlos poco a poco desde la propia página. Pendiente de subir la copia protegida.
-12. **Pérdida de documentación** (`perdidas/`, versión 2026-10-27 · 1, probada en simulación): formulario del InfoPath,
-    circuito unidad › SUIGE › IGE, acceso de Incidentes, datos personales solo para quien tramita. Subida (copia con semilla
-    fija, 27/10/2026) y columnas de seguimiento creadas (confirmado por el usuario). Pendiente: comprobar con datos reales
-    (34 notificaciones antiguas, casi todas en REMITIDO A M1 sin SUIGES: la SUIGE sale de la unidad).
-    Permisos de la lista: «Colaborar» a INCIDENTES_UNIDADES y SEGURIDAD_*, sin «Usuarios del dominio» (como Incidentes).
-    **Aparcado «por ahora»** (el usuario lo analiza): permisos por elemento al remitir (cada pérdida visible solo para su
-    unidad, su SUIGE e IGE), porque con «Colaborar» la lista abierta directamente en Colabora deja ver las de otras unidades.
-13. **Solicitudes de acceso del sitio JIGE** (27/10/2026): Incidentes y Pérdidas usaban por error la lista interna oculta
-    «Solicitudes de acceso» de SharePoint; ahora «SOLICITUDES ACCESO APLICACIONES» (Incidentes 2026-10-27 · 1, Pérdidas · 2).
-    Hecho (27/10/2026, confirmado en Preparación): lista creada, solo sus elementos, abierta a «usuarios del dominio» y
-    grupo INCIDENTES_UNIDADES (8 personas). Queda confirmar la alerta «Avisarme» con una solicitud de prueba. VSA tenía el mismo fallo: corregido el
-    06/11/2026 (VSA 2026-11-06 · 1, misma lista y aviso a asansen@et.mde.es; lee también las solicitudes antiguas). Queda
-    que el usuario suba la versión, resuelva las solicitudes 📦 y cree la alerta «Avisarme» si no la tiene.
-14. **Buscar en todos los campos** (regla del usuario, 05/11/2026, ya en `CLAUDE.md`): revisar los campos «Buscar» de
-    cada aplicación (Tareas Colabora, Permisos, Incidentes, VSA, Pérdidas…) para que busquen en todos los campos. Pendiente
-    de que el usuario diga si se hace ya en todas o al tocar cada una.
-15. **Eliminar registros y adjuntos** (05/11/2026, hecho en Incidentes 2026-11-05 · 1 y Pérdidas 2026-11-05 · 3): botón
-    rojo «Eliminar» en la ficha solo para quien tiene permiso de eliminar en la lista (va a la papelera). Falta que el
-    usuario decida si quita «Eliminar elementos» a unidades y SUIGE (con «Colaborar» pueden todos) con un nivel de permiso
-    propio en Colabora.
-
-Orden y alcance de cada una, a confirmar con el usuario cuando lo pida (empezar por la que diga).
-
-## Hecho en VSA (referencia)
-
-Control de acceso · firma con AutoFirma (BAE + empresa) · circuito SUIGE → DIACU/IGE · Informes · copia protegida y
-autoría.
-
-16. **Gestor de Tareas / META 2026-11-10 · 1** (10/11/2026): junta la · 2 (Ajustes solo con Control total, rama
-    `claude/mensadef-outlook-tasks-sync-vozg8g`) y la · 3 («📋 Incluir en el Punto de Situación», rama
-    `claude/modest-fermat-9zf46n`), hechas por separado. Probado en simulación (original y protegida, ligero y verbose).
-    Pendiente: que el usuario suba el Gestor común; META se regenera igual por si la quiere. Ojo: las sesiones de SENDERO
-    y de Puntos de Situación siguen con su versión; si vuelven a tocar el Gestor, que partan de esta.
-17. **META: quién ve cada expediente** (10/11/2026, META 2026-11-10 · 2): autor, responsable, implicados y su negociado; todo
-    con Control total o «Lo ve todo»; altas en Ajustes (lista «META MIEMBROS»). Probado en simulación. Pendiente: que el
-    usuario suba META, cree la lista desde Ajustes y dé de alta a cada uno en su negociado. Siguiente paso posible: que
-    SENDERO pase el negociado y el responsable al abrir la tarea (se hace en la sesión de SENDERO). `importar.mjs` no
-    sirve con la copia de META (ya pasaba con la · 2): adaptarlo si se toca la importación.
-18. **Incidentes 2026-11-12 · 1** (12/11/2026): unificada (11-03 · 3 de la otra sesión + 11-05 · 1 de esta) y responsables de
-    los avisos por escalón (lista «INCIDENTES RESPONSABLES»). Pendiente del usuario: subirla, crear la lista desde Ajustes,
-    poner al menos un responsable por SUIGE, DIACU e IGE, y dejar la lista en solo lectura para los demás. Permisos: en la
-    otra sesión hay una 2026-11-05 · 2 que esta rama no tiene (pendiente de que el usuario diga si se unifica).
-19. **Todo cifrado** (13/11/2026, petición del usuario): copias de Incidentes, Pérdidas, VSA, Permisos (traída la 2026-11-05 · 2
-    de la otra sesión) y Gestor de Tareas / META / pruebas con `proteger/cifrado.mjs` (textos, campos y expresiones; `\x3c`).
-    Pendiente del usuario: subir todas y abrir cada una en Edge para confirmar que no sale el código como texto.
+- **Todas las de Colabora:** autoría y copia **cifrada entera** (`proteger/cifrado.mjs`, 13/11), envío robusto de correo,
+  control de acceso con solicitud (lista común «SOLICITUDES ACCESO APLICACIONES», no la interna «Solicitudes de acceso»),
+  Ajustes y Accesos solo con Control total.
+- **Incidentes 2026-11-12 · 1:** unificada con la de la otra sesión; responsables de los avisos por escalón; adjuntos y
+  «Eliminar» con permiso.
+- **Pérdidas 2026-11-05 · 3:** búsqueda por nombre/NIF, adjuntos, «Eliminar» con permiso.
+- **VSA 2026-11-06 · 1:** solicitudes de acceso arregladas (avisos y lista), lee las antiguas.
+- **Permisos 2026-11-05 · 2:** mandos sustitutos, avisos propios al aprobador y al autorizador.
+- **Gestor de Tareas / META 2026-11-13 · 2:** (la sesión de SENDERO siguió desde mi 2026-11-10 · 2) quién ve cada
+  expediente, Punto de Situación, departamentos de MENSADEF. Batería `colabora/pruebas/todas.sh`.
+- **Tareas NLT 16:** tareas desde correos, aspecto como META, «➜ Pasar a META» y quitarla al crearla allí.
