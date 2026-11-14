@@ -163,7 +163,12 @@ console.log('solo SECRETARIA elegida:', await p.textContent('#resumenCelulas'), 
 await p.reload(); await consultasApp(p); await p.evaluate(codigo); await p.waitForTimeout(1500); console.log('recordado:', await p.textContent('#resumenCelulas'));
 await p.click('#elegirCelulas'); console.log('grupos:', await p.$$eval('#cajaCelulas p b, #cajaCelulas [data-cel]', l => l.map(x => x.textContent)));
 await p.click('[data-cel="g:registro"]'); console.log('solo Registro marca:', await p.$$eval('#cajaCelulas input:checked', l => l.length));
-await p.click('[data-cel="t4"]'); await p.click('#aplicarCelulas'); await p.waitForTimeout(1500);
+// 14/11/2026: sin ninguna marcada lo dice (sin ventana) y no carga; luego se vuelve a la elección por defecto
+await p.click('[data-cel="ninguna"]'); await p.click('#aplicarCelulas'); await p.waitForTimeout(300);
+{ const m = await p.textContent('#msgCelulas'); console.log('sin células marcadas:', m.trim().slice(0, 60), '| sin estrella:', !(await p.$('[data-cel="t4"]')) && !/★/.test(await p.textContent('#cajaCelulas')), '| botón:', (await p.textContent('#elegirCelulas')).trim());
+  if (!/ninguna célula/.test(m) || /★/.test(await p.textContent('#cajaCelulas'))) console.log('Error: selector de células'); }
+await p.evaluate(M => { try { localStorage.removeItem(M + 'celulasElegidas'); } catch (e) {} }, MEM);
+await p.reload(); await consultasApp(p); await p.evaluate(codigo); await p.waitForTimeout(1500);
 // Desde la página de una célula (sin elección guardada) se carga esa
 const p2 = await ctx.newPage(); await p2.goto(O + WEB + '/SitePages/ambito.aspx#/celula/SETEC%20SECRETARIA/' + G2);
 await p2.evaluate(M => { try { localStorage.removeItem(M + 'celulasElegidas'); } catch (e) {} }, MEM);

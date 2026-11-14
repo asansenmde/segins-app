@@ -435,4 +435,7 @@ con el formato *verbose* de SharePoint 2013.
   Ejército», y «MENSAJERÍA OFICIAL» más grande. Se mantiene la cabecera de SENDERO (no se copia la de MENSADEF).
 - **2026-11-14 · 4:** la franja de arriba con **fondo blanco** (texto en azul marino y «Mensajería oficial» en dorado).
 - **2026-11-14 · 5:** letra más grande en la franja («Ministerio de Defensa · Ejército de Tierra» y «Mensajería oficial»).
+- **2026-11-14 · 6:** el filtro **Firma** sale siempre que haya alguna firma (sin el límite de 2 a 80 valores distintos).
+  Células: botón «📂 Cargar células…», sin la estrella ni «Solo las marcadas ★», «📂 Cargar las células marcadas» y, si no se
+  marca ninguna, lo dice en la propia caja (sin ventana); si MENSADEF no da ninguna célula, lo dice en el resumen.
 
