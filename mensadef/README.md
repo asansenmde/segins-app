@@ -434,4 +434,5 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-14 · 3:** franja de arriba: «MINISTERIO DE DEFENSA · EJÉRCITO DE TIERRA» en blanco, sin «Inspección General del
   Ejército», y «MENSAJERÍA OFICIAL» más grande. Se mantiene la cabecera de SENDERO (no se copia la de MENSADEF).
 - **2026-11-14 · 4:** la franja de arriba con **fondo blanco** (texto en azul marino y «Mensajería oficial» en dorado).
+- **2026-11-14 · 5:** letra más grande en la franja («Ministerio de Defensa · Ejército de Tierra» y «Mensajería oficial»).
 
