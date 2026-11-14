@@ -438,4 +438,5 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-14 · 6:** el filtro **Firma** sale siempre que haya alguna firma (sin el límite de 2 a 80 valores distintos).
   Células: botón «📂 Cargar células…», sin la estrella ni «Solo las marcadas ★», «📂 Cargar las células marcadas» y, si no se
   marca ninguna, lo dice en la propia caja (sin ventana); si MENSADEF no da ninguna célula, lo dice en el resumen.
+- **2026-11-14 · 7:** franja de arriba con **fondo amarillo** y letras **blancas** (con una sombra suave para que se lean).
 
