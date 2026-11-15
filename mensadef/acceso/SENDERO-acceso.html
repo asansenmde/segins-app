@@ -59,7 +59,7 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-15 · 1';
+  var VERSION = '2026-11-15 · 2';
   // Solo se contesta a SENDERO, que funciona en MENSADEF (el favorito escribe su página sobre la de MENSADEF)
   var ORIGEN_SENDERO = 'https://mensadef.mdef.es';
   var L_AUT = 'SENDERO Autorizados', L_SOL = 'SENDERO Solicitudes', GRUPO = 'SENDERO Administradores';
@@ -404,7 +404,8 @@
       return enviarSP(web + '/_api/web/ensureuser', { logonName: 'c:0(.s|true' }, 'No tienes permiso para añadir usuarios al sitio').then(function (u) { return u.Id; });
     });
   }
-  function grupo() { return api(web + "/_api/web/sitegroups/getbyname(" + lit(GRUPO) + ")?$select=Id,Title").catch(function (e) { if (e.status === 404) return null; throw e; }); }
+  // Si el grupo no existe, Colabora contesta 500 «No se encuentra el grupo.» (no 404)
+  function grupo() { return api(web + "/_api/web/sitegroups/getbyname(" + lit(GRUPO) + ")?$select=Id,Title").catch(function (e) { if (e.status === 404 || e.status === 500) return null; throw e; }); }
   var sinPerm = 'No tienes permiso para cambiar los permisos de la lista';
   function crearLista(t, campos, desc) {
     return enviarSP(web + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: t, Description: desc }, 'No tienes permiso para crear listas en el sitio')

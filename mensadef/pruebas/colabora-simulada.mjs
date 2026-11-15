@@ -45,7 +45,7 @@ export async function simularColabora(ctx, est, archivo) {
     let m;
     if ((m = /^web\/roledefinitions\/getbytype\((\d+)\)$/.exec(api))) return J({ Id: ROL(Number(m[1])) });
     if (api === 'web/ensureuser') return J({ Id: 9 });
-    if ((m = /^web\/sitegroups\/getbyname\('(.*)'\)$/.exec(api))) return est.grupos[m[1]] ? J(est.grupos[m[1]]) : J('No existe el grupo', 404);
+    if ((m = /^web\/sitegroups\/getbyname\('(.*)'\)$/.exec(api))) return est.grupos[m[1]] ? J(est.grupos[m[1]]) : J('No se encuentra el grupo.', 500);  // como el real
     if (api === 'web/sitegroups' && met === 'POST') { if (!est.admin) return NO(); const t = cuerpo().Title; est.grupos[t] = { Id: 50, Title: t }; return J(est.grupos[t], 201); }
     if (api === 'web/lists' && met === 'POST') {
       if (!est.admin) return NO(); const t = cuerpo().Title;
