@@ -454,4 +454,8 @@ con el formato *verbose* de SharePoint 2013.
   `todas.sh` con Colabora simulado (`pruebas/colabora-simulada.mjs`) y `pruebas/acceso.mjs` para la página.
 - **2026-11-15 · 2:** si se retira la autorización en Colabora, SENDERO se bloquea en la misma apertura en cuanto Colabora
   contesta (antes entraba una vez más con la autorización recordada).
+- **2026-11-15 · 3:** comprobación **estricta en cada apertura** (fase inicial, acordado con el usuario): sin respuesta de
+  Colabora no se entra con lo recordado; sale «🔐 Comprobar en Colabora» (ventana pequeña) con el motivo. Si en un equipo solo
+  contesta la ventana, se recuerda 7 días y el botón sale al momento. Más adelante el usuario quiere volver a recordar la
+  autorización unos días para no comprobar siempre.
 

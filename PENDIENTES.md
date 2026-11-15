@@ -250,3 +250,5 @@ autoría.
       usuario; sustituye a la lista de códigos de la misma mañana). PENDIENTE DEL USUARIO: subir `acceso/subir/SENDERO-acceso.html`
       a «Documentos compartidos» de colaborativo, abrirla y hacer la «Preparación», añadir el ámbito 2SUIGE (y los que
       quiera) y probar SENDERO. Confirmar si la comprobación va sola (marco oculto) o pide el clic «Comprobar en Colabora».
+    15/11/2026: SENDERO 2026-11-15 · 3: comprobación en cada apertura (fase inicial). PENDIENTE: cuando el usuario lo diga,
+      recordar la autorización unos días. Confirmar si en Colabora funciona la comprobación oculta (marco) o solo la ventana.

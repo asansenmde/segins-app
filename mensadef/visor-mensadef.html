@@ -529,7 +529,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-15 · 2';
+  var VERSION = '2026-11-15 · 3';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -590,7 +590,7 @@
       marco = document.createElement('iframe'); marco.title = 'Comprobación de acceso'; marco.setAttribute('aria-hidden', 'true');
       marco.style.cssText = 'position:absolute;width:1px;height:1px;border:0;left:-9999px;top:0';
       marco.src = url; document.body.appendChild(marco);
-      reloj = setTimeout(function () { fin(null); }, 15000);
+      reloj = setTimeout(function () { fin(null); }, 10000);
     }
   }
   var urlSolicitar = function (ambito) { return URL_ACCESO + '#solicitar=' + encodeURIComponent(JSON.stringify({ a: ambito || '', v: VERSION })); };
@@ -599,17 +599,17 @@
   function comprobarAcceso(ambito) {
     if (!URL_ACCESO) return Promise.resolve();
     ambito = String(ambito || '').toUpperCase();
-    var mem = leer('acceso', null);
     return new Promise(function (seguir) {
-      var dentro = function (r) { guardar('acceso', { ok: true, t: Date.now(), ambito: ambito, regla: r.regla || '', vigente: r.vigente || null }); avisarVersion(r.vigente); quitarBloqueo(); seguir(); };
+      var dentro = function (r, enVentana) {
+        guardar('acceso', { ok: true, t: Date.now(), ambito: ambito, regla: r.regla || '', vigente: r.vigente || null });
+        // Se recuerda si en este equipo solo contesta la ventana pequeña, para ofrecer el botón sin esperar al marco
+        if (enVentana) guardar('soloVentana', Date.now()); else { try { localStorage.removeItem(MEMORIA + 'soloVentana'); } catch (e) { /* sin memoria */ } }
+        avisarVersion(r.vigente); quitarBloqueo(); seguir();
+      };
       var resultado = function (r, enVentana) {
-        if (r && r.ok) return dentro(r);
+        if (r && r.ok) return dentro(r, enVentana);
         if (r && !r.error) { try { localStorage.removeItem(MEMORIA + 'acceso'); } catch (e) { /* sin memoria */ } return sinPermiso(r); }
-        // No ha contestado (o Colabora ha fallado): se da por buena la última autorización unos días
-        if (!enVentana && mem && mem.ok && Date.now() - mem.t < 5 * DIA) {
-          bandaArriba('avisoAcceso', '⚠ No he podido comprobar tu autorización con Colabora; sigues dentro con la última comprobación (' + new Date(mem.t).toLocaleDateString('es-ES') + ').');
-          avisarVersion(mem.vigente); return seguir();
-        }
+        // 15/11/2026: sin respuesta de Colabora no se entra (antes valía la última autorización recordada): botón de la ventana
         sinComprobar(r);
       };
       var botonesComunes = '<button type="button" id="accVentana">⟳ Volver a comprobar</button>';
@@ -629,22 +629,16 @@
       function sinComprobar(r) {
         pantallaBloqueo('Comprueba tu autorización',
           '<p>SENDERO tiene que comprobar en Colabora que estás autorizado. Pulsa el botón: se abre una ventana pequeña de Colabora que se cierra sola.</p>' +
-          (r && r.error ? '<p class="muted">Detalle: ' + esc(r.error) + '</p>' : '') +
+          '<p class="muted">Detalle: ' + esc(r && r.error ? r.error : r && r.soloVentana ? 'en este equipo Colabora solo contesta en la ventana pequeña' : 'la comprobación oculta no ha respondido (Colabora no deja abrir su página dentro de MENSADEF)') + '.</p>' +
           '<div class="acciones"><button type="button" class="prim" id="accVentana">🔐 Comprobar en Colabora</button></div><p class="muted" id="accMsg"></p>');
         conectar();
       }
-      // Comprobado hace menos de un día con este ámbito: se entra ya y se vuelve a preguntar por detrás
-      if (mem && mem.ok && mem.ambito === ambito && Date.now() - mem.t < DIA) {
-        avisarVersion(mem.vigente); seguir();
-        preguntarAcceso(ambito, false, function (r) {
-          if (r && r.ok) guardar('acceso', { ok: true, t: Date.now(), ambito: ambito, regla: r.regla || '', vigente: r.vigente || null });
-          // 15/11/2026: si ya no está autorizado, se le bloquea en ese momento (no a la vez siguiente)
-          else if (r && !r.error) { try { localStorage.removeItem(MEMORIA + 'acceso'); } catch (e) { /* sin memoria */ } sinPermiso(r); }
-        });
-        return;
-      }
+      // Se pregunta siempre al abrir (sin entrar antes con lo recordado). Si en este equipo solo contesta la ventana pequeña,
+      // el botón sale ya, y el marco se sigue intentando por detrás por si vuelve a funcionar
+      var soloVentana = Date.now() - (Number(leer('soloVentana', 0)) || 0) < 7 * DIA;
       $('estado').textContent = 'Comprobando tu autorización en Colabora…';
-      preguntarAcceso(ambito, false, function (r) { resultado(r, false); });
+      if (soloVentana) sinComprobar({ soloVentana: true });
+      preguntarAcceso(ambito, false, function (r) { if (r || !soloVentana) resultado(r, false); });
     });
   }
   if (CADUCA && hoyIso() > CADUCA) {

@@ -151,6 +151,16 @@ if (process.env.XFO) {
   const entra = await cargadas(); await p.waitForTimeout(2000);
   console.log('acceso: con la ventana pequeña entra:', entra, '| ventana cerrada sola:', w.isClosed());
   if (!/Comprueba tu autorización/.test(t) || !entra || !w.isClosed()) console.log('Error: comprobar en ventana');
+  // Segunda vez en este equipo: el botón sale al momento (sin esperar al marco) y no entra sin pulsarlo
+  { const p2 = await ctx.newPage(); await p2.goto(O + WEB + '/SitePages/ambito.aspx'); const t0 = Date.now(); await p2.evaluate(codigo);
+    const ya = await p2.waitForSelector('#accVentana', { timeout: 5000 }).then(() => Date.now() - t0 < 4000, () => false);
+    const det = await p2.textContent('#bloqueo').catch(() => ''); await p2.waitForTimeout(11000);
+    const sigue = !!(await p2.$('#bloqueo')) && !(await p2.$('#lista tbody tr[data-i]'));
+    console.log('acceso: segunda vez, botón al momento:', ya, '| explica que solo va la ventana:', /solo contesta en la ventana/.test(det), '| sin pulsar no entra:', sigue);
+    if (!ya || !sigue) console.log('Error: segunda vez con ventana'); await p2.close(); }
+  // Sin respuesta de Colabora no se entra con lo recordado
+  { const p3 = await ctx.newPage(); await p3.goto(O + WEB + '/SitePages/ambito.aspx'); await p3.evaluate(codigo); await p3.waitForTimeout(3000);
+    console.log('acceso: Colabora sin responder → no entra:', !!(await p3.$('#bloqueo'))); if (!(await p3.$('#bloqueo'))) console.log('Error: entra sin comprobar'); await p3.close(); }
   await fin();
 }
 { if (!accesoPortal) await p.waitForFunction(() => !/Comprobando tu autorización/.test(document.getElementById('estado').textContent), null, { timeout: 30000 }).catch(() => 0);
@@ -161,10 +171,11 @@ if (process.env.XFO) {
     const n = await cargadas(); console.log('acceso: con aviso, carga las bandejas:', n);
     if (process.env.NUEVA) console.log('acceso: enlace de la versión nueva:', await p.$eval('#avisoVersion a', a => a.href.replace(/^https:\/\/[^/]+/, '')).catch(() => 'ninguno'));
     if (!n) console.log('Error: no carga con el aviso');
-    // Segunda vez (memoria de menos de un día): entra sin esperar y vuelve a preguntar por detrás
+    // Segunda vez: vuelve a preguntar a Colabora (no entra con lo recordado) y entra
     const p2 = await ctx.newPage(); await p2.goto(O + WEB + '/SitePages/ambito.aspx'); const t0 = Date.now(); await p2.evaluate(codigo);
     await p2.waitForFunction(() => /Buscando tus células|Leyendo|mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 30000 }).catch(() => 0);
-    console.log('acceso: segunda vez entra sin esperar a Colabora:', Date.now() - t0 < 3000); await p2.close();
+    await p2.waitForTimeout(500);
+    console.log('acceso: segunda vez pregunta a Colabora y entra:', Date.now() - t0 < 6000 && !(await p2.$('#bloqueo'))); await p2.close();
     // Se le quita la autorización en Colabora: la siguiente vez entra con lo recordado, pero se bloquea en cuanto Colabora contesta
     estC.listas['SENDERO Autorizados'].items.forEach(x => { if (x.Tipo === 'Ámbito') x.Activo = false; });
     const p3 = await ctx.newPage(); await p3.goto(O + WEB + '/SitePages/ambito.aspx'); await p3.evaluate(codigo);
