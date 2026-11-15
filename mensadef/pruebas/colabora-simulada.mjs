@@ -13,7 +13,7 @@ const SITIO = [
   { PrincipalId: 6, Member: { Id: 6, Title: 'Miembros colaborativo', LoginName: 'Miembros colaborativo' }, RoleDefinitionBindings: [{ RoleTypeKind: 3, Name: 'Colaborar' }] }];
 
 export function nuevoEstado(opc = {}) {
-  return { verbose: !!opc.verbose, xfo: !!opc.xfo, usuario: { Id: 11, Title: 'ADMIN PRUEBAS', Email: 'admin@pruebas.invalid' }, admin: true, gestores: [], listas: {}, grupos: {}, sigId: 100, escrituras: [] };
+  return { verbose: !!opc.verbose, xfo: !!opc.xfo, usuario: { Id: 11, Title: 'ADMIN PRUEBAS', Email: 'admin@pruebas.invalid' }, admin: true, gestores: [], listas: {}, grupos: {}, sigId: 100, escrituras: [], correos: [], buzonMal: [], siteusers: [] };
 }
 // Listas ya preparadas (para las pruebas de SENDERO)
 export function listasPreparadas(est, reglas = []) {
@@ -42,6 +42,13 @@ export async function simularColabora(ctx, est, archivo) {
     if (api === 'web/currentuser') return J({ Id: yo.Id, Title: yo.Title, Email: yo.Email, LoginName: 'i:0#.w|et\\' + yo.Email.split('@')[0] });
     if (api === 'web/EffectiveBasePermissions') return J({ High: '0', Low: String(est.admin ? 0x7fffffff : 0x20001) });
     if (api === 'web/roleassignments') return J(SITIO);
+    // Correo: como el real, rechaza el envío ENTERO si una dirección no tiene buzón
+    if (api === 'SP.Utilities.Utility.SendEmail') {
+      const pr = cuerpo().properties || {}, to = (pr.To && pr.To.results) || [];
+      if (to.some(d => est.buzonMal.includes(String(d).toLowerCase()))) return J('Asegúrese de que tenga un destinatario válido.', 500);
+      est.correos.push({ to, asunto: pr.Subject, cuerpo: pr.Body }); return J({ SendEmail: null });
+    }
+    if (api === 'web/siteusers') { const f = /Email eq '([^']*)'/.exec(q.$filter || ''); return J(est.siteusers.filter(u => !f || u.Email.toLowerCase() === f[1].toLowerCase())); }
     let m;
     if ((m = /^web\/roledefinitions\/getbytype\((\d+)\)$/.exec(api))) return J({ Id: ROL(Number(m[1])) });
     if (api === 'web/ensureuser') return J({ Id: 9 });
@@ -82,10 +89,11 @@ export async function simularColabora(ctx, est, archivo) {
       L.items.push(it); est.escrituras.push({ lista: titulo, alta: it }); return J(it, 201);
     }
     if ((m = /^\/items\((\d+)\)$/.exec(resto)) && met === 'POST') {
-      if (!puedeEditar) return NO();
       const it = L.items.find(x => x.Id === Number(m[1])); if (!it) return J('No existe', 404);
+      if (!puedeEditar && !(L.WS === 2 && !esAut && it.AuthorId === yo.Id)) return NO();
       const c = cuerpo(); delete c.__metadata; Object.assign(it, c); est.escrituras.push({ lista: titulo, cambio: it.Id, datos: c }); return r.fulfill({ status: 204, body: '' });
     }
+    if ((m = /^\/items\((\d+)\)$/.exec(resto)) && met === 'GET') { const it = L.items.find(x => x.Id === Number(m[1])); return it ? J(it) : J('No existe', 404); }
     if (resto === '/items' && met === 'GET') {
       let l = L.items.slice();
       if (L.RS === 2 && !puedeEditar && !esAut) l = l.filter(x => x.AuthorId === yo.Id);

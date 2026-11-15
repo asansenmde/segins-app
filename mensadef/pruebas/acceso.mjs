@@ -6,6 +6,10 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
 const archivo = new URL(process.env.PROTEGIDA ? '../acceso/subir/SENDERO-acceso.html' : '../acceso/SENDERO-acceso.html', import.meta.url).pathname;
 const est = nuevoEstado({ verbose: !!process.env.VERBOSE });
+// Correo: el responsable figura con una cuenta antigua sin buzón; tiene otra cuenta buena con su mismo nombre
+est.buzonMal = ['gestor@pruebas.invalid', 'i:0#.w|et\\gestor-antiguo'];
+est.siteusers = [{ Id: 70, Title: 'GESTOR PRUEBAS', Email: 'gestor@pruebas.invalid', LoginName: 'i:0#.w|et\\gestor-antiguo', PrincipalType: 1 },
+  { Id: 71, Title: 'Pruebas Gestor', Email: 'gestor.nuevo@pruebas.invalid', LoginName: 'i:0#.w|et\\gestor.nuevo', PrincipalType: 1 }];
 const b = await chromium.launch(), ctx = await b.newContext(), errs = [];
 await simularColabora(ctx, est, archivo);
 // SENDERO simulado en MENSADEF: pregunta a la página de Colabora en un marco y anota la respuesta
@@ -66,6 +70,10 @@ como('otra@pruebas.invalid', 'OTRA PERSONA');
 await abrir('#solicitar=' + encodeURIComponent(JSON.stringify({ a: '3SUIGE', v: '2026-11-15 · 1' })));
 await p.fill('#solMotivo', 'Gestión de mensajes de la sección'); await p.click('#solEnviar'); await p.waitForTimeout(600);
 console.log('solicitud:', (await p.textContent('#app h2')).trim(), '|', JSON.stringify(est.listas['SENDERO Solicitudes'].items.map(x => [x.Title, x.Correo, x.Ambito, x.Estado, x.VersionSendero])));
+{ const av = await p.textContent('#solAviso'), avisos = (est.listas['SENDERO Solicitudes'].items[0] || {}).Avisos || '';
+  console.log('aviso de solicitud:', av.trim().slice(0, 140), '| correos:', est.correos.map(c => c.to.join('+')).join(' / '));
+  console.log('anotado en la solicitud:', avisos.replace(/^[^·]*· /, ''));
+  if (!est.correos.some(x => x.to.includes('asansen@et.mde.es')) || !est.correos.some(x => x.to.includes('gestor.nuevo@pruebas.invalid')) || !/gestor@pruebas\.invalid → gestor\.nuevo@pruebas\.invalid/.test(avisos)) console.log('Error: aviso de solicitud'); }
 await abrir('#solicitar=' + encodeURIComponent(JSON.stringify({ a: '3SUIGE' })));
 console.log('segunda vez:', (await p.textContent('#app')).replace(/\s+/g, ' ').match(/Ya tienes una solicitud[^.]*/)?.[0]);
 { const r = await preguntar('3SUIGE'); console.log('SENDERO ve su solicitud:', r.solicitud && r.solicitud.estado); if (!r.solicitud || r.solicitud.estado !== 'Pendiente') error('solicitud pendiente'); }
@@ -79,6 +87,9 @@ console.log('gestor:', (await p.textContent('#app .muted')).trim().slice(0, 80),
 await foto('solicitudes');
 await pulsar('[data-apr]');
 console.log('aprobada:', JSON.stringify(est.listas['SENDERO Solicitudes'].items.map(x => [x.Estado, x.RespondidoPor])), '| regla:', est.listas['SENDERO Autorizados'].items.filter(x => x.Tipo === 'Persona').map(x => x.Title + ' · ' + x.Nota.replace(/\d+\/\d+\/\d+/, 'FECHA')).join());
+{ const c = est.correos[est.correos.length - 1] || {}, msg = await p.textContent('#app p.card').catch(() => '');
+  console.log('aviso de aprobación:', (c.to || []).join(','), '|', c.asunto, '|', /APROBADA/.test(c.cuerpo || ''), '| en pantalla:', msg.trim().slice(0, 80));
+  if (!(c.to || []).includes('otra@pruebas.invalid') || !/aprobada/.test(c.asunto || '') || !/Aviso enviado/.test(msg)) console.log('Error: aviso de aprobación'); }
 como('otra@pruebas.invalid', 'OTRA PERSONA');
 { const r = await preguntar('3SUIGE'); console.log('SENDERO tras aprobar →', r.ok, r.regla); if (!r.ok || r.regla !== 'persona') error('aprobación'); }
 

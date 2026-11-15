@@ -13,7 +13,7 @@ acceso), en `Documentos compartidos/SENDERO-acceso.html` (si se sube a otra bibl
     `Activo`, `Responsables` (correos, en los ámbitos), `Hasta` (opcional), `Nota` (en Versión: dirección del favorito).
     Permisos propios: todos **leen**, solo Control total y el grupo «SENDERO Administradores» (Colaborar) escriben.
   - «SENDERO Solicitudes»: `Title` (nombre), `Correo`, `Ambito`, `Motivo`, `Estado` (Pendiente, Aprobada, Denegada),
-    `Respuesta`, `RespondidoPor`, `VersionSendero`. Todos pueden **crear**; cada uno ve y edita solo las suyas; el grupo
+    `Respuesta`, `RespondidoPor`, `VersionSendero`, `Avisos`. Todos pueden **crear**; cada uno ve y edita solo las suyas; el grupo
     (Diseño) las ve todas.
 - **Reglas**: ámbito activo = todos los de ese ámbito de MENSADEF; ámbito inactivo con responsables = nadie en bloque, sus
   responsables aprueban una a una; persona; bloqueo (gana a todo). «Hasta» deja una regla sin efecto desde el día
@@ -22,5 +22,9 @@ acceso), en `Documentos compartidos/SENDERO-acceso.html` (si se sube a otra bibl
   sus ámbitos y autorizar o bloquear personas; el resto: su solicitud). `#solicitar=…`: formulario de solicitud (lo abre
   SENDERO). `#comprobar=…`: responde a SENDERO con `postMessage` solo a `https://mensadef.mdef.es` (marco oculto o ventana
   pequeña) qué cuenta de Colabora es, si está autorizada, por qué regla, su última solicitud y la versión vigente.
-- **Aviso por correo** de solicitudes nuevas: alerta de Colabora (enlace en «Preparación»); la página no envía correos.
+- **Avisos por correo** (2026-11-15 · 4, envío robusto de `SHAREPOINT.md`): cada solicitud nueva avisa a `AVISAR` (el Cte.) y
+  a los responsables de su ámbito; al aprobar o denegar, a quien la pidió. Si Colabora rechaza una dirección, se reintenta
+  una a una, por su cuenta y por otra cuenta del sitio con el mismo nombre; se dice a quién no llegó (con «Preparar el correo
+  en Outlook») y se anota en la columna `Avisos` de la solicitud. «Correo de prueba» en «Preparación». La alerta de Colabora
+  (enlace 🔔) sigue disponible como respaldo.
 - Pruebas: `node ../pruebas/acceso.mjs` (`VERBOSE=1`, `PROTEGIDA=1`); también en `sh ../pruebas/todas.sh`.

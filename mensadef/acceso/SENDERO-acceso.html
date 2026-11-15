@@ -59,7 +59,7 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-15 · 3';
+  var VERSION = '2026-11-15 · 4';
   // Solo se contesta a SENDERO, que funciona en MENSADEF (el favorito escribe su página sobre la de MENSADEF)
   var ORIGEN_SENDERO = 'https://mensadef.mdef.es';
   var L_AUT = 'SENDERO Autorizados', L_SOL = 'SENDERO Solicitudes', GRUPO = 'SENDERO Administradores';
@@ -76,7 +76,10 @@
     '<Field Type="Choice" Name="Estado" StaticName="Estado" DisplayName="Estado" Format="Dropdown"><Default>Pendiente</Default><CHOICES><CHOICE>Pendiente</CHOICE><CHOICE>Aprobada</CHOICE><CHOICE>Denegada</CHOICE></CHOICES></Field>',
     '<Field Type="Note" Name="Respuesta" StaticName="Respuesta" DisplayName="Respuesta" NumLines="3" RichText="FALSE" />',
     '<Field Type="Text" Name="RespondidoPor" StaticName="RespondidoPor" DisplayName="Respondido por" />',
-    '<Field Type="Text" Name="VersionSendero" StaticName="VersionSendero" DisplayName="Versión de SENDERO" />'];
+    '<Field Type="Text" Name="VersionSendero" StaticName="VersionSendero" DisplayName="Versión de SENDERO" />',
+    '<Field Type="Note" Name="Avisos" StaticName="Avisos" DisplayName="Avisos por correo" NumLines="4" RichText="FALSE" />'];
+  // Avisos por correo: a quien administra SENDERO (además de los responsables del ámbito de cada solicitud)
+  var AVISAR = ['asansen@et.mde.es'];
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
@@ -164,6 +167,101 @@
   }
   var bits = function (p) { return { low: Number(p && (p.Low != null ? p.Low : p.low)) || 0 }; };
 
+  // ---------- Correo con envío robusto (receta «Envío robusto» de SHAREPOINT.md, modelo Permisos) ----------
+  var DEST_MAL = /destinatario v|valid recipient|recipient/i;
+  var sinTildes = function (t) { return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); };
+  var palabras = function (n) { return sinTildes(n).replace(/[^a-zñ ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 3 && ['del', 'las', 'los'].indexOf(w) < 0; }); };
+  var mismasPalabras = function (a, b) { var x = palabras(a).sort().join(' '), y = palabras(b).sort().join(' '); return !!x && x === y; };
+  function enviarUno(to, c) {
+    return enviarSP(web + '/_api/SP.Utilities.Utility.SendEmail', { properties: { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, Subject: c.asunto, Body: c.html } }, 'Colabora no te deja enviar correos desde la página');
+  }
+  // Cuenta de inicio de sesión de una dirección (si el buzón no figura en el perfil, Colabora acepta la cuenta)
+  function loginDe(correo) {
+    var cc = norm(correo);
+    if (yo && yo.login && cc === yo.email) return Promise.resolve(yo.login);
+    return api(web + '/_api/web/siteusers?$select=LoginName,Email&$filter=' + encodeURIComponent('Email eq ' + lit(cc))).then(function (d) {
+      var u = lista(d.value).filter(function (x) { return norm(x.Email) === cc && x.LoginName; })[0]; return u ? u.LoginName : null;
+    }, function () { return null; });
+  }
+  // Otras cuentas del sitio con el mismo nombre y correo propio (cuentas antiguas sin buzón)
+  function otrasDirecciones(nombre, malo) {
+    if (!nombre || palabras(nombre).length < 2) return Promise.resolve([]);
+    return api(web + '/_api/web/siteusers?$select=Id,Title,Email&$filter=PrincipalType eq 1&$top=5000').then(function (d) {
+      var l = lista(d.value).filter(function (u) { return esCorreo(u.Email) && mismasPalabras(u.Title, nombre) && norm(u.Email) !== norm(malo); }).map(function (u) { return u.Email; });
+      return l.filter(function (x, i) { return l.map(norm).indexOf(norm(x)) === i; });
+    }, function () { return []; });
+  }
+  function mailtoDe(c) {
+    var u = 'mailto:' + c.to.map(encodeURIComponent).join(';') + '?subject=' + encodeURIComponent(c.asunto) + '&body=', cuerpo = c.texto;
+    while ((u + encodeURIComponent(cuerpo)).length > 2000 && cuerpo.length > 200) cuerpo = cuerpo.slice(0, cuerpo.length - 100) + '…';
+    return u + encodeURIComponent(cuerpo);
+  }
+  // Colabora rechaza el correo ENTERO si una dirección no es de un usuario con buzón: entonces uno a uno, por su cuenta y
+  // por su nombre, y se dice a quién no llegó
+  function enviarCorreo(c) {
+    c.to = c.to.filter(function (x, i) { return esCorreo(x) && c.to.map(norm).indexOf(norm(x)) === i; });
+    var res = function (ok, n, motivo, rech, llegaron, desvios) { return { ok: ok, n: n, motivo: motivo || '', rechazados: rech || [], llegaron: llegaron || [], desvios: desvios || [], mailto: mailtoDe(c) }; };
+    if (!c.to.length) return Promise.resolve(res(false, 0, 'sin direcciones de correo'));
+    return enviarUno(c.to, c).then(function () { return res(true, c.to.length, '', [], c.to.slice()); }, function (e) {
+      var m = e.message || String(e);
+      if (!DEST_MAL.test(m)) return res(false, 0, m);
+      var ok = 0, rech = [], lleg = [], desv = [];
+      return c.to.reduce(function (p, d) {
+        return p.then(function () {
+          return enviarUno([d], c).then(function () { ok++; lleg.push(d); }, function () {
+            var porNombre = function () {
+              // Nombre de la persona: el que se sepa o el de su cuenta del sitio con esa dirección
+              var nombre = (c.nombres || {})[norm(d)] ? Promise.resolve(c.nombres[norm(d)]) : api(web + '/_api/web/siteusers?$select=Title,Email&$filter=' + encodeURIComponent('Email eq ' + lit(norm(d)))).then(function (x) { var u = lista(x.value)[0]; return u ? u.Title : ''; }, function () { return ''; });
+              return nombre.then(function (n) { return otrasDirecciones(n, d); }).then(function (alt) {
+                return alt.reduce(function (q, a) { return q.then(function (h) { return h || enviarUno([a], c).then(function () { ok++; lleg.push(a); desv.push(d + ' → ' + a); return true; }, function () { return false; }); }); }, Promise.resolve(false))
+                  .then(function (h) { if (!h) rech.push(d); });
+              });
+            };
+            return loginDe(d).then(function (lg) { return lg ? enviarUno([lg], c).then(function () { ok++; lleg.push(d + ' (por su cuenta)'); }, porNombre) : porNombre(); });
+          });
+        });
+      }, Promise.resolve()).then(function () { return res(ok > 0, ok, ok ? '' : m, rech, lleg, desv); });
+    });
+  }
+  var msgCorreo = function (r) {
+    if (!r) return '';
+    var rc = r.rechazados.length ? ' Colabora no acepta estas direcciones y a ellas NO les llega: ' + esc(r.rechazados.join(', ')) + '.' : '';
+    var dv = r.desvios.length ? ' Enviado a otra cuenta de la misma persona: ' + esc(r.desvios.join('; ')) + '.' : '';
+    var btn = !r.ok || rc ? ' <a href="' + esc(r.mailto) + '"><button type="button">✉ Preparar el correo en Outlook</button></a>' : '';
+    return (r.ok ? '✉ Aviso enviado por correo a ' + r.n + ' destinatario' + (r.n === 1 ? '' : 's') + '.' + dv : '✉ No se pudo enviar el aviso desde Colabora (' + esc(r.motivo) + ').') + rc + btn;
+  };
+  // Se anota en la solicitud a quién llegó el aviso (columna «Avisos»); si no se puede, la solicitud ya está hecha
+  function anotarAviso(id, r, que) {
+    var txt = new Date().toLocaleString('es-ES') + ' · ' + que + ': ' + (r.ok ? 'enviado a ' + r.llegaron.join(', ') : 'NO ENVIADO (' + r.motivo + ')') + (r.rechazados.length ? '; no aceptó: ' + r.rechazados.join(', ') : '') + (r.desvios.length ? '; a otra cuenta: ' + r.desvios.join('; ') : '');
+    return api(urlL(L_SOL) + '/items(' + Number(id) + ')?$select=Id,Avisos').then(function (x) {
+      return cambiarElemento(L_SOL, id, { Avisos: ((x.Avisos || '') + '\n' + txt).trim() }, 'sin permiso');
+    }).catch(function () { /* columna sin crear o sin permiso */ });
+  }
+  var enlacePagina = function () { return location.href.split('#')[0]; };
+  function cuerpoCorreo(intro, filas, enlace, textoEnlace) {
+    var h = '<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#1c2a3a"><div style="background:#efc000;color:#12315a;font-weight:bold;padding:6px 10px">SENDERO · Control de acceso</div>' +
+      '<p>' + esc(intro) + '</p><table style="border-collapse:collapse">' + filas.map(function (f) { return '<tr><td style="padding:3px 10px 3px 0;color:#5a6676">' + esc(f[0]) + '</td><td style="padding:3px 0"><b>' + esc(f[1]) + '</b></td></tr>'; }).join('') + '</table>' +
+      (enlace ? '<p><a href="' + esc(enlace) + '">' + esc(textoEnlace) + '</a></p>' : '') + '<p style="color:#5a6676;font-size:12px">SENDERO · © 2026 Cte. Alfredo Sánchez Sender</p></div>';
+    return { html: h, texto: intro + '\n\n' + filas.map(function (f) { return f[0] + ': ' + f[1]; }).join('\n') + (enlace ? '\n\n' + textoEnlace + ': ' + enlace : '') };
+  }
+  // Aviso de solicitud nueva: al administrador y a los responsables del ámbito
+  function avisarSolicitud(sol) {
+    var amb = norm(sol.Ambito);
+    return (amb ? todas(urlL(L_AUT) + "/items?$select=Id,Title,Tipo,Responsables&$filter=" + encodeURIComponent('Title eq ' + lit(sol.Ambito)) + '&$top=20').catch(function () { return []; }) : Promise.resolve([])).then(function (l) {
+      var resp = [];
+      l.filter(function (x) { return x.Tipo === 'Ámbito' && norm(x.Title) === amb; }).forEach(function (x) { String(x.Responsables || '').split(/[\s,;]+/).forEach(function (d) { if (esCorreo(d)) resp.push(d); }); });
+      var b = cuerpoCorreo((sol.Title || sol.Correo) + ' solicita acceso a SENDERO.', [['Persona', sol.Title || ''], ['Cuenta', sol.Correo], ['Ámbito de MENSADEF', sol.Ambito || '—'], ['Motivo', sol.Motivo || '—']], enlacePagina(), 'Abrir las solicitudes de SENDERO');
+      return enviarCorreo({ to: AVISAR.concat(resp), asunto: 'SENDERO · Solicitud de acceso de ' + (sol.Title || sol.Correo) + (sol.Ambito ? ' (' + sol.Ambito + ')' : ''), html: b.html, texto: b.texto, nombres: {} });
+    });
+  }
+  // Aviso a quien lo pidió: aprobada o denegada
+  function avisarRespuesta(x, estado, resp) {
+    var b = cuerpoCorreo(estado === 'Aprobada' ? 'Tu solicitud de acceso a SENDERO está APROBADA. Abre SENDERO (o pulsa «Volver a comprobar» si lo tienes abierto).' : 'Tu solicitud de acceso a SENDERO está DENEGADA.',
+      [['Resuelta por', yo.nombre || yo.email]].concat(resp ? [['Observaciones', resp]] : []), '', '');
+    var nombres = {}; nombres[norm(x.Correo)] = x.Title;
+    return enviarCorreo({ to: [x.Correo], asunto: 'SENDERO · Solicitud de acceso ' + (estado === 'Aprobada' ? 'aprobada' : 'denegada'), html: b.html, texto: b.texto, nombres: nombres });
+  }
+
   // ---------- Decisión: ¿puede usar SENDERO? ----------
   var activo = function (r) { return r.Activo === true || r.Activo === 1 || r.Activo === '1' || r.Activo === 'true'; };
   var vigente = function (r) { return !r.Hasta || new Date(r.Hasta) >= hoy0(); };
@@ -171,7 +269,7 @@
   function leerYo() {
     if (yo) return Promise.resolve(yo);
     return api(web + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) {
-      yo = { id: u.Id, nombre: u.Title || '', email: norm(u.Email) };
+      yo = { id: u.Id, nombre: u.Title || '', email: norm(u.Email), login: u.LoginName || '' };
       $('quien').innerHTML = esc(yo.nombre) + (yo.email ? '<br>' + esc(yo.email) : '');
       return yo;
     });
@@ -253,14 +351,18 @@
         var b = this; b.disabled = true; $('solMsg').textContent = 'Enviando…';
         crearElemento(L_SOL, { Title: yo.nombre || yo.email, Correo: yo.email, Ambito: $('solAmbito').value.trim().toUpperCase(), Motivo: $('solMotivo').value.trim(), Estado: 'Pendiente', VersionSendero: String(version || '') },
           'Colabora no te deja enviar la solicitud: avisa al Cte. Alfredo Sánchez Sender')
-          .then(function () { $('app').innerHTML = '<div class="card"><h2 class="bien">✔ Solicitud enviada</h2><p>Cuando te autoricen, vuelve a SENDERO y pulsa «Volver a comprobar».</p><p class="muted">Ya puedes cerrar esta ventana.</p></div>'; },
+          .then(function (nueva) {
+            $('app').innerHTML = '<div class="card"><h2 class="bien">✔ Solicitud enviada</h2><p>Cuando te autoricen te llegará un correo: vuelve a SENDERO y pulsa «Volver a comprobar».</p><p id="solAviso" class="muted">Avisando por correo…</p><p class="muted">Ya puedes cerrar esta ventana.</p></div>';
+            return avisarSolicitud(nueva).then(function (r) { $('solAviso').innerHTML = msgCorreo(r); return nueva && nueva.Id ? anotarAviso(nueva.Id, r, 'Aviso de solicitud') : null; },
+              function (e) { $('solAviso').textContent = 'No se pudo avisar por correo: ' + (e.message || e); });
+          },
             function (e) { b.disabled = false; $('solMsg').innerHTML = '<span class="mal">' + esc(e.message || e) + '</span>'; });
       });
     });
   }
 
   // ---------- Página de gestión ----------
-  var rol = 'usuario', misAmbitos = [], pestana = 'solicitudes';
+  var rol = 'usuario', misAmbitos = [], pestana = 'solicitudes', avisoGestion = '';
   function modoPagina() {
     return Promise.all([leerYo(), api(web + '/_api/web/EffectiveBasePermissions').catch(function () { return {}; }),
       api(urlL(L_AUT) + '/EffectiveBasePermissions').catch(function () { return null; })]).then(function (r) {
@@ -277,7 +379,8 @@
     var ps = [['solicitudes', 'Solicitudes'], ['reglas', 'Autorizados y bloqueos']].concat(rol === 'admin' ? [['version', 'Versión vigente'], ['preparacion', 'Preparación']] : []);
     $('app').innerHTML = '<div class="card"><div class="pestanas">' + ps.map(function (p) { return '<button type="button" data-pest="' + p[0] + '"' + (p[0] === pestana ? ' class="on"' : '') + '>' + p[1] + '</button>'; }).join('') + '</div>' +
       (rol === 'gestor' ? '<p class="muted">Eres responsable de: ' + (misAmbitos.length ? esc(misAmbitos.join(', ').toUpperCase()) : 'ningún ámbito todavía') + '. Ves las solicitudes de esos ámbitos y puedes autorizar o bloquear personas.</p>' : '') +
-      '<div id="cont">Cargando…</div></div>';
+      (avisoGestion ? '<p class="card" style="background:#f8faf6;margin:0 0 10px">' + avisoGestion + '</p>' : '') + '<div id="cont">Cargando…</div></div>';
+    avisoGestion = '';
     Array.prototype.forEach.call(document.querySelectorAll('[data-pest]'), function (b) { b.addEventListener('click', function () { pestana = b.getAttribute('data-pest'); pintarGestion(); }); });
     var f = { solicitudes: pintarSolicitudes, reglas: pintarReglas, version: pintarVersion, preparacion: pintarPreparacion }[pestana];
     f().catch(function (e) { $('cont').innerHTML = '<p class="mal">' + esc(e.status === 404 ? 'Falta crear las listas: pestaña «Preparación».' : e.message || e) + '</p>'; });
@@ -301,7 +404,11 @@
             '<td>' + (x.Estado === 'Pendiente' ? '<button type="button" class="verde" data-apr="' + x.Id + '">✔ Autorizar</button> ' + (rol === 'admin' && x.Ambito ? '<button type="button" data-aprAmb="' + x.Id + '" title="Autoriza a todo el ámbito ' + esc(x.Ambito) + '">✔ Todo su ámbito</button> ' : '') + '<button type="button" class="rojo" data-den="' + x.Id + '">✕ Denegar</button>' : '') + '</td></tr>';
         }).join('') + '</tbody></table>');
       var por = function (id) { return l.filter(function (x) { return String(x.Id) === String(id); })[0]; };
-      var cerrar = function (x, estado, resp) { return cambiarElemento(L_SOL, x.Id, { Estado: estado, RespondidoPor: yo.nombre || yo.email, Respuesta: resp || '' }, 'No tienes permiso para responder solicitudes'); };
+      var cerrar = function (x, estado, resp) {
+        return cambiarElemento(L_SOL, x.Id, { Estado: estado, RespondidoPor: yo.nombre || yo.email, Respuesta: resp || '' }, 'No tienes permiso para responder solicitudes').then(function () {
+          return avisarRespuesta(x, estado, resp).then(function (r) { avisoGestion = msgCorreo(r); return anotarAviso(x.Id, r, 'Aviso de ' + estado.toLowerCase()); }, function (e) { avisoGestion = 'No se pudo avisar por correo: ' + esc(e.message || e); });
+        });
+      };
       var hecho = function (t) { return function () { toast(t); pintarGestion(); }; };
       var fallo = function (b) { return function (e) { b.disabled = false; toast('No se pudo: ' + (e.message || e)); }; };
       Array.prototype.forEach.call($('cont').querySelectorAll('[data-apr]'), function (b) { b.addEventListener('click', function () {
@@ -475,7 +582,15 @@
         '<div class="fila-prep">' + ok(aProt && (!g || gEn(a))) + ' «' + esc(L_AUT) + '»: todos la leen, solo tú' + (g ? ' y el grupo' : '') + ' la cambiáis ' + (a.existe ? '<button type="button" data-p="protA">' + (aProt && (!g || gEn(a)) ? 'Repetir' : 'Ajustarlo') + '</button>' : '') + porque(a, faltaA) + '</div>' +
         '<div class="fila-prep">' + ok(sAbierta && (!g || gEn(s))) + ' «' + esc(L_SOL) + '»: todos pueden solicitar y cada uno ve solo las suyas ' + (s.existe ? '<button type="button" data-p="abrirS">' + (sAbierta ? 'Repetir' : 'Ajustarlo') + '</button>' : '') + porque(s, faltaS) + '</div>' +
         '<div class="fila-prep">' + (s.existe ? '<a href="' + esc(web + '/_layouts/15/SubNew.aspx?List=' + encodeURIComponent('{' + String(s.info.Id).replace(/[{}]/g, '') + '}')) + '" target="_blank" rel="noopener">🔔 Aviso por correo de solicitudes nuevas</a> <span class="muted">(alerta de Colabora: «Se agregan nuevos elementos»)</span>' : '<span class="muted">🔔 Aviso por correo: cuando exista la lista de solicitudes</span>') + '</div>' +
+        '<div class="fila-prep">✉ Correo de prueba a <input id="pruebaA" size="34" value="' + esc(yo.email) + '"> <button type="button" id="pruebaCorreo">Enviar</button> <span id="pruebaMsg" class="muted"></span></div>' +
+        '<p class="muted">Avisos por correo: cada solicitud nueva avisa a ' + esc(AVISAR.join(', ')) + ' y a los responsables de su ámbito; al aprobar o denegar se avisa a quien la pidió.</p>' +
         '<p class="muted">Después: en «Autorizados y bloqueos» añade los ámbitos (p. ej. 2SUIGE) con sus responsables, y mete a esos responsables en el grupo.</p>';
+      $('pruebaCorreo').addEventListener('click', function () {
+        var b = this, to = $('pruebaA').value.split(/[\s,;]+/).filter(esCorreo); if (!to.length) return toast('Escribe una dirección');
+        b.disabled = true; $('pruebaMsg').textContent = 'Enviando…';
+        var c = cuerpoCorreo('Correo de prueba de SENDERO · Control de acceso.', [['Enviado por', yo.nombre || yo.email]], enlacePagina(), 'Abrir la página');
+        enviarCorreo({ to: to, asunto: 'SENDERO · Correo de prueba', html: c.html, texto: c.texto, nombres: {} }).then(function (r) { b.disabled = false; $('pruebaMsg').innerHTML = msgCorreo(r); });
+      });
       var acc = {
         crearA: function () { return crearLista(L_AUT, CAMPOS_AUT, 'Quién puede usar SENDERO (ámbitos, personas, bloqueos y versión vigente). Página SENDERO-acceso.'); },
         crearS: function () { return crearLista(L_SOL, CAMPOS_SOL, 'Solicitudes de acceso a SENDERO. Página SENDERO-acceso.'); },
