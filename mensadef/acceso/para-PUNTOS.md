@@ -1,8 +1,9 @@
 [PUNTOS] Recibir asuntos de SENDERO directamente en el Punto de Situación
 
-SENDERO (visor de MENSADEF, versión 2026-11-15 · 4) ya no pasa por META para llevar un mensaje al Punto de Situación: el botón
-«★ Al PSIT» abre directamente la página del PSIT de la organización en una pestaña nueva, con los datos en el fragmento de la
-dirección (el mismo sistema que usa META, el fragmento no se envía a ningún servidor):
+SENDERO (visor de MENSADEF) tiene preparado el paso directo al Punto de Situación sin pasar por META (de momento apagado: hoy
+«★ Al PSIT» sigue pasando por META hasta que el PSIT lo acepte). Con el paso directo, el botón abre la página del PSIT de la
+organización en una pestaña nueva con los datos en el fragmento de la dirección (el mismo sistema que usa META; el fragmento
+no se envía a ningún servidor):
 
   <dirección de puntos-situacion.html>#importar=<encodeURIComponent(JSON)>
 
