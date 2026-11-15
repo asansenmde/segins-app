@@ -112,7 +112,10 @@ if (process.env.VENTANA) await p.evaluate(M => localStorage.setItem(M + 'sinAuto
 // abrir su página en un marco (se comprueba con la ventana pequeña); NUEVA=1: hay una versión vigente más nueva;
 // DIAS=n adelanta el reloj n días (31 → caducada; 27 → aviso)
 const estC = nuevoEstado({ xfo: !!process.env.XFO }); estC.admin = false; estC.usuario = { Id: 21, Title: 'PERSONA', Email: 'persona@pruebas.invalid' };
-listasPreparadas(estC, (process.env.NOAUT ? [] : [{ Title: '2SUIGE', Tipo: 'Ámbito' }]).concat(process.env.NUEVA ? [{ Title: '2099-01-01 · 1', Tipo: 'Versión', Nota: 'https://colabora.mdef.es/et/SUIGESUR/colaborativo/Documentos%20compartidos/SENDERO.html' }] : []));
+// SINORG=1: el ámbito no tiene dadas de alta las direcciones de META y del PSIT (y la lista es antigua, sin esas columnas)
+estC.sinColumnasUrl = !!process.env.SINORG;
+const ORG_META = 'https://colabora.mdef.es/et/ORG/aplicaciones/META.html', ORG_PSIT = 'https://colabora.mdef.es/et/ORG/aplicaciones/puntos-situacion.html';
+listasPreparadas(estC, (process.env.NOAUT ? [] : [Object.assign({ Title: '2SUIGE', Tipo: 'Ámbito' }, process.env.SINORG ? {} : { UrlMeta: ORG_META, UrlPsit: ORG_PSIT })]).concat(process.env.NUEVA ? [{ Title: '2099-01-01 · 1', Tipo: 'Versión', Nota: 'https://colabora.mdef.es/et/SUIGESUR/colaborativo/Documentos%20compartidos/SENDERO.html' }] : []));
 await simularColabora(ctx, estC, new URL('../acceso/subir/SENDERO-acceso.html', import.meta.url).pathname);
 if (process.env.DIAS) await p.evaluate(n => { const D = Date, d = n * 864e5; window.Date = class extends D { constructor(...a) { super(...(a.length ? a : [D.now() + d])); } static now() { return D.now() + d; } }; }, Number(process.env.DIAS));
 const llamadasAntes = llamadas.length;
@@ -273,12 +276,20 @@ if (FINAL) {
 { console.log('META aviso:', (await p.textContent('#colabora')).match(/Departamento en META:[^·]*/)?.[0]);
   const [n6] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n6.waitForLoadState();
   const d6 = JSON.parse(decodeURIComponent(n6.url().split('#importar=')[1])); await n6.close(); await p.bringToFront();
-  // «📋 Al Punto de Situación» (de momento solo en pruebas): pasa por META con la marca punto
-  { const [n7] = await Promise.all([ctx.waitForEvent('page'), p.click('#aPunto')]); await n7.waitForLoadState();
-    const d7 = JSON.parse(decodeURIComponent(n7.url().split('#importar=')[1])); await n7.close(); await p.bringToFront();
+  // «★ Al Punto de Situación» (15/11/2026): directo al PSIT de la organización, sin pasar por META. SINORG=1: lo pide la primera vez
+  { if (process.env.SINORG) {
+      await p.click('#aPunto'); await p.waitForTimeout(300);
+      console.log('PUNTO sin organización: aviso «' + ((await p.textContent('#sinOrg').catch(() => '')).match(/no tiene dado de alta[^.]*/) || [''])[0] + '» | pide la dirección:', !!(await p.$('#urlPsit')));
+      if (!(await p.$('#sinOrg')) || !(await p.$('#urlPsit'))) console.log('Error: PSIT sin organización');
+      await p.fill('#urlPsit', 'https://colabora.mdef.es/et/MIO/puntos-situacion.html');
+    }
+    const [n7] = await Promise.all([ctx.waitForEvent('page'), process.env.SINORG ? p.click('#guardarPsit') : p.click('#aPunto')]); await n7.waitForLoadState();
+    const d7 = JSON.parse(decodeURIComponent(n7.url().split('#importar=')[1])), u7 = n7.url().split('#')[0]; await n7.close(); await p.bringToFront();
+    console.log('PUNTO: va a', u7.replace(/^https:\/\/[^/]+/, ''), '| origen', d7.origen, '| destino', d7.destino, '| asunto:', !!d7.asunto, '| enlace:', !!d7.enlace);
+    if (u7 !== (process.env.SINORG ? 'https://colabora.mdef.es/et/MIO/puntos-situacion.html' : ORG_PSIT) || d7.origen !== 'SENDERO' || d7.destino !== 'psit' || d7.punto) console.log('Error: PSIT directo');
     { const r = await p.$eval('#aPunto', b => { const x = b.getBoundingClientRect(), y = document.querySelector('#aColabora').getBoundingClientRect(); return { alto: Math.round(x.height), altoMeta: Math.round(y.height), unaLinea: b.scrollWidth <= b.clientWidth + 1 }; });
       console.log('PUNTO: botón entero en una línea:', r.unaLinea, '| alto', r.alto, 'como META', r.altoMeta); }
-    console.log('PUNTO: botón', !!(await p.$('#aPunto')), '| va a META con punto =', d7.punto, '| departamento', d7.departamento); }
+    console.log('PUNTO: botón', !!(await p.$('#aPunto')), '| departamento', d7.departamento); }
   console.log('META recibe todas las células:', (d6.departamentos || []).join(', '));
   console.log('META recibe: departamento', d6.departamento, '| responsable', d6.responsable === undefined ? '(no se manda)' : d6.responsable, '| negociado', d6.negociado === undefined ? '(no se manda)' : d6.negociado); }
 // Anexos: lista, abrir (pestaña nueva) y descargar con la sesión; el visor no marca el mensaje como leído

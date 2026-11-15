@@ -53,8 +53,8 @@ await foto('preparacion');
 
 // 3. Reglas: ámbito 2SUIGE (responsable gestor), 3SUIGE desactivado (responsable gestor) y versión vigente
 await pulsar('[data-pest="reglas"]');
-const anadir = async (tipo, valor, resp = '') => { await p.selectOption('#rTipo', tipo); await p.fill('#rValor', valor); if (resp) await p.fill('#rResp', resp); await pulsar('#rAnadir'); };
-await anadir('Ámbito', '2suige', 'gestor@pruebas.invalid'); await anadir('Ámbito', '3SUIGE', 'gestor@pruebas.invalid');
+const anadir = async (tipo, valor, resp = '', meta = '', psit = '') => { await p.selectOption('#rTipo', tipo); await p.fill('#rValor', valor); if (resp) await p.fill('#rResp', resp); if (meta) await p.fill('#rMeta', meta); if (psit) await p.fill('#rPsit', psit); await pulsar('#rAnadir'); };
+await anadir('Ámbito', '2suige', 'gestor@pruebas.invalid', 'https://colabora.mdef.es/et/ORG/META.html', 'https://colabora.mdef.es/et/ORG/puntos-situacion.html'); await anadir('Ámbito', '3SUIGE', 'gestor@pruebas.invalid');
 await p.click('#rCuerpo tr:has-text("3SUIGE") [data-act]'); await p.waitForTimeout(600);
 console.log('reglas:', est.listas['SENDERO Autorizados'].items.map(x => x.Tipo + ' ' + x.Title + (x.Activo ? '' : ' (inactiva)') + (x.Responsables ? ' resp ' + x.Responsables : '')).join(' | '));
 await pulsar('[data-pest="version"]'); await p.fill('#vVer', '2026-12-01 · 1'); await pulsar('#vGuardar');
@@ -62,7 +62,11 @@ console.log('versión vigente:', await p.textContent('#cont p'));
 
 // 4. Respuesta a SENDERO: 2SUIGE autorizado; 3SUIGE no
 { const r = await preguntar('2SUIGE'); console.log('SENDERO 2SUIGE →', JSON.stringify({ ok: r.ok, regla: r.regla, vigente: r.vigente && r.vigente.version, email: r.email }));
-  if (!r.ok || r.regla !== 'ámbito 2SUIGE' || r.vigente.version !== '2026-12-01 · 1') error('autorizado por ámbito'); }
+  if (!r.ok || r.regla !== 'ámbito 2SUIGE' || r.vigente.version !== '2026-12-01 · 1') error('autorizado por ámbito');
+  console.log('SENDERO recibe las direcciones de su organización:', JSON.stringify(r.gestores).replace(/https:\/\/[^/]+/g, ''));
+  if (!r.gestores || !/META\.html$/.test(r.gestores.meta || '') || !/puntos-situacion\.html$/.test(r.gestores.psit || '')) error('direcciones de la organización'); }
+{ const r = await preguntar('3SUIGE'); console.log('ámbito sin direcciones →', JSON.stringify(r.gestores)); if (r.gestores.meta || r.gestores.psit) error('ámbito sin direcciones'); }
+{ await pulsar('[data-pest="reglas"]'); const t = await p.textContent('#rCuerpo'); console.log('reglas: META y PSIT en la tabla:', /META · PSIT/.test(t), '| «sin dar de alta»:', /sin dar de alta/.test(t)); if (!/META · PSIT/.test(t) || !/sin dar de alta/.test(t)) error('tabla de direcciones'); }
 
 // 5. Otra persona del ámbito 3SUIGE: no autorizada → solicita
 como('otra@pruebas.invalid', 'OTRA PERSONA');

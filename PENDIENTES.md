@@ -252,3 +252,8 @@ autoría.
       quiera) y probar SENDERO. Confirmar si la comprobación va sola (marco oculto) o pide el clic «Comprobar en Colabora».
     15/11/2026: SENDERO 2026-11-15 · 3: comprobación en cada apertura (fase inicial). PENDIENTE: cuando el usuario lo diga,
       recordar la autorización unos días. Confirmar si en Colabora funciona la comprobación oculta (marco) o solo la ventana.
+    15/11/2026: SENDERO 2026-11-15 · 4 y acceso 2026-11-15 · 5: META y PSIT de cada organización en la regla del ámbito (Colabora);
+      «★ Al PSIT» directo al Punto de Situación sin pasar por META. PENDIENTE: en la sesión «[PUNTOS]», que el PSIT acepte
+      `#importar=` con origen SENDERO (texto entregado al usuario). PENDIENTE DEL USUARIO: «Crear columnas» en Preparación y
+      poner en el ámbito 2SUIGE las direcciones de META y del PSIT (✎ en «Autorizados y bloqueos»).
+

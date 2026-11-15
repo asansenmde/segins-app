@@ -59,7 +59,7 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-15 · 4';
+  var VERSION = '2026-11-15 · 5';
   // Solo se contesta a SENDERO, que funciona en MENSADEF (el favorito escribe su página sobre la de MENSADEF)
   var ORIGEN_SENDERO = 'https://mensadef.mdef.es';
   var L_AUT = 'SENDERO Autorizados', L_SOL = 'SENDERO Solicitudes', GRUPO = 'SENDERO Administradores';
@@ -68,7 +68,14 @@
     '<Field Type="Boolean" Name="Activo" StaticName="Activo" DisplayName="Activo"><Default>1</Default></Field>',
     '<Field Type="Note" Name="Responsables" StaticName="Responsables" DisplayName="Responsables" NumLines="3" RichText="FALSE" />',
     '<Field Type="DateTime" Name="Hasta" StaticName="Hasta" DisplayName="Hasta" Format="DateOnly" />',
-    '<Field Type="Note" Name="Nota" StaticName="Nota" DisplayName="Nota" NumLines="3" RichText="FALSE" />'];
+    '<Field Type="Note" Name="Nota" StaticName="Nota" DisplayName="Nota" NumLines="3" RichText="FALSE" />',
+    '<Field Type="Note" Name="UrlMeta" StaticName="UrlMeta" DisplayName="Dirección de META" NumLines="2" RichText="FALSE" />',
+    '<Field Type="Note" Name="UrlPsit" StaticName="UrlPsit" DisplayName="Dirección del Punto de Situación" NumLines="2" RichText="FALSE" />'];
+  var urlValida = function (v) { return /^https:\/\/[^/]+\.mdef\.es\/\S+$/i.test(String(v || '').trim()); };
+  // Pide las reglas con las direcciones de META y del PSIT; si esas columnas aún no existen (falta «Crear columnas»), sin ellas
+  function leerReglas(sel, resto) {
+    return todas(urlL(L_AUT) + '/items?$select=' + sel + ',UrlMeta,UrlPsit' + resto).catch(function (e) { if (e.status === 400) return todas(urlL(L_AUT) + '/items?$select=' + sel + resto); throw e; });
+  }
   var CAMPOS_SOL = [
     '<Field Type="Text" Name="Correo" StaticName="Correo" DisplayName="Correo" />',
     '<Field Type="Text" Name="Ambito" StaticName="Ambito" DisplayName="Ámbito" />',
@@ -280,6 +287,15 @@
       return v ? { version: v.Title || '', url: (v.Nota || '').trim() } : null;
     }, function () { return null; });
   }
+  // META y Punto de Situación de la organización: los de la regla del ámbito (esté activa o no: un ámbito inactivo con
+  // responsables también tiene su META y su PSIT)
+  function gestoresDe(reglas, ambito) {
+    var a = ambito && reglas.filter(function (x) { return x.Tipo === 'Ámbito' && norm(x.Title) === norm(ambito); }).sort(function (x, y) { return (activo(y) ? 1 : 0) - (activo(x) ? 1 : 0); })[0];
+    var g = { ambito: String(ambito || '').toUpperCase() };
+    if (a && urlValida(a.UrlMeta)) g.meta = String(a.UrlMeta).trim();
+    if (a && urlValida(a.UrlPsit)) g.psit = String(a.UrlPsit).trim();
+    return g;
+  }
   function evaluar(ambito) {
     ambito = String(ambito || '').trim();
     return leerYo().then(function (u) {
@@ -287,7 +303,7 @@
       var valores = [u.email].concat(ambito ? [ambito] : []);
       var filtro = valores.map(function (v) { return 'Title eq ' + lit(v); }).join(' or ');
       return Promise.all([
-        todas(urlL(L_AUT) + '/items?$select=Id,Title,Tipo,Activo,Hasta&$filter=' + encodeURIComponent(filtro) + '&$top=100'),
+        leerReglas('Id,Title,Tipo,Activo,Hasta', '&$filter=' + encodeURIComponent(filtro) + '&$top=100'),
         versionVigente(),
         todas(urlL(L_SOL) + '/items?$select=Id,Estado,Respuesta,Ambito,Created&$filter=' + encodeURIComponent('Correo eq ' + lit(u.email)) + '&$top=50').catch(function () { return []; })
       ]).then(function (r) {
@@ -298,7 +314,7 @@
         var amb = ambito && reglas.filter(function (x) { return x.Tipo === 'Ámbito' && norm(x.Title) === norm(ambito) && vigente(x); })[0];
         var sol = r[2].sort(function (a, b) { return b.Id - a.Id; })[0];
         return { ok: !bloq && !!(per || amb), motivo: bloq ? 'bloqueado' : per || amb ? '' : 'sin_regla', regla: per ? 'persona' : amb ? 'ámbito ' + amb.Title : '',
-          email: u.email, nombre: u.nombre, ambito: ambito, vigente: r[1],
+          email: u.email, nombre: u.nombre, ambito: ambito, vigente: r[1], gestores: gestoresDe(r[0], ambito),
           solicitud: sol ? { estado: sol.Estado || 'Pendiente', fecha: sol.Created, respuesta: sol.Respuesta || '', ambito: sol.Ambito || '' } : null };
       });
     });
@@ -427,31 +443,45 @@
     });
   }
   function pintarReglas() {
-    return todas(urlL(L_AUT) + '/items?$select=Id,Title,Tipo,Activo,Responsables,Hasta,Nota&$orderby=Id desc&$top=500').then(function (l) {
+    return leerReglas('Id,Title,Tipo,Activo,Responsables,Hasta,Nota', '&$orderby=Id desc&$top=500').then(function (l) {
       l = l.filter(function (x) { return x.Tipo !== 'Versión'; });
       var clase = { 'Ámbito': 'amb', Persona: 'per', Bloqueo: 'blo' };
       var puede = function (x) { return rol === 'admin' || x.Tipo !== 'Ámbito'; };
+      // Las direcciones de un ámbito las cambian el administrador y sus responsables
+      var puedeDir = function (x) { return x.Tipo === 'Ámbito' && (rol === 'admin' || misAmbitos.indexOf(norm(x.Title)) >= 0); };
+      var enlace = function (u, t) { return urlValida(u) ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + t + '</a>' : ''; };
       $('cont').innerHTML = '<div class="card" style="background:#f8faf6"><b>Añadir</b><br>' +
         '<label>Tipo<select id="rTipo">' + (rol === 'admin' ? '<option value="Ámbito">Ámbito de MENSADEF (todos los de ese ámbito)</option>' : '') + '<option value="Persona">Persona (su cuenta)</option><option value="Bloqueo">Bloqueo (le quita el acceso)</option></select></label>' +
         '<label>Valor<input id="rValor" size="28" placeholder="2SUIGE o nombre@et.mde.es"></label>' +
         '<label id="rRespL">Responsables del ámbito (correos)<input id="rResp" size="36" placeholder="uno@et.mde.es; otro@et.mde.es"></label>' +
+        '<span id="rDirL"><label>Dirección de su META<input id="rMeta" size="40" placeholder="https://colabora.mdef.es/…/META.html"></label><label>Dirección de su Punto de Situación<input id="rPsit" size="40" placeholder="https://colabora.mdef.es/…/puntos-situacion.html"></label></span>' +
         '<label>Hasta (opcional)<input id="rHasta" type="date"></label><label>Nota<input id="rNota" size="30"></label>' +
         '<button type="button" class="prim" id="rAnadir">Añadir</button></div>' +
         '<p class="muted">Un <b>ámbito activo</b> autoriza a todos los de ese ámbito de MENSADEF. Un ámbito <b>inactivo con responsables</b> no autoriza a nadie en bloque: sus responsables aprueban una a una las solicitudes de su gente. Un <b>bloqueo</b> gana a todo.</p>' +
         '<p><input id="rBuscar" placeholder="Buscar…" size="30"> <span class="muted">' + l.length + ' reglas.</span></p>' +
-        '<table><thead><tr><th>Tipo</th><th>Valor</th><th>Responsables</th><th>Hasta</th><th>Nota</th><th>Activa</th></tr></thead><tbody id="rCuerpo"></tbody></table>';
+        '<p class="muted">En cada ámbito, la <b>dirección de su META y de su Punto de Situación</b>: SENDERO las recibe al comprobar la autorización y la gente de ese ámbito no tiene que escribirlas. Si un ámbito no tiene ninguna, SENDERO avisa de que deben crearse.</p>' +
+        '<table><thead><tr><th>Tipo</th><th>Valor</th><th>Responsables</th><th>META y PSIT</th><th>Hasta</th><th>Nota</th><th>Activa</th></tr></thead><tbody id="rCuerpo"></tbody></table>';
       var pintar = function () {
         var q = norm($('rBuscar').value);
         $('rCuerpo').innerHTML = l.filter(function (x) { return !q || norm([x.Tipo, x.Title, x.Responsables, x.Nota].join(' ')).indexOf(q) >= 0; }).map(function (x) {
-          return '<tr><td><span class="chip ' + (activo(x) ? clase[x.Tipo] || '' : 'off') + '">' + esc(x.Tipo) + '</span></td><td><b>' + esc(x.Title) + '</b></td><td>' + esc(x.Responsables || '') + '</td><td>' + esc(fecha(x.Hasta)) + '</td><td>' + esc(x.Nota || '') + '</td>' +
+          return '<tr><td><span class="chip ' + (activo(x) ? clase[x.Tipo] || '' : 'off') + '">' + esc(x.Tipo) + '</span></td><td><b>' + esc(x.Title) + '</b></td><td>' + esc(x.Responsables || '') + '</td><td>' + (x.Tipo === 'Ámbito' ? [enlace(x.UrlMeta, 'META'), enlace(x.UrlPsit, 'PSIT')].filter(Boolean).join(' · ') + (!urlValida(x.UrlMeta) && !urlValida(x.UrlPsit) ? '<span class="mal">sin dar de alta</span>' : '') + (puedeDir(x) ? ' <button type="button" data-dir="' + x.Id + '">✎</button>' : '') : '') + '</td><td>' + esc(fecha(x.Hasta)) + '</td><td>' + esc(x.Nota || '') + '</td>' +
             '<td>' + (activo(x) ? '<span class="bien">Sí</span>' : '<span class="muted">No</span>') + (puede(x) ? ' <button type="button" data-act="' + x.Id + '">' + (activo(x) ? 'Desactivar' : 'Activar') + '</button>' : '') + '</td></tr>';
         }).join('');
+        Array.prototype.forEach.call($('rCuerpo').querySelectorAll('[data-dir]'), function (b) { b.addEventListener('click', function () {
+          var x = l.filter(function (y) { return String(y.Id) === b.getAttribute('data-dir'); })[0];
+          var um = prompt('Dirección del META del ámbito ' + x.Title + ' (vacío si no tiene):', x.UrlMeta || ''); if (um === null) return;
+          var up = prompt('Dirección del Punto de Situación del ámbito ' + x.Title + ' (vacío si no tiene):', x.UrlPsit || ''); if (up === null) return;
+          um = um.trim(); up = up.trim();
+          if ((um && !urlValida(um)) || (up && !urlValida(up))) return toast('Las direcciones tienen que ser de Colabora (https://…mdef.es/…)');
+          b.disabled = true;
+          cambiarElemento(L_AUT, x.Id, { UrlMeta: um, UrlPsit: up }, NO_PERMISO).then(function () { toast('Direcciones guardadas'); pintarGestion(); }, function (e) { b.disabled = false; toast('No se pudo (¿falta «Crear columnas» en Preparación?): ' + (e.message || e)); });
+        }); });
         Array.prototype.forEach.call($('rCuerpo').querySelectorAll('[data-act]'), function (b) { b.addEventListener('click', function () {
           var x = l.filter(function (y) { return String(y.Id) === b.getAttribute('data-act'); })[0]; b.disabled = true;
           cambiarElemento(L_AUT, x.Id, { Activo: !activo(x) }, NO_PERMISO).then(function () { toast(activo(x) ? 'Desactivada' : 'Activada'); pintarGestion(); }, function (e) { b.disabled = false; toast('No se pudo: ' + (e.message || e)); });
         }); });
       };
-      var verResp = function () { $('rRespL').style.display = $('rTipo').value === 'Ámbito' ? '' : 'none'; };
+      var verResp = function () { var a = $('rTipo').value === 'Ámbito'; $('rRespL').style.display = a ? '' : 'none'; $('rDirL').style.display = a ? '' : 'none'; };
       $('rTipo').addEventListener('change', verResp); verResp();
       $('rBuscar').addEventListener('input', pintar); pintar();
       $('rAnadir').addEventListener('click', function () {
@@ -462,7 +492,12 @@
         if (t === 'Ámbito' && !/^[A-Z0-9_-]+$/.test(v)) return toast('El ámbito es el código de MENSADEF (el de la dirección …/ambito/CÓDIGO)');
         b.disabled = true;
         var d = { Title: v, Tipo: t, Activo: true, Nota: $('rNota').value.trim() || ('Añadido por ' + (yo.nombre || yo.email) + ' el ' + fecha(new Date())) };
-        if (t === 'Ámbito') d.Responsables = $('rResp').value.trim();
+        if (t === 'Ámbito') {
+          d.Responsables = $('rResp').value.trim();
+          var um = $('rMeta').value.trim(), up = $('rPsit').value.trim();
+          if ((um && !urlValida(um)) || (up && !urlValida(up))) { b.disabled = false; return toast('Las direcciones tienen que ser de Colabora (https://…mdef.es/…)'); }
+          if (um) d.UrlMeta = um; if (up) d.UrlPsit = up;
+        }
         if ($('rHasta').value) d.Hasta = new Date($('rHasta').value + 'T12:00:00').toISOString();
         crearElemento(L_AUT, d, NO_PERMISO).then(function () { toast('Añadido: ' + t + ' ' + v); pintarGestion(); }, function (e) { b.disabled = false; toast('No se pudo: ' + (e.message || e)); });
       });

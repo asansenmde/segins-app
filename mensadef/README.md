@@ -458,4 +458,11 @@ con el formato *verbose* de SharePoint 2013.
   Colabora no se entra con lo recordado; sale «🔐 Comprobar en Colabora» (ventana pequeña) con el motivo. Si en un equipo solo
   contesta la ventana, se recuerda 7 días y el botón sale al momento. Más adelante el usuario quiere volver a recordar la
   autorización unos días para no comprobar siempre.
+- **2026-11-15 · 4:** **META y Punto de Situación de cada organización**. En la regla de cada ámbito de «SENDERO Autorizados»
+  van la dirección de su META y la de su PSIT (`UrlMeta`, `UrlPsit`; las pone el Cte. o los responsables del ámbito en
+  `acceso/`); SENDERO las recibe con la autorización. El META de la organización sale el primero en «Crear la tarea en» (ya no
+  va fijo el de JSUIGE, salvo en la copia de desarrollo). **«★ Al PSIT» va directo al Punto de Situación** (sin pasar por
+  META) con `#importar=` y `origen: 'SENDERO', destino: 'psit'`, y deja en MENSADEF «Añadido al Punto de Situación por
+  NOMBRE…». Si la organización no tiene dirección, se pide la primera vez y se guarda en el navegador; si no tiene ni META ni
+  PSIT, sale el aviso de que deben crearse. Pendiente: que el PSIT acepte `#importar=` (sesión «[PUNTOS]»).
 

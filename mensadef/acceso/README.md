@@ -10,7 +10,9 @@ acceso), en `Documentos compartidos/SENDERO-acceso.html` (si se sube a otra bibl
   original legible.
 - **Listas** (las crea la pestaña «Preparación», con Control total del sitio):
   - «SENDERO Autorizados»: `Title` (valor: código del ámbito o correo), `Tipo` (Ámbito, Persona, Bloqueo, Versión),
-    `Activo`, `Responsables` (correos, en los ámbitos), `Hasta` (opcional), `Nota` (en Versión: dirección del favorito).
+    `Activo`, `Responsables` (correos, en los ámbitos), `Hasta` (opcional), `Nota` (en Versión: dirección del favorito),
+    `UrlMeta` y `UrlPsit` (en los ámbitos: META y Punto de Situación de esa organización; se mandan a SENDERO con la
+    autorización; si la lista es anterior y no tiene esas columnas, se lee sin ellas hasta pulsar «Crear columnas»).
     Permisos propios: todos **leen**, solo Control total y el grupo «SENDERO Administradores» (Colaborar) escriben.
   - «SENDERO Solicitudes»: `Title` (nombre), `Correo`, `Ambito`, `Motivo`, `Estado` (Pendiente, Aprobada, Denegada),
     `Respuesta`, `RespondidoPor`, `VersionSendero`, `Avisos`. Todos pueden **crear**; cada uno ve y edita solo las suyas; el grupo

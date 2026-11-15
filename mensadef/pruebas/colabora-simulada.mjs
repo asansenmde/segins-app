@@ -17,7 +17,7 @@ export function nuevoEstado(opc = {}) {
 }
 // Listas ya preparadas (para las pruebas de SENDERO)
 export function listasPreparadas(est, reglas = []) {
-  est.listas['SENDERO Autorizados'] = { Id: 'aaaaaaaa-0000-0000-0000-000000000001', items: [], campos: ['Tipo', 'Activo', 'Responsables', 'Hasta', 'Nota'], unique: true, asig: [], RS: 1, WS: 1 };
+  est.listas['SENDERO Autorizados'] = { Id: 'aaaaaaaa-0000-0000-0000-000000000001', items: [], campos: ['Tipo', 'Activo', 'Responsables', 'Hasta', 'Nota'].concat(est.sinColumnasUrl ? [] : ['UrlMeta', 'UrlPsit']), unique: true, asig: [], RS: 1, WS: 1 };
   est.listas['SENDERO Solicitudes'] = { Id: 'aaaaaaaa-0000-0000-0000-000000000002', items: [], campos: ['Correo', 'Ambito', 'Motivo', 'Estado', 'Respuesta', 'RespondidoPor', 'VersionSendero'], unique: true, asig: [], RS: 2, WS: 2 };
   reglas.forEach(r => est.listas['SENDERO Autorizados'].items.push(Object.assign({ Id: est.sigId++, Activo: true, Hasta: null, Nota: '', Responsables: '', AuthorId: 11, Created: new Date().toISOString() }, r)));
 }
@@ -95,6 +95,10 @@ export async function simularColabora(ctx, est, archivo) {
     }
     if ((m = /^\/items\((\d+)\)$/.exec(resto)) && met === 'GET') { const it = L.items.find(x => x.Id === Number(m[1])); return it ? J(it) : J('No existe', 404); }
     if (resto === '/items' && met === 'GET') {
+      // Como el real: 400 si se pide una columna que la lista no tiene
+      const base = ['Id', 'Title', 'Created', 'Modified', 'Author', 'Editor', 'AuthorId'];
+      const malas = (q.$select || '').split(',').filter(c => c && !base.includes(c) && !L.campos.includes(c));
+      if (malas.length) return J("La columna '" + malas[0] + "' no existe", 400);
       let l = L.items.slice();
       if (L.RS === 2 && !puedeEditar && !esAut) l = l.filter(x => x.AuthorId === yo.Id);
       if (q.$filter) {
