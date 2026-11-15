@@ -65,6 +65,7 @@ await ctx.route(ORIGEN + '/**', async r0 => {
   };
   if (VERBOSE && m === 'GET' && /odata=nometadata/.test(req.headers().accept || '')) return ful({ status: 406, body: '' });
   if (u.includes('/Attachments/')) { const k = u.replace(ORIGEN, ''); return adjuntos[k] ? ful({ body: adjuntos[k], contentType: 'image/jpeg' }) : ful({ status: 404, body: '' }); }
+  if (/portal\.aspx/.test(u)) return ful({ contentType: 'text/html', body: '<html><body><h1>Portal</h1><iframe id="app" style="width:1100px;height:800px" src="' + PAGINA + '"></iframe></body></html>' });
   if (!u.includes('/_api/')) return /puntos-situacion\.html/.test(u) ? ful({ body: HTML, contentType: 'text/html' }) : ful({ status: 404, body: '' });
   const resto = u.split('/_api/')[1];
   if (u.split('/_api/')[0].replace(ORIGEN, '') !== WEB) return ful({ status: 404, body: '' });
@@ -421,6 +422,67 @@ comprueba('aprobada: Pedro en Infraestructura', JSON.stringify(negsC[2].Miembros
 await ir(10);
 comprueba('Pedro ya entra', !/No estás en ningún negociado/.test(await txt('#vista')));
 
+// 12. Mensajes de SENDERO directos al Punto de Situación (#importar=, destino psit)
+{ const msg = (o = {}) => '#importar=' + encodeURIComponent(JSON.stringify(Object.assign({ v: 1, origen: 'SENDERO', destino: 'psit', id: 'MSG-0001', asunto: 'Mensaje ficticio de MENSADEF',
+    fecha: new Date().toISOString(), de: 'UNIDAD FICTICIA', firma: 'JEFE FICTICIO', referencia: 'REF-1', suReferencia: 'SU-1', expediente: 'EXP-9', enlace: 'https://mensadef.mdef.es/msg/1',
+    texto: 'Texto ficticio del mensaje.\nSegunda línea.', departamento: 'Célula P.R.L.' }, o)));
+  const abrirCon = async (id, h) => { actual = id; await p.goto('about:blank'); await p.goto(PAGINA + h); await p.waitForFunction(() => !/Cargando/.test(document.querySelector('#estadoCarga').textContent)); await p.waitForTimeout(400); };
+  // Instalación anterior a esta versión: faltan las dos columnas nuevas
+  LP('Negociados').campos.delete('CelulaMensadef'); LP('Aportaciones').campos.delete('OrigenClave');
+  await ir(9); await p.click('nav.tabs a[data-v=ajustes]');
+  comprueba('sin las columnas nuevas, Ajustes pide «Comprobar la instalación»', /dos columnas nuevas/.test(await txt('#vista')) && !(await p.$('[data-negcelula]')));
+  await p.click('[data-comprobar]'); await p.waitForFunction(() => /Bloqueo en el servidor/.test(document.querySelector('#logInst').textContent), null, { timeout: 15000 });
+  comprueba('«Comprobar la instalación» crea las columnas nuevas', LP('Negociados').campos.has('CelulaMensadef') && LP('Aportaciones').campos.has('OrigenClave'));
+  await ir(9); await p.click('nav.tabs a[data-v=ajustes]');
+  await p.fill(fila('PRL') + ' [data-negcelula]', 'CELULA PRL'); await p.click(fila('PRL') + ' [data-guardarneg]'); await p.waitForTimeout(800);
+  comprueba('célula de MENSADEF guardada en PRL: ' + negsC[4].CelulaMensadef, negsC[4].CelulaMensadef === 'CELULA PRL');
+  // Luis (PRL) recibe un mensaje de su célula (escrita distinto): se abre la entrada rellena y no se crea nada sin Guardar
+  const nAntes = LP('Aportaciones').items.length;
+  await abrirCon(8, msg());
+  await p.waitForSelector('#edSit');
+  comprueba('fragmento borrado de la dirección: ' + p.url(), !/importar/.test(p.url()));
+  comprueba('se abre la entrada en PRL, rellena y sin crear nada', /Nueva entrada · PRL/.test(await txt('#dlg .dh')) && await p.inputValue('#edTit') === 'Mensaje ficticio de MENSADEF' &&
+    /Mensaje de MENSADEF de UNIDAD FICTICIA.*Ref\. REF-1.*Su ref\. SU-1/.test(await p.$eval('#edSit', e => e.innerText)) && /Segunda línea/.test(await p.$eval('#edSit', e => e.innerText)) &&
+    await p.inputValue('#edExp') === 'EXP-9' && /Desde SENDERO/.test(await txt('#dlg')) && LP('Aportaciones').items.length === nAntes);
+  await foto('08-desde-sendero');
+  await p.click('[data-guardarent]'); await esperaDlgCerrado(); await p.waitForTimeout(600);
+  const es = LP('Aportaciones').items[LP('Aportaciones').items.length - 1];
+  comprueba('guardada con origen SENDERO: ' + [es.Negociado, es.Origen, es.OrigenLista, es.OrigenClave, es.OrigenUrl, es.OrigenId].join(' | '),
+    es.Negociado === 'PRL' && es.Origen === 'SENDERO' && es.OrigenClave === 'MSG-0001' && es.OrigenUrl === 'https://mensadef.mdef.es/msg/1' && es.OrigenId == null && es.PuntoId === pt2.Id);
+  comprueba('la tarjeta dice «Desde SENDERO»', /Desde SENDERO/.test(await txt('#entradas')));
+  // El mismo mensaje otra vez: no se duplica
+  await abrirCon(8, msg());
+  comprueba('el mismo mensaje otra vez: «ya está incluido»', /ya está incluido/.test(await txt('#dlg')) && !(await p.$('#edSit')));
+  // Célula desconocida (PROCOR): pregunta el negociado y ofrece guardarla
+  await abrirCon(9, msg({ id: 'MSG-0002', departamento: 'CELULA NUEVA', asunto: 'Otro mensaje ficticio' }));
+  comprueba('célula sin negociado: pregunta a cuál va', /no está asignada a ningún negociado/.test(await txt('#dlg')) && (await p.$$eval('#impNeg option', o => o.length)) === 6 && await p.isChecked('#impGuardar'));
+  await p.selectOption('#impNeg', 'Seguridad'); await p.click('#impOk'); await p.waitForSelector('#edSit');
+  comprueba('guarda la célula en Seguridad y abre su entrada', negsC[3].CelulaMensadef === 'CELULA NUEVA' && /Nueva entrada · Seguridad/.test(await txt('#dlg .dh')));
+  await p.click('#dlg [data-cerrar]');
+  comprueba('cerrar sin guardar no crea nada', !LP('Aportaciones').items.some(x => x.OrigenClave === 'MSG-0002'));
+  // Luis con un mensaje de la célula de Seguridad: no tiene permiso
+  await abrirCon(8, msg({ id: 'MSG-0003', departamento: 'Celula nueva' }));
+  comprueba('sin permiso en el negociado de la célula: lo dice', /no eres de ese negociado/.test(await txt('#dlg')) && !(await p.$('#edSit')));
+  // Sin célula: Luis solo puede elegir los suyos
+  await abrirCon(8, msg({ id: 'MSG-0004', departamento: undefined }));
+  comprueba('sin célula: pregunta y solo ofrece sus negociados, sin guardar célula', /no trae célula/.test(await txt('#dlg')) && (await p.$$eval('#impNeg option', o => o.map(x => x.textContent))).join() === 'PRL' && !(await p.$('#impGuardar')));
+  // Dentro de la página del portal: lo lee de la ventana de arriba
+  actual = 8; await p.goto(ORIGEN + WEB + '/SitePages/portal.aspx' + msg({ id: 'MSG-0005', asunto: 'Mensaje por el portal' }));
+  const fr = p.frameLocator('#app'); await fr.locator('#edSit').waitFor({ timeout: 15000 });
+  comprueba('dentro del portal: lee el fragmento de arriba y lo borra', await fr.locator('#edTit').inputValue() === 'Mensaje por el portal' && !/importar/.test(p.url()));
+  // Datos que no son de SENDERO
+  await abrirCon(8, '#importar=' + encodeURIComponent(JSON.stringify({ v: 1, origen: 'OTRO', destino: 'psit', asunto: 'x' })));
+  comprueba('datos no válidos: lo dice', /no se pueden leer/.test(await txt('#dlg')));
+  // Punto cerrado
+  const pt2b = LP('Puntos').items.find(x => x.Id === pt2.Id); const ciB = pt2b.Cierre; pt2b.Cierre = iso(-60e3);
+  await abrirCon(8, msg({ id: 'MSG-0006' }));
+  comprueba('punto cerrado: lo dice claramente', /No hay ningún punto de situación abierto/.test(await txt('#dlg')) && /está cerrado desde/.test(await txt('#dlg')) && !(await p.$('#edSit')));
+  pt2b.Cierre = ciB;
+  // Quien no está en ningún negociado
+  USUARIOS[12] = { Id: 12, Title: 'RAUL SIN NEGOCIADO', Email: 'raul@et.mde.es', LoginName: 'i:0#.w|et\\raul' };
+  await abrirCon(12, msg({ id: 'MSG-0007' }));
+  comprueba('sin negociado: lo dice en la pantalla de acceso', /Has llegado con un mensaje de SENDERO/.test(await txt('#vista')));
+}
 comprueba('errores de página: ' + JSON.stringify(errs), !errs.length);
 await b.close();
 console.log(ok ? 'TODO BIEN' : 'HAY FALLOS');

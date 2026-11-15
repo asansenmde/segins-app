@@ -18,6 +18,26 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-15 · 1: mensajes de SENDERO directos al Punto de Situación
+
+SENDERO (visor de MENSADEF) puede mandar un mensaje al Punto de Situación sin pasar por META: abre esta página con
+`#importar=<JSON>` (`v: 1`, `origen: "SENDERO"`, `destino: "psit"`, `id`, `asunto`, `fecha`, `de`, `firma`, `referencia`,
+`suReferencia`, `expediente`, `enlace`, `texto`, `departamento` = célula de MENSADEF). El fragmento no se envía a ningún
+servidor.
+- Se lee también desde la página del portal que la contenga (`window.top`), se valida y se borra de la dirección.
+- **Célula → negociado**: columna nueva **«Célula de MENSADEF»** (`CelulaMensadef`, varias con «;») en cada negociado
+  (Ajustes). Se compara sin mayúsculas, tildes ni signos («Célula P.R.L.» = «CELULA PRL»). Si no casa, pregunta a qué
+  negociado va (los del usuario) y la coordinación puede guardarla en ese negociado para la próxima vez.
+- Abre «Mi negociado» con la **entrada nueva rellena** (asunto; en la situación, una línea con remitente, fecha,
+  referencias y firma y el texto, hasta 3000 caracteres; expediente o referencia) y la marca «✉ Desde SENDERO». **No se
+  crea nada hasta pulsar Guardar.** Sin permiso en ese negociado, o sin negociado, lo dice.
+- Se guarda con `Origen` = SENDERO, `OrigenLista` = SENDERO, `OrigenUrl` = enlace del mensaje y la clave del mensaje en
+  la columna nueva **`OrigenClave`** de «PS Aportaciones» (la clave de MENSADEF no es un número, así que no cabe en
+  `OrigenId`). Si el mismo mensaje ya está en el punto abierto, lo dice y no lo duplica.
+- Si no hay punto abierto (cerrado o aún sin abrir), lo dice claramente.
+- **Las dos columnas nuevas** las crea «Comprobar la instalación» (Ajustes); mientras falten, Ajustes lo avisa y lo demás
+  sigue funcionando.
+
 ## Versión 2026-11-12 · 6: todos los negociados descargan el informe completo en PDF
 
 - En la pestaña «Informe», cada negociado puede descargar el informe completo en PDF, además de la parte de su

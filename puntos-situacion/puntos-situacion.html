@@ -154,7 +154,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-12 · 6';
+  var VERSION = '2026-11-15 · 1';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -319,12 +319,12 @@
       ['Convocados', 'Note', 'Negociados convocados'], ['Repetir', 'Number', 'Repetir cada (días)'], ['RecordarHoras', 'Number', 'Recordatorio (horas antes)'],
       ['RecordatorioEnviado', 'DateTime', 'Recordatorio enviado'], ['RutaArchivo', 'Text', 'Archivado en'], ['ArchivadoPor', 'Text', 'Archivado por'],
       ['FechaArchivo', 'DateTime', 'Fecha de archivo'], ['FechaBorrado', 'DateTime', 'Contenido borrado el'], ['Historial', 'Note', 'Historial']],
-    negs: [['Orden', 'Number', 'Orden'], ['NombreGestor', 'Text', 'Nombre en el Gestor de Tareas'], ['Miembros', 'UserMulti', 'Miembros'],
+    negs: [['Orden', 'Number', 'Orden'], ['NombreGestor', 'Text', 'Nombre en el Gestor de Tareas'], ['CelulaMensadef', 'Text', 'Célula de MENSADEF'], ['Miembros', 'UserMulti', 'Miembros'],
       ['Coordina', 'Boolean', 'Coordina', 0], ['EnInforme', 'Boolean', 'En el informe', 1]],
     aport: [['PuntoId', 'Number', 'Punto'], ['Referencia', 'Text', 'Referencia'], ['Negociado', 'Text', 'Negociado'], ['Tipo', 'Choice', 'Tipo', ['Entrada', 'Sin novedad']],
       ['Situacion', 'Note', 'Situación'], ['Prioridad', 'Choice', 'Prioridad', ['Normal', 'Alta']], ['Orden', 'Number', 'Orden'], ['Expediente', 'Text', 'Expediente'],
       ['PasarSiguiente', 'Boolean', 'Pasar al siguiente punto', 1], ['CierrePunto', 'DateTime', 'Cierre del punto'], ['Origen', 'Text', 'Origen'],
-      ['OrigenLista', 'Text', 'Lista de origen'], ['OrigenId', 'Number', 'Id de origen'], ['OrigenUrl', 'Text', 'Enlace de origen']],
+      ['OrigenLista', 'Text', 'Lista de origen'], ['OrigenClave', 'Text', 'Clave de origen'], ['OrigenId', 'Number', 'Id de origen'], ['OrigenUrl', 'Text', 'Enlace de origen']],
     solic: [['Negociado', 'Text', 'Negociado'], ['Motivo', 'Note', 'Motivo'], ['Solicitante', 'User', 'Solicitante'],
       ['EstadoSolicitud', 'Choice', 'Estado de la solicitud', ['Pendiente', 'Aprobada', 'Denegada']], ['Resolucion', 'Text', 'Resolución']]
   };
@@ -346,6 +346,8 @@
 
   // ---------- Carga ----------
   var SEL_APORT = 'Id,Title,PuntoId,Referencia,Negociado,Tipo,Situacion,Prioridad,Orden,Expediente,PasarSiguiente,CierrePunto,Origen,OrigenLista,OrigenId,OrigenUrl,Created,Modified,Editor/Title,Author/Title,AttachmentFiles';
+  var camposLista = {};
+  var hayCampo = function (k, c) { return (camposLista[k] || []).indexOf(c) >= 0; };
   var cargando = null;
   function cargar() {
     if (cargando) return cargando;
@@ -361,11 +363,16 @@
     }).then(function () {
       instalada = !!(info.puntos && info.negs && info.aport && info.solic);
       if (!instalada) return;
+      return Promise.all(['negs', 'aport'].map(function (k) {
+        return api(U(k) + '/fields?$select=InternalName').then(function (d) { camposLista[k] = lista(d.value).map(function (x) { return x.InternalName; }); }, function () { camposLista[k] = []; });
+      }));
+    }).then(function () {
+      if (!instalada) return;
       return Promise.all([
-        todos(U('negs') + '/items?$top=500&$select=Id,Title,Orden,NombreGestor,Coordina,EnInforme,Miembros/Id,Miembros/Title,Miembros/EMail&$expand=Miembros').then(function (x) { negs = x.map(aNeg).sort(porOrden); }),
+        todos(U('negs') + '/items?$top=500&$select=Id,Title,Orden,NombreGestor,' + (hayCampo('negs', 'CelulaMensadef') ? 'CelulaMensadef,' : '') + 'Coordina,EnInforme,Miembros/Id,Miembros/Title,Miembros/EMail&$expand=Miembros').then(function (x) { negs = x.map(aNeg).sort(porOrden); }),
         todos(U('puntos') + '/items?$top=500&$select=Id,Title,Referencia,Anio,Numero,FechaPunto,Apertura,Cierre,EstadoPunto,Convocados,Repetir,RecordarHoras,RecordatorioEnviado,RutaArchivo,ArchivadoPor,FechaArchivo,FechaBorrado,Historial,Created,Modified,Author/Title&$expand=Author')
           .then(function (x) { puntos = x.map(aPunto).sort(function (a, b) { return b.fecha - a.fecha || b.id - a.id; }); }),
-        todos(U('aport') + '/items?$top=500&$select=' + SEL_APORT + '&$expand=Editor,Author,AttachmentFiles').then(function (x) { aport = x.map(aAport); }),
+        todos(U('aport') + '/items?$top=500&$select=' + SEL_APORT + (hayCampo('aport', 'OrigenClave') ? ',OrigenClave' : '') + '&$expand=Editor,Author,AttachmentFiles').then(function (x) { aport = x.map(aAport); }),
         todos(U('solic') + '/items?$top=500&$select=Id,Title,Negociado,Motivo,EstadoSolicitud,Resolucion,Created,Solicitante/Id,Solicitante/Title,Solicitante/EMail&$expand=Solicitante')
           .then(function (x) { solicitudes = x; }, function () { solicitudes = []; })
       ]);
@@ -376,6 +383,7 @@
         cargarMeta();
       }
       pintarEstado(); render();
+      if (instalada && importado) procesarImport();
     }).catch(function (e) {
       errorCarga = e.message || String(e);
       $('#estadoCarga').textContent = 'Error';
@@ -405,7 +413,7 @@
   // ---------- Modelo ----------
   var porOrden = function (a, b) { return (a.orden == null ? 99 : a.orden) - (b.orden == null ? 99 : b.orden) || a.titulo.localeCompare(b.titulo, 'es'); };
   function aNeg(x) {
-    return { id: x.Id, titulo: x.Title || '', orden: x.Orden, gestor: x.NombreGestor || '', coordina: !!x.Coordina, informe: x.EnInforme !== false,
+    return { id: x.Id, titulo: x.Title || '', orden: x.Orden, gestor: x.NombreGestor || '', celula: x.CelulaMensadef || '', coordina: !!x.Coordina, informe: x.EnInforme !== false,
       miembros: lista(x.Miembros).map(function (m) { return { Id: m.Id, Title: m.Title, Email: m.EMail || '' }; }) };
   }
   function aPunto(x) {
@@ -418,7 +426,7 @@
   function aAport(x) {
     return { id: x.Id, titulo: x.Title || '', punto: Number(x.PuntoId), ref: x.Referencia || '', neg: x.Negociado || '', tipo: x.Tipo || 'Entrada', sit: x.Situacion || '',
       prio: x.Prioridad || 'Normal', orden: Number(x.Orden) || 0, exp: x.Expediente || '', pasar: x.PasarSiguiente !== false, cierre: fecha(x.CierrePunto), origen: x.Origen || '',
-      origenLista: x.OrigenLista || '', origenId: x.OrigenId == null ? null : Number(x.OrigenId), origenUrl: x.OrigenUrl || '', creado: x.Created, modificado: x.Modified,
+      origenLista: x.OrigenLista || '', origenId: x.OrigenId == null ? null : Number(x.OrigenId), origenUrl: x.OrigenUrl || '', origenClave: x.OrigenClave || '', creado: x.Created, modificado: x.Modified,
       editor: x.Editor && x.Editor.Title, autor: x.Author && x.Author.Title,
       adjuntos: lista(x.AttachmentFiles).map(function (f) { return { nombre: f.FileName, url: location.origin + f.ServerRelativeUrl }; }) };
   }
@@ -488,7 +496,8 @@
     if (errorCarga) { v.innerHTML = '<div class="error">No se pudieron leer los datos: ' + esc(errorCarga) + '</div><p class="small muted">Versión ' + esc(VERSION) + '. Pulsa ↻ Actualizar para reintentar.</p>'; return; }
     if (instalada === null) { v.innerHTML = '<p class="muted">Cargando…</p>'; return; }
     if (!instalada) { v.innerHTML = vistaInstalar(); prepararInstalar(); return; }
-    if (!coordino() && !misNegs().length) { v.innerHTML = vistaAcceso(); return; }
+    if (!coordino() && !misNegs().length) { if (importado) { importadoSinAcceso = true; importado = null; }
+      v.innerHTML = (importadoSinAcceso ? '<div class="aviso" style="margin-top:14px">Has llegado con un mensaje de SENDERO, pero no estás en ningún negociado del Punto de Situación: no puedes incluirlo. Pide el alta abajo.</div>' : '') + vistaAcceso(); return; }
     var tabs = [['seguimiento', 'Seguimiento'], ['negociado', 'Mi negociado'], ['informe', 'Informe'], ['historico', 'Histórico'], ['ajustes', 'Ajustes']];
     var p = puntoPorId(sel);
     var cab = '<div class="fila" style="margin-top:12px"><label class="small muted" for="selPunto">Punto de situación</label><select id="selPunto" style="flex:1;min-width:240px">' +
@@ -594,7 +603,7 @@
     h += '<h2 class="sec">' + es.length + ' entrada' + (es.length === 1 ? '' : 's') + '</h2><div id="entradas">' + es.map(function (a, i) {
       return '<div class="card ent' + (a.prio === 'Alta' ? ' alta' : '') + '" data-ent="' + a.id + '"' + (edit ? ' draggable="true"' : '') + '>' + (edit ? '<span class="asa" title="Arrastra para ordenar">⠿</span>' : '') +
         '<div class="cuerpo"><div class="fila"><b class="crece">' + esc(a.titulo) + '</b>' + (a.prio === 'Alta' ? '<span class="badge bad">Prioridad alta</span>' : '<span class="badge info">Normal</span>') +
-        (a.origen === 'META' ? '<span class="badge oro">⭐ Desde META</span>' : a.origen === 'Punto anterior' ? '<span class="badge none">Del punto anterior</span>' : '') +
+        (a.origen === 'META' ? '<span class="badge oro">⭐ Desde META</span>' : a.origen === 'SENDERO' ? '<span class="badge info">✉ Desde SENDERO</span>' : a.origen === 'Punto anterior' ? '<span class="badge none">Del punto anterior</span>' : '') +
         (edit ? '<button title="Subir" data-mover="' + a.id + '" data-dir="-1"' + (i ? '' : ' disabled') + '>↑</button><button title="Bajar" data-mover="' + a.id + '" data-dir="1"' + (i < es.length - 1 ? '' : ' disabled') + '>↓</button>' +
           '<button data-editar="' + a.id + '">✎</button><button class="rojo" data-borrar="' + a.id + '" title="Quitar la entrada (a la papelera)">🗑</button>' : '') + '</div>' +
         htmlSit(a) + '<div class="small muted" style="margin-top:4px">' + esc(a.editor || a.autor || '') + ' · ' + esc(fMedia(a.modificado)) + (a.exp ? ' · Exp. ' + esc(a.exp) : '') +
@@ -674,6 +683,8 @@
   function vistaAjustes() {
     var h = '';
     if (coordino()) {
+      if (!hayCampo('negs', 'CelulaMensadef') || !hayCampo('aport', 'OrigenClave'))
+        h += '<div class="aviso">Esta versión usa dos columnas nuevas (la «Célula de MENSADEF» de cada negociado, para los mensajes que llegan de SENDERO). Pulsa <b>«Comprobar la instalación»</b> (abajo) para crearlas.</div>';
       var pend = solicitudes.filter(function (s) { return (s.EstadoSolicitud || 'Pendiente') === 'Pendiente'; });
       if (pend.length) h += '<h2 class="sec">Solicitudes de alta pendientes</h2>' + pend.map(function (s) {
         return '<div class="card fila small"><span class="crece"><b>' + esc(s.Solicitante ? s.Solicitante.Title : s.Title) + '</b> pide entrar en <b>' + esc(s.Negociado) + '</b>' +
@@ -683,6 +694,7 @@
         return '<div class="card" data-negrow="' + n.id + '"><div class="fila"><b class="crece">' + esc(n.titulo) + (n.coordina ? ' <span class="badge oro">Coordina</span>' : '') + (n.informe ? '' : ' <span class="badge none">No sale en el informe</span>') + '</b>' +
           '<button data-negmover="' + n.id + '" data-dir="-1"' + (i ? '' : ' disabled') + '>↑</button><button data-negmover="' + n.id + '" data-dir="1"' + (i < negs.length - 1 ? '' : ' disabled') + '>↓</button></div>' +
           '<div class="grid2"><div><label class="lbl">Nombre en el Gestor de Tareas (varios con «;»)</label><input data-neggestor value="' + esc(n.gestor) + '"></div>' +
+          (hayCampo('negs', 'CelulaMensadef') ? '<div><label class="lbl">Célula de MENSADEF (varias con «;»)</label><input data-negcelula value="' + esc(n.celula) + '"></div>' : '') +
           '<div><label class="check"><input type="checkbox" data-negcoord' + (n.coordina ? ' checked' : '') + '> Coordina (puede escribir en todos y gestionar los puntos)</label><br><label class="check"><input type="checkbox" data-neginf' + (n.informe ? ' checked' : '') + '> Sale en el informe</label></div></div>' +
           '<label class="lbl">Miembros</label><div>' + (n.miembros.map(function (m) { return '<span class="chip">' + esc(m.Title) + '<button title="Quitar" data-quitarmiembro="' + n.id + '" data-uid="' + m.Id + '">✕</button></span>'; }).join('') || '<span class="small muted">Sin miembros</span>') + '</div>' +
           '<div class="fila" style="margin-top:6px"><div class="crece" style="position:relative"><input data-buscarpersona="' + n.id + '" placeholder="Añadir persona: escribe su nombre…"><div class="sugs" hidden></div></div><button data-guardarneg="' + n.id + '">Guardar cambios</button></div><div class="small" data-negmsg></div></div>';
@@ -815,6 +827,7 @@
     var dlg = $('#dlg');
     dlg.innerHTML = '<div class="dh"><h2>' + (a ? 'Modificar entrada' : 'Nueva entrada') + ' · ' + esc(neg) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db">' +
       (d.origen === 'META' ? '<div class="small"><span class="badge oro">⭐ Desde META</span> asunto Exp. ' + esc(d.origenId) + '</div>' : '') +
+      (d.origen === 'SENDERO' ? '<div class="small"><span class="badge info">✉ Desde SENDERO</span> mensaje de MENSADEF' + (d.origenUrl ? ' · <a href="' + esc(d.origenUrl) + '" target="_blank" rel="noopener">ver el mensaje</a>' : '') + '. Revisa el texto y pulsa Guardar.</div>' : '') +
       '<label class="lbl">Asunto</label><input id="edTit" maxlength="255" value="' + esc(d.titulo || '') + '">' +
       '<label class="lbl">Situación (texto que sale en el informe)</label>' +
       '<div class="barra-ed"><button type="button" data-insimg>🖼 Insertar imagen</button><button type="button" data-ampliar title="Ver el editor a pantalla completa">⛶ Ampliar</button><span class="small muted">También puedes pegar una captura (Ctrl+V) o arrastrar una foto dentro del texto. Las fotos grandes se reducen. Para hacer el recuadro más alto, tira de su esquina inferior derecha.</span></div>' +
@@ -938,7 +951,7 @@
     } else {
       var orden = entradas(p, ed.neg).reduce(function (m, x) { return Math.max(m, x.orden); }, 0) + 1;
       paso = enviarSP(U('aport') + '/items', Object.assign({ __metadata: tipo('aport'), PuntoId: p.id, Referencia: p.ref, Negociado: ed.neg, Tipo: 'Entrada', Orden: orden, CierrePunto: p.cierre.toISOString(),
-        Origen: o.origen || 'Página', OrigenLista: o.origenLista || '', OrigenId: o.origenId == null ? null : o.origenId, OrigenUrl: o.origenUrl || '' }, campos), 'No tienes permiso para añadir entradas')
+        Origen: o.origen || 'Página', OrigenLista: o.origenLista || '', OrigenId: o.origenId == null ? null : o.origenId, OrigenUrl: String(o.origenUrl || '').slice(0, 255) }, o.origenClave && hayCampo('aport', 'OrigenClave') ? { OrigenClave: String(o.origenClave).slice(0, 255) } : {}, campos), 'No tienes permiso para añadir entradas')
         .then(function (r) { return r.Id || r.ID; });
     }
     var id = null, avisos = [];
@@ -1044,6 +1057,84 @@
     if (!t || !p) return;
     abrirEditor(p, neg || pref.neg, null, { titulo: t.Title || '', sit: texto(t.DescripcionDelAsunto) || texto(t.Descripcion) || '', prio: /(alta|urgent|critic|inmediat)/i.test(sinTildes(t.Prioridad)) ? 'Alta' : 'Normal',
       origen: 'META', origenLista: META, origenId: t.Id, origenUrl: metaRaiz ? metaRaiz + '/DispForm.aspx?ID=' + t.Id : '', incluidaEn: neg || '' });
+  }
+
+  // ---------- Mensajes que llegan de SENDERO (MENSADEF) sin pasar por META ----------
+  // SENDERO abre esta página con «#importar=<JSON>» (origen SENDERO, destino psit). El fragmento no se envía a ningún
+  // servidor. Se lee (también desde la página del portal que la contenga), se valida y se borra de la dirección.
+  var importado = (function () {
+    var ventana = window;
+    try { if (window.top !== window && window.top.location.origin === location.origin && /#importar=/.test(window.top.location.hash)) ventana = window.top; } catch (e) { /* otro origen */ }
+    var m = /#importar=(.+)$/.exec(ventana.location.hash || '');
+    if (!m) return null;
+    try { ventana.history.replaceState(null, '', ventana.location.href.replace(/#?importar=.*$/, '').replace(/#$/, '')); } catch (e) { /* sin historial */ }
+    var d = null;
+    try { d = JSON.parse(decodeURIComponent(m[1])); } catch (e) { d = null; }
+    var t = function (x, n) { return typeof x === 'string' ? x.slice(0, n) : x == null ? '' : String(x).slice(0, n); };
+    if (!d || d.v !== 1 || d.origen !== 'SENDERO' || d.destino !== 'psit' || !t(d.asunto, 255).trim()) return { malo: true };
+    return { id: t(d.id, 255), asunto: t(d.asunto, 255).trim(), fecha: t(d.fecha, 40), de: t(d.de, 255), firma: t(d.firma, 255), referencia: t(d.referencia, 255),
+      suReferencia: t(d.suReferencia, 255), expediente: t(d.expediente, 255), enlace: /^https?:\/\//i.test(t(d.enlace, 2000)) ? t(d.enlace, 2000) : '', texto: t(d.texto, 6100), departamento: t(d.departamento, 255).trim() };
+  })();
+  var importadoSinAcceso = false;
+  var clave = function (x) { return sinTildes(x).replace(/[^a-z0-9]/g, ''); };
+  function negDeCelula(cel) {
+    var c = clave(cel);
+    if (!c) return '';
+    var n = negsInforme().find(function (x) { return x.celula.split(';').some(function (y) { return clave(y) && clave(y) === c; }); });
+    return n ? n.titulo : '';
+  }
+  function situacionDe(m) {
+    var cab = ['Mensaje de MENSADEF', m.de ? 'de ' + m.de : '', m.fecha && !isNaN(new Date(m.fecha)) ? 'del ' + fFH(m.fecha) : ''].filter(Boolean).join(' ') +
+      (m.referencia ? ' · Ref. ' + m.referencia : '') + (m.suReferencia ? ' · Su ref. ' + m.suReferencia : '') + (m.firma ? ' · Firma: ' + m.firma : '') + '.';
+    var tx = String(m.texto || '').replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').trim();
+    if (tx.length > 3000) tx = tx.slice(0, 3000).replace(/\s+\S*$/, '') + '…';
+    return cab + (tx ? '\n\n' + tx : '');
+  }
+  function dialogoAviso(titulo, html) {
+    var dlg = $('#dlg');
+    dlg.innerHTML = '<div class="dh"><h2>' + esc(titulo) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db">' + html +
+      '<div class="acciones"><span class="sep"></span><button data-cerrar>Cerrar</button></div></div>';
+    if (!dlg.open) dlg.showModal();
+  }
+  function procesarImport() {
+    var m = importado; importado = null;
+    if (!m) return;
+    if (m.malo) return dialogoAviso('Mensaje de SENDERO', '<div class="error">Los datos que ha mandado SENDERO no se pueden leer. Vuelve a pulsar «Al PSIT» en SENDERO.</div>');
+    var resumen = '<div class="card small"><b>' + esc(m.asunto) + '</b><div class="muted">' + esc([m.de, m.referencia ? 'Ref. ' + m.referencia : '', m.departamento ? 'Célula: ' + m.departamento : 'Sin célula'].filter(Boolean).join(' · ')) + '</div></div>';
+    var abiertos = puntos.filter(esAbierto).sort(function (a, b) { return a.cierre - b.cierre; });
+    if (!abiertos.length) {
+      var ult = puntos[0];
+      return dialogoAviso('Mensaje de SENDERO', resumen + '<div class="bloqueo">🔒 <b>No hay ningún punto de situación abierto.</b> ' + (ult ? esc(ult.ref) + (porAbrir(ult) ? ' abre el ' + esc(fMedia(ult.apertura)) : ' está cerrado desde el ' + esc(fFH(ult.cierre))) + '. ' : '') +
+        'No se puede incluir. ' + (coordino() ? 'Puedes crear o reabrir un punto y volver a pulsar «Al PSIT» en SENDERO.' : 'Pide a PROCOR que abra el punto y vuelve a pulsar «Al PSIT» en SENDERO.') + '</div>');
+    }
+    var p = abiertos[0];
+    sel = p.id;
+    // Mismo mensaje: por su clave; si la entrada no la tiene (columna creada después), por el enlace
+    var ya = delPunto(p).find(function (a) { return a.origen === 'SENDERO' && (a.origenClave ? !!m.id && a.origenClave === m.id : !!m.enlace && a.origenUrl === m.enlace.slice(0, 255)); });
+    if (ya) { pref.neg = ya.neg; pref.vista = 'negociado'; guardarPref(); render(); return dialogoAviso('Mensaje de SENDERO', resumen + '<div class="okmsg">Este mensaje ya está incluido en ' + esc(p.ref) + ', en <b>' + esc(ya.neg) + '</b> («' + esc(ya.titulo) + '»).</div>'); }
+    var datos = { titulo: m.asunto, sit: situacionDe(m), prio: 'Normal', exp: m.expediente || m.referencia || '', origen: 'SENDERO', origenLista: 'SENDERO', origenId: null, origenClave: m.id, origenUrl: m.enlace, incluidaEn: '' };
+    var neg = negDeCelula(m.departamento);
+    var ir = function (n) {
+      if (!puedo(n)) return dialogoAviso('Mensaje de SENDERO', resumen + '<div class="aviso">Va a <b>' + esc(n) + '</b>, pero no eres de ese negociado: no puedes incluirlo. Pásaselo a un miembro de ' + esc(n) + ' o a PROCOR.</div>');
+      datos.incluidaEn = n; pref.neg = n; pref.vista = 'negociado'; guardarPref(); render();
+      abrirEditor(p, n, null, datos);
+    };
+    if (neg) return ir(neg);
+    var mios = misNegs();
+    if (!mios.length) return dialogoAviso('Mensaje de SENDERO', resumen + '<div class="aviso">No eres de ningún negociado: no puedes incluirlo.</div>');
+    var puedeGuardar = coordino() && m.departamento && hayCampo('negs', 'CelulaMensadef');
+    dialogoAviso('¿A qué negociado va?', resumen + '<p>' + (m.departamento ? 'La célula <b>«' + esc(m.departamento) + '»</b> no está asignada a ningún negociado.' : 'El mensaje no trae célula de MENSADEF.') + ' Elige dónde incluirlo en ' + esc(p.ref) + ':</p>' +
+      '<select id="impNeg">' + mios.map(function (n) { return '<option>' + esc(n.titulo) + '</option>'; }).join('') + '</select>' +
+      (puedeGuardar ? '<label class="check" style="margin-top:8px"><input type="checkbox" id="impGuardar" checked> Guardar «' + esc(m.departamento) + '» como célula de ese negociado (Ajustes), para la próxima vez</label>' :
+        m.departamento && coordino() ? '<p class="small muted">Para recordarlo la próxima vez, pulsa «Comprobar la instalación» en Ajustes y rellena la célula de cada negociado.</p>' : '') +
+      '<div class="error" id="impErr" hidden></div><div class="acciones"><button class="prim" id="impOk">Continuar</button></div>');
+    $('#impOk').addEventListener('click', function () {
+      var n = $('#impNeg').value, nn = negs.find(function (x) { return x.titulo === n; }), g = $('#impGuardar');
+      var paso = g && g.checked && nn ? merge(U('negs') + '/items(' + nn.id + ')', { __metadata: tipo('negs'), CelulaMensadef: (nn.celula ? nn.celula + '; ' : '') + m.departamento }, 'No tienes permiso para cambiar los negociados')
+        .then(function () { nn.celula = (nn.celula ? nn.celula + '; ' : '') + m.departamento; }) : Promise.resolve();
+      this.disabled = true;
+      paso.then(function () { $('#dlg').close(); ir(n); }, function (e) { var er = $('#impErr'); er.textContent = e.message; er.hidden = false; });
+    });
   }
 
   // ---------- Puntos (alta, cierre, recordatorio, entrega, archivo y borrado) ----------
@@ -1431,7 +1522,8 @@
       if (!confirm('Vas a quitarte la coordinación a ti mismo. ¿Seguro?')) return;
     }
     boton.disabled = true;
-    merge(U('negs') + '/items(' + id + ')', { __metadata: tipo('negs'), NombreGestor: $('[data-neggestor]', fila).value.trim(), Coordina: coord, EnInforme: $('[data-neginf]', fila).checked, MiembrosId: { results: ids } }, 'No tienes permiso para cambiar los negociados')
+    var celulaIn = $('[data-negcelula]', fila);
+    merge(U('negs') + '/items(' + id + ')', Object.assign(celulaIn ? { CelulaMensadef: celulaIn.value.trim() } : {}, { __metadata: tipo('negs'), NombreGestor: $('[data-neggestor]', fila).value.trim(), Coordina: coord, EnInforme: $('[data-neginf]', fila).checked, MiembrosId: { results: ids } }), 'No tienes permiso para cambiar los negociados')
       .then(function () { delete pendientesNeg[id]; aviso('Negociado guardado'); return cargar(); }, function (e) { boton.disabled = false; $('[data-negmsg]', fila).innerHTML = '<span class="error">' + esc(e.message) + '</span>'; });
   }
   function moverNeg(id, dir) {
