@@ -1,5 +1,0 @@
-# Cuentas autorizadas a usar SENDERO (15/11/2026). Un código por línea; lo que va detrás de # es un comentario.
-# El código lo ve cada persona en la pantalla «SENDERO no está autorizado para esta cuenta» (botón «Pedir autorización»)
-# o lo calcula el Cte. con autorizar-sendero.html. No se guardan correos: solo la huella (SHA-256) de la cuenta.
-# Tras cambiar esta lista: python3 mensadef/generar-marcador.py (y --pruebas) y repartir el favorito nuevo.
-234C-3639-A1EF-6203  # Cte. (cuenta de trabajo)

@@ -12,7 +12,6 @@ Con --pruebas solo genera la copia de pruebas del visor (marcador-visor-mensadef
 «SENDERO (pruebas)», con PRUEBAS = true) y no toca los marcadores buenos.
 """
 import datetime
-import hashlib
 import html
 import json
 import pathlib
@@ -21,26 +20,32 @@ import urllib.parse
 
 aqui = pathlib.Path(__file__).parent
 
-# 15/11/2026: control de distribución de SENDERO. autorizados.txt tiene un código por línea (lo que sale en la pantalla
-# «No autorizado» o en autorizar-sendero.html; # para comentarios). Cada versión caduca a los DIAS_VALIDEZ días.
+# 15/11/2026: control de distribución de SENDERO. Quién puede usarlo lo dice la lista «SENDERO Autorizados» de Colabora, que
+# lee la página acceso/SENDERO-acceso.html subida a URL_ACCESO (la copia protegida acceso/subir/SENDERO-acceso.html).
+# Cada versión caduca a los DIAS_VALIDEZ días.
 DIAS_VALIDEZ = 30
-CUENTA_PRUEBAS = 'persona@pruebas.invalid'  # la de las pruebas simuladas: un dominio .invalid no existe en MENSADEF
+URL_ACCESO = 'https://colabora.mdef.es/et/SUIGESUR/colaborativo/Documentos%20compartidos/SENDERO-acceso.html'
 
 
-def codigo_acceso(correo):
-    x = hashlib.sha256(('SENDERO|' + correo.strip().lower()).encode('utf-8')).hexdigest()[:16].upper()
-    return '-'.join(x[i:i + 4] for i in range(0, 16, 4))
+def proteger(entrada, salida, ligero=False, mensaje=''):
+    import os, subprocess
+    env = dict(os.environ)
+    if ligero:
+        env['LIGERO'] = '1'
+    if mensaje:
+        env['MENSAJE'] = mensaje
+    r = subprocess.run(['node', str(aqui / 'proteger' / 'proteger.mjs'), str(entrada), str(salida)], capture_output=True, text=True, env=env)
+    if r.returncode:
+        sys.exit('No se pudo proteger ' + str(entrada) + ' (¿falta «cd mensadef/proteger && npm install»?):\n' + r.stderr[-800:])
 
 
-def autorizados():
-    cods = []
-    for linea in (aqui / 'autorizados.txt').read_text(encoding='utf-8').splitlines():
-        c = linea.split('#')[0].strip().upper()
-        if not c:
-            continue
-        assert len(c) == 19 and all(t and len(t) == 4 for t in c.split('-')), 'Código mal escrito en autorizados.txt: ' + c
-        cods.append(c)
-    return sorted(set(cods + [codigo_acceso(CUENTA_PRUEBAS)]))
+def generar_acceso():
+    sal = aqui / 'acceso' / 'subir'
+    sal.mkdir(exist_ok=True)
+    proteger(aqui / 'acceso' / 'SENDERO-acceso.html', sal / 'SENDERO-acceso.html', ligero=True,
+             mensaje='Esta página solo funciona en Colabora (mdef.es).')
+    print('acceso/subir/SENDERO-acceso.html: copia protegida para subir a Colabora')
+
 
 PLANTILLA = '''<!doctype html>
 <html lang="es">
@@ -120,21 +125,18 @@ def generar(fuente, salida, nombre, titulo, intro, pasos, pruebas=False):
         assert 'var PRUEBAS = false;' in pagina, 'No encuentro «var PRUEBAS = false;» en ' + fuente
         pagina = pagina.replace('var PRUEBAS = false;', 'var PRUEBAS = true;')
     if fuente == 'visor-mensadef.html':
-        # Autorizados y caducidad (15/11/2026)
-        assert 'var AUTORIZADOS = null;' in pagina and 'var CADUCA = null;' in pagina
+        # Control de acceso en Colabora y caducidad (15/11/2026)
+        assert 'var URL_ACCESO = null;' in pagina and 'var CADUCA = null;' in pagina
         caduca = (datetime.date.today() + datetime.timedelta(days=DIAS_VALIDEZ)).isoformat()
-        lista = autorizados()
-        pagina = pagina.replace('var AUTORIZADOS = null;', 'var AUTORIZADOS = ' + json.dumps(lista) + ';')
+        pagina = pagina.replace('var URL_ACCESO = null;', 'var URL_ACCESO = ' + json.dumps(URL_ACCESO) + ';')
         pagina = pagina.replace('var CADUCA = null;', 'var CADUCA = ' + json.dumps(caduca) + ';')
-        print(salida + ': ' + str(len(lista) - 1) + ' cuentas autorizadas, caduca el ' + caduca)
+        print(salida + ': acceso en ' + URL_ACCESO + ', caduca el ' + caduca)
         # El visor va protegido (compactado, con bloqueo a *.mdef.es): proteger/proteger.mjs (npm install la primera vez)
-        import subprocess, tempfile
+        import tempfile
         with tempfile.TemporaryDirectory() as d:
             ent, sal = pathlib.Path(d) / 'entrada.html', pathlib.Path(d) / 'salida.html'
             ent.write_text(pagina, encoding='utf-8')
-            r = subprocess.run(['node', str(aqui / 'proteger' / 'proteger.mjs'), str(ent), str(sal)], capture_output=True, text=True)
-            if r.returncode:
-                sys.exit('No se pudo proteger el visor (¿falta «cd mensadef/proteger && npm install»?):\n' + r.stderr[-800:])
+            proteger(ent, sal)
             pagina = sal.read_text(encoding='utf-8')
     # Fuera de MENSADEF (otra web, Colabora, Outlook…) el favorito no puede leer nada: lleva a la portada de MENSADEF, donde
     # basta con pulsarlo otra vez (10/11/2026)
@@ -170,6 +172,8 @@ EXPLORAR_PF = ('explorar-portafirmas.js', 'marcador-explorar-portafirmas.html', 
                 'Abre una petición, márcala y pulsa <b>Firmar</b>. Cuando salga AutoFirma, <b>cancela</b> (no hace falta firmar).',
                 'Si la página cambia, pulsa otra vez el favorito: conserva lo anotado.',
                 'Pulsa <b>Copiar</b> en el recuadro y pégalo en la conversación. Para quitarlo, recarga (F5).'])
+
+generar_acceso()
 
 if '--pruebas' in sys.argv:
     generar(*ESCUCHAR)

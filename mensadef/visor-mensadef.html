@@ -530,59 +530,127 @@
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
   var VERSION = '2026-11-15 · 1';
-  // 15/11/2026: control de distribución. Solo abren las cuentas autorizadas (código = huella SHA-256 de la cuenta; no se
-  // guarda el correo) y cada versión caduca a los 30 días. Los dos valores los pone generar-marcador.py desde
-  // mensadef/autorizados.txt; en el archivo fuente quedan a null (copia de desarrollo, no se reparte).
-  var AUTORIZADOS = null;
+  // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
+  // (/et/SUIGESUR/colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
+  // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
+  // solo a mensadef.mdef.es. Además cada versión caduca a los 30 días. URL_ACCESO y CADUCA los pone generar-marcador.py;
+  // en el archivo fuente quedan a null (copia de desarrollo, no se reparte).
+  var URL_ACCESO = null;
   var CADUCA = null;
   var CORREO_AUTOR = 'asansen@et.mde.es';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
 
+  // Pantalla de bloqueo encima de SENDERO (no lo borra: si luego se autoriza, se quita y sigue)
   function pantallaBloqueo(titulo, html) {
-    var m = document.querySelector('main');
-    m.innerHTML = '<div class="card" id="bloqueo" style="max-width:720px;margin:40px auto;border-left:6px solid #b58f00">' +
+    quitarBloqueo();
+    var d = document.createElement('div'); d.id = 'capaBloqueo';
+    d.innerHTML = '<div class="card" id="bloqueo" style="max-width:720px;margin:40px auto;border-left:6px solid #b58f00">' +
       '<h2 style="margin:0 0 10px;color:#12315a">🔒 ' + esc(titulo) + '</h2>' + html +
       '<p class="muted" style="margin-top:14px">SENDERO · © 2026 Cte. Alfredo Sánchez Sender · versión ' + esc(VERSION) + '</p></div>';
+    var m = document.querySelector('main'); m.style.display = 'none'; m.parentNode.insertBefore(d, m);
   }
+  function quitarBloqueo() { var d = $('capaBloqueo'); if (d) d.parentNode.removeChild(d); document.querySelector('main').style.display = ''; }
   var fechaCorta = function (iso) { var x = iso.split('-'); return x[2] + '/' + x[1] + '/' + x[0]; };
   var hoyIso = function () { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() < 9 ? '0' : '') + (d.getMonth() + 1) + '-' + (d.getDate() < 10 ? '0' : '') + d.getDate(); };
-  function codigoAcceso(email) {
-    if (!window.crypto || !crypto.subtle || !window.TextEncoder) return Promise.reject(new Error('el navegador no puede calcular el código'));
-    return crypto.subtle.digest('SHA-256', new TextEncoder().encode('SENDERO|' + String(email).toLowerCase().trim())).then(function (h) {
-      var x = Array.prototype.map.call(new Uint8Array(h).slice(0, 8), function (b) { return (b < 16 ? '0' : '') + b.toString(16); }).join('').toUpperCase();
-      return x.slice(0, 4) + '-' + x.slice(4, 8) + '-' + x.slice(8, 12) + '-' + x.slice(12, 16);
-    });
-  }
   var mailtoPedir = function (asunto, cuerpo) { return 'mailto:' + CORREO_AUTOR + '?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(cuerpo); };
-  // Devuelve una promesa que solo se cumple si la cuenta está autorizada; si no, deja la pantalla de bloqueo
-  function comprobarAcceso(email) {
-    if (AUTORIZADOS === null) return Promise.resolve();
-    var parar = new Promise(function () { /* bloqueado: no se sigue */ });
-    if (!email) {
-      pantallaBloqueo('No puedo comprobar tu autorización', '<p>SENDERO no encuentra con qué cuenta has entrado en MENSADEF. Abre tu célula en MENSADEF, espera a que carguen tus mensajes y pulsa el favorito otra vez.</p>');
-      return parar;
+  var numVersion = function (v) { var x = /^(\d{4})-(\d\d)-(\d\d) · (\d+)/.exec(String(v || '')); return x ? Number(x[1] + x[2] + x[3]) * 1000 + Number(x[4]) : 0; };
+  function bandaArriba(id, texto, url) {
+    if ($(id)) return;
+    var b = document.createElement('div'); b.id = id;
+    b.style.cssText = 'background:#efc000;color:#12315a;text-align:center;font-weight:800;padding:6px 10px;border-bottom:2px solid #b58f00';
+    b.textContent = texto;
+    if (url) { var a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = ' Descargar la versión nueva'; a.style.color = '#12315a'; b.appendChild(a); }
+    document.body.insertBefore(b, document.querySelector('header'));
+  }
+  function avisarVersion(v) {
+    if (v && v.version && numVersion(v.version) > numVersion(VERSION)) bandaArriba('avisoVersion', '⬆ Hay una versión nueva de SENDERO (' + v.version + '): instálala en lugar de la tuya.', /^https:\/\/[^/]+\.mdef\.es\//i.test(v.url || '') ? v.url : '');
+  }
+  // Pregunta a la página de acceso de Colabora: en un marco oculto o, con un clic, en una ventana pequeña
+  var ORIGEN_ACCESO = function () { try { return new URL(URL_ACCESO).origin; } catch (e) { return ''; } };
+  function preguntarAcceso(ambito, enVentana, alTerminar) {
+    var n = Math.random().toString(36).slice(2) + Date.now().toString(36), hecho = false, marco = null, ventana = null, reloj;
+    var fin = function (r) {
+      if (hecho) return; hecho = true; clearTimeout(reloj); window.removeEventListener('message', oir);
+      if (marco && marco.parentNode) marco.parentNode.removeChild(marco);
+      alTerminar(r);
+    };
+    var oir = function (e) {
+      if (e.origin !== ORIGEN_ACCESO() || !e.data || e.data.tipo !== 'sendero-acceso' || e.data.n !== n) return;
+      fin(e.data);
+    };
+    window.addEventListener('message', oir);
+    var url = URL_ACCESO + '#comprobar=' + encodeURIComponent(JSON.stringify({ n: n, a: ambito || '', v: VERSION }));
+    if (enVentana) {
+      ventana = window.open(url, 'senderoAcceso', 'width=520,height=420');
+      if (!ventana) { fin({ error: 'El navegador ha bloqueado la ventana: permite las ventanas emergentes de MENSADEF' }); return; }
+      reloj = setTimeout(function () { fin(null); }, 180000);
+    } else {
+      marco = document.createElement('iframe'); marco.title = 'Comprobación de acceso'; marco.setAttribute('aria-hidden', 'true');
+      marco.style.cssText = 'position:absolute;width:1px;height:1px;border:0;left:-9999px;top:0';
+      marco.src = url; document.body.appendChild(marco);
+      reloj = setTimeout(function () { fin(null); }, 15000);
     }
-    return codigoAcceso(email).then(function (cod) {
-      if (AUTORIZADOS.indexOf(cod) >= 0) return;
-      pantallaBloqueo('SENDERO no está autorizado para esta cuenta',
-        '<p>Para usar SENDERO hay que pedir autorización al <b>Cte. Alfredo Sánchez Sender</b>. Mándale este código (no contiene tus datos):</p>' +
-        '<p style="font:800 1.5rem ui-monospace,Consolas,monospace;letter-spacing:.08em;color:#12315a" id="codAcceso">' + esc(cod) + '</p>' +
-        '<div class="acciones"><a id="pedirAcceso" href="' + esc(mailtoPedir('Autorización SENDERO', 'Solicito autorización para usar SENDERO.\n\nCódigo de acceso: ' + cod + '\nCuenta: ' + email + '\n')) + '"><button type="button" class="prim">✉ Pedir autorización por correo</button></a>' +
-        '<button type="button" id="copiarCod">Copiar el código</button></div>' +
-        '<p class="muted">Cuando te autorice, te dará el favorito nuevo: sustituye el que tienes por ese.</p>');
-      $('copiarCod').addEventListener('click', function () { var b = this; (navigator.clipboard ? navigator.clipboard.writeText(cod) : Promise.reject()).then(function () { b.textContent = 'Copiado ✓'; }, function () { prompt('Copia el código (Ctrl + C):', cod); }); });
-      return parar;
-    }, function (e) {
-      pantallaBloqueo('No puedo comprobar tu autorización', '<p>' + esc(e.message || e) + '. Ábrelo en Microsoft Edge o Chrome actualizados.</p>');
-      return parar;
+  }
+  var urlSolicitar = function (ambito) { return URL_ACCESO + '#solicitar=' + encodeURIComponent(JSON.stringify({ a: ambito || '', v: VERSION })); };
+  var DIA = 864e5;
+  // Devuelve una promesa que solo se cumple si la cuenta está autorizada; si no, deja la pantalla de bloqueo hasta que lo esté
+  function comprobarAcceso(ambito) {
+    if (!URL_ACCESO) return Promise.resolve();
+    ambito = String(ambito || '').toUpperCase();
+    var mem = leer('acceso', null);
+    return new Promise(function (seguir) {
+      var dentro = function (r) { guardar('acceso', { ok: true, t: Date.now(), ambito: ambito, regla: r.regla || '', vigente: r.vigente || null }); avisarVersion(r.vigente); quitarBloqueo(); seguir(); };
+      var resultado = function (r, enVentana) {
+        if (r && r.ok) return dentro(r);
+        if (r && !r.error) { try { localStorage.removeItem(MEMORIA + 'acceso'); } catch (e) { /* sin memoria */ } return sinPermiso(r); }
+        // No ha contestado (o Colabora ha fallado): se da por buena la última autorización unos días
+        if (!enVentana && mem && mem.ok && Date.now() - mem.t < 5 * DIA) {
+          bandaArriba('avisoAcceso', '⚠ No he podido comprobar tu autorización con Colabora; sigues dentro con la última comprobación (' + new Date(mem.t).toLocaleDateString('es-ES') + ').');
+          avisarVersion(mem.vigente); return seguir();
+        }
+        sinComprobar(r);
+      };
+      var botonesComunes = '<button type="button" id="accVentana">⟳ Volver a comprobar</button>';
+      var conectar = function () {
+        if ($('accVentana')) $('accVentana').addEventListener('click', function () { this.disabled = true; $('accMsg') && ($('accMsg').textContent = 'Comprobando en Colabora…'); preguntarAcceso(ambito, true, function (r) { resultado(r, true); }); });
+        if ($('accSolicitar')) $('accSolicitar').addEventListener('click', function () { if (!window.open(urlSolicitar(ambito), '_blank')) alert('El navegador ha bloqueado la pestaña nueva. Permite las ventanas emergentes de MENSADEF.'); });
+      };
+      function sinPermiso(r) {
+        var s = r.solicitud, pend = s && s.estado === 'Pendiente';
+        pantallaBloqueo(r.motivo === 'bloqueado' ? 'Tu acceso a SENDERO está retirado' : 'SENDERO no está autorizado para tu cuenta',
+          '<p>' + (r.motivo === 'bloqueado' ? 'Si crees que es un error, habla con el Cte. Alfredo Sánchez Sender o con el responsable de tu ámbito.' :
+            'Cuenta: <b>' + esc(r.email || '') + '</b>' + (ambito ? ' · ámbito de MENSADEF: <b>' + esc(ambito) + '</b>' : '') + '. Para usarlo, solicita acceso: lo aprueba el Cte. Alfredo Sánchez Sender o el responsable de tu ámbito.') + '</p>' +
+          (pend ? '<p>Tu solicitud del ' + esc(new Date(s.fecha).toLocaleDateString('es-ES')) + ' está <b>pendiente</b>.</p>' : s && s.estado === 'Denegada' ? '<p>Tu última solicitud fue <b>denegada</b>' + (s.respuesta ? ': ' + esc(s.respuesta) : '') + '.</p>' : '') +
+          '<div class="acciones">' + (r.motivo === 'bloqueado' || pend ? '' : '<button type="button" class="prim" id="accSolicitar">✉ Solicitar acceso</button>') + botonesComunes + '</div><p class="muted" id="accMsg"></p>');
+        conectar();
+      }
+      function sinComprobar(r) {
+        pantallaBloqueo('Comprueba tu autorización',
+          '<p>SENDERO tiene que comprobar en Colabora que estás autorizado. Pulsa el botón: se abre una ventana pequeña de Colabora que se cierra sola.</p>' +
+          (r && r.error ? '<p class="muted">Detalle: ' + esc(r.error) + '</p>' : '') +
+          '<div class="acciones"><button type="button" class="prim" id="accVentana">🔐 Comprobar en Colabora</button></div><p class="muted" id="accMsg"></p>');
+        conectar();
+      }
+      // Comprobado hace menos de un día con este ámbito: se entra ya y se vuelve a preguntar por detrás
+      if (mem && mem.ok && mem.ambito === ambito && Date.now() - mem.t < DIA) {
+        avisarVersion(mem.vigente); seguir();
+        preguntarAcceso(ambito, false, function (r) {
+          if (r && r.ok) guardar('acceso', { ok: true, t: Date.now(), ambito: ambito, regla: r.regla || '', vigente: r.vigente || null });
+          else if (r && !r.error) { try { localStorage.removeItem(MEMORIA + 'acceso'); } catch (e) { /* sin memoria */ } }
+        });
+        return;
+      }
+      $('estado').textContent = 'Comprobando tu autorización en Colabora…';
+      preguntarAcceso(ambito, false, function (r) { resultado(r, false); });
     });
   }
   if (CADUCA && hoyIso() > CADUCA) {
     pantallaBloqueo('Esta versión de SENDERO ha caducado',
       '<p>Esta versión caducó el <b>' + esc(fechaCorta(CADUCA)) + '</b>. Pide la versión nueva al <b>Cte. Alfredo Sánchez Sender</b> y sustituye tu favorito por ella.</p>' +
-      '<div class="acciones"><a id="pedirVersion" href="' + esc(mailtoPedir('Versión nueva de SENDERO', 'Solicito la versión nueva de SENDERO (la mía, ' + VERSION + ', caducó el ' + fechaCorta(CADUCA) + ').\n')) + '"><button type="button" class="prim">✉ Pedir la versión nueva</button></a></div>');
+      '<div class="acciones">' + ((leer('acceso', null) || {}).vigente && /^https:\/\/[^/]+\.mdef\.es\//i.test(leer('acceso', null).vigente.url || '') ? '<a id="bajarVersion" href="' + esc(leer('acceso', null).vigente.url) + '" target="_blank" rel="noopener"><button type="button" class="prim">⬇ Descargar la versión nueva</button></a>' : '') +
+      '<a id="pedirVersion" href="' + esc(mailtoPedir('Versión nueva de SENDERO', 'Solicito la versión nueva de SENDERO (la mía, ' + VERSION + ', caducó el ' + fechaCorta(CADUCA) + ').\n')) + '"><button type="button">✉ Pedir la versión nueva</button></a></div>');
     return;
   }
   if (CADUCA) {
@@ -857,8 +925,7 @@
   webDe(ruta).then(function (w) {
     web = w;
     api('web/currentuser?$select=Title', w.url).then(function (u) { nombreYo = u.Title || ''; $('quien').textContent = [w.titulo, u.Title].filter(Boolean).join(' · '); }).catch(function () { $('quien').textContent = w.titulo || ''; });
-    $('estado').textContent = 'Comprobando tu autorización…';
-    return correoUsuario(w).then(function (c) { return comprobarAcceso(c && c.email); }).then(function () {
+    return comprobarAcceso((/\/ambito\/([^/]+)/i.exec(ruta || '') || [])[1] || '').then(function () {
     $('estado').textContent = 'Buscando tus células y bandejas en MENSADEF…';
     return iniciarApi(w).then(function () {
       modoApi = true;

@@ -244,8 +244,9 @@ autoría.
     14/11/2026: SENDERO 2026-11-14 · 1 a · 8 entregados (plegar grupos, «Ir a Rúbrica» con la lista filtrada del Portafirmas, filtros
       sin Tipo/Remitente, Sí/No, células sin estrella, franja amarilla con letras azules). PENDIENTE DEL USUARIO: probar «Ir a
       Rúbrica» y «↩ Responder» de verdad, y decir si se hace la limpieza de filtros propuesta (Célula, Leído y Estado como pastillas).
-    15/11/2026: SENDERO 2026-11-15 · 1: **lista de autorizados y caducidad de 30 días** (petición del usuario). Quien no está en
-      `mensadef/autorizados.txt` ve su código y un botón para pedírselo por correo al Cte.; cada favorito caduca a los 30 días
-      de generarlo (aviso los 5 últimos). El Cte. puede calcular códigos con `mensadef/autorizar-sendero.html`.
-      PENDIENTE DEL USUARIO: comprobar que su cuenta abre (se autorizó la de trabajo `asansen@…`; si sale bloqueado, mandar el
-      código de la pantalla) y pasar los códigos de quien deba usarlo. Cada mes (o con cada versión nueva) regenerar y repartir.
+    15/11/2026: SENDERO 2026-11-15 · 1: **control de acceso en Colabora** (`/et/SUIGESUR/colaborativo`, página
+      `mensadef/acceso/SENDERO-acceso.html`, listas «SENDERO Autorizados» y «SENDERO Solicitudes»; por ámbito de MENSADEF,
+      persona y bloqueo; responsables de ámbito; versión vigente) y **caducidad de 30 días** por versión (petición del
+      usuario; sustituye a la lista de códigos de la misma mañana). PENDIENTE DEL USUARIO: subir `acceso/subir/SENDERO-acceso.html`
+      a «Documentos compartidos» de colaborativo, abrirla y hacer la «Preparación», añadir el ámbito 2SUIGE (y los que
+      quiera) y probar SENDERO. Confirmar si la comprobación va sola (marco oculto) o pide el clic «Comprobar en Colabora».

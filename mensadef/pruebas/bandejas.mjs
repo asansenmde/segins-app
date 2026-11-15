@@ -3,6 +3,7 @@
 // SINCORREO=1: SharePoint no tiene el correo del usuario; se toma de las consultas que ya hizo la aplicación en la página.
 // (Playwright no aplica CORS a las respuestas simuladas: el «primero sin cookies, luego con la sesión» no se puede comprobar aquí.)
 import { createRequire } from 'module';
+import { simularColabora, nuevoEstado, listasPreparadas } from './colabora-simulada.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
 const O = 'https://mensadef.mdef.es', API = 'https://mensadefapi.mdef.es', WEB = '/ambito/2SUIGE';
@@ -93,7 +94,6 @@ await ctx.route(O + '/**', r => {
   if (!u.includes('/_api/')) return r.fulfill({ contentType: 'text/html', body: '<html><body>MENSADEF<script>if (/Landing\\.aspx/i.test(location.pathname)) { fetch("' + API + '/api/usuario/ValidateUser?idUsuario=persona&useUid=false"); fetch("' + API + '/api/ambitocomun/AmbitoRegistral?emailUsuario=persona%40pruebas.invalid&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es"); fetch("' + API + '/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40pruebas.invalid&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es"); }if (/SitePages\\/ambito\\.aspx/i.test(location.pathname)) setTimeout(function () { fetch("' + API + '/api/usuario/ValidateUser?idUsuario=persona&useUid=false"); fetch("' + API + '/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40pruebas.invalid&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE", { headers: { "Content-Type": "application/json", passcode: "' + PASS + '", user: "' + UID + '" } }); }, ' + (process.env.LENTO ? 18000 : 300) + ');addEventListener("hashchange", function () { if (/^#\\/celula\\//.test(location.hash)) fetch("' + API + '/api/usuariovista/UsuarioVistaObtener?x=1", { headers: { "Content-Type": "application/json", passcode: "' + PASS + '", user: "' + UID + '" } }); });</script></body></html>' });
   if (u.startsWith(O + WEB + '/_api/web?')) return J({ Url: O + WEB, Title: 'Segunda SUIGE' });
   if (u.includes('/_api/web?')) return r.fulfill({ status: 404, body: '' });
-  if (u.includes('currentuser') && process.env.NOAUT) return J({ Title: 'OTRA', Email: 'otra@pruebas.invalid', LoginName: 'i:0#.w|et\\otra' });
   if (u.includes('currentuser')) return J(process.env.SINCORREO ? { Title: 'PERSONA', Email: '', UserPrincipalName: '', LoginName: 'i:0#.w|et\\persona' } : { Title: 'PERSONA', Email: 'persona@pruebas.invalid', LoginName: 'i:0#.w|et\\persona' });
   if (u.includes('GetMyProperties')) return J({ Email: '', UserProfileProperties: [] });
   if (u.includes('/_api/site?')) return J({ Url: O + WEB });
@@ -107,30 +107,65 @@ const consultasApp = pg => !process.env.SINCORREO ? null : pg.evaluate(() => { c
   { name: 'https://mensadefapi.mdef.es/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40pruebas.invalid&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE' }]; });
 await consultasApp(p);
 if (process.env.VENTANA) await p.evaluate(M => localStorage.setItem(M + 'sinAutoentrada', 'true'), MEM);
-// 15/11/2026: autorizados y caducidad. DIAS=n adelanta el reloj n días (31 → caducada; 27 → aviso); NOAUT=1: cuenta no autorizada
+// 15/11/2026: control de acceso en Colabora (lista «SENDERO Autorizados», simulada) y caducidad. Por defecto el ámbito
+// 2SUIGE está autorizado. NOAUT=1: sin reglas (pantalla «no autorizado» y «Solicitar acceso»); XFO=1: Colabora no deja
+// abrir su página en un marco (se comprueba con la ventana pequeña); NUEVA=1: hay una versión vigente más nueva;
+// DIAS=n adelanta el reloj n días (31 → caducada; 27 → aviso)
+const estC = nuevoEstado({ xfo: !!process.env.XFO }); estC.admin = false; estC.usuario = { Id: 21, Title: 'PERSONA', Email: 'persona@pruebas.invalid' };
+listasPreparadas(estC, (process.env.NOAUT ? [] : [{ Title: '2SUIGE', Tipo: 'Ámbito' }]).concat(process.env.NUEVA ? [{ Title: '2099-01-01 · 1', Tipo: 'Versión', Nota: 'https://colabora.mdef.es/et/SUIGESUR/colaborativo/Documentos%20compartidos/SENDERO.html' }] : []));
+await simularColabora(ctx, estC, new URL('../acceso/subir/SENDERO-acceso.html', import.meta.url).pathname);
 if (process.env.DIAS) await p.evaluate(n => { const D = Date, d = n * 864e5; window.Date = class extends D { constructor(...a) { super(...(a.length ? a : [D.now() + d])); } static now() { return D.now() + d; } }; }, Number(process.env.DIAS));
 const llamadasAntes = llamadas.length;
 await p.evaluate(codigo); await p.waitForTimeout(2500);
+const leeBandejas = () => llamadas.slice(llamadasAntes).filter(x => /ObtenerBuzonCelula|ConsultaUsuarioDicodef|EtiquetasObtener/.test(x)).length;
+const cargadas = async () => { await p.waitForFunction(() => /mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 90000 }).catch(() => 0); return /mensajes del/.test(await p.textContent('#estado')) && llamadas.slice(llamadasAntes).some(x => /ObtenerBuzonCelula/.test(x)); };
+const fin = async () => { console.log('errores:', JSON.stringify(errs)); await b.close(); process.exit(0); };
+const accesoPortal = !!process.env.PORTAL && !process.env.SESION;   // desde la portada se comprueba al entrar en el ámbito
 if (process.env.NOAUT || Number(process.env.DIAS) > 30) {
-  await p.waitForSelector('#bloqueo', { timeout: 30000 }).catch(() => 0);
-  const r = await p.evaluate(() => ({ t: (document.querySelector('#bloqueo h2') || {}).textContent || '', cod: (document.getElementById('codAcceso') || {}).textContent || '', mail: (document.querySelector('#bloqueo a[href^="mailto:"]') || {}).href || '', bandejas: !!document.querySelector('#lista tbody tr[data-i]') }));
-  // (ValidateUser y UsuarioCelulas los pide la página simulada de MENSADEF al cargar; lo que no debe pasar es leer bandejas)
-  const llamadasApi = llamadas.slice(llamadasAntes).filter(x => /ObtenerBuzonCelula|ConsultaUsuarioDicodef|EtiquetasObtener/.test(x)).length;
-  console.log('acceso: ' + (process.env.NOAUT ? 'no autorizado' : 'caducada') + ' → «' + r.t.trim() + '» | código', r.cod.replace(/[0-9A-F]/g, 'X'), '| correo de petición:', /^mailto:asansen@et\.mde\.es\?subject=/.test(r.mail), '| bandejas leídas:', llamadasApi, '| lista:', r.bandejas);
-  const ok = process.env.NOAUT ? /no está autorizado/.test(r.t) && /^[0-9A-F]{4}(-[0-9A-F]{4}){3}$/.test(r.cod) : /caducado/.test(r.t);
-  if (!ok || !r.mail || llamadasApi || r.bandejas) console.log('Error: bloqueo de acceso');
+  await p.waitForSelector('#bloqueo', { timeout: 60000 }).catch(() => 0);
+  const r = await p.evaluate(() => ({ t: (document.querySelector('#bloqueo h2') || {}).textContent || '', txt: (document.getElementById('bloqueo') || {}).textContent || '', solicitar: !!document.getElementById('accSolicitar'), mail: (document.querySelector('#bloqueo a[href^="mailto:"]') || {}).href || '', lista: !!document.querySelector('#lista tbody tr[data-i]') }));
+  console.log('acceso: ' + (process.env.NOAUT ? 'no autorizado' : 'caducada') + ' → «' + r.t.trim() + '» | solicitar:', r.solicitar, '| correo:', /^mailto:asansen@et\.mde\.es\?subject=/.test(r.mail), '| bandejas leídas:', leeBandejas(), '| lista:', r.lista);
+  const ok = process.env.NOAUT ? /no está autorizado/.test(r.t) && r.solicitar && /persona@pruebas\.invalid/.test(r.txt) && /2SUIGE/.test(r.txt) : /caducado/.test(r.t) && r.mail;
+  if (!ok || leeBandejas() || r.lista) console.log('Error: bloqueo de acceso');
   if (process.env.CAPTURA_BLOQUEO) { await p.setViewportSize({ width: 1100, height: 620 }); await p.screenshot({ path: process.env.CAPTURA_BLOQUEO }); }
-  console.log('errores:', JSON.stringify(errs)); await b.close(); process.exit(0);
+  if (process.env.NOAUT) {
+    // Solicitar acceso: se abre la página de Colabora con el ámbito puesto
+    const [w] = await Promise.all([ctx.waitForEvent('page'), p.click('#accSolicitar')]); await w.waitForSelector('#solMotivo', { timeout: 20000 });
+    console.log('acceso: solicitar → ámbito propuesto', await w.inputValue('#solAmbito')); await w.fill('#solMotivo', 'Para la sección'); await w.click('#solEnviar'); await w.waitForTimeout(800);
+    const sol = estC.listas['SENDERO Solicitudes'].items[0] || {};
+    console.log('acceso: solicitud guardada:', sol.Correo, sol.Ambito, sol.Estado, sol.VersionSendero ? 'con versión' : 'sin versión'); await w.close();
+    if (sol.Correo !== 'persona@pruebas.invalid' || sol.Ambito !== '2SUIGE' || sol.Estado !== 'Pendiente') console.log('Error: solicitud');
+    // Se autoriza en Colabora y «Volver a comprobar» deja entrar sin recargar
+    estC.listas['SENDERO Autorizados'].items.push({ Id: 900, Title: 'persona@pruebas.invalid', Tipo: 'Persona', Activo: true, Hasta: null });
+    await p.click('#accVentana'); const entra = await cargadas();
+    console.log('acceso: tras autorizarle, «Volver a comprobar» entra:', entra, '| bloqueo quitado:', !(await p.$('#bloqueo')));
+    if (!entra || await p.$('#bloqueo')) console.log('Error: volver a comprobar');
+  }
+  await fin();
 }
-{ const r = await p.evaluate(() => ({ bloqueo: !!document.getElementById('bloqueo'), aviso: (document.getElementById('avisoCaduca') || {}).textContent || '' }));
-  console.log('acceso: autorizado, sin bloqueo:', !r.bloqueo, '| aviso de caducidad:', r.aviso ? r.aviso.replace(/\d+/g, 'N') : 'no');
-  if (r.bloqueo || !!process.env.DIAS !== !!r.aviso) console.log('Error: acceso autorizado');
-  if (process.env.DIAS) { // a punto de caducar: avisa pero carga las bandejas
-    await p.waitForFunction(() => /mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 90000 }).catch(() => 0);
-    const est = await p.textContent('#estado'), n = /mensajes del/.test(est) && llamadas.slice(llamadasAntes).some(x => /ObtenerBuzonCelula/.test(x));
-    console.log('acceso: a punto de caducar, carga las bandejas:', n, '|', est.replace(/\d+/g, 'N').slice(0, 120));
-    if (!n) console.log('Error: no carga con el aviso de caducidad');
-    console.log('errores:', JSON.stringify(errs)); await b.close(); process.exit(0); } }
+if (process.env.XFO) {
+  await p.waitForSelector('#accVentana', { timeout: 60000 }).catch(() => 0);
+  const t = await p.textContent('#bloqueo h2').catch(() => '');
+  console.log('acceso: marco bloqueado → «' + t.trim() + '» | bandejas leídas:', leeBandejas());
+  const [w] = await Promise.all([ctx.waitForEvent('page'), p.click('#accVentana')]);
+  const entra = await cargadas(); await p.waitForTimeout(2000);
+  console.log('acceso: con la ventana pequeña entra:', entra, '| ventana cerrada sola:', w.isClosed());
+  if (!/Comprueba tu autorización/.test(t) || !entra || !w.isClosed()) console.log('Error: comprobar en ventana');
+  await fin();
+}
+{ if (!accesoPortal) await p.waitForFunction(() => !/Comprobando tu autorización/.test(document.getElementById('estado').textContent), null, { timeout: 30000 }).catch(() => 0);
+  const r = await p.evaluate(() => ({ bloqueo: !!document.getElementById('bloqueo'), aviso: (document.getElementById('avisoCaduca') || {}).textContent || '', version: (document.getElementById('avisoVersion') || {}).textContent || '', marco: !!document.querySelector('iframe[title="Comprobación de acceso"]') }));
+  console.log('acceso: autorizado por ámbito, sin bloqueo:', !r.bloqueo, '| aviso de caducidad:', r.aviso ? r.aviso.replace(/\d+/g, 'N') : 'no', '| versión nueva:', r.version ? r.version.replace(/\d/g, 'N') : 'no', '| marco quitado:', !r.marco);
+  if (r.bloqueo || !!process.env.DIAS !== !!r.aviso || !!process.env.NUEVA !== !!r.version || (r.marco && !accesoPortal)) console.log('Error: acceso autorizado');
+  if (process.env.DIAS || process.env.NUEVA) { // avisa pero carga las bandejas
+    const n = await cargadas(); console.log('acceso: con aviso, carga las bandejas:', n);
+    if (process.env.NUEVA) console.log('acceso: enlace de la versión nueva:', await p.$eval('#avisoVersion a', a => a.href.replace(/^https:\/\/[^/]+/, '')).catch(() => 'ninguno'));
+    if (!n) console.log('Error: no carga con el aviso');
+    // Segunda vez (memoria de menos de un día): entra sin esperar y vuelve a preguntar por detrás
+    const p2 = await ctx.newPage(); await p2.goto(O + WEB + '/SitePages/ambito.aspx'); const t0 = Date.now(); await p2.evaluate(codigo);
+    await p2.waitForFunction(() => /Buscando tus células|Leyendo|mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 30000 }).catch(() => 0);
+    console.log('acceso: segunda vez entra sin esperar a Colabora:', Date.now() - t0 < 3000); await p2.close();
+    await fin(); } }
 if (process.env.PORTAL && !process.env.SESION && !process.env.VENTANA) {
   // Entrada automática (pruebas): sin ventana y sin pulsar nada
   let ventanas = 0; ctx.on('page', () => ventanas++);

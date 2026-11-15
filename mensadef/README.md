@@ -440,12 +440,16 @@ con el formato *verbose* de SharePoint 2013.
   marca ninguna, lo dice en la propia caja (sin ventana); si MENSADEF no da ninguna célula, lo dice en el resumen.
 - **2026-11-14 · 7:** franja de arriba con **fondo amarillo** y letras **blancas** (con una sombra suave para que se lean).
 - **2026-11-14 · 8:** franja amarilla con las letras en **azul marino** (en blanco no se leían bien).
-- **2026-11-15 · 1:** **control de distribución**. SENDERO solo abre con las cuentas de `autorizados.txt` (un código por
-  línea: los 16 primeros caracteres de la huella SHA-256 de «SENDERO|correo», sin guardar el correo) y **caduca a los 30 días**
-  de generar el favorito (`DIAS_VALIDEZ` en `generar-marcador.py`; avisa los 5 últimos días). Quien no está autorizado ve su
-  código y «✉ Pedir autorización por correo»; con la versión caducada, «✉ Pedir la versión nueva». La comprobación va antes de
-  leer nada de MENSADEF (tampoco abre las listas del sitio). `autorizar-sendero.html` (solo para el Cte., en local) calcula los
-  códigos a partir de los correos. Las pruebas usan la cuenta ficticia `persona@pruebas.invalid`, que el generador añade
-  siempre (ese dominio no existe en MENSADEF); pasadas nuevas en `todas.sh`: NOAUT=1, DIAS=31 y DIAS=27. El archivo fuente
-  (`visor-mensadef.html`) lleva `AUTORIZADOS = null` y no comprueba nada: no se reparte, solo el favorito generado.
+- **2026-11-15 · 1:** **control de acceso en Colabora** y **caducidad de 30 días**. Quién puede usar SENDERO lo dice la lista
+  «SENDERO Autorizados» del sitio `/et/SUIGESUR/colaborativo`, que gestiona la página [`acceso/`](acceso/README.md)
+  (`SENDERO-acceso.html`): por **ámbito de MENSADEF** (todos los de ese ámbito), por **persona** y con **bloqueos**. Al
+  arrancar, antes de leer nada de MENSADEF, SENDERO pregunta a esa página en un marco oculto (contesta solo a
+  mensadef.mdef.es); si el marco no responde, pide un clic en «🔐 Comprobar en Colabora» (ventana pequeña que se cierra
+  sola). Una autorización vale un día (se entra sin esperar y se vuelve a preguntar por detrás); si Colabora no contesta,
+  se da por buena la última durante 5 días. Quien no está autorizado ve «✉ Solicitar acceso» (abre la página de Colabora
+  con su ámbito) y «⟳ Volver a comprobar». La lista también lleva la **versión vigente**: si es más nueva que la de quien
+  abre SENDERO, sale una franja con el enlace para descargarla. Caducidad: `DIAS_VALIDEZ` en `generar-marcador.py` (aviso
+  los 5 últimos días). `URL_ACCESO` (en `generar-marcador.py`) es la dirección de la página en Colabora; el archivo fuente
+  lleva `URL_ACCESO = null` y no comprueba nada (no se reparte). Pruebas: pasadas NOAUT, NOAUT+PORTAL, XFO, NUEVA, DIAS en
+  `todas.sh` con Colabora simulado (`pruebas/colabora-simulada.mjs`) y `pruebas/acceso.mjs` para la página.
 

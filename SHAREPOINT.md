@@ -270,6 +270,16 @@ Una página no puede escribir en otro servidor. Se abre la página de destino co
 del mismo origen si va dentro del portal), lo valida, lo borra con `history.replaceState` y solo crea algo cuando el
 usuario pulsa. Detalle en `SINCRONIZACION.md`.
 
+## Preguntar a Colabora desde MENSADEF (marco oculto + postMessage) · 15/11/2026
+
+Modelo: control de acceso de SENDERO (`mensadef/acceso/`). MENSADEF no puede leer Colabora (otro servidor), pero puede
+cargar una página de Colabora en un `<iframe>` oculto: esa página lee sus listas con la sesión del usuario y contesta con
+`parent.postMessage(datos, 'https://mensadef.mdef.es')` (solo a ese origen). Quien pregunta manda en el fragmento
+(`#comprobar=`) un número al azar y solo acepta respuestas con ese número y `e.origin === 'https://colabora.mdef.es'`.
+Si Colabora no deja abrirse en un marco (`X-Frame-Options`) o pide credenciales, no contesta: a los 15 s se ofrece un botón
+que abre la misma página en una ventana pequeña (`window.opener.postMessage`) que se cierra sola. Probado en simulación;
+pendiente de confirmar en Colabora si el marco funciona o hace falta la ventana.
+
 ## Leer correos (.msg y .eml) en el navegador
 
 En `colabora/tareas-nlt-colabora.html`: `leerEml` (MIME, `=?…?=`, quoted-printable, base64, multipart) y
