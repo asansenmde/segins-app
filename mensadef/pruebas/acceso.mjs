@@ -32,7 +32,10 @@ async function preguntar(ambito) {
 // 2. Preparación (Control total)
 await abrir();
 console.log('admin sin listas: pestaña', await p.$eval('.pestanas .on', e => e.textContent), '| ✕:', await p.$$eval('#cont .mal', l => l.length));
-for (const paso of ['crearA', 'crearS', 'grupo', 'protA', 'abrirS']) await pulsar(`[data-p="${paso}"]`);
+for (const paso of ['crearA', 'crearS', 'grupo']) await pulsar(`[data-p="${paso}"]`);
+{ const t = await p.$eval('[data-p="protA"]', b => b.parentNode.textContent.replace(/\s+/g, ' '));
+  console.log('antes de ajustar:', t.slice(0, 300)); if (!/Falta: todavía hereda.*Miembros colaborativo.*Permisos ahora: .*Colaborar/.test(t)) console.log('Error: explicación de lo que falta'); }
+for (const paso of ['protA', 'abrirS']) await pulsar(`[data-p="${paso}"]`);
 const foto = async n => { if (process.env.CAPTURAS) { await p.setViewportSize({ width: 1150, height: 560 }); await p.screenshot({ path: process.env.CAPTURAS + '/acceso-' + n + '.png' }); } };
 await foto('preparacion');
 { const oks = await p.$$eval('#cont .fila-prep .bien', l => l.length), mal = await p.$$eval('#cont .fila-prep .mal', l => l.length);

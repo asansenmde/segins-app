@@ -59,7 +59,7 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-15 · 2';
+  var VERSION = '2026-11-15 · 3';
   // Solo se contesta a SENDERO, que funciona en MENSADEF (el favorito escribe su página sobre la de MENSADEF)
   var ORIGEN_SENDERO = 'https://mensadef.mdef.es';
   var L_AUT = 'SENDERO Autorizados', L_SOL = 'SENDERO Solicitudes', GRUPO = 'SENDERO Administradores';
@@ -396,6 +396,10 @@
     }, function (e) { if (e.status === 404) return { existe: false }; throw e; });
   }
   var rolesDe = function (a) { return lista(a.RoleDefinitionBindings).map(function (b) { return Number(b.RoleTypeKind); }); };
+  // Niveles que dejan escribir: Colaborar, Diseño, Editar y los propios del sitio (tipo 0, p. ej. «META») salvo los de leer
+  var nivelEscribe = function (b) { var k = Number(b.RoleTypeKind); return ESCRIBE.indexOf(k) >= 0 || (k === 0 && !/lectura|leer|read|limitad|limited|ver\b|view/i.test(b.Name || '')); };
+  var esEscritor = function (a, g) { var bs = lista(a.RoleDefinitionBindings); return (!g || Number(a.PrincipalId) !== Number(g.Id)) && !bs.some(function (b) { return Number(b.RoleTypeKind) === 5; }) && bs.some(nivelEscribe); };
+  var verPermisos = function (est) { return (est.asig || []).map(function (x) { return ((x.Member && (x.Member.Title || x.Member.LoginName)) || 'Id ' + x.PrincipalId) + ' (' + lista(x.RoleDefinitionBindings).map(function (b) { return b.Name || 'tipo ' + b.RoleTypeKind; }).join(', ') + ')'; }).join(' · '); };
   function idRol(tipo) { return api(web + '/_api/web/roledefinitions/getbytype(' + tipo + ')?$select=Id').then(function (r) { return Number(r.Id); }); }
   function idTodos() {
     return asignaciones(web + '/_api/web').catch(function () { return []; }).then(function (l) {
@@ -423,7 +427,7 @@
       .then(function () { return Promise.all([asignaciones(u), idRol(2), idRol(3), idTodos(), grupo()]); })
       .then(function (r) {
         var leer = r[1], colaborar = r[2], todos = r[3], g = r[4];
-        var pasos = r[0].filter(function (a) { var rs = rolesDe(a); return (!g || Number(a.PrincipalId) !== Number(g.Id)) && rs.indexOf(5) < 0 && rs.some(function (x) { return ESCRIBE.indexOf(x) >= 0; }); })
+        var pasos = r[0].filter(function (a) { return esEscritor(a, g); })
           .map(function (a) { return function () { return enviarSP(u + '/roleassignments/getbyprincipalid(' + Number(a.PrincipalId) + ')/deleteobject()', null, sinPerm).then(function () { return enviarSP(u + '/roleassignments/addroleassignment(principalid=' + Number(a.PrincipalId) + ',roledefid=' + leer + ')', null, sinPerm); }); }; });
         if (!r[0].some(function (a) { return esTodos(a.Member); })) pasos.push(function () { return enviarSP(u + '/roleassignments/addroleassignment(principalid=' + Number(todos) + ',roledefid=' + leer + ')', null, sinPerm); });
         if (g) pasos.push(function () { return enviarSP(u + '/roleassignments/addroleassignment(principalid=' + Number(g.Id) + ',roledefid=' + colaborar + ')', null, sinPerm); });
@@ -446,16 +450,30 @@
       var a = r[0], s = r[1], g = r[2];
       var ok = function (b) { return b ? '<span class="bien">✔</span>' : '<span class="mal">✕</span>'; };
       var todosEn = function (est, pred) { return !!(est.asig || []).filter(function (x) { return esTodos(x.Member); }).filter(function (x) { return pred(rolesDe(x)); }).length; };
-      var aProt = a.existe && a.info.HasUniqueRoleAssignments && todosEn(a, function () { return true; }) &&
-        !(a.asig || []).some(function (x) { var rs = rolesDe(x); return (!g || Number(x.PrincipalId) !== Number(g.Id)) && rs.indexOf(5) < 0 && rs.some(function (y) { return ESCRIBE.indexOf(y) >= 0; }); });
+      var escritoresA = (a.asig || []).filter(function (x) { return esEscritor(x, g); });
+      var aProt = a.existe && a.info.HasUniqueRoleAssignments && todosEn(a, function () { return true; }) && !escritoresA.length;
       var sAbierta = s.existe && todosEn(s, function (rs) { return rs.some(function (y) { return ESCRIBE.indexOf(y) >= 0; }); }) && Number(s.info.ReadSecurity) === 2 && Number(s.info.WriteSecurity) === 2;
       var gEn = function (est) { return !!(g && (est.asig || []).some(function (x) { return Number(x.PrincipalId) === Number(g.Id); })); };
+      // Qué falta, para que se vea sin adivinar (solo nombres de grupos y niveles de permiso)
+      var porque = function (est, falta) { return est.existe && falta.length ? '<div class="muted" style="flex-basis:100%;margin-left:22px">Falta: ' + esc(falta.join('; ')) + '.<br>Permisos ahora: ' + esc(verPermisos(est) || 'ninguno leído') + '</div>' : ''; };
+      var faltaA = [], faltaS = [];
+      if (a.existe) {
+        if (!a.info.HasUniqueRoleAssignments) faltaA.push('todavía hereda los permisos del sitio');
+        if (!todosEn(a, function () { return true; })) faltaA.push('que todos puedan leerla (no encuentro «Usuarios del dominio» ni «Todos» en sus permisos)');
+        if (escritoresA.length) faltaA.push('quitar la escritura a: ' + escritoresA.map(function (x) { return x.Member && x.Member.Title || 'Id ' + x.PrincipalId; }).join(', '));
+        if (g && !gEn(a)) faltaA.push('dar permiso al grupo «' + GRUPO + '»');
+      }
+      if (s.existe) {
+        if (!todosEn(s, function (rs) { return rs.some(function (y) { return ESCRIBE.indexOf(y) >= 0; }); })) faltaS.push('que todos puedan crear solicitudes');
+        if (Number(s.info.ReadSecurity) !== 2 || Number(s.info.WriteSecurity) !== 2) faltaS.push('que cada uno vea y edite solo las suyas');
+        if (g && !gEn(s)) faltaS.push('dar permiso al grupo «' + GRUPO + '»');
+      }
       $('cont').innerHTML = '<p class="muted">Hazlo en este orden. Cada paso dice si está hecho (✔) o falta (✕).</p>' +
         '<div class="fila-prep">' + ok(a.existe && !a.faltan.length) + ' Lista «' + esc(L_AUT) + '» ' + (!a.existe ? '<button type="button" class="prim" data-p="crearA">Crear</button>' : a.faltan.length ? '(faltan ' + esc(a.faltan.join(', ')) + ') <button type="button" class="prim" data-p="colA">Crear columnas</button>' : '') + '</div>' +
         '<div class="fila-prep">' + ok(s.existe && !s.faltan.length) + ' Lista «' + esc(L_SOL) + '» ' + (!s.existe ? '<button type="button" class="prim" data-p="crearS">Crear</button>' : s.faltan.length ? '(faltan ' + esc(s.faltan.join(', ')) + ') <button type="button" class="prim" data-p="colS">Crear columnas</button>' : '') + '</div>' +
         '<div class="fila-prep">' + ok(!!g) + ' Grupo «' + esc(GRUPO) + '» (responsables de ámbito) ' + (g ? '<a href="' + esc(web + '/_layouts/15/people.aspx?MembershipGroupId=' + g.Id) + '" target="_blank" rel="noopener">añadir o quitar personas</a>' : '<button type="button" class="prim" data-p="grupo">Crear</button>') + '</div>' +
-        '<div class="fila-prep">' + ok(aProt && (!g || gEn(a))) + ' «' + esc(L_AUT) + '»: todos la leen, solo tú' + (g ? ' y el grupo' : '') + ' la cambiáis ' + (a.existe ? '<button type="button" data-p="protA">' + (aProt && (!g || gEn(a)) ? 'Repetir' : 'Ajustarlo') + '</button>' : '') + '</div>' +
-        '<div class="fila-prep">' + ok(sAbierta && (!g || gEn(s))) + ' «' + esc(L_SOL) + '»: todos pueden solicitar y cada uno ve solo las suyas ' + (s.existe ? '<button type="button" data-p="abrirS">' + (sAbierta ? 'Repetir' : 'Ajustarlo') + '</button>' : '') + '</div>' +
+        '<div class="fila-prep">' + ok(aProt && (!g || gEn(a))) + ' «' + esc(L_AUT) + '»: todos la leen, solo tú' + (g ? ' y el grupo' : '') + ' la cambiáis ' + (a.existe ? '<button type="button" data-p="protA">' + (aProt && (!g || gEn(a)) ? 'Repetir' : 'Ajustarlo') + '</button>' : '') + porque(a, faltaA) + '</div>' +
+        '<div class="fila-prep">' + ok(sAbierta && (!g || gEn(s))) + ' «' + esc(L_SOL) + '»: todos pueden solicitar y cada uno ve solo las suyas ' + (s.existe ? '<button type="button" data-p="abrirS">' + (sAbierta ? 'Repetir' : 'Ajustarlo') + '</button>' : '') + porque(s, faltaS) + '</div>' +
         '<div class="fila-prep">' + (s.existe ? '<a href="' + esc(web + '/_layouts/15/SubNew.aspx?List=' + encodeURIComponent('{' + String(s.info.Id).replace(/[{}]/g, '') + '}')) + '" target="_blank" rel="noopener">🔔 Aviso por correo de solicitudes nuevas</a> <span class="muted">(alerta de Colabora: «Se agregan nuevos elementos»)</span>' : '<span class="muted">🔔 Aviso por correo: cuando exista la lista de solicitudes</span>') + '</div>' +
         '<p class="muted">Después: en «Autorizados y bloqueos» añade los ámbitos (p. ej. 2SUIGE) con sus responsables, y mete a esos responsables en el grupo.</p>';
       var acc = {
