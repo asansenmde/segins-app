@@ -241,3 +241,11 @@ autoría.
       Firmar, cancelar AutoFirma) y pegar lo que copia (solo estructura). Con eso: que SENDERO abra la petición en el Portafirmas
       lista para firmar. Firmar (identificarse, AutoFirma y PIN) lo sigue haciendo el usuario.
     PENDIENTE (opcional): autor de los comentarios hechos en MENSADEF, con «Escuchar MENSADEF» sobre el historial de comentarios.
+    14/11/2026: SENDERO 2026-11-14 · 1 a · 8 entregados (plegar grupos, «Ir a Rúbrica» con la lista filtrada del Portafirmas, filtros
+      sin Tipo/Remitente, Sí/No, células sin estrella, franja amarilla con letras azules). PENDIENTE DEL USUARIO: probar «Ir a
+      Rúbrica» y «↩ Responder» de verdad, y decir si se hace la limpieza de filtros propuesta (Célula, Leído y Estado como pastillas).
+    15/11/2026: SENDERO 2026-11-15 · 1: **lista de autorizados y caducidad de 30 días** (petición del usuario). Quien no está en
+      `mensadef/autorizados.txt` ve su código y un botón para pedírselo por correo al Cte.; cada favorito caduca a los 30 días
+      de generarlo (aviso los 5 últimos). El Cte. puede calcular códigos con `mensadef/autorizar-sendero.html`.
+      PENDIENTE DEL USUARIO: comprobar que su cuenta abre (se autorizó la de trabajo `asansen@…`; si sale bloqueado, mandar el
+      código de la pantalla) y pasar los códigos de quien deba usarlo. Cada mes (o con cada versión nueva) regenerar y repartir.

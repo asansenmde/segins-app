@@ -11,7 +11,7 @@ const G4 = '44444444-4444-4444-4444-444444444444', G1 = '8d714e44-b2b5-41a8-9780
 let nClaves = 0, marcadoLeido = 0; let sesion = !process.env.PORTAL || !!process.env.SESION; /* PORTAL=1: se empieza en la portada sin sesión en el ámbito */ const comentarios = [], banderasPuestas = [], rubricas = [], leidos = [];
 const PASS = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6', UID = 'abcdef01-2345-6789-abcd-ef0123456789';
 // Consulta que hace la aplicación de MENSADEF al cambiar de célula (de ahí el favorito toma las cabeceras)
-const consultaApp = pg => pg.evaluate(([P, U]) => fetch('https://mensadefapi.mdef.es/api/usuariovista/UsuarioVistaObtener?emailUsuario=persona%40et.mde.es', { headers: { 'Content-Type': 'application/json', passcode: P, user: U } }).catch(() => 0), [PASS, UID]);
+const consultaApp = pg => pg.evaluate(([P, U]) => fetch('https://mensadefapi.mdef.es/api/usuariovista/UsuarioVistaObtener?emailUsuario=persona%40pruebas.invalid', { headers: { 'Content-Type': 'application/json', passcode: P, user: U } }).catch(() => 0), [PASS, UID]);
 const hoy = new Date(); const hace = h => { const d = new Date(hoy.getTime() - h * 3600e3); return d.toISOString().slice(0, 19); };
 // Bandeja simulada: SEGURIDAD tiene 130 mensajes de entrada (2 páginas) en las últimas horas y otros antiguos; SECRETARIA 3
 // PRESENTA: datos ficticios pero verosímiles para las capturas de presentación (no son mensajes reales)
@@ -54,7 +54,7 @@ await ctx.route(API + '/**', r => {
   if (ruta === 'ambitocomun/MensadefActivo') return r.fulfill({ headers: H, json: true });
   if (ruta === 'usuario/ValidateUser') { nClaves++; const ok = !process.env.NOCLAVE && q.idUsuario === 'persona'; return r.fulfill({ headers: Object.assign({ 'Access-Control-Expose-Headers': 'IdUsuario, User' }, H, ok ? { IdUsuario: PASS, User: UID } : {}), json: true }); }
   if (hd.passcode !== PASS || hd.user !== UID) return r.fulfill({ status: 406, headers: H, body: '' });
-  if (q.emailUsuario !== 'persona@et.mde.es' || q.urlColeccionSitio !== O + WEB) return r.fulfill({ status: 400, headers: H, json: { error: 'parámetros' } });
+  if (q.emailUsuario !== 'persona@pruebas.invalid' || q.urlColeccionSitio !== O + WEB) return r.fulfill({ status: 400, headers: H, json: { error: 'parámetros' } });
   if (ruta === 'usuario/ConsultaUsuarioDicodefPorCorreo' && process.env.PORTAL) return r.fulfill({ headers: H, json: { Datos: { IdUsuario: 999, Nombre: 'PERSONA', Correo: q.emailUsuario } } });
   if (ruta === 'usuario/ConsultaUsuarioDicodefPorCorreo') return r.fulfill({ headers: H, json: { Datos: { IdUsuario: 77, Nombre: 'PERSONA', Correo: q.emailUsuario } } });
   // Como el real: con un número de usuario que no es el suyo contesta 500
@@ -90,10 +90,11 @@ await ctx.route(O + '/**', r => {
     'setTimeout(function(){t.innerHTML=[0,1,2,3,4].map(fila).join("");},1500);' +
     'document.querySelector("input").addEventListener("keyup",function(e){if(e.key!=="Enter")return;var n=/RE-(\\d+)/.exec(this.value);window.buscado=this.value;setTimeout(function(){t.innerHTML=n?fila(n[1]):"";},600);});' +
     '</script></body></html>' });
-  if (!u.includes('/_api/')) return r.fulfill({ contentType: 'text/html', body: '<html><body>MENSADEF<script>if (/Landing\\.aspx/i.test(location.pathname)) { fetch("' + API + '/api/usuario/ValidateUser?idUsuario=persona&useUid=false"); fetch("' + API + '/api/ambitocomun/AmbitoRegistral?emailUsuario=persona%40et.mde.es&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es"); fetch("' + API + '/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40et.mde.es&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es"); }if (/SitePages\\/ambito\\.aspx/i.test(location.pathname)) setTimeout(function () { fetch("' + API + '/api/usuario/ValidateUser?idUsuario=persona&useUid=false"); fetch("' + API + '/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40et.mde.es&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE", { headers: { "Content-Type": "application/json", passcode: "' + PASS + '", user: "' + UID + '" } }); }, ' + (process.env.LENTO ? 18000 : 300) + ');addEventListener("hashchange", function () { if (/^#\\/celula\\//.test(location.hash)) fetch("' + API + '/api/usuariovista/UsuarioVistaObtener?x=1", { headers: { "Content-Type": "application/json", passcode: "' + PASS + '", user: "' + UID + '" } }); });</script></body></html>' });
+  if (!u.includes('/_api/')) return r.fulfill({ contentType: 'text/html', body: '<html><body>MENSADEF<script>if (/Landing\\.aspx/i.test(location.pathname)) { fetch("' + API + '/api/usuario/ValidateUser?idUsuario=persona&useUid=false"); fetch("' + API + '/api/ambitocomun/AmbitoRegistral?emailUsuario=persona%40pruebas.invalid&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es"); fetch("' + API + '/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40pruebas.invalid&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es"); }if (/SitePages\\/ambito\\.aspx/i.test(location.pathname)) setTimeout(function () { fetch("' + API + '/api/usuario/ValidateUser?idUsuario=persona&useUid=false"); fetch("' + API + '/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40pruebas.invalid&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE", { headers: { "Content-Type": "application/json", passcode: "' + PASS + '", user: "' + UID + '" } }); }, ' + (process.env.LENTO ? 18000 : 300) + ');addEventListener("hashchange", function () { if (/^#\\/celula\\//.test(location.hash)) fetch("' + API + '/api/usuariovista/UsuarioVistaObtener?x=1", { headers: { "Content-Type": "application/json", passcode: "' + PASS + '", user: "' + UID + '" } }); });</script></body></html>' });
   if (u.startsWith(O + WEB + '/_api/web?')) return J({ Url: O + WEB, Title: 'Segunda SUIGE' });
   if (u.includes('/_api/web?')) return r.fulfill({ status: 404, body: '' });
-  if (u.includes('currentuser')) return J(process.env.SINCORREO ? { Title: 'PERSONA', Email: '', UserPrincipalName: '', LoginName: 'i:0#.w|et\\persona' } : { Title: 'PERSONA', Email: 'persona@et.mde.es', LoginName: 'i:0#.w|et\\persona' });
+  if (u.includes('currentuser') && process.env.NOAUT) return J({ Title: 'OTRA', Email: 'otra@pruebas.invalid', LoginName: 'i:0#.w|et\\otra' });
+  if (u.includes('currentuser')) return J(process.env.SINCORREO ? { Title: 'PERSONA', Email: '', UserPrincipalName: '', LoginName: 'i:0#.w|et\\persona' } : { Title: 'PERSONA', Email: 'persona@pruebas.invalid', LoginName: 'i:0#.w|et\\persona' });
   if (u.includes('GetMyProperties')) return J({ Email: '', UserProfileProperties: [] });
   if (u.includes('/_api/site?')) return J({ Url: O + WEB });
   r.fulfill({ status: 404, body: '' });
@@ -103,10 +104,33 @@ await p.goto(process.env.PORTAL ? O + '/SitePages/Landing.aspx' : O + WEB + '/Si
 // Lo que la aplicación de MENSADEF ya consultó en la página (en la realidad lo vuelve a hacer al recargar)
 const consultasApp = pg => !process.env.SINCORREO ? null : pg.evaluate(() => { const o = performance.getEntriesByType.bind(performance); performance.getEntriesByType = t => t !== 'resource' ? o(t) : [
   { name: 'https://mensadefapi.mdef.es/api/usuario/ValidateUser?idUsuario=persona&useUid=true' },
-  { name: 'https://mensadefapi.mdef.es/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40et.mde.es&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE' }]; });
+  { name: 'https://mensadefapi.mdef.es/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40pruebas.invalid&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE' }]; });
 await consultasApp(p);
 if (process.env.VENTANA) await p.evaluate(M => localStorage.setItem(M + 'sinAutoentrada', 'true'), MEM);
+// 15/11/2026: autorizados y caducidad. DIAS=n adelanta el reloj n días (31 → caducada; 27 → aviso); NOAUT=1: cuenta no autorizada
+if (process.env.DIAS) await p.evaluate(n => { const D = Date, d = n * 864e5; window.Date = class extends D { constructor(...a) { super(...(a.length ? a : [D.now() + d])); } static now() { return D.now() + d; } }; }, Number(process.env.DIAS));
+const llamadasAntes = llamadas.length;
 await p.evaluate(codigo); await p.waitForTimeout(2500);
+if (process.env.NOAUT || Number(process.env.DIAS) > 30) {
+  await p.waitForSelector('#bloqueo', { timeout: 30000 }).catch(() => 0);
+  const r = await p.evaluate(() => ({ t: (document.querySelector('#bloqueo h2') || {}).textContent || '', cod: (document.getElementById('codAcceso') || {}).textContent || '', mail: (document.querySelector('#bloqueo a[href^="mailto:"]') || {}).href || '', bandejas: !!document.querySelector('#lista tbody tr[data-i]') }));
+  // (ValidateUser y UsuarioCelulas los pide la página simulada de MENSADEF al cargar; lo que no debe pasar es leer bandejas)
+  const llamadasApi = llamadas.slice(llamadasAntes).filter(x => /ObtenerBuzonCelula|ConsultaUsuarioDicodef|EtiquetasObtener/.test(x)).length;
+  console.log('acceso: ' + (process.env.NOAUT ? 'no autorizado' : 'caducada') + ' → «' + r.t.trim() + '» | código', r.cod.replace(/[0-9A-F]/g, 'X'), '| correo de petición:', /^mailto:asansen@et\.mde\.es\?subject=/.test(r.mail), '| bandejas leídas:', llamadasApi, '| lista:', r.bandejas);
+  const ok = process.env.NOAUT ? /no está autorizado/.test(r.t) && /^[0-9A-F]{4}(-[0-9A-F]{4}){3}$/.test(r.cod) : /caducado/.test(r.t);
+  if (!ok || !r.mail || llamadasApi || r.bandejas) console.log('Error: bloqueo de acceso');
+  if (process.env.CAPTURA_BLOQUEO) { await p.setViewportSize({ width: 1100, height: 620 }); await p.screenshot({ path: process.env.CAPTURA_BLOQUEO }); }
+  console.log('errores:', JSON.stringify(errs)); await b.close(); process.exit(0);
+}
+{ const r = await p.evaluate(() => ({ bloqueo: !!document.getElementById('bloqueo'), aviso: (document.getElementById('avisoCaduca') || {}).textContent || '' }));
+  console.log('acceso: autorizado, sin bloqueo:', !r.bloqueo, '| aviso de caducidad:', r.aviso ? r.aviso.replace(/\d+/g, 'N') : 'no');
+  if (r.bloqueo || !!process.env.DIAS !== !!r.aviso) console.log('Error: acceso autorizado');
+  if (process.env.DIAS) { // a punto de caducar: avisa pero carga las bandejas
+    await p.waitForFunction(() => /mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 90000 }).catch(() => 0);
+    const est = await p.textContent('#estado'), n = /mensajes del/.test(est) && llamadas.slice(llamadasAntes).some(x => /ObtenerBuzonCelula/.test(x));
+    console.log('acceso: a punto de caducar, carga las bandejas:', n, '|', est.replace(/\d+/g, 'N').slice(0, 120));
+    if (!n) console.log('Error: no carga con el aviso de caducidad');
+    console.log('errores:', JSON.stringify(errs)); await b.close(); process.exit(0); } }
 if (process.env.PORTAL && !process.env.SESION && !process.env.VENTANA) {
   // Entrada automática (pruebas): sin ventana y sin pulsar nada
   let ventanas = 0; ctx.on('page', () => ventanas++);

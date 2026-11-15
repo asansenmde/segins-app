@@ -529,10 +529,71 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-14 · 8';
+  var VERSION = '2026-11-15 · 1';
+  // 15/11/2026: control de distribución. Solo abren las cuentas autorizadas (código = huella SHA-256 de la cuenta; no se
+  // guarda el correo) y cada versión caduca a los 30 días. Los dos valores los pone generar-marcador.py desde
+  // mensadef/autorizados.txt; en el archivo fuente quedan a null (copia de desarrollo, no se reparte).
+  var AUTORIZADOS = null;
+  var CADUCA = null;
+  var CORREO_AUTOR = 'asansen@et.mde.es';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
   var guardar = function (k, v) { try { localStorage.setItem(MEMORIA + k, JSON.stringify(v)); } catch (e) { /* sin memoria */ } };
   var leer = function (k, d) { try { var v = k === 'cabecerasApi' ? sessionStorage.getItem(MEMORIA + k) : localStorage.getItem(MEMORIA + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
+
+  function pantallaBloqueo(titulo, html) {
+    var m = document.querySelector('main');
+    m.innerHTML = '<div class="card" id="bloqueo" style="max-width:720px;margin:40px auto;border-left:6px solid #b58f00">' +
+      '<h2 style="margin:0 0 10px;color:#12315a">🔒 ' + esc(titulo) + '</h2>' + html +
+      '<p class="muted" style="margin-top:14px">SENDERO · © 2026 Cte. Alfredo Sánchez Sender · versión ' + esc(VERSION) + '</p></div>';
+  }
+  var fechaCorta = function (iso) { var x = iso.split('-'); return x[2] + '/' + x[1] + '/' + x[0]; };
+  var hoyIso = function () { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() < 9 ? '0' : '') + (d.getMonth() + 1) + '-' + (d.getDate() < 10 ? '0' : '') + d.getDate(); };
+  function codigoAcceso(email) {
+    if (!window.crypto || !crypto.subtle || !window.TextEncoder) return Promise.reject(new Error('el navegador no puede calcular el código'));
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode('SENDERO|' + String(email).toLowerCase().trim())).then(function (h) {
+      var x = Array.prototype.map.call(new Uint8Array(h).slice(0, 8), function (b) { return (b < 16 ? '0' : '') + b.toString(16); }).join('').toUpperCase();
+      return x.slice(0, 4) + '-' + x.slice(4, 8) + '-' + x.slice(8, 12) + '-' + x.slice(12, 16);
+    });
+  }
+  var mailtoPedir = function (asunto, cuerpo) { return 'mailto:' + CORREO_AUTOR + '?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(cuerpo); };
+  // Devuelve una promesa que solo se cumple si la cuenta está autorizada; si no, deja la pantalla de bloqueo
+  function comprobarAcceso(email) {
+    if (AUTORIZADOS === null) return Promise.resolve();
+    var parar = new Promise(function () { /* bloqueado: no se sigue */ });
+    if (!email) {
+      pantallaBloqueo('No puedo comprobar tu autorización', '<p>SENDERO no encuentra con qué cuenta has entrado en MENSADEF. Abre tu célula en MENSADEF, espera a que carguen tus mensajes y pulsa el favorito otra vez.</p>');
+      return parar;
+    }
+    return codigoAcceso(email).then(function (cod) {
+      if (AUTORIZADOS.indexOf(cod) >= 0) return;
+      pantallaBloqueo('SENDERO no está autorizado para esta cuenta',
+        '<p>Para usar SENDERO hay que pedir autorización al <b>Cte. Alfredo Sánchez Sender</b>. Mándale este código (no contiene tus datos):</p>' +
+        '<p style="font:800 1.5rem ui-monospace,Consolas,monospace;letter-spacing:.08em;color:#12315a" id="codAcceso">' + esc(cod) + '</p>' +
+        '<div class="acciones"><a id="pedirAcceso" href="' + esc(mailtoPedir('Autorización SENDERO', 'Solicito autorización para usar SENDERO.\n\nCódigo de acceso: ' + cod + '\nCuenta: ' + email + '\n')) + '"><button type="button" class="prim">✉ Pedir autorización por correo</button></a>' +
+        '<button type="button" id="copiarCod">Copiar el código</button></div>' +
+        '<p class="muted">Cuando te autorice, te dará el favorito nuevo: sustituye el que tienes por ese.</p>');
+      $('copiarCod').addEventListener('click', function () { var b = this; (navigator.clipboard ? navigator.clipboard.writeText(cod) : Promise.reject()).then(function () { b.textContent = 'Copiado ✓'; }, function () { prompt('Copia el código (Ctrl + C):', cod); }); });
+      return parar;
+    }, function (e) {
+      pantallaBloqueo('No puedo comprobar tu autorización', '<p>' + esc(e.message || e) + '. Ábrelo en Microsoft Edge o Chrome actualizados.</p>');
+      return parar;
+    });
+  }
+  if (CADUCA && hoyIso() > CADUCA) {
+    pantallaBloqueo('Esta versión de SENDERO ha caducado',
+      '<p>Esta versión caducó el <b>' + esc(fechaCorta(CADUCA)) + '</b>. Pide la versión nueva al <b>Cte. Alfredo Sánchez Sender</b> y sustituye tu favorito por ella.</p>' +
+      '<div class="acciones"><a id="pedirVersion" href="' + esc(mailtoPedir('Versión nueva de SENDERO', 'Solicito la versión nueva de SENDERO (la mía, ' + VERSION + ', caducó el ' + fechaCorta(CADUCA) + ').\n')) + '"><button type="button" class="prim">✉ Pedir la versión nueva</button></a></div>');
+    return;
+  }
+  if (CADUCA) {
+    var diasQuedan = Math.round((new Date(CADUCA + 'T12:00:00') - new Date(hoyIso() + 'T12:00:00')) / 864e5);
+    if (diasQuedan <= 5) {
+      var bandaC = document.createElement('div'); bandaC.id = 'avisoCaduca';
+      bandaC.style.cssText = 'background:#efc000;color:#12315a;text-align:center;font-weight:800;padding:6px 10px;border-bottom:2px solid #b58f00';
+      bandaC.textContent = '⏳ Esta versión de SENDERO caduca ' + (diasQuedan === 0 ? 'hoy' : diasQuedan === 1 ? 'mañana' : 'en ' + diasQuedan + ' días') + ' (' + fechaCorta(CADUCA) + '): pide la versión nueva al Cte. Alfredo Sánchez Sender.';
+      document.body.insertBefore(bandaC, document.querySelector('header'));
+    }
+  }
 
   if (!window.fetch || !window.Promise || document.documentMode) {
     $('aviso').hidden = false; $('aviso').innerHTML = '<div class="bad">Ábrelo en Microsoft Edge o Chrome normal (no en modo Internet Explorer).</div>'; return;
@@ -796,6 +857,8 @@
   webDe(ruta).then(function (w) {
     web = w;
     api('web/currentuser?$select=Title', w.url).then(function (u) { nombreYo = u.Title || ''; $('quien').textContent = [w.titulo, u.Title].filter(Boolean).join(' · '); }).catch(function () { $('quien').textContent = w.titulo || ''; });
+    $('estado').textContent = 'Comprobando tu autorización…';
+    return correoUsuario(w).then(function (c) { return comprobarAcceso(c && c.email); }).then(function () {
     $('estado').textContent = 'Buscando tus células y bandejas en MENSADEF…';
     return iniciarApi(w).then(function () {
       modoApi = true;
@@ -827,6 +890,7 @@
         '<div class="acciones"><button type="button" class="prim" id="volverMensadef">Volver a MENSADEF</button><button type="button" id="verListas">Ver las listas del sitio (solo borradores)</button></div>';
       $('volverMensadef').addEventListener('click', function () { location.reload(); });
       $('verListas').addEventListener('click', verListas);
+    });
     });
   }).catch(function (e) {
     $('aviso').hidden = false; $('aviso').innerHTML = '<div class="bad">' + esc(e.message || e) + '</div>' + (e.ayuda ? '<p class="muted">' + esc(e.ayuda) + '</p>' : ''); $('estado').textContent = '';

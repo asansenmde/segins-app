@@ -11,6 +11,8 @@ MENSADEF ejecute archivos subidos. Volver a ejecutar este script cada vez que ca
 Con --pruebas solo genera la copia de pruebas del visor (marcador-visor-mensadef-pruebas.html, favorito
 «SENDERO (pruebas)», con PRUEBAS = true) y no toca los marcadores buenos.
 """
+import datetime
+import hashlib
 import html
 import json
 import pathlib
@@ -18,6 +20,27 @@ import sys
 import urllib.parse
 
 aqui = pathlib.Path(__file__).parent
+
+# 15/11/2026: control de distribución de SENDERO. autorizados.txt tiene un código por línea (lo que sale en la pantalla
+# «No autorizado» o en autorizar-sendero.html; # para comentarios). Cada versión caduca a los DIAS_VALIDEZ días.
+DIAS_VALIDEZ = 30
+CUENTA_PRUEBAS = 'persona@pruebas.invalid'  # la de las pruebas simuladas: un dominio .invalid no existe en MENSADEF
+
+
+def codigo_acceso(correo):
+    x = hashlib.sha256(('SENDERO|' + correo.strip().lower()).encode('utf-8')).hexdigest()[:16].upper()
+    return '-'.join(x[i:i + 4] for i in range(0, 16, 4))
+
+
+def autorizados():
+    cods = []
+    for linea in (aqui / 'autorizados.txt').read_text(encoding='utf-8').splitlines():
+        c = linea.split('#')[0].strip().upper()
+        if not c:
+            continue
+        assert len(c) == 19 and all(t and len(t) == 4 for t in c.split('-')), 'Código mal escrito en autorizados.txt: ' + c
+        cods.append(c)
+    return sorted(set(cods + [codigo_acceso(CUENTA_PRUEBAS)]))
 
 PLANTILLA = '''<!doctype html>
 <html lang="es">
@@ -97,6 +120,13 @@ def generar(fuente, salida, nombre, titulo, intro, pasos, pruebas=False):
         assert 'var PRUEBAS = false;' in pagina, 'No encuentro «var PRUEBAS = false;» en ' + fuente
         pagina = pagina.replace('var PRUEBAS = false;', 'var PRUEBAS = true;')
     if fuente == 'visor-mensadef.html':
+        # Autorizados y caducidad (15/11/2026)
+        assert 'var AUTORIZADOS = null;' in pagina and 'var CADUCA = null;' in pagina
+        caduca = (datetime.date.today() + datetime.timedelta(days=DIAS_VALIDEZ)).isoformat()
+        lista = autorizados()
+        pagina = pagina.replace('var AUTORIZADOS = null;', 'var AUTORIZADOS = ' + json.dumps(lista) + ';')
+        pagina = pagina.replace('var CADUCA = null;', 'var CADUCA = ' + json.dumps(caduca) + ';')
+        print(salida + ': ' + str(len(lista) - 1) + ' cuentas autorizadas, caduca el ' + caduca)
         # El visor va protegido (compactado, con bloqueo a *.mdef.es): proteger/proteger.mjs (npm install la primera vez)
         import subprocess, tempfile
         with tempfile.TemporaryDirectory() as d:

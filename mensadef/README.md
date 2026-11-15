@@ -440,4 +440,12 @@ con el formato *verbose* de SharePoint 2013.
   marca ninguna, lo dice en la propia caja (sin ventana); si MENSADEF no da ninguna célula, lo dice en el resumen.
 - **2026-11-14 · 7:** franja de arriba con **fondo amarillo** y letras **blancas** (con una sombra suave para que se lean).
 - **2026-11-14 · 8:** franja amarilla con las letras en **azul marino** (en blanco no se leían bien).
+- **2026-11-15 · 1:** **control de distribución**. SENDERO solo abre con las cuentas de `autorizados.txt` (un código por
+  línea: los 16 primeros caracteres de la huella SHA-256 de «SENDERO|correo», sin guardar el correo) y **caduca a los 30 días**
+  de generar el favorito (`DIAS_VALIDEZ` en `generar-marcador.py`; avisa los 5 últimos días). Quien no está autorizado ve su
+  código y «✉ Pedir autorización por correo»; con la versión caducada, «✉ Pedir la versión nueva». La comprobación va antes de
+  leer nada de MENSADEF (tampoco abre las listas del sitio). `autorizar-sendero.html` (solo para el Cte., en local) calcula los
+  códigos a partir de los correos. Las pruebas usan la cuenta ficticia `persona@pruebas.invalid`, que el generador añade
+  siempre (ese dominio no existe en MENSADEF); pasadas nuevas en `todas.sh`: NOAUT=1, DIAS=31 y DIAS=27. El archivo fuente
+  (`visor-mensadef.html`) lleva `AUTORIZADOS = null` y no comprueba nada: no se reparte, solo el favorito generado.
 
