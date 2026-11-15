@@ -276,20 +276,15 @@ if (FINAL) {
 { console.log('META aviso:', (await p.textContent('#colabora')).match(/Departamento en META:[^·]*/)?.[0]);
   const [n6] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n6.waitForLoadState();
   const d6 = JSON.parse(decodeURIComponent(n6.url().split('#importar=')[1])); await n6.close(); await p.bringToFront();
-  // «★ Al Punto de Situación» (15/11/2026): directo al PSIT de la organización, sin pasar por META. SINORG=1: lo pide la primera vez
-  { if (process.env.SINORG) {
-      await p.click('#aPunto'); await p.waitForTimeout(300);
-      console.log('PUNTO sin organización: aviso «' + ((await p.textContent('#sinOrg').catch(() => '')).match(/no tiene dado de alta[^.]*/) || [''])[0] + '» | pide la dirección:', !!(await p.$('#urlPsit')));
-      if (!(await p.$('#sinOrg')) || !(await p.$('#urlPsit'))) console.log('Error: PSIT sin organización');
-      await p.fill('#urlPsit', 'https://colabora.mdef.es/et/MIO/puntos-situacion.html');
-    }
-    const [n7] = await Promise.all([ctx.waitForEvent('page'), process.env.SINORG ? p.click('#guardarPsit') : p.click('#aPunto')]); await n7.waitForLoadState();
+  // «★ Al Punto de Situación»: pasa por META (el de la organización) con la marca punto, como antes
+  { if (process.env.SINORG) { await p.selectOption('#gestorSel', '0'); }
+    const [n7] = await Promise.all([ctx.waitForEvent('page'), p.click('#aPunto')]); await n7.waitForLoadState();
     const d7 = JSON.parse(decodeURIComponent(n7.url().split('#importar=')[1])), u7 = n7.url().split('#')[0]; await n7.close(); await p.bringToFront();
-    console.log('PUNTO: va a', u7.replace(/^https:\/\/[^/]+/, ''), '| origen', d7.origen, '| destino', d7.destino, '| asunto:', !!d7.asunto, '| enlace:', !!d7.enlace);
-    if (u7 !== (process.env.SINORG ? 'https://colabora.mdef.es/et/MIO/puntos-situacion.html' : ORG_PSIT) || d7.origen !== 'SENDERO' || d7.destino !== 'psit' || d7.punto) console.log('Error: PSIT directo');
+    console.log('PUNTO: va a', u7.replace(/^https:\/\/[^/]+/, ''), '| por META con punto =', d7.punto, '| célula', d7.departamento);
+    if (!d7.punto || !d7.departamento) console.log('Error: PSIT por META');
     { const r = await p.$eval('#aPunto', b => { const x = b.getBoundingClientRect(), y = document.querySelector('#aColabora').getBoundingClientRect(); return { alto: Math.round(x.height), altoMeta: Math.round(y.height), unaLinea: b.scrollWidth <= b.clientWidth + 1 }; });
       console.log('PUNTO: botón entero en una línea:', r.unaLinea, '| alto', r.alto, 'como META', r.altoMeta); }
-    console.log('PUNTO: botón', !!(await p.$('#aPunto')), '| departamento', d7.departamento); }
+    console.log('PUNTO: botón', !!(await p.$('#aPunto'))); }
   console.log('META recibe todas las células:', (d6.departamentos || []).join(', '));
   console.log('META recibe: departamento', d6.departamento, '| responsable', d6.responsable === undefined ? '(no se manda)' : d6.responsable, '| negociado', d6.negociado === undefined ? '(no se manda)' : d6.negociado); }
 // Anexos: lista, abrir (pestaña nueva) y descargar con la sesión; el visor no marca el mensaje como leído

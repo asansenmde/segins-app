@@ -529,7 +529,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-15 · 4';
+  var VERSION = '2026-11-15 · 5';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1988,7 +1988,7 @@
       // 13/11/2026 (propuesta A): las tres acciones de tramitar en grande y, debajo, las utilidades pequeñas
       '<div class="grandes"><button type="button" class="gr gr-meta" id="aColabora" disabled title="Abre el Gestor de Tareas (META) con el alta rellena"><span class="i">➜</span><span>Tarea en META<small>expediente y responsable</small></span></button>' +
       (m._api && m._x && m._x.__es !== 'Salida' ? '<button type="button" class="gr gr-resp" id="aResponder" title="Abre en MENSADEF la pantalla para responder a este mensaje"><span class="i">↩</span><span>Responder<small>en MENSADEF</small></span></button>' : '') +
-      (PUNTO ? '<button type="button" class="gr gr-psit" id="aPunto" disabled title="Lo pasa directamente al Punto de Situación (PSIT) de tu organización"><span class="i">★</span><span>Al PSIT<small>punto de situación</small></span></button>' : '') + botonRubrica(m) + '</div>' +
+      (PUNTO ? '<button type="button" class="gr gr-psit" id="aPunto" disabled title="Lo pasa al Punto de Situación (PSIT) a través de META, que detecta la célula"><span class="i">★</span><span>Al PSIT<small>punto de situación</small></span></button>' : '') + botonRubrica(m) + '</div>' +
       '<div class="utiles"><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + botonLeido(m) + '<span class="sepu"></span>' +
       '<button type="button" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Correo</button>' +
       '<button type="button" id="copiarTarea" title="Copia asunto, referencia, fecha y autoridad para pegarlos en un gestor">📋 Copiar</button>' + (selectorBandera(m) ? '<span class="sepu"></span>' + selectorBandera(m) : '') + '</div></div></div><div id="colabora"></div>' +
@@ -2036,7 +2036,9 @@
     $('verDet').addEventListener('click', function () { cambiarVisto(m, !vistos[claveMensaje(m)]); });
     $('porCorreo').addEventListener('click', function () { correoMensaje(m); });
     $('aColabora').addEventListener('click', function () { pasarAColabora(m, disp); });
-    if ($('aPunto')) $('aPunto').addEventListener('click', function () { pasarAlPunto(m, disp); });
+    // 15/11/2026 (tarde): vuelve a pasar por META, que detecta la célula y lo lleva al PSIT, hasta que el PSIT acepte el paso
+    // directo (sesión «[PUNTOS]»); entonces bastará con PSIT_DIRECTO = true
+    if ($('aPunto')) $('aPunto').addEventListener('click', function () { if (PSIT_DIRECTO) pasarAlPunto(m, disp); else pasarAColabora(m, disp, true); });
     $('copiarTarea').addEventListener('click', function () {
       var t = (m._asunto || '') + (m.MensajeNum_referencia ? ' — Ref. ' + m.MensajeNum_referencia : '') + (m.MensajeNum_expediente ? ' — Exp. ' + m.MensajeNum_expediente : '') +
         ' — ' + verFecha(fechaDe(m)) + (autoridad(m) ? ' — ' + autoridad(m) : '');
@@ -2286,6 +2288,7 @@
   // Punto de Situación (11/11/2026, en las dos copias). Desde el 15/11/2026 va DIRECTO al PSIT de la organización, sin pasar
   // por META (el usuario: un asunto que solo va al punto no tiene por qué ser una tarea); para seguimiento, «Añadir tarea».
   var PUNTO = true;   // 11/11/2026: también en el definitivo, como pidió el usuario
+  var PSIT_DIRECTO = false;
   var urlPsit = function () { return ORG.psit || leer('psit', ''); };
   function avisoSinOrg() {
     if (!URL_ACCESO || ORG.meta || ORG.psit) return '';

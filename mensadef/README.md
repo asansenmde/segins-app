@@ -465,4 +465,7 @@ con el formato *verbose* de SharePoint 2013.
   META) con `#importar=` y `origen: 'SENDERO', destino: 'psit'`, y deja en MENSADEF «Añadido al Punto de Situación por
   NOMBRE…». Si la organización no tiene dirección, se pide la primera vez y se guarda en el navegador; si no tiene ni META ni
   PSIT, sale el aviso de que deben crearse. Pendiente: que el PSIT acepte `#importar=` (sesión «[PUNTOS]»).
+- **2026-11-15 · 5:** «★ Al PSIT» **vuelve a pasar por META** (el de la organización), que detecta la célula y lo lleva al
+  PSIT, porque el PSIT aún no acepta el paso directo (el usuario lo prefiere así hasta entonces). El paso directo queda hecho
+  y apagado (`PSIT_DIRECTO = false`); se enciende cuando el PSIT acepte `#importar=` con origen SENDERO.
 
