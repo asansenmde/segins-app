@@ -529,7 +529,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-15 · 1';
+  var VERSION = '2026-11-15 · 2';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -638,7 +638,8 @@
         avisarVersion(mem.vigente); seguir();
         preguntarAcceso(ambito, false, function (r) {
           if (r && r.ok) guardar('acceso', { ok: true, t: Date.now(), ambito: ambito, regla: r.regla || '', vigente: r.vigente || null });
-          else if (r && !r.error) { try { localStorage.removeItem(MEMORIA + 'acceso'); } catch (e) { /* sin memoria */ } }
+          // 15/11/2026: si ya no está autorizado, se le bloquea en ese momento (no a la vez siguiente)
+          else if (r && !r.error) { try { localStorage.removeItem(MEMORIA + 'acceso'); } catch (e) { /* sin memoria */ } sinPermiso(r); }
         });
         return;
       }

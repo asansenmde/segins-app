@@ -452,4 +452,6 @@ con el formato *verbose* de SharePoint 2013.
   los 5 últimos días). `URL_ACCESO` (en `generar-marcador.py`) es la dirección de la página en Colabora; el archivo fuente
   lleva `URL_ACCESO = null` y no comprueba nada (no se reparte). Pruebas: pasadas NOAUT, NOAUT+PORTAL, XFO, NUEVA, DIAS en
   `todas.sh` con Colabora simulado (`pruebas/colabora-simulada.mjs`) y `pruebas/acceso.mjs` para la página.
+- **2026-11-15 · 2:** si se retira la autorización en Colabora, SENDERO se bloquea en la misma apertura en cuanto Colabora
+  contesta (antes entraba una vez más con la autorización recordada).
 

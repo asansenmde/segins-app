@@ -165,6 +165,12 @@ if (process.env.XFO) {
     const p2 = await ctx.newPage(); await p2.goto(O + WEB + '/SitePages/ambito.aspx'); const t0 = Date.now(); await p2.evaluate(codigo);
     await p2.waitForFunction(() => /Buscando tus células|Leyendo|mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 30000 }).catch(() => 0);
     console.log('acceso: segunda vez entra sin esperar a Colabora:', Date.now() - t0 < 3000); await p2.close();
+    // Se le quita la autorización en Colabora: la siguiente vez entra con lo recordado, pero se bloquea en cuanto Colabora contesta
+    estC.listas['SENDERO Autorizados'].items.forEach(x => { if (x.Tipo === 'Ámbito') x.Activo = false; });
+    const p3 = await ctx.newPage(); await p3.goto(O + WEB + '/SitePages/ambito.aspx'); await p3.evaluate(codigo);
+    const bloq = await p3.waitForSelector('#bloqueo', { timeout: 20000 }).then(() => true, () => false);
+    console.log('acceso: retirada en Colabora → bloqueado en esa misma apertura:', bloq, '|', bloq ? (await p3.textContent('#bloqueo h2')).trim() : '-', '| SENDERO oculto:', await p3.$eval('main', m => m.style.display === 'none'));
+    if (!bloq || !(await p3.$eval('main', m => m.style.display === 'none'))) console.log('Error: retirar autorización'); await p3.close();
     await fin(); } }
 if (process.env.PORTAL && !process.env.SESION && !process.env.VENTANA) {
   // Entrada automática (pruebas): sin ventana y sin pulsar nada
