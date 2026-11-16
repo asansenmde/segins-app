@@ -184,7 +184,7 @@ autoría.
 
 16. **Puntos de Situación de SUIGESUR** (`puntos-situacion/`, `[PUNTOS]`). **Se lleva solo en la sesión «[PUNTOS] Puntos
     de Situación», rama `claude/modest-fermat-9zf46n`** (acordado con el usuario el 14/11/2026; las demás sesiones no lo tocan).
-    - **Versión vigente: 2026-11-15 · 1** (mensajes de SENDERO directos, sin META) (`puntos-situacion/colabora/puntos-situacion.html` para subir y
+    - **Versión vigente: 2026-11-16 · 1** (mensajes de SENDERO directos y células de SUIGESUR por negociado) (`puntos-situacion/colabora/puntos-situacion.html` para subir y
       `puntos-situacion-pruebas.html` para pruebas). Lo que hace, sus listas y su historial de versiones: `puntos-situacion/README.md`.
     - Confirmadas por el usuario hasta la · 5; la · 6 (informe completo en PDF para todos los negociados) entregada.
     - Enlace con META y el Gestor común (asuntos «⭐ Tratar con el General»): lo llevan META y el Gestor desde su sesión
@@ -195,6 +195,9 @@ autoría.
       Pendiente del usuario: subir la copia, pulsar «Comprobar la instalación» (crea «Célula de MENSADEF» y «Clave de
       origen»), rellenar la célula de cada negociado y, después, pedir en la sesión «[MENSADEF] SENDERO» que ponga
       `PSIT_DIRECTO = true`.
+    - 16/11/2026: **2026-11-16 · 1**: reparto de las células de SUIGESUR por negociado confirmado por el usuario (JEFATURA y
+      SECRETARIA sin asignar: decide quien lo recibe). Pendiente del usuario: subir la copia, «Comprobar la instalación» y
+      «Poner las células de SUIGESUR» en Ajustes.
     12/11/2026: META 2026-11-12 · 7 confirmado (estado solo En curso/Terminada, nombres «Reunión de entradas» y «Punto Situación
       semanal», Recordar asignación, correos en ventana nueva, filtros con los departamentos propios, eliminar con aviso del motivo).
       Eliminar no funcionaba porque el nivel «Colaborar» del sitio JSUIGE no tiene «Eliminar elementos»: el usuario creó un nivel

@@ -18,6 +18,26 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-16 · 1: células de SUIGESUR por negociado
+
+En Ajustes, tarjeta **«Células de SUIGESUR (META y SENDERO)»** con el reparto confirmado por el usuario el 16/11/2026 y el
+botón **«Poner las células de SUIGESUR»** (dos clics). En META el «Negociado asignado» es la célula de MENSADEF, así que se
+ponen en las dos columnas de cada negociado: «Nombre en el Gestor de Tareas» (tareas de META) y «Célula de MENSADEF»
+(mensajes de SENDERO). Solo añade; lo que ya hay se conserva.
+
+| Negociado | Células de MENSADEF |
+|---|---|
+| PROCOR | ET 2SUIGE SETEC PROGCOORD |
+| Infraestructura | ET 2SUIGE SETEC INFRAPROP, … INFRAPROP MAMBIENTAL, … INFRAPROP MANTO, … INFRAPROP OBRAS, … INFRAPROP PROPIEDADES |
+| Seguridad | ET 2SUIGE SETEC SEGURIDAD |
+| PRL | ET 2SUIGE SETEC PRL |
+| Calidad de Vida | ET 2SUIGE SETEC CALIDAD VIDA |
+| Acuartelamiento | ET 2SUIGE SETEC SVC ACTO |
+| *Sin asignar* | ET 2SUIGE SETEC JEFATURA, ET 2SUIGE SETEC SECRETARIA |
+
+JEFATURA y SECRETARIA quedan **sin asignar a propósito**: al llegar uno de sus mensajes, la página dice «no tiene negociado
+fijo, decide tú dónde se incluye» y no ofrece guardar la célula, para que se pregunte siempre.
+
 ## Versión 2026-11-15 · 1: mensajes de SENDERO directos al Punto de Situación
 
 SENDERO (visor de MENSADEF) puede mandar un mensaje al Punto de Situación sin pasar por META: abre esta página con

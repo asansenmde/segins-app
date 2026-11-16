@@ -434,6 +434,14 @@ comprueba('Pedro ya entra', !/No estás en ningún negociado/.test(await txt('#v
   await p.click('[data-comprobar]'); await p.waitForFunction(() => /Bloqueo en el servidor/.test(document.querySelector('#logInst').textContent), null, { timeout: 15000 });
   comprueba('«Comprobar la instalación» crea las columnas nuevas', LP('Negociados').campos.has('CelulaMensadef') && LP('Aportaciones').campos.has('OrigenClave'));
   await ir(9); await p.click('nav.tabs a[data-v=ajustes]');
+  comprueba('tabla de células de SUIGESUR con «Falta»', /Células de SUIGESUR/.test(await txt('#vista')) && (await p.$$('[data-celulas]')).length === 1);
+  await p.click('[data-celulas]');
+  comprueba('primer clic solo pide confirmar', !negsC[4].CelulaMensadef);
+  await p.click('[data-celulas]'); await p.waitForTimeout(1500);
+  comprueba('células puestas: PRL=' + negsC[4].NombreGestor + ' / ' + negsC[4].CelulaMensadef + ' · Infra=' + (negsC[2].CelulaMensadef || '').split('; ').length,
+    negsC[4].NombreGestor === 'P.R.L.; ET 2SUIGE SETEC PRL' && negsC[4].CelulaMensadef === 'ET 2SUIGE SETEC PRL' && negsC[2].CelulaMensadef.split('; ').length === 5 &&
+    negsC[1].CelulaMensadef === 'ET 2SUIGE SETEC PROGCOORD' && negsC[6].CelulaMensadef === 'ET 2SUIGE SETEC SVC ACTO' && !negsC[0].CelulaMensadef);
+  comprueba('ya no ofrece ponerlas otra vez', !(await p.$('[data-celulas]')) && /✔ Puestas/.test(await txt('#vista')));
   await p.fill(fila('PRL') + ' [data-negcelula]', 'CELULA PRL'); await p.click(fila('PRL') + ' [data-guardarneg]'); await p.waitForTimeout(800);
   comprueba('célula de MENSADEF guardada en PRL: ' + negsC[4].CelulaMensadef, negsC[4].CelulaMensadef === 'CELULA PRL');
   // Luis (PRL) recibe un mensaje de su célula (escrita distinto): se abre la entrada rellena y no se crea nada sin Guardar
@@ -457,9 +465,18 @@ comprueba('Pedro ya entra', !/No estás en ningún negociado/.test(await txt('#v
   await abrirCon(9, msg({ id: 'MSG-0002', departamento: 'CELULA NUEVA', asunto: 'Otro mensaje ficticio' }));
   comprueba('célula sin negociado: pregunta a cuál va', /no está asignada a ningún negociado/.test(await txt('#dlg')) && (await p.$$eval('#impNeg option', o => o.length)) === 6 && await p.isChecked('#impGuardar'));
   await p.selectOption('#impNeg', 'Seguridad'); await p.click('#impOk'); await p.waitForSelector('#edSit');
-  comprueba('guarda la célula en Seguridad y abre su entrada', negsC[3].CelulaMensadef === 'CELULA NUEVA' && /Nueva entrada · Seguridad/.test(await txt('#dlg .dh')));
+  comprueba('guarda la célula en Seguridad y abre su entrada', negsC[3].CelulaMensadef === 'ET 2SUIGE SETEC SEGURIDAD; CELULA NUEVA' && /Nueva entrada · Seguridad/.test(await txt('#dlg .dh')));
   await p.click('#dlg [data-cerrar]');
   comprueba('cerrar sin guardar no crea nada', !LP('Aportaciones').items.some(x => x.OrigenClave === 'MSG-0002'));
+  // Célula real de Seguridad (PROCOR): va directa a Seguridad
+  await abrirCon(9, msg({ id: 'MSG-0010', departamento: 'ET 2SUIGE SETEC SEGURIDAD' }));
+  await p.waitForSelector('#edSit');
+  comprueba('célula de SUIGESUR: va directa a su negociado', /Nueva entrada · Seguridad/.test(await txt('#dlg .dh')));
+  await p.click('#dlg [data-cerrar]');
+  // JEFATURA: sin negociado fijo, decide quien lo recibe y no se ofrece guardarla
+  await abrirCon(9, msg({ id: 'MSG-0011', departamento: 'ET 2SUIGE SETEC JEFATURA' }));
+  comprueba('JEFATURA: «decide tú» y sin guardar la célula', /no tiene negociado fijo, decide tú/.test(await txt('#dlg')) && !(await p.$('#impGuardar')) && (await p.$$eval('#impNeg option', o => o.length)) === 6);
+  await p.click('#dlg [data-cerrar]');
   // Luis con un mensaje de la célula de Seguridad: no tiene permiso
   await abrirCon(8, msg({ id: 'MSG-0003', departamento: 'Celula nueva' }));
   comprueba('sin permiso en el negociado de la célula: lo dice', /no eres de ese negociado/.test(await txt('#dlg')) && !(await p.$('#edSit')));
