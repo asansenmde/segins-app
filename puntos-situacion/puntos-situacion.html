@@ -154,7 +154,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-16 · 1';
+  var VERSION = '2026-11-16 · 2';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -426,7 +426,7 @@
   function aAport(x) {
     return { id: x.Id, titulo: x.Title || '', punto: Number(x.PuntoId), ref: x.Referencia || '', neg: x.Negociado || '', tipo: x.Tipo || 'Entrada', sit: x.Situacion || '',
       prio: x.Prioridad || 'Normal', orden: Number(x.Orden) || 0, exp: x.Expediente || '', pasar: x.PasarSiguiente !== false, cierre: fecha(x.CierrePunto), origen: x.Origen || '',
-      origenLista: x.OrigenLista || '', origenId: x.OrigenId == null ? null : Number(x.OrigenId), origenUrl: x.OrigenUrl || '', origenClave: x.OrigenClave || '', creado: x.Created, modificado: x.Modified,
+      origenLista: x.OrigenLista || '', origenId: x.OrigenId == null ? null : Number(x.OrigenId), origenUrl: x.OrigenUrl || '', origenClave: x.OrigenClave || (/^SENDERO\|/.test(x.OrigenLista || '') ? String(x.OrigenLista).slice(8) : ''), creado: x.Created, modificado: x.Modified,
       editor: x.Editor && x.Editor.Title, autor: x.Author && x.Author.Title,
       adjuntos: lista(x.AttachmentFiles).map(function (f) { return { nombre: f.FileName, url: location.origin + f.ServerRelativeUrl }; }) };
   }
@@ -960,7 +960,7 @@
     } else {
       var orden = entradas(p, ed.neg).reduce(function (m, x) { return Math.max(m, x.orden); }, 0) + 1;
       paso = enviarSP(U('aport') + '/items', Object.assign({ __metadata: tipo('aport'), PuntoId: p.id, Referencia: p.ref, Negociado: ed.neg, Tipo: 'Entrada', Orden: orden, CierrePunto: p.cierre.toISOString(),
-        Origen: o.origen || 'Página', OrigenLista: o.origenLista || '', OrigenId: o.origenId == null ? null : o.origenId, OrigenUrl: String(o.origenUrl || '').slice(0, 255) }, o.origenClave && hayCampo('aport', 'OrigenClave') ? { OrigenClave: String(o.origenClave).slice(0, 255) } : {}, campos), 'No tienes permiso para añadir entradas')
+        Origen: o.origen || 'Página', OrigenLista: o.origenClave && o.origen === 'SENDERO' && !hayCampo('aport', 'OrigenClave') ? ('SENDERO|' + o.origenClave).slice(0, 255) : o.origenLista || '', OrigenId: o.origenId == null ? null : o.origenId, OrigenUrl: String(o.origenUrl || '').slice(0, 255) }, o.origenClave && hayCampo('aport', 'OrigenClave') ? { OrigenClave: String(o.origenClave).slice(0, 255) } : {}, campos), 'No tienes permiso para añadir entradas')
         .then(function (r) { return r.Id || r.ID; });
     }
     var id = null, avisos = [];
@@ -1164,8 +1164,9 @@
     }
     var p = abiertos[0];
     sel = p.id;
-    // Mismo mensaje: por su clave; si la entrada no la tiene (columna creada después), por el enlace
-    var ya = delPunto(p).find(function (a) { return a.origen === 'SENDERO' && (a.origenClave ? !!m.id && a.origenClave === m.id : !!m.enlace && a.origenUrl === m.enlace.slice(0, 255)); });
+    // Mismo mensaje: SOLO por su clave (16/11/2026). El enlace no sirve: para los mensajes leídos por la API de MENSADEF,
+    // SENDERO manda el enlace de la célula, igual para todos sus mensajes, y daba por «ya incluidos» mensajes distintos.
+    var ya = m.id ? delPunto(p).find(function (a) { return a.origen === 'SENDERO' && a.origenClave && a.origenClave === m.id; }) : null;
     if (ya) { pref.neg = ya.neg; pref.vista = 'negociado'; guardarPref(); render(); return dialogoAviso('Mensaje de SENDERO', resumen + '<div class="okmsg">Este mensaje ya está incluido en ' + esc(p.ref) + ', en <b>' + esc(ya.neg) + '</b> («' + esc(ya.titulo) + '»).</div>'); }
     var datos = { titulo: m.asunto, sit: situacionDe(m), prio: 'Normal', exp: m.expediente || m.referencia || '', origen: 'SENDERO', origenLista: 'SENDERO', origenId: null, origenClave: m.id, origenUrl: m.enlace, incluidaEn: '' };
     var neg = negDeCelula(m.departamento);

@@ -18,6 +18,15 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-16 · 2: no confundir mensajes distintos de la misma célula
+
+Fallo visto por el usuario: al llegar un mensaje de SENDERO decía «Este mensaje ya está incluido en PS-…» y no lo estaba.
+Causa: para los mensajes leídos por la API de MENSADEF, SENDERO manda como enlace el **de la célula**, igual para todos sus
+mensajes, y la página, si la entrada no tenía la clave del mensaje, comparaba por el enlace. Ahora:
+- Los duplicados se detectan **solo por la clave del mensaje** (`id` de SENDERO), nunca por el enlace.
+- La clave se guarda en `OrigenClave`; si esa columna aún no existe, en `OrigenLista` como «SENDERO|clave».
+- Las entradas incluidas antes sin clave ya no bloquean a ningún mensaje.
+
 ## Versión 2026-11-16 · 1: células de SUIGESUR por negociado
 
 En Ajustes, tarjeta **«Células de SUIGESUR (META y SENDERO)»** con el reparto confirmado por el usuario el 16/11/2026 y el

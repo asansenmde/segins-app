@@ -495,6 +495,23 @@ comprueba('Pedro ya entra', !/No estás en ningún negociado/.test(await txt('#v
   await abrirCon(8, msg({ id: 'MSG-0006' }));
   comprueba('punto cerrado: lo dice claramente', /No hay ningún punto de situación abierto/.test(await txt('#dlg')) && /está cerrado desde/.test(await txt('#dlg')) && !(await p.$('#edSit')));
   pt2b.Cierre = ciB;
+  // Mensajes distintos de la misma célula con el MISMO enlace (SENDERO manda el de la célula): no son duplicados.
+  // También sin la columna OrigenClave (la clave va entonces en OrigenLista como «SENDERO|clave»).
+  const enlaceCelula = 'https://mensadef.mdef.es/ambito#/celula/PRL/7';
+  for (const conColumna of [true, false]) {
+    if (!conColumna) LP('Aportaciones').campos.delete('OrigenClave');
+    const a1 = 'MSG-A-' + conColumna, a2 = 'MSG-B-' + conColumna;
+    await abrirCon(8, msg({ id: a1, enlace: enlaceCelula, departamento: 'Célula P.R.L.', asunto: 'Primero ' + conColumna })); await p.waitForSelector('#edSit');
+    await p.click('[data-guardarent]'); await esperaDlgCerrado(); await p.waitForTimeout(600);
+    const g1 = LP('Aportaciones').items[LP('Aportaciones').items.length - 1];
+    comprueba((conColumna ? 'con' : 'sin') + ' columna, clave guardada: ' + (g1.OrigenClave || g1.OrigenLista), conColumna ? g1.OrigenClave === a1 && g1.OrigenLista === 'SENDERO' : g1.OrigenLista === 'SENDERO|' + a1 && !g1.OrigenClave);
+    await abrirCon(8, msg({ id: a2, enlace: enlaceCelula, departamento: 'Célula P.R.L.', asunto: 'Segundo ' + conColumna }));
+    comprueba((conColumna ? 'con' : 'sin') + ' columna, otro mensaje de la misma célula NO se da por incluido', !!(await p.$('#edSit')) && !/ya está incluido/.test(await txt('#dlg')));
+    await p.click('#dlg [data-cerrar]');
+    await abrirCon(8, msg({ id: a1, enlace: enlaceCelula, departamento: 'Célula P.R.L.' }));
+    comprueba((conColumna ? 'con' : 'sin') + ' columna, el mismo mensaje sí se da por incluido', /ya está incluido/.test(await txt('#dlg')) && !(await p.$('#edSit')));
+  }
+  LP('Aportaciones').campos.add('OrigenClave');
   // Quien no está en ningún negociado
   USUARIOS[12] = { Id: 12, Title: 'RAUL SIN NEGOCIADO', Email: 'raul@et.mde.es', LoginName: 'i:0#.w|et\\raul' };
   await abrirCon(12, msg({ id: 'MSG-0007' }));
