@@ -8,7 +8,7 @@ de alta y edita sus entradas (texto con imágenes); a la hora de cierre el punto
 Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Colabora (a la papelera).
 
 - `puntos-situacion.html`: **original legible** (el que se edita). © 2026 Cte. Alfredo Sánchez Sender.
-- `colabora/puntos-situacion.html`: **copia protegida, la que se sube a Colabora** (sitio `/et/SUIGESUR/JSUIGE`, una
+- `colabora/puntos-situacion.html`: **copia protegida (cifrada entera), la que se sube a Colabora** (sitio `/et/SUIGESUR/JSUIGE`, una
   biblioteca del sitio). Se regenera tras cada cambio con `cd puntos-situacion/proteger && npm install && node proteger.mjs`.
 - `colabora/puntos-situacion-pruebas.html`: copia de pruebas (`node proteger.mjs --pruebas`): listas «PS … PRUEBAS»,
   banda roja y «[PRUEBAS]» en los correos. Nunca toca las listas reales.
@@ -17,6 +17,14 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
 - `pruebas/simulacion.mjs`: prueba completa con Playwright contra un Colabora simulado (datos ficticios):
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
+
+## Versión 2026-11-16 · 6: copia cifrada entera (como las demás aplicaciones)
+
+La copia que se sube a Colabora se genera ahora con `proteger/cifrado.mjs` (el mismo de Incidentes, Pérdidas, VSA,
+Permisos y el Gestor desde el 13/11): todos los textos, nombres de campo y expresiones regulares van a la tabla cifrada,
+con bloqueo al dominio `.mdef.es`, y el `<` de las etiquetas de página se escribe `\x3c` para el filtro de la red. En la
+copia no se lee ningún nombre de lista, columna ni mensaje. Pasa de ~200 KB a ~345 KB. El programa no cambia.
+Probada con la simulación completa (ligero y verbose) y con `PROXY=1`, que imita el filtro de la red.
 
 ## Versión 2026-11-16 · 5: «error de validación de datos de lista» con el punto abierto
 

@@ -1,7 +1,7 @@
 let sinBorrar = false, sinEditar = false;
 // Prueba de Puntos de Situación contra un Colabora simulado (todo en memoria, datos ficticios).
 // node puntos-situacion/pruebas/simulacion.mjs · VERBOSE=1 (SharePoint 2013) · PS_HTML=puntos-situacion/colabora/puntos-situacion.html (copia protegida)
-// CAPTURAS=carpeta guarda capturas de pantalla.
+// CAPTURAS=carpeta guarda capturas de pantalla. PROXY=1 imita el filtro de la red de Defensa (mete un <script> delante de cada </head>).
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
@@ -67,7 +67,7 @@ await ctx.route(ORIGEN + '/**', async r0 => {
   if (VERBOSE && m === 'GET' && /odata=nometadata/.test(req.headers().accept || '')) return ful({ status: 406, body: '' });
   if (u.includes('/Attachments/')) { const k = u.replace(ORIGEN, ''); return adjuntos[k] ? ful({ body: adjuntos[k], contentType: 'image/jpeg' }) : ful({ status: 404, body: '' }); }
   if (/portal\.aspx/.test(u)) return ful({ contentType: 'text/html', body: '<html><body><h1>Portal</h1><iframe id="app" style="width:1100px;height:800px" src="' + PAGINA + '"></iframe></body></html>' });
-  if (!u.includes('/_api/')) return /puntos-situacion\.html/.test(u) ? ful({ body: HTML, contentType: 'text/html' }) : ful({ status: 404, body: '' });
+  if (!u.includes('/_api/')) return /puntos-situacion\.html/.test(u) ? ful({ body: process.env.PROXY ? HTML.replace(/<\/head>/gi, '<script>window.__filtroRed = 1<\/script></head>') : HTML, contentType: 'text/html' }) : ful({ status: 404, body: '' });
   const resto = u.split('/_api/')[1];
   if (u.split('/_api/')[0].replace(ORIGEN, '') !== WEB) return ful({ status: 404, body: '' });
   const yo = USUARIOS[actual];
