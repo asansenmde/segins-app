@@ -59,7 +59,7 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-16 · 1';
+  var VERSION = '2026-11-16 · 2';
   // Solo se contesta a SENDERO, que funciona en MENSADEF (el favorito escribe su página sobre la de MENSADEF)
   var ORIGEN_SENDERO = 'https://mensadef.mdef.es';
   var L_AUT = 'SENDERO Autorizados', L_SOL = 'SENDERO Solicitudes', GRUPO = 'SENDERO Administradores';
@@ -545,13 +545,18 @@
   var nombreCampo = function (xml) { return /Name="([^"]+)"/.exec(xml)[1]; };
   function estadoLista(t, campos) {
     return api(urlL(t) + '?$select=Id,Title,HasUniqueRoleAssignments,ReadSecurity,WriteSecurity').then(function (l) {
-      return Promise.all([todas(urlL(t) + '/fields?$select=InternalName&$top=500'), asignaciones(urlL(t)).catch(function () { return []; })]).then(function (r) {
+      // 16/11/2026: si Colabora no devuelve «permisos propios» con el resto, se pregunta aparte (si no, parecía que heredaba)
+      var unico = function (v) { return v === true || v === 1 || /^(true|1)$/i.test(String(v)); };
+      var propio = l.HasUniqueRoleAssignments == null ? api(urlL(t) + '/HasUniqueRoleAssignments').then(function (x) { return unico(x.value != null ? x.value : x.HasUniqueRoleAssignments); }, function () { return null; }) : Promise.resolve(unico(l.HasUniqueRoleAssignments));
+      return propio.then(function (u) { l.HasUniqueRoleAssignments = u; }).then(function () { return Promise.all([todas(urlL(t) + '/fields?$select=InternalName&$top=500'), asignaciones(urlL(t)).catch(function () { return []; })]).then(function (r) {
         var hay = r[0].map(function (x) { return x.InternalName; });
         return { existe: true, info: l, faltan: campos.map(nombreCampo).filter(function (n) { return hay.indexOf(n) < 0; }), asig: r[1] };
-      });
+      }); });
     }, function (e) { if (e.status === 404) return { existe: false }; throw e; });
   }
   var rolesDe = function (a) { return lista(a.RoleDefinitionBindings).map(function (b) { return Number(b.RoleTypeKind); }); };
+  // «Acceso limitado» (tipo 1) no deja leer la lista: hace falta Leer o más
+  var lee = function (rs) { return rs.some(function (k) { return k !== 1; }); };
   // Niveles que dejan escribir: Colaborar, Diseño, Editar y los propios del sitio (tipo 0, p. ej. «META») salvo los de leer
   var nivelEscribe = function (b) { var k = Number(b.RoleTypeKind); return ESCRIBE.indexOf(k) >= 0 || (k === 0 && !/lectura|leer|read|limitad|limited|ver\b|view/i.test(b.Name || '')); };
   var esEscritor = function (a, g) { var bs = lista(a.RoleDefinitionBindings); return (!g || Number(a.PrincipalId) !== Number(g.Id)) && !bs.some(function (b) { return Number(b.RoleTypeKind) === 5; }) && bs.some(nivelEscribe); };
@@ -585,7 +590,7 @@
         var leer = r[1], colaborar = r[2], todos = r[3], g = r[4];
         var pasos = r[0].filter(function (a) { return esEscritor(a, g); })
           .map(function (a) { return function () { return enviarSP(u + '/roleassignments/getbyprincipalid(' + Number(a.PrincipalId) + ')/deleteobject()', null, sinPerm).then(function () { return enviarSP(u + '/roleassignments/addroleassignment(principalid=' + Number(a.PrincipalId) + ',roledefid=' + leer + ')', null, sinPerm); }); }; });
-        if (!r[0].some(function (a) { return esTodos(a.Member); })) pasos.push(function () { return enviarSP(u + '/roleassignments/addroleassignment(principalid=' + Number(todos) + ',roledefid=' + leer + ')', null, sinPerm); });
+        if (!r[0].some(function (a) { return esTodos(a.Member) && lee(rolesDe(a)); })) pasos.push(function () { return enviarSP(u + '/roleassignments/addroleassignment(principalid=' + Number(todos) + ',roledefid=' + leer + ')', null, sinPerm); });
         if (g) pasos.push(function () { return enviarSP(u + '/roleassignments/addroleassignment(principalid=' + Number(g.Id) + ',roledefid=' + colaborar + ')', null, sinPerm); });
         return pasos.reduce(function (p, f) { return p.then(f); }, Promise.resolve());
       });
@@ -607,15 +612,15 @@
       var ok = function (b) { return b ? '<span class="bien">✔</span>' : '<span class="mal">✕</span>'; };
       var todosEn = function (est, pred) { return !!(est.asig || []).filter(function (x) { return esTodos(x.Member); }).filter(function (x) { return pred(rolesDe(x)); }).length; };
       var escritoresA = (a.asig || []).filter(function (x) { return esEscritor(x, g); });
-      var aProt = a.existe && a.info.HasUniqueRoleAssignments && todosEn(a, function () { return true; }) && !escritoresA.length;
+      var aProt = a.existe && a.info.HasUniqueRoleAssignments !== false && todosEn(a, lee) && !escritoresA.length;
       var sAbierta = s.existe && todosEn(s, function (rs) { return rs.some(function (y) { return ESCRIBE.indexOf(y) >= 0; }); }) && Number(s.info.ReadSecurity) === 2 && Number(s.info.WriteSecurity) === 2;
       var gEn = function (est) { return !!(g && (est.asig || []).some(function (x) { return Number(x.PrincipalId) === Number(g.Id); })); };
       // Qué falta, para que se vea sin adivinar (solo nombres de grupos y niveles de permiso)
       var porque = function (est, falta) { return est.existe && falta.length ? '<div class="muted" style="flex-basis:100%;margin-left:22px">Falta: ' + esc(falta.join('; ')) + '.<br>Permisos ahora: ' + esc(verPermisos(est) || 'ninguno leído') + '</div>' : ''; };
       var faltaA = [], faltaS = [];
       if (a.existe) {
-        if (!a.info.HasUniqueRoleAssignments) faltaA.push('todavía hereda los permisos del sitio');
-        if (!todosEn(a, function () { return true; })) faltaA.push('que todos puedan leerla (no encuentro «Usuarios del dominio» ni «Todos» en sus permisos)');
+        if (a.info.HasUniqueRoleAssignments === false) faltaA.push('todavía hereda los permisos del sitio');
+        if (!todosEn(a, lee)) faltaA.push(todosEn(a, function () { return true; }) ? 'que todos puedan leerla («Usuarios del dominio» solo tiene «Acceso limitado», que no deja leer)' : 'que todos puedan leerla (no encuentro «Usuarios del dominio» ni «Todos» en sus permisos)');
         if (escritoresA.length) faltaA.push('quitar la escritura a: ' + escritoresA.map(function (x) { return x.Member && x.Member.Title || 'Id ' + x.PrincipalId; }).join(', '));
         if (g && !gEn(a)) faltaA.push('dar permiso al grupo «' + GRUPO + '»');
       }

@@ -22,6 +22,9 @@ acceso), en `Documentos compartidos/SENDERO-acceso.html` (si se sube a otra bibl
   siguiente.
 - **Versión vigente y caducidad**: la versión anotada (la más nueva, título «AAAA-MM-DD · n», con la dirección del favorito en
   `Nota`) y la caducidad de los favoritos (elemento «Caducidad», `Nota` = 30, 60, 90 o «indefinida»); las dos se mandan a SENDERO.
+- **2026-11-16 · 2**: «Acceso limitado» ya no cuenta como lectura: «Ajustarlo» da «Leer» a «usuarios del dominio» si solo
+  tenía ese (caso real de SUIGESUR: sin «Leer», los usuarios no podían comprobar su autorización). «Permisos propios» se
+  pregunta aparte si Colabora no lo devuelve con el resto (decía «todavía hereda» sin ser verdad). Pruebas `LIMITADO=1`.
 - **Modos de la página**: sin nada en la dirección, gestión (Control total: todo; responsables de ámbito: solicitudes de
   sus ámbitos y autorizar o bloquear personas; el resto: su solicitud). `#solicitar=…`: formulario de solicitud (lo abre
   SENDERO). `#comprobar=…`: responde a SENDERO con `postMessage` solo a `https://mensadef.mdef.es` (marco oculto o ventana

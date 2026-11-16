@@ -41,7 +41,9 @@ export async function simularColabora(ctx, est, archivo) {
     if (api === 'contextinfo') return J({ GetContextWebInformation: { FormDigestValue: 'digest', FormDigestTimeoutSeconds: 1800 } });
     if (api === 'web/currentuser') return J({ Id: yo.Id, Title: yo.Title, Email: yo.Email, LoginName: 'i:0#.w|et\\' + yo.Email.split('@')[0] });
     if (api === 'web/EffectiveBasePermissions') return J({ High: '0', Low: String(est.admin ? 0x7fffffff : 0x20001) });
-    if (api === 'web/roleassignments') return J(SITIO);
+    // est.todosLimitado: como en SUIGESUR, «usuarios del dominio» solo tiene «Acceso limitado» en el sitio
+    const sitio = () => est.todosLimitado ? SITIO.map(a => a.PrincipalId === 9 ? Object.assign({}, a, { RoleDefinitionBindings: [{ RoleTypeKind: 1, Name: 'Acceso limitado' }] }) : a) : SITIO;
+    if (api === 'web/roleassignments') return J(sitio());
     // Correo: como el real, rechaza el envío ENTERO si una dirección no tiene buzón
     if (api === 'SP.Utilities.Utility.SendEmail') {
       const pr = cuerpo().properties || {}, to = (pr.To && pr.To.results) || [];
@@ -64,15 +66,17 @@ export async function simularColabora(ctx, est, archivo) {
     if (!L) return J('La lista no existe', 404);
     const esAut = titulo === 'SENDERO Autorizados';
     const puedeEditar = est.admin || esGestor;
-    const asig = () => L.unique ? L.asig : SITIO;
-    if (resto === '' && met === 'GET') return J({ Id: L.Id, Title: titulo, ListItemEntityTypeFullName: 'SP.Data.' + titulo.replace(/\W/g, '') + 'ListItem', HasUniqueRoleAssignments: L.unique, ReadSecurity: L.RS, WriteSecurity: L.WS });
+    const asig = () => L.unique ? L.asig : sitio();
+    // est.sinUnico: Colabora no devuelve HasUniqueRoleAssignments junto al resto (se pide aparte)
+    if (resto === '' && met === 'GET') return J(Object.assign({ Id: L.Id, Title: titulo, ListItemEntityTypeFullName: 'SP.Data.' + titulo.replace(/\W/g, '') + 'ListItem', ReadSecurity: L.RS, WriteSecurity: L.WS }, est.sinUnico ? {} : { HasUniqueRoleAssignments: L.unique }));
+    if (resto === '/HasUniqueRoleAssignments') return J(verb ? { HasUniqueRoleAssignments: L.unique } : { value: L.unique });
     if (resto === '' && met === 'POST') { if (!est.admin) return NO(); const c = cuerpo(); if (c.ReadSecurity) L.RS = c.ReadSecurity; if (c.WriteSecurity) L.WS = c.WriteSecurity; return r.fulfill({ status: 204, body: '' }); }
     if (resto === '/EffectiveBasePermissions') return J({ High: '0', Low: String(puedeEditar ? 0x7fffffff : esAut ? 0x1 : 0x3) });
     if (resto.startsWith('/fields')) {
       if (met === 'GET') return J(['Title', 'Id', 'Created', 'Author'].concat(L.campos).map(n => ({ InternalName: n })));
       if (!est.admin) return NO(); L.campos.push(/Name="([^"]+)"/.exec(cuerpo().parameters.SchemaXml)[1]); return J({}, 201);
     }
-    if (resto.startsWith('/breakroleinheritance')) { if (!est.admin) return NO(); L.asig = SITIO.map(a => JSON.parse(JSON.stringify(a))); L.unique = true; return J({}); }
+    if (resto.startsWith('/breakroleinheritance')) { if (!est.admin) return NO(); L.asig = sitio().map(a => JSON.parse(JSON.stringify(a))); L.unique = true; return J({}); }
     if (resto === '/roleassignments' && met === 'GET') return J(asig());
     if ((m = /^\/roleassignments\/addroleassignment\(principalid=(\d+),roledefid=(\d+)\)$/.exec(resto))) {
       if (!est.admin) return NO(); const id = Number(m[1]), tipo = Number(m[2]) - 1000;

@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
 const archivo = new URL(process.env.PROTEGIDA ? '../acceso/subir/SENDERO-acceso.html' : '../acceso/SENDERO-acceso.html', import.meta.url).pathname;
 const est = nuevoEstado({ verbose: !!process.env.VERBOSE });
+est.todosLimitado = !!process.env.LIMITADO; est.sinUnico = !!process.env.LIMITADO;
 // Correo: el responsable figura con una cuenta antigua sin buzón; tiene otra cuenta buena con su mismo nombre
 est.buzonMal = ['gestor@pruebas.invalid', 'i:0#.w|et\\gestor-antiguo'];
 est.siteusers = [{ Id: 70, Title: 'GESTOR PRUEBAS', Email: 'gestor@pruebas.invalid', LoginName: 'i:0#.w|et\\gestor-antiguo', PrincipalType: 1 },
@@ -38,7 +39,8 @@ await abrir();
 console.log('admin sin listas: pestaña', await p.$eval('.pestanas .on', e => e.textContent), '| ✕:', await p.$$eval('#cont .mal', l => l.length));
 for (const paso of ['crearA', 'crearS', 'grupo']) await pulsar(`[data-p="${paso}"]`);
 { const t = await p.$eval('[data-p="protA"]', b => b.parentNode.textContent.replace(/\s+/g, ' '));
-  console.log('antes de ajustar:', t.slice(0, 300)); if (!/Falta: todavía hereda.*Miembros colaborativo.*Permisos ahora: .*Colaborar/.test(t)) console.log('Error: explicación de lo que falta'); }
+  console.log('antes de ajustar:', t.slice(0, 300)); if (!/Falta: todavía hereda.*Miembros colaborativo.*Permisos ahora: .*Colaborar/.test(t)) console.log('Error: explicación de lo que falta');
+  if (process.env.LIMITADO && !/solo tiene «Acceso limitado»/.test(t)) console.log('Error: no explica el acceso limitado'); }
 for (const paso of ['protA', 'abrirS']) await pulsar(`[data-p="${paso}"]`);
 const foto = async n => { if (process.env.CAPTURAS) { await p.setViewportSize({ width: 1150, height: 560 }); await p.screenshot({ path: process.env.CAPTURAS + '/acceso-' + n + '.png' }); } };
 await foto('preparacion');
@@ -48,7 +50,7 @@ await foto('preparacion');
   const rolesS = Object.fromEntries(S.asig.map(a => [a.Member.Title, a.RoleDefinitionBindings.map(x => x.RoleTypeKind).join('+')]));
   console.log('preparación: ✔', oks, '✕', mal, '| columnas', A.campos.join(','), '/', S.campos.join(','));
   console.log('permisos Autorizados:', JSON.stringify(rolesA), '| Solicitudes:', JSON.stringify(rolesS), 'leer/editar solo suyos', S.RS, S.WS);
-  if (mal || oks < 5 || rolesA['Usuarios del dominio'] !== '2' || rolesA['Miembros colaborativo'] !== '2' || rolesA['Propietarios colaborativo'] !== '5' || rolesA['SENDERO Administradores'] !== '3' ||
+  if (mal || oks < 5 || !/(^|\+)2($|\+)/.test(rolesA['Usuarios del dominio'] || '') || rolesA['Miembros colaborativo'] !== '2' || rolesA['Propietarios colaborativo'] !== '5' || rolesA['SENDERO Administradores'] !== '3' ||
     !/3/.test(rolesS['Usuarios del dominio']) || rolesS['SENDERO Administradores'] !== '4' || S.RS !== 2 || S.WS !== 2) error('preparación'); }
 
 // 3. Reglas: ámbito 2SUIGE (responsable gestor), 3SUIGE desactivado (responsable gestor) y versión vigente
