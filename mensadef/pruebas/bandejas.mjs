@@ -170,6 +170,16 @@ if (process.env.XFO) {
   const [w] = await Promise.all([ctx.waitForEvent('page'), p.click('#accVentana')]);
   const entra = await cargadas(); await p.waitForTimeout(2000);
   console.log('acceso: con la ventana pequeña entra:', entra, '| ventana cerrada sola:', w.isClosed());
+  // 17/11/2026: si no deja entrar (aquí, versión obligatoria más nueva), la ventana pequeña se queda abierta con el motivo
+  { const pv = await ctx.newPage(); await pv.goto(O + WEB + '/SitePages/ambito.aspx');
+    estC.listas['SENDERO Autorizados'].items.push({ Id: 991, Title: 'Mínima', Tipo: 'Versión', Activo: true, Nota: '2099-01-01 · 1' });
+    await pv.evaluate(codigo); await pv.waitForSelector('#accVentana', { timeout: 20000 }).catch(() => 0);
+    const [wv] = await Promise.all([ctx.waitForEvent('page'), pv.click('#accVentana')]); await pv.waitForTimeout(3500);
+    const sigue = !wv.isClosed(), titulo = sigue ? (await wv.textContent('#app h2')).trim() : '', boton = sigue && !!(await wv.$('#cerrarVentana'));
+    const principal = await pv.textContent('#bloqueo h2').catch(() => '');
+    console.log('acceso: versión vieja en la ventana pequeña: sigue abierta', sigue, '«' + titulo + '» | botón Cerrar', boton, '| en SENDERO: «' + principal.trim() + '»');
+    if (!sigue || !/ya no se puede usar/.test(titulo) || !boton || !/ya no se puede usar/.test(principal)) console.log('Error: ventana pequeña con versión vieja');
+    if (sigue) await wv.close(); await pv.close(); estC.listas['SENDERO Autorizados'].items = estC.listas['SENDERO Autorizados'].items.filter(x => x.Id !== 991); }
   if (!/Comprueba tu autorización/.test(t) || !entra || !w.isClosed()) console.log('Error: comprobar en ventana');
   // Segunda vez en este equipo: el botón sale al momento (sin esperar al marco) y no entra sin pulsarlo
   { const p2 = await ctx.newPage(); await p2.goto(O + WEB + '/SitePages/ambito.aspx'); const t0 = Date.now(); await p2.evaluate(codigo);

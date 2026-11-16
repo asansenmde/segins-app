@@ -59,7 +59,7 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-16 · 9';
+  var VERSION = '2026-11-17 · 1';
   // Solo se contesta a SENDERO, que funciona en MENSADEF (el favorito escribe su página sobre la de MENSADEF)
   var ORIGEN_SENDERO = 'https://mensadef.mdef.es';
   var L_AUT = 'SENDERO Autorizados', L_SOL = 'SENDERO Solicitudes', GRUPO = 'SENDERO Administradores';
@@ -368,10 +368,13 @@
   function responder(r) {
     r.tipo = 'sendero-acceso'; r.n = datos.n || ''; r.versionPagina = VERSION;
     if (destino) { try { destino.postMessage(r, ORIGEN_SENDERO); } catch (e) { /* SENDERO cerrado */ } }
-    $('app').innerHTML = '<div class="card"><h2>' + (r.ok ? '<span class="bien">✔ Autorizado</span>' : r.error ? '<span class="mal">No he podido comprobarlo</span>' : '<span class="mal">🔒 Sin autorización</span>') + '</h2>' +
+    $('app').innerHTML = '<div class="card"><h2>' + (r.ok ? '<span class="bien">✔ Autorizado</span>' : r.motivo === 'version' ? '<span class="mal">🔒 Esta versión de SENDERO ya no se puede usar</span>' : r.error ? '<span class="mal">No he podido comprobarlo</span>' : '<span class="mal">🔒 Sin autorización</span>') + '</h2>' +
       '<p>' + (r.ok ? 'Puedes usar SENDERO (' + esc(r.regla) + ').' : r.error ? esc(r.error) : r.motivo === 'bloqueado' ? 'Tu acceso a SENDERO está retirado.' : 'Tu cuenta no está autorizada para SENDERO.') + '</p>' +
-      (window.opener && window.parent === window ? '<p class="muted">Vuelve a SENDERO: esta ventana se cierra sola.</p>' : '') + '</div>';
-    if (window.opener && window.parent === window) setTimeout(function () { window.close(); }, 1500);
+      // 17/11/2026: la ventana pequeña solo se cierra sola si deja entrar; si no, se queda con el motivo para poder leerlo
+      (window.opener && window.parent === window ? (r.ok ? '<p class="muted">Vuelve a SENDERO: esta ventana se cierra sola.</p>' :
+        (r.pagina ? '<p><a href="' + esc(r.pagina) + '" target="_blank" rel="noopener">⬆ Abrir la página de SENDERO para instalar la versión nueva</a></p>' : '') + '<p><button type="button" id="cerrarVentana">Cerrar esta ventana</button></p>') : '') + '</div>';
+    if ($('cerrarVentana')) $('cerrarVentana').addEventListener('click', function () { window.close(); });
+    if (r.ok && window.opener && window.parent === window) setTimeout(function () { window.close(); }, 1500);
   }
   function modoComprobar() {
     $('app').innerHTML = '<div class="card">Comprobando tu autorización de SENDERO…</div>';

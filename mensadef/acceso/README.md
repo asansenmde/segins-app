@@ -38,6 +38,8 @@ Página que decide **quién puede usar SENDERO**. Se sube a Colabora, sitio `/et
   solicitud aprobada lleva también ese enlace.
 - **2026-11-16 · 9**: **versión obligatoria** («Obligatoria» al anotar; «Quitar la obligación»): `#comprobar` con una versión
   anterior a la «Mínima» contesta `ok: false, motivo: 'version'` (y un `error` legible para los favoritos que no conocen ese motivo).
+- **2026-11-17 · 1**: la ventana pequeña («Comprobar en Colabora») solo se cierra sola si deja entrar; si no, se queda con el
+  motivo («Esta versión de SENDERO ya no se puede usar», sin autorización…), el enlace a la página de instalación y «Cerrar».
 - **Modos de la página**: sin nada en la dirección, gestión (Control total: todo; responsables de ámbito: solicitudes de
   sus ámbitos y autorizar o bloquear personas; el resto: su solicitud). `#solicitar=…`: formulario de solicitud (lo abre
   SENDERO). `#comprobar=…`: responde a SENDERO con `postMessage` solo a `https://mensadef.mdef.es` (marco oculto o ventana
