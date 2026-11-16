@@ -198,6 +198,11 @@ autoría.
     - 16/11/2026: **2026-11-16 · 1**: reparto de las células de SUIGESUR por negociado confirmado por el usuario (JEFATURA y
       SECRETARIA sin asignar: decide quien lo recibe). Pendiente del usuario: subir la copia, «Comprobar la instalación» y
       «Poner las células de SUIGESUR» en Ajustes.
+    - **Para cuando se lleve a otro ámbito** (aparcado por el usuario el 16/11/2026; «hay que pensar que evolucionará»):
+      el reparto de células está escrito en el código solo para SUIGESUR (`REPARTO_CELULAS`). La célula llega sola desde
+      SENDERO (título del subsitio de MENSADEF) y la página ya aprende las nuevas al preguntar. Mejora pensada: en Ajustes,
+      sugerir las células al escribir, sacándolas del catálogo de META de esa organización (opciones de «Negociado asignado»)
+      y de las que han llegado, y que el reparto fijo pase a ser configurable por organización.
     12/11/2026: META 2026-11-12 · 7 confirmado (estado solo En curso/Terminada, nombres «Reunión de entradas» y «Punto Situación
       semanal», Recordar asignación, correos en ventana nueva, filtros con los departamentos propios, eliminar con aviso del motivo).
       Eliminar no funcionaba porque el nivel «Colaborar» del sitio JSUIGE no tiene «Eliminar elementos»: el usuario creó un nivel
