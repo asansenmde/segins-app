@@ -489,4 +489,8 @@ con el formato *verbose* de SharePoint 2013.
   NOMBRE…» (lo ven los demás) y ofrece «Abrir el PSIT / META» con `#quitar={v,origen:'SENDERO',id,asunto,referencia}` para
   eliminar allí la entrada (SENDERO no puede borrar en Colabora). Gana lo más reciente: si se vuelve a pasar, vuelve la marca.
   Pendiente: que el PSIT (sesión «[PUNTOS]») y META usen `#quitar=` para localizar la entrada.
+- **2026-11-16 · 6:** la marca («★ PSIT» / «➜ Tarea») y el comentario en MENSADEF **solo se ponen al confirmar** en la ficha
+  «✓ Sí, está guardado» (antes, al abrir la pestaña, aunque luego no se guardase; aviso de la sesión «[PUNTOS]»). «No lo he
+  guardado» no marca nada. Pendiente: el enlace «ver el mensaje» que llega al PSIT y a META es el de la célula, no el del
+  mensaje; para cambiarlo hace falta saber la dirección de un mensaje en MENSADEF («Escuchar MENSADEF» abriendo uno).
 

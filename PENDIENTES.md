@@ -258,4 +258,7 @@ autoría.
       poner en el ámbito 2SUIGE las direcciones de META y del PSIT (✎ en «Autorizados y bloqueos»).
     16/11/2026: SENDERO 2026-11-16 · 2: «★ Al PSIT» directo al Punto de Situación (por defecto el de SUIGESUR, cambiable),
       etiqueta «★ PSIT» y filtro «Tarea / PSIT». Asunto cerrado con el usuario.
+    16/11/2026: SENDERO 2026-11-16 · 6: marca PSIT/Tarea solo al confirmar «Sí, está guardado»; «Quitar del PSIT / de META».
+      PENDIENTE DEL USUARIO: pasar «Escuchar MENSADEF» abriendo un mensaje (para que el enlace lleve al mensaje y no a la célula).
+      PENDIENTE: que el PSIT (sesión [PUNTOS], texto para-PUNTOS-quitar.md) y META acepten `#quitar=`.
 

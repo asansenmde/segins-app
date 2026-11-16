@@ -530,7 +530,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-16 · 5';
+  var VERSION = '2026-11-16 · 6';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -2406,6 +2406,7 @@
       enlace: disp || '', texto: cuerpo.length > 6000 ? cuerpo.slice(0, 6000) + '…' : cuerpo };
     if (sitioDe(m)) datos.departamento = sitioDe(m);
     window.open(u + '#importar=' + encodeURIComponent(JSON.stringify(datos)), '_blank', 'noopener');
+    preguntarGuardado(m, 'psit', '¿Lo has guardado en el Punto de Situación?', function () {
     enviadosPsit[claveMensaje(m)] = new Date().toISOString();
     var kp = Object.keys(enviadosPsit).sort(function (a, b) { return enviadosPsit[a] < enviadosPsit[b] ? 1 : -1; }); kp.slice(2000).forEach(function (k) { delete enviadosPsit[k]; });
     guardar('enviadosPsit', enviadosPsit); pintarColabora(m); pintarTabla();
@@ -2421,6 +2422,17 @@
         if (dd) dd.nextElementSibling.textContent = nota;
       }, function (e) { if (abierto === m) $('colabora').insertAdjacentHTML('beforeend', '<p class="small bad">No se pudo dejar el comentario en MENSADEF: ' + esc(e.message || e) + '</p>'); });
     }
+    });
+  }
+  // 16/11/2026: la marca («★ PSIT» / «➜ Tarea») y el comentario en MENSADEF se ponen solo cuando el usuario confirma que lo
+  // ha guardado en el PSIT o en META (antes se ponían al abrir la pestaña, aunque luego no se guardase)
+  function preguntarGuardado(m, que, pregunta, marcar) {
+    var viejo = $('confirmarPaso'); if (viejo) viejo.parentNode.removeChild(viejo);
+    $('colabora').insertAdjacentHTML('afterbegin', '<div class="card" id="confirmarPaso" style="margin:6px 0;border-left:5px solid #c9a84c;background:#fffbea">' +
+      '<b>' + esc(pregunta) + '</b><p class="small muted" style="margin:4px 0">Se ha abierto en otra pestaña. Cuando lo guardes allí, vuelve y pulsa «Sí»: SENDERO lo marcará y lo anotará en MENSADEF.</p>' +
+      '<div class="fila"><button type="button" class="prim" id="pasoSi">✓ Sí, está guardado</button><button type="button" id="pasoNo">No lo he guardado</button></div></div>');
+    $('pasoSi').addEventListener('click', function () { var c = $('confirmarPaso'); if (c) c.parentNode.removeChild(c); marcar(); });
+    $('pasoNo').addEventListener('click', function () { var c = $('confirmarPaso'); if (c) c.parentNode.removeChild(c); });
   }
   function pasarAColabora(m, disp, punto) {
     var u = urlColabora();
@@ -2434,6 +2446,7 @@
     // Y todas las células del usuario, para que META las ofrezca como departamentos sin escribirlas (11/11/2026)
     if (apiCtx && apiCtx.celulas) datos.departamentos = apiCtx.celulas.map(function (c) { return c.nombre; }).filter(Boolean).slice(0, 150);
     window.open(u + '#importar=' + encodeURIComponent(JSON.stringify(datos)), '_blank', 'noopener');
+    preguntarGuardado(m, 'tarea', '¿Has creado la tarea en META?', function () {
     enviados[claveMensaje(m)] = new Date().toISOString();
     enviadosA[claveMensaje(m)] = (gestorElegido() || {}).nombre || 'Tareas Colabora';
     Object.keys(enviadosA).forEach(function (k) { if (!enviados[k]) delete enviadosA[k]; }); guardar('enviadosA', enviadosA);
@@ -2454,6 +2467,7 @@
         if (dd) dd.nextElementSibling.textContent = nota;
       }, function (e) { if (abierto === m) $('colabora').insertAdjacentHTML('beforeend', '<p class="small bad">No se pudo dejar el comentario en MENSADEF: ' + esc(e.message || e) + '</p>'); });
     }
+    });
   }
 
   // Estructura sin contenido (sitios, listas, columnas y nº de valores distintos) para enviarla a quien ayuda a ajustar el visor
