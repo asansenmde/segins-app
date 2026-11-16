@@ -184,7 +184,7 @@ autoría.
 
 16. **Puntos de Situación de SUIGESUR** (`puntos-situacion/`, `[PUNTOS]`). **Se lleva solo en la sesión «[PUNTOS] Puntos
     de Situación», rama `claude/modest-fermat-9zf46n`** (acordado con el usuario el 14/11/2026; las demás sesiones no lo tocan).
-    - **Versión vigente: 2026-11-16 · 2** (mensajes de SENDERO directos, células de SUIGESUR y sin falsos «ya incluido») (`puntos-situacion/colabora/puntos-situacion.html` para subir y
+    - **Versión vigente: 2026-11-16 · 3** (mensajes de SENDERO directos, células de SUIGESUR y sin falsos «ya incluido») (`puntos-situacion/colabora/puntos-situacion.html` para subir y
       `puntos-situacion-pruebas.html` para pruebas). Lo que hace, sus listas y su historial de versiones: `puntos-situacion/README.md`.
     - Confirmadas por el usuario hasta la · 5; la · 6 (informe completo en PDF para todos los negociados) entregada.
     - Enlace con META y el Gestor común (asuntos «⭐ Tratar con el General»): lo llevan META y el Gestor desde su sesión
@@ -201,6 +201,8 @@ autoría.
     - 16/11/2026: **2026-11-16 · 2**: arreglado el falso «Este mensaje ya está incluido» (se comparaba por el enlace, que
       SENDERO manda de la célula). Avisada la sesión de SENDERO: su enlace es el de la célula y marca «Pasado al PSIT» al
       abrir la pestaña, antes de que se pulse Guardar.
+    - 16/11/2026: **2026-11-16 · 3**: en el Colabora del usuario PROCOR y PRL tienen otro nombre («No existe el negociado»);
+      ahora se elige el negociado en cada fila del reparto. Pendiente: que suba la copia y ponga esas dos.
     - **Para cuando se lleve a otro ámbito** (aparcado por el usuario el 16/11/2026; «hay que pensar que evolucionará»):
       el reparto de células está escrito en el código solo para SUIGESUR (`REPARTO_CELULAS`). La célula llega sola desde
       SENDERO (título del subsitio de MENSADEF) y la página ya aprende las nuevas al preguntar. Mejora pensada: en Ajustes,

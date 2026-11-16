@@ -18,6 +18,13 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-16 · 3: reparto de células con negociados que se llaman distinto
+
+En el Colabora del usuario, PROCOR y PRL salían como «No existe el negociado» (allí tienen otro nombre). Ahora cada fila
+de la tarjeta de células tiene un desplegable con los negociados: se propone el del mismo nombre o uno con un nombre
+habitual (PROCOR: programación, coordinación; PRL: riesgos, prevención; Infraestructura: infra…) y, si no hay, «Elige».
+Una fila está hecha cuando algún negociado ya tiene todas sus células («✔ Puestas en …»).
+
 ## Versión 2026-11-16 · 2: no confundir mensajes distintos de la misma célula
 
 Fallo visto por el usuario: al llegar un mensaje de SENDERO decía «Este mensaje ya está incluido en PS-…» y no lo estaba.

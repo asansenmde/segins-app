@@ -512,6 +512,18 @@ comprueba('Pedro ya entra', !/No estás en ningún negociado/.test(await txt('#v
     comprueba((conColumna ? 'con' : 'sin') + ' columna, el mismo mensaje sí se da por incluido', /ya está incluido/.test(await txt('#dlg')) && !(await p.$('#edSit')));
   }
   LP('Aportaciones').campos.add('OrigenClave');
+  // Negociados que en Colabora se llaman distinto: se proponen por nombres habituales o se eligen en la fila
+  { const tP = negsC[1].Title, tR = negsC[4].Title, cP = negsC[1].CelulaMensadef, cR = negsC[4].CelulaMensadef;
+    negsC[1].Title = 'PROG. Y COORDINACIÓN'; negsC[1].CelulaMensadef = ''; negsC[4].Title = 'NEGOCIADO X'; negsC[4].CelulaMensadef = '';
+    await ir(9); await p.click('nav.tabs a[data-v=ajustes]');
+    const props = await p.$$eval('[data-repneg]', ss => ss.map(x => x.selectedOptions[0].textContent));
+    comprueba('PROCOR propuesto por nombre habitual y PRL sin propuesta: ' + props.join(' | '), props.join('|') === 'PROG. Y COORDINACIÓN|— Elige negociado —' && /Elige/.test(await txt('#vista')));
+    await p.selectOption('[data-repneg="3"]', String(negsC[4].Id));
+    await p.click('[data-celulas]'); await p.click('[data-celulas]'); await p.waitForTimeout(1500);
+    comprueba('células puestas en los negociados con otro nombre: ' + negsC[1].CelulaMensadef + ' / ' + negsC[4].CelulaMensadef,
+      negsC[1].CelulaMensadef === 'ET 2SUIGE SETEC PROGCOORD' && negsC[4].CelulaMensadef === 'ET 2SUIGE SETEC PRL');
+    comprueba('la tarjeta dice dónde están puestas', /Puestas en PROG\. Y COORDINACIÓN/.test(await txt('#vista')) && /Puestas en NEGOCIADO X/.test(await txt('#vista')) && !(await p.$('[data-celulas]')));
+    negsC[1].Title = tP; negsC[4].Title = tR; negsC[1].CelulaMensadef = cP; negsC[4].CelulaMensadef = cR; }
   // Quien no está en ningún negociado
   USUARIOS[12] = { Id: 12, Title: 'RAUL SIN NEGOCIADO', Email: 'raul@et.mde.es', LoginName: 'i:0#.w|et\\raul' };
   await abrirCon(12, msg({ id: 'MSG-0007' }));
