@@ -202,7 +202,7 @@ autoría.
       SENDERO manda de la célula). Avisada la sesión de SENDERO: su enlace es el de la célula y marca «Pasado al PSIT» al
       abrir la pestaña, antes de que se pulse Guardar.
     - 16/11/2026: **2026-11-16 · 3**: en el Colabora del usuario PROCOR y PRL tienen otro nombre («No existe el negociado»);
-      ahora se elige el negociado en cada fila del reparto. Pendiente: que suba la copia y ponga esas dos.
+      ahora se elige el negociado en cada fila del reparto. **Subida y confirmada por el usuario: las seis filas puestas.**
     - **Para cuando se lleve a otro ámbito** (aparcado por el usuario el 16/11/2026; «hay que pensar que evolucionará»):
       el reparto de células está escrito en el código solo para SUIGESUR (`REPARTO_CELULAS`). La célula llega sola desde
       SENDERO (título del subsitio de MENSADEF) y la página ya aprende las nuevas al preguntar. Mejora pensada: en Ajustes,
