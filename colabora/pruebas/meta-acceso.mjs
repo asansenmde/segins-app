@@ -226,6 +226,16 @@ admin = true; await recargar(); await p.click('#tabs a[data-v="ajustes"]'); awai
 p.once('dialog', d => d.accept('No corresponde a la sección')); await p.click('[data-soldeny="2"]'); await p.waitForTimeout(1200);
 comprueba('denegada con motivo y correo', solicitudes[1].Estado === 'Denegada' && solicitudes[1].Respuesta === 'No corresponde a la sección' && correos.some(c => /denegada/.test(c.Subject)));
 admin = false; await recargar(); comprueba('el usuario ve el motivo y puede pedir otra vez', /se denegó: «No corresponde a la sección»/.test(await p.textContent('#vista')) && !!(await p.$('[data-solpedir]')));
+// Ficha con «✕ Cerrar» (arriba y al final) y formulario con «Crear tarea» (16/11/2026)
+admin = true; await recargar(); await p.click('#tabs a[data-v="nlt"]').catch(() => {}); await p.waitForTimeout(300);
+await p.evaluate(() => { const t = document.querySelector('.tarea[data-id]'); t && t.click(); }); await p.waitForTimeout(800);
+const cerrarFicha = await p.$$eval('#dlg button[data-cerrar]', n => n.map(x => x.textContent.trim()));
+comprueba('la ficha tiene «✕ Cerrar» junto a Modificar y al final', cerrarFicha.filter(x => /Cerrar/.test(x)).length === 2, cerrarFicha.join(' | '));
+await p.evaluate(() => { const b = [...document.querySelectorAll('#dlg button[data-cerrar]')].pop(); b.click(); }); await p.waitForTimeout(300);
+comprueba('«Cerrar» del final cierra la ficha', !(await p.evaluate(() => document.querySelector('#dlg').open)));
+await p.click('#nuevo'); await p.waitForTimeout(600);
+comprueba('el formulario dice «Crear tarea»', (await p.textContent('#nCrear')).trim() === 'Crear tarea', await p.textContent('#nCrear'));
+await p.evaluate(() => document.querySelector('#dlg').close());
 comprueba('errores de página', errs.length === 0, JSON.stringify(errs));
 await b.close();
 console.log(ok ? 'TODO BIEN' : 'HAY FALLOS');

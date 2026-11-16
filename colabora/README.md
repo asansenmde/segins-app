@@ -35,6 +35,8 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-16 · 1 (META):** en la ficha, «✕ Cerrar» junto a «✎ Modificar» y otro al final (tras los comentarios);
+  el botón del formulario de alta dice «Crear tarea» en vez de «Crear en Colabora». El Gestor común no cambia.
 - **Versión 2026-11-13 · 2:** sin «Agregar elementos» o «Editar elementos» en la lista, META lo dice antes de escribir (al
   crear se escribe también el nº de expediente, que necesita «Editar elementos»). Quien solo tiene permiso en la lista
   («Acceso limitado» en el sitio) no envía correos desde Colabora (se le prepara en Outlook), no busca en el directorio ni da de
