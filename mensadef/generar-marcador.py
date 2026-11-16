@@ -66,13 +66,16 @@ PLANTILLA = '''<!doctype html>
   .cab div {{ max-width: 720px; margin: 0 auto; }}
   .cab b {{ font-size: 1.1rem; letter-spacing: .05em; }}
   .cab span {{ display: block; font-size: .74rem; letter-spacing: .12em; text-transform: uppercase; color: #e6d9a8; }}
+  .ver {{ display: inline-block; margin-left: 10px; background: #efc000; color: #12315a; font-weight: 800; padding: 2px 10px; border-radius: 999px; font-size: .85rem; }}
+  .vercaja {{ background: #fff8d6; border: 1px solid #e3c766; border-radius: 10px; padding: 10px 14px; font-size: 1.05rem; }}
   .autor {{ text-align: center; font-size: .8rem; color: #5b6655; border-top: 1px solid #d9ddd2; padding: 12px 16px 24px; }}
 </style>
 </head>
 <body>
-<div class="cab"><div><b>{nombre}</b><span>Desarrollado por el Cte. Alfredo Sánchez Sender</span></div></div>
+<div class="cab"><div><b>{nombre}</b>{version_cab}<span>Desarrollado por el Cte. Alfredo Sánchez Sender</span></div></div>
 <main>
   <h1>{titulo}</h1>
+  {version_txt}
   <p>{intro}</p>
 
   <div class="card">
@@ -109,14 +112,29 @@ PLANTILLA = '''<!doctype html>
 '''
 
 
+def version_de(pagina):
+    import re
+    m = re.search(r"var VERSION = '([^']+)';", pagina)
+    return m.group(1) if m else ''
+
+
+def textos_version(v):
+    # 16/11/2026: la versión, bien visible en las instrucciones (es la que se anota en «Versión vigente» de la página de acceso)
+    if not v:
+        return {'version_cab': '', 'version_txt': ''}
+    return {'version_cab': '<em class="ver">Versión ' + html.escape(v) + '</em>',
+            'version_txt': '<p class="vercaja">Versión de este favorito: <b>' + html.escape(v) + '</b></p>'}
+
+
 def generar(fuente, salida, nombre, titulo, intro, pasos, pruebas=False):
     pagina = (aqui / fuente).read_text(encoding='utf-8')
+    tv = textos_version(version_de(pagina))
     if fuente.endswith('.js'):
         # Marcador que actúa sobre la página abierta sin sustituirla (p. ej. escuchar-mensadef.js)
         codigo = pagina
         marcador = 'javascript:' + urllib.parse.quote(codigo, safe='')
         uso = '\n'.join('      <li>' + p + '</li>' for p in pasos)
-        (aqui / salida).write_text(PLANTILLA.format(nombre=nombre, titulo=titulo, intro=intro, uso=uso,
+        (aqui / salida).write_text(PLANTILLA.format(nombre=nombre, titulo=titulo, intro=intro, uso=uso, **tv,
                                                     marcador=html.escape(marcador, quote=True)), encoding='utf-8')
         print(salida + ':', len(marcador), 'caracteres de marcador')
         return
@@ -144,7 +162,7 @@ def generar(fuente, salida, nombre, titulo, intro, pasos, pruebas=False):
     codigo = '(function(){' + (ir if fuente == 'visor-mensadef.html' else '') + 'var h=' + json.dumps(pagina) + ';document.open();document.write(h);document.close();})()'
     marcador = 'javascript:' + urllib.parse.quote(codigo, safe='')
     uso = '\n'.join('      <li>' + p + '</li>' for p in pasos)
-    (aqui / salida).write_text(PLANTILLA.format(nombre=nombre, titulo=titulo, intro=intro, uso=uso,
+    (aqui / salida).write_text(PLANTILLA.format(nombre=nombre, titulo=titulo, intro=intro, uso=uso, **tv,
                                                 marcador=html.escape(marcador, quote=True)), encoding='utf-8')
     print(salida + ':', len(marcador), 'caracteres de marcador')
 
