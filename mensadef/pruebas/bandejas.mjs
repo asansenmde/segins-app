@@ -277,7 +277,19 @@ if (FINAL) {
   const [n6] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n6.waitForLoadState();
   const d6 = JSON.parse(decodeURIComponent(n6.url().split('#importar=')[1])); await n6.close(); await p.bringToFront();
   // «★ Al Punto de Situación»: pasa por META (el de la organización) con la marca punto, como antes
-  { if (process.env.SINORG) { await p.selectOption('#gestorSel', '0'); }
+  // En la copia de pruebas (16/11/2026) va directo al PSIT de pruebas: la primera vez pide su dirección
+  if (!FINAL) {
+    await p.click('#aPunto'); await p.waitForTimeout(300);
+    const pide = !!(await p.$('#urlPsit')); await p.fill('#urlPsit', 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/puntos-situacion.html'); await p.click('#guardarPsit'); await p.waitForTimeout(200);
+    const rechaza = /pruebas/.test(await p.textContent('#errPsit'));
+    await p.fill('#urlPsit', 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/puntos-situacion-pruebas.html');
+    const [n8] = await Promise.all([ctx.waitForEvent('page'), p.click('#guardarPsit')]); await n8.waitForLoadState();
+    const d8 = JSON.parse(decodeURIComponent(n8.url().split('#importar=')[1])), u8 = n8.url().split('#')[0]; await n8.close(); await p.bringToFront();
+    const [n9] = await Promise.all([ctx.waitForEvent('page'), p.click('#aPunto')]); await n9.waitForLoadState(); const u9 = n9.url().split('#')[0]; await n9.close(); await p.bringToFront();
+    console.log('PUNTO (pruebas, directo): pide la dirección:', pide, '| rechaza la buena:', rechaza, '| va a', u8.replace(/^https:\/\/[^/]+/, ''), '| origen', d8.origen, d8.destino, '| célula', d8.departamento, '| la segunda vez sin preguntar:', u9 === u8);
+    if (!pide || !rechaza || !/pruebas\.html$/.test(u8) || d8.origen !== 'SENDERO' || d8.destino !== 'psit' || !d8.departamento || u9 !== u8) console.log('Error: PSIT directo en pruebas');
+  }
+  if (FINAL) { if (process.env.SINORG) { await p.selectOption('#gestorSel', '0'); }
     const [n7] = await Promise.all([ctx.waitForEvent('page'), p.click('#aPunto')]); await n7.waitForLoadState();
     const d7 = JSON.parse(decodeURIComponent(n7.url().split('#importar=')[1])), u7 = n7.url().split('#')[0]; await n7.close(); await p.bringToFront();
     console.log('PUNTO: va a', u7.replace(/^https:\/\/[^/]+/, ''), '| por META con punto =', d7.punto, '| célula', d7.departamento);

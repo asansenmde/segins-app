@@ -529,7 +529,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-15 · 5';
+  var VERSION = '2026-11-16 · 1';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1988,7 +1988,7 @@
       // 13/11/2026 (propuesta A): las tres acciones de tramitar en grande y, debajo, las utilidades pequeñas
       '<div class="grandes"><button type="button" class="gr gr-meta" id="aColabora" disabled title="Abre el Gestor de Tareas (META) con el alta rellena"><span class="i">➜</span><span>Tarea en META<small>expediente y responsable</small></span></button>' +
       (m._api && m._x && m._x.__es !== 'Salida' ? '<button type="button" class="gr gr-resp" id="aResponder" title="Abre en MENSADEF la pantalla para responder a este mensaje"><span class="i">↩</span><span>Responder<small>en MENSADEF</small></span></button>' : '') +
-      (PUNTO ? '<button type="button" class="gr gr-psit" id="aPunto" disabled title="Lo pasa al Punto de Situación (PSIT) a través de META, que detecta la célula"><span class="i">★</span><span>Al PSIT<small>punto de situación</small></span></button>' : '') + botonRubrica(m) + '</div>' +
+      (PUNTO ? '<button type="button" class="gr gr-psit" id="aPunto" disabled title="' + (PSIT_DIRECTO ? 'Lo pasa directamente al Punto de Situación (PSIT), que detecta la célula' : 'Lo pasa al Punto de Situación (PSIT) a través de META, que detecta la célula') + '"><span class="i">★</span><span>Al PSIT<small>punto de situación</small></span></button>' : '') + botonRubrica(m) + '</div>' +
       '<div class="utiles"><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + botonLeido(m) + '<span class="sepu"></span>' +
       '<button type="button" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Correo</button>' +
       '<button type="button" id="copiarTarea" title="Copia asunto, referencia, fecha y autoridad para pegarlos en un gestor">📋 Copiar</button>' + (selectorBandera(m) ? '<span class="sepu"></span>' + selectorBandera(m) : '') + '</div></div></div><div id="colabora"></div>' +
@@ -2116,6 +2116,10 @@
     if ($('anotarMeta')) $('anotarMeta').addEventListener('change', function () { guardar('anotarMeta', this.checked); });
     if ($('gestorSel')) $('gestorSel').addEventListener('change', function () { guardar('gestorSel', Number(this.value)); });
     if ($('cambiarColabora')) $('cambiarColabora').addEventListener('click', function (e) { e.preventDefault(); configurarColabora(m); });
+    if (PSIT_DIRECTO && PUNTO) {
+      caja.insertAdjacentHTML('beforeend', '<p class="small muted" style="margin:2px 0">★ Al PSIT va directo a: <b>' + esc((urlPsit() || 'sin dirección (se pide al pulsar)').replace(/^https?:\/\//, '').slice(0, 90)) + '</b> · <a href="#" id="cambiarPsit">cambiar</a></p>');
+      $('cambiarPsit').addEventListener('click', function (e) { e.preventDefault(); configurarPsit(m); });
+    }
   }
   function configurarColabora(m, despues) {
     var caja = $('colabora'), g = gestores();
@@ -2288,8 +2292,9 @@
   // Punto de Situación (11/11/2026, en las dos copias). Desde el 15/11/2026 va DIRECTO al PSIT de la organización, sin pasar
   // por META (el usuario: un asunto que solo va al punto no tiene por qué ser una tarea); para seguimiento, «Añadir tarea».
   var PUNTO = true;   // 11/11/2026: también en el definitivo, como pidió el usuario
-  var PSIT_DIRECTO = false;
-  var urlPsit = function () { return ORG.psit || leer('psit', ''); };
+  // 16/11/2026: encendido en la copia de pruebas para probarlo con el PSIT de pruebas (su dirección se pide y se guarda aparte)
+  var PSIT_DIRECTO = PRUEBAS;
+  var urlPsit = function () { return PRUEBAS ? leer('psit', '') : ORG.psit || leer('psit', ''); };
   function avisoSinOrg() {
     if (!URL_ACCESO || ORG.meta || ORG.psit) return '';
     return '<div class="bad" id="sinOrg" style="margin:6px 0">Tu organización' + (ORG.ambito ? ' (ámbito ' + esc(ORG.ambito) + ')' : '') + ' no tiene dado de alta ningún gestor de tareas (META) ni Punto de Situación. ' +
@@ -2298,8 +2303,8 @@
   function configurarPsit(m, despues) {
     var caja = $('colabora'), u = leer('psit', '');
     caja.innerHTML = '<div class="card" style="margin:6px 0"><b>Punto de Situación</b>' + avisoSinOrg() +
-      '<p class="muted">' + (ORG.psit ? 'Tu organización usa: <b>' + esc(ORG.psit.replace(/^https?:\/\//, '')) + '</b>.' : 'Abre la página del Punto de Situación en Colabora, copia la dirección de la barra del navegador y pégala aquí. Se guarda en este navegador.') + '</p>' +
-      (ORG.psit ? '' : '<div class="fila"><input id="urlPsit" style="flex:1;min-width:260px" value="' + esc(u) + '" placeholder="https://colabora.mdef.es/…/puntos-situacion' + (PRUEBAS ? '-pruebas' : '') + '.html"><button type="button" class="prim" id="guardarPsit">Guardar</button>' + (u ? '<button type="button" id="quitarPsit">Quitar</button>' : '') + '</div>') +
+      '<p class="muted">' + (ORG.psit && !PRUEBAS ? 'Tu organización usa: <b>' + esc(ORG.psit.replace(/^https?:\/\//, '')) + '</b>.' : 'Abre la página del Punto de Situación en Colabora, copia la dirección de la barra del navegador y pégala aquí. Se guarda en este navegador.') + '</p>' +
+      (ORG.psit && !PRUEBAS ? '' : '<div class="fila"><input id="urlPsit" style="flex:1;min-width:260px" value="' + esc(u) + '" placeholder="https://colabora.mdef.es/…/puntos-situacion' + (PRUEBAS ? '-pruebas' : '') + '.html"><button type="button" class="prim" id="guardarPsit">Guardar</button>' + (u ? '<button type="button" id="quitarPsit">Quitar</button>' : '') + '</div>') +
       '<div class="muted" id="errPsit"></div><p><button type="button" id="hechoPsit">Cerrar</button></p></div>';
     $('hechoPsit').addEventListener('click', function () { pintarColabora(m); });
     if ($('quitarPsit')) $('quitarPsit').addEventListener('click', function () { guardar('psit', ''); configurarPsit(m, despues); });
@@ -2307,6 +2312,7 @@
       var v = $('urlPsit').value.trim().replace(/#.*$/, '');
       if (!/^https:\/\/[^/]+\.mdef\.es\/./i.test(v)) { $('errPsit').textContent = 'Pega la dirección completa de Colabora, empezando por https://'; return; }
       if (v.indexOf(location.origin + '/') === 0) { $('errPsit').textContent = 'Esa dirección es de MENSADEF; tiene que ser la de la página en Colabora.'; return; }
+      if (PRUEBAS && !/pruebas/i.test(v)) { $('errPsit').textContent = 'Esta es la versión de pruebas: pon la dirección del Punto de Situación de pruebas (puntos-situacion-pruebas.html).'; return; }
       guardar('psit', v); pintarColabora(m); if (despues) despues();
     });
   }

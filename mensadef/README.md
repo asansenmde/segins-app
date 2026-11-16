@@ -468,4 +468,7 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-15 · 5:** «★ Al PSIT» **vuelve a pasar por META** (el de la organización), que detecta la célula y lo lleva al
   PSIT, porque el PSIT aún no acepta el paso directo (el usuario lo prefiere así hasta entonces). El paso directo queda hecho
   y apagado (`PSIT_DIRECTO = false`); se enciende cuando el PSIT acepte `#importar=` con origen SENDERO.
+- **2026-11-16 · 1:** paso directo al PSIT **encendido solo en la copia de pruebas** (`PSIT_DIRECTO = PRUEBAS`), para probarlo
+  con el PSIT de pruebas (Puntos de Situación 2026-11-15 · 1 ya lo acepta): la primera vez pide la dirección de
+  `puntos-situacion-pruebas.html` (rechaza la buena) y la guarda; «cambiar» en la ficha. El definitivo sigue por META.
 
