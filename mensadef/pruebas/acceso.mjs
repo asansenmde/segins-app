@@ -98,6 +98,16 @@ est.listas['SENDERO Autorizados'].items.push({ Id: 990, Title: 'quitada@pruebas.
   await p.click('#rCuerpo tr:has-text("2SUIGE") [data-edit]'); await p.waitForTimeout(200); await p.fill('#rHasta', ''); await p.fill('#rNota', ''); await pulsar('#rAnadir');
   const r2 = est.listas['SENDERO Autorizados'].items.find(x => x.Title === '2SUIGE');
   console.log('editar: quitar hasta y nota →', r2.Hasta, JSON.stringify(r2.Nota)); if (r2.Hasta !== null || r2.Nota !== '') error('editar: vaciar'); }
+// 16/11/2026: alta a mano de una persona con «✉ Avisarle por correo» y «✉ Avisar» desde la lista
+{ const n0 = est.correos.length; await anadir('Persona', 'nueva@pruebas.invalid'); await p.waitForTimeout(800);
+  const c = est.correos[est.correos.length - 1] || {}, msg = await p.textContent('#app p.card').catch(() => '');
+  console.log('alta con aviso:', est.correos.length - n0, 'correo a', (c.to || []).join(','), '|', c.asunto, '| enlace a la página:', /aplicaciones\/SENDERO\.html|Documentos/.test(c.cuerpo || ''), '| en pantalla:', msg.trim().slice(0, 60));
+  if (est.correos.length - n0 !== 1 || !(c.to || []).includes('nueva@pruebas.invalid') || c.asunto !== 'SENDERO · Acceso autorizado' || !/Abrir la página de SENDERO/.test(c.cuerpo || '')) error('aviso de alta');
+  const n1 = est.correos.length; await p.click('#rCuerpo tr:has-text("nueva@pruebas.invalid") [data-avisar]'); await p.waitForTimeout(800);
+  console.log('«✉ Avisar» desde la lista:', est.correos.length - n1, 'correo'); if (est.correos.length - n1 !== 1) error('avisar desde la lista');
+  // Sin la casilla no se avisa
+  const n2 = est.correos.length; await p.selectOption('#rTipo', 'Persona'); await p.uncheck('#rAvisar'); await p.fill('#rValor', 'sinaviso@pruebas.invalid'); await pulsar('#rAnadir');
+  console.log('alta sin aviso:', est.correos.length - n2, 'correos'); if (est.correos.length !== n2) error('alta sin aviso'); }
 
 // 5. Otra persona del ámbito 3SUIGE: no autorizada → solicita
 como('otra@pruebas.invalid', 'OTRA PERSONA');
