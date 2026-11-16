@@ -120,6 +120,8 @@ listasPreparadas(estC, (process.env.NOAUT ? [] : [Object.assign({ Title: '2SUIGE
   .concat(process.env.MINIMA ? [{ Title: '2099-01-01 · 1', Tipo: 'Versión', Nota: 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/SENDERO.html' }, { Title: 'Mínima', Tipo: 'Versión', Nota: '2099-01-01 · 1' }] : []).concat(process.env.NUEVA ? [{ Title: '2099-01-01 · 1', Tipo: 'Versión', Nota: 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/SENDERO.html' }] : []));
 await simularColabora(ctx, estC, new URL('../acceso/subir/SENDERO-acceso.html', import.meta.url).pathname);
 if (process.env.DIAS) await p.evaluate(n => { const D = Date, d = n * 864e5; window.Date = class extends D { constructor(...a) { super(...(a.length ? a : [D.now() + d])); } static now() { return D.now() + d; } }; }, Number(process.env.DIAS));
+// 17/11/2026: un periodo antiguo guardado (30 días, «Hasta» de otro día) ya no se usa al abrir: carga hoy (INICIO=2: 3 días)
+await p.evaluate(([M, ini]) => { localStorage.setItem(M + 'desde', JSON.stringify('2026-10-01')); localStorage.setItem(M + 'hasta', JSON.stringify('2026-10-02')); if (ini) localStorage.setItem(M + 'periodoInicio', ini); }, [MEM, process.env.INICIO || '']);
 const llamadasAntes = llamadas.length;
 await p.evaluate(codigo); await p.waitForTimeout(2500);
 const leeBandejas = () => llamadas.slice(llamadasAntes).filter(x => /ObtenerBuzonCelula|ConsultaUsuarioDicodef|EtiquetasObtener/.test(x)).length;
@@ -200,6 +202,11 @@ if (process.env.XFO) {
     console.log('acceso: retirada en Colabora → bloqueado en esa misma apertura:', bloq, '|', bloq ? (await p3.textContent('#bloqueo h2')).trim() : '-', '| SENDERO oculto:', await p3.$eval('main', m => m.style.display === 'none'));
     if (!bloq || !(await p3.$eval('main', m => m.style.display === 'none'))) console.log('Error: retirar autorización'); await p3.close();
     await fin(); } }
+{ const f = await p.evaluate(() => ({ d: document.getElementById('desde').value, h: document.getElementById('hasta').value, sel: document.getElementById('periodoInicio').value }));
+  const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const hoyN = new Date(), dEsp = iso(new Date(hoyN.getFullYear(), hoyN.getMonth(), hoyN.getDate() - Number(process.env.INICIO || 0)));
+  console.log('al abrir: periodo', f.d, '→', f.h, '| «Al abrir»:', f.sel, '| esperado', dEsp, '→', iso(hoyN));
+  if (f.d !== dEsp || f.h !== iso(hoyN)) console.log('Error: periodo al abrir'); }
 if (process.env.PORTAL && !process.env.SESION && !process.env.VENTANA) {
   // Entrada automática (pruebas): sin ventana y sin pulsar nada
   let ventanas = 0; ctx.on('page', () => ventanas++);

@@ -439,6 +439,7 @@
       <button type="button" data-dias="2">3 días</button>
       <button type="button" data-dias="6">7 días</button>
       <button type="button" data-dias="29">30 días</button>
+      <label title="Lo que se carga al abrir SENDERO (pulsar el favorito o recargar). Mientras trabajas, «Actualizar» respeta el periodo que tengas puesto.">Al abrir<select id="periodoInicio" style="width:auto"><option value="0">Hoy</option><option value="2">3 días</option><option value="6">7 días</option></select></label>
       <label class="check"><input type="checkbox" id="historicas"> Incluir listas históricas (SMDMDMensajes2026…)</label>
       <button type="button" class="prim" id="cargar">Cargar</button>
       <button type="button" id="actualizar" title="Vuelve a leer MENSADEF con las mismas fechas y células, sin cerrar la ficha abierta">⟳ Actualizar</button>
@@ -530,7 +531,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-16 · 9';
+  var VERSION = '2026-11-17 · 1';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -816,10 +817,15 @@
     } else pintarTabla();
   }
 
-  // Fechas por defecto: los últimos 3 días (o lo último que se usó)
-  var hoy = new Date();
-  $('desde').value = leer('desde', iso(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 2)));
-  $('hasta').value = leer('hasta', iso(hoy));
+  // 17/11/2026: al ABRIR SENDERO se carga siempre hasta hoy y solo el periodo de «Al abrir» (por defecto, hoy). Antes se
+  // recuperaba el último periodo usado: quien pulsó una vez «30 días» cargaba 30 días cada vez (lento), y «Hasta» se quedaba
+  // en el día de entonces (no salían los mensajes de hoy). Mientras se trabaja, «Actualizar» respeta el periodo puesto.
+  var hoy = new Date(), diasInicio = Number(leer('periodoInicio', 0)) || 0;
+  if ([0, 2, 6].indexOf(diasInicio) < 0) diasInicio = 0;
+  $('periodoInicio').value = String(diasInicio);
+  $('periodoInicio').addEventListener('change', function () { guardar('periodoInicio', Number(this.value) || 0); });
+  $('desde').value = iso(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - diasInicio));
+  $('hasta').value = iso(hoy);
   $('historicas').checked = !!leer('historicas', false);
   Array.prototype.forEach.call(document.querySelectorAll('[data-dias]'), function (b) {
     b.addEventListener('click', function () {

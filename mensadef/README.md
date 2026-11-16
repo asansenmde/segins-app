@@ -503,4 +503,8 @@ con el formato *verbose* de SharePoint 2013.
   botón a la página de instalación; los antiguos, «Comprueba tu autorización» con ese texto en «Detalle». Los favoritos
   anteriores al control de acceso (hasta 2026-11-14 · 8) no consultan nada y no se pueden parar. Los de 2026-11-15 · 1 a
   2026-11-16 · 7 preguntan a la página de colaborativo. Pasada `MINIMA=1` en `todas.sh`.
+- **2026-11-17 · 1:** **carga inicial más rápida**: al abrir SENDERO se carga siempre hasta hoy y solo el periodo de «Al abrir»
+  (Hoy por defecto; 3 o 7 días si el usuario lo elige). Antes se recuperaba el último periodo usado (quien pulsó una vez
+  «30 días» cargaba 30 días cada vez) y «Hasta» se quedaba en aquel día, así que no salían los mensajes de hoy. Mientras se
+  trabaja, «Actualizar» respeta el periodo puesto. Pasada `INICIO=2` en `todas.sh`.
 
