@@ -529,6 +529,57 @@ comprueba('Pedro ya entra', !/No estás en ningún negociado/.test(await txt('#v
   await abrirCon(12, msg({ id: 'MSG-0007' }));
   comprueba('sin negociado: lo dice en la pantalla de acceso', /Has llegado con un mensaje de SENDERO/.test(await txt('#vista')));
 }
+// 13. Texto con formato: negrita, cursiva, subrayado, resaltado y viñetas (página, editor, Word y PDF)
+{ await ir(8); await p.click('nav.tabs a[data-v=negociado]');
+  await p.click('[data-editar=""]'); await p.waitForSelector('#edSit');
+  await p.fill('#edTit', 'Entrada con formato ficticia');
+  await p.click('#edSit');
+  await p.keyboard.type('Inicio ');
+  await p.keyboard.press('Control+b'); await p.keyboard.type('negrita'); await p.keyboard.press('Control+b');
+  await p.keyboard.type(' y ');
+  await p.click('[data-fmt="i"]'); await p.keyboard.type('cursiva'); await p.click('[data-fmt="i"]');
+  await p.keyboard.type(' y ');
+  await p.click('[data-fmt="u"]'); await p.keyboard.type('subrayado'); await p.click('[data-fmt="u"]');
+  await p.keyboard.type(' y resaltado');
+  for (let k = 0; k < 9; k++) await p.keyboard.press('Shift+ArrowLeft');
+  await p.click('[data-fmt="r"]');
+  await p.keyboard.press('End'); await p.click('[data-fmt="r"]'); await p.keyboard.press('Enter');
+  await p.click('[data-fmt="lista"]'); await p.keyboard.type('punto uno'); await p.keyboard.press('Enter'); await p.keyboard.type('punto dos');
+  await p.keyboard.press('Enter'); await p.keyboard.press('Enter'); await p.keyboard.type('Final [b] literal');
+  await foto('09-formato');
+  await p.click('[data-guardarent]'); await esperaDlgCerrado(); await p.waitForTimeout(600);
+  const ef = LP('Aportaciones').items.filter(x => x.Title === 'Entrada con formato ficticia').pop();
+  comprueba('formato guardado con marcas', !!ef && /Inicio \[b\]negrita\[\/b\] y \[i\]cursiva\[\/i\] y \[u\]subrayado\[\/u\] y \[r\]resaltado\[\/r\]/.test(ef.Situacion) &&
+    /\n• punto uno\n• punto dos\n/.test(ef.Situacion) && /Final \(b\) literal$/.test(ef.Situacion));
+  const vista = await p.$eval(`[data-ent="${ef.Id}"] .texto`, e => e.innerHTML);
+  comprueba('la entrada se ve con formato', /<b>negrita<\/b>/.test(vista) && /<i>cursiva<\/i>/.test(vista) && /<u>subrayado<\/u>/.test(vista) && /<mark>resaltado<\/mark>/.test(vista) && !/\[b\]/.test(vista));
+  // Volver a abrir y guardar sin tocar: no cambia nada (el formato va y vuelve igual)
+  const nP = posts.length;
+  await p.click(`[data-editar="${ef.Id}"]`); await p.waitForSelector('#edSit');
+  const edHtml = await p.$eval('#edSit', e => e.innerHTML);
+  comprueba('el editor carga el formato y la lista', /<b>negrita<\/b>/.test(edHtml) && /<mark>resaltado<\/mark>/.test(edHtml) && /<ul><li>punto uno<\/li><li>punto dos<\/li><\/ul>/.test(edHtml));
+  await p.click('[data-guardarent]'); await esperaDlgCerrado(); await p.waitForTimeout(500);
+  comprueba('guardar sin cambios no reescribe la situación', !posts.slice(nP).some(x => x.ruta.endsWith(`items(${ef.Id})`) && /Situacion/.test(x.cuerpo.toString())));
+  // Quitar formato de una palabra
+  await p.click(`[data-editar="${ef.Id}"]`); await p.waitForSelector('#edSit');
+  await p.evaluate(() => { const b = document.querySelector('#edSit b'); const r = document.createRange(); r.selectNodeContents(b); const s = getSelection(); s.removeAllRanges(); s.addRange(r); });
+  await p.click('[data-fmt="limpiar"]');
+  await p.click('[data-guardarent]'); await esperaDlgCerrado(); await p.waitForTimeout(500);
+  const ef2 = LP('Aportaciones').items.find(x => x.Id === ef.Id);
+  comprueba('quitar formato: ' + JSON.stringify(ef2.Situacion.split('\n')[0]), /^Inicio negrita y \[i\]cursiva/.test(ef2.Situacion));
+  // Informe (vista previa / PDF) y Word
+  await ir(9); await p.click('nav.tabs a[data-v=informe]');
+  const hoja = await p.$eval('.hoja', e => e.innerHTML);
+  comprueba('informe (y PDF) con formato', /<i>cursiva<\/i>/.test(hoja) && /<mark>resaltado<\/mark>/.test(hoja) && /• punto uno/.test(hoja) && !/\[i\]/.test(hoja));
+  const [dw] = await Promise.all([p.waitForEvent('download'), p.click('[data-word]')]);
+  const dirW = fs.mkdtempSync('/tmp/ps-fmt-'); fs.copyFileSync(await dw.path(), path.join(dirW, 'f.docx'));
+  const rw = execFileSync('python3', ['-c', `
+import zipfile,sys,re,xml.dom.minidom as m
+d=zipfile.ZipFile(sys.argv[1]).read('word/document.xml').decode(); m.parseString(d)
+def con(t,prop): return bool(re.search('<w:r><w:rPr>[^<]*(?:<[^>]*>)*?'+prop+'(?:<[^>]*>)*?</w:rPr><w:t xml:space="preserve">'+t+'</w:t>', d))
+print(con('cursiva','<w:i/>'), con('subrayado','<w:u w:val="single"/>'), con('resaltado','<w:highlight w:val="yellow"/>'), '• punto uno' in d, '[i]' not in d)`, path.join(dirW, 'f.docx')]).toString().trim();
+  comprueba('Word con formato (cursiva, subrayado, resaltado, viñetas): ' + rw, rw === 'True True True True True');
+}
 comprueba('errores de página: ' + JSON.stringify(errs), !errs.length);
 await b.close();
 console.log(ok ? 'TODO BIEN' : 'HAY FALLOS');

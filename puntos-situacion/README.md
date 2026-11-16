@@ -18,6 +18,19 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-16 · 4: texto con formato
+
+Barra de formato en el editor: **N** negrita, *K* cursiva, S subrayado, Resaltar (amarillo), • Viñetas y ✕ Quitar formato
+(también Ctrl+B, Ctrl+I, Ctrl+U). Se ve igual en la página, el informe, el PDF y el Word (negrita, cursiva, subrayado,
+resaltado amarillo y viñetas con sangría).
+- Se guarda en la misma columna de texto `Situacion` con marcas: `[b]…[/b]`, `[i]…[/i]`, `[u]…[/u]`, `[r]…[/r]`; las
+  viñetas son líneas que empiezan por «• ». Lo que se escribe a mano como «[b]» se guarda como «(b)» para que no se tome por
+  formato. Lo que viene del servidor se sigue escapando: las marcas solo producen esas cuatro etiquetas.
+- El resaltado usa su propio `<mark>` (seleccionar y pulsar; dentro de un resaltado, pulsar de nuevo lo quita o saca el
+  cursor de él).
+- Al pegar texto se pega sin formato (como antes); se le da formato después con la barra.
+- En la lista de Colabora y en el recuadro «Actualizar la situación» de META se ven las marcas tal cual.
+
 ## Versión 2026-11-16 · 3: reparto de células con negociados que se llaman distinto
 
 En el Colabora del usuario, PROCOR y PRL salían como «No existe el negociado» (allí tienen otro nombre). Ahora cada fila

@@ -88,6 +88,10 @@
   dialog.grande { width: 100vw; max-width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; }
   dialog.grande .editor { min-height: calc(100vh - 330px); font-size: 1.05rem; }
   .editor.sobre { background: var(--info-bg); }
+  .texto mark, .editor mark, .hoja mark { background: #fff176; color: inherit; padding: 0 1px; }
+  .editor ul { margin: 4px 0; padding-left: 22px; }
+  .barra-fmt { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
+  .barra-fmt button { min-width: 36px; padding: 5px 9px; }
   .editor figure { border: 1px dashed var(--line); border-radius: 8px; padding: 6px; background: #fafbfc; }
   .editor figure img { max-width: 100%; display: block; border-radius: 6px; }
   .editor figcaption { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
@@ -154,7 +158,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-16 · 3';
+  var VERSION = '2026-11-16 · 4';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -481,9 +485,39 @@
   }
   var bytesDe = function (a) { return trozos(a.sit).reduce(function (s, x) { return s + (x.img ? x.img.bytes : 0); }, 0) + a.sit.length + a.titulo.length; };
   var urlAdj = function (a, nombre) { var f = a.adjuntos.find(function (x) { return x.nombre === nombre; }); return f ? f.url : ''; };
+  // Formato del texto (16/11/2026): se guarda en la columna de texto con marcas [b]…[/b] negrita, [i]…[/i] cursiva,
+  // [u]…[/u] subrayado y [r]…[/r] resaltado; las viñetas son líneas que empiezan por «• ». Se ven igual en la página,
+  // el Word y el PDF. Lo que llega del servidor se escapa siempre: las marcas solo producen esas cuatro etiquetas.
+  var RE_FMT = /\[(\/?)([biur])\]/g;
+  function lineasFormato(txt) {
+    var est = { b: false, i: false, u: false, r: false };
+    return String(txt || '').split('\n').map(function (l) {
+      var segs = [], ult = 0, m;
+      RE_FMT.lastIndex = 0;
+      while ((m = RE_FMT.exec(l))) {
+        if (m.index > ult) segs.push({ t: l.slice(ult, m.index), b: est.b, i: est.i, u: est.u, r: est.r });
+        est[m[2]] = !m[1];
+        ult = RE_FMT.lastIndex;
+      }
+      if (ult < l.length) segs.push({ t: l.slice(ult), b: est.b, i: est.i, u: est.u, r: est.r });
+      return segs;
+    });
+  }
+  var quitarFormato = function (txt) { return String(txt || '').replace(RE_FMT, ''); };
+  var htmlSegs = function (segs) {
+    return segs.map(function (x) {
+      var h = esc(x.t);
+      if (x.r) h = '<mark>' + h + '</mark>';
+      if (x.u) h = '<u>' + h + '</u>';
+      if (x.i) h = '<i>' + h + '</i>';
+      if (x.b) h = '<b>' + h + '</b>';
+      return h;
+    }).join('');
+  };
+  var htmlFormato = function (txt) { return lineasFormato(txt).map(htmlSegs).join('\n'); };
   function htmlSit(a, nFig) {
     return trozos(a.sit).map(function (x) {
-      if (x.t != null) return '<div class="texto">' + esc(x.t) + '</div>';
+      if (x.t != null) return '<div class="texto">' + htmlFormato(x.t) + '</div>';
       var u = urlAdj(a, x.img.nombre), n = nFig ? ++nFig.n : 0;
       return '<figure><img src="' + esc(u) + '" alt="' + esc(x.img.pie || 'Imagen') + '" style="width:' + x.img.ancho + '%">' +
         (x.img.pie || n ? '<figcaption>' + (n ? 'Figura ' + n + (x.img.pie ? '. ' : '') : '') + esc(x.img.pie) + '</figcaption>' : '') + '</figure>';
@@ -841,6 +875,9 @@
       (d.origen === 'SENDERO' ? '<div class="small"><span class="badge info">✉ Desde SENDERO</span> mensaje de MENSADEF' + (d.origenUrl ? ' · <a href="' + esc(d.origenUrl) + '" target="_blank" rel="noopener">ver el mensaje</a>' : '') + '. Revisa el texto y pulsa Guardar.</div>' : '') +
       '<label class="lbl">Asunto</label><input id="edTit" maxlength="255" value="' + esc(d.titulo || '') + '">' +
       '<label class="lbl">Situación (texto que sale en el informe)</label>' +
+      '<div class="barra-fmt" title="También Ctrl+B, Ctrl+I y Ctrl+U"><button type="button" data-fmt="b" title="Negrita (Ctrl+B)"><b>N</b></button><button type="button" data-fmt="i" title="Cursiva (Ctrl+I)"><i>K</i></button>' +
+      '<button type="button" data-fmt="u" title="Subrayado (Ctrl+U)"><u>S</u></button><button type="button" data-fmt="r" title="Resaltar en amarillo"><mark style="background:#fff176">Resaltar</mark></button>' +
+      '<button type="button" data-fmt="lista" title="Lista con viñetas">• Viñetas</button><button type="button" data-fmt="limpiar" title="Quitar el formato de lo seleccionado">✕ Quitar formato</button></div>' +
       '<div class="barra-ed"><button type="button" data-insimg>🖼 Insertar imagen</button><button type="button" data-ampliar title="Ver el editor a pantalla completa">⛶ Ampliar</button><span class="small muted">También puedes pegar una captura (Ctrl+V) o arrastrar una foto dentro del texto. Las fotos grandes se reducen. Para hacer el recuadro más alto, tira de su esquina inferior derecha.</span></div>' +
       '<div id="edSit" class="editor" contenteditable="true" spellcheck="true"></div>' +
       '<div class="grid2"><div><label class="lbl">Prioridad</label><select id="edPrio"><option>Normal</option><option' + (d.prio === 'Alta' ? ' selected' : '') + '>Alta</option></select></div>' +
@@ -872,26 +909,91 @@
   }
   function cargarEditor(caja, sit, a) {
     caja.innerHTML = trozos(sit).map(function (x) {
-      if (x.t != null) return esc(x.t).replace(/\n/g, '<br>') + '<br>';
+      if (x.t != null) {
+        var h = '', lista = false;
+        lineasFormato(x.t).forEach(function (segs) {
+          var txt = segs.map(function (y) { return y.t; }).join('');
+          if (/^\s*• /.test(txt)) {
+            var quitar = txt.indexOf('• ') + 2, resto = [], n = 0;
+            segs.forEach(function (y) { var a2 = n, b2 = n + y.t.length; n = b2; if (b2 <= quitar) return; resto.push(Object.assign({}, y, { t: y.t.slice(Math.max(0, quitar - a2)) })); });
+            h += (lista ? '' : '<ul>') + '<li>' + (htmlSegs(resto) || '<br>') + '</li>'; lista = true;
+          } else { h += (lista ? '</ul>' : '') + htmlSegs(segs) + '<br>'; lista = false; }
+        });
+        return h + (lista ? '</ul>' : '');
+      }
       return figura(x.img, a ? urlAdj(a, x.img.nombre) : (ed.origen && ed.origen.adjSrc ? ed.origen.adjSrc(x.img.nombre) : ''));
     }).join('');
   }
   function serializar(caja) {
-    var out = '';
+    var out = '', activo = { b: 0, i: 0, u: 0, r: 0 };
+    var fondo = function (c) { return c && !/^(transparent|rgba\(0, 0, 0, 0\)|rgb\(255, 255, 255\)|#fff(fff)?|white|inherit|initial)$/i.test(c); };
+    var formatos = function (n) {
+      var st = n.style || {}, t = n.tagName, f = [];
+      if (/^(B|STRONG)$/.test(t) || /^(bold|[6-9]00)$/.test(st.fontWeight)) f.push('b');
+      if (/^(I|EM)$/.test(t) || st.fontStyle === 'italic') f.push('i');
+      if (t === 'U' || /underline/.test(st.textDecoration || st.textDecorationLine || '')) f.push('u');
+      if (t === 'MARK' || fondo(st.backgroundColor)) f.push('r');
+      return f;
+    };
     var walk = function (n) {
-      if (n.nodeType === 3) { out += n.nodeValue.replace(/​/g, ''); return; }
+      if (n.nodeType === 3) { out += n.nodeValue.replace(/\u200b/g, '').replace(/\[(\/?)([biur])\]/g, '($1$2)'); return; }
       if (n.nodeType !== 1) return;
       var t = n.tagName;
       if (t === 'FIGURE') { out += '\n' + marcaImg({ nombre: n.dataset.nombre, pie: $('[data-pie]', n).value, ancho: n.dataset.ancho, bytes: n.dataset.bytes }) + '\n'; return; }
       if (t === 'BR') { out += '\n'; return; }
-      var bloque = /^(DIV|P|LI|H\d)$/.test(t);
+      var bloque = /^(DIV|P|LI|H\d|UL|OL)$/.test(t);
       if (bloque && out && !/\n$/.test(out)) out += '\n';
+      if (t === 'LI') out += '• ';
+      var f = formatos(n).filter(function (k) { return !activo[k]; });
+      f.forEach(function (k) { activo[k]++; out += '[' + k + ']'; });
       Array.prototype.forEach.call(n.childNodes, walk);
+      f.slice().reverse().forEach(function (k) { activo[k]--; out += '[/' + k + ']'; });
       if (bloque && !/\n$/.test(out)) out += '\n';
     };
     Array.prototype.forEach.call(caja.childNodes, walk);
-    return out.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    // Limpieza: sin marcas vacías ni cortes inútiles; las marcas no cruzan el salto de línea al final
+    var prev;
+    do { prev = out; out = out.replace(/\[([biur])\](\s*)\[\/\1\]/g, '$2').replace(/\[\/([biur])\]\[\1\]/g, ''); } while (out !== prev);
+    return out.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/\n+(\[\/[biur]\])+$/, function (m) { return m.replace(/\n+/, ''); }).trim();
   }
+  // Barra de formato (también Ctrl+B, Ctrl+I, Ctrl+U)
+  function aplicarFormato(k) {
+    var caja = $('#edSit');
+    if (!caja) return;
+    caja.focus();
+    if (ultimoRango && !caja.contains(getSelection().anchorNode)) { var s0 = getSelection(); s0.removeAllRanges(); s0.addRange(ultimoRango); }
+    if (k === 'r') return resaltar(caja);
+    document.execCommand('styleWithCSS', false, false);
+    document.execCommand({ b: 'bold', i: 'italic', u: 'underline', lista: 'insertUnorderedList', limpiar: 'removeFormat' }[k], false, null);
+    if (k === 'limpiar') quitarResaltado(caja);
+  }
+  // Resaltado con <mark> propio (el de execCommand se pega a lo que se escribe después y a las líneas nuevas)
+  var desenvolver = function (el) { var pa = el.parentNode; while (el.firstChild) pa.insertBefore(el.firstChild, el); pa.removeChild(el); };
+  var markDe = function (n, caja) { while (n && n !== caja) { if (n.nodeType === 1 && n.tagName === 'MARK') return n; n = n.parentNode; } return null; };
+  function resaltar(caja) {
+    var s = getSelection();
+    if (!s.rangeCount || !caja.contains(s.anchorNode)) return;
+    var r = s.getRangeAt(0), m = markDe(r.commonAncestorContainer, caja);
+    if (r.collapsed) {
+      // Dentro de un resaltado: el cursor sale de él para seguir escribiendo sin resaltar
+      if (m) { var z = document.createTextNode('\u200b'); m.parentNode.insertBefore(z, m.nextSibling); var r2 = document.createRange(); r2.setStart(z, 1); r2.collapse(true); s.removeAllRanges(); s.addRange(r2); }
+      else aviso('Selecciona el texto que quieres resaltar');
+      return;
+    }
+    if (m) { desenvolver(m); return; }   // ya resaltado: se quita
+    var frag = r.extractContents();
+    Array.prototype.slice.call(frag.querySelectorAll ? frag.querySelectorAll('mark') : []).forEach(desenvolver);
+    var mk = document.createElement('mark'); mk.appendChild(frag); r.insertNode(mk);
+    var r3 = document.createRange(); r3.selectNodeContents(mk); s.removeAllRanges(); s.addRange(r3);
+  }
+  function quitarResaltado(caja) {
+    var s = getSelection();
+    if (!s.rangeCount) return;
+    var r = s.getRangeAt(0), m = markDe(r.commonAncestorContainer, caja);
+    if (m) return desenvolver(m);
+    Array.prototype.slice.call(caja.querySelectorAll('mark')).filter(function (x) { return r.intersectsNode(x); }).forEach(desenvolver);
+  }
+  var fondoActivo = function (c) { return c && !/^(transparent|rgba\(0, 0, 0, 0\)|rgb\(255, 255, 255\))$/i.test(String(c)); };
   function alPegar(e) {
     var cd = e.clipboardData;
     if (!cd) return;
@@ -1026,7 +1128,7 @@
     var dlg = $('#dlg');
     dlg.innerHTML = '<div class="dh"><h2>Traer del ' + esc(ant.punto.ref) + ' · ' + esc(neg) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db">' +
       '<p class="small">Se copian (con sus imágenes) como punto de partida; después actualiza su situación.</p>' +
-      ant.lista.map(function (a) { return '<label class="check" style="display:flex"><input type="checkbox" data-traerid="' + a.id + '" checked> <span><b>' + esc(a.titulo) + '</b> <span class="small muted">' + esc(trozos(a.sit).filter(function (x) { return x.t; }).map(function (x) { return x.t; }).join(' ').slice(0, 120)) + '</span></span></label>'; }).join('') +
+      ant.lista.map(function (a) { return '<label class="check" style="display:flex"><input type="checkbox" data-traerid="' + a.id + '" checked> <span><b>' + esc(a.titulo) + '</b> <span class="small muted">' + esc(quitarFormato(trozos(a.sit).filter(function (x) { return x.t; }).map(function (x) { return x.t; }).join(' ')).slice(0, 120)) + '</span></span></label>'; }).join('') +
       '<div class="error" id="trErr" hidden></div><div class="acciones"><span class="sep"></span><button data-cerrar>Cancelar</button><button class="prim" data-traerok>Traer las marcadas</button></div></div>';
     dlg.showModal();
   }
@@ -1688,7 +1790,7 @@
     };
     var run = function (t, o) {
       o = o || {};
-      var pr = (o.b ? '<w:b/>' : '') + (o.i ? '<w:i/>' : '') + (o.color ? '<w:color w:val="' + o.color + '"/>' : '') + (o.sz ? '<w:sz w:val="' + o.sz + '"/><w:szCs w:val="' + o.sz + '"/>' : '') + (o.sp ? '<w:spacing w:val="' + o.sp + '"/>' : '');
+      var pr = (o.b ? '<w:b/>' : '') + (o.i ? '<w:i/>' : '') + (o.u ? '<w:u w:val="single"/>' : '') + (o.hl ? '<w:highlight w:val="yellow"/>' : '') + (o.color ? '<w:color w:val="' + o.color + '"/>' : '') + (o.sz ? '<w:sz w:val="' + o.sz + '"/><w:szCs w:val="' + o.sz + '"/>' : '') + (o.sp ? '<w:spacing w:val="' + o.sp + '"/>' : '');
       return String(t).split('\n').map(function (l, i) { return (i ? '<w:r><w:br/></w:r>' : '') + '<w:r>' + (pr ? '<w:rPr>' + pr + '</w:rPr>' : '') + '<w:t xml:space="preserve">' + xesc(l) + '</w:t></w:r>'; }).join('');
     };
     var par = function (cont, o) {
@@ -1722,7 +1824,13 @@
             cuerpo.push(par(run('•\t') + run(a.titulo + (a.prio === 'Alta' ? ' (PRIORIDAD ALTA)' : ''), { b: true }), { ind: 568, colgante: 284, despues: 40, keep: true }));
             return tr.reduce(function (q2, x) {
               return q2.then(function () {
-                if (x.t != null) { x.t.split('\n').forEach(function (l) { cuerpo.push(par(run(l), { ind: 568, despues: 60 })); }); return; }
+                if (x.t != null) {
+                  lineasFormato(x.t).forEach(function (segs) {
+                    var txt = segs.map(function (y) { return y.t; }).join(''), vin = /^\s*• /.test(txt);
+                    cuerpo.push(par(segs.map(function (y) { return run(y.t, { b: y.b, i: y.i, u: y.u, hl: y.r }); }).join('') || run(''), vin ? { ind: 852, colgante: 284, despues: 40 } : { ind: 568, despues: 60 }));
+                  });
+                  return;
+                }
                 var u = urlAdj(a, x.img.nombre);
                 if (!u) { cuerpo.push(par(run('[Imagen no disponible: ' + x.img.nombre + ']', { i: true }), { ind: 568 })); return; }
                 return fetch(u, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); }).then(function (b) {
@@ -1935,6 +2043,7 @@
     if ((b = el.closest('[data-pruebacorreo]'))) { correoPrueba(b); return; }
   });
   $('#dlg').addEventListener('close', function () { $('#dlg').classList.remove('grande'); });
+  document.addEventListener('mousedown', function (e) { var b = e.target.closest('[data-fmt]'); if (b) { e.preventDefault(); aplicarFormato(b.dataset.fmt); } });
   document.addEventListener('change', function (e) {
     if (e.target.id === 'selPunto') { sel = Number(e.target.value); render(); return; }
     if (e.target.id === 'selNeg') { pref.neg = e.target.value; guardarPref(); render(); return; }
