@@ -18,6 +18,17 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-16 · 5: «error de validación de datos de lista» con el punto abierto
+
+Caso del usuario: un miembro, al **modificar** una entrada con el punto abierto, recibía «Error de validación de datos de
+lista». Cada entrada guarda su copia de la hora de bloqueo («Cierre del punto») y la validación compara con ella; si esa
+copia se había quedado atrasada (entrada creada desde una pantalla abierta antes de que PROCOR cambiara la hora, desde
+META, al reabrir…), Colabora rechazaba el cambio aunque el punto siguiera abierto. Ahora:
+- Antes de cada escritura (alta, modificar, ordenar, traer del punto anterior, «Sin novedad») se lee del servidor la hora
+  de bloqueo vigente del punto; si ya pasó, se dice que está cerrado y no se escribe; si no, se guarda con esa hora y la
+  copia atrasada de la entrada se corrige sola.
+- Si Colabora aún rechaza por la validación (responda 400 o 500), el mensaje lo explica en lugar del texto técnico.
+
 ## Versión 2026-11-16 · 4: texto con formato
 
 Barra de formato en el editor: **N** negrita, *K* cursiva, S subrayado, Resaltar (amarillo), • Viñetas y ✕ Quitar formato

@@ -18,6 +18,7 @@ const iso = ms => new Date(Date.now() + ms).toISOString(), H = 3600e3, D = 864e5
 const USUARIOS = { 7: { Id: 7, Title: 'ADMIN DE PRUEBA', Email: 'admin@et.mde.es', LoginName: 'i:0#.w|et\\admin' }, 8: { Id: 8, Title: 'LUIS PRL FICTICIO', Email: 'luis@et.mde.es', LoginName: 'i:0#.w|et\\luis' },
   9: { Id: 9, Title: 'ANA PROCOR FICTICIA', Email: 'ana@et.mde.es', LoginName: 'i:0#.w|et\\ana' }, 10: { Id: 10, Title: 'PEDRO SIN NEGOCIADO', Email: 'pedro@et.mde.es', LoginName: 'i:0#.w|et\\pedro' },
   11: { Id: 11, Title: 'MARIA SEGURIDAD', Email: 'maria@et.mde.es', LoginName: 'i:0#.w|et\\maria' } };
+let validacionForzada = false;
 let actual = 7, correos = [], posts = [], buzonMal = [];
 const listas = {};
 const nuevaLista = (t, campos = []) => (listas[t.toLowerCase()] = { titulo: t, entidad: 'SP.Data.' + t.replace(/\s/g, '_x0020_') + 'ListItem', campos: new Set(['Title', ...campos]), items: [], sig: 1, validacion: '', versiones: false });
@@ -122,6 +123,7 @@ await ctx.route(ORIGEN + '/**', async r0 => {
       const c = JSON.parse(req.postData()); delete c.__metadata;
       for (const k of Object.keys(c)) if (c[k] && c[k].results) c[k] = c[k].results;
       const nuevo = { ...it, ...c };
+      if (validacionForzada && /Aportaciones/.test(l.titulo)) return json({ error: { message: { value: 'Error de validación de datos de lista.' } } }, 500);
       if (!validar(l, nuevo)) return json({ error: { message: { value: 'List data validation failed.' } } }, 400);
       Object.assign(it, c, { Modified: new Date(Date.now() + 2).toISOString(), _editor: actual });
       return ful({ status: 204, body: '' });
@@ -325,13 +327,32 @@ comprueba('Colabora rechaza una dirección: se avisa y se ofrece Outlook', /no a
 buzonMal = [];
 await p.click('#dlg [data-cerrar]');
 
-// 6. Bloqueo en el servidor: la validación rechaza un cambio con el punto cerrado
+// 6. Bloqueo y hora de bloqueo atrasada
+// 6a. Caso del usuario (16/11): punto abierto pero la copia de la hora en la entrada se quedó atrasada → antes «error de
+// validación de datos de lista»; ahora se guarda y la copia se corrige sola
 await ir(8); await p.click('nav.tabs a[data-v=negociado]');
-const ent = LP('Aportaciones').items[0]; const cierreBueno = ent.CierrePunto; ent.CierrePunto = iso(-60e3);
+const ent = LP('Aportaciones').items[0]; ent.CierrePunto = iso(-60e3);
+await p.click(`[data-editar="${ent.Id}"]`); await p.waitForSelector('#edSit'); await p.click('#edSit'); await p.keyboard.press('End'); await p.keyboard.type(' Cambio con la hora atrasada');
+await p.click('[data-guardarent]'); await esperaDlgCerrado(); await p.waitForTimeout(500);
+comprueba('punto abierto y copia atrasada: se guarda y la copia se corrige', /Cambio con la hora atrasada/.test(ent.Situacion) && ent.CierrePunto === LP('Puntos').items[0].Cierre);
+// Ordenar con una copia atrasada también se guarda
+LP('Aportaciones').items[1].CierrePunto = iso(-60e3);
+await p.click('[data-mover][data-dir="1"]:not([disabled])'); await p.waitForTimeout(1000);
+comprueba('ordenar con copia atrasada: se guarda', LP('Aportaciones').items.filter(x => x.PuntoId === LP('Puntos').items[0].Id && x.Negociado === 'PRL').every(x => x.CierrePunto === LP('Puntos').items[0].Cierre));
+await p.click('[data-mover][data-dir="-1"]:not([disabled])'); await p.waitForTimeout(1000);   // vuelve al orden de antes
+// 6b. Punto cerrado en el servidor mientras la página lo tenía abierto: lo dice y no escribe
+await ir(8); await p.click('nav.tabs a[data-v=negociado]');
+const ptS = LP('Puntos').items[0], ciS = ptS.Cierre; ptS.Cierre = iso(-60e3);
 await p.click(`[data-editar="${ent.Id}"]`); await p.waitForSelector('#edSit'); await p.click('#edSit'); await p.keyboard.type(' Cambio tardío');
 await p.click('[data-guardarent]'); await p.waitForFunction(() => !document.querySelector('#edErr').hidden);
-comprueba('validación de Colabora: ' + await txt('#edErr'), /cerrado/.test(await txt('#edErr')));
-ent.CierrePunto = cierreBueno; await p.click('#dlg [data-cerrar]');
+comprueba('punto ya cerrado en Colabora: ' + await txt('#edErr'), /cerrado/.test(await txt('#edErr')) && !/Cambio tardío/.test(ent.Situacion));
+ptS.Cierre = ciS; await p.click('#dlg [data-cerrar]');
+// 6c. Si aun así Colabora rechaza por la validación (incluso con 500), el mensaje lo explica
+validacionForzada = true;
+await p.click(`[data-editar="${ent.Id}"]`); await p.waitForSelector('#edSit'); await p.click('#edSit'); await p.keyboard.type(' Otro');
+await p.click('[data-guardarent]'); await p.waitForFunction(() => !document.querySelector('#edErr').hidden);
+comprueba('error de validación con 500: ' + await txt('#edErr'), /validación de la lista/.test(await txt('#edErr')));
+validacionForzada = false; await p.click('#dlg [data-cerrar]');
 
 // 7. Cambiar el cierre (PROCOR): punto y todas las entradas
 await ir(9); await p.click('nav.tabs a[data-v=seguimiento]');

@@ -158,7 +158,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-16 · 4';
+  var VERSION = '2026-11-16 · 5';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -276,7 +276,7 @@
         var j = null; try { j = JSON.parse(txt); } catch (e) { /* respuesta sin JSON */ }
         if (!r.ok) {
           var m = j && ((j.error && j.error.message && (j.error.message.value || j.error.message)) || (j['odata.error'] && j['odata.error'].message && j['odata.error'].message.value));
-          var e = new Error(r.status === 403 ? sinPermiso : r.status === 412 ? CONFLICTO : r.status === 400 && VALIDACION.test(m || '') ? 'Colabora no lo admite: el punto de situación ya está cerrado (validación de la lista)' : (m || 'HTTP ' + r.status));
+          var e = new Error(r.status === 403 ? sinPermiso : r.status === 412 ? CONFLICTO : VALIDACION.test(m || '') && r.status >= 400 ? 'Colabora no lo admite por la validación de la lista (hora de bloqueo del punto). Pulsa ↻ Actualizar y vuelve a intentarlo; si el punto sigue abierto y se repite, avisa a PROCOR.' : (m || 'HTTP ' + r.status));
           e.status = r.status; throw e;
         }
         return j && (j.d || j);
@@ -1037,6 +1037,18 @@
     }).catch(function (e) { var er = $('#edErr'); er.textContent = e.message; er.hidden = false; });
   }
   // Guarda la entrada (alta o cambio) y luego sus imágenes (adjuntos nuevos y quitar los que ya no están en el texto)
+  // Hora de bloqueo del punto leída del servidor justo antes de escribir (16/11/2026 · 5). Cada entrada guarda su copia
+  // («Cierre del punto») y la validación de la lista compara con ella: si la copia se quedó atrasada (entrada creada desde
+  // una pantalla abierta antes de que PROCOR cambiara la hora, desde META, etc.), Colabora rechazaba los cambios aunque el
+  // punto siguiera abierto. Ahora cada escritura lleva la hora vigente y la copia se corrige sola.
+  function cierreVigente(p) {
+    return leerItem('puntos', p.id, ['Cierre']).then(function (x) {
+      var c = x.datos.Cierre ? new Date(x.datos.Cierre) : null;
+      if (!c || c.getTime() <= ahora() + 5000) throw new Error('El punto ya está cerrado: no admite cambios');
+      return c;
+    });
+  }
+  var mismaHora = function (a, b) { return !!a && !!b && new Date(a).getTime() === new Date(b).getTime(); };
   function guardarEntrada(boton) {
     var er = $('#edErr'), fallo = function (m) { er.textContent = m; er.hidden = false; boton.disabled = false; };
     var p = ed.punto, a = ed.entrada, o = ed.origen || {};
@@ -1050,7 +1062,8 @@
     var usadas = trozos(sit).filter(function (x) { return x.img; }).map(function (x) { return x.img.nombre; });
     var paso;
     if (a) {
-      paso = leerItem('aport', a.id, ['CierrePunto']).then(function (x) {
+      paso = Promise.all([leerItem('aport', a.id, ['CierrePunto']), cierreVigente(p)]).then(function (rr) {
+        var x = rr[0], ci = rr[1];
         if (a.modificado && x.datos.Modified && new Date(a.modificado).getTime() !== new Date(x.datos.Modified).getTime()) throw new Error(CONFLICTO);
         var cambios = {};
         if (campos.Title !== a.titulo) cambios.Title = campos.Title;
@@ -1059,12 +1072,13 @@
         if (campos.Expediente !== a.exp) cambios.Expediente = campos.Expediente;
         if (campos.PasarSiguiente !== a.pasar) cambios.PasarSiguiente = campos.PasarSiguiente;
         if (!Object.keys(cambios).length) return a.id;
+        if (!mismaHora(x.datos.CierrePunto, ci)) cambios.CierrePunto = ci.toISOString();
         return merge(U('aport') + '/items(' + a.id + ')', Object.assign({ __metadata: tipo('aport') }, cambios), 'No tienes permiso para modificar esta entrada', x.etag).then(function () { return a.id; });
       });
     } else {
       var orden = entradas(p, ed.neg).reduce(function (m, x) { return Math.max(m, x.orden); }, 0) + 1;
-      paso = enviarSP(U('aport') + '/items', Object.assign({ __metadata: tipo('aport'), PuntoId: p.id, Referencia: p.ref, Negociado: ed.neg, Tipo: 'Entrada', Orden: orden, CierrePunto: p.cierre.toISOString(),
-        Origen: o.origen || 'Página', OrigenLista: o.origenClave && o.origen === 'SENDERO' && !hayCampo('aport', 'OrigenClave') ? ('SENDERO|' + o.origenClave).slice(0, 255) : o.origenLista || '', OrigenId: o.origenId == null ? null : o.origenId, OrigenUrl: String(o.origenUrl || '').slice(0, 255) }, o.origenClave && hayCampo('aport', 'OrigenClave') ? { OrigenClave: String(o.origenClave).slice(0, 255) } : {}, campos), 'No tienes permiso para añadir entradas')
+      paso = cierreVigente(p).then(function (ci) { return enviarSP(U('aport') + '/items', Object.assign({ __metadata: tipo('aport'), PuntoId: p.id, Referencia: p.ref, Negociado: ed.neg, Tipo: 'Entrada', Orden: orden, CierrePunto: ci.toISOString(),
+        Origen: o.origen || 'Página', OrigenLista: o.origenClave && o.origen === 'SENDERO' && !hayCampo('aport', 'OrigenClave') ? ('SENDERO|' + o.origenClave).slice(0, 255) : o.origenLista || '', OrigenId: o.origenId == null ? null : o.origenId, OrigenUrl: String(o.origenUrl || '').slice(0, 255) }, o.origenClave && hayCampo('aport', 'OrigenClave') ? { OrigenClave: String(o.origenClave).slice(0, 255) } : {}, campos), 'No tienes permiso para añadir entradas'); })
         .then(function (r) { return r.Id || r.ID; });
     }
     var id = null, avisos = [];
@@ -1104,7 +1118,9 @@
     var cambios = lst.map(function (x, i) { return { id: x, orden: i + 1 }; }).filter(function (x) { var e = es.find(function (y) { return y.id === x.id; }); return e && e.orden !== x.orden; });
     if (!cambios.length) return;
     aviso('Guardando el orden…');
-    cambios.reduce(function (q, c) { return q.then(function () { return merge(U('aport') + '/items(' + c.id + ')', { __metadata: tipo('aport'), Orden: c.orden }, 'Sin permiso para ordenar'); }); }, Promise.resolve())
+    cierreVigente(p).then(function (ci) {
+      return cambios.reduce(function (q, c) { return q.then(function () { return merge(U('aport') + '/items(' + c.id + ')', { __metadata: tipo('aport'), Orden: c.orden, CierrePunto: ci.toISOString() }, 'Sin permiso para ordenar'); }); }, Promise.resolve());
+    })
       .then(function () { aviso('Orden guardado'); return cargar(); }, function (e) { alert('No se pudo guardar el orden: ' + e.message); cargar(); });
   }
   function activarArrastre() {
@@ -1139,10 +1155,11 @@
     if (!sel2.length) return;
     if (!esAbierto(p)) { $('#trErr').textContent = 'El punto está cerrado'; $('#trErr').hidden = false; return; }
     boton.disabled = true; boton.textContent = 'Copiando…';
+    var ciTraer = null;
     sel2.reduce(function (q, a, i) {
       return q.then(function () {
         return enviarSP(U('aport') + '/items', { __metadata: tipo('aport'), Title: a.titulo, PuntoId: p.id, Referencia: p.ref, Negociado: neg, Tipo: 'Entrada', Situacion: a.sit, Prioridad: a.prio, Orden: base + i + 1,
-          Expediente: a.exp, PasarSiguiente: true, CierrePunto: p.cierre.toISOString(), Origen: 'Punto anterior', OrigenLista: L.aport, OrigenId: a.id, OrigenUrl: '' }, 'No tienes permiso para añadir entradas')
+          Expediente: a.exp, PasarSiguiente: true, CierrePunto: (ciTraer || p.cierre).toISOString(), Origen: 'Punto anterior', OrigenLista: L.aport, OrigenId: a.id, OrigenUrl: '' }, 'No tienes permiso para añadir entradas')
           .then(function (r) {
             var id = r.Id || r.ID;
             return trozos(a.sit).filter(function (x) { return x.img; }).reduce(function (q2, x) {
@@ -1154,7 +1171,7 @@
             }, Promise.resolve());
           }, function (e) { mal.push(a.titulo + ': ' + e.message); });
       });
-    }, Promise.resolve()).then(function () {
+    }, cierreVigente(p).then(function (c) { ciTraer = c; })).then(function () {
       var sn = sinNovedad(p, neg);
       return sn ? papelera('aport', sn.id).catch(function () {}) : null;
     }).then(function () {
@@ -1162,7 +1179,7 @@
       if (mal.length) alert('Algunas no se pudieron copiar:\n' + mal.join('\n'));
       aviso('Copiadas ' + (sel2.length - mal.length) + ' entradas del punto anterior');
       cargar();
-    });
+    }, function (e) { $('#trErr').textContent = e.message; $('#trErr').hidden = false; boton.disabled = false; boton.textContent = 'Traer las marcadas'; });
   }
   // neg: negociado donde se incluye (desde Seguimiento, PROCOR lo elige para las que no tienen negociado)
   function incluirMeta(id, neg) {
@@ -2011,7 +2028,7 @@
     if ((b = el.closest('[data-sinnovedad]'))) {
       if (!esAbierto(p) || !puedo(pref.neg)) return;
       b.disabled = true;
-      enviarSP(U('aport') + '/items', { __metadata: tipo('aport'), Title: 'Sin novedad', PuntoId: p.id, Referencia: p.ref, Negociado: pref.neg, Tipo: 'Sin novedad', Situacion: '', Orden: 0, CierrePunto: p.cierre.toISOString(), Origen: 'Página' }, 'No tienes permiso')
+      cierreVigente(p).then(function (ci) { return enviarSP(U('aport') + '/items', { __metadata: tipo('aport'), Title: 'Sin novedad', PuntoId: p.id, Referencia: p.ref, Negociado: pref.neg, Tipo: 'Sin novedad', Situacion: '', Orden: 0, CierrePunto: ci.toISOString(), Origen: 'Página' }, 'No tienes permiso'); })
         .then(function () { aviso('Marcado «Sin novedad»'); cargar(); }, function (er) { alert(er.message); b.disabled = false; });
       return;
     }

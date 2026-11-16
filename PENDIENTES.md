@@ -184,7 +184,7 @@ autoría.
 
 16. **Puntos de Situación de SUIGESUR** (`puntos-situacion/`, `[PUNTOS]`). **Se lleva solo en la sesión «[PUNTOS] Puntos
     de Situación», rama `claude/modest-fermat-9zf46n`** (acordado con el usuario el 14/11/2026; las demás sesiones no lo tocan).
-    - **Versión vigente: 2026-11-16 · 4** (mensajes de SENDERO directos, células de SUIGESUR y texto con formato) (`puntos-situacion/colabora/puntos-situacion.html` para subir y
+    - **Versión vigente: 2026-11-16 · 5** (mensajes de SENDERO directos, células de SUIGESUR, texto con formato y sin errores de validación con el punto abierto) (`puntos-situacion/colabora/puntos-situacion.html` para subir y
       `puntos-situacion-pruebas.html` para pruebas). Lo que hace, sus listas y su historial de versiones: `puntos-situacion/README.md`.
     - Confirmadas por el usuario hasta la · 5; la · 6 (informe completo en PDF para todos los negociados) entregada.
     - Enlace con META y el Gestor común (asuntos «⭐ Tratar con el General»): lo llevan META y el Gestor desde su sesión
@@ -205,6 +205,8 @@ autoría.
       ahora se elige el negociado en cada fila del reparto. **Subida y confirmada por el usuario: las seis filas puestas.**
     - 16/11/2026: **2026-11-16 · 4**: texto con formato (negrita, cursiva, subrayado, resaltado y viñetas) en la página, el
       informe, el PDF y el Word, pedido por el usuario. Pendiente: que suba la copia y lo pruebe.
+    - 16/11/2026: **2026-11-16 · 5**: arreglado el «error de validación de datos de lista» al modificar con el punto abierto
+      (copia atrasada de la hora de bloqueo en la entrada). Pendiente: que suba la copia y que ese usuario lo pruebe.
     - **Para cuando se lleve a otro ámbito** (aparcado por el usuario el 16/11/2026; «hay que pensar que evolucionará»):
       el reparto de células está escrito en el código solo para SUIGESUR (`REPARTO_CELULAS`). La célula llega sola desde
       SENDERO (título del subsitio de MENSADEF) y la página ya aprende las nuevas al preguntar. Mejora pensada: en Ajustes,
