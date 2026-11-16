@@ -46,9 +46,9 @@ export async function simularColabora(ctx, est, archivo) {
     if (api === 'web/roleassignments') return J(sitio());
     // Correo: como el real, rechaza el envío ENTERO si una dirección no tiene buzón
     if (api === 'SP.Utilities.Utility.SendEmail') {
-      const pr = cuerpo().properties || {}, to = (pr.To && pr.To.results) || [];
-      if (to.some(d => est.buzonMal.includes(String(d).toLowerCase()))) return J('Asegúrese de que tenga un destinatario válido.', 500);
-      est.correos.push({ to, asunto: pr.Subject, cuerpo: pr.Body }); return J({ SendEmail: null });
+      const pr = cuerpo().properties || {}, to = (pr.To && pr.To.results) || [], bcc = (pr.BCC && pr.BCC.results) || [];
+      if (to.concat(bcc).some(d => est.buzonMal.includes(String(d).toLowerCase()))) return J('Asegúrese de que tenga un destinatario válido.', 500);
+      est.correos.push({ to, bcc, asunto: pr.Subject, cuerpo: pr.Body }); return J({ SendEmail: null });
     }
     if (api === 'web/siteusers') { const f = /Email eq '([^']*)'/.exec(q.$filter || ''); return J(est.siteusers.filter(u => !f || u.Email.toLowerCase() === f[1].toLowerCase())); }
     let m;

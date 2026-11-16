@@ -59,7 +59,7 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-16 · 5';
+  var VERSION = '2026-11-16 · 6';
   // Solo se contesta a SENDERO, que funciona en MENSADEF (el favorito escribe su página sobre la de MENSADEF)
   var ORIGEN_SENDERO = 'https://mensadef.mdef.es';
   var L_AUT = 'SENDERO Autorizados', L_SOL = 'SENDERO Solicitudes', GRUPO = 'SENDERO Administradores';
@@ -180,7 +180,9 @@
   var palabras = function (n) { return sinTildes(n).replace(/[^a-zñ ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 3 && ['del', 'las', 'los'].indexOf(w) < 0; }); };
   var mismasPalabras = function (a, b) { var x = palabras(a).sort().join(' '), y = palabras(b).sort().join(' '); return !!x && x === y; };
   function enviarUno(to, c) {
-    return enviarSP(web + '/_api/SP.Utilities.Utility.SendEmail', { properties: { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, Subject: c.asunto, Body: c.html } }, 'Colabora no te deja enviar correos desde la página');
+    var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, Subject: c.asunto, Body: c.html };
+    if (c.bcc && c.bcc.length && !c.uno) pr.BCC = { results: c.bcc };
+    return enviarSP(web + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página');
   }
   // Cuenta de inicio de sesión de una dirección (si el buzón no figura en el perfil, Colabora acepta la cuenta)
   function loginDe(correo) {
@@ -199,7 +201,7 @@
     }, function () { return []; });
   }
   function mailtoDe(c) {
-    var u = 'mailto:' + c.to.map(encodeURIComponent).join(';') + '?subject=' + encodeURIComponent(c.asunto) + '&body=', cuerpo = c.texto;
+    var u = 'mailto:' + c.to.map(encodeURIComponent).join(';') + '?' + (c.bcc && c.bcc.length ? 'bcc=' + c.bcc.map(encodeURIComponent).join(';') + '&' : '') + 'subject=' + encodeURIComponent(c.asunto) + '&body=', cuerpo = c.texto;
     while ((u + encodeURIComponent(cuerpo)).length > 2000 && cuerpo.length > 200) cuerpo = cuerpo.slice(0, cuerpo.length - 100) + '…';
     return u + encodeURIComponent(cuerpo);
   }
@@ -207,13 +209,16 @@
   // por su nombre, y se dice a quién no llegó
   function enviarCorreo(c) {
     c.to = c.to.filter(function (x, i) { return esCorreo(x) && c.to.map(norm).indexOf(norm(x)) === i; });
+    // Copia oculta (avisos a muchos): si Colabora rechaza alguna dirección, se reintenta una a una (cada uno solo ve la suya)
+    c.bcc = (c.bcc || []).filter(function (x, i, l) { return esCorreo(x) && l.map(norm).indexOf(norm(x)) === i && c.to.map(norm).indexOf(norm(x)) < 0; });
     var res = function (ok, n, motivo, rech, llegaron, desvios) { return { ok: ok, n: n, motivo: motivo || '', rechazados: rech || [], llegaron: llegaron || [], desvios: desvios || [], mailto: mailtoDe(c) }; };
     if (!c.to.length) return Promise.resolve(res(false, 0, 'sin direcciones de correo'));
-    return enviarUno(c.to, c).then(function () { return res(true, c.to.length, '', [], c.to.slice()); }, function (e) {
+    var todos = c.to.concat(c.bcc);
+    return enviarUno(c.to, c).then(function () { return res(true, todos.length, '', [], todos.slice()); }, function (e) {
       var m = e.message || String(e);
       if (!DEST_MAL.test(m)) return res(false, 0, m);
-      var ok = 0, rech = [], lleg = [], desv = [];
-      return c.to.reduce(function (p, d) {
+      var ok = 0, rech = [], lleg = [], desv = []; c.uno = true;
+      return todos.reduce(function (p, d) {
         return p.then(function () {
           return enviarUno([d], c).then(function () { ok++; lleg.push(d); }, function () {
             var porNombre = function () {
@@ -529,6 +534,29 @@
         var b = this, d = $('vCad').value, nota = d === '0' ? 'indefinida' : d; b.disabled = true;
         (vs.idCaducidad ? cambiarElemento(L_AUT, vs.idCaducidad, { Nota: nota, Activo: true }, NO_PERMISO) : crearElemento(L_AUT, { Title: 'Caducidad', Tipo: 'Versión', Activo: true, Nota: nota }, NO_PERMISO))
           .then(function () { toast(d === '0' ? 'SENDERO ya no caduca' : 'Cada versión de SENDERO vale ' + d + ' días'); pintarGestion(); }, function (e) { b.disabled = false; toast('No se pudo: ' + (e.message || e)); });
+      });
+      // 16/11/2026: aviso por correo de la versión vigente a las personas autorizadas y a los responsables de cada ámbito (copia
+      // oculta). A quien entra por su ámbito sin estar dado de alta no se le puede escribir: lo verá al abrir SENDERO.
+      if (v) $('cont').insertAdjacentHTML('beforeend', '<div class="card" style="background:#f8faf6;margin-top:12px"><b>Avisar por correo de la versión ' + esc(v.version) + '</b>' +
+        '<p class="muted">Se envía a las personas autorizadas y a los responsables de cada ámbito, en copia oculta, con el enlace a la página de instalación (no se adjunta nada). Quien entra por su ámbito sin estar dado de alta lo verá al abrir SENDERO.</p>' +
+        '<button type="button" class="prim" id="vAvisar">✉ Avisar por correo</button> <span id="vAvisoMsg" class="muted"></span></div>');
+      if ($('vAvisar')) $('vAvisar').addEventListener('click', function () {
+        var b = this; b.disabled = true; $('vAvisoMsg').textContent = 'Buscando a quién avisar…';
+        leerReglas('Id,Title,Tipo,Activo,Responsables', '&$top=500').then(function (l) {
+          var bloq = l.filter(function (x) { return x.Tipo === 'Bloqueo' && activo(x); }).map(function (x) { return norm(x.Title); });
+          var a = [];
+          l.forEach(function (x) {
+            if (x.Tipo === 'Persona' && activo(x) && vigente(x)) a.push(norm(x.Title));
+            if (x.Tipo === 'Ámbito') String(x.Responsables || '').split(/[\s,;]+/).forEach(function (d) { if (esCorreo(d)) a.push(norm(d)); });
+          });
+          a = a.filter(function (x, i) { return esCorreo(x) && a.indexOf(x) === i && bloq.indexOf(x) < 0 && x !== yo.email; });
+          if (!a.length) { b.disabled = false; $('vAvisoMsg').textContent = 'No hay personas autorizadas ni responsables de ámbito a quien avisar.'; return; }
+          if (!confirm('¿Avisar por correo de la versión ' + v.version + ' a ' + a.length + ' persona' + (a.length === 1 ? '' : 's') + '?')) { b.disabled = false; $('vAvisoMsg').textContent = ''; return; }
+          $('vAvisoMsg').textContent = 'Enviando…';
+          var c = cuerpoCorreo('Hay una versión nueva de SENDERO (' + v.version + '). Instálala desde su página en Colabora: ábrela y arrastra el botón a tu barra de favoritos, en lugar del SENDERO que tienes. SENDERO no se descarga ni se reenvía.',
+            [['Versión', v.version], ['Aviso de', yo.nombre || yo.email]], v.url || pagina, 'Abrir la página de SENDERO en Colabora');
+          return enviarCorreo({ to: [yo.email], bcc: a, asunto: 'SENDERO · Versión nueva ' + v.version, html: c.html, texto: c.texto, nombres: {} }).then(function (r) { b.disabled = false; $('vAvisoMsg').innerHTML = msgCorreo(r); });
+        }).catch(function (e) { b.disabled = false; $('vAvisoMsg').textContent = 'No se pudo: ' + (e.message || e); });
       });
       $('vGuardar').addEventListener('click', function () {
         var b = this, ver = $('vVer').value.trim(), url = $('vUrl').value.trim();

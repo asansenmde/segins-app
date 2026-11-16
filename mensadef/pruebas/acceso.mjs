@@ -61,6 +61,11 @@ await p.click('#rCuerpo tr:has-text("3SUIGE") [data-act]'); await p.waitForTimeo
 console.log('reglas:', est.listas['SENDERO Autorizados'].items.map(x => x.Tipo + ' ' + x.Title + (x.Activo ? '' : ' (inactiva)') + (x.Responsables ? ' resp ' + x.Responsables : '')).join(' | '));
 await pulsar('[data-pest="version"]'); await p.fill('#vVer', '2026-12-01 · 1'); await pulsar('#vGuardar');
 console.log('versión vigente:', await p.textContent('#cont p'));
+// 16/11/2026: «✉ Avisar por correo» de la versión vigente (copia oculta; el responsable con cuenta antigua, a la buena)
+{ const n0 = est.correos.length; await p.click('#vAvisar'); await p.waitForTimeout(1500);
+  const nuevos = est.correos.slice(n0), dest = [].concat(...nuevos.map(c => c.to.concat(c.bcc || [])));
+  console.log('aviso de versión:', (await p.textContent('#vAvisoMsg')).trim().slice(0, 120), '| correos', nuevos.length, '| destinatarios', dest.join(','), '| asunto', (nuevos[0] || {}).asunto);
+  if (!nuevos.length || !dest.includes('gestor.nuevo@pruebas.invalid') || !/Versión nueva 2026-12-01 · 1/.test((nuevos[0] || {}).asunto || '') || !/Abrir la página de SENDERO/.test((nuevos[0] || {}).cuerpo || '')) error('aviso de versión por correo'); }
 { const antes = await p.inputValue('#vCad'); await p.selectOption('#vCad', '60'); await pulsar('#vCadGuardar');
   const r = await preguntar('2SUIGE'); await p.selectOption('#vCad', '0'); await pulsar('#vCadGuardar'); const r2 = await preguntar('2SUIGE');
   console.log('caducidad: por defecto', antes, '→ 60 → SENDERO recibe', r.caducidad, '| indefinida → recibe', r2.caducidad, '| elementos «Caducidad»:', est.listas['SENDERO Autorizados'].items.filter(x => x.Title === 'Caducidad').length);
