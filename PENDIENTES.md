@@ -256,4 +256,6 @@ autoría.
       «★ Al PSIT» directo al Punto de Situación sin pasar por META. PENDIENTE: en la sesión «[PUNTOS]», que el PSIT acepte
       `#importar=` con origen SENDERO (texto entregado al usuario). PENDIENTE DEL USUARIO: «Crear columnas» en Preparación y
       poner en el ámbito 2SUIGE las direcciones de META y del PSIT (✎ en «Autorizados y bloqueos»).
+    16/11/2026: SENDERO 2026-11-16 · 2: «★ Al PSIT» directo al Punto de Situación (por defecto el de SUIGESUR, cambiable),
+      etiqueta «★ PSIT» y filtro «Tarea / PSIT». Asunto cerrado con el usuario.
 

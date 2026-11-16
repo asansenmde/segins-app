@@ -289,11 +289,21 @@ if (FINAL) {
     console.log('PUNTO (pruebas, directo): pide la dirección:', pide, '| rechaza la buena:', rechaza, '| va a', u8.replace(/^https:\/\/[^/]+/, ''), '| origen', d8.origen, d8.destino, '| célula', d8.departamento, '| la segunda vez sin preguntar:', u9 === u8);
     if (!pide || !rechaza || !/pruebas\.html$/.test(u8) || d8.origen !== 'SENDERO' || d8.destino !== 'psit' || !d8.departamento || u9 !== u8) console.log('Error: PSIT directo en pruebas');
   }
-  if (FINAL) { if (process.env.SINORG) { await p.selectOption('#gestorSel', '0'); }
+  // 16/11/2026: también el definitivo va directo: al PSIT de la organización o, si no tiene, al de SUIGESUR por defecto
+  if (FINAL) {
     const [n7] = await Promise.all([ctx.waitForEvent('page'), p.click('#aPunto')]); await n7.waitForLoadState();
     const d7 = JSON.parse(decodeURIComponent(n7.url().split('#importar=')[1])), u7 = n7.url().split('#')[0]; await n7.close(); await p.bringToFront();
-    console.log('PUNTO: va a', u7.replace(/^https:\/\/[^/]+/, ''), '| por META con punto =', d7.punto, '| célula', d7.departamento);
-    if (!d7.punto || !d7.departamento) console.log('Error: PSIT por META');
+    const esperado = process.env.SINORG ? 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/puntos-situacion.html' : ORG_PSIT;
+    console.log('PUNTO: directo a', u7.replace(/^https:\/\/[^/]+/, ''), '(' + (process.env.SINORG ? 'por defecto' : 'de la organización') + ') | origen', d7.origen, d7.destino, '| célula', d7.departamento);
+    if (u7 !== esperado || d7.origen !== 'SENDERO' || d7.destino !== 'psit' || !d7.departamento) console.log('Error: PSIT directo');
+    // Constancia: etiqueta «★ PSIT» en la fila y filtro «Tarea / PSIT»
+    await p.waitForTimeout(300);
+    const conPsit = await p.$$eval('#lista tbody tr[data-i] .tag.t-psit', l => l.length);
+    const cuenta = async v => { await p.selectOption('#fPasado', v); await p.waitForTimeout(300); return p.$$eval('#lista tbody tr[data-i]', l => l.length); };
+    const nPsit = await cuenta('psit'), nTarea = await cuenta('tarea'), nNinguno = await cuenta('ninguno'), nTodos = await cuenta('');
+    const etiquetaEnPsit = (await cuenta('psit')) && await p.$$eval('#lista tbody tr[data-i]', l => l.every(t => t.querySelector('.t-psit'))); await cuenta('');
+    console.log('PUNTO: filas con «★ PSIT»:', conPsit, '| filtro: PSIT', nPsit, '· tareas', nTarea, '· ninguno', nNinguno, '· todos', nTodos, '| todas las del filtro llevan la etiqueta:', etiquetaEnPsit);
+    if (!conPsit || !nPsit || !nTarea || !nNinguno || nPsit >= nTodos || !etiquetaEnPsit) console.log('Error: etiqueta o filtro PSIT');
     { const r = await p.$eval('#aPunto', b => { const x = b.getBoundingClientRect(), y = document.querySelector('#aColabora').getBoundingClientRect(); return { alto: Math.round(x.height), altoMeta: Math.round(y.height), unaLinea: b.scrollWidth <= b.clientWidth + 1 }; });
       console.log('PUNTO: botón entero en una línea:', r.unaLinea, '| alto', r.alto, 'como META', r.altoMeta); }
     console.log('PUNTO: botón', !!(await p.$('#aPunto'))); }

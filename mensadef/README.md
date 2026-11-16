@@ -471,4 +471,10 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-16 · 1:** paso directo al PSIT **encendido solo en la copia de pruebas** (`PSIT_DIRECTO = PRUEBAS`), para probarlo
   con el PSIT de pruebas (Puntos de Situación 2026-11-15 · 1 ya lo acepta): la primera vez pide la dirección de
   `puntos-situacion-pruebas.html` (rechaza la buena) y la guarda; «cambiar» en la ficha. El definitivo sigue por META.
+- **2026-11-16 · 2:** **«★ Al PSIT» directo también en el definitivo** (asunto cerrado con el usuario). Por defecto va al PSIT
+  de SUIGESUR (`PSIT_URL`: `…/JSUIGE/aplicaciones/puntos-situacion.html`); si la regla del ámbito tiene otro, a ese; cada uno
+  puede cambiarlo («cambiar» en la ficha; «Quitar» vuelve al de la organización o al de SUIGESUR). **Constancia**: etiqueta
+  «★ PSIT» junto al asunto (lo pasado desde este navegador y, para todos, por el comentario de MENSADEF «Añadido al Punto de
+  Situación…») y aviso en la ficha. **Filtro «Tarea / PSIT»**: en tareas, en el PSIT, en los dos, en alguno o en ninguno
+  (también en el informe).
 
