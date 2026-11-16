@@ -495,4 +495,6 @@ con el formato *verbose* de SharePoint 2013.
   mensaje; para cambiarlo hace falta saber la dirección de un mensaje en MENSADEF («Escuchar MENSADEF» abriendo uno).
 - **2026-11-16 · 7:** la pregunta «¿Lo has guardado…?» queda **pendiente en el mensaje** (memoria del navegador): no se pierde
   al cambiar de pestaña, de mensaje o recargar; en la lista, «⏳ ¿PSIT?» / «⏳ ¿Tarea?» hasta que el usuario decida «Sí» o «No».
+- **2026-11-16 · 8:** el control de acceso pasa a **JSUIGE** (`URL_ACCESO` = `…/JSUIGE/aplicaciones/SENDERO-acceso.html`; listas
+  «SENDERO Autorizados» y «SENDERO Solicitudes» de JSUIGE): en colaborativo no entraba todo el mundo («No tiene acceso»).
 

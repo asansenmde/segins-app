@@ -23,7 +23,8 @@ aqui = pathlib.Path(__file__).parent
 # 15/11/2026: control de distribución de SENDERO. Quién puede usarlo lo dice la lista «SENDERO Autorizados» de Colabora, que
 # lee la página acceso/SENDERO-acceso.html subida a URL_ACCESO (la copia protegida acceso/subir/SENDERO-acceso.html).
 # La caducidad de cada versión (30, 60, 90 días o indefinida) la elige el Cte. en esa página (pestaña «Versión vigente»).
-URL_ACCESO = 'https://colabora.mdef.es/et/SUIGESUR/colaborativo/Documentos%20compartidos/SENDERO-acceso.html'
+# 16/11/2026: en JSUIGE, junto a META y SENDERO (en colaborativo no entra todo el mundo)
+URL_ACCESO = 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/SENDERO-acceso.html'
 
 
 def proteger(entrada, salida, ligero=False, mensaje=''):

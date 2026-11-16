@@ -2,8 +2,8 @@
 
 > Parte del proyecto MENSADEF (`[MENSADEF]`). © 2026 Cte. Alfredo Sánchez Sender.
 
-Página que decide **quién puede usar SENDERO**. Se sube a Colabora, sitio `/et/SUIGESUR/colaborativo` (todo el ET tiene
-acceso), en `Documentos compartidos/SENDERO-acceso.html` (si se sube a otra biblioteca, cambiar `URL_ACCESO` en
+Página que decide **quién puede usar SENDERO**. Se sube a Colabora, sitio `/et/SUIGESUR/JSUIGE`, en
+`aplicaciones/SENDERO-acceso.html` (desde el 16/11/2026; antes en `colaborativo`, donde no todos entraban) (si se sube a otra biblioteca, cambiar `URL_ACCESO` en
 `../generar-marcador.py` y regenerar el favorito).
 
 - **Se sube** `subir/SENDERO-acceso.html` (copia protegida, la genera `generar-marcador.py`). `SENDERO-acceso.html` es el

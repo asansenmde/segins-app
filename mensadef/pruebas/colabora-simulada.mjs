@@ -3,8 +3,8 @@
 // SharePoint 2013 contesta 406 a odata=nometadata). Datos ficticios (dominio pruebas.invalid).
 import fs from 'fs';
 
-export const O = 'https://colabora.mdef.es', WEB = '/et/SUIGESUR/colaborativo';
-export const URL_PAGINA = O + WEB + '/Documentos%20compartidos/SENDERO-acceso.html';
+export const O = 'https://colabora.mdef.es', WEB = '/et/SUIGESUR/JSUIGE';
+export const URL_PAGINA = O + WEB + '/aplicaciones/SENDERO-acceso.html';
 const ROL = n => 1000 + n;
 const TODOS = { Id: 9, Title: 'Usuarios del dominio', LoginName: 'c:0(.s|true' };
 const SITIO = [

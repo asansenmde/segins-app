@@ -116,7 +116,7 @@ const estC = nuevoEstado({ xfo: !!process.env.XFO }); estC.admin = false; estC.u
 estC.sinColumnasUrl = !!process.env.SINORG;
 const ORG_META = 'https://colabora.mdef.es/et/ORG/aplicaciones/META.html', ORG_PSIT = 'https://colabora.mdef.es/et/ORG/aplicaciones/puntos-situacion.html';
 listasPreparadas(estC, (process.env.NOAUT ? [] : [Object.assign({ Title: '2SUIGE', Tipo: 'Ámbito' }, process.env.SINORG ? {} : { UrlMeta: ORG_META, UrlPsit: ORG_PSIT })])
-  .concat(process.env.CADUCIDAD ? [{ Title: 'Caducidad', Tipo: 'Versión', Nota: process.env.CADUCIDAD }] : []).concat(process.env.NUEVA ? [{ Title: '2099-01-01 · 1', Tipo: 'Versión', Nota: 'https://colabora.mdef.es/et/SUIGESUR/colaborativo/Documentos%20compartidos/SENDERO.html' }] : []));
+  .concat(process.env.CADUCIDAD ? [{ Title: 'Caducidad', Tipo: 'Versión', Nota: process.env.CADUCIDAD }] : []).concat(process.env.NUEVA ? [{ Title: '2099-01-01 · 1', Tipo: 'Versión', Nota: 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/SENDERO.html' }] : []));
 await simularColabora(ctx, estC, new URL('../acceso/subir/SENDERO-acceso.html', import.meta.url).pathname);
 if (process.env.DIAS) await p.evaluate(n => { const D = Date, d = n * 864e5; window.Date = class extends D { constructor(...a) { super(...(a.length ? a : [D.now() + d])); } static now() { return D.now() + d; } }; }, Number(process.env.DIAS));
 const llamadasAntes = llamadas.length;
