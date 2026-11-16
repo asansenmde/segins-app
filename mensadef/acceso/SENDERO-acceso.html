@@ -59,7 +59,7 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-16 · 2';
+  var VERSION = '2026-11-16 · 3';
   // Solo se contesta a SENDERO, que funciona en MENSADEF (el favorito escribe su página sobre la de MENSADEF)
   var ORIGEN_SENDERO = 'https://mensadef.mdef.es';
   var L_AUT = 'SENDERO Autorizados', L_SOL = 'SENDERO Solicitudes', GRUPO = 'SENDERO Administradores';
@@ -511,13 +511,14 @@
   }
   function pintarVersion() {
     return leerVersiones().then(function (vs) {
-      var v = vs.vigente, dir = location.href.split('#')[0].replace(/[^/]*$/, '');
-      $('cont').innerHTML = '<p>Versión vigente: ' + (v ? '<b>' + esc(v.version) + '</b>' + (v.url ? ' · <a href="' + esc(v.url) + '" target="_blank" rel="noopener">favorito para descargar</a>' : '') : '<span class="muted">ninguna anotada</span>') + '</p>' +
-        '<p class="muted">Cuando subas un SENDERO nuevo (su página del favorito, p. ej. SENDERO.html, en esta biblioteca), anótalo aquí: SENDERO avisará a quien tenga una versión anterior con el enlace para descargarla.</p>' +
+      // 16/11/2026: SENDERO no se descarga: se instala desde su página en Colabora (por defecto, aplicaciones/SENDERO.html de JSUIGE)
+      var v = vs.vigente, pagina = (v && v.url) || 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/SENDERO.html';
+      $('cont').innerHTML = '<p>Versión vigente: ' + (v ? '<b>' + esc(v.version) + '</b>' + (v.url ? ' · <a href="' + esc(v.url) + '" target="_blank" rel="noopener">página de instalación</a>' : '') : '<span class="muted">ninguna anotada</span>') + '</p>' +
+        '<p class="muted">Cuando subas un SENDERO nuevo a su página de Colabora (SENDERO.html, donde se arrastra el botón a favoritos), anota aquí su versión: a quien tenga una anterior, SENDERO le avisará de que hay una nueva con el enlace a esa página. No se descarga ningún archivo.</p>' +
         '<div class="card" style="background:#f8faf6"><b>Caducidad de SENDERO</b><p class="muted">Cada favorito vale estos días desde el día en que se generó; los 5 últimos avisa y después no abre. Se aplica al momento a todos los favoritos, también a los ya repartidos.</p>' +
         '<label>Cada versión vale<select id="vCad"><option value="30">30 días</option><option value="60">60 días</option><option value="90">90 días</option><option value="0">Indefinida (no caduca)</option></select></label> <button type="button" class="prim" id="vCadGuardar">Guardar</button></div>' +
         '<label>Versión (la que sale en SENDERO)<input id="vVer" size="18" placeholder="2026-11-15 · 1"></label>' +
-        '<label>Dirección del favorito<input id="vUrl" size="60" value="' + esc(dir + 'SENDERO.html') + '"></label> <button type="button" class="prim" id="vGuardar">Anotar</button>';
+        '<label>Página de SENDERO en Colabora<input id="vUrl" size="60" value="' + esc(pagina) + '"></label> <button type="button" class="prim" id="vGuardar">Anotar</button>';
       $('vCad').value = String(vs.caducidad);
       $('vCadGuardar').addEventListener('click', function () {
         var b = this, d = $('vCad').value, nota = d === '0' ? 'indefinida' : d; b.disabled = true;

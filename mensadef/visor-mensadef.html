@@ -530,7 +530,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-16 · 3';
+  var VERSION = '2026-11-16 · 4';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -565,11 +565,15 @@
     var b = document.createElement('div'); b.id = id;
     b.style.cssText = 'background:#efc000;color:#12315a;text-align:center;font-weight:800;padding:6px 10px;border-bottom:2px solid #b58f00';
     b.textContent = texto;
-    if (url) { var a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = ' Descargar la versión nueva'; a.style.color = '#12315a'; b.appendChild(a); }
+    if (url) { var a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = ' Abrir la página de SENDERO en Colabora'; a.style.color = '#12315a'; b.appendChild(a); }
     document.body.insertBefore(b, document.querySelector('header'));
   }
+  // 16/11/2026: SENDERO no se descarga ni se reparte (el usuario: «no quiero descargas, para no difundir»): la versión nueva
+  // se instala desde su página en Colabora, arrastrando el botón a favoritos. Por defecto, la de SUIGESUR.
+  var URL_INSTALAR = 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/SENDERO.html';
+  var paginaInstalar = function (v) { return v && /^https:\/\/[^/]+\.mdef\.es\//i.test(v.url || '') ? v.url : URL_INSTALAR; };
   function avisarVersion(v) {
-    if (v && v.version && numVersion(v.version) > numVersion(VERSION)) bandaArriba('avisoVersion', '⬆ Hay una versión nueva de SENDERO (' + v.version + '): instálala en lugar de la tuya.', /^https:\/\/[^/]+\.mdef\.es\//i.test(v.url || '') ? v.url : '');
+    if (v && v.version && numVersion(v.version) > numVersion(VERSION)) bandaArriba('avisoVersion', '⬆ Hay una versión nueva de SENDERO (' + v.version + ') en Colabora: instálala en lugar de la tuya.', paginaInstalar(v));
   }
   // Pregunta a la página de acceso de Colabora: en un marco oculto o, con un clic, en una ventana pequeña
   var ORIGEN_ACCESO = function () { try { return new URL(URL_ACCESO).origin; } catch (e) { return ''; } };
@@ -657,11 +661,11 @@
     if (!dias) { CADUCA = null; return false; }
     var d = new Date(GENERADO + 'T12:00:00'); d.setDate(d.getDate() + dias);
     CADUCA = d.getFullYear() + '-' + (d.getMonth() < 9 ? '0' : '') + (d.getMonth() + 1) + '-' + (d.getDate() < 10 ? '0' : '') + d.getDate();
-    var bajar = vigente && numVersion(vigente.version) > numVersion(VERSION) && /^https:\/\/[^/]+\.mdef\.es\//i.test(vigente.url || '') ? vigente.url : '';
+    var bajar = vigente && numVersion(vigente.version) > numVersion(VERSION) ? paginaInstalar(vigente) : '';
     if (hoyIso() > CADUCA) {
       pantallaBloqueo('Esta versión de SENDERO ha caducado',
-        '<p>Esta versión caducó el <b>' + esc(fechaCorta(CADUCA)) + '</b>. ' + (bajar ? 'Descarga la versión nueva y sustituye tu favorito por ella.' : 'Pide la versión nueva al <b>Cte. Alfredo Sánchez Sender</b> y sustituye tu favorito por ella.') + '</p>' +
-        '<div class="acciones">' + (bajar ? '<a id="bajarVersion" href="' + esc(bajar) + '" target="_blank" rel="noopener"><button type="button" class="prim">⬇ Descargar la versión nueva</button></a>' : '') +
+        '<p>Esta versión caducó el <b>' + esc(fechaCorta(CADUCA)) + '</b>. ' + (bajar ? 'Hay una versión nueva en Colabora: abre su página y arrastra el botón a tus favoritos, en lugar del que tienes.' : 'Pide la versión nueva al <b>Cte. Alfredo Sánchez Sender</b> y sustituye tu favorito por ella.') + '</p>' +
+        '<div class="acciones">' + (bajar ? '<a id="bajarVersion" href="' + esc(bajar) + '" target="_blank" rel="noopener"><button type="button" class="prim">⬆ Abrir la versión nueva en Colabora</button></a>' : '') +
         '<a id="pedirVersion" href="' + esc(mailtoPedir('Versión nueva de SENDERO', 'Solicito la versión nueva de SENDERO (la mía, ' + VERSION + ', caducó el ' + fechaCorta(CADUCA) + ').\n')) + '"><button type="button">✉ Pedir la versión nueva</button></a></div>');
       return true;
     }
@@ -669,7 +673,7 @@
     if (diasQuedan <= 5 && !$('avisoCaduca')) {
       var bandaC = document.createElement('div'); bandaC.id = 'avisoCaduca';
       bandaC.style.cssText = 'background:#efc000;color:#12315a;text-align:center;font-weight:800;padding:6px 10px;border-bottom:2px solid #b58f00';
-      bandaC.textContent = '⏳ Esta versión de SENDERO caduca ' + (diasQuedan === 0 ? 'hoy' : diasQuedan === 1 ? 'mañana' : 'en ' + diasQuedan + ' días') + ' (' + fechaCorta(CADUCA) + '): ' + (bajar ? 'descarga la versión nueva.' : 'pide la versión nueva al Cte. Alfredo Sánchez Sender.');
+      bandaC.textContent = '⏳ Esta versión de SENDERO caduca ' + (diasQuedan === 0 ? 'hoy' : diasQuedan === 1 ? 'mañana' : 'en ' + diasQuedan + ' días') + ' (' + fechaCorta(CADUCA) + '): ' + (bajar ? 'instala la versión nueva desde su página en Colabora.' : 'pide la versión nueva al Cte. Alfredo Sánchez Sender.');
       document.body.insertBefore(bandaC, document.querySelector('header'));
     }
     return false;
