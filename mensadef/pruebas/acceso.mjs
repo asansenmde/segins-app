@@ -62,9 +62,18 @@ console.log('reglas:', est.listas['SENDERO Autorizados'].items.map(x => x.Tipo +
 await pulsar('[data-pest="version"]'); await p.fill('#vVer', '2026-12-01 · 1'); await pulsar('#vGuardar');
 console.log('versión vigente:', await p.textContent('#cont p'));
 // 16/11/2026: «✉ Avisar por correo» de la versión vigente (copia oculta; el responsable con cuenta antigua, a la buena)
-{ const n0 = est.correos.length; await p.click('#vAvisar'); await p.waitForTimeout(1500);
+// Antes de enviar sale la lista con casillas: se añade una persona, se desmarca y no le llega
+est.listas['SENDERO Autorizados'].items.push({ Id: 990, Title: 'quitada@pruebas.invalid', Tipo: 'Persona', Activo: true, Hasta: null, Nota: 'para desmarcar' });
+{ const n0 = est.correos.length; await p.click('#vAvisar'); await p.waitForTimeout(800);
+  const lista = await p.$$eval('.vDest', l => l.length), envios0 = est.correos.length - n0;
+  await p.click('label:has-text("quitada@pruebas.invalid") .vDest'); const cuenta = await p.textContent('#vCuenta');
+  console.log('aviso de versión: lista antes de enviar con', lista, 'personas | correos antes de pulsar Enviar:', envios0, '| tras desmarcar:', cuenta);
+  if (lista !== 2 || envios0 || !/1 de 2/.test(cuenta)) error('lista de destinatarios');
+  await p.click('#vEnviar'); await p.waitForTimeout(1500);
   const nuevos = est.correos.slice(n0), dest = [].concat(...nuevos.map(c => c.to.concat(c.bcc || [])));
   console.log('aviso de versión:', (await p.textContent('#vAvisoMsg')).trim().slice(0, 120), '| correos', nuevos.length, '| destinatarios', dest.join(','), '| asunto', (nuevos[0] || {}).asunto);
+  if (dest.includes('quitada@pruebas.invalid')) error('avisa a quien se desmarcó');
+  est.listas['SENDERO Autorizados'].items = est.listas['SENDERO Autorizados'].items.filter(x => x.Id !== 990);
   if (!nuevos.length || !dest.includes('gestor.nuevo@pruebas.invalid') || !/Versión nueva 2026-12-01 · 1/.test((nuevos[0] || {}).asunto || '') || !/Abrir la página de SENDERO/.test((nuevos[0] || {}).cuerpo || '')) error('aviso de versión por correo'); }
 { const antes = await p.inputValue('#vCad'); await p.selectOption('#vCad', '60'); await pulsar('#vCadGuardar');
   const r = await preguntar('2SUIGE'); await p.selectOption('#vCad', '0'); await pulsar('#vCadGuardar'); const r2 = await preguntar('2SUIGE');

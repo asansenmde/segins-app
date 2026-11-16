@@ -31,6 +31,8 @@ Página que decide **quién puede usar SENDERO**. Se sube a Colabora, sitio `/et
   activas y a los responsables de cada ámbito (sin los bloqueados), en copia oculta y con el enlace a la página de instalación;
   envío robusto (si Colabora rechaza alguna dirección, uno a uno). A quien entra por su ámbito sin estar dado de alta no se le
   puede escribir: ve la franja al abrir SENDERO.
+- **2026-11-16 · 7**: antes de enviar el aviso de versión sale la **lista de destinatarios con casillas** (marcar/desmarcar
+  todos, cuántos marcados) y «✉ Enviar a los marcados».
 - **Modos de la página**: sin nada en la dirección, gestión (Control total: todo; responsables de ámbito: solicitudes de
   sus ámbitos y autorizar o bloquear personas; el resto: su solicitud). `#solicitar=…`: formulario de solicitud (lo abre
   SENDERO). `#comprobar=…`: responde a SENDERO con `postMessage` solo a `https://mensadef.mdef.es` (marco oculto o ventana

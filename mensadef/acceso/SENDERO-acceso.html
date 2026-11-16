@@ -59,7 +59,7 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-16 · 6';
+  var VERSION = '2026-11-16 · 7';
   // Solo se contesta a SENDERO, que funciona en MENSADEF (el favorito escribe su página sobre la de MENSADEF)
   var ORIGEN_SENDERO = 'https://mensadef.mdef.es';
   var L_AUT = 'SENDERO Autorizados', L_SOL = 'SENDERO Solicitudes', GRUPO = 'SENDERO Administradores';
@@ -544,18 +544,31 @@
         var b = this; b.disabled = true; $('vAvisoMsg').textContent = 'Buscando a quién avisar…';
         leerReglas('Id,Title,Tipo,Activo,Responsables', '&$top=500').then(function (l) {
           var bloq = l.filter(function (x) { return x.Tipo === 'Bloqueo' && activo(x); }).map(function (x) { return norm(x.Title); });
-          var a = [];
+          var a = [], por = {};
           l.forEach(function (x) {
-            if (x.Tipo === 'Persona' && activo(x) && vigente(x)) a.push(norm(x.Title));
-            if (x.Tipo === 'Ámbito') String(x.Responsables || '').split(/[\s,;]+/).forEach(function (d) { if (esCorreo(d)) a.push(norm(d)); });
+            if (x.Tipo === 'Persona' && activo(x) && vigente(x)) { a.push(norm(x.Title)); por[norm(x.Title)] = 'autorizado' + (x.Nota ? ' · ' + x.Nota : ''); }
+            if (x.Tipo === 'Ámbito') String(x.Responsables || '').split(/[\s,;]+/).forEach(function (d) { if (esCorreo(d)) { a.push(norm(d)); por[norm(d)] = 'responsable de ' + x.Title; } });
           });
-          a = a.filter(function (x, i) { return esCorreo(x) && a.indexOf(x) === i && bloq.indexOf(x) < 0 && x !== yo.email; });
+          a = a.filter(function (x, i) { return esCorreo(x) && a.indexOf(x) === i && bloq.indexOf(x) < 0 && x !== yo.email; }).sort();
           if (!a.length) { b.disabled = false; $('vAvisoMsg').textContent = 'No hay personas autorizadas ni responsables de ámbito a quien avisar.'; return; }
-          if (!confirm('¿Avisar por correo de la versión ' + v.version + ' a ' + a.length + ' persona' + (a.length === 1 ? '' : 's') + '?')) { b.disabled = false; $('vAvisoMsg').textContent = ''; return; }
-          $('vAvisoMsg').textContent = 'Enviando…';
+          // 16/11/2026: antes de enviar, la lista con una casilla por persona para quitar a quien no se quiera avisar
+          $('vAvisoMsg').innerHTML = '<div id="vLista" style="margin-top:8px"><p><b>Se avisará a ' + a.length + ' persona' + (a.length === 1 ? '' : 's') + '</b> (desmarca a quien no quieras avisar) · <a href="#" id="vTodos">marcar todos</a> · <a href="#" id="vNinguno">desmarcar todos</a></p>' +
+            '<div style="max-height:260px;overflow:auto;border:1px solid #d3dce8;border-radius:8px;padding:6px 10px;background:#fff">' +
+            a.map(function (x, i) { return '<label style="display:flex;flex-direction:row;gap:8px;align-items:center;margin:2px 0;color:#1c2a3a"><input type="checkbox" class="vDest" data-i="' + i + '" checked> <b>' + esc(x) + '</b> <span class="muted">' + esc(por[x] || '') + '</span></label>'; }).join('') +
+            '</div><p><button type="button" class="prim" id="vEnviar">✉ Enviar a los marcados</button> <button type="button" id="vCancelar">Cancelar</button> <span id="vCuenta" class="muted"></span></p></div>';
+          var cuenta = function () { var n = document.querySelectorAll('.vDest:checked').length; $('vCuenta').textContent = n + ' de ' + a.length + ' marcados'; $('vEnviar').disabled = !n; };
+          Array.prototype.forEach.call(document.querySelectorAll('.vDest'), function (c) { c.addEventListener('change', cuenta); }); cuenta();
+          $('vTodos').addEventListener('click', function (e) { e.preventDefault(); Array.prototype.forEach.call(document.querySelectorAll('.vDest'), function (c) { c.checked = true; }); cuenta(); });
+          $('vNinguno').addEventListener('click', function (e) { e.preventDefault(); Array.prototype.forEach.call(document.querySelectorAll('.vDest'), function (c) { c.checked = false; }); cuenta(); });
+          $('vCancelar').addEventListener('click', function () { b.disabled = false; $('vAvisoMsg').textContent = ''; });
+          $('vEnviar').addEventListener('click', function () {
+          var elegidos = Array.prototype.filter.call(document.querySelectorAll('.vDest'), function (c) { return c.checked; }).map(function (c) { return a[Number(c.getAttribute('data-i'))]; });
+          if (!elegidos.length) return;
+          $('vAvisoMsg').textContent = 'Enviando a ' + elegidos.length + '…';
           var c = cuerpoCorreo('Hay una versión nueva de SENDERO (' + v.version + '). Instálala desde su página en Colabora: ábrela y arrastra el botón a tu barra de favoritos, en lugar del SENDERO que tienes. SENDERO no se descarga ni se reenvía.',
             [['Versión', v.version], ['Aviso de', yo.nombre || yo.email]], v.url || pagina, 'Abrir la página de SENDERO en Colabora');
-          return enviarCorreo({ to: [yo.email], bcc: a, asunto: 'SENDERO · Versión nueva ' + v.version, html: c.html, texto: c.texto, nombres: {} }).then(function (r) { b.disabled = false; $('vAvisoMsg').innerHTML = msgCorreo(r); });
+          enviarCorreo({ to: [yo.email], bcc: elegidos, asunto: 'SENDERO · Versión nueva ' + v.version, html: c.html, texto: c.texto, nombres: {} }).then(function (r) { b.disabled = false; $('vAvisoMsg').innerHTML = msgCorreo(r); });
+          });
         }).catch(function (e) { b.disabled = false; $('vAvisoMsg').textContent = 'No se pudo: ' + (e.message || e); });
       });
       $('vGuardar').addEventListener('click', function () {
