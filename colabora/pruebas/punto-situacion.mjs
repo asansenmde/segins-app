@@ -42,8 +42,11 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
     if (resto === 'contextinfo') return ful({ json: { d: { GetContextWebInformation: { FormDigestValue: 'D', FormDigestTimeoutSeconds: 1800 } } } });
     const c = JSON.parse(req.postData() || '{}'); delete c.__metadata;
     if (lst === 'PS Aportaciones' + SUF) {
-      if (validacion) return ful({ status: 400, json: { error: { message: { value: 'List data validation failed.' } } } });
+      if (validacion) return validacion === 500 ? ful({ status: 500, body: '' }) : ful({ status: 400, json: { error: { message: { value: 'List data validation failed.' } } } });
       const m = resto.match(/items\((\d+)\)/);
+      // Validación real de la lista: [Cierre del punto] > NOW() con la copia que quede en la entrada
+      { const previa = m ? aport.find(a => a.Id === Number(m[1])) : null, cierre = c.CierrePunto !== undefined ? c.CierrePunto : previa && previa.CierrePunto;
+        if (cierre && Date.parse(cierre) <= Date.now()) return ful({ status: 500, json: { error: { message: { value: 'Error de validación de datos de lista.' } } } }); }
       if (m) { Object.assign(aport.find(a => a.Id === Number(m[1])), c, { Modified: new Date().toISOString() }); return ful({ status: 204, body: '' }); }
       const a = { Id: aport.length + 1, ...c, Modified: new Date().toISOString() }; aport.push(a); return ful({ status: 201, json: { d: a } });
     }
@@ -51,11 +54,13 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
     if (lst === LISTA) { const it = items.find(x => x.Id === Number(resto.match(/items\((\d+)\)/)[1])); if (c.TratarEn) it.TratarEn = c.TratarEn.results; it.Modified = new Date().toISOString(); return ful({ status: 204, body: '' }); }
     return ful({ status: 400, body: '' });
   }
+  if (/GetFileByServerRelativeUrl\('[^']*puntos-situacion(-pruebas)?\.html'\)/.test(resto)) return ful({ json: { Exists: true } });
   if (resto.startsWith('web?')) return ful({ json: { Url: 'https://colabora.mdef.es' + WEB, Title: 'JSUIGE' } });
   if (resto.startsWith('web/currentuser')) return ful({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' } });
   if (lst.startsWith('PS ')) {
     if (!instalada) return ful({ status: 404, body: '' });
     if (lst === 'PS Aportaciones' + SUF && !resto.includes('/items')) return ful({ json: { Id: 'a', ListItemEntityTypeFullName: 'SP.Data.PS_x0020_AportacionesListItem', EffectiveBasePermissions: { High: '0', Low: sinAnadir ? '1' : '4095' } } });
+    { const mp = lst === 'PS Puntos' + SUF && resto.match(/items\((\d+)\)/); if (mp) return ful({ json: puntos.find(x => x.Id === Number(mp[1])) }); }
     if (lst === 'PS Puntos' + SUF) return ful({ json: { value: puntos } });
     if (lst === 'PS Negociados' + SUF) return ful({ json: { value: negs() } });
     if (lst === 'PS Aportaciones' + SUF) {
@@ -122,12 +127,34 @@ comprueba('formulario de actualizar con el texto guardado', await p.inputValue('
 await p.fill('#psSit', 'Situación actualizada.'); await p.click('[data-psok]'); await p.waitForFunction(() => /actualizada/.test(document.querySelector('#psBox').textContent));
 const merge = posts.filter(x => /PS Aportaciones.*items\(1\)/.test(x.ruta)).pop();
 comprueba('actualizada con MERGE e IF-MATCH', aport[0].Situacion === 'Situación actualizada.' && merge.cab['x-http-method'] === 'MERGE' && merge.cab['if-match'] === '"1"');
+// 3b. Copia atrasada del cierre en la entrada (PROCOR cambió la hora): antes daba «error de validación»; ahora se corrige sola
+aport[0].CierrePunto = new Date(Date.now() - 3600e3).toISOString();
+await ficha(1); await p.click('[data-psaport]'); await p.waitForSelector('#psSit'); await p.fill('#psSit', 'Con la copia atrasada.'); await p.click('[data-psok]');
+await p.waitForFunction(() => /Situación actualizada en el punto/.test(document.querySelector('#psBox').textContent) || (document.querySelector('#psErr') && !document.querySelector('#psErr').hidden), null, { timeout: 8000 }).catch(() => {});
+comprueba('copia atrasada del cierre: se guarda y se corrige', aport[0].Situacion === 'Con la copia atrasada.' && aport[0].CierrePunto === new Date(puntos[0].Cierre).toISOString());
+// 3c. Lo escrito a mano como «[b]» no se toma por formato allí
+await p.click('[data-psaport]'); await p.waitForSelector('#psSit'); await p.fill('#psSit', 'Texto [b]a mano[/b]'); await p.click('[data-psok]'); await p.waitForTimeout(800);
+comprueba('«[b]» escrito a mano se guarda como «(b)»: ' + aport[0].Situacion, aport[0].Situacion === 'Texto (b)a mano(/b)');
+// 3d. Situación con formato o imágenes (puesta en Puntos de Situación): no se edita aquí, enlaza a su página
+aport[0].Situacion = '[b]Vallado[/b] revisado\n• primera viñeta\n[[imagen:foto1.png|Foto del vallado|800|1234]]';
+await ficha(1); await p.click('[data-psaport]'); await p.waitForSelector('#psForm .psform');
+{ const txt = (await p.textContent('#psForm')).replace(/\s+/g, ' '), href = await p.$eval('#psForm a', a => a.getAttribute('href')).catch(() => '');
+  comprueba('con formato: no ofrece editar y lo explica: ' + txt.slice(0, 90), !(await p.$('#psSit')) && /formato o imágenes/.test(txt) && /Vallado revisado/.test(txt) && /🖼 Foto del vallado/.test(txt) && !/\[b\]/.test(txt));
+  comprueba('enlace a su página: ' + href, /puntos-situacion\.html\?punto=45&neg=PRL$/.test(href)); }
+aport[0].Situacion = 'Situación actualizada.';
 // 4. Validación de la lista (punto cerrado en el servidor)
 validacion = true;
 await p.click('[data-psaport]'); await p.waitForSelector('#psSit'); await p.fill('#psSit', 'Tarde'); await p.click('[data-psok]');
 await p.waitForFunction(() => !document.querySelector('#psErr').hidden);
 comprueba('validación de Colabora: ' + await p.textContent('#psErr'), /cerrado/.test(await p.textContent('#psErr')));
+validacion = 500; await p.fill('#psSit', 'Tarde otra vez'); await p.click('[data-psok]'); await p.waitForTimeout(800);
+comprueba('validación con respuesta 500 sin texto: ' + await p.textContent('#psErr'), /hora de cierre/.test(await p.textContent('#psErr')));
 validacion = false;
+// 4b. El punto se cerró después de abrir la ficha: no se escribe
+{ const antes = puntos[0].Cierre; puntos[0].Cierre = new Date(Date.now() - 60e3).toISOString(); const nP = posts.length;
+  await p.fill('#psSit', 'Ya cerrado'); await p.click('[data-psok]'); await p.waitForTimeout(800);
+  comprueba('cerrado en el servidor: lo dice y no escribe: ' + await p.textContent('#psErr'), /ya está cerrado/.test(await p.textContent('#psErr')) && !posts.slice(nP).some(x => /PS Aportaciones/.test(x.ruta)));
+  puntos[0].Cierre = antes; }
 // 5. Asunto de otro negociado: no se puede escribir en Infraestructura
 t = await ficha(2);
 await p.click('[data-psform]'); await p.waitForSelector('#psNeg');

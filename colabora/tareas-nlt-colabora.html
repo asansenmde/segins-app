@@ -293,7 +293,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-16 · 1';
+  var VERSION = '2026-11-16 · 2';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -1624,6 +1624,38 @@
   var psRef = function (p) { return p.Referencia || p.Title || ('Punto ' + p.Id); };
   var psCierre = function (p) { return new Date(p.Cierre).toLocaleString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); };
   var psFicha = function (t) { return location.origin + location.pathname + '?id=' + t.id; };
+  // 16/11/2026 (aviso de la sesión de Puntos de Situación): hora de bloqueo VIGENTE del punto, leída del servidor justo antes de
+  // escribir. Cada entrada guarda su copia (CierrePunto) y la validación de la lista es [Cierre del punto] > NOW(): si la copia se
+  // quedó atrasada (PROCOR cambió o reabrió el cierre) Colabora rechazaba el cambio aunque el punto siguiera abierto.
+  function psCierreVigente(puntoId) {
+    return api(psUrl('puntos') + '/items(' + Number(puntoId) + ')?$select=Id,Cierre,EstadoPunto').then(function (p) {
+      var c = p && p.Cierre ? Date.parse(p.Cierre) : 0;
+      if (!c || c <= Date.now() || /cerrad|archiv|borrad/i.test(p.EstadoPunto || '')) throw new Error('El punto de situación ya está cerrado: no admite cambios');
+      if (psCache && psCache.cierres) psCache.cierres[p.Id] = p.Cierre;
+      return new Date(c).toISOString();
+    });
+  }
+  var mismoInstante = function (a, b) { return Date.parse(a || 0) === Date.parse(b || 0); };
+  // Desde Puntos de Situación 2026-11-16 · 4 la situación puede llevar formato ([b]…[/b], [i], [u], [r]) e imágenes
+  // ([[imagen:archivo|pie|ancho|bytes]]): eso no se edita aquí (se vería en bruto y una imagen se podría perder), sino en su página.
+  var psConFormato = function (txt) { return /\[\/?(b|i|u|r)\]|\[\[imagen:/i.test(String(txt || '')); };
+  var psSinMarcas = function (txt) {
+    return String(txt || '').split('\n').map(function (l) {
+      var im = /^\s*\[\[imagen:([^|\]]*)(?:\|([^|\]]*))?[^\]]*\]\]\s*$/i.exec(l);
+      return im ? '🖼 ' + (im[2] || im[1] || 'imagen') : l.replace(/\[\/?(b|i|u|r)\]/gi, '');
+    }).join('\n');
+  };
+  // Lo que se escribe aquí a mano como «[b]» o «[[imagen:» no debe tomarse por formato allí (como hace su propia página)
+  var psProtegerMarcas = function (txt) { return String(txt || '').replace(/\[(\/?)(b|i|u|r)\]/gi, '($1$2)').replace(/\[\[imagen:/gi, '((imagen:'); };
+  // Página de Puntos de Situación: se busca en la misma carpeta que esta (…/aplicaciones/puntos-situacion.html)
+  var psPaginaP = null;
+  function psPagina() {
+    if (psPaginaP) return psPaginaP;
+    var ruta = decodeURIComponent(location.pathname).replace(/[^/]*$/, '') + 'puntos-situacion' + (PRUEBAS ? '-pruebas' : '') + '.html';
+    psPaginaP = api(web.url + "/_api/web/GetFileByServerRelativeUrl('" + encodeURIComponent(ruta.replace(/'/g, "''")) + "')?$select=Exists")
+      .then(function (f) { return f && f.Exists !== false ? location.origin + encodeURI(ruta) : ''; }, function () { return ''; });
+    return psPaginaP;
+  }
   // Entradas del punto de situación que vienen de este asunto
   function psDeAsunto(t) {
     return api(psUrl('aport') + "/items?$top=50&$select=Id,Title,PuntoId,Referencia,Negociado,Situacion,Prioridad,CierrePunto,Modified&$filter=(OrigenId eq " + Number(t.id) +
@@ -1679,6 +1711,15 @@
     if (!f || !psCache || !psCache.instalada) return;
     var ps = psCache;
     (aportId ? api(psUrl('aport') + '/items(' + Number(aportId) + ')?$select=Id,Title,PuntoId,Negociado,Situacion,Prioridad') : Promise.resolve(null)).then(function (a) {
+      if (a && psConFormato(a.Situacion)) {
+        return psPagina().then(function (url) {
+          var enlace = url ? url + '?punto=' + Number(a.PuntoId) + '&neg=' + encodeURIComponent(a.Negociado || '') : '';
+          f.innerHTML = '<div class="psform"><div class="aviso small">Esta situación tiene <b>formato o imágenes</b> puestos en la aplicación Puntos de Situación: ' +
+            'para no estropearlos se actualiza allí.</div><div class="small" style="white-space:pre-wrap;margin:6px 0">' + esc(psSinMarcas(a.Situacion)) + '</div>' +
+            '<div class="acciones"><button type="button" class="btn" data-psno="' + t.id + '">Cerrar</button>' +
+            (enlace ? '<a class="btn prim" target="_blank" rel="noopener" href="' + esc(enlace) + '">📋 Actualizarla en Puntos de Situación</a>' : '<span class="small muted">Ábrela en la aplicación «Puntos de Situación», negociado ' + esc(a.Negociado) + '.</span>') + '</div></div>';
+        });
+      }
       var ult = String(t.observaciones || '').split('\n').filter(Boolean)[0] || '';
       var sit = a ? a.Situacion || '' : (t.descripcion || t.resumenDesc || '') + (ult ? '\n' + ult : '');
       var neg = a ? a.Negociado : psNegociadoDe(t, ps.negs);
@@ -1716,12 +1757,14 @@
         .then(function (r) { if (!r.ok) throw new Error(r.status === 404 ? 'La entrada ya no existe en el punto de situación' : 'HTTP ' + r.status); return r.json(); })
         .then(function (d) {
           d = d.d || d;
-          var ci = ps.cierres[d.PuntoId] || d.CierrePunto;
-          if (!ci || Date.parse(ci) <= Date.now()) throw new Error('El punto de situación ya está cerrado: no admite cambios');
           if (!ps.puedo(d.Negociado)) throw new Error('No puedes escribir en el negociado ' + d.Negociado);
           if (d.EffectiveBasePermissions && !((Number(d.EffectiveBasePermissions.Low) || 0) & 0x4)) throw new Error(PS_SIN_PERMISO.replace('añadir entradas', 'modificar esta entrada'));
-          return enviarSP(psUrl('aport') + '/items(' + d.Id + ')', Object.assign(tipo, { Title: tit, Situacion: sit, Prioridad: prio }),
-            'No tienes permiso para modificar el punto de situación', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': (d.__metadata && d.__metadata.etag) || '*' });
+          return psCierreVigente(d.PuntoId).then(function (vig) {
+            var cambios = { Title: tit, Situacion: psProtegerMarcas(sit), Prioridad: prio };
+            if (!mismoInstante(vig, d.CierrePunto)) cambios.CierrePunto = vig;   // la copia atrasada de la entrada se corrige sola
+            return enviarSP(psUrl('aport') + '/items(' + d.Id + ')', Object.assign(tipo, cambios),
+              'No tienes permiso para modificar el punto de situación', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': (d.__metadata && d.__metadata.etag) || '*' });
+          });
         }).then(function () { return 'Situación actualizada en el punto de situación'; });
     } else {
       var p = ps.abiertos.filter(function (x) { return x.Id === Number($('#psPunto').value); })[0], neg = $('#psNeg').value;
@@ -1733,12 +1776,13 @@
       // Va al final de las entradas de su negociado; si ya estaba incluido en ese punto, no se duplica
       hecho = Promise.all([
         api(psUrl('aport') + '/items?$top=500&$select=Id,Orden,OrigenId,OrigenLista,Negociado&$filter=PuntoId eq ' + p.Id),
+        psCierreVigente(p.Id)
       ]).then(function (r) {
         var es = lista(r[0].value);
         if (es.some(function (x) { return Number(x.OrigenId) === t.id && x.OrigenLista === LISTA; })) throw new Error('Este asunto ya está incluido en ' + psRef(p));
         var orden = es.filter(function (x) { return x.Negociado === neg; }).reduce(function (m, x) { return Math.max(m, Number(x.Orden) || 0); }, 0) + 1;
-        return enviarSP(psUrl('aport') + '/items', Object.assign(tipo, { Title: tit, PuntoId: p.Id, Referencia: psRef(p), Negociado: neg, Situacion: sit, Prioridad: prio, Orden: orden,
-          CierrePunto: new Date(p.Cierre).toISOString(), Origen: 'META', OrigenLista: LISTA, OrigenId: t.id, OrigenUrl: psFicha(t) }),
+        return enviarSP(psUrl('aport') + '/items', Object.assign(tipo, { Title: tit, PuntoId: p.Id, Referencia: psRef(p), Negociado: neg, Situacion: psProtegerMarcas(sit), Prioridad: prio, Orden: orden,
+          CierrePunto: r[1], Origen: 'META', OrigenLista: LISTA, OrigenId: t.id, OrigenUrl: psFicha(t) }),
           'No tienes permiso para añadir entradas al punto de situación');
       }).then(function () { return 'Incluido en ' + psRef(p) + ' (' + neg + ')'; });
     }
@@ -1749,7 +1793,8 @@
       if (!aport) { abrir(t2.id); } else pintarPS(t2, '✓ ' + esc(m));
     }).catch(function (e) {
       var m = e.message || String(e);
-      fallo(/valid|validaci/i.test(m) ? 'Colabora no lo admite: el punto de situación ya está cerrado' : m);
+      // La validación de la lista la rechaza con 400 o con 500 según el servidor: se explica en vez del texto técnico
+      fallo(/valid|validaci/i.test(m) || (m === 'HTTP 500' && aport) ? 'Colabora no lo admite por la hora de cierre del punto de situación: si sigue abierto, vuelve a intentarlo; si no, ya está cerrado' : m);
     });
   }
   function imprimirCalendario() {

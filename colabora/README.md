@@ -35,6 +35,14 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-16 · 2: Punto de Situación** (aviso de la sesión de Puntos de Situación, con el visto bueno del usuario):
+  - Antes de escribir en «PS Aportaciones» (incluir o «Actualizar la situación») se lee del servidor la hora de cierre vigente
+    del punto: si ya pasó, lo dice y no escribe; si no, guarda `CierrePunto` con esa hora (la copia atrasada de la entrada se
+    corrige sola). Era el «Error de validación de datos de lista» con el punto abierto. El error de validación se explica
+    aunque Colabora responda 500.
+  - Si la situación lleva formato o imágenes (`[b]`, `[i]`, `[u]`, `[r]`, `[[imagen:…]]`), no se edita aquí: se enseña sin
+    marcas y enlaza a `puntos-situacion.html?punto=<PuntoId>&neg=<Negociado>` (en la misma carpeta que META, si existe).
+    Lo escrito a mano como «[b]» se guarda como «(b)», como en su página.
 - **Versión 2026-11-16 · 1 (META):** en la ficha, «✕ Cerrar» junto a «✎ Modificar» y otro al final (tras los comentarios);
   el botón del formulario de alta dice «Crear tarea» en vez de «Crear en Colabora». El Gestor común no cambia.
 - **Versión 2026-11-13 · 2:** sin «Agregar elementos» o «Editar elementos» en la lista, META lo dice antes de escribir (al
