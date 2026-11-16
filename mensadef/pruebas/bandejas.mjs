@@ -116,7 +116,8 @@ const estC = nuevoEstado({ xfo: !!process.env.XFO }); estC.admin = false; estC.u
 estC.sinColumnasUrl = !!process.env.SINORG;
 const ORG_META = 'https://colabora.mdef.es/et/ORG/aplicaciones/META.html', ORG_PSIT = 'https://colabora.mdef.es/et/ORG/aplicaciones/puntos-situacion.html';
 listasPreparadas(estC, (process.env.NOAUT ? [] : [Object.assign({ Title: '2SUIGE', Tipo: 'Ámbito' }, process.env.SINORG ? {} : { UrlMeta: ORG_META, UrlPsit: ORG_PSIT })])
-  .concat(process.env.CADUCIDAD ? [{ Title: 'Caducidad', Tipo: 'Versión', Nota: process.env.CADUCIDAD }] : []).concat(process.env.NUEVA ? [{ Title: '2099-01-01 · 1', Tipo: 'Versión', Nota: 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/SENDERO.html' }] : []));
+  .concat(process.env.CADUCIDAD ? [{ Title: 'Caducidad', Tipo: 'Versión', Nota: process.env.CADUCIDAD }] : [])
+  .concat(process.env.MINIMA ? [{ Title: '2099-01-01 · 1', Tipo: 'Versión', Nota: 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/SENDERO.html' }, { Title: 'Mínima', Tipo: 'Versión', Nota: '2099-01-01 · 1' }] : []).concat(process.env.NUEVA ? [{ Title: '2099-01-01 · 1', Tipo: 'Versión', Nota: 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/SENDERO.html' }] : []));
 await simularColabora(ctx, estC, new URL('../acceso/subir/SENDERO-acceso.html', import.meta.url).pathname);
 if (process.env.DIAS) await p.evaluate(n => { const D = Date, d = n * 864e5; window.Date = class extends D { constructor(...a) { super(...(a.length ? a : [D.now() + d])); } static now() { return D.now() + d; } }; }, Number(process.env.DIAS));
 const llamadasAntes = llamadas.length;
@@ -148,6 +149,14 @@ if (process.env.NOAUT || caducada) {
     console.log('acceso: tras autorizarle, «Volver a comprobar» entra:', entra, '| bloqueo quitado:', !(await p.$('#bloqueo')));
     if (!entra || await p.$('#bloqueo')) console.log('Error: volver a comprobar');
   }
+  await fin();
+}
+// MINIMA=1: hay una versión obligatoria más nueva que esta: no entra y ofrece instalar la nueva
+if (process.env.MINIMA) {
+  await p.waitForSelector('#bloqueo', { timeout: 60000 }).catch(() => 0);
+  const r = await p.evaluate(() => ({ t: (document.querySelector('#bloqueo h2') || {}).textContent || '', a: (document.querySelector('#instalarNueva') || {}).href || '' }));
+  console.log('acceso: versión obligatoria más nueva → «' + r.t.trim() + '» | botón a', r.a.replace(/^https:\/\/[^/]+/, ''), '| bandejas leídas:', leeBandejas());
+  if (!/ya no se puede usar/.test(r.t) || !/\/JSUIGE\/aplicaciones\/SENDERO\.html$/.test(r.a) || leeBandejas()) console.log('Error: versión obligatoria');
   await fin();
 }
 if (process.env.XFO) {

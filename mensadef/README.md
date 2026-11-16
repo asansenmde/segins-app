@@ -497,4 +497,10 @@ con el formato *verbose* de SharePoint 2013.
   al cambiar de pestaña, de mensaje o recargar; en la lista, «⏳ ¿PSIT?» / «⏳ ¿Tarea?» hasta que el usuario decida «Sí» o «No».
 - **2026-11-16 · 8:** el control de acceso pasa a **JSUIGE** (`URL_ACCESO` = `…/JSUIGE/aplicaciones/SENDERO-acceso.html`; listas
   «SENDERO Autorizados» y «SENDERO Solicitudes» de JSUIGE): en colaborativo no entraba todo el mundo («No tiene acceso»).
+- **2026-11-16 · 9:** **versión obligatoria**: en «Versión vigente» de la página de acceso (2026-11-16 · 9) se marca al anotar
+  («Obligatoria», elemento «Mínima»). La página no deja entrar a versiones anteriores, también a los favoritos ya repartidos
+  (desde 2026-11-15 · 1, que mandan su versión): los nuevos muestran «Esta versión de SENDERO ya no se puede usar» con el
+  botón a la página de instalación; los antiguos, «Comprueba tu autorización» con ese texto en «Detalle». Los favoritos
+  anteriores al control de acceso (hasta 2026-11-14 · 8) no consultan nada y no se pueden parar. Los de 2026-11-15 · 1 a
+  2026-11-16 · 7 preguntan a la página de colaborativo. Pasada `MINIMA=1` en `todas.sh`.
 

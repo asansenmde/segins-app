@@ -59,7 +59,7 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-16 · 8';
+  var VERSION = '2026-11-16 · 9';
   // Solo se contesta a SENDERO, que funciona en MENSADEF (el favorito escribe su página sobre la de MENSADEF)
   var ORIGEN_SENDERO = 'https://mensadef.mdef.es';
   var L_AUT = 'SENDERO Autorizados', L_SOL = 'SENDERO Solicitudes', GRUPO = 'SENDERO Administradores';
@@ -308,9 +308,13 @@
       var v = l.filter(function (x) { return activo(x) && ES_VERSION.test(String(x.Title || '').trim()); }).sort(function (a, b) { return b.Id - a.Id; })[0];
       var c = l.filter(function (x) { return norm(x.Title) === 'caducidad'; }).sort(function (a, b) { return b.Id - a.Id; })[0];
       var dias = c ? (/indefinid/i.test(c.Nota || '') ? 0 : Number(c.Nota) || 30) : 30;
-      return { vigente: v ? { version: v.Title || '', url: (v.Nota || '').trim() } : null, caducidad: dias, idCaducidad: c ? c.Id : null };
-    }, function () { return { vigente: null, caducidad: 30, idCaducidad: null }; });
+      // 16/11/2026: versión mínima obligatoria (elemento «Mínima»): las anteriores ya no abren
+      var mi = l.filter(function (x) { return norm(x.Title) === 'minima' || norm(x.Title) === 'mínima'; }).sort(function (a, b) { return b.Id - a.Id; })[0];
+      var minima = mi && activo(mi) && ES_VERSION.test(String(mi.Nota || '').trim()) ? String(mi.Nota).trim() : '';
+      return { vigente: v ? { version: v.Title || '', url: (v.Nota || '').trim() } : null, caducidad: dias, idCaducidad: c ? c.Id : null, minima: minima, idMinima: mi ? mi.Id : null };
+    }, function () { return { vigente: null, caducidad: 30, idCaducidad: null, minima: '', idMinima: null }; });
   }
+  var numVersion = function (v) { var x = /^(\d{4})-(\d\d)-(\d\d) · (\d+)/.exec(String(v || '').trim()); return x ? Number(x[1] + x[2] + x[3]) * 1000 + Number(x[4]) : 0; };
   function versionVigente() { return leerVersiones().then(function (x) { return x.vigente; }); }
   // META y Punto de Situación de la organización: los de la regla del ámbito (esté activa o no: un ámbito inactivo con
   // responsables también tiene su META y su PSIT)
@@ -339,7 +343,7 @@
         var amb = ambito && reglas.filter(function (x) { return x.Tipo === 'Ámbito' && norm(x.Title) === norm(ambito) && vigente(x); })[0];
         var sol = r[2].sort(function (a, b) { return b.Id - a.Id; })[0];
         return { ok: !bloq && !!(per || amb), motivo: bloq ? 'bloqueado' : per || amb ? '' : 'sin_regla', regla: per ? 'persona' : amb ? 'ámbito ' + amb.Title : '',
-          email: u.email, nombre: u.nombre, ambito: ambito, vigente: r[1].vigente, caducidad: r[1].caducidad, gestores: gestoresDe(r[0], ambito),
+          email: u.email, nombre: u.nombre, ambito: ambito, vigente: r[1].vigente, caducidad: r[1].caducidad, minima: r[1].minima, gestores: gestoresDe(r[0], ambito),
           solicitud: sol ? { estado: sol.Estado || 'Pendiente', fecha: sol.Created, respuesta: sol.Respuesta || '', ambito: sol.Ambito || '' } : null };
       });
     });
@@ -371,7 +375,16 @@
   }
   function modoComprobar() {
     $('app').innerHTML = '<div class="card">Comprobando tu autorización de SENDERO…</div>';
-    return evaluar(datos.a).then(responder, function (e) { responder({ ok: false, error: e.status === 404 ? 'Falta preparar el control de acceso en Colabora' : (e.message || String(e)), status: e.status || 0 }); });
+    return evaluar(datos.a).then(function (r) {
+      // Versión anterior a la obligatoria: no entra. A los favoritos antiguos (no conocen «motivo: version») se les manda como
+      // error, que muestran en «Detalle» sin dejar entrar.
+      if (r.minima && numVersion(datos.v) && numVersion(datos.v) < numVersion(r.minima)) {
+        var pag = (r.vigente && r.vigente.url) || 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/SENDERO.html';
+        return responder({ ok: false, motivo: 'version', minima: r.minima, vigente: r.vigente, pagina: pag, email: r.email,
+          error: 'Esta versión de SENDERO (' + datos.v + ') ya no se puede usar: instala la ' + r.minima + ' o posterior desde ' + pag });
+      }
+      return responder(r);
+    }, function (e) { responder({ ok: false, error: e.status === 404 ? 'Falta preparar el control de acceso en Colabora' : (e.message || String(e)), status: e.status || 0 }); });
   }
 
   // ---------- Solicitar acceso ----------
@@ -552,8 +565,14 @@
         '<div class="card" style="background:#f8faf6"><b>Caducidad de SENDERO</b><p class="muted">Cada favorito vale estos días desde el día en que se generó; los 5 últimos avisa y después no abre. Se aplica al momento a todos los favoritos, también a los ya repartidos.</p>' +
         '<label>Cada versión vale<select id="vCad"><option value="30">30 días</option><option value="60">60 días</option><option value="90">90 días</option><option value="0">Indefinida (no caduca)</option></select></label> <button type="button" class="prim" id="vCadGuardar">Guardar</button></div>' +
         '<label>Versión (la que sale en SENDERO)<input id="vVer" size="18" placeholder="2026-11-15 · 1"></label>' +
-        '<label>Página de SENDERO en Colabora<input id="vUrl" size="60" value="' + esc(pagina) + '"></label> <button type="button" class="prim" id="vGuardar">Anotar</button>';
+        '<label>Página de SENDERO en Colabora<input id="vUrl" size="60" value="' + esc(pagina) + '"></label>' +
+        '<label style="flex-direction:row;align-items:center;gap:6px;color:#1c2a3a"><input type="checkbox" id="vObligar" checked> Obligatoria: las versiones anteriores dejan de abrir</label> <button type="button" class="prim" id="vGuardar">Anotar</button>' +
+        '<div class="card" style="background:#f8faf6;margin-top:12px"><b>Versión obligatoria</b><p>' + (vs.minima ? 'Ahora solo abren la <b>' + esc(vs.minima) + '</b> y posteriores. Las anteriores muestran «Esta versión de SENDERO ya no se puede usar» con el enlace a la página de instalación. <button type="button" id="vSinMinima">Quitar la obligación</button>' : '<span class="muted">Ninguna: abren todas las versiones (hasta que caduquen).</span>') + '</p></div>';
       $('vCad').value = String(vs.caducidad);
+      if ($('vSinMinima')) $('vSinMinima').addEventListener('click', function () {
+        if (!confirm('¿Quitar la obligación? Volverán a abrir las versiones anteriores (hasta que caduquen).')) return;
+        this.disabled = true; cambiarElemento(L_AUT, vs.idMinima, { Activo: false }, NO_PERMISO).then(function () { toast('Ya no hay versión obligatoria'); pintarGestion(); }, function (e) { toast('No se pudo: ' + (e.message || e)); });
+      });
       $('vCadGuardar').addEventListener('click', function () {
         var b = this, d = $('vCad').value, nota = d === '0' ? 'indefinida' : d; b.disabled = true;
         (vs.idCaducidad ? cambiarElemento(L_AUT, vs.idCaducidad, { Nota: nota, Activo: true }, NO_PERMISO) : crearElemento(L_AUT, { Title: 'Caducidad', Tipo: 'Versión', Activo: true, Nota: nota }, NO_PERMISO))
@@ -600,7 +619,11 @@
         if (!/^\d{4}-\d\d-\d\d · \d+$/.test(ver)) return toast('Escribe la versión como sale en SENDERO, p. ej. 2026-11-15 · 1');
         if (!/^https:\/\/[^/]+\.mdef\.es\//i.test(url)) return toast('La dirección tiene que ser de Colabora (https://…mdef.es/…)');
         b.disabled = true;
-        crearElemento(L_AUT, { Title: ver, Tipo: 'Versión', Activo: true, Nota: url }, NO_PERMISO).then(function () { toast('Versión anotada'); pintarGestion(); }, function (e) { b.disabled = false; toast('No se pudo: ' + (e.message || e)); });
+        var obligar = $('vObligar').checked;
+        crearElemento(L_AUT, { Title: ver, Tipo: 'Versión', Activo: true, Nota: url }, NO_PERMISO).then(function () {
+          if (!obligar) return;
+          return vs.idMinima ? cambiarElemento(L_AUT, vs.idMinima, { Nota: ver, Activo: true }, NO_PERMISO) : crearElemento(L_AUT, { Title: 'Mínima', Tipo: 'Versión', Activo: true, Nota: ver }, NO_PERMISO);
+        }).then(function () { toast(obligar ? 'Versión anotada y obligatoria' : 'Versión anotada'); pintarGestion(); }, function (e) { b.disabled = false; toast('No se pudo: ' + (e.message || e)); });
       });
     });
   }

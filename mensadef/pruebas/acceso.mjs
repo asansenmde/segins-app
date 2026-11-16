@@ -20,14 +20,14 @@ const error = t => console.log('Error: ' + t);
 const abrir = async (hash = '') => { await p.goto('about:blank'); await p.goto(URL_PAGINA + hash); await p.waitForFunction(() => !/Cargando/.test(document.getElementById('app').textContent) && !/Cargando/.test((document.getElementById('cont') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => 0); };
 const pulsar = async sel => { await p.click(sel); await p.waitForTimeout(500); await p.waitForFunction(() => !/Cargando/.test((document.getElementById('cont') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => 0); };
 const como = (email, nombre, admin = false) => { est.usuario = { Id: email.length * 7, Title: nombre, Email: email }; est.admin = admin; };
-async function preguntar(ambito) {
+async function preguntar(ambito, ver = '2026-11-15 · 1') {
   const mp = await ctx.newPage(); mp.on('pageerror', e => errs.push('SENDERO: ' + e.message));
   await mp.goto('https://mensadef.mdef.es/ambito/X/SitePages/ambito.aspx');
-  const r = await mp.evaluate(([u, a]) => new Promise(res => {
+  const r = await mp.evaluate(([u, a, ver]) => new Promise(res => {
     const n = 'n' + Math.random(); window.addEventListener('message', e => { if (e.origin === 'https://colabora.mdef.es' && e.data && e.data.n === n) res(e.data); });
-    const f = document.createElement('iframe'); f.src = u + '#comprobar=' + encodeURIComponent(JSON.stringify({ n, a, v: '2026-11-15 · 1' })); document.body.appendChild(f);
+    const f = document.createElement('iframe'); f.src = u + '#comprobar=' + encodeURIComponent(JSON.stringify({ n, a, v: ver })); document.body.appendChild(f);
     setTimeout(() => res(null), 12000);
-  }), [URL_PAGINA, ambito]);
+  }), [URL_PAGINA, ambito, ver]);
   await mp.close(); return r;
 }
 
@@ -59,7 +59,7 @@ const anadir = async (tipo, valor, resp = '', meta = '', psit = '') => { await p
 await anadir('Ámbito', '2suige', 'gestor@pruebas.invalid', 'https://colabora.mdef.es/et/ORG/META.html', 'https://colabora.mdef.es/et/ORG/puntos-situacion.html'); await anadir('Ámbito', '3SUIGE', 'gestor@pruebas.invalid');
 await p.click('#rCuerpo tr:has-text("3SUIGE") [data-act]'); await p.waitForTimeout(600);
 console.log('reglas:', est.listas['SENDERO Autorizados'].items.map(x => x.Tipo + ' ' + x.Title + (x.Activo ? '' : ' (inactiva)') + (x.Responsables ? ' resp ' + x.Responsables : '')).join(' | '));
-await pulsar('[data-pest="version"]'); await p.fill('#vVer', '2026-12-01 · 1'); await pulsar('#vGuardar');
+await pulsar('[data-pest="version"]'); await p.fill('#vVer', '2026-12-01 · 1'); await p.uncheck('#vObligar'); await pulsar('#vGuardar');
 console.log('versión vigente:', await p.textContent('#cont p'));
 // 16/11/2026: «✉ Avisar por correo» de la versión vigente (copia oculta; el responsable con cuenta antigua, a la buena)
 // Antes de enviar sale la lista con casillas: se añade una persona, se desmarca y no le llega
@@ -143,6 +143,15 @@ como('admin@pruebas.invalid', 'ADMIN PRUEBAS', true); await abrir(); await pulsa
 await anadir('Bloqueo', 'OTRA@pruebas.invalid');
 como('otra@pruebas.invalid', 'OTRA PERSONA');
 { const r = await preguntar('2SUIGE'); console.log('SENDERO con bloqueo →', r.ok, r.motivo); if (r.ok || r.motivo !== 'bloqueado') error('bloqueo'); }
+
+// 16/11/2026: versión obligatoria: las anteriores no entran (también los favoritos ya repartidos, que mandan su versión)
+como('admin@pruebas.invalid', 'ADMIN PRUEBAS', true); await abrir(); await pulsar('[data-pest="version"]');
+await p.fill('#vVer', '2026-12-02 · 1'); await pulsar('#vGuardar');
+{ const texto = await p.textContent('#cont'), vieja = await preguntar('2SUIGE', '2026-11-16 · 8'), nueva = await preguntar('2SUIGE', '2026-12-02 · 1');
+  console.log('obligatoria: pestaña «' + (texto.match(/solo abren la [^.]*/) || [''])[0] + '» | versión vieja →', vieja.ok, vieja.motivo, '| detalle para favoritos antiguos:', /ya no se puede usar/.test(vieja.error || ''), '| versión nueva →', nueva.ok);
+  if (vieja.ok || vieja.motivo !== 'version' || vieja.minima !== '2026-12-02 · 1' || !/aplicaciones\/SENDERO\.html|SENDERO\.html/.test(vieja.pagina || '') || !nueva.ok) error('versión obligatoria');
+  await p.click('#vSinMinima'); await p.waitForTimeout(800); const otra = await preguntar('2SUIGE', '2026-11-16 · 8');
+  console.log('obligatoria: tras quitarla, la vieja →', otra.ok); if (!otra.ok) error('quitar la obligación'); }
 
 // 8. No contesta a otras webs
 { const mp = await ctx.newPage(); await ctx.route('https://otra.web.invalid/**', r => r.fulfill({ contentType: 'text/html', body: '<html><body>x</body></html>' }));
