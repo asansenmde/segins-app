@@ -309,6 +309,15 @@ if (FINAL) {
     const etiquetaEnPsit = (await cuenta('psit')) && await p.$$eval('#lista tbody tr[data-i]', l => l.every(t => t.querySelector('.t-psit'))); await cuenta('');
     console.log('PUNTO: filas con «★ PSIT»:', conPsit, '| filtro: PSIT', nPsit, '· tareas', nTarea, '· ninguno', nNinguno, '· todos', nTodos, '| todas las del filtro llevan la etiqueta:', etiquetaEnPsit);
     if (!conPsit || !nPsit || !nTarea || !nNinguno || nPsit >= nTodos || !etiquetaEnPsit) console.log('Error: etiqueta o filtro PSIT');
+    // 16/11/2026: «✕ Quitar del PSIT»: segundo clic para confirmar, quita la etiqueta, deja comentario y ofrece abrir el PSIT
+    { const hay = !!(await p.$('#quitarPsit')); await p.click('#quitarPsit'); const pide = /Seguro/.test(await p.textContent('#quitarPsit'));
+      const c0 = comentarios.length; await p.click('#quitarPsit'); await p.waitForTimeout(800);
+      const sinEtiqueta = await p.$$eval('#lista tbody tr[data-i] .tag.t-psit', l => l.length), nota = ((comentarios[comentarios.length - 1] || {}).cuerpo || {}).Comentario || '';
+      const nPsit2 = await cuenta('psit'); await cuenta('');
+      const [nq] = await Promise.all([ctx.waitForEvent('page'), p.click('#abrirParaQuitar-psit')]); await nq.waitForLoadState();
+      const q = JSON.parse(decodeURIComponent(nq.url().split('#quitar=')[1])), uq = nq.url().split('#')[0]; await nq.close(); await p.bringToFront();
+      console.log('PUNTO: quitar del PSIT: botón', hay, '| pide confirmar', pide, '| etiquetas', sinEtiqueta, '| filtro PSIT', nPsit2, '| comentario:', nota.replace(/ por .*/, ' por …'), '| abre', uq.replace(/^https:\/\/[^/]+/, ''), 'con #quitar', q.origen, !!q.id, '| botón ya no está:', !(await p.$('#quitarPsit')));
+      if (!hay || !pide || sinEtiqueta || nPsit2 || comentarios.length <= c0 || !/^Quitado del Punto de Situación por /.test(nota) || uq !== esperado || q.origen !== 'SENDERO' || await p.$('#quitarPsit')) console.log('Error: quitar del PSIT'); }
     { const r = await p.$eval('#aPunto', b => { const x = b.getBoundingClientRect(), y = document.querySelector('#aColabora').getBoundingClientRect(); return { alto: Math.round(x.height), altoMeta: Math.round(y.height), unaLinea: b.scrollWidth <= b.clientWidth + 1 }; });
       console.log('PUNTO: botón entero en una línea:', r.unaLinea, '| alto', r.alto, 'como META', r.altoMeta); }
     console.log('PUNTO: botón', !!(await p.$('#aPunto'))); }

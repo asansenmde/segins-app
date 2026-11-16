@@ -484,4 +484,9 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-16 · 4:** **SENDERO no se descarga** (para no difundirlo): el aviso de versión nueva y la pantalla de caducada dicen
   que hay una versión nueva **en Colabora** y enlazan a su página de instalación (por defecto
   `…/JSUIGE/aplicaciones/SENDERO.html`, o la anotada en «Versión vigente»), donde se arrastra el botón a favoritos.
+- **2026-11-16 · 5:** **«✕ Quitar del PSIT» y «✕ Quitar de META»** en la ficha de un mensaje marcado (segundo clic para
+  confirmar): quita la marca en SENDERO (etiqueta y filtro), deja en MENSADEF «Quitado del Punto de Situación / de META por
+  NOMBRE…» (lo ven los demás) y ofrece «Abrir el PSIT / META» con `#quitar={v,origen:'SENDERO',id,asunto,referencia}` para
+  eliminar allí la entrada (SENDERO no puede borrar en Colabora). Gana lo más reciente: si se vuelve a pasar, vuelve la marca.
+  Pendiente: que el PSIT (sesión «[PUNTOS]») y META usen `#quitar=` para localizar la entrada.
 

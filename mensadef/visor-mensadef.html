@@ -530,7 +530,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-16 · 4';
+  var VERSION = '2026-11-16 · 5';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -782,8 +782,18 @@
   // (así se ve también lo que pasó otra persona o desde otro ordenador)
   // 16/11/2026: lo pasado al Punto de Situación (desde este navegador o, para todos, por el comentario de MENSADEF)
   var enviadosPsit = leer('enviadosPsit', {});
-  var pasadoAPsit = function (m) { return enviadosPsit[claveMensaje(m)] || (/a(ñ|n)adido al punto de situaci|para el punto de situaci/i.test(String((m._x && m._x.UltimoComentario) || '')) ? 'MENSADEF' : ''); };
-  var pasadoATarea = function (m) { return enviados[claveMensaje(m)] || (/a(ñ|n)adido como tarea en meta/i.test(String((m._x && m._x.UltimoComentario) || '')) ? 'MENSADEF' : ''); };
+  // 16/11/2026: «Quitar del PSIT» / «Quitar de META»: se recuerda aquí (quitados) y se deja comentario en MENSADEF
+  // («Quitado del Punto de Situación…», «Quitado de META…»), que es lo que ven los demás. Gana lo más reciente.
+  var quitados = leer('quitados', {});
+  function marca(m, local, que, reAnadido, reQuitado) {
+    var k = claveMensaje(m), l = local[k], q = quitados[k] && quitados[k][que], c = String((m._x && m._x.UltimoComentario) || '');
+    if (l && (!q || l > q)) return l;
+    if (q) return '';
+    if (reQuitado.test(c)) return '';
+    return reAnadido.test(c) ? 'MENSADEF' : '';
+  }
+  var pasadoAPsit = function (m) { return marca(m, enviadosPsit, 'psit', /a(ñ|n)adido al punto de situaci|para el punto de situaci/i, /quitado del punto de situaci/i); };
+  var pasadoATarea = function (m) { return marca(m, enviados, 'tarea', /a(ñ|n)adido como tarea en meta/i, /quitado de meta/i); };
   var claveMensaje = function (m) { return m.MensajeId || (m._lista.titulo + ':' + m.ID); };
   function cambiarVisto(m, si) {
     var i = filtrados.indexOf(m);
@@ -2144,6 +2154,49 @@
         '<p class="small muted" style="margin:2px 0">★ Al PSIT va directo a: <b>' + esc((urlPsit() || 'sin dirección (se pide al pulsar)').replace(/^https?:\/\//, '').slice(0, 90)) + '</b> · <a href="#" id="cambiarPsit">cambiar</a></p>');
       $('cambiarPsit').addEventListener('click', function (e) { e.preventDefault(); configurarPsit(m); });
     }
+    pintarQuitar(m);
+  }
+  // «✕ Quitar del PSIT» / «✕ Quitar de META» (16/11/2026): quita la marca (segundo clic para confirmar), deja constancia en
+  // MENSADEF y ofrece abrir el PSIT o META para eliminar allí la entrada (SENDERO no puede borrar en Colabora)
+  function pintarQuitar(m) {
+    var caja = $('colabora'), ps = !!pasadoAPsit(m), ta = !!pasadoATarea(m);
+    if (!ps && !ta) return;
+    caja.insertAdjacentHTML('beforeend', '<div class="fila" id="quitarMarcas" style="margin:6px 0">' +
+      (ps ? '<button type="button" id="quitarPsit" title="Quita la marca ★ PSIT de este mensaje (por ejemplo, si al final no va al Punto de Situación)">✕ Quitar del PSIT</button>' : '') +
+      (ta ? '<button type="button" id="quitarTarea" title="Quita la marca ➜ Tarea de este mensaje">✕ Quitar de META</button>' : '') + '</div>');
+    var preparar = function (id, que, nombre, url) {
+      var b = $(id); if (!b) return;
+      b.addEventListener('click', function () {
+        if (!b.dataset.seguro) { b.dataset.seguro = '1'; b.textContent = '¿Seguro? Pulsa otra vez para quitarlo de ' + nombre; b.classList.add('naranja'); return; }
+        b.disabled = true;
+        var k = claveMensaje(m); (quitados[k] = quitados[k] || {})[que] = new Date().toISOString();
+        if (que === 'psit') { delete enviadosPsit[k]; guardar('enviadosPsit', enviadosPsit); } else { delete enviados[k]; guardar('enviados', enviados); }
+        var ks = Object.keys(quitados); if (ks.length > 2000) ks.slice(0, ks.length - 2000).forEach(function (x) { delete quitados[x]; });
+        guardar('quitados', quitados);
+        pintarColabora(m); pintarTabla();
+        var u = url();
+        $('colabora').insertAdjacentHTML('beforeend', '<p class="small" id="quitado-' + que + '" style="color:#2e7d4f">✓ Quitado de ' + esc(nombre) + ' en SENDERO.' +
+          (u ? ' Si la entrada ya estaba creada, elimínala allí: <button type="button" id="abrirParaQuitar-' + que + '">Abrir ' + esc(nombre) + '</button>' : '') + '</p>');
+        if (u) $('abrirParaQuitar-' + que).addEventListener('click', function () {
+          window.open(u + '#quitar=' + encodeURIComponent(JSON.stringify({ v: 1, origen: 'SENDERO', id: k, asunto: m._asunto || m.Title || '', referencia: m.MensajeNum_referencia || '' })), '_blank', 'noopener');
+        });
+        if (ESCRIBIR && m._api) {
+          var nota;
+          miNombre().then(function (quien) {
+            nota = (que === 'psit' ? 'Quitado del Punto de Situación' : 'Quitado de META') + ' por ' + quien + ' el ' + new Date().toLocaleString('es-ES') + ' · SENDERO';
+            return comentarEnMensadef(m, nota);
+          }).then(function () {
+            if (m._x) m._x.UltimoComentario = nota;
+            if (abierto !== m) return;
+            $('colabora').insertAdjacentHTML('beforeend', '<p class="small" style="color:#2e7d4f">✓ Comentario añadido en MENSADEF: «' + esc(nota) + '»</p>');
+            var dd = Array.prototype.filter.call(document.querySelectorAll('#detalle .ficha-campos dt'), function (d) { return d.textContent === 'Último comentario'; })[0];
+            if (dd) dd.nextElementSibling.textContent = nota;
+          }, function (e) { if (abierto === m) $('colabora').insertAdjacentHTML('beforeend', '<p class="small bad">No se pudo dejar el comentario en MENSADEF: ' + esc(e.message || e) + '</p>'); });
+        }
+      });
+    };
+    preparar('quitarPsit', 'psit', 'el PSIT', function () { return urlPsit(); });
+    preparar('quitarTarea', 'tarea', 'META', function () { return urlColabora(); });
   }
   function configurarColabora(m, despues) {
     var caja = $('colabora'), g = gestores();
