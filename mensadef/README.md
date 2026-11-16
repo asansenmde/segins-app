@@ -493,4 +493,6 @@ con el formato *verbose* de SharePoint 2013.
   «✓ Sí, está guardado» (antes, al abrir la pestaña, aunque luego no se guardase; aviso de la sesión «[PUNTOS]»). «No lo he
   guardado» no marca nada. Pendiente: el enlace «ver el mensaje» que llega al PSIT y a META es el de la célula, no el del
   mensaje; para cambiarlo hace falta saber la dirección de un mensaje en MENSADEF («Escuchar MENSADEF» abriendo uno).
+- **2026-11-16 · 7:** la pregunta «¿Lo has guardado…?» queda **pendiente en el mensaje** (memoria del navegador): no se pierde
+  al cambiar de pestaña, de mensaje o recargar; en la lista, «⏳ ¿PSIT?» / «⏳ ¿Tarea?» hasta que el usuario decida «Sí» o «No».
 

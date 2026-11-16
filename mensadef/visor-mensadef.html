@@ -156,7 +156,7 @@
   tbody tr.visto { color: var(--muted); }
   td.ver { width: 34px; text-align: center; }
   td.ver input { width: 18px; height: 18px; cursor: pointer; }
-  .tag.t-tarea { background: #efe3fb; color: #6b3fa0; } .tag.t-psit { background: #dde8f7; color: #12315a; border: 1px solid #c9a84c; } .tag.t-visto { background: var(--okbg); color: var(--ok); }
+  .tag.t-tarea { background: #efe3fb; color: #6b3fa0; } .tag.t-psit { background: #dde8f7; color: #12315a; border: 1px solid #c9a84c; } .tag.t-pend { background: #fff3c4; color: #7a5a00; border: 1px dashed #c9a84c; } .tag.t-visto { background: var(--okbg); color: var(--ok); }
   tr.dia-cab td { background: linear-gradient(90deg, #eef1ea, #f7f8f4); color: #3b4a2f; font-weight: 800; font-size: .78rem; letter-spacing: .6px; text-transform: uppercase; padding: 8px 10px; cursor: default; }
   tr.dia-cab:hover { background: none; }
   td.es { width: 30px; text-align: center; font-size: 1.05rem; }
@@ -530,7 +530,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-16 · 6';
+  var VERSION = '2026-11-16 · 7';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1904,7 +1904,8 @@
     return (a ? '<span class="act ' + a.cls + '">' + esc(a.txt) + '</span>' : '') + (c ? '<span class="com">💬 ' + esc(c) + '</span>' : (a ? '' : ''));
   }
   function etiquetasFila(m) {
-    return (pasadoATarea(m) ? ' <span class="tag t-tarea" title="Pasado a tarea en META">➜ Tarea</span>' : '') + (pasadoAPsit(m) ? ' <span class="tag t-psit" title="Pasado al Punto de Situación">★ PSIT</span>' : '') + (m._rubrica && m._rubrica.enviado ? ' <span class="tag t-tarea" title="Pasado a rúbrica desde SENDERO">✍ Rúbrica</span>' : '');
+    return (pasadoATarea(m) ? ' <span class="tag t-tarea" title="Pasado a tarea en META">➜ Tarea</span>' : '') + (pasadoAPsit(m) ? ' <span class="tag t-psit" title="Pasado al Punto de Situación">★ PSIT</span>' : '') +
+      (pendienteDe(m, 'psit') ? ' <span class="tag t-pend" title="Abierto en el PSIT: falta decir si se guardó">⏳ ¿PSIT?</span>' : '') + (pendienteDe(m, 'tarea') ? ' <span class="tag t-pend" title="Abierto en META: falta decir si se creó la tarea">⏳ ¿Tarea?</span>' : '') + (m._rubrica && m._rubrica.enviado ? ' <span class="tag t-tarea" title="Pasado a rúbrica desde SENDERO">✍ Rúbrica</span>' : '');
   }
   function tablaBandejas(filas) {
     // 13/11/2026: la columna «Tipo» (casi siempre «Oficio») pasa a ser «Firma»: quién firma el mensaje
@@ -2155,6 +2156,7 @@
       $('cambiarPsit').addEventListener('click', function (e) { e.preventDefault(); configurarPsit(m); });
     }
     pintarQuitar(m);
+    pintarPendientes(m);
   }
   // «✕ Quitar del PSIT» / «✕ Quitar de META» (16/11/2026): quita la marca (segundo clic para confirmar), deja constancia en
   // MENSADEF y ofrece abrir el PSIT o META para eliminar allí la entrada (SENDERO no puede borrar en Colabora)
@@ -2406,33 +2408,57 @@
       enlace: disp || '', texto: cuerpo.length > 6000 ? cuerpo.slice(0, 6000) + '…' : cuerpo };
     if (sitioDe(m)) datos.departamento = sitioDe(m);
     window.open(u + '#importar=' + encodeURIComponent(JSON.stringify(datos)), '_blank', 'noopener');
-    preguntarGuardado(m, 'psit', '¿Lo has guardado en el Punto de Situación?', function () {
+    dejarPendiente(m, 'psit', {});
+  }
+  // 16/11/2026: la marca («★ PSIT» / «➜ Tarea») y el comentario en MENSADEF se ponen solo cuando el usuario confirma que lo
+  // ha guardado. La pregunta queda PENDIENTE en el mensaje (se recuerda en el navegador): no se pierde al cambiar de pestaña,
+  // cerrar la ficha o recargar, y el usuario decide cuándo («⏳ ¿PSIT?» / «⏳ ¿Tarea?» en la lista).
+  var pendientesPaso = leer('pendientesPaso', {});
+  var pendienteDe = function (m, que) { var p = pendientesPaso[claveMensaje(m)]; return p && p[que] ? p[que] : null; };
+  function dejarPendiente(m, que, extra) {
+    var k = claveMensaje(m); (pendientesPaso[k] = pendientesPaso[k] || {})[que] = Object.assign({ t: new Date().toISOString() }, extra);
+    var ks = Object.keys(pendientesPaso); if (ks.length > 500) ks.slice(0, ks.length - 500).forEach(function (x) { delete pendientesPaso[x]; });
+    guardar('pendientesPaso', pendientesPaso); pintarColabora(m); pintarTabla();
+  }
+  function quitarPendiente(m, que) {
+    var k = claveMensaje(m); if (pendientesPaso[k]) { delete pendientesPaso[k][que]; if (!Object.keys(pendientesPaso[k]).length) delete pendientesPaso[k]; }
+    guardar('pendientesPaso', pendientesPaso);
+  }
+  // Recuadros de lo pendiente de este mensaje (se pintan con la ficha, así que no se pierden)
+  function pintarPendientes(m) {
+    [['psit', '¿Lo has guardado en el Punto de Situación?'], ['tarea', '¿Has creado la tarea en META?']].forEach(function (x) {
+      var p = pendienteDe(m, x[0]); if (!p) return;
+      $('colabora').insertAdjacentHTML('afterbegin', '<div class="card confirmarPaso" id="confirmarPaso-' + x[0] + '" style="margin:6px 0;border-left:5px solid #c9a84c;background:#fffbea">' +
+        '<b>' + esc(x[1]) + '</b><p class="small muted" style="margin:4px 0">Lo abriste el ' + esc(verFecha(new Date(p.t))) + '. Cuando lo hayas guardado allí, pulsa «Sí»: SENDERO lo marcará y lo anotará en MENSADEF. Si al final no lo vas a tratar, pulsa «No».</p>' +
+        '<div class="fila"><button type="button" class="prim" id="pasoSi-' + x[0] + '">✓ Sí, está guardado</button><button type="button" id="pasoNo-' + x[0] + '">No lo he guardado</button></div></div>');
+      $('pasoSi-' + x[0]).addEventListener('click', function () { quitarPendiente(m, x[0]); if (x[0] === 'psit') marcarPsit(m); else marcarTarea(m, p); });
+      $('pasoNo-' + x[0]).addEventListener('click', function () { quitarPendiente(m, x[0]); pintarColabora(m); pintarTabla(); });
+    });
+  }
+  function comentarPaso(m, nota) {
+    if (!(ESCRIBIR && m._api && leer('anotarMeta', true))) return;
+    comentarEnMensadef(m, nota).then(function () {
+      if (abierto !== m) return;
+      $('colabora').insertAdjacentHTML('beforeend', '<p class="small" style="color:#2e7d4f">✓ Comentario añadido en MENSADEF: «' + esc(nota) + '»</p>');
+      var dd = Array.prototype.filter.call(document.querySelectorAll('#detalle .ficha-campos dt'), function (d) { return d.textContent === 'Último comentario'; })[0];
+      if (dd) dd.nextElementSibling.textContent = nota;
+    }, function (e) { if (abierto === m) $('colabora').insertAdjacentHTML('beforeend', '<p class="small bad">No se pudo dejar el comentario en MENSADEF: ' + esc(e.message || e) + '</p>'); });
+  }
+  function marcarPsit(m) {
     enviadosPsit[claveMensaje(m)] = new Date().toISOString();
     var kp = Object.keys(enviadosPsit).sort(function (a, b) { return enviadosPsit[a] < enviadosPsit[b] ? 1 : -1; }); kp.slice(2000).forEach(function (k) { delete enviadosPsit[k]; });
     guardar('enviadosPsit', enviadosPsit); pintarColabora(m); pintarTabla();
-    if (ESCRIBIR && m._api && leer('anotarMeta', true)) {
-      var nota;
-      miNombre().then(function (quien) {
-        nota = 'Añadido al Punto de Situación por ' + quien + ' el ' + new Date().toLocaleString('es-ES') + ' · SENDERO';
-        return comentarEnMensadef(m, nota);
-      }).then(function () {
-        if (abierto !== m) return;
-        $('colabora').insertAdjacentHTML('beforeend', '<p class="small" style="color:#2e7d4f">✓ Comentario añadido en MENSADEF: «' + esc(nota) + '»</p>');
-        var dd = Array.prototype.filter.call(document.querySelectorAll('#detalle .ficha-campos dt'), function (d) { return d.textContent === 'Último comentario'; })[0];
-        if (dd) dd.nextElementSibling.textContent = nota;
-      }, function (e) { if (abierto === m) $('colabora').insertAdjacentHTML('beforeend', '<p class="small bad">No se pudo dejar el comentario en MENSADEF: ' + esc(e.message || e) + '</p>'); });
-    }
-    });
+    miNombre().then(function (quien) { comentarPaso(m, 'Añadido al Punto de Situación por ' + quien + ' el ' + new Date().toLocaleString('es-ES') + ' · SENDERO'); });
   }
-  // 16/11/2026: la marca («★ PSIT» / «➜ Tarea») y el comentario en MENSADEF se ponen solo cuando el usuario confirma que lo
-  // ha guardado en el PSIT o en META (antes se ponían al abrir la pestaña, aunque luego no se guardase)
-  function preguntarGuardado(m, que, pregunta, marcar) {
-    var viejo = $('confirmarPaso'); if (viejo) viejo.parentNode.removeChild(viejo);
-    $('colabora').insertAdjacentHTML('afterbegin', '<div class="card" id="confirmarPaso" style="margin:6px 0;border-left:5px solid #c9a84c;background:#fffbea">' +
-      '<b>' + esc(pregunta) + '</b><p class="small muted" style="margin:4px 0">Se ha abierto en otra pestaña. Cuando lo guardes allí, vuelve y pulsa «Sí»: SENDERO lo marcará y lo anotará en MENSADEF.</p>' +
-      '<div class="fila"><button type="button" class="prim" id="pasoSi">✓ Sí, está guardado</button><button type="button" id="pasoNo">No lo he guardado</button></div></div>');
-    $('pasoSi').addEventListener('click', function () { var c = $('confirmarPaso'); if (c) c.parentNode.removeChild(c); marcar(); });
-    $('pasoNo').addEventListener('click', function () { var c = $('confirmarPaso'); if (c) c.parentNode.removeChild(c); });
+  function marcarTarea(m, p) {
+    var k = claveMensaje(m), gestor = (p && p.gestor) || (gestorElegido() || {}).nombre || 'Gestor de Tareas';
+    enviados[k] = new Date().toISOString(); enviadosA[k] = gestor;
+    Object.keys(enviadosA).forEach(function (x) { if (!enviados[x]) delete enviadosA[x]; }); guardar('enviadosA', enviadosA);
+    // Se guardan como mucho los 2000 últimos
+    var ks = Object.keys(enviados).sort(function (a, b) { return enviados[a] < enviados[b] ? 1 : -1; });
+    ks.slice(2000).forEach(function (x) { delete enviados[x]; });
+    guardar('enviados', enviados); pintarColabora(m); pintarTabla();
+    miNombre().then(function (quien) { comentarPaso(m, 'Añadido como tarea en META' + (p && p.punto ? ' para el Punto de Situación' : '') + ' (' + gestor + ') por ' + quien + ' el ' + new Date().toLocaleString('es-ES') + ' · SENDERO'); });
   }
   function pasarAColabora(m, disp, punto) {
     var u = urlColabora();
@@ -2446,28 +2472,7 @@
     // Y todas las células del usuario, para que META las ofrezca como departamentos sin escribirlas (11/11/2026)
     if (apiCtx && apiCtx.celulas) datos.departamentos = apiCtx.celulas.map(function (c) { return c.nombre; }).filter(Boolean).slice(0, 150);
     window.open(u + '#importar=' + encodeURIComponent(JSON.stringify(datos)), '_blank', 'noopener');
-    preguntarGuardado(m, 'tarea', '¿Has creado la tarea en META?', function () {
-    enviados[claveMensaje(m)] = new Date().toISOString();
-    enviadosA[claveMensaje(m)] = (gestorElegido() || {}).nombre || 'Tareas Colabora';
-    Object.keys(enviadosA).forEach(function (k) { if (!enviados[k]) delete enviadosA[k]; }); guardar('enviadosA', enviadosA);
-    // Se guardan como mucho los 2000 últimos
-    var ks = Object.keys(enviados).sort(function (a, b) { return enviados[a] < enviados[b] ? 1 : -1; });
-    ks.slice(2000).forEach(function (k) { delete enviados[k]; });
-    guardar('enviados', enviados);
-    pintarColabora(m); pintarTabla();
-    if (ESCRIBIR && m._api && leer('anotarMeta', true)) {
-      var nota;
-      miNombre().then(function (quien) {
-        nota = 'Añadido como tarea en META' + (punto ? ' para el Punto de Situación' : '') + ' (' + ((gestorElegido() || {}).nombre || 'Gestor de Tareas') + ') por ' + quien + ' el ' + new Date().toLocaleString('es-ES') + ' · SENDERO';
-        return comentarEnMensadef(m, nota);
-      }).then(function () {
-        if (abierto !== m) return;
-        $('colabora').insertAdjacentHTML('beforeend', '<p class="small" style="color:#2e7d4f">✓ Comentario añadido en MENSADEF: «' + esc(nota) + '»</p>');
-        var dd = Array.prototype.filter.call(document.querySelectorAll('#detalle .ficha-campos dt'), function (d) { return d.textContent === 'Último comentario'; })[0];
-        if (dd) dd.nextElementSibling.textContent = nota;
-      }, function (e) { if (abierto === m) $('colabora').insertAdjacentHTML('beforeend', '<p class="small bad">No se pudo dejar el comentario en MENSADEF: ' + esc(e.message || e) + '</p>'); });
-    }
-    });
+    dejarPendiente(m, 'tarea', { gestor: (gestorElegido() || {}).nombre || 'Tareas Colabora', punto: !!punto });
   }
 
   // Estructura sin contenido (sitios, listas, columnas y nº de valores distintos) para enviarla a quien ayuda a ajustar el visor

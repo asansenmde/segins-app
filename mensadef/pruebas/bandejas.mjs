@@ -302,13 +302,22 @@ if (FINAL) {
     console.log('PUNTO: directo a', u7.replace(/^https:\/\/[^/]+/, ''), '(' + (process.env.SINORG ? 'por defecto' : 'de la organización') + ') | origen', d7.origen, d7.destino, '| célula', d7.departamento);
     if (u7 !== esperado || d7.origen !== 'SENDERO' || d7.destino !== 'psit' || !d7.departamento) console.log('Error: PSIT directo');
     // 16/11/2026: «No lo he guardado» no marca; «Sí, está guardado» marca y comenta
-    { await p.waitForTimeout(300); const pregunta = (await p.textContent('#confirmarPaso b').catch(() => '')).trim(), c0 = comentarios.length;
-      await p.click('#pasoNo'); await p.waitForTimeout(400);
+    { await p.waitForTimeout(300); const pregunta = (await p.textContent('#confirmarPaso-psit b').catch(() => '')).trim(), c0 = comentarios.length;
+      // Queda pendiente aunque se cambie de mensaje y se vuelva (antes se perdía al repintar la ficha)
+      const fila = await p.$eval('#lista tbody tr[data-i].sel, #lista tbody tr[data-i].activo', t => t.getAttribute('data-i')).catch(() => null);
+      const pend = await p.$$eval('#lista tbody tr[data-i] .tag.t-pend', l => l.map(x => x.textContent));
+      await p.click('#lista tbody tr[data-i]:not(.sel):not(.activo) >> nth=3'); await p.waitForTimeout(500);
+      const otroSin = !(await p.$('#confirmarPaso-psit'));
+      await p.click('#lista tbody tr[data-i]:has(.t-pend) >> nth=0'); await p.waitForTimeout(600);
+      const vuelve = !!(await p.$('#confirmarPaso-psit'));
+      console.log('PUNTO: pendiente en la lista:', pend.join(','), '| otro mensaje sin la pregunta:', otroSin, '| al volver sigue la pregunta:', vuelve);
+      if (!pend.includes('⏳ ¿PSIT?') || !otroSin || !vuelve) console.log('Error: pendiente del PSIT');
+      await p.click('#pasoNo-psit'); await p.waitForTimeout(400);
       const tras = await p.$$eval('#lista tbody tr[data-i] .tag.t-psit', l => l.length);
       console.log('PUNTO: pregunta «' + pregunta + '» | con «No»: etiquetas', tras, '· comentarios', comentarios.length - c0);
-      if (!/guardado en el Punto de Situación/.test(pregunta) || tras || comentarios.length !== c0) console.log('Error: «No lo he guardado»');
+      if (!/guardado en el Punto de Situación/.test(pregunta) || tras || comentarios.length !== c0 || (await p.$$eval('.tag.t-pend', l => l.some(x => /PSIT/.test(x.textContent))))) console.log('Error: «No lo he guardado»');
       const [n7b] = await Promise.all([ctx.waitForEvent('page'), p.click('#aPunto')]); await n7b.close(); await p.bringToFront();
-      await p.click('#pasoSi'); await p.waitForTimeout(600);
+      await p.click('#pasoSi-psit'); await p.waitForTimeout(600);
       console.log('PUNTO: con «Sí»: comentario', ((comentarios[comentarios.length - 1] || {}).cuerpo || {}).Comentario?.replace(/ por .*/, ' por …')); }
     // Constancia: etiqueta «★ PSIT» en la fila y filtro «Tarea / PSIT»
     await p.waitForTimeout(300);
@@ -365,9 +374,9 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
     if (!/— PERSONA"$/.test(JSON.stringify(c.cuerpo.Comentario || ''))) console.log('Error: el comentario no va firmado con el nombre');
     const n0 = comentarios.length; const [n4] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n4.close(); await p.waitForTimeout(500); await p.bringToFront();
     // 16/11/2026: no se marca ni se comenta hasta confirmar «Sí, está guardado»
-    { const pregunta = (await p.textContent('#confirmarPaso b').catch(() => '')).trim(), antes = comentarios.length - n0;
+    { const pregunta = (await p.textContent('#confirmarPaso-tarea b').catch(() => '')).trim(), antes = comentarios.length - n0;
       console.log('al añadir a META: pregunta «' + pregunta + '» | comentarios antes de confirmar:', antes); if (!/creado la tarea en META/.test(pregunta) || antes) console.log('Error: confirmar antes de marcar');
-      await p.click('#pasoSi'); await p.waitForTimeout(600); }
+      await p.click('#pasoSi-tarea'); await p.waitForTimeout(600); }
     console.log('al añadir a META:', comentarios.length - n0, '→', (comentarios[comentarios.length - 1] || {}).cuerpo?.Comentario?.replace(/el .* ·/, 'el (fecha) ·'), '|', (await p.textContent('#colabora')).includes('Comentario añadido en MENSADEF'));
     { const subs = await p.$$eval('td.asunto .sub', n => n.map(x => x.innerHTML));
       const ok2 = subs.some(h => /act accion/.test(h)) && subs.some(h => /act info/.test(h)) && subs.some(h => /class="com"/.test(h)) && !subs.some(h => /Motivo:|GENERAL JEFE/.test(h));
@@ -423,7 +432,7 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
       if (!cabs0 || !meses.length || !meses.every(t => /\d{4}/.test(t)) || sinCab) console.log('Error: agrupar'); }
     if (process.env.CAPTURA_ANCHA) { const v = p.viewportSize(); await p.setViewportSize({ width: 1920, height: 1000 }); await p.evaluate(() => { const l = document.querySelector('#layout'); scrollTo(0, l.getBoundingClientRect().top + scrollY - 80); }); await p.waitForTimeout(400); await p.screenshot({ path: process.env.CAPTURA_ANCHA }); await p.setViewportSize(v); }
     if (!/ por PERSONA el /.test((comentarios[comentarios.length - 1] || {}).cuerpo?.Comentario || '')) console.log('Error: el comentario de META no lleva el nombre de quien lo añade');
-    await p.uncheck('#anotarMeta'); const n1 = comentarios.length; const [n5] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n5.close(); await p.waitForTimeout(400); await p.click('#pasoSi').catch(() => 0); await p.waitForTimeout(300); await p.bringToFront();
+    await p.uncheck('#anotarMeta'); const n1 = comentarios.length; const [n5] = await Promise.all([ctx.waitForEvent('page'), p.click('#aColabora')]); await n5.close(); await p.waitForTimeout(400); await p.click('#pasoSi-tarea').catch(() => 0); await p.waitForTimeout(300); await p.bringToFront();
     console.log('casilla desmarcada → sin comentario:', comentarios.length === n1); await p.check('#anotarMeta');
     // Bandera: poner «Seguimiento» y quitarla
     console.log('selector de bandera:', await p.$$eval('#selBandera option', o => o.map(x => x.textContent).join(' | ')));
