@@ -115,7 +115,8 @@ const estC = nuevoEstado({ xfo: !!process.env.XFO }); estC.admin = false; estC.u
 // SINORG=1: el ámbito no tiene dadas de alta las direcciones de META y del PSIT (y la lista es antigua, sin esas columnas)
 estC.sinColumnasUrl = !!process.env.SINORG;
 const ORG_META = 'https://colabora.mdef.es/et/ORG/aplicaciones/META.html', ORG_PSIT = 'https://colabora.mdef.es/et/ORG/aplicaciones/puntos-situacion.html';
-listasPreparadas(estC, (process.env.NOAUT ? [] : [Object.assign({ Title: '2SUIGE', Tipo: 'Ámbito' }, process.env.SINORG ? {} : { UrlMeta: ORG_META, UrlPsit: ORG_PSIT })]).concat(process.env.NUEVA ? [{ Title: '2099-01-01 · 1', Tipo: 'Versión', Nota: 'https://colabora.mdef.es/et/SUIGESUR/colaborativo/Documentos%20compartidos/SENDERO.html' }] : []));
+listasPreparadas(estC, (process.env.NOAUT ? [] : [Object.assign({ Title: '2SUIGE', Tipo: 'Ámbito' }, process.env.SINORG ? {} : { UrlMeta: ORG_META, UrlPsit: ORG_PSIT })])
+  .concat(process.env.CADUCIDAD ? [{ Title: 'Caducidad', Tipo: 'Versión', Nota: process.env.CADUCIDAD }] : []).concat(process.env.NUEVA ? [{ Title: '2099-01-01 · 1', Tipo: 'Versión', Nota: 'https://colabora.mdef.es/et/SUIGESUR/colaborativo/Documentos%20compartidos/SENDERO.html' }] : []));
 await simularColabora(ctx, estC, new URL('../acceso/subir/SENDERO-acceso.html', import.meta.url).pathname);
 if (process.env.DIAS) await p.evaluate(n => { const D = Date, d = n * 864e5; window.Date = class extends D { constructor(...a) { super(...(a.length ? a : [D.now() + d])); } static now() { return D.now() + d; } }; }, Number(process.env.DIAS));
 const llamadasAntes = llamadas.length;
@@ -123,8 +124,11 @@ await p.evaluate(codigo); await p.waitForTimeout(2500);
 const leeBandejas = () => llamadas.slice(llamadasAntes).filter(x => /ObtenerBuzonCelula|ConsultaUsuarioDicodef|EtiquetasObtener/.test(x)).length;
 const cargadas = async () => { await p.waitForFunction(() => /mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 90000 }).catch(() => 0); return /mensajes del/.test(await p.textContent('#estado')) && llamadas.slice(llamadasAntes).some(x => /ObtenerBuzonCelula/.test(x)); };
 const fin = async () => { console.log('errores:', JSON.stringify(errs)); await b.close(); process.exit(0); };
-const accesoPortal = !!process.env.PORTAL && !process.env.SESION;   // desde la portada se comprueba al entrar en el ámbito
-if (process.env.NOAUT || Number(process.env.DIAS) > 30) {
+const accesoPortal = !!process.env.PORTAL && !process.env.SESION;
+// CADUCIDAD=60|90|indefinida: la elegida en Colabora (sin ella, 30). Con DIAS, ¿caducada o a punto de caducar?
+const CAD = process.env.CADUCIDAD ? (/indefinid/.test(process.env.CADUCIDAD) ? 0 : Number(process.env.CADUCIDAD)) : 30;
+const caducada = !!process.env.DIAS && CAD > 0 && Number(process.env.DIAS) > CAD, aPunto = !!process.env.DIAS && CAD > 0 && !caducada && CAD - Number(process.env.DIAS) <= 5;   // desde la portada se comprueba al entrar en el ámbito
+if (process.env.NOAUT || caducada) {
   await p.waitForSelector('#bloqueo', { timeout: 60000 }).catch(() => 0);
   const r = await p.evaluate(() => ({ t: (document.querySelector('#bloqueo h2') || {}).textContent || '', txt: (document.getElementById('bloqueo') || {}).textContent || '', solicitar: !!document.getElementById('accSolicitar'), mail: (document.querySelector('#bloqueo a[href^="mailto:"]') || {}).href || '', lista: !!document.querySelector('#lista tbody tr[data-i]') }));
   console.log('acceso: ' + (process.env.NOAUT ? 'no autorizado' : 'caducada') + ' → «' + r.t.trim() + '» | solicitar:', r.solicitar, '| correo:', /^mailto:asansen@et\.mde\.es\?subject=/.test(r.mail), '| bandejas leídas:', leeBandejas(), '| lista:', r.lista);
@@ -169,7 +173,8 @@ if (process.env.XFO) {
 { if (!accesoPortal) await p.waitForFunction(() => !/Comprobando tu autorización/.test(document.getElementById('estado').textContent), null, { timeout: 30000 }).catch(() => 0);
   const r = await p.evaluate(() => ({ bloqueo: !!document.getElementById('bloqueo'), aviso: (document.getElementById('avisoCaduca') || {}).textContent || '', version: (document.getElementById('avisoVersion') || {}).textContent || '', marco: !!document.querySelector('iframe[title="Comprobación de acceso"]') }));
   console.log('acceso: autorizado por ámbito, sin bloqueo:', !r.bloqueo, '| aviso de caducidad:', r.aviso ? r.aviso.replace(/\d+/g, 'N') : 'no', '| versión nueva:', r.version ? r.version.replace(/\d/g, 'N') : 'no', '| marco quitado:', !r.marco);
-  if (r.bloqueo || !!process.env.DIAS !== !!r.aviso || !!process.env.NUEVA !== !!r.version || (r.marco && !accesoPortal)) console.log('Error: acceso autorizado');
+  if (r.bloqueo || aPunto !== !!r.aviso || !!process.env.NUEVA !== !!r.version || (r.marco && !accesoPortal)) console.log('Error: acceso autorizado');
+  if (process.env.CADUCIDAD) console.log('acceso: caducidad elegida en Colabora', process.env.CADUCIDAD, 'y', process.env.DIAS, 'días después → entra:', !r.bloqueo);
   if (process.env.DIAS || process.env.NUEVA) { // avisa pero carga las bandejas
     const n = await cargadas(); console.log('acceso: con aviso, carga las bandejas:', n);
     if (process.env.NUEVA) console.log('acceso: enlace de la versión nueva:', await p.$eval('#avisoVersion a', a => a.href.replace(/^https:\/\/[^/]+/, '')).catch(() => 'ninguno'));

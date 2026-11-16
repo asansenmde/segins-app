@@ -22,8 +22,7 @@ aqui = pathlib.Path(__file__).parent
 
 # 15/11/2026: control de distribución de SENDERO. Quién puede usarlo lo dice la lista «SENDERO Autorizados» de Colabora, que
 # lee la página acceso/SENDERO-acceso.html subida a URL_ACCESO (la copia protegida acceso/subir/SENDERO-acceso.html).
-# Cada versión caduca a los DIAS_VALIDEZ días.
-DIAS_VALIDEZ = 30
+# La caducidad de cada versión (30, 60, 90 días o indefinida) la elige el Cte. en esa página (pestaña «Versión vigente»).
 URL_ACCESO = 'https://colabora.mdef.es/et/SUIGESUR/colaborativo/Documentos%20compartidos/SENDERO-acceso.html'
 
 
@@ -126,11 +125,12 @@ def generar(fuente, salida, nombre, titulo, intro, pasos, pruebas=False):
         pagina = pagina.replace('var PRUEBAS = false;', 'var PRUEBAS = true;')
     if fuente == 'visor-mensadef.html':
         # Control de acceso en Colabora y caducidad (15/11/2026)
-        assert 'var URL_ACCESO = null;' in pagina and 'var CADUCA = null;' in pagina
-        caduca = (datetime.date.today() + datetime.timedelta(days=DIAS_VALIDEZ)).isoformat()
+        # (16/11/2026) la caducidad (30, 60, 90 días o indefinida) la elige el Cte. en Colabora; cuenta desde hoy
+        assert 'var URL_ACCESO = null;' in pagina and 'var GENERADO = null;' in pagina
+        hoy = datetime.date.today().isoformat()
         pagina = pagina.replace('var URL_ACCESO = null;', 'var URL_ACCESO = ' + json.dumps(URL_ACCESO) + ';')
-        pagina = pagina.replace('var CADUCA = null;', 'var CADUCA = ' + json.dumps(caduca) + ';')
-        print(salida + ': acceso en ' + URL_ACCESO + ', caduca el ' + caduca)
+        pagina = pagina.replace('var GENERADO = null;', 'var GENERADO = ' + json.dumps(hoy) + ';')
+        print(salida + ': acceso en ' + URL_ACCESO + ', generado el ' + hoy)
         # El visor va protegido (compactado, con bloqueo a *.mdef.es): proteger/proteger.mjs (npm install la primera vez)
         import tempfile
         with tempfile.TemporaryDirectory() as d:

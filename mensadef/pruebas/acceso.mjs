@@ -59,6 +59,10 @@ await p.click('#rCuerpo tr:has-text("3SUIGE") [data-act]'); await p.waitForTimeo
 console.log('reglas:', est.listas['SENDERO Autorizados'].items.map(x => x.Tipo + ' ' + x.Title + (x.Activo ? '' : ' (inactiva)') + (x.Responsables ? ' resp ' + x.Responsables : '')).join(' | '));
 await pulsar('[data-pest="version"]'); await p.fill('#vVer', '2026-12-01 · 1'); await pulsar('#vGuardar');
 console.log('versión vigente:', await p.textContent('#cont p'));
+{ const antes = await p.inputValue('#vCad'); await p.selectOption('#vCad', '60'); await pulsar('#vCadGuardar');
+  const r = await preguntar('2SUIGE'); await p.selectOption('#vCad', '0'); await pulsar('#vCadGuardar'); const r2 = await preguntar('2SUIGE');
+  console.log('caducidad: por defecto', antes, '→ 60 → SENDERO recibe', r.caducidad, '| indefinida → recibe', r2.caducidad, '| elementos «Caducidad»:', est.listas['SENDERO Autorizados'].items.filter(x => x.Title === 'Caducidad').length);
+  if (antes !== '30' || r.caducidad !== 60 || r2.caducidad !== 0 || est.listas['SENDERO Autorizados'].items.filter(x => x.Title === 'Caducidad').length !== 1) console.log('Error: caducidad'); }
 
 // 4. Respuesta a SENDERO: 2SUIGE autorizado; 3SUIGE no
 { const r = await preguntar('2SUIGE'); console.log('SENDERO 2SUIGE →', JSON.stringify({ ok: r.ok, regla: r.regla, vigente: r.vigente && r.vigente.version, email: r.email }));

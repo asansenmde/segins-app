@@ -477,4 +477,8 @@ con el formato *verbose* de SharePoint 2013.
   «★ PSIT» junto al asunto (lo pasado desde este navegador y, para todos, por el comentario de MENSADEF «Añadido al Punto de
   Situación…») y aviso en la ficha. **Filtro «Tarea / PSIT»**: en tareas, en el PSIT, en los dos, en alguno o en ninguno
   (también en el informe).
+- **2026-11-16 · 3:** la **caducidad la elige el Cte. en Colabora** (página de acceso 2026-11-16 · 1, pestaña «Versión vigente»):
+  30, 60, 90 días o indefinida (elemento «Caducidad» de tipo Versión en «SENDERO Autorizados»; sin anotar, 30). Llega con la
+  autorización y cuenta desde `GENERADO`, el día en que se generó el favorito (lo pone `generar-marcador.py`); se aplica al
+  momento a todos los favoritos repartidos. Pasadas `CADUCIDAD=60|90|indefinida` y `DIAS` en `todas.sh`.
 

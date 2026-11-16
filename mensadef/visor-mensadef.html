@@ -530,13 +530,16 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-16 · 2';
+  var VERSION = '2026-11-16 · 3';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
   // solo a mensadef.mdef.es. Además cada versión caduca a los 30 días. URL_ACCESO y CADUCA los pone generar-marcador.py;
   // en el archivo fuente quedan a null (copia de desarrollo, no se reparte).
   var URL_ACCESO = null;
+  // 16/11/2026: la caducidad la elige el Cte. en Colabora (30, 60, 90 días o indefinida, pestaña «Versión vigente») y llega
+  // con la autorización; cuenta desde GENERADO, el día en que se generó este favorito (lo pone generar-marcador.py)
+  var GENERADO = null;
   var CADUCA = null;
   var CORREO_AUTOR = 'asansen@et.mde.es';
   try { $('verPie').textContent = 'versión ' + VERSION + (PRUEBAS ? ' (pruebas)' : ''); $('verCab').textContent = 'v. ' + VERSION + (PRUEBAS ? ' · PRUEBAS' : ''); } catch (e) { /* sin pie */ }
@@ -609,6 +612,7 @@
         guardar('acceso', { ok: true, t: Date.now(), ambito: ambito, regla: r.regla || '', vigente: r.vigente || null, gestores: ORG });
         // Se recuerda si en este equipo solo contesta la ventana pequeña, para ofrecer el botón sin esperar al marco
         if (enVentana) guardar('soloVentana', Date.now()); else { try { localStorage.removeItem(MEMORIA + 'soloVentana'); } catch (e) { /* sin memoria */ } }
+        if (revisarCaducidad(r.caducidad, r.vigente)) return;
         avisarVersion(r.vigente); quitarBloqueo(); seguir();
       };
       var resultado = function (r, enVentana) {
@@ -646,21 +650,29 @@
       preguntarAcceso(ambito, false, function (r) { if (r || !soloVentana) resultado(r, false); });
     });
   }
-  if (CADUCA && hoyIso() > CADUCA) {
-    pantallaBloqueo('Esta versión de SENDERO ha caducado',
-      '<p>Esta versión caducó el <b>' + esc(fechaCorta(CADUCA)) + '</b>. Pide la versión nueva al <b>Cte. Alfredo Sánchez Sender</b> y sustituye tu favorito por ella.</p>' +
-      '<div class="acciones">' + ((leer('acceso', null) || {}).vigente && /^https:\/\/[^/]+\.mdef\.es\//i.test(leer('acceso', null).vigente.url || '') ? '<a id="bajarVersion" href="' + esc(leer('acceso', null).vigente.url) + '" target="_blank" rel="noopener"><button type="button" class="prim">⬇ Descargar la versión nueva</button></a>' : '') +
-      '<a id="pedirVersion" href="' + esc(mailtoPedir('Versión nueva de SENDERO', 'Solicito la versión nueva de SENDERO (la mía, ' + VERSION + ', caducó el ' + fechaCorta(CADUCA) + ').\n')) + '"><button type="button">✉ Pedir la versión nueva</button></a></div>');
-    return;
-  }
-  if (CADUCA) {
+  // Devuelve true si esta versión ha caducado (y deja la pantalla); si quedan 5 días o menos, avisa arriba
+  function revisarCaducidad(dias, vigente) {
+    if (!GENERADO) return false;
+    dias = dias === 0 || dias === '0' ? 0 : Number(dias) || 30;   // 0 = indefinida; sin dato, 30
+    if (!dias) { CADUCA = null; return false; }
+    var d = new Date(GENERADO + 'T12:00:00'); d.setDate(d.getDate() + dias);
+    CADUCA = d.getFullYear() + '-' + (d.getMonth() < 9 ? '0' : '') + (d.getMonth() + 1) + '-' + (d.getDate() < 10 ? '0' : '') + d.getDate();
+    var bajar = vigente && numVersion(vigente.version) > numVersion(VERSION) && /^https:\/\/[^/]+\.mdef\.es\//i.test(vigente.url || '') ? vigente.url : '';
+    if (hoyIso() > CADUCA) {
+      pantallaBloqueo('Esta versión de SENDERO ha caducado',
+        '<p>Esta versión caducó el <b>' + esc(fechaCorta(CADUCA)) + '</b>. ' + (bajar ? 'Descarga la versión nueva y sustituye tu favorito por ella.' : 'Pide la versión nueva al <b>Cte. Alfredo Sánchez Sender</b> y sustituye tu favorito por ella.') + '</p>' +
+        '<div class="acciones">' + (bajar ? '<a id="bajarVersion" href="' + esc(bajar) + '" target="_blank" rel="noopener"><button type="button" class="prim">⬇ Descargar la versión nueva</button></a>' : '') +
+        '<a id="pedirVersion" href="' + esc(mailtoPedir('Versión nueva de SENDERO', 'Solicito la versión nueva de SENDERO (la mía, ' + VERSION + ', caducó el ' + fechaCorta(CADUCA) + ').\n')) + '"><button type="button">✉ Pedir la versión nueva</button></a></div>');
+      return true;
+    }
     var diasQuedan = Math.round((new Date(CADUCA + 'T12:00:00') - new Date(hoyIso() + 'T12:00:00')) / 864e5);
-    if (diasQuedan <= 5) {
+    if (diasQuedan <= 5 && !$('avisoCaduca')) {
       var bandaC = document.createElement('div'); bandaC.id = 'avisoCaduca';
       bandaC.style.cssText = 'background:#efc000;color:#12315a;text-align:center;font-weight:800;padding:6px 10px;border-bottom:2px solid #b58f00';
-      bandaC.textContent = '⏳ Esta versión de SENDERO caduca ' + (diasQuedan === 0 ? 'hoy' : diasQuedan === 1 ? 'mañana' : 'en ' + diasQuedan + ' días') + ' (' + fechaCorta(CADUCA) + '): pide la versión nueva al Cte. Alfredo Sánchez Sender.';
+      bandaC.textContent = '⏳ Esta versión de SENDERO caduca ' + (diasQuedan === 0 ? 'hoy' : diasQuedan === 1 ? 'mañana' : 'en ' + diasQuedan + ' días') + ' (' + fechaCorta(CADUCA) + '): ' + (bajar ? 'descarga la versión nueva.' : 'pide la versión nueva al Cte. Alfredo Sánchez Sender.');
       document.body.insertBefore(bandaC, document.querySelector('header'));
     }
+    return false;
   }
 
   if (!window.fetch || !window.Promise || document.documentMode) {

@@ -20,6 +20,8 @@ acceso), en `Documentos compartidos/SENDERO-acceso.html` (si se sube a otra bibl
 - **Reglas**: ámbito activo = todos los de ese ámbito de MENSADEF; ámbito inactivo con responsables = nadie en bloque, sus
   responsables aprueban una a una; persona; bloqueo (gana a todo). «Hasta» deja una regla sin efecto desde el día
   siguiente.
+- **Versión vigente y caducidad**: la versión anotada (la más nueva, título «AAAA-MM-DD · n», con la dirección del favorito en
+  `Nota`) y la caducidad de los favoritos (elemento «Caducidad», `Nota` = 30, 60, 90 o «indefinida»); las dos se mandan a SENDERO.
 - **Modos de la página**: sin nada en la dirección, gestión (Control total: todo; responsables de ámbito: solicitudes de
   sus ámbitos y autorizar o bloquear personas; el resto: su solicitud). `#solicitar=…`: formulario de solicitud (lo abre
   SENDERO). `#comprobar=…`: responde a SENDERO con `postMessage` solo a `https://mensadef.mdef.es` (marco oculto o ventana

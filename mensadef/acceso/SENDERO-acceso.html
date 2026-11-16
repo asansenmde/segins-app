@@ -59,7 +59,7 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-15 · 5';
+  var VERSION = '2026-11-16 · 1';
   // Solo se contesta a SENDERO, que funciona en MENSADEF (el favorito escribe su página sobre la de MENSADEF)
   var ORIGEN_SENDERO = 'https://mensadef.mdef.es';
   var L_AUT = 'SENDERO Autorizados', L_SOL = 'SENDERO Solicitudes', GRUPO = 'SENDERO Administradores';
@@ -281,12 +281,18 @@
       return yo;
     });
   }
-  function versionVigente() {
-    return todas(urlL(L_AUT) + "/items?$select=Id,Title,Tipo,Activo,Nota&$filter=" + encodeURIComponent("Tipo eq 'Versión'") + '&$top=50').then(function (l) {
-      var v = l.filter(activo).sort(function (a, b) { return b.Id - a.Id; })[0];
-      return v ? { version: v.Title || '', url: (v.Nota || '').trim() } : null;
-    }, function () { return null; });
+  // Elementos de tipo «Versión»: las versiones anotadas y, con el título «Caducidad», los días que vale cada versión
+  // (30, 60, 90; 0 = indefinida). Sin anotar, 30.
+  var ES_VERSION = /^\d{4}-\d\d-\d\d · \d+$/;
+  function leerVersiones() {
+    return todas(urlL(L_AUT) + "/items?$select=Id,Title,Tipo,Activo,Nota&$filter=" + encodeURIComponent("Tipo eq 'Versión'") + '&$top=200').then(function (l) {
+      var v = l.filter(function (x) { return activo(x) && ES_VERSION.test(String(x.Title || '').trim()); }).sort(function (a, b) { return b.Id - a.Id; })[0];
+      var c = l.filter(function (x) { return norm(x.Title) === 'caducidad'; }).sort(function (a, b) { return b.Id - a.Id; })[0];
+      var dias = c ? (/indefinid/i.test(c.Nota || '') ? 0 : Number(c.Nota) || 30) : 30;
+      return { vigente: v ? { version: v.Title || '', url: (v.Nota || '').trim() } : null, caducidad: dias, idCaducidad: c ? c.Id : null };
+    }, function () { return { vigente: null, caducidad: 30, idCaducidad: null }; });
   }
+  function versionVigente() { return leerVersiones().then(function (x) { return x.vigente; }); }
   // META y Punto de Situación de la organización: los de la regla del ámbito (esté activa o no: un ámbito inactivo con
   // responsables también tiene su META y su PSIT)
   function gestoresDe(reglas, ambito) {
@@ -304,7 +310,7 @@
       var filtro = valores.map(function (v) { return 'Title eq ' + lit(v); }).join(' or ');
       return Promise.all([
         leerReglas('Id,Title,Tipo,Activo,Hasta', '&$filter=' + encodeURIComponent(filtro) + '&$top=100'),
-        versionVigente(),
+        leerVersiones(),
         todas(urlL(L_SOL) + '/items?$select=Id,Estado,Respuesta,Ambito,Created&$filter=' + encodeURIComponent('Correo eq ' + lit(u.email)) + '&$top=50').catch(function () { return []; })
       ]).then(function (r) {
         var reglas = r[0].filter(activo);
@@ -314,7 +320,7 @@
         var amb = ambito && reglas.filter(function (x) { return x.Tipo === 'Ámbito' && norm(x.Title) === norm(ambito) && vigente(x); })[0];
         var sol = r[2].sort(function (a, b) { return b.Id - a.Id; })[0];
         return { ok: !bloq && !!(per || amb), motivo: bloq ? 'bloqueado' : per || amb ? '' : 'sin_regla', regla: per ? 'persona' : amb ? 'ámbito ' + amb.Title : '',
-          email: u.email, nombre: u.nombre, ambito: ambito, vigente: r[1], gestores: gestoresDe(r[0], ambito),
+          email: u.email, nombre: u.nombre, ambito: ambito, vigente: r[1].vigente, caducidad: r[1].caducidad, gestores: gestoresDe(r[0], ambito),
           solicitud: sol ? { estado: sol.Estado || 'Pendiente', fecha: sol.Created, respuesta: sol.Respuesta || '', ambito: sol.Ambito || '' } : null };
       });
     });
@@ -504,12 +510,20 @@
     });
   }
   function pintarVersion() {
-    return versionVigente().then(function (v) {
-      var dir = location.href.split('#')[0].replace(/[^/]*$/, '');
+    return leerVersiones().then(function (vs) {
+      var v = vs.vigente, dir = location.href.split('#')[0].replace(/[^/]*$/, '');
       $('cont').innerHTML = '<p>Versión vigente: ' + (v ? '<b>' + esc(v.version) + '</b>' + (v.url ? ' · <a href="' + esc(v.url) + '" target="_blank" rel="noopener">favorito para descargar</a>' : '') : '<span class="muted">ninguna anotada</span>') + '</p>' +
         '<p class="muted">Cuando subas un SENDERO nuevo (su página del favorito, p. ej. SENDERO.html, en esta biblioteca), anótalo aquí: SENDERO avisará a quien tenga una versión anterior con el enlace para descargarla.</p>' +
+        '<div class="card" style="background:#f8faf6"><b>Caducidad de SENDERO</b><p class="muted">Cada favorito vale estos días desde el día en que se generó; los 5 últimos avisa y después no abre. Se aplica al momento a todos los favoritos, también a los ya repartidos.</p>' +
+        '<label>Cada versión vale<select id="vCad"><option value="30">30 días</option><option value="60">60 días</option><option value="90">90 días</option><option value="0">Indefinida (no caduca)</option></select></label> <button type="button" class="prim" id="vCadGuardar">Guardar</button></div>' +
         '<label>Versión (la que sale en SENDERO)<input id="vVer" size="18" placeholder="2026-11-15 · 1"></label>' +
         '<label>Dirección del favorito<input id="vUrl" size="60" value="' + esc(dir + 'SENDERO.html') + '"></label> <button type="button" class="prim" id="vGuardar">Anotar</button>';
+      $('vCad').value = String(vs.caducidad);
+      $('vCadGuardar').addEventListener('click', function () {
+        var b = this, d = $('vCad').value, nota = d === '0' ? 'indefinida' : d; b.disabled = true;
+        (vs.idCaducidad ? cambiarElemento(L_AUT, vs.idCaducidad, { Nota: nota, Activo: true }, NO_PERMISO) : crearElemento(L_AUT, { Title: 'Caducidad', Tipo: 'Versión', Activo: true, Nota: nota }, NO_PERMISO))
+          .then(function () { toast(d === '0' ? 'SENDERO ya no caduca' : 'Cada versión de SENDERO vale ' + d + ' días'); pintarGestion(); }, function (e) { b.disabled = false; toast('No se pudo: ' + (e.message || e)); });
+      });
       $('vGuardar').addEventListener('click', function () {
         var b = this, ver = $('vVer').value.trim(), url = $('vUrl').value.trim();
         if (!/^\d{4}-\d\d-\d\d · \d+$/.test(ver)) return toast('Escribe la versión como sale en SENDERO, p. ej. 2026-11-15 · 1');
