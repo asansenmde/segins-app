@@ -507,4 +507,7 @@ con el formato *verbose* de SharePoint 2013.
   (Hoy por defecto; 3 o 7 días si el usuario lo elige). Antes se recuperaba el último periodo usado (quien pulsó una vez
   «30 días» cargaba 30 días cada vez) y «Hasta» se quedaba en aquel día, así que no salían los mensajes de hoy. Mientras se
   trabaja, «Actualizar» respeta el periodo puesto. Pasada `INICIO=2` en `todas.sh`.
+- **2026-11-17 · 2:** la primera carga **se enseña según llega** (como mucho cada segundo), **6 bandejas a la vez** (antes 3) y
+  **tiempos**: el estado dice cuánto ha tardado y, al pasar el ratón, las bandejas más lentas con sus páginas. Pasada
+  `CARGA_LENTA=1` (una célula tarda 4 s) en `todas.sh`.
 

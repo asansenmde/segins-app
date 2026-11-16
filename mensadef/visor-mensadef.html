@@ -531,7 +531,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-17 · 1';
+  var VERSION = '2026-11-17 · 2';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1593,9 +1593,14 @@
   }
 
   // Bandejas de todas las células del periodo: páginas de 100 hasta pasar de «Desde» (o 20 páginas por bandeja)
-  function cargarApi(desde, hasta) {
+  // 17/11/2026: 6 consultas a la vez (antes 3); «parcial» recibe lo leído según llega (para enseñarlo sin esperar a todas
+  // las células) y se mide cuánto tarda cada bandeja y cuántas páginas lee (se ve al pasar el ratón por el estado)
+  var tiemposCarga = [];
+  function cargarApi(desde, hasta, parcial) {
     var ini = new Date(desde + 'T00:00:00'), fin = new Date(hasta + 'T23:59:59');
-    var tareas = [], res = [], errores = [];
+    var tareas = [], res = [], errores = [], t0 = Date.now();
+    tiemposCarga = [];
+    var sinRepetir = function (l) { var vistos = {}; return l.filter(function (m) { if (!m.MensajeId) return true; var k = m.MensajeId + '|' + m._x.__es + '|' + m._lista.sitio.id; if (vistos[k]) return false; vistos[k] = 1; return true; }); };
     celulasElegidas().forEach(function (c) { [1, 2].forEach(function (es) { tareas.push({ c: c, es: es }); }); });
     var hechas = 0;
     var avance = function () { $('progreso').style.width = Math.round(100 * hechas / tareas.length) + '%'; $('estado').textContent = 'Leyendo ' + hechas + ' de ' + tareas.length + ' bandejas…'; };
@@ -1606,6 +1611,7 @@
         var total = d && (d.TotalRegistros || d.totalRegistros);
         res = res.concat(ms.filter(function (m) { var f = fechaDe(m); return !f || isNaN(f) || (f >= ini && f <= fin); }));
         var todasAntiguas = ms.length && ms.every(function (m) { var f = fechaDe(m); return f && f < ini; });
+        t.paginas = pag;
         if (!els.length || todasAntiguas || pag >= 20 || (total && pag * 100 >= total)) return;
         return bandeja(t, pag + 1);
       });
@@ -1614,12 +1620,16 @@
     var trabajador = function () {
       var t = cola.shift();
       if (!t) return Promise.resolve();
-      return bandeja(t, 1).catch(function (e) { errores.push(t.c.nombre + ' tipoES ' + t.es + ' (' + (e.message || e) + ')'); }).then(function () { hechas++; avance(); return trabajador(); });
+      var tt = Date.now();
+      return bandeja(t, 1).catch(function (e) { errores.push(t.c.nombre + ' tipoES ' + t.es + ' (' + (e.message || e) + ')'); }).then(function () {
+        tiemposCarga.push({ celula: t.c.nombre, bandeja: t.es === 1 ? 'entrada' : 'salida', ms: Date.now() - tt, paginas: t.paginas || 0 });
+        hechas++; avance(); if (parcial && hechas < tareas.length) parcial(sinRepetir(res)); return trabajador();
+      });
     };
     avance();
-    return Promise.all([trabajador(), trabajador(), trabajador()]).then(function () {
-      var vistos = {};
-      return { mensajes: res.filter(function (m) { if (!m.MensajeId) return true; var k = m.MensajeId + '|' + m._x.__es + '|' + m._lista.sitio.id; if (vistos[k]) return false; vistos[k] = 1; return true; }), errores: errores };
+    return Promise.all([trabajador(), trabajador(), trabajador(), trabajador(), trabajador(), trabajador()]).then(function () {
+      tiemposCarga.total = Date.now() - t0;
+      return { mensajes: sinRepetir(res), errores: errores };
     });
   }
 
@@ -1710,9 +1720,16 @@
       $('cargar').disabled = true;
       sitios = celulasElegidas();
       pintarHero();
-      return cargarApi(desde, hasta).then(function (r) {
+      // La primera carga se enseña según llega (como mucho cada segundo); al actualizar se espera al final para no mover la lista
+      var primera = !mensajes.length, ultimoPintado = 0;
+      var parcial = primera ? function (l) { if (Date.now() - ultimoPintado < 1000) return; ultimoPintado = Date.now(); mensajes = l; pintarTodo(); } : null;
+      return cargarApi(desde, hasta, parcial).then(function (r) {
         mensajes = r.mensajes; $('cargar').disabled = false; ultimaLectura = new Date(); pintarUltima();
-        $('estado').textContent = mensajes.length + ' mensajes del ' + desde.split('-').reverse().join('/') + ' al ' + hasta.split('-').reverse().join('/') + ' en ' + sitios.length + (sitios.length === 1 ? ' célula' : ' células') +
+        // Tiempos de la carga (al pasar el ratón por el estado): total y las bandejas más lentas
+        var lentas = tiemposCarga.slice().sort(function (a, b) { return b.ms - a.ms; }).slice(0, 8);
+        $('estado').title = 'Carga en ' + (tiemposCarga.total / 1000).toFixed(1) + ' s · ' + tiemposCarga.length + ' bandejas, 6 a la vez. Las más lentas:\n' +
+          lentas.map(function (x) { return '· ' + x.celula + ' (' + x.bandeja + '): ' + (x.ms / 1000).toFixed(1) + ' s, ' + x.paginas + (x.paginas === 1 ? ' página' : ' páginas'); }).join('\n');
+        $('estado').textContent = mensajes.length + ' mensajes del ' + desde.split('-').reverse().join('/') + ' al ' + hasta.split('-').reverse().join('/') + ' en ' + sitios.length + (sitios.length === 1 ? ' célula' : ' células') + ' (' + (tiemposCarga.total / 1000).toFixed(1) + ' s)' +
           (r.errores.length ? ' · no se pudieron leer: ' + r.errores.join('; ') : '') + '.';
         $('fSitio').previousSibling.textContent = 'Célula / negociado';
         $('fAutoridad').previousSibling.textContent = 'Remitente';

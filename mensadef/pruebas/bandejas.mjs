@@ -120,6 +120,8 @@ listasPreparadas(estC, (process.env.NOAUT ? [] : [Object.assign({ Title: '2SUIGE
   .concat(process.env.MINIMA ? [{ Title: '2099-01-01 · 1', Tipo: 'Versión', Nota: 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/SENDERO.html' }, { Title: 'Mínima', Tipo: 'Versión', Nota: '2099-01-01 · 1' }] : []).concat(process.env.NUEVA ? [{ Title: '2099-01-01 · 1', Tipo: 'Versión', Nota: 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/SENDERO.html' }] : []));
 await simularColabora(ctx, estC, new URL('../acceso/subir/SENDERO-acceso.html', import.meta.url).pathname);
 if (process.env.DIAS) await p.evaluate(n => { const D = Date, d = n * 864e5; window.Date = class extends D { constructor(...a) { super(...(a.length ? a : [D.now() + d])); } static now() { return D.now() + d; } }; }, Number(process.env.DIAS));
+// 17/11/2026: CARGA_LENTA=1: la bandeja de SETEC SECRETARIA tarda 4 s; la lista tiene que salir antes, con lo que ya ha llegado
+if (process.env.CARGA_LENTA) await ctx.route(API + '/**', async r => { const u = new URL(r.request().url()); if (/ObtenerBuzonCelula/.test(u.pathname) && u.searchParams.get('idCelula') === G2) await new Promise(ok => setTimeout(ok, 4000)); return r.fallback(); });
 // 17/11/2026: un periodo antiguo guardado (30 días, «Hasta» de otro día) ya no se usa al abrir: carga hoy (INICIO=2: 3 días)
 await p.evaluate(([M, ini]) => { localStorage.setItem(M + 'desde', JSON.stringify('2026-10-01')); localStorage.setItem(M + 'hasta', JSON.stringify('2026-10-02')); if (ini) localStorage.setItem(M + 'periodoInicio', ini); }, [MEM, process.env.INICIO || '']);
 const llamadasAntes = llamadas.length;
@@ -207,6 +209,14 @@ if (process.env.XFO) {
   const hoyN = new Date(), dEsp = iso(new Date(hoyN.getFullYear(), hoyN.getMonth(), hoyN.getDate() - Number(process.env.INICIO || 0)));
   console.log('al abrir: periodo', f.d, '→', f.h, '| «Al abrir»:', f.sel, '| esperado', dEsp, '→', iso(hoyN));
   if (f.d !== dEsp || f.h !== iso(hoyN)) console.log('Error: periodo al abrir'); }
+if (process.env.CARGA_LENTA) {
+  const antes = await p.waitForFunction(() => document.querySelectorAll('#lista tbody tr[data-i]').length > 0 && /Leyendo/.test(document.getElementById('estado').textContent), null, { timeout: 30000 }).then(() => true, () => false);
+  await p.waitForFunction(() => /mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 60000 }).catch(() => 0);
+  const t = await p.getAttribute('#estado', 'title') || '', estado = await p.textContent('#estado');
+  console.log('carga progresiva: filas antes de terminar:', antes, '| tiempo en el estado:', /\(\d+\.\d s\)/.test(estado), '| la más lenta:', (t.split('\n')[1] || '').replace(/[\d.]+ s/, 'N s'));
+  if (!antes || !/\(\d+\.\d s\)/.test(estado) || !/SETEC SECRETARIA/.test(t.split('\n')[1] || '') || !/6 a la vez/.test(t)) console.log('Error: carga progresiva');
+  await fin();
+}
 if (process.env.PORTAL && !process.env.SESION && !process.env.VENTANA) {
   // Entrada automática (pruebas): sin ventana y sin pulsar nada
   let ventanas = 0; ctx.on('page', () => ventanas++);
