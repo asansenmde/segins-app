@@ -73,6 +73,17 @@ console.log('versión vigente:', await p.textContent('#cont p'));
   if (!r.gestores || !/META\.html$/.test(r.gestores.meta || '') || !/puntos-situacion\.html$/.test(r.gestores.psit || '')) error('direcciones de la organización'); }
 { const r = await preguntar('3SUIGE'); console.log('ámbito sin direcciones →', JSON.stringify(r.gestores)); if (r.gestores.meta || r.gestores.psit) error('ámbito sin direcciones'); }
 { await pulsar('[data-pest="reglas"]'); const t = await p.textContent('#rCuerpo'); console.log('reglas: META y PSIT en la tabla:', /META · PSIT/.test(t), '| «sin dar de alta»:', /sin dar de alta/.test(t)); if (!/META · PSIT/.test(t) || !/sin dar de alta/.test(t)) error('tabla de direcciones'); }
+// 16/11/2026: «✎ Editar» una regla ya dada de alta (nota, «Hasta»; lo que no se toca se conserva)
+{ await p.click('#rCuerpo tr:has-text("2SUIGE") [data-edit]'); await p.waitForTimeout(200);
+  const titulo = await p.textContent('#rTitulo'), cargado = await p.inputValue('#rValor'), meta0 = await p.inputValue('#rMeta');
+  await p.fill('#rNota', 'Toda la Segunda SUIGE'); await p.fill('#rHasta', '2027-06-30'); await pulsar('#rAnadir');
+  const r = est.listas['SENDERO Autorizados'].items.find(x => x.Title === '2SUIGE');
+  console.log('editar: «' + titulo + '» | carga', cargado, '| META cargada:', !!meta0, '| guardado: nota', r.Nota, '· hasta', String(r.Hasta).slice(0, 10), '· META sigue:', /META\.html$/.test(r.UrlMeta || ''), '· activa:', r.Activo, '| reglas:', est.listas['SENDERO Autorizados'].items.filter(x => x.Tipo === 'Ámbito').length);
+  if (!/Editar la regla «2SUIGE»/.test(titulo) || cargado !== '2SUIGE' || r.Nota !== 'Toda la Segunda SUIGE' || !/^2027-06-30/.test(String(r.Hasta)) || !/META\.html$/.test(r.UrlMeta || '') || r.Activo !== true || est.listas['SENDERO Autorizados'].items.filter(x => x.Tipo === 'Ámbito').length !== 2) error('editar regla');
+  // Quitar la fecha «Hasta» y la nota
+  await p.click('#rCuerpo tr:has-text("2SUIGE") [data-edit]'); await p.waitForTimeout(200); await p.fill('#rHasta', ''); await p.fill('#rNota', ''); await pulsar('#rAnadir');
+  const r2 = est.listas['SENDERO Autorizados'].items.find(x => x.Title === '2SUIGE');
+  console.log('editar: quitar hasta y nota →', r2.Hasta, JSON.stringify(r2.Nota)); if (r2.Hasta !== null || r2.Nota !== '') error('editar: vaciar'); }
 
 // 5. Otra persona del ámbito 3SUIGE: no autorizada → solicita
 como('otra@pruebas.invalid', 'OTRA PERSONA');
