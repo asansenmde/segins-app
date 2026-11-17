@@ -1,0 +1,187 @@
+<!doctype html>
+<!--
+  Diagnóstico del correo en Colabora · © 2026 Cte. Alfredo Sánchez Sender. Todos los derechos reservados.
+  Para saber por qué no llegan los avisos de las aplicaciones (META, Gestor de Tareas, Incidentes, Pérdidas, VSA, Permisos):
+  todas envían con SP.Utilities.Utility.SendEmail usando la cuenta de quien está en la página. Esta página, abierta en
+  Colabora por cualquier usuario, dice con SU cuenta: si tiene correo en el perfil, qué permiso tiene en el sitio, si Colabora
+  le deja enviar y qué responde el servidor. Solo lee, salvo el correo de prueba que se envía al pulsar el botón.
+-->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="author" content="Cte. Alfredo Sánchez Sender">
+<meta name="copyright" content="© 2026 Cte. Alfredo Sánchez Sender">
+<title>Diagnóstico del correo · Colabora</title>
+<style>
+  :root { --brand: #12315a; --ok: #2e7d32; --ok-bg: #e3f2e5; --bad: #b71c1c; --bad-bg: #fbe3e3; --warn: #8a5a00; --warn-bg: #fff3d6; --line: #d3dce8; --muted: #586579; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 "Segoe UI", system-ui, Arial, sans-serif; background: #eef2f7; color: #14233a; }
+  header { background: linear-gradient(100deg, #0a1f3a, #12315a 45%, #1b4a80); color: #fff; padding: 12px 18px; border-bottom: 3px solid #c9a84c; }
+  header h1 { margin: 0; font-size: 1.15rem; letter-spacing: .04em; } header small { opacity: .85; }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+  h2 { font-size: 1rem; margin: 0 0 8px; color: var(--brand); }
+  .paso { display: flex; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); } .paso:first-of-type { border-top: 0; }
+  .ic { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; }
+  .ic.ok { background: var(--ok-bg); color: var(--ok); } .ic.mal { background: var(--bad-bg); color: var(--bad); } .ic.ojo { background: var(--warn-bg); color: var(--warn); } .ic.esp { background: #eee; color: #777; }
+  .paso b { display: block; } .small { font-size: .85rem; } .muted { color: var(--muted); }
+  code, .resp { font-family: Consolas, monospace; font-size: .82rem; background: #f3f5f9; padding: 1px 4px; border-radius: 4px; word-break: break-word; }
+  .resp { display: block; padding: 6px 8px; margin-top: 4px; white-space: pre-wrap; }
+  label { display: block; font-weight: 600; font-size: .85rem; margin: 10px 0 4px; }
+  input { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--brand); background: var(--brand); color: #fff; cursor: pointer; font-weight: 600; margin-top: 10px; }
+  button.sec { background: #fff; color: var(--brand); } button:disabled { opacity: .6; cursor: default; }
+  .veredicto { border-left: 6px solid var(--brand); } .veredicto.ok { border-left-color: var(--ok); } .veredicto.mal { border-left-color: var(--bad); }
+  footer { text-align: center; font-size: .78rem; color: var(--muted); padding: 10px 16px 24px; }
+  @media print { button, input { display: none; } }
+</style>
+</head>
+<body>
+<header><h1>📮 Diagnóstico del correo en Colabora</h1><small>Por qué llegan (o no) los avisos de META, el Gestor de Tareas, Incidentes, Pérdidas, VSA y Permisos — Cte. Alfredo Sánchez Sender</small></header>
+<main>
+  <div class="card"><p class="small" style="margin:0">Las aplicaciones envían los avisos <b>con la cuenta de quien está usando la página</b>. Esta página comprueba, con <b>tu</b> cuenta,
+    lo que hace falta para que salgan. Ábrela tú y que la abra también alguien que tramite (de una unidad o de una SUIGE): así se ve la diferencia.</p></div>
+  <div class="card" id="pasos"><h2>Comprobaciones</h2><div id="lista"><p class="muted small">Comprobando…</p></div></div>
+  <div class="card"><h2>Correo de prueba</h2>
+    <p class="small muted" style="margin:0">Se envía con tu cuenta, exactamente como los avisos de las aplicaciones. Puedes poner varias direcciones separadas por «;» (por ejemplo, la tuya y la de quien no recibe los avisos).</p>
+    <label for="para">Enviar a</label><input id="para" placeholder="nombre@et.mde.es">
+    <button id="enviar" disabled>✉ Enviar correo de prueba</button>
+    <div id="resPrueba"></div></div>
+  <div class="card veredicto" id="veredicto" hidden></div>
+  <div class="card"><h2>Resumen para el administrador</h2><p class="small muted" style="margin:0">Sin nombres ni direcciones: solo lo que ha salido bien o mal. Puedes copiarlo y mandarlo.</p>
+    <div class="resp" id="resumen">—</div><button class="sec" id="copiar">Copiar el resumen</button></div>
+</main>
+<footer>© 2026 · Aplicación desarrollada por el <b>Cte. Alfredo Sánchez Sender</b> · Todos los derechos reservados · versión 2026-11-17 · 1</footer>
+<script>
+(function () {
+  'use strict';
+  var VERSION = '2026-11-17 · 1';
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  if (document.documentMode || !window.fetch || !window.Promise) { $('#lista').innerHTML = '<p>Esta página se abre en modo Internet Explorer o en un navegador muy antiguo. Ábrela en <b>Microsoft Edge</b> o Chrome.</p>'; return; }
+  var web = '', yo = null, digest = null, resultados = {}, pasos = [];
+  // Lectura: primero formato ligero; si el servidor no lo admite (SharePoint 2013), el verbose
+  function api(url) {
+    var pedir = function (acc) { return fetch(url, { credentials: 'same-origin', headers: { Accept: acc } }); };
+    return pedir('application/json;odata=nometadata').then(function (r) {
+      if (r.status === 400 || r.status === 406 || r.status === 415) return pedir('application/json;odata=verbose');
+      return r;
+    }).then(function (r) {
+      return r.text().then(function (t) {
+        var j = null; try { j = JSON.parse(t); } catch (e) { /* sin JSON */ }
+        if (!r.ok) { var e = new Error(mensaje(j) || 'HTTP ' + r.status); e.status = r.status; throw e; }
+        return j && j.d ? j.d : j;
+      });
+    });
+  }
+  function mensaje(j) { return j && ((j.error && j.error.message && (j.error.message.value || j.error.message)) || (j['odata.error'] && j['odata.error'].message && j['odata.error'].message.value)) || ''; }
+  // Sitio de esta página: contextinfo en su carpeta
+  function sitio() {
+    var dir = location.pathname.replace(/\/[^/]*$/, '');
+    return fetch(dir + '/_api/contextinfo', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(mensaje(j) || 'HTTP ' + r.status); return j.d.GetContextWebInformation; }); })
+      .then(function (c) { web = c.WebFullUrl.replace(/\/$/, ''); digest = c.FormDigestValue; return web; });
+  }
+  function paso(id, estado, titulo, detalle) {
+    resultados[id] = estado;
+    var p = pasos.filter(function (x) { return x.id === id; })[0];
+    if (!p) { p = { id: id }; pasos.push(p); }
+    p.estado = estado; p.titulo = titulo; p.detalle = detalle || '';
+    $('#lista').innerHTML = pasos.map(function (x) {
+      var ic = { ok: '✓', mal: '✕', ojo: '!', esp: '…' }[x.estado];
+      return '<div class="paso"><span class="ic ' + x.estado + '">' + ic + '</span><div><b>' + esc(x.titulo) + '</b><span class="small">' + x.detalle + '</span></div></div>';
+    }).join('');
+    resumen();
+  }
+  // Permisos del sitio (EffectiveBasePermissions): los que importan para enviar correo
+  var P = { verPaginas: [0x20000, 0], abrir: [0x10000, 0], infoUsuarios: [0x8000000, 0], apiRemotas: [0, 0x20], crearAlertas: [0, 0x80], controlTotal: [0x2000000, 0] };
+  var tiene = function (ebp, k) { var low = Number(ebp && ebp.Low) || 0, high = Number(ebp && ebp.High) || 0; return P[k][0] ? (low & P[k][0]) !== 0 : (high & P[k][1]) !== 0; };
+  var limitado = false;
+  function comprobar() {
+    paso('sitio', 'esp', 'Sitio de Colabora', '');
+    return sitio().then(function () {
+      paso('sitio', 'ok', 'Sitio de Colabora', ' <code>' + esc(web.replace(location.origin, '')) + '</code>');
+      return api(web + '/_api/web/currentuser?$select=Id,Title,Email,LoginName');
+    }).then(function (u) {
+      yo = u;
+      var correo = u.Email || '';
+      paso('cuenta', correo ? 'ok' : 'mal', 'Tu cuenta: ' + u.Title, correo ? ' · correo en Colabora: <code>' + esc(correo) + '</code>' :
+        '<br>Tu cuenta de Colabora <b>no tiene dirección de correo</b>: los avisos que te correspondan no te pueden llegar. Pide al administrador que complete tu cuenta (o que la retire si tienes otra con correo).');
+      if (correo && !$('#para').value) $('#para').value = correo;
+      return api(web + '/_api/web?$select=Title,EffectiveBasePermissions').catch(function (e) { return { error: e }; });
+    }).then(function (w) {
+      if (w.error) { paso('permisos', 'ojo', 'Permisos en el sitio', '<br>Colabora no deja leerlos (' + esc(w.error.message) + '): probablemente solo tienes permiso en alguna lista.'); limitado = true; return; }
+      var e = w.EffectiveBasePermissions;
+      limitado = !tiene(e, 'verPaginas');
+      var lista = [['Ver páginas del sitio', 'verPaginas'], ['Ver información de usuarios', 'infoUsuarios'], ['Usar el acceso remoto (API)', 'apiRemotas'], ['Crear alertas', 'crearAlertas'], ['Control total', 'controlTotal']]
+        .map(function (x) { return (tiene(e, x[1]) ? '✓ ' : '✕ ') + x[0]; }).join(' · ');
+      paso('permisos', limitado ? 'mal' : 'ok', 'Permisos en el sitio' + (limitado ? ': solo «Acceso limitado»' : ''), '<br>' + esc(lista) + (limitado ?
+        '<br>Tu cuenta solo tiene permiso en alguna lista, no en el sitio. <b>Colabora no deja enviar correos desde las páginas</b> a estas cuentas: por eso los avisos de lo que tramitas no salen.' : ''));
+      return api(web + '/_api/web/currentuser/groups?$select=Title').then(function (d) {
+        var gs = (d.value || d.results || []).map(function (g) { return g.Title; });
+        paso('grupos', 'ok', 'Tus grupos en Colabora (' + gs.length + ')', gs.length ? '<br>' + esc(gs.join(', ')) : '<br>Ninguno.');
+      }).catch(function () { paso('grupos', 'ojo', 'Tus grupos en Colabora', '<br>Colabora no deja leerlos con tu cuenta.'); });
+    }).then(function () {
+      paso('listo', 'esp', 'Falta el correo de prueba', '<br>Pulsa «Enviar correo de prueba» para ver qué responde Colabora.');
+      $('#enviar').disabled = false;
+    }).catch(function (e) {
+      paso('sitio', 'mal', 'No se pudo comprobar', '<br>' + esc(e.message || e) + '. Esta página tiene que abrirse dentro de Colabora (subida a una biblioteca del sitio).');
+    });
+  }
+  function enviar() {
+    var to = $('#para').value.split(/[;,\s]+/).filter(function (x) { return /@/.test(x); });
+    if (!to.length) { $('#resPrueba').innerHTML = '<p class="small" style="color:var(--bad)">Escribe al menos una dirección.</p>'; return; }
+    var b = $('#enviar'); b.disabled = true; $('#resPrueba').innerHTML = '<p class="small muted">Enviando…</p>';
+    var txt = 'Correo de prueba del diagnóstico del correo de Colabora. Enviado por ' + (yo ? yo.Title : '') + ' el ' + new Date().toLocaleString('es-ES') + ' (versión ' + VERSION + ').';
+    var cuerpo = { properties: { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, Subject: 'PRUEBA · DIAGNÓSTICO DEL CORREO DE COLABORA', Body: '<p style="font-family:Segoe UI,Arial,sans-serif">' + esc(txt) + '</p>' } };
+    // Digest nuevo justo antes (caduca)
+    fetch(web + '/_api/contextinfo', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+      .then(function (r) { return r.json(); }).then(function (j) { digest = j.d.GetContextWebInformation.FormDigestValue; }).catch(function () { /* el que había */ })
+      .then(function () {
+        return fetch(web + '/_api/SP.Utilities.Utility.SendEmail', { method: 'POST', credentials: 'same-origin', body: JSON.stringify(cuerpo),
+          headers: { Accept: 'application/json;odata=verbose', 'Content-Type': 'application/json;odata=verbose', 'X-RequestDigest': digest } });
+      }).then(function (r) {
+        return r.text().then(function (t) { var j = null; try { j = JSON.parse(t); } catch (e) { /* sin JSON */ } return { st: r.status, ok: r.ok, msg: mensaje(j) || (r.ok ? '' : t.slice(0, 300)) }; });
+      }).then(function (r) {
+        b.disabled = false;
+        var detalle = '<span class="resp">Respuesta de Colabora: HTTP ' + r.st + (r.msg ? ' · ' + esc(r.msg) : '') + '</span>';
+        if (r.ok) {
+          paso('envio', 'ok', 'Colabora ha aceptado el correo', '<br>Mira tu bandeja (y «Correo no deseado») en unos minutos. ' +
+            '<b>Si no llega en 15 minutos</b>, el fallo está en el correo de salida del servidor o en el filtro: es cosa del administrador de Colabora.' + detalle);
+          veredicto('ok', 'Con tu cuenta, Colabora <b>sí envía</b>. Si a otra persona no le llegan los avisos de lo que tramita, que abra esta misma página con su cuenta.');
+        } else if (r.st === 401 || r.st === 403 || /acceso denegado|access denied|unauthorized/i.test(r.msg)) {
+          paso('envio', 'mal', 'Colabora no te deja enviar correos (permiso)', detalle);
+          veredicto('mal', '<b>Este es el problema:</b> tu cuenta no puede enviar correos desde las páginas' + (limitado ? ' porque solo tienes permiso en las listas, no en el sitio' : '') + '. ' +
+            'Los avisos de lo que tramitas no salen. Soluciones: que el administrador te dé en el <b>sitio</b> un permiso de lectura (no solo en la lista), o usar las <b>alertas de Colabora</b>, que las envía el propio servidor.');
+        } else if (/destinatario|recipient/i.test(r.msg)) {
+          paso('envio', 'mal', 'Colabora no acepta alguna de las direcciones', detalle + '<br>Colabora solo envía a usuarios del sitio que tienen buzón: alguna dirección no es de un usuario conocido o es una cuenta antigua sin buzón.');
+          veredicto('mal', 'El envío funciona, pero <b>alguna dirección no la acepta</b>. Prueba dirección por dirección para ver cuál.');
+        } else {
+          paso('envio', 'mal', 'El envío ha fallado', detalle);
+          veredicto('mal', 'Colabora ha rechazado el correo por otro motivo (arriba, su respuesta exacta). Pásasela al administrador.');
+        }
+      }).catch(function (e) { b.disabled = false; paso('envio', 'mal', 'No se pudo enviar', '<br>' + esc(e.message || e)); });
+    delete resultados.listo; pasos = pasos.filter(function (x) { return x.id !== 'listo'; });
+  }
+  function veredicto(cls, html) { var v = $('#veredicto'); v.className = 'card veredicto ' + cls; v.innerHTML = '<h2>Resultado</h2><p style="margin:0">' + html + '</p>'; v.hidden = false; resumen(); }
+  function resumen() {
+    var n = { ok: 'bien', mal: 'MAL', ojo: 'dudoso', esp: 'pendiente' };
+    var lineas = ['Diagnóstico del correo de Colabora · versión ' + VERSION + ' · ' + new Date().toLocaleString('es-ES'),
+      'Cuenta con correo en Colabora: ' + (resultados.cuenta ? n[resultados.cuenta] : '—'),
+      'Permiso en el sitio (no solo en listas): ' + (resultados.permisos ? n[resultados.permisos] : '—'),
+      'Envío de prueba: ' + (resultados.envio ? n[resultados.envio] : 'sin hacer')];
+    var env = pasos.filter(function (x) { return x.id === 'envio'; })[0];
+    if (env) lineas.push('Resultado: ' + env.titulo + (/(HTTP \d+)/.exec(env.detalle) ? ' (' + /(HTTP \d+)/.exec(env.detalle)[1] + ')' : ''));
+    $('#resumen').textContent = lineas.join('\n');
+  }
+  $('#enviar').addEventListener('click', enviar);
+  $('#copiar').addEventListener('click', function () {
+    var t = $('#resumen').textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { $('#copiar').textContent = '✓ Copiado'; }, function () { window.prompt('Copia el resumen:', t); });
+  });
+  comprobar();
+})();
+</script>
+</body>
+</html>

@@ -35,6 +35,11 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Diagnóstico del correo** (`prueba-correo.html`; para subir, la cifrada `colabora/prueba-correo.html`, 17/11/2026): todas las
+  aplicaciones envían los avisos con `SendEmail` y la cuenta de quien está en la página. Abierta en Colabora por cualquiera,
+  dice con su cuenta si tiene correo en el perfil, qué permiso tiene en el **sitio** (las cuentas con permiso solo en la lista
+  tienen «Acceso limitado» y Colabora no les deja enviar), sus grupos, y envía una prueba enseñando la respuesta exacta del
+  servidor y qué significa. Resumen sin nombres ni direcciones para el administrador. Prueba: `node colabora/pruebas/prueba-correo.mjs`.
 - **Versión 2026-11-17 · 1 (META):**
   - Ficha: «✕ Cerrar ficha» en rojo arriba (cabecera fija) y al final, con «🖨 Imprimir» al lado: la ficha completa (datos,
     descripción, observaciones y todos los comentarios con autor y fecha) en A4, para imprimir o guardar en PDF.

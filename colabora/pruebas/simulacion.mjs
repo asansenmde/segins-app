@@ -133,10 +133,13 @@ async function prueba() {
   await p.click('[data-kpi=hechasMes]');
   console.log('terminados este mes:', await p.textContent('details.grupo .n'));
   await p.click('[data-kpi=hechasMes]');
-  await p.selectOption('#fresp', 'PERSONA 1');
-  console.log('filtro responsable:', await p.textContent('.fpie'), '| responsables distintos:', await p.$$eval('details.grupo .tarea', ts => new Set(ts.map(t => (t.innerText.match(/👤 (.+)/) || [])[1])).size));
-  await p.click('[data-limpiar]');
-  console.log('tras limpiar:', await p.inputValue('#fresp') === '', '| quien sigue en', await p.inputValue('#fquien'));
+  // META (17/11/2026): el filtro «Responsable» solo lo tiene quien lo ve todo (Control total o «Lo ve todo»)
+  if (await p.$('#fresp')) {
+    await p.selectOption('#fresp', 'PERSONA 1');
+    console.log('filtro responsable:', await p.textContent('.fpie'), '| responsables distintos:', await p.$$eval('details.grupo .tarea', ts => new Set(ts.map(t => (t.innerText.match(/👤 (.+)/) || [])[1])).size));
+    await p.click('[data-limpiar]');
+    console.log('tras limpiar:', await p.inputValue('#fresp') === '', '| quien sigue en', await p.inputValue('#fquien'));
+  } else console.log('filtro responsable: no lo tiene (no lo ve todo)');
   // Terminados: todos, de 200 en 200, y por fechas
   { const nTer = () => p.$$eval('details[data-grupo=hechas] .tarea', x => x.length);
     console.log('terminados en pantalla:', await nTer(), '| botón más:', (await p.textContent('[data-mashechas]').catch(() => 'no hay')).trim());
