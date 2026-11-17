@@ -18,6 +18,15 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-17 · 1: firma del SETC, «Creado el» y «Página X de Y»
+
+Pedido por el usuario:
+- El informe lo firma **«EL SETC DE LA SUIGESUR»** (antes «EL JEFE DE LA SUIGESUR»), en la página, el PDF y el Word.
+- En el subtítulo, **«Creado el …»** (fecha en que se creó el punto) en lugar de «Elaborado el …».
+- **Paginado «Página X de Y»** en cada página: en el Word, en su propia línea del pie con campos completos (PAGE y
+  NUMPAGES marcados para recalcular, Word pone el total real al abrirlo); en el PDF, al pie de cada página con
+  `@page { @bottom-center }` (Edge y Chrome actuales; comprobado con Chromium 153).
+
 ## Versión 2026-11-16 · 6: copia cifrada entera (como las demás aplicaciones)
 
 La copia que se sube a Colabora se genera ahora con `proteger/cifrado.mjs` (el mismo de Incidentes, Pérdidas, VSA,

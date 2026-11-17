@@ -285,11 +285,17 @@ await foto('05-mi-negociado');
   const r = execFileSync('python3', ['-c', `
 import zipfile,sys,xml.dom.minidom as m
 z=zipfile.ZipFile(sys.argv[1]); d=z.read('word/document.xml').decode(); m.parseString(d)
-print('APORTACIÓN DE PRL' in d, 'PROCOR' in d, 'Revisión ficticia' in d, 'EL JEFE' in d)`, path.join(dir2, 'parte.docx')]).toString().trim();
+print('APORTACIÓN DE PRL' in d, 'PROCOR' in d, 'Revisión ficticia' in d, 'EL SETC' in d)`, path.join(dir2, 'parte.docx')]).toString().trim();
   comprueba('Word de la parte de PRL: ' + nom + ' · ' + r, /^PS-\d{4}-001 PRL Punto de Situacion \d{4}-\d{2}-\d{2}\.docx$/.test(nom) && r === 'True False True False');
   await p.click('[data-pdfneg][data-neg="PRL"]'); await p.waitForTimeout(800);
   const hoja = await p.$eval('#marcoPdf', f => f.contentDocument.body.innerText);
-  comprueba('PDF de la parte de PRL (hoja de impresión)', /APORTACIÓN DE PRL/.test(hoja) && /PRL/.test(hoja) && !/PROCOR/.test(hoja) && !/EL JEFE/.test(hoja));
+  comprueba('PDF de la parte de PRL (hoja de impresión)', /APORTACIÓN DE PRL/.test(hoja) && /PRL/.test(hoja) && !/PROCOR/.test(hoja) && !/EL SETC/.test(hoja));
+  { // La hoja de impresión, pasada a PDF como haría «Guardar como PDF»: «Página X de Y» en cada página
+    const doc = await p.$eval('#marcoPdf', f => '<!doctype html><html><head><meta charset="utf-8">' + f.contentDocument.head.innerHTML + '</head><body>' + f.contentDocument.body.innerHTML + '</body></html>');
+    const pp = await p.context().newPage(); await pp.setContent(doc); const rpdf = path.join(fs.mkdtempSync('/tmp/ps-pdf-'), 'parte.pdf');
+    await pp.pdf({ path: rpdf, preferCSSPageSize: true }); await pp.close();
+    try { const tx = execFileSync('pdftotext', [rpdf, '-']).toString(); const np = (tx.match(/\f/g) || []).length || 1;
+      comprueba('PDF: «Página 1 de ' + np + '» al pie', new RegExp('Página 1 de ' + np).test(tx)); } catch (e) { console.log('(sin pdftotext)'); } }
   await p.click('nav.tabs a[data-v=informe]');
   comprueba('en Informe, Luis saca la parte de PRL y el completo solo en PDF (no en Word)', (await p.$$eval('#selParte option', o => o.map(x => x.textContent))).join() === 'PRL' && !(await p.$('[data-word]')) && !!(await p.$('[data-pdf]')));
   await p.click('[data-pdf]'); await p.waitForTimeout(800);
@@ -386,9 +392,17 @@ solo=all(len(re.findall(r'<w:t[ >]', p))==2 for p in viñetas)
 print(len([x for x in n if x.startswith('word/media/')]), 'PROCOR' in d, 'No ha aportado información.' in d, 'Sin novedad.' in d, 'PUNTO DE SITUACIÓN DE SUIGESUR' in d, 'PRIORIDAD ALTA' in d, bool(viñetas) and solo)
 `, path.join(dir, 'informe.docx')]).toString().trim();
 comprueba('Word válido (XML bien formado), membrete, contenido y asunto solo en su línea: ' + rev, rev === '4 True True True True True True');
+const rev2 = execFileSync('python3', ['-c', `
+import zipfile,sys
+z=zipfile.ZipFile(sys.argv[1]); d=z.read('word/document.xml').decode(); f=z.read('word/footer1.xml').decode()
+print('EL SETC DE LA SUIGESUR' in d, 'EL JEFE' not in d, 'Creado el' in d, 'Elaborado' not in d, 'Página ' in f and ' PAGE ' in f and ' NUMPAGES ' in f and 'fldChar' in f)
+`, path.join(dir, 'informe.docx')]).toString().trim();
+comprueba('firma del SETC, «Creado el» y «Página X de Y» en el pie: ' + rev2, rev2 === 'True True True True True');
 try { execFileSync('python3', ['-c', 'import docx,sys; d=docx.Document(sys.argv[1]); print(len(d.paragraphs))', path.join(dir, 'informe.docx')]); comprueba('python-docx lo abre', true); } catch (e) { console.log('(python-docx no disponible o no lo abre: ' + String(e.stderr || e).slice(0, 120) + ')'); }
 let soffice = ''; try { soffice = execFileSync('bash', ['-lc', 'command -v soffice || command -v libreoffice']).toString().trim(); } catch (e) { /* sin LibreOffice */ }
-if (soffice) { try { execFileSync(soffice, ['--headless', '--convert-to', 'pdf', '--outdir', dir, path.join(dir, 'informe.docx')], { timeout: 120000 }); comprueba('LibreOffice lo convierte a PDF', fs.existsSync(path.join(dir, 'informe.pdf'))); if (CAPT) fs.copyFileSync(path.join(dir, 'informe.pdf'), path.join(CAPT, 'informe.pdf')); } catch (e) { comprueba('LibreOffice lo convierte a PDF', false); } }
+if (soffice) { try { execFileSync(soffice, ['--headless', '--convert-to', 'pdf', '--outdir', dir, path.join(dir, 'informe.docx')], { timeout: 120000 }); comprueba('LibreOffice lo convierte a PDF', fs.existsSync(path.join(dir, 'informe.pdf')));
+  try { const tx = execFileSync('pdftotext', [path.join(dir, 'informe.pdf'), '-']).toString(); const np = (tx.match(/\f/g) || []).length || 1;
+    comprueba('Word: «Página 1 de ' + np + '» en la primera página', new RegExp('Página\\s+1\\s+de\\s+' + np).test(tx)); } catch (e) { console.log('(sin pdftotext)'); } if (CAPT) fs.copyFileSync(path.join(dir, 'informe.pdf'), path.join(CAPT, 'informe.pdf')); } catch (e) { comprueba('LibreOffice lo convierte a PDF', false); } }
 if (CAPT) fs.copyFileSync(path.join(dir, 'informe.docx'), path.join(CAPT, 'informe.docx'));
 
 // 9. Siguiente punto periódico y «traer del punto anterior»

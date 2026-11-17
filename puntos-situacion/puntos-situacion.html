@@ -158,7 +158,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-16 · 6';
+  var VERSION = '2026-11-17 · 1';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -675,11 +675,11 @@
           return '<div class="item"><div class="asunto"><b>' + esc(a.titulo) + (a.prio === 'Alta' ? ' (PRIORIDAD ALTA)' : '') + '</b></div>' + htmlSit(a, nFig) + '</div>';
         }).join('') : '<p><i>' + (sinNovedad(p, n.titulo) ? 'Sin novedad.' : 'No ha aportado información.') + '</i></p>');
       }).join('') +
-      (soloNeg ? '' : '<div class="firma">EL JEFE DE LA SUIGESUR<br><br><br>Fdo.: ……………………………</div>') +
+      (soloNeg ? '' : '<div class="firma">EL SETC DE LA SUIGESUR<br><br><br>Fdo.: ……………………………</div>') +
       '<div class="pie"><img src="' + esc(uso) + '" alt="USO OFICIAL"><br>Emitido por ' + esc(yo.Title) + ' el ' + esc(ahoraTxt()) + ' · Puntos de Situación SUIGESUR</div></div>';
   }
   var subtitulo = function (p, nAs, soloNeg) {
-    return 'Ref. ' + p.ref + ' · Elaborado el ' + fCorta(p.creado) + ' · Información ' + (esCerrado(p) ? 'cerrada' : 'hasta') + ' el ' + fCorta(p.cierre) + ' a las ' + fHora(p.cierre) +
+    return 'Ref. ' + p.ref + ' · Creado el ' + fCorta(p.creado) + ' · Información ' + (esCerrado(p) ? 'cerrada' : 'hasta') + ' el ' + fCorta(p.cierre) + ' a las ' + fHora(p.cierre) +
       ' · ' + (soloNeg ? 'Negociado ' + soloNeg : negsInforme().length + ' negociados') + ' · ' + nAs + ' asunto' + (nAs === 1 ? '' : 's') + (esAbierto(p) ? ' · BORRADOR (punto abierto)' : '');
   };
   function vistaInforme(p) {
@@ -1869,7 +1869,7 @@
     return cola.then(function () {
       if (!soloNeg) {
         cuerpo.push(par('', { antes: 480 }));
-        cuerpo.push(par(run('EL JEFE DE LA SUIGESUR', { b: true }), { jc: 'right', despues: 720 }));
+        cuerpo.push(par(run('EL SETC DE LA SUIGESUR', { b: true }), { jc: 'right', despues: 720 }));
         cuerpo.push(par(run('Fdo.: ……………………………………'), { jc: 'right' }));
       }
       var sect = '<w:sectPr><w:headerReference w:type="default" r:id="rIdH"/><w:footerReference w:type="default" r:id="rIdF"/><w:pgSz w:w="11906" w:h="16838"/>' +
@@ -1879,10 +1879,15 @@
       var cab = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:hdr ' + NS + '><w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders></w:tblPr>' +
         '<w:tblGrid><w:gridCol w:w="3212"/><w:gridCol w:w="3214"/><w:gridCol w:w="3212"/></w:tblGrid><w:tr>' +
         celda(dibujo(ridLogoH, cm(2.6), cm(2.6 * 114 / 260)), 3212, 'left') + celda(dibujo(ridUsoH, cm(2.2), cm(2.2 * 54 / 190)), 3214, 'center') + celda(run(p.ref, { b: true, sz: 20 }), 3212, 'right') + '</w:tr></w:tbl>' + par('', { despues: 0 }) + '</w:hdr>';
+      // Campo completo (inicio · instrucción · separador · valor · fin), marcado para recalcular: «Página X de Y» real en Word
+      var campo = function (ins) {
+        var pr = '<w:rPr><w:b/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr>';
+        return '<w:r>' + pr + '<w:fldChar w:fldCharType="begin" w:dirty="true"/></w:r><w:r>' + pr + '<w:instrText xml:space="preserve"> ' + ins + ' \\* MERGEFORMAT </w:instrText></w:r>' +
+          '<w:r>' + pr + '<w:fldChar w:fldCharType="separate"/></w:r><w:r>' + pr + '<w:t>1</w:t></w:r><w:r>' + pr + '<w:fldChar w:fldCharType="end"/></w:r>';
+      };
       var pie = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:ftr ' + NS + '>' + par(dibujo(ridUsoF, cm(1.6), cm(1.6 * 54 / 190)), { jc: 'center', despues: 0 }) +
-        par(run('Emitido por ' + yo.Title + ' el ' + ahoraTxt() + ' · Puntos de Situación SUIGESUR · ' + p.ref + ' · Página ', { sz: 15, color: '555555' }) +
-          '<w:fldSimple w:instr="PAGE"><w:r><w:rPr><w:sz w:val="15"/></w:rPr><w:t>1</w:t></w:r></w:fldSimple>' + run(' de ', { sz: 15, color: '555555' }) +
-          '<w:fldSimple w:instr="NUMPAGES"><w:r><w:rPr><w:sz w:val="15"/></w:rPr><w:t>1</w:t></w:r></w:fldSimple>', { jc: 'center', despues: 0 }) + '</w:ftr>';
+        par(run('Página ', { b: true, sz: 18 }) + campo('PAGE') + run(' de ', { b: true, sz: 18 }) + campo('NUMPAGES'), { jc: 'center', despues: 0 }) +
+        par(run('Emitido por ' + yo.Title + ' el ' + ahoraTxt() + ' · Puntos de Situación SUIGESUR · ' + p.ref, { sz: 15, color: '555555' }), { jc: 'center', despues: 0 }) + '</w:ftr>';
       var estilos = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr>' +
         '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial" w:eastAsia="Arial"/><w:sz w:val="21"/><w:szCs w:val="21"/><w:lang w:val="es-ES"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="80" w:line="264" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>' +
         '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style></w:styles>';
@@ -1929,7 +1934,7 @@
     document.body.appendChild(fr);
     var d = fr.contentDocument, st = d.createElement('style');
     d.title = (soloNeg ? sinAcentos(soloNeg) + ' · ' : '') + p.ref + ' Punto de Situacion ' + aDia(p.fecha);
-    st.textContent = document.querySelector('style').textContent + '@page{size:A4;margin:12mm}body{background:#fff;margin:0}.hoja{box-shadow:none;margin:0;max-width:none;padding:0}' +
+    st.textContent = document.querySelector('style').textContent + '@page{size:A4;margin:12mm 12mm 16mm;@bottom-center{content:"Página " counter(page) " de " counter(pages);font:bold 9pt Arial,sans-serif;color:#333}}body{background:#fff;margin:0}.hoja{box-shadow:none;margin:0;max-width:none;padding:0}' +
       '.hoja .banda{-webkit-print-color-adjust:exact;print-color-adjust:exact}.hoja h3{break-after:avoid}.hoja figure{break-inside:avoid}';
     d.head.appendChild(st);
     d.body.innerHTML = htmlInforme(p, soloNeg);
