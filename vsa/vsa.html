@@ -7017,7 +7017,9 @@ var Cipher = {
       if (!/@/.test(String(x))) return x;
       var k = String(x).toLowerCase();
       if (cuentaCache[k] !== undefined) return cuentaCache[k] || x;
-      return Promise.resolve(loginDe(x)).then(function (lg) { cuentaCache[k] = lg || ''; return lg || x; }, function () { cuentaCache[k] = ''; return x; });
+      // Si no está entre los usuarios del sitio (nunca ha entrado), se le da de alta por su dirección, como hace el buscador de personas
+      var alta = function () { return enviarSP(web + '/_api/web/ensureuser', { logonName: x }, 'sin permiso').then(function (u) { return (u && u.LoginName) || null; }, function () { return null; }); };
+      return Promise.resolve(loginDe(x)).catch(function () { return null; }).then(function (lg) { return lg || alta(); }).then(function (lg) { cuentaCache[k] = lg || ''; return lg || x; }, function () { cuentaCache[k] = ''; return x; });
     }));
   }
   function enviarUno(to, cc, bcc, c) {

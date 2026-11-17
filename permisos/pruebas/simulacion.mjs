@@ -70,7 +70,7 @@ async function prueba(verbose, soloAlcance) {
     if (req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
-      if (process.env.SOLO_CUENTAS && /SP\.Utilities\.Utility\.SendEmail/.test(resto)) { const pr0 = JSON.parse(req.postData()).properties, d0 = [pr0.To, pr0.CC, pr0.BCC].flatMap(x => x ? x.results : []); if (d0.some(x => /@/.test(x))) { globalThis.__rechazados = (globalThis.__rechazados || 0) + 1; return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } }); } globalThis.__aceptados = (globalThis.__aceptados || 0) + 1; }
+      if (process.env.SOLO_CUENTAS && /SP\.Utilities\.Utility\.SendEmail/.test(resto)) { const pr0 = JSON.parse(req.postData()).properties, d0 = [pr0.To, pr0.CC, pr0.BCC].flatMap(x => x ? x.results : []); if (d0.some(x => /@/.test(x))) { globalThis.__rechazados = (globalThis.__rechazados || 0) + 1; if (process.env.VER_RECHAZOS) console.log('RECHAZO', JSON.stringify(d0)); return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } }); } globalThis.__aceptados = (globalThis.__aceptados || 0) + 1; }
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = JSON.parse(req.postData()).properties, dest = [pr.To, pr.CC, pr.BCC].flatMap(x => x ? x.results : []);
         asuntos.push(pr.Subject);
