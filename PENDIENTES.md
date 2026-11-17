@@ -20,6 +20,10 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
 7. **Permisos:** pedir al administrador de Colabora que retire la cuenta antigua del usuario (sale al buscarle).
 8. **Ruleta del portal:** confirmar que el administrador la ve sin `?admin=1`.
 
+9. **Correo (17/11/2026):** subir las copias 2026-11-17 de todas las aplicaciones (ya envían a la cuenta de cada persona,
+   que es lo que Colabora acepta) y confirmar que llegan los avisos; si a alguien no le llegan, que abra
+   `prueba-correo.html` con su cuenta y mande el resumen.
+
 ## Pendiente de que el usuario decida
 
 - **Eliminar en Incidentes y Pérdidas:** con «Colaborar» pueden eliminar todos; ¿nivel de permiso propio sin «Eliminar

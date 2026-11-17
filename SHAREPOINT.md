@@ -54,6 +54,13 @@ para saber listas, columnas (nombres internos) y tipos. **Nunca pedir contenido 
 
 ### Envío robusto (OBLIGATORIO en toda página que mande correos) · modelo `permisos/permisos.html` (versión 2026-10-22 · 5)
 
+**Enviar a la CUENTA, no a la dirección (17/11/2026, comprobado en el Colabora real con `colabora/prueba-correo.html`):**
+Colabora rechaza las direcciones de correo como destinatario («Asegúrese de que tenga un destinatario válido», HTTP 400),
+incluso la del propio usuario, pero acepta las cuentas de usuario (`i:0#.w|et\\usuario`). Antes de llamar a `SendEmail`,
+cada dirección se cambia por la cuenta (`aCuentas`: la propia, `getuserbyid` si se sabe quién es, `siteusers` por correo
+y, si no está en el sitio, `ensureuser` con la dirección); si no se encuentra, se deja la dirección y sigue el envío robusto.
+En los simuladores, `SOLO_CUENTAS=1` imita ese Colabora y `VER_RECHAZOS=1` lista lo que rechaza.
+
 Lección del 22/10/2026: en Permisos un autorizador no recibía las solicitudes. Colabora **rechaza el correo ENTERO** si
 **una sola** dirección no es de un usuario que conozca con buzón («Asegúrese de que tenga un destinatario válido»), y
 además las personas suelen tener **cuentas antiguas** en el sitio (sin buzón o con otro correo); si el solicitante elige
