@@ -227,7 +227,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-17 · 1';
+  var VERSION = '2026-11-17 · 2';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Pérdida de documentación · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -409,6 +409,7 @@
         var low = Number(l.EffectiveBasePermissions && l.EffectiveBasePermissions.Low) || 0;
         esGestor = (low & 0x800) !== 0;      // Administrar listas
         esAdmin = (low & 0x2000000) !== 0;   // Administrar permisos (Control total)
+        if (esAdmin) (function espera(n) { if (yo) guardarCuentaAviso(); else if (n) setTimeout(function () { espera(n - 1); }, 300); })(40);   // deja su cuenta para los avisos de solicitudes
         if (!esAdmin) pref.correo = true;
       }, function (e) { listaInfo = null; errLista = e; })
     ]).then(function () {
@@ -1799,7 +1800,7 @@
           esc([s.unidad, s.mando].filter(Boolean).join(' · ')) + (s.resolucion ? '<br><span class="small">' + esc(s.resolucion) + '</span>' : '') + '</div></div>';
       }).join('') + '</div>' : '';
       if (pend) {
-        $('#vista').innerHTML = cab + '<div class="okmsg">Tu solicitud del ' + esc(fHora(pend.creado)) + ' está <b>PENDIENTE</b> de revisión. Recibirás un correo cuando se resuelva.</div>' + msgSolAcc + hist;
+        $('#vista').innerHTML = cab + '<div class="okmsg">Tu solicitud del ' + esc(fHora(pend.creado)) + ' está <b>PENDIENTE</b> de revisión. Recibirás un correo cuando se resuelva.' + (msgSolAcc ? '' : '<div class="small" style="margin-top:6px">¿No te contestan? ' + botonOutlook(pend) + '</div>') + '</div>' + msgSolAcc + hist;
         return;
       }
       if (ult && ult.estado === 'APROBADA') cab += '<div class="aviso">Tu solicitud fue aprobada (' + esc(ult.grupo) + '), pero Colabora aún no te reconoce en el grupo. Cierra el navegador, vuelve a entrar y pulsa «Actualizar». Si sigue igual, avisa al administrador.</div>';
@@ -1842,16 +1843,61 @@
       var s = aSol(Object.assign({ Id: n && (n.Id || n.ID), Created: new Date().toISOString() }, c));
       return correoAcceso('nueva', s).then(enviarCorreo).catch(function (e) { return { ok: false, n: 0, motivo: e.message || String(e), rechazados: [] }; }).then(function (r) {
         // Se dice si el aviso a los responsables ha salido (la solicitud queda guardada igualmente)
-        msgSolAcc = '<div class="' + claseCorreo(r) + '" style="margin-top:8px">' + (r.ok && !(r.rechazados && r.rechazados.length) ? '✓ Se ha avisado por correo a los responsables de los accesos.' :
-          msgCorreo(r) + ' La solicitud está guardada; si puedes, avisa también a ' + esc(ACCESO.avisarCorreos && ACCESO.avisarCorreos.length ? ACCESO.avisarCorreos.join(', ') : 'el administrador') + '.') + '</div>';
+        var bien = r.ok && !(r.rechazados && r.rechazados.length);
+        msgSolAcc = bien ? '<div class="okmsg" style="margin-top:8px">✓ Se ha avisado por correo al administrador de los accesos.</div>' :
+          '<div class="aviso" style="margin-top:8px;border:2px solid #e67e22"><b>⚠ Falta un paso: avisa al administrador.</b> Tu solicitud está guardada, pero Colabora no ha dejado enviar el aviso desde tu cuenta' +
+          ' (quien aún no tiene acceso no siempre puede enviar correos). Pulsa el botón: se abre Outlook con el correo ya escrito y solo tienes que darle a «Enviar».' +
+          '<div style="margin:10px 0 4px">' + botonOutlook(s, true) + '</div><div class="small muted">' + msgCorreo(Object.assign({}, r, { mailto: '' })) + '</div></div>';
         pantallaAcceso();
       });
     }).catch(function (e) { boton.disabled = false; err('No se pudo enviar la solicitud: ' + (e.message || e)); });
   }
+  // ---------- Aviso directo al administrador (17/11/2026) ----------
+  // Las alertas de SharePoint no le llegan y Colabora no acepta su dirección de correo, sino su CUENTA (et\usuario). Quien
+  // solicita acceso casi nunca puede leer la cuenta de otro (no tiene permiso en el sitio), así que el administrador la deja
+  // escrita en la descripción de la lista común de solicitudes la primera vez que abre «Accesos» o la página; quien solicita
+  // la lee de ahí y el aviso va a esa cuenta. Si aun así Colabora no le deja enviar, sale el botón grande de Outlook.
+  var AVISO_ETQ = 'Aviso de solicitudes a: ';
+  var ASUNTO_SOL = 'SOLICITUD DE ACCESO · INCIDENTES DE SEGURIDAD Y PÉRDIDA DE DOCUMENTACIÓN', INTRO_SOL = 'NUEVA SOLICITUD DE ACCESO A LAS APLICACIONES INCIDENTES DE SEGURIDAD Y PÉRDIDA DE DOCUMENTACIÓN. REVÍSELA EN LA PESTAÑA «ACCESOS».';
+  function cuentasAviso(desc) {
+    var o = {}, d = String(desc || ''), i = d.indexOf(AVISO_ETQ);
+    if (i < 0) return o;
+    d.slice(i + AVISO_ETQ.length).split('\n')[0].split(';').forEach(function (p) { var j = p.indexOf('='); if (j > 0) o[p.slice(0, j).trim().toLowerCase()] = p.slice(j + 1).trim(); });
+    return o;
+  }
+  function leerCuentasAviso() {
+    return api(urlAcc() + '?$select=Description').then(function (l) {
+      var o = cuentasAviso(l && l.Description);
+      Object.keys(o).forEach(function (k) { if (o[k]) cuentaCache[k] = o[k]; });
+    }, function () {});
+  }
+  function guardarCuentaAviso() {
+    var c = String((yo && yo.Email) || '').toLowerCase(), fijos = (ACCESO.avisarCorreos || []).map(function (x) { return String(x).toLowerCase(); });
+    if (!c || !yo.LoginName || fijos.indexOf(c) < 0) return Promise.resolve(false);
+    var ver = accInfo && accInfo.Description !== undefined ? Promise.resolve(accInfo) : api(urlAcc() + '?$select=Description');
+    return ver.then(function (l) {
+      var d = String((l && l.Description) || ''), o = cuentasAviso(d);
+      if (o[c] === yo.LoginName) return false;
+      o[c] = yo.LoginName;
+      var linea = AVISO_ETQ + Object.keys(o).map(function (k) { return k + '=' + o[k]; }).join('; ');
+      var i = d.indexOf(AVISO_ETQ), nueva = i < 0 ? (d ? d + '\n' : '') + linea : d.slice(0, i) + linea + (d.indexOf('\n', i) < 0 ? '' : d.slice(d.indexOf('\n', i)));
+      return enviarSP(urlAcc(), { __metadata: { type: 'SP.List' }, Description: nueva }, 'sin permiso', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
+        .then(function () { if (accInfo) accInfo.Description = nueva; return true; });
+    }).catch(function () { return false; });
+  }
+  // Correo de la solicitud, ya escrito, para enviarlo desde Outlook al administrador
+  function mailtoSolicitud(s) {
+    var filas = [['Solicitante', s.nombre], ['Correo', s.correo], ['Empleo', s.empleo], ['Unidad', [s.unidad, s.mando].filter(Boolean).join(' · ')], ['Teléfono', s.tel], ['Papel solicitado', s.papel], ['Motivo', s.motivo]].filter(function (x) { return x[1]; });
+    return mailto({ to: (ACCESO.avisarCorreos || []).slice(), cc: [], asunto: ASUNTO_SOL + ' · ' + s.nombre,
+      texto: 'USO OFICIAL\n\n' + INTRO_SOL + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\n' + enlacePagina() });
+  }
+  function botonOutlook(s, grande) {
+    return '<a class="btn' + (grande ? ' prim" style="font-size:1.1em;padding:10px 18px' : '') + '" href="' + esc(mailtoSolicitud(s)) + '">✉ Avisar al administrador desde Outlook</a>';
+  }
   // A quién avisa una solicitud nueva: los grupos de ACCESO.avisar y los propietarios del sitio. Quien solicita tiene
   // que poder ver los integrantes de esos grupos («Quién puede ver los miembros: Todos») o el aviso no le sale.
   function destAvisos(sinVer) {
-    if (ACCESO.avisarCorreos && ACCESO.avisarCorreos.length) return correosDeGrupos(ACCESO.avisar, sinVer).then(function (l) { return ACCESO.avisarCorreos.concat(l); });
+    if (ACCESO.avisarCorreos && ACCESO.avisarCorreos.length) return leerCuentasAviso().then(function () { return correosDeGrupos(ACCESO.avisar, sinVer); }).then(function (l) { return ACCESO.avisarCorreos.concat(l); });
     var prop = api(web + '/_api/web/AssociatedOwnerGroup?$select=Title').then(function (g) { return g && g.Title ? [g.Title] : []; }).catch(function () { return []; });
     return prop.then(function (pg) { return correosDeGrupos(ACCESO.avisar.concat(pg.filter(function (x) { return ACCESO.avisar.indexOf(x) < 0; })), sinVer); });
   }
@@ -1904,10 +1950,11 @@
     accEstado = 'cargando';
     return Promise.all([
       leerBiblioteca(),
-      api(urlAcc() + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity,Hidden,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { accInfo = l; }, function () { accInfo = null; }),
+      api(urlAcc() + '?$select=Id,Title,Description,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity,Hidden,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { accInfo = l; }, function () { accInfo = null; }),
       todas(web + '/_api/web/sitegroups?$select=Id,Title&$top=5000').then(function (l) { accGrupos = l.map(function (g) { return g.Title; }); }, function () { accGrupos = []; })
     ]).then(function () {
       if (!accInfo) { accSols = []; accAbierta = null; accFaltan = []; return; }
+      guardarCuentaAviso();
       return leerColumnas().then(leerApertura).then(function () { if (accFaltan.length) { accSols = []; return; } return todas(urlAcc() + '/items?$top=500&$select=' + SEL_ACC.join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent("Aplicacion eq '" + ACCESO.app + "'"))
         .then(function (l) { accSols = l.map(aSol).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); }); }); });
     }).then(function () {
@@ -1938,7 +1985,7 @@
         '✕ Falta el grupo «' + esc(ACCESO.grupoBae) + '» para las unidades que notifican incidentes. <button class="prim" data-acccreargrupo="1">Crear el grupo</button>') + '</p>' +
       (accInfo ? '<p class="small">📋 ' + (accInfo.RootFolder && accInfo.RootFolder.ServerRelativeUrl ? '<a href="' + esc(location.origin + accInfo.RootFolder.ServerRelativeUrl) + '" target="_blank" rel="noopener">Abrir la lista «' + esc(ACCESO.lista) + '»</a> · ' : '') +
         '<a href="' + esc(web + '/_layouts/15/SubNew.aspx?List=' + encodeURIComponent('{' + String(accInfo.Id).replace(/[{}]/g, '') + '}') + '&Source=' + encodeURIComponent(location.href)) + '" target="_blank" rel="noopener">🔔 Avisarme por correo de cada solicitud nueva (alerta de SharePoint)</a>' +
-        '<br><span class="muted">El aviso de la página lo envía Colabora con la cuenta de quien solicita, que aún no tiene permisos y a veces se rechaza. La alerta la envía SharePoint y llega siempre: créala con «Se agregan nuevos elementos» y «Enviar notificación inmediatamente».</span></p>' : '') +
+        '<br><span class="muted">El aviso de la página va a tu CUENTA, que queda guardada en la descripción de la lista' + (cuentasAviso(accInfo.Description)[String(yo.Email || '').toLowerCase()] ? ' (✔ guardada)' : '') + '. Si Colabora no deja enviarlo a quien solicita, a esa persona le sale un botón para avisarte desde Outlook.</span></p>' : '') +
       '<p class="small">✉ Cada solicitud nueva se avisa por correo a <b>' + esc((ACCESO.avisarCorreos || []).concat(ACCESO.avisar).join(', ') || 'los propietarios del sitio') + '</b>. ' +
         '<button data-accprueba="1">Probar el aviso</button></p><div id="accPrueba"></div>' +
       (accBiblio ? '<p class="small">' + (accBiblio.Hidden ? '✔ La biblioteca «' + esc(accBiblio.Title) + '», donde está esta página, está oculta en «Contenido del sitio». <button data-accbiblio="0">Volver a mostrarla</button>' :

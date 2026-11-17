@@ -15,7 +15,7 @@ const MIEMBROS = { 'Propietarios Colaborativo': ['admin1@et.mde.es'], SEGURIDAD_
 const d = n => { const x = new Date(); x.setDate(x.getDate() + n); x.setHours(9, 0, 0, 0); return x.toISOString(); };
 let biblioOculta = false;
 // Colabora que rechaza direcciones («destinatario válido»): buzonMal = direcciones o cuentas rechazadas; enviados = las que acepta
-let buzonMal = [], enviados = [], correoDenegado = false;
+let buzonMal = [], enviados = [], correoDenegado = false, listaDesc = '', soloCuentas = false;
 let reciclados = [];
 // Responsables de los avisos: null = falta la lista; gruposOcultos = quien tramita no puede ver los integrantes de los grupos
 let respLista = null, gruposOcultos = false;
@@ -122,7 +122,7 @@ async function prueba(verbose, escenario) {
         if (mm) { Object.assign(respLista.find(x => x.Id === +mm[1]), { Title: c.Title, Correos: c.Correos, Responsables: per }); return r.fulfill({ status: 204, body: '' }); }
         const it = { Id: respLista.length + 1, Title: c.Title, Correos: c.Correos, Responsables: per }; respLista.push(it); return r.fulfill({ status: 201, json: { d: it } });
       }
-      if (process.env.SOLO_CUENTAS && /SP\.Utilities\.Utility\.SendEmail/.test(resto)) { const pr0 = JSON.parse(req.postData()).properties, d0 = [pr0.To, pr0.CC, pr0.BCC].flatMap(x => x ? x.results : []); if (d0.some(x => /@/.test(x))) { globalThis.__rechazados = (globalThis.__rechazados || 0) + 1; if (process.env.VER_RECHAZOS) console.log('RECHAZO', JSON.stringify(d0)); return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } }); } globalThis.__aceptados = (globalThis.__aceptados || 0) + 1; }
+      if ((process.env.SOLO_CUENTAS || soloCuentas) && /SP\.Utilities\.Utility\.SendEmail/.test(resto)) { const pr0 = JSON.parse(req.postData()).properties, d0 = [pr0.To, pr0.CC, pr0.BCC].flatMap(x => x ? x.results : []); if (d0.some(x => /@/.test(x))) { globalThis.__rechazados = (globalThis.__rechazados || 0) + 1; if (process.env.VER_RECHAZOS) console.log('RECHAZO', JSON.stringify(d0)); return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } }); } globalThis.__aceptados = (globalThis.__aceptados || 0) + 1; }
       if (resto.startsWith('SP.Utilities.Utility.SendEmail') && correoDenegado) return r.fulfill({ status: 401, json: { error: { message: { value: 'Acceso denegado. No tiene el permiso necesario para realizar esta acción o tener acceso a este recurso.' } } } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = JSON.parse(req.postData()).properties, dest = [].concat(pr.To.results, pr.CC.results, pr.BCC ? pr.BCC.results : []);
@@ -135,6 +135,7 @@ async function prueba(verbose, escenario) {
         const c = JSON.parse(req.postData() || '{}'); delete c.__metadata; const ms = resto.match(/items\((\d+)\)/);
         if (ms) { Object.assign(sols.find(x => x.Id === +ms[1]), c, c.ResueltoPorId ? { ResueltoPor: quien(c.ResueltoPorId) } : {}); return r.fulfill({ status: 204, body: '' }); }
         if (resto.endsWith('/items')) { const it = { Id: sols.length + 1, ...c, Solicitante: quien(c.SolicitanteId), Created: new Date().toISOString() }; sols.push(it); return r.fulfill({ status: 201, json: { d: { Id: it.Id } } }); }
+        if (c.Description !== undefined) listaDesc = c.Description;
         return r.fulfill({ status: 204, body: '' });
       }
       if (resto.includes("getbytitle('INCIDENTES DE SEGURIDAD')/breakroleinheritance")) return r.fulfill({ status: 200, json: { d: {} } });
@@ -184,7 +185,7 @@ async function prueba(verbose, escenario) {
       if (resto.includes('/roleassignments')) return J({ value: [{ PrincipalId: 7, Member: { Id: 7, Title: 'MDEF\\usuarios del dominio', LoginName: 'c:0+.w|s-1-5-21-513' }, RoleDefinitionBindings: verbose ? { results: [{ RoleTypeKind: 3 }] } : [{ RoleTypeKind: 3 }] }] });
       if (resto.includes('/fields')) return J({ value: ['Title', 'Solicitante', 'Correo', 'Empleo', 'MandoSegundo', 'Unidad', 'Telefono', 'Papel', 'Motivo', 'Aplicacion', 'EstadoSolicitud', 'GrupoAsignado', 'Resolucion', 'ResueltoPor', 'FechaResolucion'].map(n => ({ InternalName: n })) });
       if (resto.includes('HasUniqueRoleAssignments')) return J({ HasUniqueRoleAssignments: true });
-      if (!resto.includes('/items')) return J({ Id: 'a1b2', RootFolder: { ServerRelativeUrl: WEB + '/Lists/SOLICITUDES ACCESO APLICACIONES' }, Title: 'SOLICITUDES ACCESO APLICACIONES', ListItemEntityTypeFullName: 'SP.Data.SOLICITUDESItem', ReadSecurity: 2, WriteSecurity: 2 });
+      if (!resto.includes('/items')) return J({ Id: 'a1b2', RootFolder: { ServerRelativeUrl: WEB + '/Lists/SOLICITUDES ACCESO APLICACIONES' }, Title: 'SOLICITUDES ACCESO APLICACIONES', ListItemEntityTypeFullName: 'SP.Data.SOLICITUDESItem', ReadSecurity: 2, WriteSecurity: 2, Description: listaDesc });
       const fl = decodeURIComponent((u.match(/\$filter=([^&]*)/) || [])[1] || ''), me = fl.match(/SolicitanteId eq (\d+)/), app = fl.match(/Aplicacion eq '([^']+)'/);
       return J({ value: sols.filter(x => (!me || x.Solicitante.Id === +me[1]) && (!app || x.Aplicacion === app[1])) });
     }
@@ -619,6 +620,11 @@ misGrupos = ['SEGURIDAD_SUIGESUR']; admin = true; await prueba(false, 'Control t
 misGrupos = []; await prueba(false, 'solo información'); await prueba(true, 'solo información'); await prueba(false, 'sin acceso'); await prueba(true, 'sin acceso'); await prueba(false, 'provisional');
 misGrupos = TODOS; admin = true; await prueba(false, 'correo rechazado'); await prueba(true, 'correo rechazado'); admin = false;
 misGrupos = []; buzonMal = ['admin1@et.mde.es', 'asansen@et.mde.es', 'i:0#.w|et\\usuario206']; enviados = []; await prueba(false, 'sin acceso'); buzonMal = [];
+// Aviso directo al administrador (17/11/2026): al entrar deja su cuenta en la descripción de la lista; quien solicita
+// (sin permiso para buscar a nadie) avisa a esa cuenta; si Colabora no le deja enviar, sale el botón de Outlook
+YO.EMail = 'asansen@et.mde.es'; misGrupos = TODOS; admin = true; listaDesc = 'Lista común'; await prueba(false, 'solo información'); YO.EMail = 'usuario@et.mde.es'; admin = false;
+console.log('aviso directo | descripción guardada:', JSON.stringify(listaDesc));
+misGrupos = []; soloCuentas = true; await prueba(true, 'sin acceso'); correoDenegado = true; await prueba(false, 'sin acceso'); correoDenegado = false; soloCuentas = false; listaDesc = '';
 misGrupos = TODOS; admin = true; await prueba(false, 'portal'); await prueba(false, 'accesos'); await prueba(true, 'accesos'); admin = false;
 misGrupos = TODOS; admin = true; await prueba(false, 'enlace'); await prueba(false, 'ciclo'); await prueba(true, 'ciclo');
 misGrupos = ['INCIDENTES_UNIDADES']; admin = false; soloLectura = true; await prueba(false, 'unidad sin permiso'); await prueba(true, 'unidad sin permiso'); soloLectura = false;

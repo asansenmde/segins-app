@@ -301,7 +301,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-17 · 2';
+  var VERSION = '2026-11-17 · 3';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -587,8 +587,9 @@
   var urlSolic = function () { return web.url + "/_api/web/lists/getbytitle('" + encodeURIComponent(SOLIC) + "')"; };
   function cargarSolicitudes() {
     if (!PROPIO) return Promise.resolve();
-    return api(urlSolic() + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity').then(function (l) {
+    return api(urlSolic() + '?$select=Id,Title,Description,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity').then(function (l) {
       solic.info = l;
+      (function espera(n) { if (yo && listaInfo) { if (esAdmin) guardarCuentaAviso(); } else if (n) setTimeout(function () { espera(n - 1); }, 300); })(40);   // el administrador deja su cuenta para los avisos
       return api(urlSolic() + '/items?$top=500&$orderby=Id desc&$select=*,Persona/Id,Persona/Title,Persona/EMail&$expand=Persona');
     }).then(function (d) {
       solic.error = '';
@@ -613,6 +614,40 @@
       perfilMeta = { cargo: d.Title || props.Title || '', telefono: props.WorkPhone || '' }; return perfilMeta;
     }).catch(function () { perfilMeta = {}; return perfilMeta; });
   }
+  // ---------- Aviso directo al administrador (17/11/2026), como en Incidentes ----------
+  // Las alertas de SharePoint no le llegan y Colabora no acepta su dirección de correo, sino su CUENTA (et\usuario). Quien
+  // pide acceso no puede buscar la cuenta de otro, así que el administrador la deja escrita en la descripción de «META
+  // SOLICITUDES» al entrar; quien pide la lee de ahí. Si aun así Colabora no le deja enviar, sale el botón grande de Outlook.
+  var AVISO_ETQ = 'Aviso de solicitudes a: ';
+  function cuentasAviso(desc) {
+    var o = {}, d = String(desc || ''), i = d.indexOf(AVISO_ETQ);
+    if (i < 0) return o;
+    d.slice(i + AVISO_ETQ.length).split('\n')[0].split(';').forEach(function (p) { var j = p.indexOf('='); if (j > 0) o[p.slice(0, j).trim().toLowerCase()] = p.slice(j + 1).trim(); });
+    return o;
+  }
+  function leerCuentasAviso() {
+    return api(urlSolic() + '?$select=Description').then(function (l) {
+      var o = cuentasAviso(l && l.Description);
+      Object.keys(o).forEach(function (k) { if (o[k]) cuentaCache[k] = o[k]; });
+    }, function () {});
+  }
+  function guardarCuentaAviso() {
+    var c = String((yo && yo.Email) || '').toLowerCase(), fijos = AVISAR_SOLIC.map(function (x) { return String(x).toLowerCase(); });
+    if (!c || !yo.LoginName || fijos.indexOf(c) < 0 || !solic.info) return Promise.resolve(false);
+    var d = String(solic.info.Description || ''), o = cuentasAviso(d);
+    if (o[c] === yo.LoginName) return Promise.resolve(false);
+    o[c] = yo.LoginName;
+    var linea = AVISO_ETQ + Object.keys(o).map(function (k) { return k + '=' + o[k]; }).join('; ');
+    var i = d.indexOf(AVISO_ETQ), nueva = i < 0 ? (d ? d + '\n' : '') + linea : d.slice(0, i) + linea + (d.indexOf('\n', i) < 0 ? '' : d.slice(d.indexOf('\n', i)));
+    return enviarSP(urlSolic(), { __metadata: { type: 'SP.List' }, Description: nueva }, 'sin permiso', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
+      .then(function () { solic.info.Description = nueva; return true; }).catch(function () { return false; });
+  }
+  // Correo de la solicitud, ya escrito, para enviarlo desde Outlook al administrador
+  function botonOutlook(f, grande) {
+    var txt = 'USO OFICIAL\n\n' + [f.empleo, yo.Title].filter(Boolean).join(' ') + (yo.Email ? ' (' + yo.Email + ')' : '') + (f.tel ? ' · tel. ' + f.tel : '') + ' pide acceso a META.\n\n' +
+      'Departamento: ' + (f.deps || []).join(', ') + '\n' + (f.motivo ? 'Motivo: ' + f.motivo + '\n' : '') + '\nPara darle de alta: META › Ajustes › «Quién ve los expedientes de META» › Solicitudes de acceso.\n' + location.origin + location.pathname;
+    return '<a class="btn' + (grande ? ' prim" style="font-size:1.1em;padding:10px 18px' : '') + '" href="' + esc(mailto(AVISAR_SOLIC, [], 'META: solicitud de acceso de ' + yo.Title, txt)) + '">✉ Avisar al administrador desde Outlook</a>';
+  }
   function pantallaSolicitud() {
     if (!perfilMeta) { leerPerfilMeta().then(function () { if (acceso.sinAlta) render(); }); return '<div class="card"><p class="muted">Comprobando tus solicitudes…</p></div>'; }
     var P = perfilMeta, mias = solic.filas.filter(function (f) { return yo && f.personaId === yo.Id; });
@@ -625,7 +660,7 @@
       return '<div class="small" style="margin:4px 0"><b>' + esc(fSol(f.fecha)) + '</b> · ' + esc(f.deps.join(', ')) + ' <span class="badge">' + esc(f.estado.toUpperCase()) + '</span>' +
         (f.respuesta ? '<br>' + (f.estado === 'Denegada' ? '<b>Motivo del rechazo:</b> ' : '') + esc(f.respuesta) : '') + '</div>';
     }).join('') + '</div>' : '';
-    if (pend) return cab + '<div class="aviso">Tu solicitud del ' + esc(fSol(pend.fecha)) + ' está <b>PENDIENTE</b> de revisión. Recibirás un correo cuando se resuelva.</div>' + msgSolic + hist;
+    if (pend) return cab + '<div class="aviso">Tu solicitud del ' + esc(fSol(pend.fecha)) + ' está <b>PENDIENTE</b> de revisión. Recibirás un correo cuando se resuelva.' + (msgSolic ? '' : '<div class="small" style="margin-top:6px">¿No te contestan? ' + botonOutlook(pend) + '</div>') + '</div>' + msgSolic + hist;
     if (solic.porCorreo && !solic.info) return cab + '<div class="aviso">Tu solicitud se ha enviado por correo al responsable de los accesos (' + esc(solic.porCorreo.deps.join(', ')) + '). Recibirás la respuesta por correo.</div>' + msgSolic;
     if (ult && ult.estado === 'Denegada') cab += '<div class="aviso">Tu última solicitud se denegó' + (ult.respuesta ? ': «' + esc(ult.respuesta) + '»' : '') + '. Puedes pedirlo otra vez.</div>';
     var deps = departamentos(), cargo = sinTildes(P.cargo || '').toUpperCase();
@@ -653,7 +688,7 @@
     boton.disabled = true;
     // Aviso por correo: solo al responsable de los accesos (AVISAR_SOLIC), como en Incidentes (envío robusto; la solicitud queda guardada igualmente)
     var avisar = function () {
-      return Promise.resolve().then(function () {
+      return leerCuentasAviso().then(function () {
         var to = AVISAR_SOLIC.slice();
         var html = '<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px"><p><b>' + esc(empleo + ' ' + yo.Title) + '</b>' + (yo.Email ? ' (' + esc(yo.Email) + ')' : '') + (tel ? ' · tel. ' + esc(tel) : '') + ' pide acceso a <b>META</b>.</p>' +
           '<p>Departamento: <b>' + esc(deps.join(', ')) + '</b></p>' + (motivo ? '<p>Motivo: ' + esc(motivo) + '</p>' : '') +
@@ -672,12 +707,16 @@
       return avisar().then(function (r) {
         var ok = r && r.ok !== false;
         if (!enLista && !ok) throw new Error('no se pudo guardar la solicitud ni avisar por correo' + (r && r.motivo ? ' (' + r.motivo + ')' : ''));
-        msgSolic = '<div class="' + (ok ? 'okmsg' : 'aviso') + '" style="margin-top:8px">' + (ok ? '✓ Se ha avisado por correo al responsable de los accesos.' : 'No se pudo avisar por correo' + (r && r.motivo ? ' (' + esc(r.motivo) + ')' : '') + '. La solicitud está guardada; si puedes, avisa también a ' + esc(AVISAR_SOLIC.join(', ')) + '.') + '</div>';
+        var bien = ok && !(r && r.rechazados && r.rechazados.length);
+        msgSolic = bien ? '<div class="okmsg" style="margin-top:8px">✓ Se ha avisado por correo al responsable de los accesos.</div>' :
+          '<div class="aviso" style="margin-top:8px;border:2px solid #e67e22"><b>⚠ Falta un paso: avisa al administrador.</b> ' + (enLista ? 'Tu solicitud está guardada, pero ' : '') + 'Colabora no ha dejado enviar el aviso desde tu cuenta' +
+          ' (quien aún no tiene acceso no siempre puede enviar correos)' + (r && r.motivo ? ' · ' + esc(r.motivo) : '') + '. Pulsa el botón: se abre Outlook con el correo ya escrito y solo tienes que darle a «Enviar».' +
+          '<div style="margin:10px 0 4px">' + botonOutlook({ empleo: empleo, tel: tel, deps: deps, motivo: motivo }, true) + '</div></div>';
         if (!enLista) solic.porCorreo = { fecha: new Date().toISOString(), deps: deps };
         return cargarSolicitudes();
       });
     }).then(function () { render(); aviso('Solicitud de acceso enviada'); })
-      .catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo enviar: ' + esc(e.message || e) + '. Pide el acceso directamente a ' + esc(AVISAR_SOLIC.join(', ')) + '.</div>'); });
+      .catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo enviar: ' + esc(e.message || e) + '. Pide el acceso directamente al administrador:</div><div style="margin:8px 0">' + botonOutlook({ empleo: empleo, tel: tel, deps: deps, motivo: motivo }, true) + '</div>'); });
   }
   // Administrador: preparar la lista, dar de alta o denegar
   function vistaSolicitudes() {

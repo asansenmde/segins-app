@@ -29,6 +29,7 @@ let biblioOculta = false;
 const ROLES = { 1073741826: ['Leer', 2], 1073741827: ['Colaborar', 3], 1073741829: ['Control total', 5] };
 const asigSitio = () => [{ id: 3, nombre: 'Propietarios', roles: [1073741829] }, { id: 4, nombre: 'Miembros', roles: [1073741827] }, { id: 99, nombre: 'usuarios del dominio', roles: [1073741826] }];
 let bUnica = false, bAsig = asigSitio(), rolCreado = null;
+let yoCorreo = 'usuario@et.mde.es', solDesc = '', soloCuentasM = false, sinEnvio = false;
 let admin = false, hayMiembros = true, filas = [], haySolic = false, solicitudes = [], correos = []; const SOL = 'META SOLICITUDES';
 const posts = [];
 let ok = true; const comprueba = (txt, c, extra) => { console.log((c ? '✔ ' : '✘ ') + txt + (extra !== undefined ? ': ' + extra : '')); if (!c) ok = false; };
@@ -56,8 +57,11 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
         if (m[1] === 'add') a.roles.push(+m[3]); else a.roles = a.roles.filter(r => r !== +m[3]); return ful({ status: 200, json: { d: {} } }); } }
     if (resto === 'web/roledefinitions') { ROLES[1500] = [c.Name, 0]; rolCreado = c; return ful({ status: 201, json: { d: { Id: 1500, Name: c.Name } } }); }
     if (/^web\/lists\(guid'b1'\)$/.test(resto)) { biblioOculta = !!c.Hidden; return ful({ status: 204, body: '' }); }
+    if (resto === 'SP.Utilities.Utility.SendEmail' && sinEnvio) return ful({ status: 403, json: { error: { message: { value: 'Acceso denegado.' } } } });
+    if (resto === 'SP.Utilities.Utility.SendEmail' && soloCuentasM && [c.properties.To, c.properties.CC].flatMap(x => x ? x.results : []).some(x => /@/.test(x))) return ful({ status: 400, json: { error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } });
     if (resto === 'SP.Utilities.Utility.SendEmail') { correos.push(c.properties); return ful({ json: { d: {} } }); }
     if (lst === SOL) {
+      if (/getbytitle\('[^']*'\)$/.test(resto) && c.Description !== undefined) solDesc = c.Description;
       if (/createfieldasxml|breakroleinheritance|addroleassignment/.test(resto) || !resto.includes('/items')) return ful({ json: { d: {} } });
       const m = resto.match(/items\((\d+)\)$/); delete c.__metadata;
       if (m) { Object.assign(solicitudes.find(f => f.Id === +m[1]), c); return ful({ status: 204, body: '' }); }
@@ -77,10 +81,10 @@ await p.route('https://colabora.mdef.es/**', async r0 => {
     return ful({ status: 400, body: '' });
   }
   if (resto.startsWith('web?')) return ful({ json: { Url: 'https://colabora.mdef.es' + WEB, Title: 'JSUIGE' } });
-  if (resto.startsWith('web/currentuser')) return ful({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' } });
+  if (resto.startsWith('web/currentuser')) return ful({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: yoCorreo, LoginName: 'i:0#.w|et\\usuario' } });
   if (lst === SOL) {
     if (!haySolic) return ful({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
-    if (!resto.includes('/items')) return ful({ json: { Id: '{5a1}', Title: SOL, ListItemEntityTypeFullName: 'SP.Data.META_x0020_SOLICITUDESListItem', ReadSecurity: 2, WriteSecurity: 2 } });
+    if (!resto.includes('/items')) return ful({ json: { Id: '{5a1}', Title: SOL, ListItemEntityTypeFullName: 'SP.Data.META_x0020_SOLICITUDESListItem', ReadSecurity: 2, WriteSecurity: 2, Description: solDesc } });
     return ful({ json: { value: solicitudes.filter(f => admin || f.PersonaId === 7).map(f => ({ ...f })).reverse() } });
   }
   if (/^web\/lists\(guid'b1'\)\?\$select=HasUniqueRoleAssignments/.test(resto)) return ful({ json: { HasUniqueRoleAssignments: bUnica } });
@@ -228,6 +232,18 @@ admin = true; await recargar(); await p.click('#tabs a[data-v="ajustes"]'); awai
 p.once('dialog', d => d.accept('No corresponde a la sección')); await p.click('[data-soldeny="2"]'); await p.waitForTimeout(1200);
 comprueba('denegada con motivo y correo', solicitudes[1].Estado === 'Denegada' && solicitudes[1].Respuesta === 'No corresponde a la sección' && correos.some(c => /denegada/.test(c.Subject)));
 admin = false; await recargar(); comprueba('el usuario ve el motivo y puede pedir otra vez', /se denegó: «No corresponde a la sección»/.test(await p.textContent('#vista')) && !!(await p.$('[data-solpedir]')));
+const entrar = async () => { await p.reload(); await p.waitForTimeout(1800); };
+// Aviso directo al administrador (17/11/2026): deja su cuenta en la descripción de la lista y el aviso va a esa cuenta
+yoCorreo = 'asansen@et.mde.es'; admin = true; await entrar(); await p.waitForTimeout(800); yoCorreo = 'usuario@et.mde.es'; admin = false;
+comprueba('el administrador deja su cuenta en la descripción de «META SOLICITUDES»', solDesc === 'Aviso de solicitudes a: asansen@et.mde.es=i:0#.w|et\\usuario', JSON.stringify(solDesc));
+const pedir = async (m) => { await entrar(); await p.selectOption('#solEmpleo', 'COMANDANTE'); await p.fill('#solTel', '600111222'); await p.fill('#solMotivo', m); await p.check('#solDeps input >> nth=0'); await p.click('[data-solpedir]'); await p.waitForTimeout(1500); };
+soloCuentasM = true; correos.length = 0; await pedir('Con la cuenta');
+comprueba('con Colabora que solo acepta cuentas, el aviso llega a la cuenta del administrador', correos.some(c => JSON.stringify(c.To.results) === JSON.stringify(['i:0#.w|et\\usuario'])) && /Se ha avisado por correo/.test(await p.textContent('#vista')), JSON.stringify(correos.map(c => c.To)));
+solicitudes.forEach(f => { if (f.Estado === 'Pendiente') f.Estado = 'Denegada'; }); sinEnvio = true; await pedir('Sin poder enviar');
+const outl = await p.$$eval('#vista a[href^="mailto:"]', a => a.map(x => x.textContent + ' ' + x.getAttribute('href').slice(0, 40)));
+comprueba('si Colabora no deja enviar, «Falta un paso» y botón de Outlook a asansen', /Falta un paso: avisa al administrador/.test(await p.textContent('#vista')) && outl.some(x => /Avisar al administrador desde Outlook mailto:asansen%40et\.mde\.es/.test(x)), outl.join(' | '));
+await entrar(); comprueba('al volver a entrar, con la solicitud pendiente, sigue el botón de Outlook', /No te contestan/.test(await p.textContent('#vista')) && !!(await p.$('#vista a[href^="mailto:asansen"]')));
+sinEnvio = false; soloCuentasM = false; solicitudes.forEach(f => { if (f.Estado === 'Pendiente') f.Estado = 'Denegada'; });
 // Ficha con «✕ Cerrar» (arriba y al final) y formulario con «Crear tarea» (16/11/2026)
 admin = true; await recargar(); await p.click('#tabs a[data-v="nlt"]').catch(() => {}); await p.waitForTimeout(300);
 await p.evaluate(() => { const t = document.querySelector('.tarea[data-id]'); t && t.click(); }); await p.waitForTimeout(800);

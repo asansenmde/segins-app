@@ -61,6 +61,15 @@ cada dirección se cambia por la cuenta (`aCuentas`: la propia, `getuserbyid` si
 y, si no está en el sitio, `ensureuser` con la dirección); si no se encuentra, se deja la dirección y sigue el envío robusto.
 En los simuladores, `SOLO_CUENTAS=1` imita ese Colabora y `VER_RECHAZOS=1` lista lo que rechaza.
 
+**Aviso directo de las solicitudes de acceso al administrador (17/11/2026):** las alertas de SharePoint no le llegan, y
+quien solicita acceso no puede buscar la cuenta de otro (no tiene permiso en el sitio), así que su `aCuentas` no encuentra
+la de `asansen@et.mde.es`. Solución: cuando el administrador (su correo está en `avisarCorreos`) abre la página o
+«Accesos», `guardarCuentaAviso` escribe su cuenta en la **descripción de la lista de solicitudes**
+(`Aviso de solicitudes a: asansen@et.mde.es=i:0#.w|et\usuario`, MERGE de `SP.List`); `destAvisos` llama antes a
+`leerCuentasAviso`, que la lee de ahí y la pone en `cuentaCache`. Si aun así Colabora no deja enviar a quien solicita, sale
+«⚠ Falta un paso» con el botón grande «✉ Avisar al administrador desde Outlook» (`botonOutlook`, correo ya escrito), y
+mientras la solicitud está pendiente queda un «¿No te contestan?» con el mismo botón. Copiar de `incidentes/incidentes.html`.
+
 Lección del 22/10/2026: en Permisos un autorizador no recibía las solicitudes. Colabora **rechaza el correo ENTERO** si
 **una sola** dirección no es de un usuario que conozca con buzón («Asegúrese de que tenga un destinatario válido»), y
 además las personas suelen tener **cuentas antiguas** en el sitio (sin buzón o con otro correo); si el solicitante elige

@@ -23,6 +23,10 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
 9. **Correo (17/11/2026):** subir las copias 2026-11-17 de todas las aplicaciones (ya envían a la cuenta de cada persona,
    que es lo que Colabora acepta) y confirmar que llegan los avisos; si a alguien no le llegan, que abra
    `prueba-correo.html` con su cuenta y mande el resumen.
+10. **Aviso directo de las solicitudes de acceso (17/11/2026):** subir Incidentes, Pérdidas y VSA 2026-11-17 · 2 y META
+   2026-11-17 · 3, y **abrir cada una una vez con la cuenta del administrador** (deja su cuenta guardada en la descripción
+   de la lista de solicitudes; en Accesos sale «✔ guardada»). Probar con alguien sin acceso: le debe llegar el aviso o
+   salirle «Falta un paso» con el botón de Outlook.
 
 ## Pendiente de que el usuario decida
 
