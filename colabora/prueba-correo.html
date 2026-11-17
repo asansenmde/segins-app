@@ -52,11 +52,11 @@
   <div class="card"><h2>Resumen para el administrador</h2><p class="small muted" style="margin:0">Sin nombres ni direcciones: solo lo que ha salido bien o mal. Puedes copiarlo y mandarlo.</p>
     <div class="resp" id="resumen">—</div><button class="sec" id="copiar">Copiar el resumen</button></div>
 </main>
-<footer>© 2026 · Aplicación desarrollada por el <b>Cte. Alfredo Sánchez Sender</b> · Todos los derechos reservados · versión 2026-11-17 · 1</footer>
+<footer>© 2026 · Aplicación desarrollada por el <b>Cte. Alfredo Sánchez Sender</b> · Todos los derechos reservados · versión 2026-11-17 · 2</footer>
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-17 · 1';
+  var VERSION = '2026-11-17 · 2';
   var $ = function (s) { return document.querySelector(s); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   if (document.documentMode || !window.fetch || !window.Promise) { $('#lista').innerHTML = '<p>Esta página se abre en modo Internet Explorer o en un navegador muy antiguo. Ábrela en <b>Microsoft Edge</b> o Chrome.</p>'; return; }
@@ -129,20 +129,43 @@
       paso('sitio', 'mal', 'No se pudo comprobar', '<br>' + esc(e.message || e) + '. Esta página tiene que abrirse dentro de Colabora (subida a una biblioteca del sitio).');
     });
   }
-  function enviar() {
-    var to = $('#para').value.split(/[;,\s]+/).filter(function (x) { return /@/.test(x); });
-    if (!to.length) { $('#resPrueba').innerHTML = '<p class="small" style="color:var(--bad)">Escribe al menos una dirección.</p>'; return; }
-    var b = $('#enviar'); b.disabled = true; $('#resPrueba').innerHTML = '<p class="small muted">Enviando…</p>';
-    var txt = 'Correo de prueba del diagnóstico del correo de Colabora. Enviado por ' + (yo ? yo.Title : '') + ' el ' + new Date().toLocaleString('es-ES') + ' (versión ' + VERSION + ').';
-    var cuerpo = { properties: { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, Subject: 'PRUEBA · DIAGNÓSTICO DEL CORREO DE COLABORA', Body: '<p style="font-family:Segoe UI,Arial,sans-serif">' + esc(txt) + '</p>' } };
-    // Digest nuevo justo antes (caduca)
-    fetch(web + '/_api/contextinfo', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
+  // Envío con SendEmail (igual que las aplicaciones). Devuelve { st, ok, msg }
+  function mandar(to, asunto, txt) {
+    var cuerpo = { properties: { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, Subject: asunto, Body: '<p style="font-family:Segoe UI,Arial,sans-serif">' + esc(txt) + '</p>' } };
+    return fetch(web + '/_api/contextinfo', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json;odata=verbose' } })
       .then(function (r) { return r.json(); }).then(function (j) { digest = j.d.GetContextWebInformation.FormDigestValue; }).catch(function () { /* el que había */ })
       .then(function () {
         return fetch(web + '/_api/SP.Utilities.Utility.SendEmail', { method: 'POST', credentials: 'same-origin', body: JSON.stringify(cuerpo),
           headers: { Accept: 'application/json;odata=verbose', 'Content-Type': 'application/json;odata=verbose', 'X-RequestDigest': digest } });
       }).then(function (r) {
         return r.text().then(function (t) { var j = null; try { j = JSON.parse(t); } catch (e) { /* sin JSON */ } return { st: r.status, ok: r.ok, msg: mensaje(j) || (r.ok ? '' : t.slice(0, 300)) }; });
+      });
+  }
+  // Cuenta de usuario (et\usuario) de una dirección: la propia o la de un usuario del sitio con ese correo
+  function cuentaDe(correo) {
+    var c = String(correo || '').toLowerCase();
+    if (yo && yo.LoginName && c === String(yo.Email || '').toLowerCase()) return Promise.resolve(yo.LoginName);
+    return api(web + '/_api/web/siteusers?$select=LoginName,Email&$filter=' + encodeURIComponent("Email eq '" + c.replace(/'/g, "''") + "'"))
+      .then(function (d) { var u = (d.value || d.results || []).filter(function (x) { return String(x.Email || '').toLowerCase() === c && x.LoginName; })[0]; return u ? u.LoginName : ''; })
+      .catch(function () { return ''; });
+  }
+  function enviar() {
+    var to = $('#para').value.split(/[;,\s]+/).filter(function (x) { return /@/.test(x); });
+    if (!to.length) { $('#resPrueba').innerHTML = '<p class="small" style="color:var(--bad)">Escribe al menos una dirección.</p>'; return; }
+    var b = $('#enviar'); b.disabled = true; $('#resPrueba').innerHTML = '<p class="small muted">Enviando…</p>';
+    var txt = 'Correo de prueba del diagnóstico del correo de Colabora. Enviado por ' + (yo ? yo.Title : '') + ' el ' + new Date().toLocaleString('es-ES') + ' (versión ' + VERSION + ').';
+    var asunto = 'PRUEBA · DIAGNÓSTICO DEL CORREO DE COLABORA';
+    mandar(to, asunto, txt).then(function (r) {
+      // Si no acepta la dirección, se prueba a cada uno por su cuenta de usuario (et\usuario), como hacen las aplicaciones
+      if (r.ok || !/destinatario|recipient/i.test(r.msg)) return r;
+      return to.reduce(function (pr, d) {
+        return pr.then(function (acc) {
+          return cuentaDe(d).then(function (lg) {
+            if (!lg) { acc.push({ d: d, cuenta: false }); return acc; }
+            return mandar([lg], asunto + ' (por la cuenta)', txt + ' Enviado a la cuenta de usuario en lugar de a la dirección.').then(function (x) { acc.push({ d: d, cuenta: true, ok: x.ok, st: x.st, msg: x.msg }); return acc; });
+          });
+        });
+      }, Promise.resolve([])).then(function (acc) { r.reintentos = acc; return r; });
       }).then(function (r) {
         b.disabled = false;
         var detalle = '<span class="resp">Respuesta de Colabora: HTTP ' + r.st + (r.msg ? ' · ' + esc(r.msg) : '') + '</span>';
@@ -155,8 +178,13 @@
           veredicto('mal', '<b>Este es el problema:</b> tu cuenta no puede enviar correos desde las páginas' + (limitado ? ' porque solo tienes permiso en las listas, no en el sitio' : '') + '. ' +
             'Los avisos de lo que tramitas no salen. Soluciones: que el administrador te dé en el <b>sitio</b> un permiso de lectura (no solo en la lista), o usar las <b>alertas de Colabora</b>, que las envía el propio servidor.');
         } else if (/destinatario|recipient/i.test(r.msg)) {
-          paso('envio', 'mal', 'Colabora no acepta alguna de las direcciones', detalle + '<br>Colabora solo envía a usuarios del sitio que tienen buzón: alguna dirección no es de un usuario conocido o es una cuenta antigua sin buzón.');
-          veredicto('mal', 'El envío funciona, pero <b>alguna dirección no la acepta</b>. Prueba dirección por dirección para ver cuál.');
+          var re = r.reintentos || [], bien = re.filter(function (x) { return x.ok; }), sinCuenta = re.filter(function (x) { return !x.cuenta; });
+          resultados.cuenta2 = !re.length ? '' : bien.length === re.length ? 'ok' : bien.length ? 'ojo' : 'mal';
+          var lineas = re.map(function (x) { return '<br>' + esc(x.d) + ': ' + (!x.cuenta ? 'no se encuentra su cuenta de usuario en el sitio' : x.ok ? '<b>✓ aceptado al enviarlo a su cuenta de usuario</b>' : '✕ tampoco por su cuenta (HTTP ' + x.st + (x.msg ? ' · ' + esc(x.msg) : '') + ')'); }).join('');
+          paso('envio', bien.length ? 'ojo' : 'mal', 'Colabora no acepta la dirección de correo' + (bien.length ? ', pero sí la cuenta de usuario' : ''), detalle + lineas);
+          if (bien.length) veredicto('ok', '<b>Encontrado:</b> Colabora no acepta las direcciones de correo como destinatario, pero <b>sí las cuentas de usuario</b> (et\\usuario). ' +
+            'Mira tu bandeja: debe llegar el correo «(por la cuenta)». El arreglo es que las aplicaciones envíen los avisos a la cuenta de cada persona.');
+          else veredicto('mal', 'Colabora no acepta la dirección' + (sinCuenta.length ? ' y no se encuentra la cuenta de usuario de: ' + esc(sinCuenta.map(function (x) { return x.d; }).join(', ')) : ' ni la cuenta de usuario') + '. Pasa la respuesta exacta al administrador de Colabora.');
         } else {
           paso('envio', 'mal', 'El envío ha fallado', detalle);
           veredicto('mal', 'Colabora ha rechazado el correo por otro motivo (arriba, su respuesta exacta). Pásasela al administrador.');
@@ -173,6 +201,9 @@
       'Envío de prueba: ' + (resultados.envio ? n[resultados.envio] : 'sin hacer')];
     var env = pasos.filter(function (x) { return x.id === 'envio'; })[0];
     if (env) lineas.push('Resultado: ' + env.titulo + (/(HTTP \d+)/.exec(env.detalle) ? ' (' + /(HTTP \d+)/.exec(env.detalle)[1] + ')' : ''));
+    if (resultados.cuenta2) lineas.push('Reintento a la cuenta de usuario (et\\usuario) en lugar de la dirección: ' + n[resultados.cuenta2]);
+    var msgSrv = env && /Respuesta de Colabora: HTTP \d+ · ([^<]*)/.exec(env.detalle);
+    if (msgSrv) lineas.push('Mensaje del servidor: ' + msgSrv[1].replace(/&[a-z#0-9]+;/g, ' ').replace(/[^\s@]+@[^\s@]+/g, '(dirección)').slice(0, 200));
     $('#resumen').textContent = lineas.join('\n');
   }
   $('#enviar').addEventListener('click', enviar);
