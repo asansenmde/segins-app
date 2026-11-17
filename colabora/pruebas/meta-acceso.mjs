@@ -113,15 +113,17 @@ const ajVisible = () => p.$eval('#tabs a[data-v="ajustes"]', a => getComputedSty
 // 1. Sin la lista de miembros: solo lo suyo
 hayMiembros = false;
 await p.goto(URL_); await p.waitForTimeout(1800);
-comprueba('sin lista de miembros ve lo que creó, lo suyo como responsable y donde está implicado', (await vistos()) === '1,2,3', await vistos());
-comprueba('cabecera con «x de y»', /3 de 6 asuntos/.test(await p.textContent('#estadoCarga')), await p.textContent('#estadoCarga'));
-comprueba('lo explica en la bienvenida', /Ves los expedientes que has creado/.test(await p.textContent('.hero')));
+// 17/11/2026: ya no ve lo que solo creó (el nº 1): lo asignado a él y lo de su departamento
+comprueba('sin lista de miembros ve lo suyo como responsable y donde está implicado (no lo que solo creó)', (await vistos()) === '2,3', await vistos());
+comprueba('cabecera con «x de y»', /2 de 6 asuntos/.test(await p.textContent('#estadoCarga')), await p.textContent('#estadoCarga'));
+comprueba('lo explica en la bienvenida', /Ves los expedientes de los que eres responsable/.test(await p.textContent('.hero')));
+comprueba('sin verlo todo no tiene el filtro de responsable', !(await p.$('#fresp')));
 comprueba('no ve Ajustes', !(await ajVisible()));
 
 // 2. Dado de alta en PRL
 hayMiembros = true; filas = [{ Id: 1, Title: 'USUARIO DE PRUEBA', Persona: YO, Negociados: 'PRL', VeTodo: false }];
 await recargar();
-comprueba('con PRL ve también los de PRL (asignado o implicado)', (await vistos()) === '1,2,3,4,5', await vistos());
+comprueba('con PRL ve también los de PRL (asignado o implicado)', (await vistos()) === '2,3,4,5', await vistos());
 comprueba('la bienvenida nombra sus negociados', /y los de PRL/.test(await p.textContent('.hero')));
 // 12/11/2026: en los filtros solo sus departamentos (Control total, todos)
 comprueba('filtro de departamento solo con los suyos', (await p.$$eval('#fneg option', o => o.map(x => x.textContent))).join() === 'Todos,PRL', (await p.$$eval('#fneg option', o => o.map(x => x.textContent))).join());
@@ -229,8 +231,15 @@ admin = false; await recargar(); comprueba('el usuario ve el motivo y puede pedi
 // Ficha con «✕ Cerrar» (arriba y al final) y formulario con «Crear tarea» (16/11/2026)
 admin = true; await recargar(); await p.click('#tabs a[data-v="nlt"]').catch(() => {}); await p.waitForTimeout(300);
 await p.evaluate(() => { const t = document.querySelector('.tarea[data-id]'); t && t.click(); }); await p.waitForTimeout(800);
-const cerrarFicha = await p.$$eval('#dlg button[data-cerrar]', n => n.map(x => x.textContent.trim()));
-comprueba('la ficha tiene «✕ Cerrar» junto a Modificar y al final', cerrarFicha.filter(x => /Cerrar/.test(x)).length === 2, cerrarFicha.join(' | '));
+const cerrarFicha = await p.$$eval('#dlg button[data-cerrar]', n => n.map(x => x.textContent.trim() + (x.classList.contains('cerrarficha') ? ' (rojo)' : '') + (x.closest('.dh') ? ' [arriba]' : '')));
+comprueba('«✕ Cerrar ficha» arriba en rojo y otro al final', cerrarFicha.length === 2 && cerrarFicha.every(x => /Cerrar ficha \(rojo\)/.test(x)) && /\[arriba\]/.test(cerrarFicha[0]), cerrarFicha.join(' | '));
+comprueba('el estado dice «pulse para cambiar de estado»', /Estado \(pulse para cambiar de estado\)/.test(await p.textContent('#dlg .pasos.elegir')));
+comprueba('con Control total sí está el filtro de responsable', !!(await p.$('#fresp')));
+{ const [imp] = await Promise.all([p.context().waitForEvent('page'), p.click('#dlg .dh [data-fichaimp]')]); await imp.waitForLoadState(); await imp.waitForTimeout(800);
+  const txt = (await imp.textContent('body')).replace(/\s+/g, ' ');
+  comprueba('«🖨 Imprimir» saca la ficha completa', /META · Gestión de expedientes MENSADEF/.test(txt) && /Expediente nº \d+/.test(txt) && /Estado/.test(txt) && /Descripción del asunto/.test(txt) && /Responsable de la información/.test(txt), txt.slice(0, 120));
+  await imp.close(); }
+comprueba('la pantalla principal ocupa todo el ancho', await p.evaluate(() => { const m = document.querySelector('main'); return m.getBoundingClientRect().width > window.innerWidth * 0.9; }));
 await p.evaluate(() => { const b = [...document.querySelectorAll('#dlg button[data-cerrar]')].pop(); b.click(); }); await p.waitForTimeout(300);
 comprueba('«Cerrar» del final cierra la ficha', !(await p.evaluate(() => document.querySelector('#dlg').open)));
 await p.click('#nuevo'); await p.waitForTimeout(600);

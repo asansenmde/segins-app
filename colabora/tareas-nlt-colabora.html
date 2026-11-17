@@ -60,6 +60,14 @@
   nav.tabs a.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
   @media (max-width: 560px) { nav.tabs { overflow-x: auto; } nav.tabs a { flex: 1 0 auto; font-size: .8rem; padding: 8px 6px; } }
   main { max-width: 1000px; margin: 0 auto; padding: 0 16px 60px; }
+  /* META (17/11/2026): la pantalla principal ocupa todo el ancho y las tarjetas se reparten en columnas según el tamaño */
+  .tema-mensadef main { max-width: none; padding: 0 clamp(12px, 2.2vw, 36px) 60px; }
+  @media (min-width: 1200px) { .tema-mensadef details.grupo > .cuerpo:has(> div.tarea) { display: grid; grid-template-columns: repeat(auto-fill, minmax(540px, 1fr)); gap: 0 12px; align-items: start; } }
+  .btn.cerrarficha, button.cerrarficha { background: #c62828; color: #fff; border: 1px solid #c62828; font-weight: 700; }
+  .btn.cerrarficha:hover { background: #a91f1f; }
+  .dh .dhacc { display: flex; gap: 8px; flex: none; }
+  .pasos.elegir .ayuda { font-weight: 400; color: var(--muted); background: none !important; border: 0 !important; padding: 0 !important; box-shadow: none !important; }
+  .pie-ficha { display: flex; justify-content: flex-end; gap: 8px; margin: 12px 16px 16px; } .pie-ficha .btn { flex: 0 0 auto; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
   .muted { color: var(--muted); } .small { font-size: .85rem; }
   button, .btn { font: inherit; font-weight: 600; padding: 7px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); cursor: pointer; text-decoration: none; display: inline-block; }
@@ -293,7 +301,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-16 · 2';
+  var VERSION = '2026-11-17 · 1';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -454,7 +462,7 @@
   var cargando = null;
 
   // ---------- META: quién ve cada expediente (solo en META, la copia --propio) ----------
-  // Cada uno ve los expedientes que ha creado, de los que es responsable, en los que está implicado y los de sus negociados
+  // Cada uno ve los expedientes de los que es responsable, en los que está implicado y los de sus negociados (desde el 17/11 ya no los que creó)
   // (asignado o implicado). Lo ve todo quien tiene Control total y quien el administrador marque «Lo ve todo».
   // Los negociados de cada persona se dan de alta en Ajustes (lista «META MIEMBROS»: Persona, Negociados separados por «;»,
   // VeTodo). Es un filtro de la página: quien abra la lista directamente en Colabora la sigue viendo entera.
@@ -478,7 +486,8 @@
   function puedeVer(t) {
     if (!restringido()) return true;
     if (!yo) return false;
-    if (t.autorId === yo.Id || meImplica(t)) return true;
+    // 17/11/2026: cada uno ve lo que tiene asignado (responsable o implicado) y lo de su departamento; el resto, quien lo ve todo
+    if (meImplica(t)) return true;
     var negs = [t.negociado].concat(t.negociados).filter(Boolean).map(sinTildes);
     return acceso.misNegs.some(function (n) { return negs.indexOf(n) >= 0; });
   }
@@ -497,7 +506,7 @@
     if (esAdmin) return 'Ves todos los expedientes (Control total).' + (pendientes().length ? ' · 📨 ' + pendientes().length + ' solicitud' + (pendientes().length === 1 ? '' : 'es') + ' de acceso pendiente' + (pendientes().length === 1 ? '' : 's') + ' (Ajustes)' : '');
     if (acceso.veTodo) return 'Ves todos los expedientes (dado de alta para verlo todo).';
     var mia = yo ? acceso.filas.find(function (f) { return f.personaId === yo.Id; }) : null;
-    return 'Ves los expedientes que has creado, de los que eres responsable o en los que estás implicado' + (mia && mia.negs.length ? ' y los de ' + mia.negs.join(', ') : '') + '.';
+    return 'Ves los expedientes de los que eres responsable o en los que estás implicado' + (mia && mia.negs.length ? ' y los de ' + mia.negs.join(', ') : '') + '.';
   };
   // Ajustes de META (solo Control total): crear la lista y dar de alta a las personas
   var mmEditando = null, mmPersona = null;
@@ -510,7 +519,7 @@
     var negs = celulas.concat(antiguos);
     // Al modificar a alguien, sus departamentos actuales siempre salen (aunque sean de antes), para no perderlos sin querer
     if (mmEditando) (acceso.filas.find(function (f) { return f.id === mmEditando; }) || { negs: [] }).negs.forEach(function (n) { if (negs.indexOf(n) < 0) negs.push(n); });
-    var cab = '<div class="card"><h3 style="margin-top:0">👥 Quién ve los expedientes de META</h3><p class="small">Cada persona ve los expedientes que ha creado, de los que es responsable, en los que está implicada y los de <b>sus departamentos (células de MENSADEF) o negociados</b> (asignado o implicado). ' +
+    var cab = '<div class="card"><h3 style="margin-top:0">👥 Quién ve los expedientes de META</h3><p class="small">Cada persona ve los expedientes de los que es responsable, en los que está implicada y los de <b>sus departamentos (células de MENSADEF) o negociados</b> (asignado o implicado). ' +
       'Los ve todos quien tiene Control total (tú) y quien marques «Lo ve todo».</p>' +
       '<p class="small muted">Es un filtro de esta página: quien abra la lista «' + esc(pref.lista) + '» directamente en Colabora la verá entera. Para que no pase, en Colabora deja la lista solo para los que usan META.</p>';
     if (!acceso.info) return cab + (acceso.error ? '<div class="error">No se pudo leer la lista «' + esc(MIEMBROS) + '»: ' + esc(acceso.error) + '</div>' :
@@ -898,7 +907,7 @@
       if (fn && t.negociado !== fn && t.negociados.indexOf(fn) < 0) return false;
       if (pref.estado && t.estado !== pref.estado) return false;
       if (pref.prio && t.prioridad !== pref.prio) return false;
-      if (pref.resp && (t.responsable || 'Sin responsable') !== pref.resp) return false;
+      if (pref.resp && !(PROPIO && restringido()) && (t.responsable || 'Sin responsable') !== pref.resp) return false;
       if (q && sinTildes([t.asunto, t.descripcion, t.expediente, t.ctrlExp, 'exp ' + t.expediente, t.responsable, t.implicados.join(' '), t.negociado, t.estado, t.observaciones].join(' ')).indexOf(q) < 0) return false;
       return true;
     });
@@ -925,7 +934,7 @@
       '<div><label class="lbl">Qué asuntos</label><select id="fquien">' +
         [['mias', 'Soy responsable'], ['implicado', 'Responsable o implicado'], ['todos', 'Todos']].map(function (o) { return '<option value="' + o[0] + '"' + (pref.quien === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
       '<div><label class="lbl">' + tx('Departamento') + '</label><select id="fneg">' + opcionesDep(pref.negociado) + '</select></div>' +
-      '<div><label class="lbl">Responsable</label><select id="fresp">' + opciones(resps, pref.resp, 'Todos') + '</select></div>' +
+      (PROPIO && restringido() ? '' : '<div><label class="lbl">Responsable</label><select id="fresp">' + opciones(resps, pref.resp, 'Todos') + '</select></div>') +
       '<div><label class="lbl">Estado</label><select id="fest">' + opciones(valores('ESTADO', 'estado'), pref.estado, 'Todos') + '</select></div>' +
       '<div><label class="lbl">Prioridad</label><select id="fprio">' + opciones(valores('Prioridad', 'prioridad'), pref.prio, 'Todas') + '</select></div>' +
       '<div><label class="lbl">Terminados desde</label><input type="date" id="fterd" value="' + esc(pref.terDesde || '') + '"></div>' +
@@ -2967,6 +2976,45 @@
       'Tus preferencias (filtros, estados, informe) se guardan solo en este navegador.</p></div>';
   }
 
+  // ---------- Imprimir la ficha completa (META, 17/11/2026) ----------
+  function imprimirFicha(id) {
+    var t = tareas.find(function (x) { return x.id === id; });
+    if (!t) return;
+    var w = null;
+    try { w = window.open('', '_blank'); } catch (e) { w = null; }
+    if (w && w.document) w.document.write('<p style="font:14px sans-serif;margin:30px">Preparando la ficha…</p>');
+    var campo = campoComentarios();
+    var coms = anexa(campo) ? historialComentarios(t, campo).catch(function () { return null; }) : Promise.resolve(null);
+    coms.then(function (cs) {
+      var u = urgencia(t);
+      var filas = [['Expediente (nº de Colabora)', t.expediente], ['Estado', t.estado], ['Prioridad', t.prioridad], ['NLT (fecha vencimiento)', t.nlt ? fLarga(t.nlt) + ' · ' + u.txt : 'Sin fecha'],
+        ['Fecha de inicio', t.inicio && fLarga(t.inicio)], ['Fecha de finalización', t.fin && fLarga(t.fin)], ['Responsable de la información', t.responsable],
+        ['Personal implicado', t.implicados.join(', ')], [tx('Departamento asignado'), t.negociado], [tx('Departamentos implicados'), t.negociados.join(', ')],
+        ['Para tratar en', (t.tratar || []).join(', ')], ['Control expediente (texto anterior)', t.ctrlExp && t.ctrlExp !== t.expediente ? t.ctrlExp : ''],
+        ['Creado', new Date(t.creada).toLocaleString('es-ES') + (t.autor ? ' por ' + t.autor : '')], ['Modificado', new Date(t.modificada).toLocaleString('es-ES') + (t.editor ? ' por ' + t.editor : '')]]
+        .filter(function (x) { return x[1]; });
+      var bloque = function (titulo, txt) { return txt ? '<h3>' + esc(titulo) + '</h3><div class="txt">' + esc(txt) + '</div>' : ''; };
+      var hist = cs && cs.length ? '<h3>Comentarios</h3>' + cs.map(function (c) { return '<div class="com"><b>' + esc(c.autor || '—') + ' · ' + esc(fHora(c.fecha)) + '</b><div class="txt">' + esc(c.texto) + '</div></div>'; }).join('')
+        : bloque(campo === 'Comentarios' ? 'Comentarios' : 'Registro de actividad', campo === 'Comentarios' ? t.observaciones : t.registro);
+      var cuerpo = '<div class="cab"><div class="org">META · Gestión de expedientes MENSADEF</div><h1>' + esc(t.asunto) + '</h1><div class="sub">Expediente nº ' + esc(t.expediente) + ' · impreso el ' + esc(new Date().toLocaleString('es-ES')) + (yo ? ' por ' + esc(yo.Title) : '') + '</div></div>' +
+        '<table>' + filas.map(function (x) { return '<tr><th>' + esc(x[0]) + '</th><td>' + esc(x[1]) + '</td></tr>'; }).join('') + '</table>' +
+        bloque('Descripción del asunto', t.descripcion) + (campo === 'Comentarios' ? bloque('Registro de actividad', t.registro) : bloque('Observaciones', t.observaciones)) + hist +
+        '<p class="pie">' + esc(listaInfo ? listaInfo.Title : pref.lista) + ' · META · © 2026 Cte. Alfredo Sánchez Sender</p>';
+      var doc = '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>' + esc('Expediente ' + t.expediente + ' · ' + t.asunto) + '</title><style>' +
+        '@page{size:A4;margin:1.5cm}body{font-family:Arial,sans-serif;font-size:10.5pt;color:#000;margin:0}.cab{border-bottom:3px solid #c9a84c;margin-bottom:12px;padding-bottom:6px}' +
+        '.org{font-size:9pt;letter-spacing:.12em;text-transform:uppercase;color:#12315a;font-weight:bold}h1{font-size:15pt;margin:4px 0}.sub{font-size:9pt;color:#444}' +
+        'table{width:100%;border-collapse:collapse;margin:8px 0}th{width:32%;text-align:left;background:#e4ebf4;padding:4px 6px;border:1px solid #c7d2e0;vertical-align:top;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+        'td{padding:4px 6px;border:1px solid #c7d2e0;vertical-align:top}h3{font-size:11.5pt;color:#12315a;margin:14px 0 4px;border-bottom:1px solid #c7d2e0}.txt{white-space:pre-wrap}' +
+        '.com{margin:6px 0;page-break-inside:avoid}.com b{font-size:9pt}.pie{margin-top:18px;font-size:8pt;color:#555;border-top:1px solid #ccc;padding-top:4px}' +
+        '.aviso{background:#fff4d6;padding:8px;margin:0 0 10px;font-size:9pt}@media print{.aviso{display:none}}</style></head><body>' +
+        '<div class="aviso">Si no se abre el diálogo de impresión, pulsa Ctrl+P. Para PDF, elige «Guardar como PDF».</div>' + cuerpo +
+        '<scr' + 'ipt>window.onload=function(){setTimeout(function(){window.print()},400)}</scr' + 'ipt></body></html>';
+      if (w && !w.closed && w.document) { w.document.open(); w.document.write(doc); w.document.close(); return; }
+      descargar('expediente-' + t.expediente + '.html', doc, 'text/html;charset=utf-8');
+      aviso('Descargado: ábrelo y elige Imprimir → Guardar como PDF');
+    });
+  }
+
   // ---------- Detalle de un asunto ----------
   function abrir(id) {
     var t = tareas.find(function (x) { return x.id === id; });
@@ -2982,8 +3030,9 @@
       [campoComentarios() === 'Comentarios' ? '' : 'Observaciones', t.observaciones], [campoComentarios() === 'REGISTRODEACTIVIDAD' ? '' : 'Registro de actividad', t.registro],
       ['Creado', new Date(t.creada).toLocaleString('es-ES') + (t.autor ? ' por ' + t.autor : '')], ['Modificado', new Date(t.modificada).toLocaleString('es-ES') + (t.editor ? ' por ' + t.editor : '')]];
     var dlg = $('#dlg');
-    dlg.innerHTML = '<div class="dh"><h2>' + esc(t.asunto) + '</h2><button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button></div><div class="db ficha"><div class="ficha-datos">' +
-      (PROPIO ? '<div class="pasos elegir"><b class="small">Estado:</b> ' + FASES.filter(function (f) { return f[0] === 'curso' || f[0] === 'hecha'; }).map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<button type="button" class="c-' + f[0] + (t.clase === f[0] ? ' on' : '') + '" data-fase="' + f[0] + '" data-id="' + t.id + '" title="' + (t.clase === f[0] ? 'Estado actual: ' + esc(t.estado) : 'Pasar a «' + esc(estadoDe(f[0]) || CLASES[f[0]]) + '»') + '">' + f[1] + ' ' + CLASES[f[0]] + '</button>'; }).join('') + '<span id="estMsg" class="small"></span></div>' :
+    dlg.innerHTML = '<div class="dh"><h2>' + esc(t.asunto) + '</h2>' + (PROPIO ? '<div class="dhacc"><button type="button" class="btn" data-fichaimp="' + t.id + '" title="Imprimir o guardar en PDF la ficha completa">🖨 Imprimir</button>' +
+      '<button type="button" class="btn cerrarficha" data-cerrar>✕ Cerrar ficha</button></div>' : '<button data-cerrar style="background:transparent;color:#fff;border:0;font-size:1.3rem">✕</button>') + '</div><div class="db ficha"><div class="ficha-datos">' +
+      (PROPIO ? '<div class="pasos elegir"><b class="small">Estado <span class="ayuda">(pulse para cambiar de estado)</span>:</b> ' + FASES.filter(function (f) { return f[0] === 'curso' || f[0] === 'hecha'; }).map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<button type="button" class="c-' + f[0] + (t.clase === f[0] ? ' on' : '') + '" data-fase="' + f[0] + '" data-id="' + t.id + '" title="' + (t.clase === f[0] ? 'Estado actual: ' + esc(t.estado) : 'Pasar a «' + esc(estadoDe(f[0]) || CLASES[f[0]]) + '»') + '">' + f[1] + ' ' + CLASES[f[0]] + '</button>'; }).join('') + '<span id="estMsg" class="small"></span></div>' :
       '<div class="pasos" title="Fase del asunto (se ajusta en Ajustes)">' + FASES.map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<span class="c-' + f[0] + (t.clase === f[0] ? ' on' : '') + '">' + f[1] + ' ' + CLASES[f[0]] + '</span>'; }).join('') + '</div>') +
       c.filter(function (x) { return x[0] && x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       '<div class="tratar"><b class="small">Para tratar en:</b> ' + (hayTratar() ? TRATAR.map(function (x) { var on = tieneTratar(t, x[0]);
@@ -2991,7 +3040,7 @@
         '<span class="small muted">falta la columna «Tratar en» en la lista; la crea quien administre la lista en Ajustes.</span>') + '<span id="trMsg" class="small"></span></div>' +
       '<div id="psBox" class="psbox" data-id="' + t.id + '"></div>' +
       // META: «Cerrar» junto a «Modificar» y al final de la ficha (petición del usuario, 16/11/2026)
-      (PROPIO ? '<div class="acciones"><button type="button" class="btn prim" data-modificar="' + t.id + '">✎ Modificar</button><button type="button" class="btn" data-cerrar>✕ Cerrar</button>' +
+      (PROPIO ? '<div class="acciones"><button type="button" class="btn prim" data-modificar="' + t.id + '">✎ Modificar</button>' +
         (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
         (t.clase !== 'hecha' && destinatarios(t).para.length ? '<button type="button" class="btn" data-asignar="' + t.id + '">🔔 Recordar asignación</button>' : '') +
         '<span class="sep"></span><button type="button" class="btn rojo" data-eliminar="' + t.id + '">🗑 Eliminar</button></div><div id="correoAsig"></div></div><div class="ficha-com">' : '') +
@@ -3009,7 +3058,7 @@
       '<div class="error" id="comError" hidden></div>' +
       '<div class="acciones"><button type="button" class="btn prim" data-comentar="' + t.id + '">💬 Añadir comentario</button></div>' +
       '<div id="comLista" data-id="' + t.id + '"></div></div></div>' +
-      (PROPIO ? '<div class="acciones" style="justify-content:flex-end;margin-top:12px"><button type="button" class="btn" data-cerrar>✕ Cerrar</button></div>' : '');
+      (PROPIO ? '<div class="pie-ficha"><button type="button" class="btn" data-fichaimp="' + t.id + '">🖨 Imprimir</button><button type="button" class="btn cerrarficha" data-cerrar>✕ Cerrar ficha</button></div>' : '');
     dlg.showModal(); dlg.scrollTop = 0;
     pintarComentarios(t);
     pintarPS(t);
@@ -3084,6 +3133,7 @@
     if (el.closest('[data-renombrarpruebas]')) { renombrarListaPruebas(el.closest('[data-renombrarpruebas]')); return; }
     if (el.closest('[data-pruebacorreo]')) { correoPrueba(el.closest('[data-pruebacorreo]')); return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); return; }
+    if (el.closest('[data-fichaimp]')) { imprimirFicha(Number(el.closest('[data-fichaimp]').dataset.fichaimp)); return; }
     var k = el.closest('[data-kpi]');
     if (k) { kpiSel = kpiSel === k.dataset.kpi ? '' : k.dataset.kpi; render(); return; }
     var md = el.closest('[data-modo]');

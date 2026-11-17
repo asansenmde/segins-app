@@ -35,6 +35,13 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
   sigue viendo en la ficha y en la búsqueda). Si el estado es de terminado hay que poner la fecha de finalización, y si se
   pone la fecha el estado tiene que ser de terminado. La situación la manda solo el estado: los asuntos antiguos con fecha
   de fin pero estado abierto (o terminados sin fecha) salen como abiertos (o terminados) con un aviso ⚠ hasta corregirlos.
+- **Versión 2026-11-17 · 1 (META):**
+  - Ficha: «✕ Cerrar ficha» en rojo arriba (cabecera fija) y al final, con «🖨 Imprimir» al lado: la ficha completa (datos,
+    descripción, observaciones y todos los comentarios con autor y fecha) en A4, para imprimir o guardar en PDF.
+  - «Estado (pulse para cambiar de estado)» en los pasos de la ficha.
+  - Pantalla principal a todo el ancho; en pantallas anchas las tarjetas se reparten en columnas.
+  - Quién ve qué: lo que tiene asignado (responsable o implicado) y lo de su departamento; ya no lo que solo creó. El filtro
+    «Responsable» solo lo tiene quien lo ve todo (Control total o «Lo ve todo» en Ajustes › Quién ve los expedientes).
 - **Versión 2026-11-16 · 2: Punto de Situación** (aviso de la sesión de Puntos de Situación, con el visto bueno del usuario):
   - Antes de escribir en «PS Aportaciones» (incluir o «Actualizar la situación») se lee del servidor la hora de cierre vigente
     del punto: si ya pasó, lo dice y no escribe; si no, guarda `CierrePunto` con esa hora (la copia atrasada de la entrada se
