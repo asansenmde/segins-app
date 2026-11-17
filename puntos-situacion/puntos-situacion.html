@@ -158,7 +158,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-17 · 2';
+  var VERSION = '2026-11-17 · 3';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -327,7 +327,7 @@
       ['Convocados', 'Note', 'Negociados convocados'], ['Repetir', 'Number', 'Repetir cada (días)'], ['RecordarHoras', 'Number', 'Recordatorio (horas antes)'],
       ['RecordatorioEnviado', 'DateTime', 'Recordatorio enviado'], ['RutaArchivo', 'Text', 'Archivado en'], ['ArchivadoPor', 'Text', 'Archivado por'],
       ['FechaArchivo', 'DateTime', 'Fecha de archivo'], ['FechaBorrado', 'DateTime', 'Contenido borrado el'], ['Historial', 'Note', 'Historial']],
-    negs: [['Orden', 'Number', 'Orden'], ['NombreGestor', 'Text', 'Nombre en el Gestor de Tareas'], ['CelulaMensadef', 'Text', 'Célula de MENSADEF'], ['Miembros', 'UserMulti', 'Miembros'],
+    negs: [['Orden', 'Number', 'Orden'], ['NombreGestor', 'Text', 'Nombre en el Gestor de Tareas'], ['CelulaMensadef', 'Text', 'Célula de MENSADEF'], ['MetaDescartadas', 'Note', 'Propuestas de META descartadas'], ['Miembros', 'UserMulti', 'Miembros'],
       ['Coordina', 'Boolean', 'Coordina', 0], ['EnInforme', 'Boolean', 'En el informe', 1]],
     aport: [['PuntoId', 'Number', 'Punto'], ['Referencia', 'Text', 'Referencia'], ['Negociado', 'Text', 'Negociado'], ['Tipo', 'Choice', 'Tipo', ['Entrada', 'Sin novedad']],
       ['Situacion', 'Note', 'Situación'], ['Prioridad', 'Choice', 'Prioridad', ['Normal', 'Alta']], ['Orden', 'Number', 'Orden'], ['Expediente', 'Text', 'Expediente'],
@@ -380,7 +380,7 @@
     }).then(function () {
       if (!instalada) return;
       return Promise.all([
-        todos(U('negs') + '/items?$top=500&$select=Id,Title,Orden,NombreGestor,' + (hayCampo('negs', 'CelulaMensadef') ? 'CelulaMensadef,' : '') + 'Coordina,EnInforme,Miembros/Id,Miembros/Title,Miembros/EMail&$expand=Miembros').then(function (x) { negs = x.map(aNeg).sort(porOrden); }),
+        todos(U('negs') + '/items?$top=500&$select=Id,Title,Orden,NombreGestor,' + (hayCampo('negs', 'CelulaMensadef') ? 'CelulaMensadef,' : '') + (hayCampo('negs', 'MetaDescartadas') ? 'MetaDescartadas,' : '') + 'Coordina,EnInforme,Miembros/Id,Miembros/Title,Miembros/EMail&$expand=Miembros').then(function (x) { negs = x.map(aNeg).sort(porOrden); }),
         todos(U('puntos') + '/items?$top=500&$select=Id,Title,Referencia,Anio,Numero,FechaPunto,Apertura,Cierre,EstadoPunto,Convocados,Repetir,RecordarHoras,RecordatorioEnviado,RutaArchivo,ArchivadoPor,FechaArchivo,FechaBorrado,Historial,Created,Modified,Author/Title&$expand=Author')
           .then(function (x) { puntos = x.map(aPunto).sort(function (a, b) { return b.fecha - a.fecha || b.id - a.id; }); }),
         todos(U('aport') + '/items?$top=500&$select=' + SEL_APORT + (hayCampo('aport', 'OrigenClave') ? ',OrigenClave' : '') + '&$expand=Editor,Author,AttachmentFiles').then(function (x) { aport = x.map(aAport); })
@@ -423,7 +423,7 @@
   // ---------- Modelo ----------
   var porOrden = function (a, b) { return (a.orden == null ? 99 : a.orden) - (b.orden == null ? 99 : b.orden) || a.titulo.localeCompare(b.titulo, 'es'); };
   function aNeg(x) {
-    return { id: x.Id, titulo: x.Title || '', orden: x.Orden, gestor: x.NombreGestor || '', celula: x.CelulaMensadef || '', coordina: !!x.Coordina, informe: x.EnInforme !== false,
+    return { id: x.Id, titulo: x.Title || '', orden: x.Orden, gestor: x.NombreGestor || '', celula: x.CelulaMensadef || '', descartadas: String(x.MetaDescartadas || '').split(/[;,\s]+/).map(Number).filter(Boolean), coordina: !!x.Coordina, informe: x.EnInforme !== false,
       miembros: lista(x.Miembros).map(function (m) { return { Id: m.Id, Title: m.Title, Email: m.EMail || '' }; }) };
   }
   function aPunto(x) {
@@ -584,14 +584,17 @@
         '<span class="sep"></span>' + (p.estado !== 'Contenido borrado' ? '<button class="prim" data-word="' + p.id + '">📄 Generar informe Word</button>' : '') + '</div>';
       var props = propuestas(p);
       // 12/11/2026: las que no casan con ningún negociado no se quedan en el limbo: PROCOR elige dónde incluirlas
-      if (props.length) h += '<h2 class="sec">⭐ Propuestas de META (Tratar con el General) · ' + props.length + '</h2><div class="card">' + props.map(function (x) {
+      var descS = propuestas(p, null, true);
+      var btnDesc = function (x) { return puedeDescartar(x.neg) ? '<button class="small" title="Que no salga más aquí (en META no se toca)" data-descartarmeta="' + x.t.Id + '" data-neg="' + esc(x.neg) + '">✕ Descartar</button>' : ''; };
+      if (props.length) h += '<details class="card" style="margin-top:12px"' + (pref.propsAbiertas ? ' open' : '') + ' data-props><summary style="cursor:pointer"><b>⭐ Propuestas de META (Tratar con el General) · ' + props.length + '</b> <span class="small muted">pulsa para verlas; las que no interesen se descartan y no vuelven a salir</span></summary>' + props.map(function (x) {
         var dueno = String(x.t.NegociadoAsignado || '').trim();
-        if (x.neg) return '<div class="fila small" style="border-bottom:1px solid var(--line);padding:4px 0"><span class="crece"><b>' + esc(x.t.Title) + '</b> <span class="muted">· Exp. ' + x.t.Id + '</span></span><span class="badge info">' + esc(x.neg) + '</span></div>';
+        if (x.neg) return '<div class="fila small" style="border-bottom:1px solid var(--line);padding:4px 0"><span class="crece"><b>' + esc(x.t.Title) + '</b> <span class="muted">· Exp. ' + x.t.Id + '</span></span><span class="badge info">' + esc(x.neg) + '</span>' + btnDesc(x) + '</div>';
         return '<div class="fila small" style="border-bottom:1px solid var(--line);padding:4px 0;flex-wrap:wrap"><span class="crece"><b>' + esc(x.t.Title) + '</b> <span class="muted">· Exp. ' + x.t.Id + '</span></span>' +
           '<span class="badge warn" data-sinneg title="' + (dueno ? 'Añade este nombre en Ajustes («Negociado en el Gestor») para que se reparta solo' : 'El expediente no tiene negociado asignado en META') + '">' + (dueno ? '«' + esc(dueno) + '» no está en Ajustes' : 'sin negociado en META') + '</span>' +
           '<select data-negpara="' + x.t.Id + '" style="max-width:200px">' + cs.map(function (n) { return '<option>' + esc(n.titulo) + '</option>'; }).join('') + '</select>' +
-          '<button class="small" data-incluiren="' + x.t.Id + '">📋 Incluir en…</button></div>';
-      }).join('') + '<p class="small muted">Las que tienen negociado las ve ese negociado en «Mi negociado» y decide si las incluye. Las que no, las incluyes tú eligiendo el negociado.</p></div>';
+          '<button class="small" data-incluiren="' + x.t.Id + '">📋 Incluir en…</button>' + btnDesc(x) + '</div>';
+      }).join('') + '<p class="small muted">Las que tienen negociado las ve ese negociado en «Mi negociado» y decide si las incluye o las descarta. Las que no, las incluyes tú eligiendo el negociado. «✕ Descartar» solo las quita de aquí: en META no se borra nada.</p></details>';
+      h += htmlDescartadas(descS);
       var sig = siguientePeriodico();
       if (sig) h += '<div class="card fila"><span class="crece small">El último punto se repite cada <b>' + sig.dias + ' día' + (sig.dias === 1 ? '' : 's') + '</b>. Siguiente: <b>' + esc(fLarga(sig.fecha)) + '</b></span><button data-siguiente>＋ Crear el siguiente punto</button></div>';
     }
@@ -611,12 +614,48 @@
     var n = negsInforme().find(function (x) { return x.gestor.split(';').concat([x.titulo]).some(function (y) { return sinTildes(y).trim() === v; }); });
     return n ? n.titulo : '';
   }
-  function propuestas(p, neg) {
+  // descartadas: true = solo las descartadas (para recuperarlas); por defecto, sin ellas
+  function propuestas(p, neg, descartadas) {
     if (!p || !esAbierto(p)) return [];
-    var ya = delPunto(p).filter(function (a) { return a.origenLista === META; }).map(function (a) { return a.origenId; });
+    var ya = delPunto(p).filter(function (a) { return a.origenLista === META; }).map(function (a) { return a.origenId; }), fuera = idsDescartados();
     return metaTareas.filter(function (t) { return ya.indexOf(t.Id) < 0; }).map(function (t) { return { t: t, neg: negDeGestor(t.NegociadoAsignado) }; })
-      .filter(function (x) { return !neg || x.neg === neg; });
+      .filter(function (x) { return (!neg || x.neg === neg) && (fuera.indexOf(x.t.Id) >= 0) === !!descartadas; });
   }
+  // Propuestas de META descartadas (17/11/2026): no se borran en META, solo dejan de salir aquí, en todos los puntos.
+  // Se guardan en «PS Negociados», columna «Propuestas de META descartadas»: las de un negociado en su fila y las que no
+  // tienen negociado en la de coordinación. Si la columna aún no existe, se guardan solo en este navegador.
+  var idsDescartados = function () {
+    var l = (pref.metaDescartadas || []).slice();
+    negs.forEach(function (n) { (n.descartadas || []).forEach(function (id) { if (l.indexOf(id) < 0) l.push(id); }); });
+    return l;
+  };
+  var filaDescarte = function (neg) { return neg ? negs.find(function (n) { return n.titulo === neg; }) : (negs.find(function (n) { return n.coordina && !n.informe; }) || negs.find(function (n) { return n.coordina; })); };
+  var puedeDescartar = function (neg) { return neg ? puedo(neg) : coordino(); };
+  function descartarMeta(id, neg, recuperar, boton) {
+    if (!puedeDescartar(neg)) return aviso('No puedes cambiar las propuestas de ' + (neg || 'coordinación'));
+    var cambiar = function (l) { l = (l || []).filter(function (x) { return x !== id; }); if (!recuperar) l.push(id); return l; };
+    if (!hayCampo('negs', 'MetaDescartadas')) {
+      pref.metaDescartadas = cambiar(pref.metaDescartadas); guardarPref();
+      aviso((recuperar ? 'Recuperada' : 'Descartada') + ' (solo en este navegador: falta «Comprobar la instalación» en Ajustes)'); render(); return;
+    }
+    var n = filaDescarte(neg);
+    if (!n) return aviso('No encuentro el negociado ' + (neg || 'de coordinación'));
+    if (boton) boton.disabled = true;
+    leerItem('negs', n.id, ['MetaDescartadas']).then(function (x) {
+      var l = cambiar(String(x.datos.MetaDescartadas || '').split(/[;,\s]+/).map(Number).filter(Boolean));
+      return merge(U('negs') + '/items(' + n.id + ')', { __metadata: tipo('negs'), MetaDescartadas: l.join(';') }, 'No tienes permiso para cambiar las propuestas de ' + n.titulo, x.etag).then(function () { n.descartadas = l; });
+    }).then(function () {
+      if (recuperar) { pref.metaDescartadas = (pref.metaDescartadas || []).filter(function (x) { return x !== id; }); guardarPref(); }
+      aviso(recuperar ? 'Propuesta recuperada' : 'Propuesta descartada (en META sigue igual)'); render();
+    }, function (e) { if (boton) boton.disabled = false; alert(e.message || e); });
+  }
+  var htmlDescartadas = function (l) {
+    if (!l.length) return '';
+    return '<details class="card small"><summary style="cursor:pointer">Descartadas <span class="muted">(' + l.length + ') · no salen en el punto; en META siguen igual</span></summary>' + l.map(function (x) {
+      return '<div class="fila" style="border-top:1px solid var(--line);padding:4px 0"><span class="crece">' + esc(x.t.Title) + ' <span class="muted">· Exp. ' + x.t.Id + (x.neg ? ' · ' + esc(x.neg) : '') + '</span></span>' +
+        (puedeDescartar(x.neg) ? '<button class="small" data-recuperarmeta="' + x.t.Id + '" data-neg="' + esc(x.neg) + '">↺ Recuperar</button>' : '') + '</div>';
+    }).join('') + '</details>';
+  };
   function siguientePeriodico() {
     var u = puntos[0];
     if (!u || !u.repetir) return null;
@@ -657,8 +696,10 @@
     var props = propuestas(p, neg);
     if (props.length) h += '<h2 class="sec">⭐ Propuestas de META para ' + esc(neg) + '</h2>' + props.map(function (x) {
       return '<div class="card fila small"><span class="crece"><b>' + esc(x.t.Title) + '</b> <span class="muted">· Exp. ' + x.t.Id + ' · ' + esc(x.t.ESTADO || '') + '</span></span>' +
-        (edit ? '<button data-incluirmeta="' + x.t.Id + '">📋 Incluir</button>' : '') + '</div>';
+        (edit ? '<button data-incluirmeta="' + x.t.Id + '">📋 Incluir</button>' : '') +
+        (puedeDescartar(neg) ? '<button title="Que no salga más aquí (en META no se toca)" data-descartarmeta="' + x.t.Id + '" data-neg="' + esc(neg) + '">✕ Descartar</button>' : '') + '</div>';
     }).join('');
+    h += htmlDescartadas(propuestas(p, neg, true));
     return h;
   }
   // Entradas del punto anterior (del mismo negociado) que se pueden traer
@@ -727,8 +768,8 @@
   function vistaAjustes() {
     var h = '';
     if (esAdmin) {
-      if (!hayCampo('negs', 'CelulaMensadef') || !hayCampo('aport', 'OrigenClave'))
-        h += '<div class="aviso">Esta versión usa dos columnas nuevas (la «Célula de MENSADEF» de cada negociado, para los mensajes que llegan de SENDERO). Pulsa <b>«Comprobar la instalación»</b> (abajo) para crearlas.</div>';
+      if (!hayCampo('negs', 'CelulaMensadef') || !hayCampo('aport', 'OrigenClave') || !hayCampo('negs', 'MetaDescartadas'))
+        h += '<div class="aviso">Esta versión usa columnas nuevas (la «Célula de MENSADEF» de cada negociado, para SENDERO, y las «Propuestas de META descartadas»). Pulsa <b>«Comprobar la instalación»</b> (abajo) para crearlas.</div>';
       if (nPendAcc()) h += '<div class="aviso">Hay ' + nPendAcc() + ' solicitud' + (nPendAcc() === 1 ? '' : 'es') + ' de acceso pendiente' + (nPendAcc() === 1 ? '' : 's') + ': pestaña <b>Accesos</b>.</div>';
       if (hayCampo('negs', 'CelulaMensadef')) {
         var fr = filasReparto();
@@ -2249,6 +2290,8 @@
     if ((b = el.closest('[data-quitarsn]'))) { b.disabled = true; quitarAport(Number(b.dataset.quitarsn)).then(function () { aviso('«Sin novedad» quitado'); cargar(); }, function (er) { alert(er.message); b.disabled = false; }); return; }
     if (el.closest('[data-traer]')) { traerAnterior(p, pref.neg); return; }
     if ((b = el.closest('[data-traerok]'))) { traerOk(b); return; }
+    if ((b = el.closest('[data-descartarmeta]'))) { descartarMeta(Number(b.dataset.descartarmeta), b.dataset.neg || '', false, b); return; }
+    if ((b = el.closest('[data-recuperarmeta]'))) { descartarMeta(Number(b.dataset.recuperarmeta), b.dataset.neg || '', true, b); return; }
     if ((b = el.closest('[data-incluirmeta]'))) { incluirMeta(Number(b.dataset.incluirmeta)); return; }
     if ((b = el.closest('[data-incluiren]'))) { var sn = $('[data-negpara="' + b.dataset.incluiren + '"]'); if (sn && sn.value) incluirMeta(Number(b.dataset.incluiren), sn.value); return; }
     // Ajustes
@@ -2280,6 +2323,7 @@
   });
   $('#dlg').addEventListener('close', function () { $('#dlg').classList.remove('grande'); });
   document.addEventListener('mousedown', function (e) { var b = e.target.closest('[data-fmt]'); if (b) { e.preventDefault(); aplicarFormato(b.dataset.fmt); } });
+  document.addEventListener('toggle', function (e) { if (e.target.matches && e.target.matches('[data-props]')) { pref.propsAbiertas = e.target.open; guardarPref(); } }, true);
   document.addEventListener('change', function (e) {
     if (e.target.id === 'selPunto') { sel = Number(e.target.value); render(); return; }
     if (e.target.id === 'selNeg') { pref.neg = e.target.value; guardarPref(); render(); return; }

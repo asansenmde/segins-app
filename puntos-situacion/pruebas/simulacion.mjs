@@ -205,6 +205,8 @@ await foto('03-seguimiento');
 // Propuestas sin negociado: PROCOR elige dónde incluirlas (no se quedan en el limbo)
 { const t = await txt('#vista');
   comprueba('sin negociado: se dice el motivo', /sin negociado en META/.test(t) && /«DEPARTAMENTO FICTICIO» no está en Ajustes/.test(t) && (await p.$$('[data-incluiren]')).length === 2 && !(await p.$('[data-incluiren="31"]')));
+  comprueba('las propuestas salen plegadas', await p.$eval('[data-props]', d => !d.open) && /Propuestas de META \(Tratar con el General\) · 3/.test(await txt('[data-props] > summary')));
+  await p.click('[data-props] > summary');
   await p.selectOption('[data-negpara="34"]', 'Infraestructura'); await p.click('[data-incluiren="34"]'); await p.waitForSelector('#edSit');
   comprueba('«Incluir en…» abre el editor del negociado elegido: ' + await p.$eval('#dlg h2', e => e.textContent), /Nueva entrada · Infraestructura/.test(await p.$eval('#dlg h2', e => e.textContent)) && await p.inputValue('#edTit') === 'Asunto sin negociado ficticio');
   await p.click('[data-guardarent]'); await esperaDlgCerrado(); await p.waitForTimeout(500);
@@ -513,7 +515,7 @@ comprueba('correos sin rechazos' + (SOLO_CUENTAS ? ' (SOLO_CUENTAS)' : '') + ': 
   // Instalación anterior a esta versión: faltan las dos columnas nuevas
   LP('Negociados').campos.delete('CelulaMensadef'); LP('Aportaciones').campos.delete('OrigenClave');
   await ir(9); await p.click('nav.tabs a[data-v=ajustes]');
-  comprueba('sin las columnas nuevas, Ajustes pide «Comprobar la instalación»', /dos columnas nuevas/.test(await txt('#vista')) && !(await p.$('[data-negcelula]')));
+  comprueba('sin las columnas nuevas, Ajustes pide «Comprobar la instalación»', /columnas nuevas/.test(await txt('#vista')) && !(await p.$('[data-negcelula]')));
   await p.click('[data-comprobar]'); await p.waitForFunction(() => /Bloqueo en el servidor/.test(document.querySelector('#logInst').textContent), null, { timeout: 15000 });
   comprueba('«Comprobar la instalación» crea las columnas nuevas', LP('Negociados').campos.has('CelulaMensadef') && LP('Aportaciones').campos.has('OrigenClave'));
   await ir(9); await p.click('nav.tabs a[data-v=ajustes]');
@@ -664,6 +666,31 @@ print(con('cursiva','<w:i/>'), con('subrayado','<w:u w:val="single"/>'), con('re
   comprueba('Word con formato (cursiva, subrayado, resaltado, viñetas): ' + rw, rw === 'True True True True True');
 }
 if (SOLO_CUENTAS) comprueba('SOLO_CUENTAS: todos los avisos salen a cuentas, ninguno con «@» (' + correos.length + ' enviados, ' + rechazosCorreo.length + ' intentos con dirección): ' + JSON.stringify(correos.flatMap(c => c.cuentas).filter(x => /@/.test(x))), correos.length > 0 && correos.every(c => c.cuentas.every(x => !/@/.test(x))));
+// 14. Descartar propuestas de META que no interesan (no se tocan en META; no vuelven a salir; se pueden recuperar)
+{ const ptA = LP('Puntos').items.find(x => new Date(x.Cierre) > Date.now() && x.EstadoPunto !== 'Contenido borrado');
+  meta.items.push({ Id: 40, Title: 'Propuesta ficticia que no interesa', ESTADO: 'EN CURSO', NegociadoAsignado: 'PRL', TratarEn: ['TRATAR CON EL GENERAL'] },
+    { Id: 41, Title: 'Propuesta ficticia sin negociado', ESTADO: 'EN CURSO', NegociadoAsignado: '', TratarEn: ['TRATAR CON EL GENERAL'] });
+  const nMeta = meta.items.length;
+  await ir(8); await p.click('nav.tabs a[data-v=negociado]'); await p.waitForTimeout(400);
+  comprueba('en Mi negociado sale la propuesta con «✕ Descartar»', !!(await p.$('[data-descartarmeta="40"]')) && !!(await p.$('[data-incluirmeta="40"]')));
+  await p.click('[data-descartarmeta="40"]'); await p.waitForTimeout(800);
+  const prl = negsC.find(x => x.Title === 'PRL');
+  comprueba('descartada: no sale y queda guardada en PRL (' + prl.MetaDescartadas + '); en META sigue', !(await p.$('[data-incluirmeta="40"]')) && String(prl.MetaDescartadas).split(';').includes('40') && meta.items.length === nMeta && meta.items.some(x => x.Id === 40));
+  comprueba('aparece en «Descartadas (1)» para recuperarla', /Descartadas \(1\)/.test(await txt('#vista')) && !!(await p.$('[data-recuperarmeta="40"]')));
+  await ir(8); await p.click('nav.tabs a[data-v=negociado]'); await p.waitForTimeout(400);
+  comprueba('sigue descartada al volver a entrar', !(await p.$('[data-incluirmeta="40"]')));
+  await p.click('summary:has-text("Descartadas")'); await p.click('[data-recuperarmeta="40"]'); await p.waitForTimeout(800);
+  comprueba('recuperada: vuelve a salir', !!(await p.$('[data-incluirmeta="40"]')) && !String(prl.MetaDescartadas).split(';').includes('40'));
+  // Coordinación: descarta la que no tiene negociado (se guarda en la fila de coordinación)
+  await ir(9); await p.click('nav.tabs a[data-v=seguimiento]'); await p.waitForTimeout(400);
+  if (!(await p.$eval('[data-props]', d => d.open))) await p.click('[data-props] > summary');
+  await p.click('[data-descartarmeta="41"]'); await p.waitForTimeout(800);
+  const coord = negsC.find(x => x.Coordina && !x.EnInforme);
+  comprueba('sin negociado: descartada por coordinación (' + coord.MetaDescartadas + ')', String(coord.MetaDescartadas).split(';').includes('41') && !(await p.$('[data-descartarmeta="41"]')));
+  // Un miembro no puede descartar propuestas de otro negociado ni las de coordinación
+  await ir(8); await p.click('nav.tabs a[data-v=seguimiento]'); await p.waitForTimeout(300);
+  comprueba('un miembro no ve las propuestas de coordinación', !(await p.$('[data-descartarmeta="41"]')));
+}
 comprueba('errores de página: ' + JSON.stringify(errs), !errs.length);
 await b.close();
 console.log(ok ? 'TODO BIEN' : 'HAY FALLOS');

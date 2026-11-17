@@ -18,6 +18,17 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-17 · 3: descartar propuestas de META
+
+Pedido por el usuario: no quería ver muchas propuestas de META que no le interesan, sin borrarlas en META.
+- En *Seguimiento*, «⭐ Propuestas de META (Tratar con el General) · n» sale **plegado** (se abre al pulsar y se recuerda).
+- Cada propuesta tiene **«✕ Descartar»**: deja de salir en todos los puntos. **En META no se toca nada.** Las descartadas
+  quedan en «Descartadas (n)», plegado, con **«↺ Recuperar»**.
+- Se guardan en «PS Negociados», columna nueva **«Propuestas de META descartadas»** (`MetaDescartadas`, Ids con «;»): las
+  de un negociado en su fila (las descarta ese negociado o coordinación) y las que no tienen negociado en la fila de
+  coordinación (solo coordinación). La columna la crea «Comprobar la instalación»; mientras falte, se guardan solo en ese
+  navegador.
+
 ## Versión 2026-11-17 · 2: modelo común de las aplicaciones de Colabora
 
 - **Firma:** «EL SECRETARIO TÉCNICO DE LA SUIGESUR» (corrige «EL SETC…» de la · 1).
