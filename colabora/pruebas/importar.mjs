@@ -5,6 +5,8 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
+// SOLO_CUENTAS=1 imita el Colabora real (17/11/2026): rechaza las direcciones de correo y acepta las cuentas de usuario
+process.on('exit', () => { if (process.env.SOLO_CUENTAS) console.log('SOLO_CUENTAS · correos aceptados: ' + (globalThis.__aceptados || 0) + ' · rechazados por llevar dirección: ' + (globalThis.__rechazados || 0)); });
 const fs = require('fs');
 const html = fs.readFileSync(process.env.TAREAS_HTML ? process.env.TAREAS_HTML : new URL('../tareas-nlt-colabora.html', import.meta.url), 'utf8').replace(process.env.PROPIO ? 'var PROPIO = false;' : '\u0000', 'var PROPIO = true;');
 const WEB = '/et/SUIGESUR/JSUIGE', O = 'https://colabora.mdef.es';
@@ -88,6 +90,7 @@ await p.route(O + '/**', async r => {
   }
   if (req.method() === 'POST') {
     if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'D', FormDigestTimeoutSeconds: 1800 } } } });
+    if (process.env.SOLO_CUENTAS && /SP\.Utilities\.Utility\.SendEmail/.test(resto)) { const pr0 = JSON.parse(req.postData()).properties, d0 = [pr0.To, pr0.CC, pr0.BCC].flatMap(x => x ? x.results : []); if (d0.some(x => /@/.test(x))) { globalThis.__rechazados = (globalThis.__rechazados || 0) + 1; return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } }); } globalThis.__aceptados = (globalThis.__aceptados || 0) + 1; }
     if (resto === 'SP.Utilities.Utility.SendEmail') { asuntosCorreo.push(JSON.parse(req.postData()).properties.Subject); return r.fulfill({ json: { d: {} } }); }
     if (resto.includes('/fields/getbyinternalnameortitle')) { const c = JSON.parse(req.postData()); camposCambiados.push(resto.match(/'([^']+)'\)$/)[1] + ' ' + c.__metadata.type + ' FillInChoice=' + c.FillInChoice + ' opciones=' + (c.Choices ? c.Choices.results.length : '-') + ' ' + (req.headers()['x-http-method'] || '')); abiertos = true; if (c.Choices) opcionesDep = c.Choices.results; return r.fulfill({ status: 204, body: '' }); }
     if (resto.endsWith('/items')) {
@@ -100,7 +103,7 @@ await p.route(O + '/**', async r => {
   }
   if (resto.startsWith('web?')) return r.fulfill({ json: { Url: O + WEB, Title: 'JSUIGE' } });
   if (resto.startsWith('web/currentuser')) return r.fulfill({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' } });
-  if (resto.startsWith('web/siteusers')) return r.fulfill({ json: { value: [{ Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' }, { Id: 31, Title: 'GARCIA LOPEZ ANA', Email: 'agarcia@et.mde.es' }] } });
+  if (resto.startsWith('web/siteusers')) return r.fulfill({ json: { value: [{ Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' }, { Id: 31, Title: 'GARCIA LOPEZ ANA', Email: 'agarcia@et.mde.es' }].map(x => ({ LoginName: 'i:0#.w|et\\u' + x.Id, ...x })) } });
   if (resto.includes('getbyinternalnameortitle')) return r.fulfill({ json: { AppendOnly: false, RichText: false } });
   if (resto.includes('/fields')) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'NegociadoAsignado', Choices: opcionesDep, FillInChoice: abiertos }, { InternalName: 'NegociadosImplicados', Choices: opcionesDep, FillInChoice: abiertos }, { InternalName: 'DescripcionDelAsunto', RichText: false }] } });
   if (resto.includes('/items')) { lecturas++; return r.fulfill({ json: { value: items } }); }

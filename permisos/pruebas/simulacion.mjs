@@ -3,6 +3,8 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
+// SOLO_CUENTAS=1 imita el Colabora real (17/11/2026): rechaza las direcciones de correo y acepta las cuentas de usuario
+process.on('exit', () => { if (process.env.SOLO_CUENTAS) console.log('SOLO_CUENTAS · correos aceptados: ' + (globalThis.__aceptados || 0) + ' · rechazados por llevar dirección: ' + (globalThis.__rechazados || 0)); });
 const fs = require('fs');
 const html = fs.readFileSync(process.env.PERM_HTML ? process.env.PERM_HTML : new URL('../permisos.html', import.meta.url), 'utf8');
 // PRUEBAS=1 con PERM_HTML=permisos/colabora/permisos-pruebas.html: las listas «… PRUEBAS» se sirven como las reales
@@ -68,6 +70,7 @@ async function prueba(verbose, soloAlcance) {
     if (req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
+      if (process.env.SOLO_CUENTAS && /SP\.Utilities\.Utility\.SendEmail/.test(resto)) { const pr0 = JSON.parse(req.postData()).properties, d0 = [pr0.To, pr0.CC, pr0.BCC].flatMap(x => x ? x.results : []); if (d0.some(x => /@/.test(x))) { globalThis.__rechazados = (globalThis.__rechazados || 0) + 1; return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } }); } globalThis.__aceptados = (globalThis.__aceptados || 0) + 1; }
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = JSON.parse(req.postData()).properties, dest = [pr.To, pr.CC, pr.BCC].flatMap(x => x ? x.results : []);
         asuntos.push(pr.Subject);

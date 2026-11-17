@@ -1,6 +1,8 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
+// SOLO_CUENTAS=1 imita el Colabora real (17/11/2026): rechaza las direcciones de correo y acepta las cuentas de usuario
+process.on('exit', () => { if (process.env.SOLO_CUENTAS) console.log('SOLO_CUENTAS · correos aceptados: ' + (globalThis.__aceptados || 0) + ' · rechazados por llevar dirección: ' + (globalThis.__rechazados || 0)); });
 const fs = require('fs');
 // TAREAS_HTML=colabora/colabora/tareas-nlt-colabora.html para probar la versión protegida; VERBOSE=1 para SharePoint 2013 (odata=verbose)
 const html0 = fs.readFileSync(process.env.TAREAS_HTML ? process.env.TAREAS_HTML : new URL('../tareas-nlt-colabora.html', import.meta.url), 'utf8'); const html = html0;
@@ -85,6 +87,7 @@ async function prueba() {
         return r.fulfill({ json: { d: { ClientPeoplePickerSearchUser: JSON.stringify(dir) } } });
       }
       if (resto === 'web/ensureuser') { const k = JSON.parse(req.postData()).logonName; return r.fulfill({ json: { d: { Id: k.includes('jmartin') ? 55 : 31, Title: k.includes('jmartin') ? 'MARTIN GOMEZ JUAN' : 'GARCIA LOPEZ ANA', Email: k.includes('jmartin') ? 'jmartin@et.mde.es' : 'agarcia@et.mde.es' } } }); }
+      if (process.env.SOLO_CUENTAS && /SP\.Utilities\.Utility\.SendEmail/.test(resto)) { const pr0 = JSON.parse(req.postData()).properties, d0 = [pr0.To, pr0.CC, pr0.BCC].flatMap(x => x ? x.results : []); if (d0.some(x => /@/.test(x))) { globalThis.__rechazados = (globalThis.__rechazados || 0) + 1; return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } }); } globalThis.__aceptados = (globalThis.__aceptados || 0) + 1; }
       if (resto === 'SP.Utilities.Utility.SendEmail') {
         if (correoFalla) return r.fulfill({ status: 500, json: { error: { message: { value: 'The e-mail message cannot be sent. Make sure the outgoing e-mail settings for the server are configured correctly.' } } } });
         const pr = JSON.parse(req.postData()).properties, dest = [pr.To, pr.CC, pr.BCC].flatMap(x => x ? x.results : []);
@@ -106,7 +109,7 @@ async function prueba() {
     }
     if (resto.startsWith('web?')) return r.fulfill({ json: { Url: 'https://colabora.mdef.es' + WEB, Title: 'JSUIGE', ...(soloLista ? { EffectiveBasePermissions: { High: '0', Low: String(0x1000 | 0x10000) } } : {}) } });
     if (resto.startsWith('web/currentuser')) return r.fulfill({ json: { Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' } });
-    if (resto.startsWith('web/siteusers')) return r.fulfill({ json: { value: [{ Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' }, { Id: 31, Title: 'GARCIA LOPEZ ANA', Email: 'agarcia@et.mde.es' }, { Id: 32, Title: 'PEREZ RUIZ LUIS', Email: 'lperez@et.mde.es' }, { Id: 41, Title: 'Garcia Lopez, Ana', Email: 'agarcia2@et.mde.es' }] } });
+    if (resto.startsWith('web/siteusers')) return r.fulfill({ json: { value: [{ Id: 7, Title: 'USUARIO DE PRUEBA', Email: 'usuario@et.mde.es' }, { Id: 31, Title: 'GARCIA LOPEZ ANA', Email: 'agarcia@et.mde.es' }, { Id: 32, Title: 'PEREZ RUIZ LUIS', Email: 'lperez@et.mde.es' }, { Id: 41, Title: 'Garcia Lopez, Ana', Email: 'agarcia2@et.mde.es' }].map(x => ({ LoginName: 'i:0#.w|et\\u' + x.Id, ...x })) } });
     if (resto.includes("/fields")) return r.fulfill({ json: { value: [{ InternalName: 'ESTADO', Choices: ESTADOS }, { InternalName: 'Prioridad', Choices: PRIOS }, { InternalName: 'NegociadoAsignado', Choices: NEGS, FillInChoice: !process.env.SINCELULAS },
       { InternalName: 'NegociadosImplicados', Choices: NEGS, FillInChoice: !process.env.SINCELULAS }, { InternalName: 'DescripcionDelAsunto', RichText: true }, { InternalName: 'Comentarios', RichText: false }, { InternalName: 'FechaVencimiento', Required: false }].concat(conTratar ? [{ InternalName: 'TratarEn', Choices: ['PUNTO DE SITUACIÓN', 'TRATAR CON EL GENERAL'], TypeAsString: 'MultiChoice' }] : []) } });
     if (resto.includes("/items")) {

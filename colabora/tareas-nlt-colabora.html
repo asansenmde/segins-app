@@ -301,7 +301,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-17 · 1';
+  var VERSION = '2026-11-17 · 2';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -2299,7 +2299,22 @@
       return enviarUnoSP(to, cc, bcc, c);
     });
   }
+  // 17/11/2026: Colabora rechaza las DIRECCIONES de correo como destinatario («Asegúrese de que tenga un destinatario válido»)
+  // pero acepta las CUENTAS de usuario (et\\usuario): comprobado por el usuario con el diagnóstico del correo. Antes de enviar,
+  // cada dirección se cambia por la cuenta de esa persona; si no se encuentra, se deja la dirección (y el envío robusto sigue).
+  var cuentaCache = {};
+  function aCuentas(l) {
+    return Promise.all((l || []).map(function (x) {
+      if (!/@/.test(String(x))) return x;
+      var k = String(x).toLowerCase();
+      if (cuentaCache[k] !== undefined) return cuentaCache[k] || x;
+      return Promise.resolve(loginDe(x)).then(function (lg) { cuentaCache[k] = lg || ''; return lg || x; }, function () { cuentaCache[k] = ''; return x; });
+    }));
+  }
   function enviarUnoSP(to, cc, bcc, c) {
+    return Promise.all([aCuentas(to), aCuentas(cc), aCuentas(bcc)]).then(function (r) { return enviarUnoSPDirecto(r[0], r[1], r[2], c); });
+  }
+  function enviarUnoSPDirecto(to, cc, bcc, c) {
     var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, CC: { results: cc || [] }, Subject: (PRUEBAS ? '[PRUEBAS] ' : '') + c.asunto, Body: c.html };
     if (bcc && bcc.length) pr.BCC = { results: bcc };
     return enviarSP(web.url + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página');

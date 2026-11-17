@@ -3,6 +3,8 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
+// SOLO_CUENTAS=1 imita el Colabora real (17/11/2026): rechaza las direcciones de correo y acepta las cuentas de usuario
+process.on('exit', () => { if (process.env.SOLO_CUENTAS) console.log('SOLO_CUENTAS · correos aceptados: ' + (globalThis.__aceptados || 0) + ' · rechazados por llevar dirección: ' + (globalThis.__rechazados || 0)); });
 const fs = require('fs');
 const html = fs.readFileSync(process.env.INC_HTML ? process.env.INC_HTML : new URL('../incidentes.html', import.meta.url), 'utf8');  // INC_HTML=incidentes/colabora/incidentes.html para probar la versión protegida
 const O = 'https://colabora.mdef.es', WEB = '/et/jige/colaborativo';
@@ -120,6 +122,7 @@ async function prueba(verbose, escenario) {
         if (mm) { Object.assign(respLista.find(x => x.Id === +mm[1]), { Title: c.Title, Correos: c.Correos, Responsables: per }); return r.fulfill({ status: 204, body: '' }); }
         const it = { Id: respLista.length + 1, Title: c.Title, Correos: c.Correos, Responsables: per }; respLista.push(it); return r.fulfill({ status: 201, json: { d: it } });
       }
+      if (process.env.SOLO_CUENTAS && /SP\.Utilities\.Utility\.SendEmail/.test(resto)) { const pr0 = JSON.parse(req.postData()).properties, d0 = [pr0.To, pr0.CC, pr0.BCC].flatMap(x => x ? x.results : []); if (d0.some(x => /@/.test(x))) { globalThis.__rechazados = (globalThis.__rechazados || 0) + 1; return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } }); } globalThis.__aceptados = (globalThis.__aceptados || 0) + 1; }
       if (resto.startsWith('SP.Utilities.Utility.SendEmail') && correoDenegado) return r.fulfill({ status: 401, json: { error: { message: { value: 'Acceso denegado. No tiene el permiso necesario para realizar esta acción o tener acceso a este recurso.' } } } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = JSON.parse(req.postData()).properties, dest = [].concat(pr.To.results, pr.CC.results, pr.BCC ? pr.BCC.results : []);
@@ -201,7 +204,7 @@ async function prueba(verbose, escenario) {
       if (aux[1] === 'empleos' && (sinEmpleos || !u.includes('/et/SUIGESUR/colaborativo/CALIDAD-VIDA/_api/'))) return r.fulfill({ status: 404, body: '' });
       return J({ value: AUXL[aux[1]].slice().reverse() });
     }
-    if (resto.startsWith('web/siteusers')) return J({ value: [YO, ...Object.values(P)].map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail })).concat(CUENTAS_NUEVAS) });
+    if (resto.startsWith('web/siteusers')) return J({ value: [YO, ...Object.values(P)].map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail, LoginName: 'i:0#.w|et\\u' + x.Id })).concat(CUENTAS_NUEVAS) });
     if (resto.includes("getbytitle('INCIDENTES DE SEGURIDAD')/fields")) { const ch = a => verbose ? { results: a } : a; return J({ value: [
       { InternalName: 'TipoDeIncidente', Choices: ch(['Intrusión no autorizada', 'Robo o sustracción', 'Pintadas', 'Otro']) }, { InternalName: 'Reiterada', Choices: ch(['SI', 'NO', 'ES LA PRIMERA VEZ']) },
       { InternalName: 'PROBABILIDADES', Choices: ch(['MUY BAJO', 'BAJO', 'MEDIO', 'ALTO', 'MUY ALTO']) }, { InternalName: 'SUIGES', Choices: ch(['JEFATURA DE IGE', 'SECOORCEN', 'SUIGESUR', 'SUIGEPIR', 'SUIGENOR', 'SUIGECAN', 'DIIN']) },

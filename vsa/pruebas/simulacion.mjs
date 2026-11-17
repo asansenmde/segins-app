@@ -3,6 +3,8 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
+// SOLO_CUENTAS=1 imita el Colabora real (17/11/2026): rechaza las direcciones de correo y acepta las cuentas de usuario
+process.on('exit', () => { if (process.env.SOLO_CUENTAS) console.log('SOLO_CUENTAS · correos aceptados: ' + (globalThis.__aceptados || 0) + ' · rechazados por llevar dirección: ' + (globalThis.__rechazados || 0)); });
 const fs = require('fs');
 const html = fs.readFileSync(process.env.VSA_HTML ? process.env.VSA_HTML : new URL('../vsa.html', import.meta.url), 'utf8');  // VSA_HTML=vsa/colabora/vsa.html para probar la versión protegida
 const O = 'https://colabora.mdef.es', WEB = '/et/jige/colaborativo';
@@ -89,6 +91,7 @@ async function prueba(verbose, escenario) {
         adj[id].splice(i, 1); return r.fulfill({ status: 200, body: '' });
       }
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
+      if (process.env.SOLO_CUENTAS && /SP\.Utilities\.Utility\.SendEmail/.test(resto)) { const pr0 = JSON.parse(req.postData()).properties, d0 = [pr0.To, pr0.CC, pr0.BCC].flatMap(x => x ? x.results : []); if (d0.some(x => /@/.test(x))) { globalThis.__rechazados = (globalThis.__rechazados || 0) + 1; return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } }); } globalThis.__aceptados = (globalThis.__aceptados || 0) + 1; }
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = JSON.parse(req.postData()).properties, dest = [pr.To, pr.CC, pr.BCC].flatMap(x => x ? x.results : []);
         if (dest.some(x => buzonMal.includes(String(x).toLowerCase()))) return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el mensaje de correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } });
@@ -162,7 +165,7 @@ async function prueba(verbose, escenario) {
     if (mi) { const it = items.find(x => x.Id === +mi[1]); return r.fulfill({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, ...it } } }); }
     const aux = resto.match(/getbytitle\('(M1N|M2N|M3N)'\)\/items/);
     if (aux) return J({ value: AUXL[aux[1]] });
-    if (resto.startsWith('web/siteusers')) return J({ value: [YO, ...Object.values(P)].map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail })).concat(CUENTAS_NUEVAS) });
+    if (resto.startsWith('web/siteusers')) return J({ value: [YO, ...Object.values(P)].map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail, LoginName: 'i:0#.w|et\\u' + x.Id })).concat(CUENTAS_NUEVAS) });
     if (resto.includes("fields/getbyinternalnameortitle('VALORACIONSUIGE')")) return J({ Choices: verbose ? { results: opcionesVS } : opcionesVS, FillInChoice: false, TypeAsString: 'Choice' });
     if (resto.includes("getbytitle('CUESTIONARIO DE CALIDAD VSA')/fields")) {
       const ch = a => verbose ? { results: a } : a;

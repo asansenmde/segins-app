@@ -4,6 +4,8 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
+// SOLO_CUENTAS=1 imita el Colabora real (17/11/2026): rechaza las direcciones de correo y acepta las cuentas de usuario
+process.on('exit', () => { if (process.env.SOLO_CUENTAS) console.log('SOLO_CUENTAS · correos aceptados: ' + (globalThis.__aceptados || 0) + ' · rechazados por llevar dirección: ' + (globalThis.__rechazados || 0)); });
 const fs = require('fs');
 const html = fs.readFileSync(process.env.PER_HTML ? process.env.PER_HTML : new URL('../perdidas.html', import.meta.url), 'utf8');
 const O = 'https://colabora.mdef.es', WEB = '/et/jige/colaborativo';
@@ -57,6 +59,7 @@ async function prueba(verbose, esc) {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
       { const rc = resto.match(/items\((\d+)\)\/recycle\(\)/); if (rc) { if (!admin) return r.fulfill({ status: 403, json: { error: { message: { value: 'Acceso denegado.' } } } }); items = items.filter(x => x.Id !== +rc[1]); reciclados.push(+rc[1]); return r.fulfill({ json: { d: { Recycle: 'guid' } } }); } }
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
+      if (process.env.SOLO_CUENTAS && /SP\.Utilities\.Utility\.SendEmail/.test(resto)) { const pr0 = JSON.parse(req.postData()).properties, d0 = [pr0.To, pr0.CC, pr0.BCC].flatMap(x => x ? x.results : []); if (d0.some(x => /@/.test(x))) { globalThis.__rechazados = (globalThis.__rechazados || 0) + 1; return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } }); } globalThis.__aceptados = (globalThis.__aceptados || 0) + 1; }
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = JSON.parse(req.postData()).properties;
         if (correoDenegado) return r.fulfill({ status: 401, json: { error: { message: { value: 'Acceso denegado. No tiene el permiso necesario para realizar esta acción o tener acceso a este recurso.' } } } });
@@ -87,7 +90,7 @@ async function prueba(verbose, esc) {
     if (resto.startsWith('web/currentuser/groups')) return J({ value: misGrupos.map(n => ({ Id: GRUPOS[n] || 1, Title: n })) });
     if (resto.startsWith('web/currentuser')) return J({ Id: YO.Id, Title: YO.Title, Email: YO.EMail, LoginName: 'i:0#.w|et\\usuario' });
     { const g = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users/); if (g) return MIEMBROS[g[1]] ? J({ value: MIEMBROS[g[1]].map((e, i) => ({ Id: 300 + i, Title: e, Email: e })) }) : r.fulfill({ status: 404, body: '' }); }
-    if (resto.startsWith('web/siteusers')) return J({ value: Object.values(P).map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail })) });
+    if (resto.startsWith('web/siteusers')) return J({ value: Object.values(P).map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail, LoginName: 'i:0#.w|et\\u' + x.Id })) });
     if (resto.match(/web\/getuserbyid\((\d+)\)/)) return J({ LoginName: 'i:0#.w|et\\u' + resto.match(/getuserbyid\((\d+)\)/)[1] });
     if (resto.startsWith("web/lists/getbytitle('SOLICITUDES ACCESO APLICACIONES')")) { if (resto.includes('/items')) return J({ value: [] }); if (resto.includes('/fields')) return J({ value: [] }); return J({ Id: 'a', Title: 'SOLICITUDES ACCESO APLICACIONES', ListItemEntityTypeFullName: 'SP.Data.SOLItem', ReadSecurity: 2, WriteSecurity: 2 }); }
     if (resto.startsWith('SP.UserProfiles')) return J({ Title: 'COMANDANTE', UserProfileProperties: verbose ? { results: [] } : [] });
