@@ -18,6 +18,29 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-17 · 2: modelo común de las aplicaciones de Colabora
+
+- **Firma:** «EL SECRETARIO TÉCNICO DE LA SUIGESUR» (corrige «EL SETC…» de la · 1).
+- **Correo a la cuenta, no a la dirección** (comprobado en el Colabora real el 17/11: `SendEmail` rechaza las direcciones
+  con HTTP 400 «Asegúrese de que tenga un destinatario válido», incluso la propia, y acepta las cuentas `i:0#.w|et\usuario`).
+  `aCuentas` (con `cuentaCache`, copiado de Incidentes) cambia cada dirección por la cuenta: `loginDe`; si no está en el
+  sitio, `ensureuser` con la dirección; si tampoco, deja la dirección y sigue el envío robusto. `enviarUno` aplica
+  `aCuentas` a To, CC y BCC y llama a `enviarUnoDirecto`.
+- **Control de acceso con solicitud** (como Incidentes): quien no está en ningún negociado ni tiene Control total ve
+  «🔒 No tienes acceso · Solicitar acceso» (nombre y correo de su sesión, empleo y teléfono propuestos del perfil, negociado
+  obligatorio y motivo) y el estado de sus solicitudes. Van a la lista común del sitio **«SOLICITUDES ACCESO
+  APLICACIONES»** (nunca a la interna «Solicitudes de acceso»), con `Aplicacion` = PUNTOS (PUNTOS PRUEBAS en la copia de
+  pruebas) y `Papel` = «Negociado: …». Cada solicitud nueva avisa a **asansen@et.mde.es**. La lista «PS Solicitudes» de
+  versiones anteriores ya no se usa (se puede borrar a mano).
+- **Pestaña Accesos** (solo Control total): Preparación (crear la lista común y sus columnas, «solo sus elementos»,
+  «Permitir que cualquiera solicite acceso», abrir la lista, **«🔔 Avisarme»** con la alerta de SharePoint y **«Probar el
+  aviso»**); solicitudes pendientes con el negociado propuesto, «Aprobar y dar de alta» (añade a la persona a los miembros
+  de ese negociado) o «Denegar» (motivo obligatorio), correo al solicitante y solicitudes resueltas.
+- **Ajustes y Accesos solo con Control total** (permiso «Administrar permisos» en «PS Puntos» o, sin instalar, en el sitio):
+  a los demás ni les aparecen. Control total cuenta además como coordinación. La primera puesta en marcha también es solo
+  para Control total; los demás ven «La aplicación aún no está preparada».
+- Pruebas: `SOLO_CUENTAS=1` imita el Colabora real del correo (rechaza los envíos con «@»); `PROXY=1`, el filtro de la red.
+
 ## Versión 2026-11-17 · 1: firma del SETC, «Creado el» y «Página X de Y»
 
 Pedido por el usuario:

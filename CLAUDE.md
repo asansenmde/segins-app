@@ -43,6 +43,15 @@ de cada proyecto (`*/pruebas/`).
 - **Autoría y copia protegida** en todas las páginas de Colabora (© 2026 Cte. Alfredo Sánchez Sender; original legible
   en el repositorio y copia ofuscada con bloqueo de dominio para subir; receta en `SHAREPOINT.md`). Entregar siempre los
   dos archivos, indicando cuál se sube a Colabora.
+- **La copia que se sube va cifrada entera** (petición del usuario, 13/11/2026): textos, nombres de campos y expresiones
+  regulares incluidos (`stringArrayThreshold: 1`, claves de objeto y `/…/` pasados a texto antes de ofuscar), y con las
+  etiquetas `</head>`… escritas `\x3c` para que el filtro de la red no parta el programa. Receta en `incidentes/proteger/proteger.mjs`.
+  Comprobar antes de entregar que no se lee ningún nombre de lista, grupo ni mensaje, y probar con `PROXY=1`.
+- **Modelo obligatorio en TODAS las aplicaciones de Colabora** (petición del usuario, 17/11/2026): control de acceso con
+  solicitud (lista común «SOLICITUDES ACCESO APLICACIONES», nunca la interna «Solicitudes de acceso»; aviso a la dirección
+  fija `asansen@et.mde.es` y enlace a la alerta de SharePoint), Ajustes y Accesos solo con Control total, copia cifrada
+  entera y **correo a la CUENTA de cada persona, no a su dirección** (Colabora rechaza las direcciones; `aCuentas` en
+  `SHAREPOINT.md`, «Envío robusto»). Modelo actual: `incidentes/incidentes.html` y `colabora/tareas-nlt-colabora.html`.
 - **Correo con envío robusto** en toda página que avise por correo: copiar el de Permisos (receta en `SHAREPOINT.md`,
   «Envío robusto»). Colabora rechaza el correo entero si falla una dirección y la gente tiene cuentas antiguas sin buzón;
   hay que reintentar uno a uno, por su cuenta y por su nombre, decir a quién no llegó y anotarlo en el historial.
@@ -54,6 +63,9 @@ de cada proyecto (`*/pruebas/`).
   permisos (403 = sin permiso).
 - Colabora ejecuta páginas `.html` subidas a una biblioteca. MENSADEF no (las descarga): allí se usan
   marcadores generados con `mensadef/generar-marcador.py`, que hay que regenerar si cambia la página.
+- **Los campos «Buscar» buscan en todos los campos** de cada elemento (los que se muestran y los de la ficha), sin
+  tildes ni mayúsculas. Los datos personales que no se descargan (NIF, nombres) se buscan preguntando al servidor solo
+  por los números de los elementos (`$select=Id&$filter=substringof(…)`), como en Pérdidas. Petición del usuario, 05/11/2026.
 - Escapar siempre lo que viene del servidor; los campos de texto enriquecido se muestran como texto.
 - Requiere Edge o Chrome; avisar si se abre en modo Internet Explorer.
 - Probar con Playwright contra un SharePoint simulado (formato ligero y *verbose*) antes de entregar.

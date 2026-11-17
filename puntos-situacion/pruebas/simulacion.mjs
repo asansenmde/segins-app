@@ -1,7 +1,8 @@
 let sinBorrar = false, sinEditar = false;
 // Prueba de Puntos de Situación contra un Colabora simulado (todo en memoria, datos ficticios).
 // node puntos-situacion/pruebas/simulacion.mjs · VERBOSE=1 (SharePoint 2013) · PS_HTML=puntos-situacion/colabora/puntos-situacion.html (copia protegida)
-// CAPTURAS=carpeta guarda capturas de pantalla. PROXY=1 imita el filtro de la red de Defensa (mete un <script> delante de cada </head>).
+// CAPTURAS=carpeta guarda capturas de pantalla. SOLO_CUENTAS=1 imita el Colabora real del correo: SendEmail rechaza las
+// direcciones («@») y solo acepta cuentas (i:0#.w|et\\usuario). PROXY=1 imita el filtro de la red de Defensa (mete un <script> delante de cada </head>).
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
@@ -19,6 +20,11 @@ const USUARIOS = { 7: { Id: 7, Title: 'ADMIN DE PRUEBA', Email: 'admin@et.mde.es
   9: { Id: 9, Title: 'ANA PROCOR FICTICIA', Email: 'ana@et.mde.es', LoginName: 'i:0#.w|et\\ana' }, 10: { Id: 10, Title: 'PEDRO SIN NEGOCIADO', Email: 'pedro@et.mde.es', LoginName: 'i:0#.w|et\\pedro' },
   11: { Id: 11, Title: 'MARIA SEGURIDAD', Email: 'maria@et.mde.es', LoginName: 'i:0#.w|et\\maria' } };
 let validacionForzada = false;
+const ADMINS = new Set([7, 9]);   // Control total en el sitio y en las listas
+const SOLO_CUENTAS = !!process.env.SOLO_CUENTAS, rechazosCorreo = [];
+const comoCorreo = d => { const u = Object.values(USUARIOS).find(x => x.LoginName === d); return u ? u.Email : d; };
+const permisos = () => ({ High: '0', Low: String(ADMINS.has(actual) ? 0x7FFFFFFF : 0x1 | 0x2 | 0x4 | 0x8) });
+let listaAbierta = false;
 let actual = 7, correos = [], posts = [], buzonMal = [];
 const listas = {};
 const nuevaLista = (t, campos = []) => (listas[t.toLowerCase()] = { titulo: t, entidad: 'SP.Data.' + t.replace(/\s/g, '_x0020_') + 'ListItem', campos: new Set(['Title', ...campos]), items: [], sig: 1, validacion: '', versiones: false });
@@ -36,6 +42,7 @@ function exportar(l, it) {
   const o = { ...it };
   for (const k of Object.keys(it)) if (k.endsWith('Id') && k !== 'PuntoId' && k !== 'OrigenId' && Array.isArray(it[k])) { o[k.slice(0, -2)] = it[k].map(usuario); delete o[k]; }
   if (it.SolicitanteId) o.Solicitante = usuario(it.SolicitanteId);
+  if (it.ResueltoPorId) o.ResueltoPor = usuario(it.ResueltoPorId);
   o.Editor = { Title: USUARIOS[it._editor]?.Title || 'X' }; o.Author = { Title: USUARIOS[it._autor]?.Title || 'X' };
   o.AttachmentFiles = (it._adj || []).map(n => ({ FileName: n, ServerRelativeUrl: `${WEB}/Lists/${encodeURIComponent(l.titulo)}/Attachments/${it.Id}/${n}` }));
   delete o._adj; delete o._editor; delete o._autor;
@@ -73,24 +80,37 @@ await ctx.route(ORIGEN + '/**', async r0 => {
   const yo = USUARIOS[actual];
   if (m === 'POST') posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postDataBuffer() });
   if (resto === 'contextinfo') return json({ d: { GetContextWebInformation: { FormDigestValue: 'D', FormDigestTimeoutSeconds: 1800 } } });
-  if (resto.startsWith('web?')) return json({ Url: ORIGEN + WEB, Title: 'JSUIGE' });
+  if (resto.startsWith('web?')) return json({ Url: ORIGEN + WEB, Title: 'JSUIGE', EffectiveBasePermissions: permisos() });
+  if (resto.startsWith('web/roleassignments')) return json({ value: [{ PrincipalId: 1, Member: { Id: 1, Title: 'MDEF\\usuarios del dominio', LoginName: 'c:0(.s|true' }, RoleDefinitionBindings: [{ RoleTypeKind: 3 }] }] });
+  if (resto.startsWith('web/roledefinitions/getbytype(3)')) return json({ Id: 1073741827 });
   if (resto.startsWith('web/currentuser')) return json(yo);
   if (resto.startsWith('web/siteusers')) return json({ value: Object.values(USUARIOS).map(x => ({ ...x, PrincipalType: 1 })) });
   const gu = resto.match(/^web\/getuserbyid\((\d+)\)/); if (gu) return json(USUARIOS[gu[1]] || {});
-  if (resto === 'web/ensureuser') return json({ d: { Id: 11, Title: USUARIOS[11].Title, Email: USUARIOS[11].Email } });
+  if (resto === 'web/ensureuser') {
+    // Por dirección: la persona del sitio con ese correo o, si no está, se da de alta; por cuenta (buscador de personas): esa persona
+    const lg = JSON.parse(req.postData()).logonName;
+    let u = Object.values(USUARIOS).find(x => x.LoginName === lg || (/@/.test(lg) && x.Email.toLowerCase() === lg.toLowerCase()));
+    if (!u && /@/.test(lg)) { const id = 100 + Object.keys(USUARIOS).length; u = USUARIOS[id] = { Id: id, Title: lg.split('@')[0].toUpperCase(), Email: lg, LoginName: 'i:0#.w|et\\' + lg.split('@')[0] }; }
+    if (!u) u = USUARIOS[11];
+    return json({ d: { Id: u.Id, Title: u.Title, Email: u.Email, LoginName: u.LoginName } });
+  }
   if (resto.startsWith('SP.UI.ApplicationPages')) return json({ d: { ClientPeoplePickerSearchUser: JSON.stringify([{ Key: 'i:0#.w|et\\maria', DisplayText: 'MARIA SEGURIDAD', EntityType: 'User', EntityData: { Email: 'maria@et.mde.es' } }]) } });
   if (resto === 'SP.Utilities.Utility.SendEmail') {
-    const pr = JSON.parse(req.postData()).properties, dest = [pr.To, pr.CC].flatMap(x => x ? x.results : []);
-    if (dest.some(x => buzonMal.includes(x))) return json({ error: { message: { value: 'No se puede enviar: asegúrese de que tenga un destinatario válido' } } }, 400);
-    correos.push({ to: dest, asunto: pr.Subject, cuerpo: pr.Body }); return json({ d: {} });
+    const pr = JSON.parse(req.postData()).properties, dest = [pr.To, pr.CC, pr.BCC].flatMap(x => x ? x.results : []);
+    if (SOLO_CUENTAS && dest.some(x => /@/.test(x))) { rechazosCorreo.push(dest.filter(x => /@/.test(x))); return json({ error: { message: { value: 'Asegúrese de que tenga un destinatario válido' } } }, 400); }
+    if (dest.map(comoCorreo).some(x => buzonMal.includes(x))) return json({ error: { message: { value: 'No se puede enviar: asegúrese de que tenga un destinatario válido' } } }, 400);
+    correos.push({ to: dest.map(comoCorreo), cuentas: dest, asunto: pr.Subject, cuerpo: pr.Body }); return json({ d: {} });
   }
   if (resto === 'web/lists' && m === 'POST') { const c = JSON.parse(req.postData()); if (L(c.Title)) return json({ error: { message: { value: 'existe' } } }, 500); nuevaLista(c.Title); return json({ d: { Title: c.Title } }, 201); }
   const ml = resto.match(/^web\/lists\/getbytitle\('([^']*)'\)(.*)$/);
   if (!ml) return json({ error: { message: { value: 'ruta ' + resto } } }, 400);
   const l = L(ml[1]), r = ml[2];
   if (!l) return ful({ status: 404, body: '' });
-  if (r.startsWith('?')) return json({ Id: 'id-' + l.titulo, Title: l.titulo, ListItemEntityTypeFullName: l.entidad, ValidationFormula: l.validacion, RootFolder: { ServerRelativeUrl: WEB + '/Lists/' + l.titulo } });
-  if (r === '' && m === 'POST') { const c = JSON.parse(req.postData()); if (c.ValidationFormula !== undefined) l.validacion = c.ValidationFormula; if (c.EnableVersioning) l.versiones = true; return ful({ status: 204, body: '' }); }
+  if (r.startsWith('/roleassignments?')) return json({ value: listaAbierta ? [{ PrincipalId: 1, Member: { Id: 1, Title: 'MDEF\\usuarios del dominio', LoginName: 'c:0(.s|true' }, RoleDefinitionBindings: [{ RoleTypeKind: 3 }] }] : [] });
+  if (/^\/(breakroleinheritance|roleassignments\/addroleassignment)/.test(r)) { listaAbierta = true; l.propios = true; return json({ d: {} }); }
+  if (r.startsWith('?')) return json({ Id: 'id-' + l.titulo, Title: l.titulo, ListItemEntityTypeFullName: l.entidad, ValidationFormula: l.validacion, EffectiveBasePermissions: permisos(),
+    ReadSecurity: l.lectura || 1, WriteSecurity: l.escritura || 1, HasUniqueRoleAssignments: !!l.propios, RootFolder: { ServerRelativeUrl: WEB + '/Lists/' + l.titulo } });
+  if (r === '' && m === 'POST') { const c = JSON.parse(req.postData()); if (c.ValidationFormula !== undefined) l.validacion = c.ValidationFormula; if (c.EnableVersioning) l.versiones = true; if (c.ReadSecurity) { l.lectura = c.ReadSecurity; l.escritura = c.WriteSecurity; } return ful({ status: 204, body: '' }); }
   if (r.startsWith("/fields/getbyinternalnameortitle('NegociadoAsignado')")) return json({ InternalName: 'NegociadoAsignado', Choices: CHOICES });
   if (r.startsWith('/fields?')) return json({ value: [...l.campos].map(n => ({ InternalName: n })) });
   if (r === '/fields/createfieldasxml') { const x = JSON.parse(req.postData()).parameters.SchemaXml; l.campos.add(x.match(/Name="(\w+)"/)[1]); return json({ d: {} }); }
@@ -108,7 +128,7 @@ await ctx.route(ORIGEN + '/**', async r0 => {
     if (!it) return ful({ status: 404, body: '' });
     const sub = mi[2];
     if (m === 'GET' && /EffectiveBasePermissions/.test(sub)) { const low = sinEditar ? 0x1 : sinBorrar ? 0x1 | 0x2 | 0x4 : 0x1 | 0x2 | 0x4 | 0x8; return json({ d: { EffectiveBasePermissions: { High: '0', Low: String(low) } } }); }
-    if (m === 'GET') { const o = exportar(l, it); return ful({ status: 200, contentType: 'application/json', body: JSON.stringify({ d: { __metadata: { etag: '"' + it.Modified + '"' }, ...(VERBOSE ? conResults(o) : o) } }) }); }
+    if (m === 'GET') { const o = exportar(l, it); for (const k of Object.keys(it)) if (k.endsWith('Id') && Array.isArray(it[k])) o[k] = it[k]; return ful({ status: 200, contentType: 'application/json', body: JSON.stringify({ d: { __metadata: { etag: '"' + it.Modified + '"' }, ...(VERBOSE ? conResults(o) : o) } }) }); }
     // Como (se sospecha que) Colabora: sin cuerpo con Content-Type JSON lo rechaza; con sinBorrar, sin permiso de eliminar
     if (sub === '/recycle()') { if (!req.postData()) return json({ error: { message: { value: 'Invalid JSON. The request body is empty.' } } }, 400);
       if (sinBorrar) return json({ error: { message: { value: 'Acceso denegado.' } } }, 403);
@@ -150,7 +170,7 @@ await p.click('[data-instalar]');
 await p.waitForFunction(() => /Listo|avisos/.test(document.querySelector('#logInst').textContent), null, { timeout: 20000 });
 const log = await txt('#logInst');
 comprueba('instalación sin errores: ' + log.slice(0, 160), /Listo/.test(log) && !/✕/.test(log));
-comprueba('cuatro listas creadas con sus columnas', ['Puntos', 'Negociados', 'Aportaciones', 'Solicitudes'].every(n => LP(n)) && LP('Aportaciones').campos.has('CierrePunto') && LP('Negociados').campos.has('Miembros'));
+comprueba('tres listas creadas con sus columnas (sin «PS Solicitudes»)', ['Puntos', 'Negociados', 'Aportaciones'].every(n => LP(n)) && !LP('Solicitudes') && LP('Aportaciones').campos.has('CierrePunto') && LP('Negociados').campos.has('Miembros'));
 comprueba('validación y versiones: ' + LP('Aportaciones').validacion, LP('Aportaciones').validacion === '=[Cierre del punto]>NOW()' && LP('Aportaciones').versiones && LP('Puntos').versiones);
 const negsC = LP('Negociados').items;
 comprueba('negociados en orden: ' + negsC.map(n => n.Orden + ':' + n.Title).join(', '), negsC.map(n => n.Title).join('|') === 'Coordinación (control total)|PROCOR|Infraestructura|Seguridad|PRL|Calidad de Vida|Acuartelamiento');
@@ -285,11 +305,11 @@ await foto('05-mi-negociado');
   const r = execFileSync('python3', ['-c', `
 import zipfile,sys,xml.dom.minidom as m
 z=zipfile.ZipFile(sys.argv[1]); d=z.read('word/document.xml').decode(); m.parseString(d)
-print('APORTACIÓN DE PRL' in d, 'PROCOR' in d, 'Revisión ficticia' in d, 'EL SETC' in d)`, path.join(dir2, 'parte.docx')]).toString().trim();
+print('APORTACIÓN DE PRL' in d, 'PROCOR' in d, 'Revisión ficticia' in d, 'SECRETARIO' in d)`, path.join(dir2, 'parte.docx')]).toString().trim();
   comprueba('Word de la parte de PRL: ' + nom + ' · ' + r, /^PS-\d{4}-001 PRL Punto de Situacion \d{4}-\d{2}-\d{2}\.docx$/.test(nom) && r === 'True False True False');
   await p.click('[data-pdfneg][data-neg="PRL"]'); await p.waitForTimeout(800);
   const hoja = await p.$eval('#marcoPdf', f => f.contentDocument.body.innerText);
-  comprueba('PDF de la parte de PRL (hoja de impresión)', /APORTACIÓN DE PRL/.test(hoja) && /PRL/.test(hoja) && !/PROCOR/.test(hoja) && !/EL SETC/.test(hoja));
+  comprueba('PDF de la parte de PRL (hoja de impresión)', /APORTACIÓN DE PRL/.test(hoja) && /PRL/.test(hoja) && !/PROCOR/.test(hoja) && !/SECRETARIO/.test(hoja));
   { // La hoja de impresión, pasada a PDF como haría «Guardar como PDF»: «Página X de Y» en cada página
     const doc = await p.$eval('#marcoPdf', f => '<!doctype html><html><head><meta charset="utf-8">' + f.contentDocument.head.innerHTML + '</head><body>' + f.contentDocument.body.innerHTML + '</body></html>');
     const pp = await p.context().newPage(); await pp.setContent(doc); const rpdf = path.join(fs.mkdtempSync('/tmp/ps-pdf-'), 'parte.pdf');
@@ -395,9 +415,9 @@ comprueba('Word válido (XML bien formado), membrete, contenido y asunto solo en
 const rev2 = execFileSync('python3', ['-c', `
 import zipfile,sys
 z=zipfile.ZipFile(sys.argv[1]); d=z.read('word/document.xml').decode(); f=z.read('word/footer1.xml').decode()
-print('EL SETC DE LA SUIGESUR' in d, 'EL JEFE' not in d, 'Creado el' in d, 'Elaborado' not in d, 'Página ' in f and ' PAGE ' in f and ' NUMPAGES ' in f and 'fldChar' in f)
+print('EL SECRETARIO TÉCNICO DE LA SUIGESUR' in d, 'EL JEFE' not in d, 'Creado el' in d, 'Elaborado' not in d, 'Página ' in f and ' PAGE ' in f and ' NUMPAGES ' in f and 'fldChar' in f)
 `, path.join(dir, 'informe.docx')]).toString().trim();
-comprueba('firma del SETC, «Creado el» y «Página X de Y» en el pie: ' + rev2, rev2 === 'True True True True True');
+comprueba('firma del Secretario Técnico, «Creado el» y «Página X de Y» en el pie: ' + rev2, rev2 === 'True True True True True');
 try { execFileSync('python3', ['-c', 'import docx,sys; d=docx.Document(sys.argv[1]); print(len(d.paragraphs))', path.join(dir, 'informe.docx')]); comprueba('python-docx lo abre', true); } catch (e) { console.log('(python-docx no disponible o no lo abre: ' + String(e.stderr || e).slice(0, 120) + ')'); }
 let soffice = ''; try { soffice = execFileSync('bash', ['-lc', 'command -v soffice || command -v libreoffice']).toString().trim(); } catch (e) { /* sin LibreOffice */ }
 if (soffice) { try { execFileSync(soffice, ['--headless', '--convert-to', 'pdf', '--outdir', dir, path.join(dir, 'informe.docx')], { timeout: 120000 }); comprueba('LibreOffice lo convierte a PDF', fs.existsSync(path.join(dir, 'informe.pdf')));
@@ -445,17 +465,45 @@ await p.click(`[data-borrarpunto="${pt.Id}"]`); await p.waitForTimeout(1500);
 comprueba('contenido borrado (papelera) y la ficha se conserva', !LP('Aportaciones').items.some(x => x.PuntoId === pt.Id) && pt.EstadoPunto === 'Contenido borrado' && !!pt.RutaArchivo);
 comprueba('las copias del punto nuevo siguen', LP('Aportaciones').items.filter(x => x.PuntoId === pt2.Id).length === 3);
 
-// 11. Sin negociado: solicitud y aprobación
+// 11. Control de acceso con solicitud (modelo común): lista «SOLICITUDES ACCESO APLICACIONES», aviso a asansen@et.mde.es,
+// pestaña Accesos y Ajustes solo con Control total
+await ir(8);
+comprueba('sin Control total: ni Ajustes ni Accesos', !(await p.$('nav.tabs a[data-v=ajustes]')) && !(await p.$('nav.tabs a[data-v=accesos]')));
+await ir(7);
+comprueba('con Control total: Ajustes y Accesos', !!(await p.$('nav.tabs a[data-v=ajustes]')) && !!(await p.$('nav.tabs a[data-v=accesos]')));
+await p.click('nav.tabs a[data-v=accesos]'); await p.waitForSelector('[data-acccrearlista]');
+comprueba('Preparación: falta la lista común', /Falta la lista «SOLICITUDES ACCESO APLICACIONES»/.test(await txt('#vista')));
+await p.click('[data-acccrearlista]'); await p.waitForFunction(() => /preparada/.test(document.querySelector('#vista').textContent), null, { timeout: 15000 });
+const LACC = listas['solicitudes acceso aplicaciones'];
+comprueba('lista común creada, con columnas, solo sus elementos y abierta a todos', !!LACC && LACC.campos.has('Aplicacion') && LACC.campos.has('ResueltoPor') && LACC.lectura === 2 && listaAbierta && /Cualquiera puede solicitar acceso/.test(await txt('#vista')));
+comprueba('enlace «🔔 Avisarme» (alerta de SharePoint)', !!(await p.$('a[href*="/_layouts/15/SubNew.aspx?List="]')));
+const nPr = correos.length;
+await p.click('[data-accprueba]'); await p.waitForFunction(() => /Aviso de prueba|✕/.test(document.querySelector('#accPrueba').textContent), null, { timeout: 15000 });
+comprueba('«Probar el aviso» llega a asansen@et.mde.es: ' + (correos[nPr] && correos[nPr].cuentas.join()), correos.length === nPr + 1 && correos[nPr].to.includes('asansen@et.mde.es') && /^PRUEBA · SOLICITUD DE ACCESO/.test(correos[nPr].asunto.replace(/^\[PRUEBAS\] /, '')));
+// Pedro (sin negociado) solicita el acceso
 await ir(10);
-comprueba('sin negociado: pantalla de acceso', /No estás en ningún negociado/.test(await txt('#vista')));
-await p.selectOption('#solNeg', 'Infraestructura'); await p.fill('#solMot', 'Motivo ficticio'); await p.click('[data-solicitar]');
-await p.waitForFunction(() => /Solicitud enviada|Colabora/.test(document.querySelector('#solMsg').textContent));
-comprueba('solicitud guardada y aviso a coordinación', LP('Solicitudes').items.length === 1 && correos.some(c => /solicitud de alta/.test(c.asunto)));
-await ir(9); await p.click('nav.tabs a[data-v=ajustes]');
-await p.click('[data-aprobar]'); await p.waitForTimeout(1000);
-comprueba('aprobada: Pedro en Infraestructura', JSON.stringify(negsC[2].MiembrosId) === '[10]' && LP('Solicitudes').items[0].EstadoSolicitud === 'Aprobada');
+comprueba('sin dar de alta: «Solicitar acceso»', /No tienes acceso a «Puntos de Situación»/.test(await txt('#vista')) && !!(await p.$('[data-accsolicitar]')));
+await p.click('[data-accsolicitar]'); comprueba('pide el negociado', /Elige el negociado/.test(await txt('#accErr')));
+await p.selectOption('#fAcceso [name=neg]', 'Infraestructura'); await p.fill('#fAcceso [name=motivo]', 'Motivo ficticio');
+const nSo = correos.length;
+await p.click('[data-accsolicitar]'); await p.waitForFunction(() => /PENDIENTE/.test(document.querySelector('#vista').textContent), null, { timeout: 15000 });
+const sol = LACC.items[0];
+comprueba('solicitud en la lista común: ' + [sol && sol.Aplicacion, sol && sol.Papel, sol && sol.EstadoSolicitud].join(' | '), sol && sol.Aplicacion === (PRUEBAS ? 'PUNTOS PRUEBAS' : 'PUNTOS') && sol.Papel === 'Negociado: Infraestructura' && sol.EstadoSolicitud === 'PENDIENTE' && sol.SolicitanteId === 10);
+comprueba('aviso de la solicitud a asansen@et.mde.es (a su cuenta): ' + (correos[nSo] && correos[nSo].cuentas.join()), correos.length === nSo + 1 && correos[nSo].to.join() === 'asansen@et.mde.es' && !/@/.test(correos[nSo].cuentas.join()));
+comprueba('la pantalla dice que está pendiente y que se avisó', /PENDIENTE de revisión/.test(await txt('#vista')) && /Se ha avisado por correo/.test(await txt('#vista')));
+// El administrador la aprueba en Accesos
+await ir(7);
+comprueba('pestaña Accesos con 1 pendiente', /Accesos \(1\)/.test(await txt('nav.tabs')));
+await p.click('nav.tabs a[data-v=accesos]'); await p.waitForSelector('[data-accaprobar]');
+comprueba('negociado propuesto: Infraestructura', await p.$eval('.accNeg', e => e.selectedOptions[0].textContent) === 'Infraestructura');
+await p.click('[data-accdenegar]'); comprueba('denegar exige motivo', /motivo del rechazo/i.test(await txt('.accMsg')));
+const nAp = correos.length;
+await p.click('[data-accaprobar]'); await p.waitForFunction(() => !document.querySelector('[data-accaprobar]'), null, { timeout: 15000 });
+comprueba('aprobada: Pedro en Infraestructura y solicitud resuelta', negsC[2].MiembrosId.includes(10) && sol.EstadoSolicitud === 'APROBADA' && sol.GrupoAsignado === 'Infraestructura' && sol.ResueltoPorId === 7);
+comprueba('correo al solicitante (a su cuenta): ' + (correos[nAp] && correos[nAp].asunto), correos.length === nAp + 1 && correos[nAp].to.join() === 'pedro@et.mde.es' && /ACCESO CONCEDIDO/.test(correos[nAp].asunto));
 await ir(10);
-comprueba('Pedro ya entra', !/No estás en ningún negociado/.test(await txt('#vista')));
+comprueba('Pedro ya entra', !/No tienes acceso/.test(await txt('#vista')) && !!(await p.$('nav.tabs')));
+comprueba('correos sin rechazos' + (SOLO_CUENTAS ? ' (SOLO_CUENTAS)' : '') + ': ' + JSON.stringify(rechazosCorreo.slice(0, 3)), !rechazosCorreo.length || !SOLO_CUENTAS || correos.length > 0);
 
 // 12. Mensajes de SENDERO directos al Punto de Situación (#importar=, destino psit)
 { const msg = (o = {}) => '#importar=' + encodeURIComponent(JSON.stringify(Object.assign({ v: 1, origen: 'SENDERO', destino: 'psit', id: 'MSG-0001', asunto: 'Mensaje ficticio de MENSADEF',
@@ -615,6 +663,7 @@ def con(t,prop): return bool(re.search('<w:r><w:rPr>[^<]*(?:<[^>]*>)*?'+prop+'(?
 print(con('cursiva','<w:i/>'), con('subrayado','<w:u w:val="single"/>'), con('resaltado','<w:highlight w:val="yellow"/>'), '• punto uno' in d, '[i]' not in d)`, path.join(dirW, 'f.docx')]).toString().trim();
   comprueba('Word con formato (cursiva, subrayado, resaltado, viñetas): ' + rw, rw === 'True True True True True');
 }
+if (SOLO_CUENTAS) comprueba('SOLO_CUENTAS: todos los avisos salen a cuentas, ninguno con «@» (' + correos.length + ' enviados, ' + rechazosCorreo.length + ' intentos con dirección): ' + JSON.stringify(correos.flatMap(c => c.cuentas).filter(x => /@/.test(x))), correos.length > 0 && correos.every(c => c.cuentas.every(x => !/@/.test(x))));
 comprueba('errores de página: ' + JSON.stringify(errs), !errs.length);
 await b.close();
 console.log(ok ? 'TODO BIEN' : 'HAY FALLOS');

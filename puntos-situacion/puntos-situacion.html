@@ -158,11 +158,15 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-17 · 1';
+  var VERSION = '2026-11-17 · 2';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
-  var L = { puntos: 'PS Puntos' + SUF, negs: 'PS Negociados' + SUF, aport: 'PS Aportaciones' + SUF, solic: 'PS Solicitudes' + SUF };
+  var L = { puntos: 'PS Puntos' + SUF, negs: 'PS Negociados' + SUF, aport: 'PS Aportaciones' + SUF };
+  // Control de acceso con solicitud (modelo común de las aplicaciones de Colabora, 17/11/2026): lista común del sitio
+  // «SOLICITUDES ACCESO APLICACIONES» (NUNCA la interna «Solicitudes de acceso» de SharePoint), columna Aplicacion = PUNTOS,
+  // aviso de cada solicitud nueva a la dirección fija y alta del solicitante en su negociado al aprobar.
+  var ACCESO = { app: 'PUNTOS' + (PRUEBAS ? ' PRUEBAS' : ''), lista: 'SOLICITUDES ACCESO APLICACIONES', avisarCorreos: ['asansen@et.mde.es'] };
   var GESTOR = 'Gestor de Tareas' + SUF;                                       // de aquí se copian los negociados al instalar
   var META = PRUEBAS ? 'Gestor de Tareas PRUEBAS' : 'Gestor de Tareas MENSADEF'; // propuestas «⭐ Tratar con el General»
   var MARCA_GEN = 'TRATAR CON EL GENERAL';
@@ -218,7 +222,7 @@
   var aviso = function (txt) { $('#estadoCarga').textContent = txt; clearTimeout(aviso.t); aviso.t = setTimeout(pintarEstado, 4000); };
 
   // ---------- SharePoint (REST) ----------
-  var web = null, yo = null, info = {}, negs = [], puntos = [], aport = [], solicitudes = [], metaTareas = [], metaRaiz = '', usuariosSitio = null;
+  var web = null, yo = null, info = {}, negs = [], puntos = [], aport = [], esAdmin = false, metaTareas = [], metaRaiz = '', usuariosSitio = null;
   var instalada = null, cargadoEn = null, sel = null, errorCarga = '';
   function api(url) {
     var pedir = function (accept) {
@@ -329,11 +333,10 @@
       ['Situacion', 'Note', 'Situación'], ['Prioridad', 'Choice', 'Prioridad', ['Normal', 'Alta']], ['Orden', 'Number', 'Orden'], ['Expediente', 'Text', 'Expediente'],
       ['PasarSiguiente', 'Boolean', 'Pasar al siguiente punto', 1], ['CierrePunto', 'DateTime', 'Cierre del punto'], ['Origen', 'Text', 'Origen'],
       ['OrigenLista', 'Text', 'Lista de origen'], ['OrigenClave', 'Text', 'Clave de origen'], ['OrigenId', 'Number', 'Id de origen'], ['OrigenUrl', 'Text', 'Enlace de origen']],
-    solic: [['Negociado', 'Text', 'Negociado'], ['Motivo', 'Note', 'Motivo'], ['Solicitante', 'User', 'Solicitante'],
-      ['EstadoSolicitud', 'Choice', 'Estado de la solicitud', ['Pendiente', 'Aprobada', 'Denegada']], ['Resolucion', 'Text', 'Resolución']]
+
   };
   var DESC = { puntos: 'Puntos de situación de SUIGESUR (página puntos-situacion.html)', negs: 'Negociados del punto de situación y sus miembros',
-    aport: 'Aportaciones de los negociados al punto de situación', solic: 'Solicitudes de alta en un negociado del punto de situación' };
+    aport: 'Aportaciones de los negociados al punto de situación' };
   var VALIDA = '=[Cierre del punto]>NOW()';
   var VALIDA_MSG = 'El punto de situación está cerrado: ya no admite cambios. Pide a PROCOR que lo reabra.';
   function xmlCampo(c) {
@@ -361,11 +364,15 @@
       return Promise.all([
         yo ? yo : api(web + '/_api/web/currentuser?$select=Id,Title,Email,LoginName').then(function (u) { yo = u; }),
         Promise.all(Object.keys(L).map(function (k) {
-          return api(U(k) + '?$select=Id,Title,ListItemEntityTypeFullName').then(function (x) { info[k] = x; }, function (e) { if (e.status === 404) info[k] = null; else throw e; });
+          return api(U(k) + '?$select=Id,Title,ListItemEntityTypeFullName' + (k === 'puntos' ? ',EffectiveBasePermissions' : '')).then(function (x) { info[k] = x; }, function (e) { if (e.status === 404) info[k] = null; else throw e; });
         }))
       ]);
     }).then(function () {
-      instalada = !!(info.puntos && info.negs && info.aport && info.solic);
+      instalada = !!(info.puntos && info.negs && info.aport);
+      // Control total (permiso «Administrar permisos») en la lista de puntos o, si aún no existe, en el sitio: Ajustes y Accesos
+      return (info.puntos ? Promise.resolve(info.puntos.EffectiveBasePermissions) : api(web + '/_api/web?$select=EffectiveBasePermissions').then(function (w) { return w.EffectiveBasePermissions; }, function () { return null; }))
+        .then(function (b) { esAdmin = ((Number(b && b.Low) || 0) & 0x2000000) !== 0; });
+    }).then(function () {
       if (!instalada) return;
       return Promise.all(['negs', 'aport'].map(function (k) {
         return api(U(k) + '/fields?$select=InternalName').then(function (d) { camposLista[k] = lista(d.value).map(function (x) { return x.InternalName; }); }, function () { camposLista[k] = []; });
@@ -376,17 +383,16 @@
         todos(U('negs') + '/items?$top=500&$select=Id,Title,Orden,NombreGestor,' + (hayCampo('negs', 'CelulaMensadef') ? 'CelulaMensadef,' : '') + 'Coordina,EnInforme,Miembros/Id,Miembros/Title,Miembros/EMail&$expand=Miembros').then(function (x) { negs = x.map(aNeg).sort(porOrden); }),
         todos(U('puntos') + '/items?$top=500&$select=Id,Title,Referencia,Anio,Numero,FechaPunto,Apertura,Cierre,EstadoPunto,Convocados,Repetir,RecordarHoras,RecordatorioEnviado,RutaArchivo,ArchivadoPor,FechaArchivo,FechaBorrado,Historial,Created,Modified,Author/Title&$expand=Author')
           .then(function (x) { puntos = x.map(aPunto).sort(function (a, b) { return b.fecha - a.fecha || b.id - a.id; }); }),
-        todos(U('aport') + '/items?$top=500&$select=' + SEL_APORT + (hayCampo('aport', 'OrigenClave') ? ',OrigenClave' : '') + '&$expand=Editor,Author,AttachmentFiles').then(function (x) { aport = x.map(aAport); }),
-        todos(U('solic') + '/items?$top=500&$select=Id,Title,Negociado,Motivo,EstadoSolicitud,Resolucion,Created,Solicitante/Id,Solicitante/Title,Solicitante/EMail&$expand=Solicitante')
-          .then(function (x) { solicitudes = x; }, function () { solicitudes = []; })
+        todos(U('aport') + '/items?$top=500&$select=' + SEL_APORT + (hayCampo('aport', 'OrigenClave') ? ',OrigenClave' : '') + '&$expand=Editor,Author,AttachmentFiles').then(function (x) { aport = x.map(aAport); })
       ]);
     }).then(function () {
-      cargadoEn = new Date(); errorCarga = '';
+      cargadoEn = new Date(); errorCarga = ''; accEstado = '';
       if (instalada) {
         if (!sel || !puntoPorId(sel)) sel = elegirPunto();
         cargarMeta();
       }
       pintarEstado(); render();
+      if (instalada && esAdmin) cargarAccesos();   // solicitudes pendientes (número en la pestaña Accesos)
       if (instalada && importado) procesarImport();
     }).catch(function (e) {
       errorCarga = e.message || String(e);
@@ -446,7 +452,7 @@
     return ab.length ? ab[0].id : puntos.length ? puntos[0].id : null;
   }
   var soyDe = function (n) { return !!yo && n.miembros.some(function (m) { return m.Id === yo.Id; }); };
-  var coordino = function () { return negs.some(function (n) { return n.coordina && soyDe(n); }); };
+  var coordino = function () { return esAdmin || negs.some(function (n) { return n.coordina && soyDe(n); }); };
   var negsInforme = function () { return negs.filter(function (n) { return n.informe; }); };
   var misNegs = function () { return negsInforme().filter(function (n) { return coordino() || soyDe(n); }); };
   var puedo = function (neg) { return coordino() || negs.some(function (n) { return n.titulo === neg && soyDe(n); }); };
@@ -529,16 +535,20 @@
     var v = $('#vista');
     if (errorCarga) { v.innerHTML = '<div class="error">No se pudieron leer los datos: ' + esc(errorCarga) + '</div><p class="small muted">Versión ' + esc(VERSION) + '. Pulsa ↻ Actualizar para reintentar.</p>'; return; }
     if (instalada === null) { v.innerHTML = '<p class="muted">Cargando…</p>'; return; }
-    if (!instalada) { v.innerHTML = vistaInstalar(); prepararInstalar(); return; }
-    if (!coordino() && !misNegs().length) { if (importado) { importadoSinAcceso = true; importado = null; }
-      v.innerHTML = (importadoSinAcceso ? '<div class="aviso" style="margin-top:14px">Has llegado con un mensaje de SENDERO, pero no estás en ningún negociado del Punto de Situación: no puedes incluirlo. Pide el alta abajo.</div>' : '') + vistaAcceso(); return; }
-    var tabs = [['seguimiento', 'Seguimiento'], ['negociado', 'Mi negociado'], ['informe', 'Informe'], ['historico', 'Histórico'], ['ajustes', 'Ajustes']];
+    if (!instalada) {
+      if (!esAdmin) { v.innerHTML = '<div class="card" style="margin-top:14px"><h2 style="margin-top:0">La aplicación aún no está preparada</h2><p>La primera puesta en marcha la hace quien tiene «Control total» en el sitio. Avisa al administrador de la página.</p><p class="small muted">Versión ' + esc(VERSION) + '</p></div>'; return; }
+      v.innerHTML = vistaInstalar(); prepararInstalar(); return;
+    }
+    if (!coordino() && !misNegs().length) { if (importado) { importadoSinAcceso = true; importado = null; } pantallaAcceso(); return; }
+    // Ajustes y Accesos, solo con Control total: a los demás ni les aparecen
+    var tabs = [['seguimiento', 'Seguimiento'], ['negociado', 'Mi negociado'], ['informe', 'Informe'], ['historico', 'Histórico']].concat(esAdmin ? [['ajustes', 'Ajustes'], ['accesos', 'Accesos' + (nPendAcc() ? ' (' + nPendAcc() + ')' : '')]] : []);
+    if (!esAdmin && /^(ajustes|accesos)$/.test(pref.vista)) pref.vista = 'seguimiento';
     var p = puntoPorId(sel);
     var cab = '<div class="fila" style="margin-top:12px"><label class="small muted" for="selPunto">Punto de situación</label><select id="selPunto" style="flex:1;min-width:240px">' +
       (puntos.length ? puntos.map(function (x) { return '<option value="' + x.id + '"' + (p && x.id === p.id ? ' selected' : '') + '>' + esc(x.ref + ' · ' + fLarga(x.fecha) + ' · ' + estadoPunto(x)[0]) + '</option>'; }).join('') : '<option>— Aún no hay puntos —</option>') +
       '</select>' + (coordino() ? '<button class="prim" data-nuevo>＋ Nuevo punto</button>' : '') + '</div>';
     var nav = '<nav class="tabs">' + tabs.map(function (t) { return '<a data-v="' + t[0] + '" class="' + (pref.vista === t[0] ? 'on' : '') + '">' + t[1] + '</a>'; }).join('') + '</nav>';
-    var cuerpo = { seguimiento: vistaSeguimiento, negociado: vistaNegociado, informe: vistaInforme, historico: vistaHistorico, ajustes: vistaAjustes }[pref.vista] || vistaSeguimiento;
+    var cuerpo = { seguimiento: vistaSeguimiento, negociado: vistaNegociado, informe: vistaInforme, historico: vistaHistorico, ajustes: vistaAjustes, accesos: vistaAccesos }[pref.vista] || vistaSeguimiento;
     v.innerHTML = cab + nav + cuerpo(p);
     if (pref.vista === 'negociado') activarArrastre();
     if (pref.vista === 'ajustes') activarSelectores();
@@ -675,7 +685,7 @@
           return '<div class="item"><div class="asunto"><b>' + esc(a.titulo) + (a.prio === 'Alta' ? ' (PRIORIDAD ALTA)' : '') + '</b></div>' + htmlSit(a, nFig) + '</div>';
         }).join('') : '<p><i>' + (sinNovedad(p, n.titulo) ? 'Sin novedad.' : 'No ha aportado información.') + '</i></p>');
       }).join('') +
-      (soloNeg ? '' : '<div class="firma">EL SETC DE LA SUIGESUR<br><br><br>Fdo.: ……………………………</div>') +
+      (soloNeg ? '' : '<div class="firma">EL SECRETARIO TÉCNICO DE LA SUIGESUR<br><br><br>Fdo.: ……………………………</div>') +
       '<div class="pie"><img src="' + esc(uso) + '" alt="USO OFICIAL"><br>Emitido por ' + esc(yo.Title) + ' el ' + esc(ahoraTxt()) + ' · Puntos de Situación SUIGESUR</div></div>';
   }
   var subtitulo = function (p, nAs, soloNeg) {
@@ -716,14 +726,10 @@
 
   function vistaAjustes() {
     var h = '';
-    if (coordino()) {
+    if (esAdmin) {
       if (!hayCampo('negs', 'CelulaMensadef') || !hayCampo('aport', 'OrigenClave'))
         h += '<div class="aviso">Esta versión usa dos columnas nuevas (la «Célula de MENSADEF» de cada negociado, para los mensajes que llegan de SENDERO). Pulsa <b>«Comprobar la instalación»</b> (abajo) para crearlas.</div>';
-      var pend = solicitudes.filter(function (s) { return (s.EstadoSolicitud || 'Pendiente') === 'Pendiente'; });
-      if (pend.length) h += '<h2 class="sec">Solicitudes de alta pendientes</h2>' + pend.map(function (s) {
-        return '<div class="card fila small"><span class="crece"><b>' + esc(s.Solicitante ? s.Solicitante.Title : s.Title) + '</b> pide entrar en <b>' + esc(s.Negociado) + '</b>' +
-          (s.Motivo ? ' · ' + esc(s.Motivo) : '') + ' <span class="muted">· ' + esc(fFH(s.Created)) + '</span></span><button class="prim" data-aprobar="' + s.Id + '">✔ Aprobar</button><button data-denegar="' + s.Id + '">✕ Denegar</button></div>';
-      }).join('');
+      if (nPendAcc()) h += '<div class="aviso">Hay ' + nPendAcc() + ' solicitud' + (nPendAcc() === 1 ? '' : 'es') + ' de acceso pendiente' + (nPendAcc() === 1 ? '' : 's') + ': pestaña <b>Accesos</b>.</div>';
       if (hayCampo('negs', 'CelulaMensadef')) {
         var fr = filasReparto();
         h += '<h2 class="sec">Células de SUIGESUR (META y SENDERO)</h2><div class="card"><p class="small">Reparto de las células de MENSADEF por negociado. Se ponen en «Nombre en el Gestor de Tareas» (tareas de META) y en «Célula de MENSADEF» (mensajes de SENDERO). Solo añade: lo que ya hay se conserva.</p>' +
@@ -748,31 +754,252 @@
         '<h2 class="sec">Instalación</h2><div class="card"><p class="small">Comprueba que las listas y columnas están completas (crea solo lo que falte), el historial de versiones y la validación que bloquea los cambios después del cierre.</p>' +
         '<button data-comprobar>Comprobar la instalación</button><div class="log" id="logInst"></div></div>' +
         '<h2 class="sec">✉ Correo de prueba</h2><div class="card"><p class="small muted">Comprueba si Colabora acepta y entrega los avisos a unas direcciones (separadas por «;»).</p><input id="aPruebaA" value="' + esc(yo.Email || '') + '"><div class="acciones"><button data-pruebacorreo>Enviar correo de prueba</button></div><div id="aPrueba"></div></div>';
-    } else {
-      h += '<div class="card"><b>Tus negociados:</b> ' + esc(misNegs().map(function (n) { return n.titulo; }).join(', ')) + '</div>' + formSolicitud();
     }
     return h + '<div class="card small"><b>Privacidad.</b> Esta página funciona dentro de Colabora con tu sesión y tus permisos. Los datos no salen del servidor: no carga nada de internet. ' +
       'Los correos los envía el propio Colabora. Lo que se borra va a la papelera del sitio. Versión ' + esc(VERSION) + '.</div>';
   }
-  function formSolicitud() {
-    var mias = solicitudes.filter(function (s) { return s.Solicitante && s.Solicitante.Id === yo.Id; });
-    return '<div class="card"><h3 style="margin-top:0">Solicitar alta en un negociado</h3><label class="lbl">Negociado</label><select id="solNeg">' +
-      negsInforme().filter(function (n) { return !soyDe(n); }).map(function (n) { return '<option>' + esc(n.titulo) + '</option>'; }).join('') + '</select>' +
-      '<label class="lbl">Motivo (opcional)</label><input id="solMot" maxlength="250"><div class="acciones"><button class="prim" data-solicitar>Enviar la solicitud a PROCOR</button></div><div id="solMsg"></div>' +
-      (mias.length ? '<p class="small"><b>Tus solicitudes:</b> ' + mias.map(function (s) { return esc(s.Negociado) + ' (' + esc(s.EstadoSolicitud || 'Pendiente') + (s.Resolucion ? ': ' + esc(s.Resolucion) : '') + ')'; }).join(' · ') + '</p>' : '') + '</div>';
+  // ---------- Control de acceso con solicitud (modelo de incidentes/incidentes.html) ----------
+  var urlAcc = function () { return urlL(ACCESO.lista); };
+  var CAMPOS_ACC = [
+    '<Field Type="User" Name="Solicitante" StaticName="Solicitante" DisplayName="Solicitante" UserSelectionMode="PeopleOnly" />',
+    '<Field Type="Text" Name="Correo" StaticName="Correo" DisplayName="Correo" />',
+    '<Field Type="Text" Name="Empleo" StaticName="Empleo" DisplayName="Empleo" />',
+    '<Field Type="Text" Name="MandoSegundo" StaticName="MandoSegundo" DisplayName="Mando de 2.º nivel" />',
+    '<Field Type="Text" Name="Unidad" StaticName="Unidad" DisplayName="Unidad" />',
+    '<Field Type="Text" Name="Telefono" StaticName="Telefono" DisplayName="Teléfono" />',
+    '<Field Type="Text" Name="Papel" StaticName="Papel" DisplayName="Papel solicitado" />',
+    '<Field Type="Note" Name="Motivo" StaticName="Motivo" DisplayName="Motivo" NumLines="4" RichText="FALSE" />',
+    '<Field Type="Text" Name="Aplicacion" StaticName="Aplicacion" DisplayName="Aplicación" />',
+    '<Field Type="Choice" Name="EstadoSolicitud" StaticName="EstadoSolicitud" DisplayName="Estado"><Default>PENDIENTE</Default><CHOICES><CHOICE>PENDIENTE</CHOICE><CHOICE>APROBADA</CHOICE><CHOICE>DENEGADA</CHOICE><CHOICE>RETIRADA</CHOICE></CHOICES></Field>',
+    '<Field Type="Text" Name="GrupoAsignado" StaticName="GrupoAsignado" DisplayName="Grupo asignado" />',
+    '<Field Type="Note" Name="Resolucion" StaticName="Resolucion" DisplayName="Resolución" NumLines="3" RichText="FALSE" />',
+    '<Field Type="User" Name="ResueltoPor" StaticName="ResueltoPor" DisplayName="Resuelto por" UserSelectionMode="PeopleOnly" />',
+    '<Field Type="DateTime" Name="FechaResolucion" StaticName="FechaResolucion" DisplayName="Fecha de resolución" />'
+  ];
+  var SEL_ACC = ['Id', 'Title', 'Correo', 'Empleo', 'Unidad', 'Telefono', 'Papel', 'Motivo', 'Aplicacion', 'EstadoSolicitud', 'GrupoAsignado', 'Resolucion', 'FechaResolucion', 'Created',
+    'Solicitante/Id', 'Solicitante/Title', 'Solicitante/EMail', 'ResueltoPor/Title'];
+  var PREFIJO_NEG = 'Negociado: ';
+  var accInfo = null, accFaltan = [], accAbierta = null, accSols = null, accEstado = '', perfil = null, msgSolAcc = '';
+  var aSol = function (x) {
+    var sol = x.Solicitante || {};
+    return { id: x.Id, nombre: x.Title || sol.Title || '', solId: sol.Id, correo: x.Correo || sol.EMail || '', empleo: x.Empleo || '', unidad: x.Unidad || '', tel: x.Telefono || '',
+      neg: String(x.Papel || '').indexOf(PREFIJO_NEG) === 0 ? String(x.Papel).slice(PREFIJO_NEG.length) : '', papel: x.Papel || '', motivo: x.Motivo || '', app: x.Aplicacion || '',
+      estado: String(x.EstadoSolicitud || 'PENDIENTE').toUpperCase(), grupo: x.GrupoAsignado || '', resolucion: x.Resolucion || '', resuelto: x.ResueltoPor && x.ResueltoPor.Title || '',
+      fechaRes: x.FechaResolucion, creado: x.Created };
+  };
+  var nPendAcc = function () { return esAdmin && accSols ? accSols.filter(function (x) { return x.estado === 'PENDIENTE'; }).length : 0; };
+  function misSolicitudes() {
+    return todos(urlAcc() + '/items?$top=50&$select=' + SEL_ACC.join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent('(SolicitanteId eq ' + yo.Id + ") and (Aplicacion eq '" + ACCESO.app + "')"))
+      .then(function (l) { return l.map(aSol).filter(function (x) { return x.app === ACCESO.app && x.solId === yo.Id; }).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); }); });
   }
-  function vistaAcceso() {
-    var proc = negs.filter(function (n) { return n.coordina; }).reduce(function (a, n) { return a.concat(n.miembros.map(function (m) { return m.Title; })); }, []);
-    return '<div class="card" style="margin-top:14px"><h2 style="margin-top:0">🔒 No estás en ningún negociado del Punto de Situación</h2><p>Para aportar información o ver el seguimiento, PROCOR tiene que darte de alta en tu negociado.' +
-      (proc.length ? ' Coordinación: ' + esc(proc.filter(function (x, i, a) { return a.indexOf(x) === i; }).join(', ')) + '.' : '') + '</p></div>' + formSolicitud();
+  function leerPerfil() {
+    if (perfil) return Promise.resolve(perfil);
+    return api(web + '/_api/SP.UserProfiles.PeopleManager/GetMyProperties?$select=DisplayName,Title,Email,UserProfileProperties').then(function (d) {
+      var props = {}; lista(d.UserProfileProperties).forEach(function (p) { props[p.Key] = p.Value; });
+      perfil = { cargo: d.Title || props.Title || '', departamento: props.Department || props['SPS-Department'] || '', telefono: props.WorkPhone || '' };
+      return perfil;
+    }).catch(function () { perfil = {}; return perfil; });
   }
+  // Quien no está dado de alta (en ningún negociado ni con Control total) ve «Solicitar acceso»
+  function pantallaAcceso(forzar) {
+    var v = $('#vista');
+    if (!forzar && v.querySelector('#fAcceso, .accPend')) return;   // no se repinta mientras se rellena o se espera
+    $('#estadoCarga').textContent = 'Sin acceso';
+    var cab = '<div class="card" style="margin-top:14px;border-left:5px solid var(--bad)"><h2 style="margin-top:0">🔒 No tienes acceso a «Puntos de Situación»</h2>' +
+      '<p class="small">Esta aplicación es para los negociados de SUIGESUR que aportan información al punto de situación. Si la necesitas, solicita el acceso: se revisará y recibirás un correo con la respuesta.</p>' +
+      (importadoSinAcceso ? '<div class="aviso">Has llegado con un mensaje de SENDERO, pero no estás en ningún negociado del Punto de Situación: no puedes incluirlo. Solicita el acceso abajo.</div>' : '') +
+      '<p class="small muted">Sesión: <b>' + esc(yo.Title) + '</b>' + (yo.Email ? ' · ' + esc(yo.Email) : '') + '</p></div>';
+    if (!v.querySelector('#fAcceso')) v.innerHTML = cab + '<div class="card"><p class="muted">Comprobando tus solicitudes…</p></div>';
+    Promise.all([misSolicitudes().catch(function (e) { return { error: e }; }), leerPerfil()]).then(function (r) {
+      var sols = r[0], P = r[1];
+      if (sols && sols.error) {
+        var st = sols.error.status;
+        v.innerHTML = cab + '<div class="aviso">' + (st === 401 || st === 403 || st === 404 ? 'No puedes usar la lista «' + esc(ACCESO.lista) + '»: ' + (st === 404 ? 'todavía no existe o Colabora no te deja verla' : 'Colabora no te deja abrirla') +
+          '. El administrador debe entrar en la pestaña <b>Accesos › Preparación</b> y ' + (st === 404 ? 'crear la lista (si falta) y ' : '') + 'pulsar «Permitir que cualquiera solicite acceso». ' : 'No se pudieron leer tus solicitudes de acceso. ') +
+          'Mientras tanto, pide el acceso directamente al administrador de la página.<div class="small muted">Detalle: ' + esc(sols.error.message || sols.error) + ' · versión ' + esc(VERSION) + '</div></div>';
+        return;
+      }
+      var pend = sols.filter(function (x) { return x.estado === 'PENDIENTE'; })[0], ult = sols[0];
+      var hist = sols.length ? '<div class="card"><h3 style="margin-top:0">Tus solicitudes</h3>' + sols.map(function (x) {
+        return '<div class="small" style="margin:4px 0"><b>' + esc(fFH(x.creado)) + '</b> · ' + esc(x.neg || x.papel) + ' · <span class="badge ' + (x.estado === 'APROBADA' ? 'ok' : x.estado === 'DENEGADA' ? 'bad' : 'warn') + '">' + esc(x.estado) + '</span>' +
+          (x.resolucion ? '<br>' + (x.estado === 'DENEGADA' ? '<b>Motivo del rechazo:</b> ' : '') + esc(x.resolucion) : '') + '</div>';
+      }).join('') + '</div>' : '';
+      if (pend) { v.innerHTML = cab + '<div class="okmsg accPend">Tu solicitud del ' + esc(fFH(pend.creado)) + ' está <b>PENDIENTE</b> de revisión. Recibirás un correo cuando se resuelva.</div>' + msgSolAcc + hist; return; }
+      var aviso2 = ult && ult.estado === 'APROBADA' ? '<div class="aviso">Tu solicitud fue aprobada (' + esc(ult.grupo) + '). Pulsa ↻ Actualizar; si sigue igual, avisa al administrador.</div>' : '';
+      v.innerHTML = cab + aviso2 + '<div class="card" id="fAcceso"><h3 style="margin-top:0">Solicitar acceso</h3>' +
+        '<div class="grid2"><div><label class="lbl">Apellidos y nombre</label><input value="' + esc(yo.Title) + '" disabled></div><div><label class="lbl">Correo</label><input value="' + esc(yo.Email || '') + '" disabled></div>' +
+        '<div><label class="lbl">Empleo</label><input name="empleo" maxlength="100" value="' + esc(P.cargo || '') + '"></div><div><label class="lbl">Teléfono</label><input name="tel" maxlength="60" value="' + esc(P.telefono || '') + '" placeholder="RPV o fijo"></div></div>' +
+        '<label class="lbl">Negociado en el que aportas (obligatorio)</label><select name="neg"><option value="">Seleccionar…</option>' + negsInforme().map(function (n) { return '<option>' + esc(n.titulo) + '</option>'; }).join('') + '</select>' +
+        '<label class="lbl">Motivo / observaciones</label><textarea name="motivo" rows="3" placeholder="Por ejemplo: soy del negociado y tengo que aportar al punto de situación…"></textarea>' +
+        '<div id="accErr"></div><div class="acciones"><button class="prim" data-accsolicitar>📨 Enviar solicitud de acceso</button></div></div>' + msgSolAcc + hist;
+    });
+  }
+  function enviarSolicitud(boton) {
+    var f = $('#fAcceso'), q = function (n) { return f.querySelector('[name="' + n + '"]'); };
+    var err = function (m) { $('#accErr').innerHTML = '<div class="error">' + esc(m) + '</div>'; };
+    if (!q('neg').value) return err('Elige el negociado en el que aportas.');
+    boton.disabled = true;
+    var c = { Title: yo.Title, SolicitanteId: yo.Id, Correo: yo.Email || '', Empleo: q('empleo').value.trim(), Unidad: (perfil && perfil.departamento) || '', Telefono: q('tel').value.trim(),
+      Papel: PREFIJO_NEG + q('neg').value, Motivo: q('motivo').value.trim(), Aplicacion: ACCESO.app, EstadoSolicitud: 'PENDIENTE' };
+    api(urlAcc() + '?$select=ListItemEntityTypeFullName').then(function (l) {
+      return enviarSP(urlAcc() + '/items', Object.assign({ __metadata: { type: l.ListItemEntityTypeFullName } }, c), 'No tienes permiso para escribir en la lista de solicitudes de acceso');
+    }).then(function (n) {
+      var sl = aSol(Object.assign({ Id: n && (n.Id || n.ID), Created: new Date().toISOString(), Solicitante: { Id: yo.Id, Title: yo.Title, EMail: yo.Email } }, c));
+      return enviarCorreo(correoAcceso('nueva', sl)).catch(function (e) { return { ok: false, n: 0, motivo: e.message || String(e), rechazados: [] }; }).then(function (r) {
+        msgSolAcc = '<div class="' + claseCorreo(r) + '" style="margin-top:8px">' + (r.ok && !(r.rechazados && r.rechazados.length) ? '✓ Se ha avisado por correo al responsable de los accesos.' :
+          msgCorreo(r) + ' La solicitud está guardada; si puedes, avisa también a ' + esc(ACCESO.avisarCorreos.join(', ')) + '.') + '</div>';
+        pantallaAcceso(true);
+      });
+    }).catch(function (e) { boton.disabled = false; err('No se pudo enviar la solicitud: ' + (e.message || e)); });
+  }
+  function correoAcceso(tipo, sl, txt) {
+    var filas = [['Solicitante', sl.nombre], ['Correo', sl.correo], ['Empleo', sl.empleo], ['Unidad', sl.unidad], ['Teléfono', sl.tel], ['Negociado', sl.neg || sl.papel], ['Motivo', sl.motivo],
+      [tipo === 'denegada' ? 'Motivo del rechazo' : 'Observación', txt]].filter(function (x) { return x[1]; });
+    var P = { nueva: ['SOLICITUD DE ACCESO · PUNTOS DE SITUACIÓN · ' + sl.nombre, 'NUEVA SOLICITUD DE ACCESO A LA APLICACIÓN PUNTOS DE SITUACIÓN DE SUIGESUR. REVÍSELA EN LA PESTAÑA «ACCESOS».'],
+      aprobada: ['ACCESO CONCEDIDO · PUNTOS DE SITUACIÓN', 'SU SOLICITUD DE ACCESO HA SIDO APROBADA: YA PUEDE APORTAR AL PUNTO DE SITUACIÓN EN SU NEGOCIADO.'],
+      denegada: ['ACCESO DENEGADO · PUNTOS DE SITUACIÓN', 'SU SOLICITUD DE ACCESO A LA APLICACIÓN PUNTOS DE SITUACIÓN NO HA SIDO APROBADA.'] }[tipo];
+    var to = tipo === 'nueva' ? ACCESO.avisarCorreos.slice() : [sl.correo].filter(Boolean), cuentas = {}, nombres = {};
+    if (tipo !== 'nueva' && sl.correo) { cuentas[sl.correo.toLowerCase()] = sl.solId; nombres[sl.correo.toLowerCase()] = sl.nombre; }
+    return { to: to, cc: [], bcc: [], cuentas: cuentas, nombres: nombres, asunto: P[0], html: htmlCorreo(P[1], filas, enlacePagina()),
+      texto: 'USO OFICIAL\n\n' + P[1] + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\n' + enlacePagina() };
+  }
+  function probarAvisoSolicitud(boton) {
+    var el = $('#accPrueba');
+    boton.disabled = true; el.innerHTML = '<p class="small muted">Enviando…</p>';
+    var c = correoAcceso('nueva', { nombre: yo.Title + ' (PRUEBA, no es una solicitud real)', correo: yo.Email, neg: 'Prueba del aviso', motivo: 'Comprobar que llegan los avisos de solicitudes de acceso.' });
+    c.asunto = 'PRUEBA · ' + c.asunto;
+    enviarCorreo(c).then(function (r) {
+      boton.disabled = false;
+      el.innerHTML = '<div class="' + claseCorreo(r) + '">' + (r.ok ? '✓ Aviso de prueba enviado a ' + esc(c.to.join(', ')) + '.' : '✕') + msgCorreo(r) + '</div>';
+    });
+  }
+  // Pestaña «Accesos» (solo Control total)
+  var TODOS = /usuarios del dominio|domain users|usuarios autenticados|authenticated users|^todos\b|everyone|todos los usuarios/i;
+  var TODOS_LOGIN = /^c:0\(\.s\|true$|^c:0!\.s\|windows$/i;
+  var esTodos = function (m) { return m && (TODOS.test(m.Title || '') || TODOS.test(m.LoginName || '') || TODOS_LOGIN.test(m.LoginName || '')); };
+  var PUEDE_ESCRIBIR = [3, 4, 5, 6];
+  var asignaciones = function (url) { return todos(url + '/roleassignments?$expand=Member,RoleDefinitionBindings&$select=PrincipalId,Member/Title,Member/LoginName,Member/Id,RoleDefinitionBindings/RoleTypeKind'); };
+  var nombreCampoAcc = function (xml) { return /Name="([^"]+)"/.exec(xml)[1]; };
+  function cargarAccesos() {
+    accEstado = 'cargando';
+    return api(urlAcc() + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity,HasUniqueRoleAssignments,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { accInfo = l; }, function () { accInfo = null; })
+      .then(function () {
+        if (!accInfo) { accSols = []; accFaltan = []; accAbierta = null; return; }
+        return Promise.all([
+          todos(urlAcc() + '/fields?$select=InternalName&$top=500').then(function (l) { var hay = l.map(function (x) { return x.InternalName; }); accFaltan = CAMPOS_ACC.map(nombreCampoAcc).filter(function (n) { return hay.indexOf(n) < 0; }); }, function () { accFaltan = []; }),
+          asignaciones(urlAcc()).then(function (l) {
+            var a = l.find(function (x) { return esTodos(x.Member) && lista(x.RoleDefinitionBindings).some(function (b) { return PUEDE_ESCRIBIR.indexOf(Number(b.RoleTypeKind)) >= 0; }); });
+            accAbierta = { abierta: !!a, quien: a ? a.Member.Title || a.Member.LoginName : '' };
+          }, function (e) { accAbierta = { abierta: false, error: e.message || String(e) }; })
+        ]).then(function () {
+          if (accFaltan.length) { accSols = []; return; }
+          return todos(urlAcc() + '/items?$top=500&$select=' + SEL_ACC.join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent("Aplicacion eq '" + ACCESO.app + "'"))
+            .then(function (l) { accSols = l.map(aSol).filter(function (x) { return x.app === ACCESO.app; }).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); }); });
+        });
+      }).then(function () { accEstado = 'ok'; }, function (e) { accEstado = 'error: ' + (e.message || e); })
+      .then(function () { if (/^(accesos|ajustes)$/.test(pref.vista) && !$('#dlg').open) render(); else pintarPestanas(); });
+  }
+  var pintarPestanas = function () { var a = document.querySelector('nav.tabs a[data-v="accesos"]'); if (a) a.textContent = 'Accesos' + (nPendAcc() ? ' (' + nPendAcc() + ')' : ''); };
+  function vistaAccesos() {
+    if (!esAdmin) return '<div class="card">Solo para quien tiene «Control total».</div>';
+    if (!accEstado) { cargarAccesos(); return '<div class="card"><p class="muted">Cargando solicitudes…</p></div>'; }
+    if (accEstado === 'cargando') return '<div class="card"><p class="muted">Cargando solicitudes…</p></div>';
+    var prep = '<div class="card"><h3 style="margin-top:0">Preparación <span class="small muted">· versión ' + esc(VERSION) + '</span></h3>' +
+      (/^error/.test(accEstado) ? '<div class="error">' + esc(accEstado) + '</div>' : '') +
+      '<p class="small">' + (accInfo ? '✔ Lista «' + esc(ACCESO.lista) + '» preparada' + (Number(accInfo.ReadSecurity) === 2 && Number(accInfo.WriteSecurity) === 2 ? ' (cada uno ve y edita solo sus solicitudes).' :
+        '. Falta que cada usuario vea solo sus solicitudes. <button data-accsuyos>Ajustarlo</button>') : '✕ Falta la lista «' + esc(ACCESO.lista) + '». <button class="prim" data-acccrearlista>Crear la lista</button>') + '</p>' +
+      (accInfo && accFaltan.length ? '<p class="small">✕ A la lista le faltan columnas: ' + esc(accFaltan.join(', ')) + '. <button class="prim" data-acccolumnas>Crear las columnas que faltan</button></p>' : '') +
+      (accInfo ? '<p class="small">' + (accAbierta && accAbierta.abierta ? '✔ Cualquiera puede solicitar acceso (' + esc(accAbierta.quien) + ' puede añadir solicitudes).' :
+        '✕ ' + (accAbierta && accAbierta.error ? 'No se pudo comprobar quién puede escribir en la lista (' + esc(accAbierta.error) + ').' : 'Quien no tiene acceso al sitio no puede escribir en la lista de solicitudes.') +
+        ' <button class="prim" data-accabrir>Permitir que cualquiera solicite acceso</button>') + '</p>' : '') +
+      (accInfo ? '<p class="small">📋 ' + (accInfo.RootFolder && accInfo.RootFolder.ServerRelativeUrl ? '<a href="' + esc(location.origin + accInfo.RootFolder.ServerRelativeUrl) + '" target="_blank" rel="noopener">Abrir la lista</a> · ' : '') +
+        '<a href="' + esc(web + '/_layouts/15/SubNew.aspx?List=' + encodeURIComponent('{' + String(accInfo.Id).replace(/[{}]/g, '') + '}') + '&Source=' + encodeURIComponent(location.href)) + '" target="_blank" rel="noopener">🔔 Avisarme por correo de cada solicitud nueva (alerta de SharePoint)</a>' +
+        '<br><span class="muted">El aviso de la página lo envía Colabora con la cuenta de quien solicita, que aún no tiene permisos y a veces se rechaza. La alerta la envía SharePoint y llega siempre: créala con «Se agregan nuevos elementos» y «Enviar notificación inmediatamente».</span></p>' : '') +
+      '<p class="small">✉ Cada solicitud nueva se avisa por correo a <b>' + esc(ACCESO.avisarCorreos.join(', ')) + '</b>. <button data-accprueba>Probar el aviso</button></p><div id="accPrueba"></div></div>';
+    var sols = accSols || [], pend = sols.filter(function (x) { return x.estado === 'PENDIENTE'; }), res = sols.filter(function (x) { return x.estado !== 'PENDIENTE'; });
+    var ficha = function (x) {
+      return '<b>' + esc(x.nombre) + '</b>' + (x.empleo ? ' · ' + esc(x.empleo) : '') + (x.unidad ? '<div class="small">' + esc(x.unidad) + '</div>' : '') +
+        '<div class="small muted">' + esc([x.correo, x.tel].filter(Boolean).join(' · ')) + ' · solicitado el ' + esc(fFH(x.creado)) + '</div>' +
+        '<div class="small">Negociado: <b>' + esc(x.neg || '—') + '</b>' + (x.motivo ? ' · ' + esc(x.motivo) : '') + '</div>';
+    };
+    var lPend = pend.map(function (x) {
+      return '<div class="card" data-sol="' + x.id + '">' + ficha(x) +
+        '<div class="grid2" style="margin-top:8px"><div><label class="lbl">Dar de alta en el negociado</label><select class="accNeg">' + negs.map(function (n) { return '<option value="' + n.id + '"' + (n.titulo === x.neg ? ' selected' : '') + '>' + esc(n.titulo) + '</option>'; }).join('') + '</select></div>' +
+        '<div><label class="lbl">Observación al aprobar (opcional, se le envía)</label><input class="accTxt"></div></div>' +
+        '<label class="lbl">Motivo del rechazo (obligatorio para denegar; se le envía y lo verá al entrar)</label><textarea class="accMotivo" rows="2"></textarea>' +
+        '<div class="acciones"><button class="prim" data-accaprobar="' + x.id + '">✔ Aprobar y dar de alta</button><button class="rojo" data-accdenegar="' + x.id + '">✕ Denegar</button></div><div class="accMsg"></div></div>';
+    }).join('');
+    return prep + '<h2 class="sec">Solicitudes pendientes · ' + pend.length + '</h2>' + (lPend || '<div class="card muted">No hay solicitudes pendientes.</div>') +
+      '<details class="card"><summary style="cursor:pointer"><b>Solicitudes resueltas</b> <span class="muted">(' + res.length + ')</span></summary>' + (res.map(function (x) {
+        return '<div style="border-top:1px solid var(--line);padding:6px 0"><span class="badge ' + (x.estado === 'APROBADA' ? 'ok' : 'bad') + '">' + esc(x.estado) + '</span> ' + ficha(x) +
+          '<div class="small muted">' + esc([x.grupo, x.resuelto, fFH(x.fechaRes), x.resolucion].filter(Boolean).join(' · ')) + '</div></div>';
+      }).join('') || '<p class="muted small">Ninguna.</p>') + '</details>' +
+      '<p class="small muted">Las personas dadas de alta se gestionan en Ajustes › Negociados (miembros). La comprobación de acceso la hace esta página.</p>';
+  }
+  function resolverAcceso(id, aprobar, boton) {
+    var caja = boton.closest('[data-sol]'), x = (accSols || []).find(function (y) { return y.id === id; });
+    if (!x) return;
+    var msg = function (cls, t) { caja.querySelector('.accMsg').innerHTML = '<div class="' + cls + '">' + t + '</div>'; };
+    var txt = (aprobar ? caja.querySelector('.accTxt') : caja.querySelector('.accMotivo')).value.trim();
+    if (!aprobar && !txt) { caja.querySelector('.accMotivo').focus(); return msg('error', 'Escribe el motivo del rechazo: se le envía y lo verá al entrar.'); }
+    var n = negs.find(function (y) { return y.id === Number(caja.querySelector('.accNeg').value); });
+    if (aprobar && (!n || !x.solId)) return msg('error', 'Falta el negociado o la persona de la solicitud.');
+    boton.disabled = true;
+    var alta = aprobar ? leerItem('negs', n.id, ['MiembrosId']).then(function (it) {
+      var ids = lista(it.datos.MiembrosId).map(Number);
+      if (ids.indexOf(x.solId) >= 0) return;
+      return merge(U('negs') + '/items(' + n.id + ')', { __metadata: tipo('negs'), MiembrosId: { results: ids.concat([x.solId]) } }, 'No tienes permiso para cambiar los negociados', it.etag);
+    }) : Promise.resolve();
+    alta.then(function () {
+      return enviarSP(urlAcc() + '/items(' + id + ')', { __metadata: { type: accInfo.ListItemEntityTypeFullName }, EstadoSolicitud: aprobar ? 'APROBADA' : 'DENEGADA', GrupoAsignado: aprobar ? n.titulo : '',
+        Resolucion: txt, ResueltoPorId: yo.Id, FechaResolucion: new Date().toISOString() }, 'No tienes permiso para modificar la solicitud', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' });
+    }).then(function () {
+      x.grupo = aprobar ? n.titulo : ''; x.neg = aprobar ? n.titulo : x.neg;
+      return x.correo ? enviarCorreo(correoAcceso(aprobar ? 'aprobada' : 'denegada', x, txt)) : null;
+    }).then(function (r) {
+      aviso((aprobar ? 'Acceso concedido a ' + x.nombre + ' en ' + n.titulo : 'Solicitud denegada: ' + x.nombre) + (r && r.ok && !(r.rechazados && r.rechazados.length) ? ' · avisado por correo' : ' · OJO: el correo no ha salido; avísale tú'));
+      accEstado = ''; return cargar();
+    }).catch(function (e) { boton.disabled = false; msg('error', 'No se pudo completar: ' + esc(e.message || e)); });
+  }
+  function crearListaAcceso(boton) {
+    boton.disabled = true; aviso('Creando la lista…');
+    enviarSP(web + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: ACCESO.lista, Description: 'Solicitudes de acceso a las aplicaciones (creada por la página ' + ACCESO.app + ')' }, 'No tienes permiso para crear listas en el sitio')
+      .then(function () { return CAMPOS_ACC.reduce(function (p, xml) { return p.then(function () { return enviarSP(urlAcc() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas'); }); }, Promise.resolve()); })
+      .then(function () { return soloSuyos().catch(function () {}); })
+      .then(function () { return abrirLista().catch(function (e) { alert('Lista creada, pero no se pudo abrir a todos: ' + (e.message || e)); }); })
+      .then(function () { accEstado = ''; render(); }, function (e) { boton.disabled = false; alert('No se pudo crear la lista: ' + (e.message || e)); });
+  }
+  function crearColumnasAcc(boton) {
+    boton.disabled = true;
+    CAMPOS_ACC.filter(function (xml) { return accFaltan.indexOf(nombreCampoAcc(xml)) >= 0; }).reduce(function (p, xml) {
+      return p.then(function () { return enviarSP(urlAcc() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xml, Options: 8 } }, 'No tienes permiso para crear columnas'); });
+    }, Promise.resolve()).then(function () { accEstado = ''; render(); }, function (e) { boton.disabled = false; alert('No se pudieron crear las columnas: ' + (e.message || e)); });
+  }
+  var soloSuyos = function () { return enviarSP(urlAcc(), { __metadata: { type: 'SP.List' }, ReadSecurity: 2, WriteSecurity: 2 }, 'No tienes permiso para cambiar la configuración de la lista', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }); };
+  function soloSuyosAcc(boton) { boton.disabled = true; soloSuyos().then(function () { accEstado = ''; render(); }, function (e) { boton.disabled = false; alert('No se pudo: ' + (e.message || e) + '. Hazlo a mano en Configuración de la lista › Configuración avanzada.'); }); }
+  function buscarTodos() {
+    return asignaciones(web + '/_api/web').catch(function () { return []; }).then(function (l) {
+      var m = l.map(function (x) { return x.Member; }).filter(esTodos)[0];
+      if (m) return m.Id || m.PrincipalId;
+      return enviarSP(web + '/_api/web/ensureuser', { logonName: 'c:0(.s|true' }, 'No tienes permiso para añadir usuarios al sitio').then(function (u) { return u.Id; });
+    });
+  }
+  function abrirLista() {
+    return (accInfo && accInfo.HasUniqueRoleAssignments ? Promise.resolve() : enviarSP(urlAcc() + '/breakroleinheritance(copyRoleAssignments=true,clearSubscopes=true)', {}, 'No tienes permiso para cambiar los permisos de la lista'))
+      .then(function () { return Promise.all([buscarTodos(), api(web + '/_api/web/roledefinitions/getbytype(3)?$select=Id')]); })
+      .then(function (r) {
+        if (!r[0]) throw new Error('No se encontró el grupo «Usuarios del dominio» ni «Todos»');
+        return enviarSP(urlAcc() + '/roleassignments/addroleassignment(principalid=' + Number(r[0]) + ',roledefid=' + Number(r[1].Id) + ')', {}, 'No tienes permiso para cambiar los permisos de la lista');
+      });
+  }
+  function abrirListaAcceso(boton) { boton.disabled = true; abrirLista().then(function () { accEstado = ''; render(); }, function (e) { boton.disabled = false; alert('No se pudo: ' + (e.message || e)); }); }
 
   // ---------- Primera puesta en marcha ----------
   var choicesGestor = null;
   function vistaInstalar() {
     return '<div class="card" style="margin-top:14px"><h2 style="margin-top:0">Primera puesta en marcha</h2>' +
       '<p>Esta página va a preparar el sitio <b>' + esc(web.replace(location.origin, '')) + '</b>. Se hace una sola vez y solo crea; no toca ni borra nada de lo que ya existe:</p><ul class="small">' +
-      '<li>Listas «' + esc(L.negs) + '», «' + esc(L.puntos) + '», «' + esc(L.aport) + '» y «' + esc(L.solic) + '» con sus columnas (si alguna ya existe, solo se añaden las columnas que falten).</li>' +
+      '<li>Listas «' + esc(L.negs) + '», «' + esc(L.puntos) + '» y «' + esc(L.aport) + '» con sus columnas (si alguna ya existe, solo se añaden las columnas que falten).</li>' +
       '<li>Historial de versiones en los puntos y las aportaciones (quién cambió qué y cuándo).</li>' +
       '<li>Validación en «' + esc(L.aport) + '»: Colabora no guarda ningún cambio después de la hora de cierre del punto.</li>' +
       '<li>Los negociados, con su orden en el informe. Tú quedas en «' + esc(COORD) + '» (control total). Los miembros de cada negociado se añaden después en Ajustes.</li></ul>' +
@@ -1574,7 +1801,24 @@
     return u + encodeURIComponent(cuerpo);
   }
   var DEST_MAL = /destinatario v|valid recipient|recipient/i;
+  // 17/11/2026: Colabora rechaza las DIRECCIONES de correo como destinatario («Asegúrese de que tenga un destinatario válido»)
+  // pero acepta las CUENTAS de usuario (i:0#.w|et\\usuario), comprobado en el Colabora real con colabora/prueba-correo.html.
+  // Antes de enviar, cada dirección se cambia por la cuenta de esa persona (loginDe; si no está en el sitio, ensureuser con la
+  // dirección); si no se encuentra, se deja la dirección y sigue el envío robusto. Copiado de incidentes/incidentes.html.
+  var cuentaCache = {};
+  function aCuentas(l) {
+    return Promise.all((l || []).map(function (x) {
+      if (!/@/.test(String(x))) return x;
+      var k = String(x).toLowerCase();
+      if (cuentaCache[k] !== undefined) return cuentaCache[k] || x;
+      var alta = function () { return enviarSP(web + '/_api/web/ensureuser', { logonName: x }, 'sin permiso').then(function (u) { return (u && u.LoginName) || null; }, function () { return null; }); };
+      return Promise.resolve(loginDe(x)).catch(function () { return null; }).then(function (lg) { return lg || alta(); }).then(function (lg) { cuentaCache[k] = lg || ''; return lg || x; }, function () { cuentaCache[k] = ''; return x; });
+    }));
+  }
   function enviarUno(to, cc, bcc, c) {
+    return Promise.all([aCuentas(to), aCuentas(cc), aCuentas(bcc)]).then(function (r) { return enviarUnoDirecto(r[0], r[1], r[2], c); });
+  }
+  function enviarUnoDirecto(to, cc, bcc, c) {
     var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, CC: { results: cc || [] }, Subject: (PRUEBAS ? '[PRUEBAS] ' : '') + c.asunto, Body: c.html };
     if (bcc && bcc.length) pr.BCC = { results: bcc };
     return enviarSP(web + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página');
@@ -1723,41 +1967,6 @@
     cambios.reduce(function (q, c) { return q.then(function () { return merge(U('negs') + '/items(' + c.n.id + ')', { __metadata: tipo('negs'), Orden: c.o }, 'Sin permiso'); }); }, Promise.resolve())
       .then(function () { return cargar(); }, function (e) { alert(e.message); });
   }
-  function resolverSolicitud(id, aprobar) {
-    var s = solicitudes.find(function (x) { return x.Id === id; });
-    if (!s) return;
-    var motivo = aprobar ? 'Aprobada por ' + yo.Title : prompt('Motivo de la denegación (opcional):', '');
-    if (motivo === null) return;
-    var n = negs.find(function (x) { return x.titulo === s.Negociado; });
-    var paso = aprobar && n && s.Solicitante ? merge(U('negs') + '/items(' + n.id + ')', { __metadata: tipo('negs'), MiembrosId: { results: n.miembros.map(function (m) { return m.Id; }).filter(function (x) { return x !== s.Solicitante.Id; }).concat([s.Solicitante.Id]) } }, 'No tienes permiso para cambiar los negociados') : Promise.resolve();
-    paso.then(function () {
-      return merge(U('solic') + '/items(' + id + ')', { __metadata: tipo('solic'), EstadoSolicitud: aprobar ? 'Aprobada' : 'Denegada', Resolucion: (aprobar ? motivo : 'Denegada por ' + yo.Title + (motivo ? ': ' + motivo : '')).slice(0, 255) }, 'Sin permiso');
-    }).then(function () {
-      if (s.Solicitante && s.Solicitante.EMail) {
-        var intro = aprobar ? 'TU SOLICITUD DE ALTA EN EL PUNTO DE SITUACIÓN HA SIDO APROBADA.' : 'TU SOLICITUD DE ALTA EN EL PUNTO DE SITUACIÓN HA SIDO DENEGADA.';
-        var filas = [['Negociado', s.Negociado], ['Resuelta por', yo.Title]].concat(!aprobar && motivo ? [['Motivo', motivo]] : []);
-        return enviarCorreo({ to: [s.Solicitante.EMail], cc: [], bcc: [], cuentas: (function () { var o = {}; o[s.Solicitante.EMail.toLowerCase()] = s.Solicitante.Id; return o; })(), nombres: {},
-          asunto: 'Puntos de Situación · alta en ' + s.Negociado + (aprobar ? ' aprobada' : ' denegada'), html: htmlCorreo(intro, filas, enlacePagina()), texto: intro });
-      }
-    }).then(function () { aviso(aprobar ? 'Solicitud aprobada' : 'Solicitud denegada'); cargar(); }, function (e) { alert(e.message); });
-  }
-  function solicitar(boton) {
-    var neg = $('#solNeg') && $('#solNeg').value, mot = $('#solMot').value.trim(), el = $('#solMsg');
-    if (!neg) { el.innerHTML = '<div class="error">No hay negociados que pedir.</div>'; return; }
-    boton.disabled = true;
-    enviarSP(U('solic') + '/items', { __metadata: tipo('solic'), Title: yo.Title, Negociado: neg, Motivo: mot, SolicitanteId: yo.Id, EstadoSolicitud: 'Pendiente' }, 'Colabora no te deja guardar la solicitud: pide a PROCOR que te dé de alta directamente.')
-      .then(function () {
-        var c = negs.filter(function (n) { return n.coordina; }), to = [], cuentas = {}, nombres = {};
-        c.forEach(function (n) { n.miembros.forEach(function (m) { if (m.Email && to.indexOf(m.Email) < 0) { to.push(m.Email); cuentas[m.Email.toLowerCase()] = m.Id; nombres[m.Email.toLowerCase()] = m.Title; } }); });
-        var intro = 'NUEVA SOLICITUD DE ALTA EN UN NEGOCIADO DEL PUNTO DE SITUACIÓN. SE APRUEBA EN AJUSTES.';
-        var filas = [['Solicitante', yo.Title + (yo.Email ? ' (' + yo.Email + ')' : '')], ['Negociado', neg], ['Motivo', mot || '—']];
-        return enviarCorreo({ to: to, cc: [], bcc: [], cuentas: cuentas, nombres: nombres, asunto: 'Puntos de Situación · solicitud de alta en ' + neg, html: htmlCorreo(intro, filas, enlacePagina()), texto: intro + '\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') });
-      }).then(function (r) {
-        el.innerHTML = '<div class="okmsg">✓ Solicitud enviada. PROCOR la verá en Ajustes.' + (r && !r.ok ? ' (No se pudo avisar por correo: ' + esc(r.motivo) + ')' : '') + '</div>';
-        return cargar().then(function () { var m = $('#solMsg'); if (m) m.innerHTML = el.innerHTML; });
-      }, function (e) { boton.disabled = false; el.innerHTML = '<div class="error">' + esc(e.message) + '</div>'; });
-  }
-
   // ---------- Word (.docx) y .zip sin librerías ----------
   var CRC = (function () { var t = new Uint32Array(256); for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
   var crc32 = function (b) { var c = 0xFFFFFFFF; for (var i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
@@ -1869,7 +2078,7 @@
     return cola.then(function () {
       if (!soloNeg) {
         cuerpo.push(par('', { antes: 480 }));
-        cuerpo.push(par(run('EL SETC DE LA SUIGESUR', { b: true }), { jc: 'right', despues: 720 }));
+        cuerpo.push(par(run('EL SECRETARIO TÉCNICO DE LA SUIGESUR', { b: true }), { jc: 'right', despues: 720 }));
         cuerpo.push(par(run('Fdo.: ……………………………………'), { jc: 'right' }));
       }
       var sect = '<w:sectPr><w:headerReference w:type="default" r:id="rIdH"/><w:footerReference w:type="default" r:id="rIdF"/><w:pgSz w:w="11906" w:h="16838"/>' +
@@ -1972,7 +2181,7 @@
   // ---------- Eventos ----------
   document.addEventListener('click', function (e) {
     var el = e.target, b, p = puntoPorId(sel);
-    if (el.closest('#recargar')) { cargar(); return; }
+    if (el.closest('#recargar')) { if ($('#fAcceso, .accPend')) $('#vista').innerHTML = ''; cargar(); return; }
     if ((b = el.closest('nav.tabs a'))) { pref.vista = b.dataset.v; guardarPref(); render(); window.scrollTo(0, 0); return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); return; }
     if ((b = el.closest('[data-ampliar]'))) { var dg = $('#dlg'), g = dg.classList.toggle('grande'); pref.editorGrande = g; guardarPref(); b.textContent = g ? '🗗 Reducir' : '⛶ Ampliar'; $('#edSit').focus(); return; }
@@ -2059,9 +2268,14 @@
         .then(function () { cargar(); }, function (er) { alert(er.message); b.disabled = false; });
       return;
     }
-    if ((b = el.closest('[data-aprobar]'))) { resolverSolicitud(Number(b.dataset.aprobar), true); return; }
-    if ((b = el.closest('[data-denegar]'))) { resolverSolicitud(Number(b.dataset.denegar), false); return; }
-    if ((b = el.closest('[data-solicitar]'))) { solicitar(b); return; }
+    if ((b = el.closest('[data-accsolicitar]'))) { enviarSolicitud(b); return; }
+    if ((b = el.closest('[data-accaprobar]'))) { resolverAcceso(Number(b.dataset.accaprobar), true, b); return; }
+    if ((b = el.closest('[data-accdenegar]'))) { resolverAcceso(Number(b.dataset.accdenegar), false, b); return; }
+    if ((b = el.closest('[data-acccrearlista]'))) { crearListaAcceso(b); return; }
+    if ((b = el.closest('[data-acccolumnas]'))) { crearColumnasAcc(b); return; }
+    if ((b = el.closest('[data-accabrir]'))) { abrirListaAcceso(b); return; }
+    if ((b = el.closest('[data-accsuyos]'))) { soloSuyosAcc(b); return; }
+    if ((b = el.closest('[data-accprueba]'))) { probarAvisoSolicitud(b); return; }
     if ((b = el.closest('[data-pruebacorreo]'))) { correoPrueba(b); return; }
   });
   $('#dlg').addEventListener('close', function () { $('#dlg').classList.remove('grande'); });

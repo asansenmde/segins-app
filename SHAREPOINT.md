@@ -54,6 +54,13 @@ para saber listas, columnas (nombres internos) y tipos. **Nunca pedir contenido 
 
 ### Envío robusto (OBLIGATORIO en toda página que mande correos) · modelo `permisos/permisos.html` (versión 2026-10-22 · 5)
 
+**Enviar a la CUENTA, no a la dirección (17/11/2026, comprobado en el Colabora real con `colabora/prueba-correo.html`):**
+Colabora rechaza las direcciones de correo como destinatario («Asegúrese de que tenga un destinatario válido», HTTP 400),
+incluso la del propio usuario, pero acepta las cuentas de usuario (`i:0#.w|et\\usuario`). Antes de llamar a `SendEmail`,
+cada dirección se cambia por la cuenta (`aCuentas`: la propia, `getuserbyid` si se sabe quién es, `siteusers` por correo
+y, si no está en el sitio, `ensureuser` con la dirección); si no se encuentra, se deja la dirección y sigue el envío robusto.
+En los simuladores, `SOLO_CUENTAS=1` imita ese Colabora y `VER_RECHAZOS=1` lista lo que rechaza.
+
 Lección del 22/10/2026: en Permisos un autorizador no recibía las solicitudes. Colabora **rechaza el correo ENTERO** si
 **una sola** dirección no es de un usuario que conozca con buzón («Asegúrese de que tenga un destinatario válido»), y
 además las personas suelen tener **cuentas antiguas** en el sitio (sin buzón o con otro correo); si el solicitante elige
@@ -166,26 +173,18 @@ queda el aviso de autoría). Aviso de autoría «© 2026 Cte. Alfredo Sánchez S
 **Si la copia protegida sale como código** (la cabecera y los estilos se ven, pero el programa aparece como texto debajo
 del pie y la página se queda en «Cargando…»): a algunas copias, según cómo salgan al azar, algo entre Colabora y Edge
 (antivirus o filtro de red) les anula el programa; el original y la simulación funcionan. Pasó con Incidentes 26/10 · 1
-y Pérdidas 27/10 · 2, y otra vez con Incidentes 01/11 · 1. Arreglo: generar otra copia con otra `seed` del ofuscador y probarla con otro nombre; en
-`perdidas/proteger` e `incidentes/proteger` la semilla ya es fija (20261027); en Incidentes, confirmado por el usuario el 01/11/2026 (`SEMILLA=n` para cambiarla). La variante sin cifrar los textos
+y Pérdidas 27/10 · 2. Arreglo: generar otra copia con otra `seed` del ofuscador y probarla con otro nombre; en
+`perdidas/proteger` la semilla ya es fija (`SEMILLA=n` para cambiarla). La variante sin cifrar los textos
 (`stringArrayEncoding: []`) tampoco pasó.
-**CAUSA REAL, encontrada el 03/11/2026:** algo en la red de Defensa mete su propio código en las páginas buscando
-etiquetas como `</head>`, y las encontraba también **dentro del programa** (la plantilla HTML de la ventana de imprimir:
-`'…</style></head><body>…'`). El programa se partía en dos y el resto salía como texto. Con la ofuscación fuerte, ese texto
-unas veces salía cifrado y otras no: por eso fallaba «al azar» y una semilla «buena» dejaba de servir al cambiar el código.
-**Regla:** el código de una página NUNCA debe llevar literal `</head>`, `<body>`, `<html>`, `<!doctype` ni `</script>`; en la
-copia protegida, `proteger.mjs` de Incidentes escribe el `<` de esas etiquetas como `\x3c` y se niega a generar la copia si
-queda alguna. Prueba: `PROXY=1 node incidentes/pruebas/simulacion.mjs` imita el filtro (inserta un `<script>` delante de
-cada `</head>`): las copias que fallaron en Colabora fallan ahí igual, y las buenas no.
-**Hecho:** Incidentes, Tareas Colabora, Permisos y el visor de MENSADEF. **Pendiente:** aplicar lo mismo a Pérdidas y VSA, que llevan esas etiquetas
-dentro del código.
+**Causa real (03/11/2026):** el filtro de la red mete su código delante de cada `</head>`, `<body>`… que encuentra, también
+**dentro** del programa (plantillas de impresión o de Word), y lo parte. Por eso fallaba «al azar» según qué textos salieran
+cifrados.
 
-**Arreglo de fondo (Incidentes, 03/11/2026):** la semilla fija solo vale mientras el código no cambie (la 03/11 · 2 volvió
-a fallar). El original legible no falla nunca, así que la copia de Incidentes ya no usa la ofuscación fuerte: se compacta
-como un programa minificado normal (nombres internos cambiados, sin espacios ni comentarios, textos sin códigos `\x20`),
-sin tabla de textos cifrada, sin *self-defending* y sin el bloqueo de dominio del ofuscador, que son las marcas que
-reconocen los filtros. El bloqueo a `*.mdef.es` es una comprobación propia al principio del código. `FUERTE=1 node
-proteger.mjs` vuelve a la anterior. Si Incidentes va bien así, aplicar lo mismo a Permisos, VSA, Pérdidas y Tareas Colabora.
+**Desde el 13/11/2026 todo va cifrado** (petición del usuario) con `proteger/cifrado.mjs`, copiado igual en cada proyecto:
+todos los textos a la tabla cifrada (`stringArrayThreshold: 1`), y antes de ofuscar los nombres de campo (`{ ESTADO: … }`
+→ `['ESTADO']`) y las expresiones regulares (`/…/` → `new RegExp("…")`) se pasan a texto para que también se cifren;
+después, el `<` de esas etiquetas se escribe `\x3c` y no se genera la copia si queda alguna. Comprobar que no se lee ningún
+nombre de lista, grupo ni mensaje, y pasar las pruebas contra la copia (en Incidentes, también con `PROXY=1`).
 
 ## Ocultar la ruleta y la cinta en el portal (Editor de scripts) · 20/10/2026
 
