@@ -224,7 +224,7 @@ async function prueba(verbose) {
   comprueba(tag + 've el cuadrante publicado con sus servicios resaltados y teléfonos', (await p.$$('table.cuad tr.mio')).length >= 2 && /☎ 6000000/.test(await texto(p)));
   await tab(p, 'mios');
   t = await texto(p);
-  comprueba(tag + '«Mis servicios» lista sus servicios publicados', /Mis próximos servicios/.test(t) && /Jue 7 ene/.test(t), t.slice(0, 300));
+  comprueba(tag + '«Mis servicios» lista sus servicios publicados', /Mis servicios \(este mes y los siguientes\)/.test(t) && /Jue 7 ene/.test(t), t.slice(0, 300));
   const misTurnos = LT.items.filter(x => x.Componente === id[12] && x.Inicio >= '2027-01-15');
   await p.selectOption('#fAus [name=tipo]', 'VACACIONES'); await p.fill('#fAus [name=desde]', '2027-01-15'); await p.fill('#fAus [name=hasta]', '2027-01-29');
   correos.length = 0; await p.click('[data-ausguardar="0"]'); await p.waitForTimeout(1500);
@@ -412,6 +412,16 @@ async function prueba(verbose) {
   comprueba(tag + 'el componente ve en el cuadrante que es un cambio y por qué', /cambio de servicio Cambio nº 3 \(cesión\): lo hace SUBOFICIAL NUMERO 6 en lugar de SUBOFICIAL NUMERO 1/.test(await texto(p)));
   await b.close();
 
+  // «Mis servicios» explica por qué está vacío: la gestora no es componente; el administrador tampoco
+  ({ b, p, errs } = await abrir(8, false, verbose)); await tab(p, 'mios');
+  comprueba(tag + 'sin alta en el cuadrante, «Mis servicios» lo explica', /No estás dado de alta en ningún cuadrante con tu cuenta \(gestora@et\.mde\.es\)/.test(await texto(p)), (await texto(p)).slice(0, 300));
+  await b.close();
+  // componente dado de alta con otra cuenta: lo detecta por el nombre
+  const LC2 = listas['CUADRANTE COMPONENTES'], c6 = LC2.items.find(c => c.PersonaId === 16), pid6 = c6.PersonaId; c6.PersonaId = 41;
+  ({ b, p, errs } = await abrir(16, false, verbose)); grupos.CUADRANTE_USUARIOS.push(16);
+  await tab(p, 'mios').catch(() => {});
+  comprueba(tag + 'si está dado de alta con otra cuenta, «Mis servicios» lo dice', /dado de alta con otra cuenta de Colabora/.test(await texto(p)), (await texto(p)).slice(0, 300));
+  await b.close(); c6.PersonaId = pid6;
   // 6. Alguien sin acceso lo solicita: el aviso va a la cuenta del administrador
   ({ b, p, errs } = await abrir(40, false, verbose));
   comprueba(tag + 'sin acceso: formulario de solicitud', /No tienes acceso al «Cuadrante de servicios»/.test(await texto(p)) && !!(await p.$('[data-accsolicitar]')));

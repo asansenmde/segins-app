@@ -6452,7 +6452,7 @@ var Cipher = {
   };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-19 · 2';
+  var VERSION = '2026-11-19 · 3';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuadrante de servicios · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -7095,26 +7095,43 @@ var Cipher = {
 
   // Mis servicios: próximos servicios publicados, mis ausencias y comunicar una nueva
   function vistaMios() {
-    var mios = miComp ? turnos.filter(function (t) { return t.comp === miComp.id && t.estado === 'PUBLICADO' && t.fin >= hoy(); }).sort(function (a, b) { return a.inicio.localeCompare(b.inicio); }) : [];
+    // Este mes (también lo ya pasado, en gris) y los siguientes; los gestores ven también los de meses en borrador
+    var desdeMes = hoy().slice(0, 7) + '-01';
+    var mios = miComp ? turnos.filter(function (t) { return t.comp === miComp.id && t.fin >= desdeMes && (t.estado === 'PUBLICADO' || esGestor); }).sort(function (a, b) { return a.inicio.localeCompare(b.inicio); }) : [];
     var misAus = ausencias.filter(function (a) { return a.persona && a.persona.Id === yo.Id; }).sort(function (a, b) { return b.desde.localeCompare(a.desde); });
     var h = '<div class="hero"><div class="hola">Cuadrante de servicios · JSUIGE</div><div class="nom">' + esc(yo.Title) + '</div>' +
       (miComp ? '<span class="rolh">' + esc(papelDe(miComp.cuadrante)) + '</span><span class="rolh">' + esc(miComp.empleo || '') + '</span>' : '<span class="rolh">No estás dado de alta en ningún cuadrante</span>') +
       (esGestor ? '<span class="rolh">Gestor</span>' : '') + '</div>';
-    h += '<div class="sec"><span>Mis próximos servicios</span><span>' + mios.length + '</span></div>' + (mios.length ? '<div class="card"><table class="t">' + mios.map(function (t) {
+    h += '<div class="sec"><span>Mis servicios (este mes y los siguientes)</span><span>' + mios.length + '</span></div>' + (mios.length ? '<div class="card"><table class="t">' + mios.map(function (t) {
       var avs = avisosCelda(miComp, t);
       var ct = hayCambiosLista() ? cambioDeTurno(t.id) : null;
-      return '<tr><td><b>' + esc(rotulo(t)) + '</b></td><td>' + badgeTipo(t.tipo) + '</td><td>' + esc(papelDe(t.cuadrante)) + '</td><td>' + avs.map(function (a) { return '<div class="small ' + (a[0] === 'rojo' ? 'txt-bad' : 'txt-warn') + '">⚠ ' + esc(a[1]) + '</div>'; }).join('') +
+      return '<tr class="' + (t.fin < hoy() ? 'pasado' : '') + '"><td><b>' + esc(rotulo(t)) + '</b>' + (t.estado !== 'PUBLICADO' ? ' <span class="badge eBor" title="El mes aún no está publicado: solo lo ven los gestores">sin publicar</span>' : '') +
+        (t.asig && t.asig !== 'ROTACION' && t.motivoAsig ? '<div class="small muted">' + esc(t.motivoAsig) + '</div>' : '') + '</td><td>' + badgeTipo(t.tipo) + '</td><td>' + esc(papelDe(t.cuadrante)) + '</td><td>' + avs.map(function (a) { return '<div class="small ' + (a[0] === 'rojo' ? 'txt-bad' : 'txt-warn') + '">⚠ ' + esc(a[1]) + '</div>'; }).join('') +
         (ct ? '<div class="small">🔁 Cambio nº ' + ct.id + ' en trámite (' + esc(ct.estado.toLowerCase()) + ')</div>' : '') + '</td><td>' +
-        (hayCambiosLista() && !ct && t.inicio > hoy() ? '<button class="chico' + (avs.some(function (a) { return a[0] === 'ambar'; }) ? ' prim' : '') + '" data-cambiopedir="' + t.id + '">🔁 Pedir cambio</button>' : '') + '</td></tr>';
-    }).join('') + '</table></div>' : '<div class="card vacio">No tienes servicios publicados próximamente.</div>');
-    if (cambioForm && miComp) h = h.replace('<div class="sec"><span>Mis próximos servicios', formCambio() + '<div class="sec"><span>Mis próximos servicios');
+        (hayCambiosLista() && !ct && t.inicio > hoy() && t.estado === 'PUBLICADO' ? '<button class="chico' + (avs.some(function (a) { return a[0] === 'ambar'; }) ? ' prim' : '') + '" data-cambiopedir="' + t.id + '">🔁 Pedir cambio</button>' : '') + '</td></tr>';
+    }).join('') + '</table></div>' : '<div class="card aviso">' + porQueSinServicios() + '</div>');
+    if (cambioForm && miComp) h = h.replace('<div class="sec"><span>Mis servicios (este mes', formCambio() + '<div class="sec"><span>Mis servicios (este mes');
     var misCambios = miComp ? cambios.filter(function (c) { return c.solComp === miComp.id || c.compComp === miComp.id; }).sort(function (a, b) { return (abiertoCambio(b) - abiertoCambio(a)) || b.id - a.id; }) : [];
     var paraMi = misCambios.filter(function (c) { return c.estado === EC.comp && c.compComp === miComp.id; });
-    if (paraMi.length) h = h.replace('<div class="sec"><span>Mis próximos servicios', '<div class="sec"><span>Cambios que te piden (acepta y firma, o rechaza)</span><span>' + paraMi.length + '</span></div>' + paraMi.map(function (c) { return fichaCambio(c, false); }).join('') + '<div class="sec"><span>Mis próximos servicios');
+    if (paraMi.length) h = h.replace('<div class="sec"><span>Mis servicios (este mes', '<div class="sec"><span>Cambios que te piden (acepta y firma, o rechaza)</span><span>' + paraMi.length + '</span></div>' + paraMi.map(function (c) { return fichaCambio(c, false); }).join('') + '<div class="sec"><span>Mis servicios (este mes');
     if (hayCambiosLista() && miComp) h += '<div class="sec"><span>Mis cambios de servicio</span><span>' + misCambios.length + '</span></div>' + (misCambios.filter(function (c) { return paraMi.indexOf(c) < 0; }).map(function (c) { return fichaCambio(c, false); }).join('') || '<div class="card vacio">Ninguno. Para pedir uno, pulsa «🔁 Pedir cambio» en el servicio.</div>');
     if (miComp || esGestor) h += formAusencia(false);
     h += '<div class="sec"><span>Mis ausencias comunicadas</span><span>' + misAus.length + '</span></div>' + (misAus.length ? misAus.map(function (a) { return fichaAus(a, false); }).join('') : '<div class="card vacio">Ninguna.</div>');
     return h;
+  }
+  // Por qué «Mis servicios» sale vacío: lo explica en vez de dejarlo en blanco
+  function porQueSinServicios() {
+    if (!miComp) {
+      var c = String(yo.Email || '').toLowerCase(), n = sinTildes(yo.Title);
+      var parecido = comps.find(function (x) { return (x.persona && String(x.persona.Email || '').toLowerCase() === c && c) || sinTildes(x.nombre) === n; });
+      return parecido ? 'Hay un componente «' + esc(parecido.nombre) + '» en el cuadrante, pero está dado de alta con otra cuenta de Colabora' + (parecido.persona ? ' (' + esc(parecido.persona.Email || parecido.persona.Title) + ')' : ' (sin cuenta)') +
+        ', no con la tuya (' + esc(yo.Email || yo.Title) + '). Por eso no ves tus servicios: un gestor tiene que corregirlo en «Componentes».' :
+        'No estás dado de alta en ningún cuadrante con tu cuenta (' + esc(yo.Email || yo.Title) + '). Si entras en el servicio, pide a un gestor que te dé de alta en «Componentes».';
+    }
+    var suyos = turnos.filter(function (t) { return t.comp === miComp.id && t.fin >= hoy(); });
+    if (suyos.length && !esGestor) return 'Tienes servicios en meses que aún no están publicados. Los verás aquí cuando el gestor los publique.';
+    if (!turnos.length) return 'Todavía no hay ningún mes guardado.' + (esGestor ? ' La propuesta del mes no se guarda hasta pulsar «Guardar borrador» o «Publicar» en «Cuadrante del mes».' : '');
+    return 'No tienes servicios este mes ni en los meses publicados.' + (esGestor ? ' Si estás preparando un mes, recuerda guardarlo: la propuesta sin guardar no cuenta.' : '');
   }
   function formAusencia(paraOtro) {
     return '<div class="card" id="fAus"><h3 style="margin-top:0">' + (paraOtro ? 'Registrar una ausencia' : 'Comunicar vacaciones, comisión u otra ausencia') + '</h3>' +

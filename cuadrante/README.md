@@ -9,7 +9,7 @@
 | `colabora/cuadrante.html` | **Copia cifrada que se sube a Colabora** (`cd cuadrante/proteger && node proteger.mjs`). |
 | `pruebas/simulacion.mjs` | Prueba completa contra un SharePoint simulado, en formato ligero y *verbose*. Con `CUAD_HTML=cuadrante/colabora/cuadrante.html` prueba la copia cifrada y con `PROXY=1`, el filtro de la red. |
 
-## Puesta en marcha (versión 2026-11-19 · 2)
+## Puesta en marcha (versión 2026-11-19 · 3)
 
 1. Subir `colabora/cuadrante.html` a una biblioteca del sitio JSUIGE (por ejemplo `…/JSUIGE/aplicaciones/`) y abrirla con
    la cuenta que tiene Control total.
