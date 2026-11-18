@@ -26,7 +26,7 @@ const bandeja = (cel, es, pag, tam) => {
   for (let i = (pag - 1) * tam; i < Math.min(total, pag * tam); i++) els.push({ IdMensaje: '0000' + cel.slice(0, 4) + '-' + es + '000-0000-0000-' + String(i).padStart(12, '0'), IdBuzonCelula: G3, Asunto: process.env.PRESENTA ? ASUNTOS[i % ASUNTOS.length] : 'Mensaje ' + i + ' de ' + cel.slice(0, 4),
     Cuerpo: process.env.PRESENTA ? '<p>Se remite para su conocimiento y efectos la documentación adjunta. Se ruega acuse de recibo y, en su caso, la designación de un punto de contacto antes del próximo viernes.</p>' : '<p>Texto del mensaje ' + i + '</p><script>alert(1)</script>', Fecha: hace(i < 130 ? i * 0.3 : 24 * 40 + i), FechaRegistroEntrada: hace(i), IdEstadoMensaje: 3,
     NombreEstadoUltimaDistribucionSalida: es === '2' && i === 0 ? 'Pendiente de Validar' : '', EstadoMensaje: es === '2' && i === 0 ? 'Borrador' : es === '2' && i === 2 ? 'Enviado' : es === '2' && i === 1 ? 'Pendiente de firma' : i === 7 ? 'Pendiente de firma' : i % 3 ? 'Pendiente' : 'Leído', EstadoParaUsuario: i % 2 ? 'No leído' : 'Leído', TipoES: es === '1' ? 'E' : 'S', TipoMensaje: i % 4 ? 'Informe' : 'Orden', CodigoPrioridad: i % 9 ? 'R' : 'U',
-    CelulaRemitente: i % 2 ? 'ET 2SUIGE JEFATURA' : 'ET 2SUIGE REGISTRO', CelulaDestinataria: 'ET 2SUIGE SETEC SEGURIDAD', NumeroRegistroEntrada: 'RE-' + i, Sref: 'SREF-' + i,
+    CelulaRemitente: i % 2 ? 'ET 2SUIGE JEFATURA' : 'ET 2SUIGE REGISTRO', CelulaDestinataria: 'ET 2SUIGE SETEC SEGURIDAD', NumeroRegistroEntrada: 'RE-' + i, Sref: i === 3 ? 'RE-1' : i === 4 ? 'RS-ANTIGUO-9' : 'SREF-' + i,
     ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 3 === 0 ? 'ACCIÓN' : i % 3 === 1 ? 'INFORMACIÓN' : '', UltimoComentario: i % 10 === 5 ? 'Añadido como tarea en META (META) por OTRA PERSONA el 12/11/2026, 10:00:00 · SENDERO' : i % 4 === 0 ? 'Comentario ficticio ' + i : '', Firma: i % 2 ? (process.env.PRESENTA ? 'GENERAL JEFE DE LA SUIGE' : 'GENERAL JEFE <b>A</b>') : '', MotivoDistribucion: i % 3 ? 'Para conocimiento' : 'Para actuación', EnviableARubrica: es === '2' ? 'true' : 'false', BuzonPersonal: false, IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
   return { ListaElementos: els, ListaAgrupaciones: [], IndicePagina: pag, TamanoPagina: tam, TotalRegistros: total };
 };
@@ -37,7 +37,7 @@ const FINAL = !!process.env.FINAL, MEM = FINAL ? 'visorMensadef.' : 'visorMensad
 await mp.goto(new URL(FINAL ? '../marcador-visor-mensadef.html' : '../marcador-visor-mensadef-pruebas.html', import.meta.url).href);
 const codigo = decodeURIComponent((await mp.getAttribute('#marcador', 'href')).slice(11));
 const ctx = await b.newContext({ acceptDownloads: true }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
-const llamadas = [];
+const llamadas = [], buscadosRef = [];
 await ctx.route(API + '/**', r => {
   const u = new URL(r.request().url()), q = Object.fromEntries(u.searchParams), ruta = u.pathname.replace('/api/', '');
   llamadas.push(ruta + (q.idCelula ? ' ' + q.idCelula.slice(0, 4) + ' es' + q.tipoES + ' p' + q.indicePagina : ''));
@@ -72,6 +72,13 @@ await ctx.route(API + '/**', r => {
   if (ruta === 'etiqueta/EtiquetaMensajeGuardar') { banderasPuestas.push({ metodo: r.request().method(), q: [...u.searchParams.keys()].join(','), idBuzon: q.idBuzonCelula, idEtiqueta: q.idEtiqueta, cuerpo: r.request().postData() || '', passcode: hd.passcode === PASS }); return r.fulfill({ headers: H, body: '' }); }
   if (ruta === 'mensaje/ComentarioCrear') { comentarios.push({ metodo: r.request().method(), params: [...u.searchParams.keys()].join(','), cuerpo: JSON.parse(r.request().postData() || '{}'), passcode: hd.passcode === PASS }); return r.fulfill({ headers: H, json: true }); }
   if (ruta === 'buzon/BuzonCelulaMensajeLeido') { marcadoLeido++; leidos.push({ metodo: r.request().method(), q: [...u.searchParams.keys()].join(','), estado: q.estado, buzon: !!q.idBuzonCelula, cuerpo: r.request().postData() || '', passcode: hd.passcode === PASS }); return r.fulfill({ headers: H, json: {} }); }
+  // 18/11/2026: el buscador de MENSADEF (criterioBusqueda): solo encuentra el mensaje antiguo RS-ANTIGUO-9 (salida de SEGURIDAD)
+  if (ruta === 'buzon/ObtenerBuzonCelula' && q.criterioBusqueda) {
+    const hay = q.criterioBusqueda === 'RS-ANTIGUO-9' && q.idCelula === G1 && q.tipoES === '2';
+    const el = Object.assign({}, bandeja(G1, '2', 1, 1).ListaElementos[0], { IdMensaje: '0000aaaa-2000-0000-0000-999999999999', Asunto: 'Mensaje antiguo referenciado', NumeroRegistroSalida: 'RS-ANTIGUO-9', NumeroRegistroEntrada: '', FechaRegistroEntrada: hace(24 * 60), FechaRegistroSalida: hace(24 * 60) });
+    buscadosRef.push(q.criterioBusqueda);
+    return r.fulfill({ headers: H, json: { ListaElementos: hay ? [el] : [], TotalRegistros: hay ? 1 : 0 } });
+  }
   if (ruta === 'buzon/ObtenerBuzonCelula') return r.fulfill({ headers: H, json: bandeja(q.idCelula, q.tipoES, +q.indicePagina, +q.tamanoPagina) });
   r.fulfill({ status: 404, headers: H, body: '' });
 });
@@ -123,7 +130,9 @@ if (process.env.DIAS) await p.evaluate(n => { const D = Date, d = n * 864e5; win
 // 17/11/2026: CARGA_LENTA=1: la bandeja de SETEC SECRETARIA tarda 4 s; la lista tiene que salir antes, con lo que ya ha llegado
 if (process.env.CARGA_LENTA) await ctx.route(API + '/**', async r => { const u = new URL(r.request().url()); if (/ObtenerBuzonCelula/.test(u.pathname) && u.searchParams.get('idCelula') === G2) await new Promise(ok => setTimeout(ok, 4000)); return r.fallback(); });
 // 17/11/2026: un periodo antiguo guardado (30 días, «Hasta» de otro día) ya no se usa al abrir: carga hoy (INICIO=2: 3 días)
-await p.evaluate(([M, ini]) => { localStorage.setItem(M + 'desde', JSON.stringify('2026-10-01')); localStorage.setItem(M + 'hasta', JSON.stringify('2026-10-02')); if (ini) localStorage.setItem(M + 'periodoInicio', ini); }, [MEM, process.env.INICIO || '']);
+// Las pruebas cargan 3 días (con «hoy» los mensajes simulados dependen de la hora del día); INICIO=sin: sin ajuste → solo hoy
+const INICIO = process.env.INICIO || '2';
+await p.evaluate(([M, ini]) => { localStorage.setItem(M + 'desde', JSON.stringify('2026-10-01')); localStorage.setItem(M + 'hasta', JSON.stringify('2026-10-02')); if (ini !== 'sin') localStorage.setItem(M + 'periodoInicio', ini); }, [MEM, INICIO]);
 const llamadasAntes = llamadas.length;
 await p.evaluate(codigo); await p.waitForTimeout(2500);
 const leeBandejas = () => llamadas.slice(llamadasAntes).filter(x => /ObtenerBuzonCelula|ConsultaUsuarioDicodef|EtiquetasObtener/.test(x)).length;
@@ -216,9 +225,10 @@ if (process.env.XFO) {
     await fin(); } }
 { const f = await p.evaluate(() => ({ d: document.getElementById('desde').value, h: document.getElementById('hasta').value, sel: document.getElementById('periodoInicio').value }));
   const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  const hoyN = new Date(), dEsp = iso(new Date(hoyN.getFullYear(), hoyN.getMonth(), hoyN.getDate() - Number(process.env.INICIO || 0)));
+  const hoyN = new Date(), dEsp = iso(new Date(hoyN.getFullYear(), hoyN.getMonth(), hoyN.getDate() - (INICIO === 'sin' ? 0 : Number(INICIO))));
   console.log('al abrir: periodo', f.d, '→', f.h, '| «Al abrir»:', f.sel, '| esperado', dEsp, '→', iso(hoyN));
-  if (f.d !== dEsp || f.h !== iso(hoyN)) console.log('Error: periodo al abrir'); }
+  if (f.d !== dEsp || f.h !== iso(hoyN)) console.log('Error: periodo al abrir');
+  if (INICIO === 'sin') await fin(); }
 if (process.env.CARGA_LENTA) {
   const antes = await p.waitForFunction(() => document.querySelectorAll('#lista tbody tr[data-i]').length > 0 && /Leyendo/.test(document.getElementById('estado').textContent), null, { timeout: 30000 }).then(() => true, () => false);
   await p.waitForFunction(() => /mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 60000 }).catch(() => 0);
@@ -566,6 +576,23 @@ for (const n of [0, 40]) {
   console.log('localizar RE-' + n + ':', await pest.evaluate(() => ({ abierto: window.abierto || '', buscado: window.buscado || '', aviso: (document.getElementById('avisoVisor') || {}).textContent || '', resaltada: !!document.querySelector('tr[style*="outline"]'), url: location.hash.slice(0, 20) })));
   await pest.close(); await p.bringToFront();
 }
+// 18/11/2026: «Su referencia» pulsable: RE-3 se refiere a RE-1 (cargado) y RE-4 a RS-ANTIGUO-9 (de otra fecha, en MENSADEF)
+{ await p.fill('#buscar', 'RE-3'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
+  const ref1 = await p.textContent('.irRef').catch(() => ''); await p.click('.irRef'); await p.waitForTimeout(600);
+  const a1 = await p.$$eval('#detalle .ficha-campos dt', l => (l.find(d => d.textContent === 'N.º referencia') || {}).nextElementSibling?.textContent || '');
+  await p.fill('#buscar', 'RE-4'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
+  const n0 = buscadosRef.length; await p.click('.irRef'); await p.waitForFunction(() => /Mensaje antiguo referenciado/.test((document.querySelector('#detalle') || {}).textContent || ''), null, { timeout: 20000 }).catch(() => 0);
+  const antiguo = /Mensaje antiguo referenciado/.test(await p.textContent('#detalle'));
+  console.log('referencia: «' + ref1.trim() + '» abre', a1, '| la de otra fecha se busca en MENSADEF:', buscadosRef.length - n0, 'consultas · abierta:', antiguo);
+  if (!/RE-1/.test(ref1) || a1 !== 'RE-1' || !antiguo || buscadosRef.length === n0) console.log('Error: ir a la referencia');
+  await p.fill('#buscar', ''); await p.waitForTimeout(300); }
+// 18/11/2026: «🖨 Imprimir / PDF»: ventana con el mensaje en formato de oficio
+{ await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
+  const [w] = await Promise.all([ctx.waitForEvent('page'), p.click('#imprimirMsg')]); await w.waitForLoadState(); await w.waitForTimeout(600);
+  const r = await w.evaluate(() => ({ t: document.title, h1: (document.querySelector('h1') || {}).textContent || '', filas: [...document.querySelectorAll('td.k')].map(x => x.textContent), texto: !!document.querySelector('.texto'), boton: !!document.querySelector('.noimp button') }));
+  console.log('imprimir: ventana «' + r.h1.slice(0, 30) + '» | campos', r.filas.join(','), '| texto', r.texto, '| botón', r.boton);
+  if (!r.h1 || !r.filas.includes('Asunto') || !r.filas.includes('Fecha') || !r.texto || !r.boton) console.log('Error: imprimir mensaje');
+  await w.close(); await p.bringToFront(); }
 // «Responder» (13/11/2026): abre el mensaje en MENSADEF y pulsa su «Responder» (no «Responder a todos»)
 { await p.fill('#buscar', 'RE-0'); await p.waitForTimeout(400);
   await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(200);

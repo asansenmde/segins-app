@@ -510,4 +510,10 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-17 · 2:** la primera carga **se enseña según llega** (como mucho cada segundo), **6 bandejas a la vez** (antes 3) y
   **tiempos**: el estado dice cuánto ha tardado y, al pasar el ratón, las bandejas más lentas con sus páginas. Pasada
   `CARGA_LENTA=1` (una célula tarda 4 s) en `todas.sh`.
+- **2026-11-18 · 1:** **«🖨 Imprimir / PDF»** en la ficha: el mensaje con formato de oficio en una ventana nueva y la de imprimir
+  del navegador («Guardar como PDF»). Pendiente: el PDF original y «Enviar correo» de MENSADEF (sus botones «PDF» y «Enviar
+  correo»), cuando el usuario pase «Escuchar MENSADEF» pulsándolos.
+- **2026-11-18 · 2:** **«Su referencia» pulsable** (petición del jefe del usuario): abre el mensaje con ese número de registro
+  o referencia; si no está en lo cargado, lo busca en MENSADEF con su buscador (`criterioBusqueda`) en todas las células,
+  entrada y salida, lo añade a la lista y lo abre. Las pruebas cargan 3 días (`INICIO=sin` comprueba que por defecto es hoy).
 

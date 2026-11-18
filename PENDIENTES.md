@@ -261,4 +261,6 @@ autoría.
     16/11/2026: SENDERO 2026-11-16 · 6: marca PSIT/Tarea solo al confirmar «Sí, está guardado»; «Quitar del PSIT / de META».
       PENDIENTE DEL USUARIO: pasar «Escuchar MENSADEF» abriendo un mensaje (para que el enlace lleve al mensaje y no a la célula).
       PENDIENTE: que el PSIT (sesión [PUNTOS], texto para-PUNTOS-quitar.md) y META acepten `#quitar=`.
+    18/11/2026: SENDERO 2026-11-18 · 2: «Imprimir / PDF» y «Su referencia» pulsable. PENDIENTE DEL USUARIO: pasar «Escuchar
+      MENSADEF» pulsando en un mensaje los botones «PDF» y «Enviar correo» de MENSADEF (para el PDF original y su envío).
 

@@ -531,7 +531,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-17 · 2';
+  var VERSION = '2026-11-18 · 2';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1559,6 +1559,60 @@
     var lista = function (l) { return l.length <= 6 ? esc(l.join(' · ')) : esc(l.slice(0, 6).join(' · ')) + ' <details class="mas-dest"><summary>y ' + (l.length - 6) + ' más</summary>' + esc(l.slice(6).join(' · ')) + '</details>'; };
     el.innerHTML = '<span class="ndest">' + d.length + '</span> ' + lista(d) + (cc.length ? '<div class="small muted" style="margin-top:4px"><b>Con copia (' + cc.length + '):</b> ' + lista(cc) + '</div>' : '');
   }
+  // 🔗 Ir al mensaje de una referencia (18/11/2026, lo pidió el jefe del usuario): «Su referencia» de un mensaje es el número
+  // de registro (o la referencia) de otro. Se busca primero en lo cargado y, si no está (otra fecha), en MENSADEF con su
+  // buscador (criterioBusqueda) en todas las células, entrada y salida; el que aparezca se añade a la lista y se abre.
+  var normRef = function (v) { return String(v || '').toUpperCase().replace(/\s+/g, '').replace(/[‐-―]/g, '-'); };
+  var refsDe = function (m) { var x = m._x || {}; return [m.MensajeNum_referencia, x.NumeroRegistroEntrada, x.NumeroRegistroSalida, x.Nref].map(normRef).filter(Boolean); };
+  var casaRef = function (m, r) { return refsDe(m).some(function (v) { return v === r || (r.length >= 5 && v.length >= 5 && (v.indexOf(r) >= 0 || r.indexOf(v) >= 0)); }); };
+  function irAReferencia(desde, ref) {
+    var r = normRef(ref), msg = function (t) { if ($('msgRef')) $('msgRef').textContent = t; };
+    if (!r) return;
+    var ya = mensajes.filter(function (x) { return x !== desde && casaRef(x, r); })[0];
+    if (ya) return abrir(ya);
+    if (!modoApi || !apiCtx) return msg('No está en lo cargado.');
+    msg('Buscando en MENSADEF…');
+    var tareas = []; celulasElegidas().forEach(function (c) { [1, 2].forEach(function (es) { tareas.push({ c: c, es: es }); }); });
+    var hallado = null;
+    var una = function (t) {
+      return pedirApi('buzon/ObtenerBuzonCelula', { idCelula: t.c.id, emailUsuario: apiCtx.email, urlColeccionSitio: apiCtx.url, indicePagina: 1, tamanoPagina: 50, tipoES: t.es, criterioBusqueda: String(ref).trim(), soloPendientes: false }).then(function (d) {
+        var els = (d && (d.ListaElementos || d.listaElementos)) || primerArray(d) || [];
+        var ms = els.map(function (e) { return deApi(e, t.c, t.es); }).filter(function (x) { return casaRef(x, r) && (!desde || x.MensajeId !== desde.MensajeId); });
+        if (ms.length && !hallado) hallado = ms[0];
+      }, function () { /* esa bandeja no responde: se sigue con las demás */ });
+    };
+    var cola = tareas.slice(), trabajador = function () { var t = cola.shift(); if (!t || hallado) return Promise.resolve(); return una(t).then(trabajador); };
+    Promise.all([trabajador(), trabajador(), trabajador(), trabajador()]).then(function () {
+      if (!hallado) return msg('No encuentro ningún mensaje con la referencia ' + ref + ' en tus células.');
+      var k = claveMensaje(hallado), igual = mensajes.filter(function (x) { return claveMensaje(x) === k; })[0];
+      if (!igual) { hallado._fueraPeriodo = true; mensajes.push(hallado); filtrar(); }
+      abrir(igual || hallado);
+    });
+  }
+  // 🖨 Imprimir / PDF (18/11/2026): el mensaje con formato de oficio en una ventana nueva y la ventana de imprimir del
+  // navegador («Guardar como PDF»). Con los destinatarios y anexos si ya se han leído (al abrir la ficha).
+  function imprimirMensaje(m) {
+    var w = window.open('', '_blank');
+    if (!w) { alert('El navegador ha bloqueado la ventana. Permite las ventanas emergentes de MENSADEF.'); return; }
+    var x = m._x || {}, j = m._cuerpoCompleto || {}, f = fechaDe(m);
+    var nombres = function (l) { return (l || []).map(function (d) { return d && (d.Nombre || d.nombre); }).filter(Boolean).join(' · '); };
+    var filas = [['Asunto', m._asunto || m.Title || ''], ['Fecha', f ? f.toLocaleString('es-ES') : ''], ['Referencia', m.MensajeNum_referencia || ''], ['Su referencia', m.MensajeSu_referencia || ''],
+      ['Expediente', m.MensajeNum_expediente || ''], ['Remitente', autoridad(m) || ''], ['Firma', CLAVES.firma(m) || ''], ['Célula', sitioDe(m) || ''], ['Prioridad', x.CodigoPrioridad || ''],
+      ['Destinatarios', nombres(j.Destinatarios)], ['Con copia', nombres(j.DestinatariosCopia)], ['Anexos', (m._anexos || []).map(function (a) { return a.Titulo || a.Nombre; }).filter(Boolean).join(' · ')]]
+      .filter(function (r) { return r[1]; });
+    var h = '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>' + esc((m.MensajeNum_referencia ? m.MensajeNum_referencia + ' · ' : '') + (m._asunto || 'Mensaje')) + '</title><style>' +
+      'body{font:12pt/1.45 "Segoe UI",Arial,sans-serif;color:#111;margin:18mm 16mm}h1{font-size:15pt;margin:0 0 4mm;color:#12315a}' +
+      '.cab{border-bottom:2px solid #12315a;padding-bottom:3mm;margin-bottom:5mm;display:flex;justify-content:space-between;font-size:9pt;color:#444}' +
+      'table{border-collapse:collapse;width:100%;margin-bottom:6mm}td{border-bottom:1px solid #ddd;padding:1.5mm 2mm;vertical-align:top;font-size:10.5pt}td.k{width:32mm;color:#555;font-weight:600}' +
+      '.texto{white-space:pre-wrap;border:1px solid #ccc;border-radius:2mm;padding:4mm;font-size:11pt}.pie{margin-top:8mm;font-size:8pt;color:#777;text-align:center}@media print{.noimp{display:none}}' +
+      '</style></head><body><div class="cab"><span><b>MINISTERIO DE DEFENSA · EJÉRCITO DE TIERRA</b><br>Mensajería oficial · MENSADEF</span><span>' + esc(m.MensajeTipo_es || x.__es || '') + '</span></div>' +
+      '<h1>' + esc(m._asunto || m.Title || '(sin asunto)') + '</h1><table>' + filas.map(function (r) { return '<tr><td class="k">' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td></tr>'; }).join('') + '</table>' +
+      '<div class="texto">' + esc(m._cuerpo || '(sin texto)') + '</div>' +
+      '<p class="pie">Impreso desde SENDERO el ' + esc(new Date().toLocaleString('es-ES')) + '. El documento original firmado está en MENSADEF.</p>' +
+      '<p class="noimp" style="text-align:center"><button onclick="window.print()">🖨 Imprimir / Guardar como PDF</button></p></body></html>';
+    w.document.open(); w.document.write(h); w.document.close();
+    setTimeout(function () { try { w.focus(); w.print(); } catch (e) { /* el usuario pulsa el botón */ } }, 400);
+  }
   // ✉ Enviar por correo (09/11/2026): correo de Outlook (mailto) con lo relevante del mensaje y los enlaces a MENSADEF
   // y a la carpeta de sus documentos. Sin adjuntos: se ven desde el enlace. No toca MENSADEF.
   function correoMensaje(m) {
@@ -2030,12 +2084,14 @@
     if (m._api) {
       var x = m._x, usados = {};
       // Solo los campos que pidió el usuario (06/11/2026), en este orden; después, los anexos y el texto
-      var CAMPOS_FICHA = [['Fecha', verFecha(fechaDe(m))], ['Nombre autoridad', m.MensajeNombre_Autoridad], ['N.º referencia', m.MensajeNum_referencia], ['Asunto', m._asunto],
+      var CAMPOS_FICHA = [['Fecha', verFecha(fechaDe(m))], ['Nombre autoridad', m.MensajeNombre_Autoridad], ['N.º referencia', m.MensajeNum_referencia], ['Su referencia', m.MensajeSu_referencia], ['Asunto', m._asunto],
         ['Fecha registro de entrada', x.FechaRegistroEntrada], ['Fecha registro de salida', x.FechaRegistroSalida], ['Firma (quién firma)', x.Firma], ['Leído', x.Leido],
         ['Último comentario', x.UltimoComentario], ['Célula', sitioDe(m)], ['Destinatarios', x.Destinatarios || '\u2026'], ['Estado del envío', x.NombreEstadoUltimaDistribucionSalida],
         ['N.º registro de salida', x.NumeroRegistroSalida]];
       // Destinatarios: la bandeja los trae vacíos en los de entrada; la lista completa (y con copia) llega con el cuerpo del mensaje
       fichaApi = '<dl class="ficha-campos">' + CAMPOS_FICHA.filter(function (c) { return c[1]; }).map(function (c) {
+        // 18/11/2026: «Su referencia» pulsable: abre el mensaje al que se refiere (ver irAReferencia)
+        if (c[0] === 'Su referencia') return '<dt>' + esc(c[0]) + '</dt><dd><a href="#" class="irRef" data-ref="' + esc(c[1]) + '" title="Abre el mensaje con esta referencia">🔗 ' + esc(c[1]) + '</a> <span class="small muted" id="msgRef"></span></dd>';
         return '<dt>' + esc(c[0]) + '</dt><dd' + (c[0] === 'Destinatarios' ? ' id="fDest"' : '') + '>' + (c[0] === 'Destinatarios' && c[1] === '\u2026' ? '<span class="muted">Cargando…</span>' : esc(c[1])) + '</dd>'; }).join('') + '</dl>';
     }
     var maxi = $('layout').classList.contains('max');
@@ -2055,6 +2111,7 @@
       (PUNTO ? '<button type="button" class="gr gr-psit" id="aPunto" disabled title="' + (PSIT_DIRECTO ? 'Lo pasa directamente al Punto de Situación (PSIT), que detecta la célula' : 'Lo pasa al Punto de Situación (PSIT) a través de META, que detecta la célula') + '"><span class="i">★</span><span>Al PSIT<small>punto de situación</small></span></button>' : '') + botonRubrica(m) + '</div>' +
       '<div class="utiles"><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + botonLeido(m) + '<span class="sepu"></span>' +
       '<button type="button" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Correo</button>' +
+      '<button type="button" id="imprimirMsg" title="Imprime el mensaje con formato de oficio; en la ventana de imprimir elige «Guardar como PDF»">🖨 Imprimir / PDF</button>' +
       '<button type="button" id="copiarTarea" title="Copia asunto, referencia, fecha y autoridad para pegarlos en un gestor">📋 Copiar</button>' + (selectorBandera(m) ? '<span class="sepu"></span>' + selectorBandera(m) : '') + '</div></div></div><div id="colabora"></div>' +
       (m._api ? '<div class="cab-msg">' + (m._x.__es ? '<span class="tag st-azul">' + (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + esc(m._x.__es) + '</span>' : '') +
         (m.MensajeTipo_es ? '<span class="tag t-tipo">' + esc(m.MensajeTipo_es) + '</span>' : '') + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') +
@@ -2099,6 +2156,8 @@
     });
     $('verDet').addEventListener('click', function () { cambiarVisto(m, !vistos[claveMensaje(m)]); });
     $('porCorreo').addEventListener('click', function () { correoMensaje(m); });
+    $('imprimirMsg').addEventListener('click', function () { imprimirMensaje(m); });
+    Array.prototype.forEach.call($('detalle').querySelectorAll('.irRef'), function (a) { a.addEventListener('click', function (e) { e.preventDefault(); irAReferencia(m, a.getAttribute('data-ref')); }); });
     $('aColabora').addEventListener('click', function () { pasarAColabora(m, disp); });
     // 15/11/2026 (tarde): vuelve a pasar por META, que detecta la célula y lo lleva al PSIT, hasta que el PSIT acepte el paso
     // directo (sesión «[PUNTOS]»); entonces bastará con PSIT_DIRECTO = true
