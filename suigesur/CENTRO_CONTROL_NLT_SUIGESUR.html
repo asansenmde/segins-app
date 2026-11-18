@@ -146,11 +146,22 @@
     document.getElementById('estado').textContent = 'Navegador no compatible';
     window.NAVEGADOR_ANTIGUO = true;
   }
+  // Si el código principal no llega a ejecutarse (archivo alterado al subirlo o error de sintaxis), se avisa en vez de quedarse en «Conectando…»
+  window.CCNLT_ERRORES = [];
+  window.addEventListener('error', function (e) { window.CCNLT_ERRORES.push((e.message || 'error') + (e.lineno ? ' (línea ' + e.lineno + ')' : '')); });
+  window.addEventListener('load', function () {
+    if (window.CCNLT_ARRANCADA || window.NAVEGADOR_ANTIGUO) return;
+    document.getElementById('estado').textContent = 'La aplicación no ha arrancado';
+    document.getElementById('vista').innerHTML = '<div class="error">El código de la página no se ha podido ejecutar. Suele deberse a que el archivo ha llegado modificado al servidor o al navegador. ' +
+      'Vuelve a subir el archivo original sin abrirlo ni editarlo y ábrelo desde la biblioteca en Edge o Chrome.<small>' +
+      (window.CCNLT_ERRORES.length ? 'Error: ' + window.CCNLT_ERRORES.join(' · ').replace(/[<>&]/g, '') : 'Sin mensaje de error del navegador') + '</small></div>';
+  });
 </script>
 <script>
 (function () {
   'use strict';
   if (window.NAVEGADOR_ANTIGUO) return;
+  window.CCNLT_ARRANCADA = true;
 
   // ================= Utilidades =================
   const $ = (s, el) => (el || document).querySelector(s);
@@ -182,8 +193,8 @@
     return (d.body.textContent || '').replace(/​/g, '').replace(/\n{3,}/g, '\n\n').trim();
   };
   const fechaSP = v => v ? iso(new Date(v)) : '';
-  const opciones = (arr, sel, vacioTxt) => (vacioTxt != null ? '<option value="">' + esc(vacioTxt) + '</option>' : '') +
-    arr.map(o => { const v = Array.isArray(o) ? o[0] : o, t = Array.isArray(o) ? o[1] : o; return '<option value="' + esc(v) + '"' + (String(v) === String(sel) ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('');
+  const opciones = (arr, sel, vacioTxt) => (vacioTxt != null ? '<option value="">' + esc(vacioTxt) + '<\/option>' : '') +
+    arr.map(o => { const v = Array.isArray(o) ? o[0] : o, t = Array.isArray(o) ? o[1] : o; return '<option value="' + esc(v) + '"' + (String(v) === String(sel) ? ' selected' : '') + '>' + esc(t) + '<\/option>'; }).join('');
 
   // ================= Preferencias (solo en este navegador; nunca datos) =================
   const CLAVE = 'centro-control-nlt-suigesur';
@@ -283,7 +294,7 @@
       const e = j.error || j['odata.error'] || (j.d && j.d.error);
       if (e && e.message) return typeof e.message === 'string' ? e.message : (e.message.value || '');
     }
-    const m = /<m:message[^>]*>([^<]+)</.exec(txt || '');
+    const m = /<m:message[^>]*>([^<]+)[<]/.exec(txt || '');
     return m ? m[1] : String(txt || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
   }
   function explicar(status, sp) {
@@ -674,7 +685,7 @@
   }
   function htmlError(e, contexto) {
     const det = [e.op && 'Operación: ' + e.op, e.lista && 'Lista: ' + e.lista, e.status ? 'HTTP: ' + e.status : (e.tipo === 'config' ? 'Tipo: configuración' : ''), e.url && 'Endpoint: ' + rutaCorta(e.url)].filter(Boolean);
-    return '<div class="error">' + esc((contexto ? contexto + ': ' : '') + (e.message || e)) + (det.length ? '<small>' + esc(det.join(' · ')) + '</small>' : '') + '</div>';
+    return '<div class="error">' + esc((contexto ? contexto + ': ' : '') + (e.message || e)) + (det.length ? '<small>' + esc(det.join(' · ')) + '<\/small>' : '') + '<\/div>';
   }
 
   // ================= Reglas NLT =================
@@ -730,57 +741,57 @@
   function badgeE(e) {
     const s = e.s;
     let b;
-    if (s.k === 'na') b = '<span class="badge none">No aplicable</span>';
-    else if (s.k === 'vencida') b = '<span class="badge bad">Vencida · ' + s.retraso + ' d</span>';
-    else if (s.k === 'pendiente') b = s.dias == null ? '<span class="badge info">Pendiente (sin NLT)</span>' : s.dias === 0 ? '<span class="badge warn">Vence hoy</span>' : s.dias <= 7 ? '<span class="badge warn">Pendiente · ' + s.dias + ' d</span>' : '<span class="badge info">Pendiente</span>';
+    if (s.k === 'na') b = '<span class="badge none">No aplicable<\/span>';
+    else if (s.k === 'vencida') b = '<span class="badge bad">Vencida · ' + s.retraso + ' d<\/span>';
+    else if (s.k === 'pendiente') b = s.dias == null ? '<span class="badge info">Pendiente (sin NLT)<\/span>' : s.dias === 0 ? '<span class="badge warn">Vence hoy<\/span>' : s.dias <= 7 ? '<span class="badge warn">Pendiente · ' + s.dias + ' d<\/span>' : '<span class="badge info">Pendiente<\/span>';
     else {
-      b = s.validada ? '<span class="badge ok">✔ Validado</span>' : s.k === 'subsanar' ? '<span class="badge warn">Requiere subsanación</span>' : s.k === 'revision' ? '<span class="badge info">En revisión</span>' : '<span class="badge info">Recibido</span>';
-      b += ' ' + (s.fuera ? '<span class="badge bad">Fuera de plazo +' + s.retraso + ' d</span>' : s.sinFecha ? '<span class="badge none">Sin fecha recepción</span>' : '<span class="badge ok">En plazo</span>');
+      b = s.validada ? '<span class="badge ok">✔ Validado<\/span>' : s.k === 'subsanar' ? '<span class="badge warn">Requiere subsanación<\/span>' : s.k === 'revision' ? '<span class="badge info">En revisión<\/span>' : '<span class="badge info">Recibido<\/span>';
+      b += ' ' + (s.fuera ? '<span class="badge bad">Fuera de plazo +' + s.retraso + ' d<\/span>' : s.sinFecha ? '<span class="badge none">Sin fecha recepción<\/span>' : '<span class="badge ok">En plazo<\/span>');
     }
     return b;
   }
   function badgeEv(v) {
-    if (v.estadoN === 'Cancelado') return '<span class="badge none">Cancelado</span>';
-    if (v.estadoN === 'Finalizado') return '<span class="badge ok">Finalizado</span>';
-    if (v.vencido) return '<span class="badge bad">Vencido · ' + diasEntre(v.limite, hoy()) + ' d</span>';
-    if (v.limite && diasEntre(hoy(), v.limite) <= 7) return '<span class="badge warn">' + esc(v.estadoN) + ' · ' + diasEntre(hoy(), v.limite) + ' d</span>';
-    return '<span class="badge info">' + esc(v.estadoN) + '</span>';
+    if (v.estadoN === 'Cancelado') return '<span class="badge none">Cancelado<\/span>';
+    if (v.estadoN === 'Finalizado') return '<span class="badge ok">Finalizado<\/span>';
+    if (v.vencido) return '<span class="badge bad">Vencido · ' + diasEntre(v.limite, hoy()) + ' d<\/span>';
+    if (v.limite && diasEntre(hoy(), v.limite) <= 7) return '<span class="badge warn">' + esc(v.estadoN) + ' · ' + diasEntre(hoy(), v.limite) + ' d<\/span>';
+    return '<span class="badge info">' + esc(v.estadoN) + '<\/span>';
   }
   function tabla(cabs, filas, opt) {
     opt = opt || {};
-    return '<div class="tw"><table class="t"><thead><tr>' + cabs.map(c => { const n = c[0] === '#'; return '<th' + (n ? ' class="n"' : '') + '>' + esc(n ? c.slice(1) : c) + '</th>'; }).join('') + '</tr></thead><tbody>' +
-      (filas.length ? filas.join('') : '<tr><td colspan="' + cabs.length + '" class="vacio">' + esc(opt.vacio || 'Sin registros') + '</td></tr>') + '</tbody></table></div>';
+    return '<div class="tw"><table class="t"><thead><tr>' + cabs.map(c => { const n = c[0] === '#'; return '<th' + (n ? ' class="n"' : '') + '>' + esc(n ? c.slice(1) : c) + '<\/th>'; }).join('') + '<\/tr><\/thead><tbody>' +
+      (filas.length ? filas.join('') : '<tr><td colspan="' + cabs.length + '" class="vacio">' + esc(opt.vacio || 'Sin registros') + '<\/td><\/tr>') + '<\/tbody><\/table><\/div>';
   }
-  const td = (v, n) => '<td' + (n ? ' class="n"' : '') + '>' + v + '</td>';
-  const celPct = p => '<span class="cel ' + (p == null ? 'none' : p >= 90 ? 'ok' : p >= 70 ? 'warn' : 'bad') + '">' + pctTxt(p) + '</span>';
+  const td = (v, n) => '<td' + (n ? ' class="n"' : '') + '>' + v + '<\/td>';
+  const celPct = p => '<span class="cel ' + (p == null ? 'none' : p >= 90 ? 'ok' : p >= 70 ? 'warn' : 'bad') + '">' + pctTxt(p) + '<\/span>';
   function kpi(lbl, val, sub, cls, ir) {
-    return '<div class="kpi ' + (cls || '') + '"' + (ir ? ' data-ir="' + esc(ir) + '"' : '') + '><span>' + esc(lbl) + '</span><b>' + esc(val) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>';
+    return '<div class="kpi ' + (cls || '') + '"' + (ir ? ' data-ir="' + esc(ir) + '"' : '') + '><span>' + esc(lbl) + '<\/span><b>' + esc(val) + '<\/b>' + (sub ? '<small>' + esc(sub) + '<\/small>' : '') + '<\/div>';
   }
   function apilada(m) {
     const t = m.enPlazo + m.fuera + m.vencidas + m.pendientes;
-    if (!t) return '<p class="small muted">Sin entregas asignadas en la selección.</p>';
-    const seg = (n, c, l) => n ? '<i class="' + c + '" style="width:' + (n / t * 100) + '%" title="' + esc(l + ': ' + n) + '"></i>' : '';
-    return '<div class="apilada" role="img" aria-label="Distribución de entregas">' + seg(m.enPlazo, 's-ok', 'Recibidas en plazo') + seg(m.fuera, 's-fuera', 'Recibidas fuera de plazo') + seg(m.vencidas, 's-venc', 'Vencidas sin remitir') + seg(m.pendientes, 's-pend', 'Pendientes en plazo') + '</div>' +
-      '<div class="leyenda"><span><i class="s-ok"></i>En plazo ' + m.enPlazo + '</span><span><i class="s-fuera"></i>Fuera de plazo ' + m.fuera + '</span><span><i class="s-venc"></i>Vencidas sin remitir ' + m.vencidas + '</span><span><i class="s-pend"></i>Pendientes en plazo ' + m.pendientes + '</span>' + (m.na ? '<span><i class="s-na"></i>No aplicables ' + m.na + ' (excluidas)</span>' : '') + '</div>';
+    if (!t) return '<p class="small muted">Sin entregas asignadas en la selección.<\/p>';
+    const seg = (n, c, l) => n ? '<i class="' + c + '" style="width:' + (n / t * 100) + '%" title="' + esc(l + ': ' + n) + '"><\/i>' : '';
+    return '<div class="apilada" role="img" aria-label="Distribución de entregas">' + seg(m.enPlazo, 's-ok', 'Recibidas en plazo') + seg(m.fuera, 's-fuera', 'Recibidas fuera de plazo') + seg(m.vencidas, 's-venc', 'Vencidas sin remitir') + seg(m.pendientes, 's-pend', 'Pendientes en plazo') + '<\/div>' +
+      '<div class="leyenda"><span><i class="s-ok"><\/i>En plazo ' + m.enPlazo + '<\/span><span><i class="s-fuera"><\/i>Fuera de plazo ' + m.fuera + '<\/span><span><i class="s-venc"><\/i>Vencidas sin remitir ' + m.vencidas + '<\/span><span><i class="s-pend"><\/i>Pendientes en plazo ' + m.pendientes + '<\/span>' + (m.na ? '<span><i class="s-na"><\/i>No aplicables ' + m.na + ' (excluidas)<\/span>' : '') + '<\/div>';
   }
   // Gráfico de barras de porcentaje (una serie, 0–100 %); el valor exacto aparece al pasar el ratón y en la tabla adjunta
   function grafPct(datos, titulo, ancho) {
     const W = ancho || 1200, H = 200, ml = 34, mb = 24, mt = 10, n = Math.max(datos.length, 1), bw = (W - ml - 8) / n;
     let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(titulo) + '">';
-    [0, 50, 100].forEach(v => { const y = mt + (H - mt - mb) * (1 - v / 100); s += '<line x1="' + ml + '" x2="' + W + '" y1="' + y + '" y2="' + y + '"/><text x="' + (ml - 6) + '" y="' + (y + 4) + '" text-anchor="end">' + v + '%</text>'; });
+    [0, 50, 100].forEach(v => { const y = mt + (H - mt - mb) * (1 - v / 100); s += '<line x1="' + ml + '" x2="' + W + '" y1="' + y + '" y2="' + y + '"/><text x="' + (ml - 6) + '" y="' + (y + 4) + '" text-anchor="end">' + v + '%<\/text>'; });
     datos.forEach((d, i) => {
       const x = ml + i * bw + bw * 0.18, w = Math.max(bw * 0.64, 2);
       if (d.v != null) {
         const h = Math.max((H - mt - mb) * d.v / 100, d.v > 0 ? 2 : 0), y = H - mb - h, r = Math.min(4, w / 2, h);
-        s += '<path class="b" d="M' + x + ',' + (H - mb) + 'V' + (y + r) + 'Q' + x + ',' + y + ' ' + (x + r) + ',' + y + 'H' + (x + w - r) + 'Q' + (x + w) + ',' + y + ' ' + (x + w) + ',' + (y + r) + 'V' + (H - mb) + 'Z" fill="var(--brand-2)"><title>' + esc(d.etq + ': ' + d.v + ' % · ' + (d.tip || '')) + '</title></path>';
-      } else s += '<text x="' + (x + w / 2) + '" y="' + (H - mb - 4) + '" text-anchor="middle">–</text>';
-      if (n <= 16 || i % Math.ceil(n / 16) === 0) s += '<text x="' + (x + w / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(d.corta || d.etq) + '</text>';
+        s += '<path class="b" d="M' + x + ',' + (H - mb) + 'V' + (y + r) + 'Q' + x + ',' + y + ' ' + (x + r) + ',' + y + 'H' + (x + w - r) + 'Q' + (x + w) + ',' + y + ' ' + (x + w) + ',' + (y + r) + 'V' + (H - mb) + 'Z" fill="var(--brand-2)"><title>' + esc(d.etq + ': ' + d.v + ' % · ' + (d.tip || '')) + '<\/title><\/path>';
+      } else s += '<text x="' + (x + w / 2) + '" y="' + (H - mb - 4) + '" text-anchor="middle">–<\/text>';
+      if (n <= 16 || i % Math.ceil(n / 16) === 0) s += '<text x="' + (x + w / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(d.corta || d.etq) + '<\/text>';
     });
-    return '<div class="graf">' + s + '<line x1="' + ml + '" x2="' + W + '" y1="' + (H - mb) + '" y2="' + (H - mb) + '" style="stroke:var(--muted)"/></svg></div>';
+    return '<div class="graf">' + s + '<line x1="' + ml + '" x2="' + W + '" y1="' + (H - mb) + '" y2="' + (H - mb) + '" style="stroke:var(--muted)"/><\/svg><\/div>';
   }
   function filasBarras(grupos, campo, max, ir) {
-    if (!grupos.length) return '<p class="small muted">Sin incumplimientos en la selección.</p>';
-    return grupos.map(g => '<div class="fila-bar"' + (ir ? ' data-ir="' + esc(ir(g)) + '"' : '') + ' title="' + esc(g.nombre + ': ' + g[campo] + ' incumplimientos de ' + g.base + ' exigibles') + '"><span>' + esc(g.nombre) + '</span><div class="bar"><i style="width:' + (max ? g[campo] / max * 100 : 0) + '%"></i></div><b>' + g[campo] + '</b></div>').join('');
+    if (!grupos.length) return '<p class="small muted">Sin incumplimientos en la selección.<\/p>';
+    return grupos.map(g => '<div class="fila-bar"' + (ir ? ' data-ir="' + esc(ir(g)) + '"' : '') + ' title="' + esc(g.nombre + ': ' + g[campo] + ' incumplimientos de ' + g.base + ' exigibles') + '"><span>' + esc(g.nombre) + '<\/span><div class="bar"><i style="width:' + (max ? g[campo] / max * 100 : 0) + '%"><\/i><\/div><b>' + g[campo] + '<\/b><\/div>').join('');
   }
   function agrupar(es, clave, nombre) {
     const m = new Map();
@@ -803,30 +814,30 @@
     .concat(O().filter(o => !E().some(e => e.oK === 'o' + o.id)).map(o => ['o' + o.id, o.nombre])).sort((a, b) => porNombre(a[1], b[1]));
   function barraFiltrosComun(extra) {
     return '<div class="filtros" id="filtros">' +
-      '<div><label class="lbl">Año</label><select data-f="anio">' + opciones(aniosDatos(), F.anio, 'Todos los años') + '</select></div>' +
-      '<div><label class="lbl">Periodo</label><select data-f="per"' + (F.anio ? '' : ' disabled') + '>' + opciones(PERIODOS, F.per) + '</select></div>' +
-      '<div><label class="lbl">Unidad</label><select data-f="uni">' + opciones(opcUnidades(), F.uni, 'Todas') + '</select></div>' +
-      '<div><label class="lbl">Obligación</label><select data-f="obl">' + opciones(opcOblig(), F.obl, 'Todas') + '</select></div>' +
-      '<div><label class="lbl">Tipo</label><select data-f="tipo">' + opciones(unicos(O().map(o => o.periodicidad)).sort(porNombre), F.tipo, 'Todos') + '</select></div>' +
-      '<div><label class="lbl">Categoría</label><select data-f="cat">' + opciones(unicos(O().map(o => o.categoria)).sort(porNombre), F.cat, 'Todas') + '</select></div>' +
-      (extra || '') + '</div>';
+      '<div><label class="lbl">Año<\/label><select data-f="anio">' + opciones(aniosDatos(), F.anio, 'Todos los años') + '<\/select><\/div>' +
+      '<div><label class="lbl">Periodo<\/label><select data-f="per"' + (F.anio ? '' : ' disabled') + '>' + opciones(PERIODOS, F.per) + '<\/select><\/div>' +
+      '<div><label class="lbl">Unidad<\/label><select data-f="uni">' + opciones(opcUnidades(), F.uni, 'Todas') + '<\/select><\/div>' +
+      '<div><label class="lbl">Obligación<\/label><select data-f="obl">' + opciones(opcOblig(), F.obl, 'Todas') + '<\/select><\/div>' +
+      '<div><label class="lbl">Tipo<\/label><select data-f="tipo">' + opciones(unicos(O().map(o => o.periodicidad)).sort(porNombre), F.tipo, 'Todos') + '<\/select><\/div>' +
+      '<div><label class="lbl">Categoría<\/label><select data-f="cat">' + opciones(unicos(O().map(o => o.categoria)).sort(porNombre), F.cat, 'Todas') + '<\/select><\/div>' +
+      (extra || '') + '<\/div>';
   }
 
   // ================= Vistas =================
   function sinConexion() {
-    if (cargando && !cargadoEn) return '<p class="muted">Conectando con SharePoint…</p>';
-    if (errorGeneral) return htmlError(errorGeneral, 'No hay conexión con SharePoint') + '<p class="muted">No se muestran datos: la aplicación solo trabaja con los registros reales de SharePoint. Revisa <a href="#" data-ir="ajustes">Ajustes</a>.</p>';
+    if (cargando && !cargadoEn) return '<p class="muted">Conectando con SharePoint…<\/p>';
+    if (errorGeneral) return htmlError(errorGeneral, 'No hay conexión con SharePoint') + '<p class="muted">No se muestran datos: la aplicación solo trabaja con los registros reales de SharePoint. Revisa <a href="#" data-ir="ajustes">Ajustes<\/a>.<\/p>';
     return '';
   }
   function avisoListas(ns) {
     const mal = ns.filter(n => L[n].estado !== 'ok');
-    return mal.length ? '<div class="aviso">' + mal.map(n => '<b>' + n + '</b>: ' + esc(L[n].estado) + (L[n].error ? ' — ' + esc(L[n].error.message) : '')).join('<br>') + '<br><a href="#" data-ir="ajustes">Revisar en Ajustes → Estructura</a></div>' : '';
+    return mal.length ? '<div class="aviso">' + mal.map(n => '<b>' + n + '<\/b>: ' + esc(L[n].estado) + (L[n].error ? ' — ' + esc(L[n].error.message) : '')).join('<br>') + '<br><a href="#" data-ir="ajustes">Revisar en Ajustes → Estructura<\/a><\/div>' : '';
   }
 
   // ---------- Inicio ----------
   const VISTAS = {};
   VISTAS.inicio = {
-    barra: () => '<div class="barra"><h2>Situación general</h2><div class="acc"><button class="prim" data-acc="asignar">＋ Asignar obligación</button><button data-acc="nuevoEvento">＋ Evento</button></div></div>' +
+    barra: () => '<div class="barra"><h2>Situación general<\/h2><div class="acc"><button class="prim" data-acc="asignar">＋ Asignar obligación<\/button><button data-acc="nuevoEvento">＋ Evento<\/button><\/div><\/div>' +
       avisoListas(LISTAS) + barraFiltrosComun(),
     res: () => {
       const es = filtrarE(F), m = metricas(es), h = hoy();
@@ -838,7 +849,7 @@
       const reinc = reincidencias(es);
       const anio = F.anio || String(new Date().getFullYear());
       const evol = MESL.map((ml, i) => { const mm = metricas(E().filter(e => enPeriodo(fechaRef(e), anio, String(i + 1)) && (!F.uni || e.uK === F.uni) && (!F.obl || e.oK === F.obl) && (!F.cat || e.cat === F.cat) && (!F.tipo || e.tipo === F.tipo))); return { etq: ml + ' ' + anio, corta: MES[i], v: mm.puntualidad, tip: mm.enPlazo + ' en plazo de ' + mm.base + ' exigibles' }; });
-      const filaE = e => '<tr class="clic" data-entrega="' + e.id + '">' + td(fCorta(e.nlt)) + td(esc(e.uEtq)) + td(esc(e.oNom)) + td(esc(e.periodo)) + td(badgeE(e)) + '</tr>';
+      const filaE = e => '<tr class="clic" data-entrega="' + e.id + '">' + td(fCorta(e.nlt)) + td(esc(e.uEtq)) + td(esc(e.oNom)) + td(esc(e.periodo)) + td(badgeE(e)) + '<\/tr>';
       return '<div class="kpis">' +
         kpi('Asignadas', m.asignadas, m.na ? m.na + ' no aplicables (excluidas)' : 'en la selección', '', 'entregas:') +
         kpi('Pendientes en plazo', m.pendientes, 'aún no vencidas', '', 'entregas:pendiente') +
@@ -849,18 +860,18 @@
         kpi('Puntualidad', pctTxt(m.puntualidad), 'en plazo / ' + m.base + ' exigibles', m.puntualidad == null ? '' : m.puntualidad >= 90 ? 'ok' : m.puntualidad >= 70 ? 'warn' : 'bad') +
         kpi('Cumplimiento', pctTxt(m.cumplimiento), 'validadas / exigibles', m.cumplimiento == null ? '' : m.cumplimiento >= 90 ? 'ok' : m.cumplimiento >= 70 ? 'warn' : 'bad') +
         kpi('Unidades con incumplimientos', unisInc.length, 'de ' + unicos(es.map(e => e.uK)).length + ' con entregas', unisInc.length ? 'bad' : 'ok', 'analisis:unidades') +
-        kpi('Eventos abiertos', evAb.length, evVenc.length + ' vencidos', evVenc.length ? 'bad' : '', 'eventos:') + '</div>' +
-        '<div class="card"><h3>Distribución de las entregas<span class="small muted">exigibles = recibidas + vencidas sin remitir</span></h3>' + apilada(m) + '</div>' +
+        kpi('Eventos abiertos', evAb.length, evVenc.length + ' vencidos', evVenc.length ? 'bad' : '', 'eventos:') + '<\/div>' +
+        '<div class="card"><h3>Distribución de las entregas<span class="small muted">exigibles = recibidas + vencidas sin remitir<\/span><\/h3>' + apilada(m) + '<\/div>' +
         '<div class="dos">' +
-        '<div class="card"><h3>Vencidas sin remitir<span class="small muted">' + venc.length + '</span></h3>' + tabla(['NLT', 'Unidad', 'Obligación', 'Periodo', 'Situación'], venc.slice(0, 12).map(filaE), { vacio: 'Ninguna entrega vencida sin remitir' }) + (venc.length > 12 ? '<p class="small"><a href="#" data-ir="entregas:vencida">Ver las ' + venc.length + '</a></p>' : '') + '</div>' +
-        '<div class="card"><h3>NLT próximas (15 días)<span class="small muted">' + prox.length + '</span></h3>' + tabla(['NLT', 'Unidad', 'Obligación', 'Periodo', 'Situación'], prox.slice(0, 12).map(filaE), { vacio: 'Sin vencimientos en los próximos 15 días' }) + '</div>' +
-        '<div class="card"><h3>Unidades con más incumplimientos<span class="small muted">vencidas + fuera de plazo</span></h3>' + filasBarras(unisInc.slice(0, 10), 'n', unisInc[0] && unisInc[0].n, g => 'uni:' + g.k) + '</div>' +
-        '<div class="card"><h3>Obligaciones con más incumplimientos</h3>' + filasBarras(oblInc.slice(0, 10), 'n', oblInc[0] && oblInc[0].n, g => 'obl:' + g.k) + '</div>' +
-        '<div class="card"><h3>Puntualidad mensual ' + esc(anio) + '<span class="small muted">en plazo / exigibles</span></h3>' + grafPct(evol, 'Puntualidad mensual ' + anio, 440) + '</div>' +
-        '<div class="card"><h3>Reincidencia<span class="small muted">misma unidad y obligación, 2 o más incumplimientos</span></h3>' + tabla(['Unidad', 'Obligación', '#Veces', 'Periodos'], reinc.slice(0, 8).map(g => '<tr>' + td(esc(g.unidad)) + td(esc(g.obligacion)) + td(g.es.length, 1) + td(esc(g.es.map(e => e.periodo).sort().join(', '))) + '</tr>'), { vacio: 'Sin reincidencias en la selección' }) + '</div>' +
-        '<div class="card"><h3>Eventos vencidos o próximos</h3>' + tabla(['Límite', 'Unidad', 'Evento', 'Situación'], evAb.filter(v => v.limite && diasEntre(h, v.limite) <= 7).sort((a, b) => a.limite.localeCompare(b.limite)).slice(0, 10)
-          .map(v => '<tr class="clic" data-evento="' + v.id + '">' + td(fCorta(v.limite)) + td(esc(v.uEtq)) + td(esc(v.titulo)) + td(badgeEv(v)) + '</tr>'), { vacio: 'Sin eventos vencidos ni próximos' }) + '</div>' +
-        '</div>';
+        '<div class="card"><h3>Vencidas sin remitir<span class="small muted">' + venc.length + '<\/span><\/h3>' + tabla(['NLT', 'Unidad', 'Obligación', 'Periodo', 'Situación'], venc.slice(0, 12).map(filaE), { vacio: 'Ninguna entrega vencida sin remitir' }) + (venc.length > 12 ? '<p class="small"><a href="#" data-ir="entregas:vencida">Ver las ' + venc.length + '<\/a><\/p>' : '') + '<\/div>' +
+        '<div class="card"><h3>NLT próximas (15 días)<span class="small muted">' + prox.length + '<\/span><\/h3>' + tabla(['NLT', 'Unidad', 'Obligación', 'Periodo', 'Situación'], prox.slice(0, 12).map(filaE), { vacio: 'Sin vencimientos en los próximos 15 días' }) + '<\/div>' +
+        '<div class="card"><h3>Unidades con más incumplimientos<span class="small muted">vencidas + fuera de plazo<\/span><\/h3>' + filasBarras(unisInc.slice(0, 10), 'n', unisInc[0] && unisInc[0].n, g => 'uni:' + g.k) + '<\/div>' +
+        '<div class="card"><h3>Obligaciones con más incumplimientos<\/h3>' + filasBarras(oblInc.slice(0, 10), 'n', oblInc[0] && oblInc[0].n, g => 'obl:' + g.k) + '<\/div>' +
+        '<div class="card"><h3>Puntualidad mensual ' + esc(anio) + '<span class="small muted">en plazo / exigibles<\/span><\/h3>' + grafPct(evol, 'Puntualidad mensual ' + anio, 440) + '<\/div>' +
+        '<div class="card"><h3>Reincidencia<span class="small muted">misma unidad y obligación, 2 o más incumplimientos<\/span><\/h3>' + tabla(['Unidad', 'Obligación', '#Veces', 'Periodos'], reinc.slice(0, 8).map(g => '<tr>' + td(esc(g.unidad)) + td(esc(g.obligacion)) + td(g.es.length, 1) + td(esc(g.es.map(e => e.periodo).sort().join(', '))) + '<\/tr>'), { vacio: 'Sin reincidencias en la selección' }) + '<\/div>' +
+        '<div class="card"><h3>Eventos vencidos o próximos<\/h3>' + tabla(['Límite', 'Unidad', 'Evento', 'Situación'], evAb.filter(v => v.limite && diasEntre(h, v.limite) <= 7).sort((a, b) => a.limite.localeCompare(b.limite)).slice(0, 10)
+          .map(v => '<tr class="clic" data-evento="' + v.id + '">' + td(fCorta(v.limite)) + td(esc(v.uEtq)) + td(esc(v.titulo)) + td(badgeEv(v)) + '<\/tr>'), { vacio: 'Sin eventos vencidos ni próximos' }) + '<\/div>' +
+        '<\/div>';
     }
   };
 
@@ -888,39 +899,39 @@
       .sort((a, b) => (a.nlt || '9').localeCompare(b.nlt || '9') || porNombre(a.uEtq, b.uEtq));
   }
   VISTAS.entregas = {
-    barra: () => '<div class="barra"><h2>Control de entregas</h2><div class="acc"><button class="prim" data-acc="asignar">＋ Asignar obligación a unidades</button><button data-acc="csvEntregas">Exportar CSV</button></div></div>' +
+    barra: () => '<div class="barra"><h2>Control de entregas<\/h2><div class="acc"><button class="prim" data-acc="asignar">＋ Asignar obligación a unidades<\/button><button data-acc="csvEntregas">Exportar CSV<\/button><\/div><\/div>' +
       avisoListas(['CONTROL_ENTREGAS']) +
-      barraFiltrosComun('<div><label class="lbl">Situación</label><select data-f="sit">' + opciones(SITS, F.sit) + '</select></div>' +
-        '<div><label class="lbl">Estado registrado</label><select data-f="est">' + opciones(ESTADOS_E, F.est, 'Todos') + '</select></div>' +
-        '<div class="q"><label class="lbl">Buscar</label><input data-f="q" type="search" value="' + esc(F.q) + '" placeholder="Unidad, obligación, periodo, referencia…"></div>'),
+      barraFiltrosComun('<div><label class="lbl">Situación<\/label><select data-f="sit">' + opciones(SITS, F.sit) + '<\/select><\/div>' +
+        '<div><label class="lbl">Estado registrado<\/label><select data-f="est">' + opciones(ESTADOS_E, F.est, 'Todos') + '<\/select><\/div>' +
+        '<div class="q"><label class="lbl">Buscar<\/label><input data-f="q" type="search" value="' + esc(F.q) + '" placeholder="Unidad, obligación, periodo, referencia…"><\/div>'),
     res: () => {
       const es = entregasFiltradas(), m = metricas(es);
       Array.from(SEL).forEach(id => { if (!es.some(e => e.id === id)) SEL.delete(id); });
       const filas = es.slice(0, limiteFilas).map(e => '<tr class="clic' + (SEL.has(e.id) ? ' sel' : '') + '" data-entrega="' + e.id + '">' +
-        '<td><input type="checkbox" data-sel="' + e.id + '"' + (SEL.has(e.id) ? ' checked' : '') + ' aria-label="Seleccionar"></td>' +
-        td(fCorta(e.nlt)) + td('<b>' + esc(e.uEtq) + '</b>') + td(esc(e.oNom)) + td(esc(e.periodo)) + td(fCorta(e.recepcion)) + td(badgeE(e)) +
-        td((e.s.k === 'pendiente' || e.s.k === 'vencida' ? '<button class="peq" data-acc="recibir" data-id="' + e.id + '" title="Registrar recepción con fecha de hoy">Recibido hoy</button> ' : '') +
-          (e.s.recibida && !e.s.validada ? '<button class="peq" data-acc="validar" data-id="' + e.id + '" title="Marcar como validado hoy">Validar</button>' : '')) + '</tr>');
-      return '<p class="small muted">' + es.length + ' registros · ' + m.vencidas + ' vencidos sin remitir · ' + m.recibidas + ' recibidos (' + m.fuera + ' fuera de plazo) · ' + m.validadas + ' validados · puntualidad ' + pctTxt(m.puntualidad) + '</p>' +
-        (SEL.size ? '<div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b>' + SEL.size + ' seleccionadas</b>' +
-          '<label class="check">Fecha <input type="date" id="loteFecha" value="' + hoy() + '" style="width:auto"></label>' +
-          '<button data-acc="loteRecibir">Registrar recepción</button><button data-acc="loteValidar">Validar</button><button data-acc="loteNA">No aplicable</button><button data-acc="loteQuitar">Quitar selección</button><span id="loteRes" class="small"></span></div>' : '') +
+        '<td><input type="checkbox" data-sel="' + e.id + '"' + (SEL.has(e.id) ? ' checked' : '') + ' aria-label="Seleccionar"><\/td>' +
+        td(fCorta(e.nlt)) + td('<b>' + esc(e.uEtq) + '<\/b>') + td(esc(e.oNom)) + td(esc(e.periodo)) + td(fCorta(e.recepcion)) + td(badgeE(e)) +
+        td((e.s.k === 'pendiente' || e.s.k === 'vencida' ? '<button class="peq" data-acc="recibir" data-id="' + e.id + '" title="Registrar recepción con fecha de hoy">Recibido hoy<\/button> ' : '') +
+          (e.s.recibida && !e.s.validada ? '<button class="peq" data-acc="validar" data-id="' + e.id + '" title="Marcar como validado hoy">Validar<\/button>' : '')) + '<\/tr>');
+      return '<p class="small muted">' + es.length + ' registros · ' + m.vencidas + ' vencidos sin remitir · ' + m.recibidas + ' recibidos (' + m.fuera + ' fuera de plazo) · ' + m.validadas + ' validados · puntualidad ' + pctTxt(m.puntualidad) + '<\/p>' +
+        (SEL.size ? '<div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b>' + SEL.size + ' seleccionadas<\/b>' +
+          '<label class="check">Fecha <input type="date" id="loteFecha" value="' + hoy() + '" style="width:auto"><\/label>' +
+          '<button data-acc="loteRecibir">Registrar recepción<\/button><button data-acc="loteValidar">Validar<\/button><button data-acc="loteNA">No aplicable<\/button><button data-acc="loteQuitar">Quitar selección<\/button><span id="loteRes" class="small"><\/span><\/div>' : '') +
         tabla(['', 'NLT', 'Unidad', 'Obligación', 'Periodo', 'Recepción', 'Situación', 'Acciones'], filas,
           { vacio: E().length ? 'Ningún registro con estos filtros' : 'Todavía no hay obligaciones asignadas. Usa «Asignar obligación a unidades».' }) +
-        (es.length > limiteFilas ? '<p><button data-acc="masFilas">Mostrar más (' + (es.length - limiteFilas) + ' restantes)</button></p>' : '') +
-        (es.length ? '<p class="small"><label class="check"><input type="checkbox" data-acc="selTodas"' + (es.slice(0, limiteFilas).every(e => SEL.has(e.id)) ? ' checked' : '') + '> Seleccionar las ' + Math.min(es.length, limiteFilas) + ' visibles</label></p>' : '');
+        (es.length > limiteFilas ? '<p><button data-acc="masFilas">Mostrar más (' + (es.length - limiteFilas) + ' restantes)<\/button><\/p>' : '') +
+        (es.length ? '<p class="small"><label class="check"><input type="checkbox" data-acc="selTodas"' + (es.slice(0, limiteFilas).every(e => SEL.has(e.id)) ? ' checked' : '') + '> Seleccionar las ' + Math.min(es.length, limiteFilas) + ' visibles<\/label><\/p>' : '');
     }
   };
 
   // ---------- Obligaciones (catálogo) ----------
   VISTAS.obligaciones = {
-    barra: () => '<div class="barra"><h2>Catálogo de obligaciones</h2><div class="acc"><button class="prim" data-acc="nuevaOblig">＋ Nueva obligación</button></div></div>' +
-      '<div class="info small">El <b>catálogo</b> define qué se remite y con qué NLT. No crea entregas: las obligaciones de cada unidad se crean con «Asignar», solo para las unidades que elijas.</div>' +
+    barra: () => '<div class="barra"><h2>Catálogo de obligaciones<\/h2><div class="acc"><button class="prim" data-acc="nuevaOblig">＋ Nueva obligación<\/button><\/div><\/div>' +
+      '<div class="info small">El <b>catálogo<\/b> define qué se remite y con qué NLT. No crea entregas: las obligaciones de cada unidad se crean con «Asignar», solo para las unidades que elijas.<\/div>' +
       avisoListas(['NLT_MAESTRO']) +
-      '<div class="filtros"><div class="q"><label class="lbl">Buscar</label><input data-f="oq" type="search" value="' + esc(F.oq) + '" placeholder="Nombre, código, categoría…"></div>' +
-      '<div><label class="lbl">Periodicidad</label><select data-f="oper">' + opciones(unicos(PERIODICIDADES.concat(O().map(o => o.periodicidad))), F.oper, 'Todas') + '</select></div>' +
-      '<div><label class="lbl">Categoría</label><select data-f="ocat">' + opciones(unicos(O().map(o => o.categoria)).sort(porNombre), F.ocat, 'Todas') + '</select></div>' +
-      '<div><label class="lbl">Estado</label><select data-f="oact">' + opciones([['activas', 'Activas'], ['inactivas', 'Inactivas'], ['', 'Todas']], F.oact) + '</select></div></div>',
+      '<div class="filtros"><div class="q"><label class="lbl">Buscar<\/label><input data-f="oq" type="search" value="' + esc(F.oq) + '" placeholder="Nombre, código, categoría…"><\/div>' +
+      '<div><label class="lbl">Periodicidad<\/label><select data-f="oper">' + opciones(unicos(PERIODICIDADES.concat(O().map(o => o.periodicidad))), F.oper, 'Todas') + '<\/select><\/div>' +
+      '<div><label class="lbl">Categoría<\/label><select data-f="ocat">' + opciones(unicos(O().map(o => o.categoria)).sort(porNombre), F.ocat, 'Todas') + '<\/select><\/div>' +
+      '<div><label class="lbl">Estado<\/label><select data-f="oact">' + opciones([['activas', 'Activas'], ['inactivas', 'Inactivas'], ['', 'Todas']], F.oact) + '<\/select><\/div><\/div>',
     res: () => {
       const q = norm(F.oq);
       const os = O().filter(o => (!q || norm([o.nombre, o.codigo, o.categoria, o.ambito, o.descripcion].join(' ')).indexOf(q) >= 0) && (!F.oper || o.periodicidad === F.oper) && (!F.ocat || o.categoria === F.ocat) &&
@@ -928,10 +939,10 @@
         .sort((a, b) => PERIODICIDADES.indexOf(a.periodicidad) - PERIODICIDADES.indexOf(b.periodicidad) || porNombre(a.codigo || a.nombre, b.codigo || b.nombre));
       return tabla(['Código', 'Obligación', 'Periodicidad', 'NLT', 'Categoría', 'Ámbito', '#Habituales', '#Asignadas', 'Estado', ''], os.map(o => {
         const n = E().filter(e => e.ob === o).length, hab = unidadesHabituales(o).length;
-        return '<tr class="clic" data-oblig="' + o.id + '">' + td(esc(o.codigo)) + td('<b>' + esc(o.nombre) + '</b>' + (o.descripcion ? '<div class="small muted">' + esc(o.descripcion.slice(0, 140)) + '</div>' : '')) +
-          td(esc(o.periodicidad) + ' <span class="chip">' + tipoOb(o) + '</span>') + td(esc(reglaTxt(o))) + td(esc(o.categoria)) + td(esc(o.ambito)) + td(hab || '—', 1) + td(n, 1) +
-          td(o.activa ? '<span class="badge ok">Activa</span>' : '<span class="badge none">Inactiva</span>') +
-          td(o.activa && o.periodicidad !== 'Por evento' ? '<button class="peq" data-acc="asignar" data-id="' + o.id + '">Asignar</button>' : o.activa ? '<button class="peq" data-acc="nuevoEvento" data-id="' + o.id + '">Evento</button>' : '') + '</tr>';
+        return '<tr class="clic" data-oblig="' + o.id + '">' + td(esc(o.codigo)) + td('<b>' + esc(o.nombre) + '<\/b>' + (o.descripcion ? '<div class="small muted">' + esc(o.descripcion.slice(0, 140)) + '<\/div>' : '')) +
+          td(esc(o.periodicidad) + ' <span class="chip">' + tipoOb(o) + '<\/span>') + td(esc(reglaTxt(o))) + td(esc(o.categoria)) + td(esc(o.ambito)) + td(hab || '—', 1) + td(n, 1) +
+          td(o.activa ? '<span class="badge ok">Activa<\/span>' : '<span class="badge none">Inactiva<\/span>') +
+          td(o.activa && o.periodicidad !== 'Por evento' ? '<button class="peq" data-acc="asignar" data-id="' + o.id + '">Asignar<\/button>' : o.activa ? '<button class="peq" data-acc="nuevoEvento" data-id="' + o.id + '">Evento<\/button>' : '') + '<\/tr>';
       }), { vacio: O().length ? 'Ninguna obligación con estos filtros' : 'El catálogo está vacío. Crea una obligación o carga el catálogo inicial desde Ajustes.' });
     }
   };
@@ -942,19 +953,19 @@
 
   // ---------- Unidades ----------
   VISTAS.unidades = {
-    barra: () => '<div class="barra"><h2>Catálogo de unidades</h2><div class="acc"><button class="prim" data-acc="nuevaUnidad">＋ Nueva unidad</button></div></div>' + avisoListas(['UCO_SUIGESUR']) +
-      '<div class="filtros"><div class="q"><label class="lbl">Buscar</label><input data-f="uq" type="search" value="' + esc(F.uq) + '" placeholder="Nombre, siglas, contacto…"></div>' +
-      '<div><label class="lbl">Ámbito</label><select data-f="uamb">' + opciones(unicos(U().map(u => u.ambito)).sort(porNombre), F.uamb, 'Todos') + '</select></div>' +
-      '<div><label class="lbl">Estado</label><select data-f="uact">' + opciones([['activas', 'Activas'], ['inactivas', 'Inactivas'], ['', 'Todas']], F.uact) + '</select></div></div>',
+    barra: () => '<div class="barra"><h2>Catálogo de unidades<\/h2><div class="acc"><button class="prim" data-acc="nuevaUnidad">＋ Nueva unidad<\/button><\/div><\/div>' + avisoListas(['UCO_SUIGESUR']) +
+      '<div class="filtros"><div class="q"><label class="lbl">Buscar<\/label><input data-f="uq" type="search" value="' + esc(F.uq) + '" placeholder="Nombre, siglas, contacto…"><\/div>' +
+      '<div><label class="lbl">Ámbito<\/label><select data-f="uamb">' + opciones(unicos(U().map(u => u.ambito)).sort(porNombre), F.uamb, 'Todos') + '<\/select><\/div>' +
+      '<div><label class="lbl">Estado<\/label><select data-f="uact">' + opciones([['activas', 'Activas'], ['inactivas', 'Inactivas'], ['', 'Todas']], F.uact) + '<\/select><\/div><\/div>',
     res: () => {
       const q = norm(F.uq);
       const us = U().filter(u => (!q || norm([u.nombre, u.siglas, u.contacto, u.ambito].join(' ')).indexOf(q) >= 0) && (!F.uamb || u.ambito === F.uamb) &&
         (F.uact === 'activas' ? u.activa : F.uact === 'inactivas' ? !u.activa : true)).sort((a, b) => porNombre(a.siglas || a.nombre, b.siglas || b.nombre));
-      return '<p class="small muted">' + us.length + ' de ' + U().length + ' unidades</p>' +
+      return '<p class="small muted">' + us.length + ' de ' + U().length + ' unidades<\/p>' +
         tabla(['Siglas', 'Unidad', 'Ámbito', 'Contacto', '#Asignadas', '#Vencidas', 'Puntualidad', 'Estado', 'ID'], us.map(u => {
           const m = metricas(E().filter(e => e.u === u));
-          return '<tr class="clic" data-unidad="' + u.id + '">' + td('<b>' + esc(u.siglas) + '</b>') + td(esc(u.nombre)) + td(esc(u.ambito)) + td(esc(u.contacto)) + td(m.asignadas, 1) + td(m.vencidas || '', 1) + td(celPct(m.puntualidad)) +
-            td(u.activa ? '<span class="badge ok">Activa</span>' : '<span class="badge none">Inactiva</span>') + td('<span class="small muted">' + u.id + '</span>', 1) + '</tr>';
+          return '<tr class="clic" data-unidad="' + u.id + '">' + td('<b>' + esc(u.siglas) + '<\/b>') + td(esc(u.nombre)) + td(esc(u.ambito)) + td(esc(u.contacto)) + td(m.asignadas, 1) + td(m.vencidas || '', 1) + td(celPct(m.puntualidad)) +
+            td(u.activa ? '<span class="badge ok">Activa<\/span>' : '<span class="badge none">Inactiva<\/span>') + td('<span class="small muted">' + u.id + '<\/span>', 1) + '<\/tr>';
         }), { vacio: U().length ? 'Ninguna unidad con estos filtros' : 'No hay unidades. Da de alta una a mano para comprobar la escritura antes de cargar el catálogo completo.' });
     }
   };
@@ -963,14 +974,14 @@
   VISTAS.eventos = {
     barra: () => {
       const ab = EV().filter(v => !v.cerrado), y = String(new Date().getFullYear());
-      return '<div class="barra"><h2>Seguimiento de eventos</h2><div class="acc"><button class="prim" data-acc="nuevoEvento">＋ Nuevo evento</button><button data-acc="csvEventos">Exportar CSV</button></div></div>' + avisoListas(['SEGUIMIENTO_EVENTOS']) +
+      return '<div class="barra"><h2>Seguimiento de eventos<\/h2><div class="acc"><button class="prim" data-acc="nuevoEvento">＋ Nuevo evento<\/button><button data-acc="csvEventos">Exportar CSV<\/button><\/div><\/div>' + avisoListas(['SEGUIMIENTO_EVENTOS']) +
         '<div class="kpis">' + kpi('Abiertos', ab.length, 'abiertos o en curso') + kpi('Vencidos', ab.filter(v => v.vencido).length, 'fecha límite superada', ab.some(v => v.vencido) ? 'bad' : 'ok') +
         kpi('Próximos 7 días', ab.filter(v => v.limite && !v.vencido && diasEntre(hoy(), v.limite) <= 7).length, 'fecha límite cercana', 'warn') +
-        kpi('Sin fecha límite', ab.filter(v => !v.limite).length, 'abiertos') + kpi('Cerrados ' + y, EV().filter(v => v.cerrado && (v.cierre || '').slice(0, 4) === y).length, 'finalizados o cancelados') + '</div>' +
-        '<div class="filtros"><div><label class="lbl">Situación</label><select data-f="esit">' + opciones([['abiertos', 'Abiertos (pendientes)'], ['vencidos', 'Vencidos'], ['cerrados', 'Finalizados / cancelados'], ['', 'Todos']], F.esit) + '</select></div>' +
-        '<div><label class="lbl">Tipo</label><select data-f="etipo">' + opciones(unicos(TIPOS_EV.concat(EV().map(v => v.tipo))), F.etipo, 'Todos') + '</select></div>' +
-        '<div><label class="lbl">Unidad</label><select data-f="euni">' + opciones(unicos(EV().map(v => v.uEtq)).sort(porNombre), F.euni, 'Todas') + '</select></div>' +
-        '<div class="q"><label class="lbl">Buscar</label><input data-f="eq" type="search" value="' + esc(F.eq) + '" placeholder="Evento, responsable, observaciones…"></div></div>';
+        kpi('Sin fecha límite', ab.filter(v => !v.limite).length, 'abiertos') + kpi('Cerrados ' + y, EV().filter(v => v.cerrado && (v.cierre || '').slice(0, 4) === y).length, 'finalizados o cancelados') + '<\/div>' +
+        '<div class="filtros"><div><label class="lbl">Situación<\/label><select data-f="esit">' + opciones([['abiertos', 'Abiertos (pendientes)'], ['vencidos', 'Vencidos'], ['cerrados', 'Finalizados / cancelados'], ['', 'Todos']], F.esit) + '<\/select><\/div>' +
+        '<div><label class="lbl">Tipo<\/label><select data-f="etipo">' + opciones(unicos(TIPOS_EV.concat(EV().map(v => v.tipo))), F.etipo, 'Todos') + '<\/select><\/div>' +
+        '<div><label class="lbl">Unidad<\/label><select data-f="euni">' + opciones(unicos(EV().map(v => v.uEtq)).sort(porNombre), F.euni, 'Todas') + '<\/select><\/div>' +
+        '<div class="q"><label class="lbl">Buscar<\/label><input data-f="eq" type="search" value="' + esc(F.eq) + '" placeholder="Evento, responsable, observaciones…"><\/div><\/div>';
     },
     res: () => {
       const q = norm(F.eq);
@@ -978,18 +989,18 @@
         (!q || norm([v.titulo, v.tipo, v.uEtq, v.responsable, v.obs].join(' ')).indexOf(q) >= 0))
         .sort((a, b) => (a.cerrado - b.cerrado) || (a.limite || '9').localeCompare(b.limite || '9'));
       return tabla(['Activación', 'Límite', 'Unidad', 'Tipo', 'Evento / actuación', 'Responsable', 'Situación', 'Cierre', ''], vs.map(v => '<tr class="clic" data-evento="' + v.id + '">' + td(fCorta(v.activacion)) + td(fCorta(v.limite)) + td(esc(v.uEtq)) + td(esc(v.tipo)) +
-        td('<b>' + esc(v.titulo) + '</b>' + (v.ob ? '<div class="small muted">' + esc(v.ob.nombre) + '</div>' : '')) + td(esc(v.responsable)) + td(badgeEv(v)) + td(fCorta(v.cierre)) +
-        td(!v.cerrado ? '<button class="peq" data-acc="cerrarEvento" data-id="' + v.id + '">Finalizar hoy</button>' : '') + '</tr>'), { vacio: EV().length ? 'Ningún evento con estos filtros' : 'No hay eventos registrados.' });
+        td('<b>' + esc(v.titulo) + '<\/b>' + (v.ob ? '<div class="small muted">' + esc(v.ob.nombre) + '<\/div>' : '')) + td(esc(v.responsable)) + td(badgeEv(v)) + td(fCorta(v.cierre)) +
+        td(!v.cerrado ? '<button class="peq" data-acc="cerrarEvento" data-id="' + v.id + '">Finalizar hoy<\/button>' : '') + '<\/tr>'), { vacio: EV().length ? 'Ningún evento con estos filtros' : 'No hay eventos registrados.' });
     }
   };
 
   // ---------- Análisis ----------
   const SUBS = [['unidades', 'Ranking de unidades'], ['obligaciones', 'Obligaciones'], ['evolucion', 'Evolución'], ['comparativa', 'Comparativa entre años'], ['reincidencia', 'Reincidencia'], ['matriz', 'Matriz unidad × obligación']];
   VISTAS.analisis = {
-    barra: () => '<div class="barra"><h2>Análisis y estadísticas</h2><div class="acc"><button data-acc="csvAnalisis">Exportar esta tabla CSV</button></div></div>' +
-      '<div class="pills">' + SUBS.map(s => '<a data-sub="' + s[0] + '" class="' + (pref.sub === s[0] ? 'on' : '') + '">' + s[1] + '</a>').join('') + '</div>' +
-      barraFiltrosComun(pref.sub === 'evolucion' ? '<div><label class="lbl">Agrupar por</label><select data-f="gran">' + opciones([['mensual', 'Mes'], ['trimestral', 'Trimestre'], ['anual', 'Año']], F.gran) + '</select></div>' : '') +
-      '<p class="small muted">Puntualidad = recibidas en plazo / exigibles. Remisión = recibidas / exigibles. Cumplimiento = validadas / exigibles. Exigibles = recibidas + vencidas sin remitir; las «no aplicables» y las pendientes aún en plazo no cuentan.</p>',
+    barra: () => '<div class="barra"><h2>Análisis y estadísticas<\/h2><div class="acc"><button data-acc="csvAnalisis">Exportar esta tabla CSV<\/button><\/div><\/div>' +
+      '<div class="pills">' + SUBS.map(s => '<a data-sub="' + s[0] + '" class="' + (pref.sub === s[0] ? 'on' : '') + '">' + s[1] + '<\/a>').join('') + '<\/div>' +
+      barraFiltrosComun(pref.sub === 'evolucion' ? '<div><label class="lbl">Agrupar por<\/label><select data-f="gran">' + opciones([['mensual', 'Mes'], ['trimestral', 'Trimestre'], ['anual', 'Año']], F.gran) + '<\/select><\/div>' : '') +
+      '<p class="small muted">Puntualidad = recibidas en plazo / exigibles. Remisión = recibidas / exigibles. Cumplimiento = validadas / exigibles. Exigibles = recibidas + vencidas sin remitir; las «no aplicables» y las pendientes aún en plazo no cuentan.<\/p>',
     res: () => { const r = analisis(); ultimoAnalisis = r; return r.html; }
   };
   let ultimoAnalisis = null;
@@ -997,7 +1008,7 @@
     const es = filtrarE(pref.sub === 'evolucion' || pref.sub === 'comparativa' ? Object.assign({}, F, pref.sub === 'comparativa' ? { anio: '', per: '' } : {}) : F);
     const cabRank = ['Nombre', '#Asignadas', '#Exigibles', '#En plazo', '#Fuera plazo', '#Vencidas', '#Validadas', 'Puntualidad', 'Remisión', 'Cumplimiento', '#Retraso medio (d)', '#Reincidencia'];
     const filaRank = (g, reinc) => [g.nombre, g.asignadas, g.base, g.enPlazo, g.fuera, g.vencidas, g.validadas, pctTxt(g.puntualidad), pctTxt(g.remision), pctTxt(g.cumplimiento), g.retrasoMedio == null ? '' : g.retrasoMedio, reinc];
-    const pintar = (cabs, filas, raw) => ({ html: tabla(cabs, filas.map(f => '<tr>' + f.map((c, i) => td(raw && raw[i] ? c : esc(c), cabs[i][0] === '#')).join('') + '</tr>')), cabs: cabs.map(c => c.replace(/^#/, '')), filas: filas });
+    const pintar = (cabs, filas, raw) => ({ html: tabla(cabs, filas.map(f => '<tr>' + f.map((c, i) => td(raw && raw[i] ? c : esc(c), cabs[i][0] === '#')).join('') + '<\/tr>')), cabs: cabs.map(c => c.replace(/^#/, '')), filas: filas });
     const ordenRank = (a, b) => (a.puntualidad == null) - (b.puntualidad == null) || (a.puntualidad - b.puntualidad) || b.incumpl - a.incumpl;
     const reinc = reincidencias(es);
     if (pref.sub === 'unidades' || pref.sub === 'obligaciones') {
@@ -1006,9 +1017,9 @@
       const filas = gs.map(g => filaRank(g, reinc.filter(r => (porU ? r.uK : r.oK) === g.k).length));
       const t = pintar(cabRank, filas);
       const peor = gs.filter(g => g.base).slice(0, 15);
-      t.html = '<div class="card"><h3>' + (porU ? 'Unidades' : 'Obligaciones') + ' con menor puntualidad<span class="small muted">' + peor.length + ' con entregas exigibles</span></h3>' +
-        grafPct(peor.map(g => ({ etq: g.nombre, corta: g.nombre.slice(0, 10), v: g.puntualidad, tip: g.enPlazo + ' en plazo de ' + g.base })), 'Puntualidad') + '</div>' +
-        '<div class="card"><h3>' + (porU ? 'Ranking de cumplimiento por unidad' : 'Cumplimiento por obligación') + '<span class="small muted">ordenado de peor a mejor puntualidad · reincidencia = ' + (porU ? 'obligaciones' : 'unidades') + ' con 2 o más incumplimientos</span></h3>' + t.html + '</div>';
+      t.html = '<div class="card"><h3>' + (porU ? 'Unidades' : 'Obligaciones') + ' con menor puntualidad<span class="small muted">' + peor.length + ' con entregas exigibles<\/span><\/h3>' +
+        grafPct(peor.map(g => ({ etq: g.nombre, corta: g.nombre.slice(0, 10), v: g.puntualidad, tip: g.enPlazo + ' en plazo de ' + g.base })), 'Puntualidad') + '<\/div>' +
+        '<div class="card"><h3>' + (porU ? 'Ranking de cumplimiento por unidad' : 'Cumplimiento por obligación') + '<span class="small muted">ordenado de peor a mejor puntualidad · reincidencia = ' + (porU ? 'obligaciones' : 'unidades') + ' con 2 o más incumplimientos<\/span><\/h3>' + t.html + '<\/div>';
       return t;
     }
     if (pref.sub === 'evolucion') {
@@ -1018,7 +1029,7 @@
         return [g.k, g.asignadas, g.base, g.enPlazo, g.fuera, g.vencidas, g.incumpl, pctTxt(g.puntualidad), pctTxt(g.cumplimiento), d == null ? '' : (d > 0 ? '▲ +' : d < 0 ? '▼ ' : '= ') + d + ' pts'];
       });
       const t = pintar(['Periodo', '#Asignadas', '#Exigibles', '#En plazo', '#Fuera plazo', '#Vencidas', '#Incumplimientos', 'Puntualidad', 'Cumplimiento', 'Tendencia'], filas);
-      t.html = '<div class="card"><h3>Evolución de la puntualidad</h3>' + grafPct(gs.map(g => ({ etq: g.k, corta: F.gran === 'mensual' ? MES[+g.k.slice(5, 7) - 1] + ' ' + g.k.slice(2, 4) : g.k, v: g.puntualidad, tip: g.enPlazo + ' en plazo de ' + g.base })), 'Evolución') + '</div><div class="card">' + t.html + '</div>';
+      t.html = '<div class="card"><h3>Evolución de la puntualidad<\/h3>' + grafPct(gs.map(g => ({ etq: g.k, corta: F.gran === 'mensual' ? MES[+g.k.slice(5, 7) - 1] + ' ' + g.k.slice(2, 4) : g.k, v: g.puntualidad, tip: g.enPlazo + ' en plazo de ' + g.base })), 'Evolución') + '<\/div><div class="card">' + t.html + '<\/div>';
       return t;
     }
     if (pref.sub === 'comparativa') {
@@ -1027,7 +1038,7 @@
       filas.push(['TOTAL AÑO'].concat(anios.map(y => pctTxt(metricas(es.filter(e => enPeriodo(fechaRef(e), y, ''))).puntualidad))));
       filas.push(['Incumplimientos'].concat(anios.map(y => String(metricas(es.filter(e => enPeriodo(fechaRef(e), y, ''))).incumpl))));
       const t = pintar(['Mes'].concat(anios.map(y => 'Puntualidad ' + y)), filas);
-      t.html = '<div class="card"><h3>Comparativa de puntualidad entre años<span class="small muted">mismo filtro de unidad, obligación y tipo; ignora el año seleccionado</span></h3>' + (anios.length ? t.html : '<p class="muted">Sin datos.</p>') + '</div>';
+      t.html = '<div class="card"><h3>Comparativa de puntualidad entre años<span class="small muted">mismo filtro de unidad, obligación y tipo; ignora el año seleccionado<\/span><\/h3>' + (anios.length ? t.html : '<p class="muted">Sin datos.<\/p>') + '<\/div>';
       return t;
     }
     if (pref.sub === 'reincidencia') {
@@ -1036,19 +1047,19 @@
       const uRec = agrupar(es.filter(esIncumplida), e => e.uK, e => e.uEtq).map(g => ({ nombre: g.nombre, n: g.es.length, meses: unicos(g.es.map(e => fechaRef(e).slice(0, 7))).length, base: 0 })).filter(g => g.meses >= 2).sort((a, b) => b.meses - a.meses || b.n - a.n);
       const porMes = MESL.map((m, i) => ({ nombre: m, n: es.filter(e => esIncumplida(e) && +fechaRef(e).slice(5, 7) === i + 1).length, base: 0 }));
       const maxMes = Math.max.apply(null, porMes.map(x => x.n).concat([0]));
-      t.html = '<div class="card"><h3>Unidad + obligación incumplida 2 o más veces<span class="small muted">' + reinc.length + '</span></h3>' + t.html + '</div><div class="dos">' +
-        '<div class="card"><h3>Unidades con incumplimientos en varios meses</h3>' + tabla(['Unidad', '#Meses distintos', '#Incumplimientos'], uRec.map(g => '<tr>' + td(esc(g.nombre)) + td(g.meses, 1) + td(g.n, 1) + '</tr>'), { vacio: 'Ninguna' }) + '</div>' +
-        '<div class="card"><h3>Meses en que se concentran los incumplimientos</h3>' + (maxMes ? porMes.map(x => '<div class="fila-bar" style="cursor:default"><span>' + x.nombre + '</span><div class="bar"><i style="width:' + (x.n / maxMes * 100) + '%"></i></div><b>' + x.n + '</b></div>').join('') : '<p class="small muted">Sin incumplimientos.</p>') + '</div></div>';
+      t.html = '<div class="card"><h3>Unidad + obligación incumplida 2 o más veces<span class="small muted">' + reinc.length + '<\/span><\/h3>' + t.html + '<\/div><div class="dos">' +
+        '<div class="card"><h3>Unidades con incumplimientos en varios meses<\/h3>' + tabla(['Unidad', '#Meses distintos', '#Incumplimientos'], uRec.map(g => '<tr>' + td(esc(g.nombre)) + td(g.meses, 1) + td(g.n, 1) + '<\/tr>'), { vacio: 'Ninguna' }) + '<\/div>' +
+        '<div class="card"><h3>Meses en que se concentran los incumplimientos<\/h3>' + (maxMes ? porMes.map(x => '<div class="fila-bar" style="cursor:default"><span>' + x.nombre + '<\/span><div class="bar"><i style="width:' + (x.n / maxMes * 100) + '%"><\/i><\/div><b>' + x.n + '<\/b><\/div>').join('') : '<p class="small muted">Sin incumplimientos.<\/p>') + '<\/div><\/div>';
       return t;
     }
     // matriz
     const us = agrupar(es, e => e.uK, e => e.uEtq).sort((a, b) => porNombre(a.nombre, b.nombre));
     const os = agrupar(es, e => e.oK, e => e.oNom).sort((a, b) => porNombre(a.nombre, b.nombre));
     const celdas = us.map(u => [u.nombre].concat(os.map(o => { const m = metricas(u.es.filter(e => e.oK === o.k)); return m.asignadas ? { p: m.puntualidad, t: m.enPlazo + '/' + m.base + ' en plazo · ' + m.vencidas + ' vencidas · ' + m.fuera + ' fuera' } : null; })));
-    const html = '<div class="card"><h3>Matriz de puntualidad<span class="small muted">' + us.length + ' unidades × ' + os.length + ' obligaciones · celda vacía = sin asignación</span></h3><div class="tw"><table class="t"><thead><tr><th>Unidad</th>' +
-      os.map((o, i) => '<th title="' + esc(o.nombre) + '">' + (i + 1) + '</th>').join('') + '</tr></thead><tbody>' +
-      celdas.map(f => '<tr><td><b>' + esc(f[0]) + '</b></td>' + f.slice(1).map(c => '<td>' + (c ? '<span title="' + esc(c.t) + '">' + celPct(c.p) + '</span>' : '') + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>' +
-      '<p class="small muted">' + os.map((o, i) => (i + 1) + ' = ' + esc(o.nombre)).join(' · ') + '</p></div>';
+    const html = '<div class="card"><h3>Matriz de puntualidad<span class="small muted">' + us.length + ' unidades × ' + os.length + ' obligaciones · celda vacía = sin asignación<\/span><\/h3><div class="tw"><table class="t"><thead><tr><th>Unidad<\/th>' +
+      os.map((o, i) => '<th title="' + esc(o.nombre) + '">' + (i + 1) + '<\/th>').join('') + '<\/tr><\/thead><tbody>' +
+      celdas.map(f => '<tr><td><b>' + esc(f[0]) + '<\/b><\/td>' + f.slice(1).map(c => '<td>' + (c ? '<span title="' + esc(c.t) + '">' + celPct(c.p) + '<\/span>' : '') + '<\/td>').join('') + '<\/tr>').join('') + '<\/tbody><\/table><\/div>' +
+      '<p class="small muted">' + os.map((o, i) => (i + 1) + ' = ' + esc(o.nombre)).join(' · ') + '<\/p><\/div>';
     return { html: html, cabs: ['Unidad'].concat(os.map(o => o.nombre)), filas: celdas.map(f => [f[0]].concat(f.slice(1).map(c => c ? pctTxt(c.p) : ''))) };
   }
 
@@ -1070,15 +1081,15 @@
   }
   function htmlInforme(o, paraWord) {
     const d = datosInforme(o), m = metricas(d.es), tt = paraWord ? ' border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse;width:100%;font-size:9pt"' : ' class="t"';
-    const tab = (cabs, filas) => '<table' + tt + '><thead><tr>' + cabs.map(c => '<th' + (paraWord ? ' style="background:#3b4a2f;color:#fff;text-align:left"' : '') + '>' + esc(c) + '</th>').join('') + '</tr></thead><tbody>' +
-      (filas.length ? filas.map(f => '<tr>' + f.map(c => '<td>' + esc(c) + '</td>').join('') + '</tr>').join('') : '<tr><td colspan="' + cabs.length + '">Sin registros</td></tr>') + '</tbody></table>';
+    const tab = (cabs, filas) => '<table' + tt + '><thead><tr>' + cabs.map(c => '<th' + (paraWord ? ' style="background:#3b4a2f;color:#fff;text-align:left"' : '') + '>' + esc(c) + '<\/th>').join('') + '<\/tr><\/thead><tbody>' +
+      (filas.length ? filas.map(f => '<tr>' + f.map(c => '<td>' + esc(c) + '<\/td>').join('') + '<\/tr>').join('') : '<tr><td colspan="' + cabs.length + '">Sin registros<\/td><\/tr>') + '<\/tbody><\/table>';
     const nomU = o.uni ? (opcUnidades().find(x => x[0] === o.uni) || [, o.uni])[1] : '', nomO = o.obl ? (opcOblig().find(x => x[0] === o.obl) || [, o.obl])[1] : '';
     const tituloDef = { periodo: 'Informe de seguimiento de obligaciones NLT', unidad: 'Informe de cumplimiento · ' + (nomU || 'todas las unidades'), obligacion: 'Informe de cumplimiento · ' + (nomO || 'todas las obligaciones'),
       incumplimientos: 'Informe de incumplimientos', retrasos: 'Informe de retrasos en la remisión', reincidencia: 'Informe de reincidencia', eventos: 'Informe de seguimiento de eventos' }[o.tipo];
-    let h = (o.marca ? '<p style="text-align:center;color:#b71c1c;font-weight:800">' + esc(o.marca) + '</p>' : '') +
-      '<p class="c" style="text-align:center">' + esc(o.organismo) + '</p><h2 style="text-align:center">' + esc(o.titulo || tituloDef) + '</h2>' +
-      '<p class="c" style="text-align:center">Periodo: ' + fCorta(o.desde) + ' – ' + fCorta(o.hasta) + (nomU ? ' · Unidad: ' + esc(nomU) : '') + (nomO ? ' · Obligación: ' + esc(nomO) : '') + ' · Fecha del informe: ' + fCorta(hoy()) + '</p>';
-    const resumen = () => '<h3>1. Resumen</h3>' + tab(['Indicador', 'Valor'], [['Entregas asignadas (excluidas no aplicables)', m.asignadas], ['No aplicables', m.na], ['Exigibles (recibidas + vencidas sin remitir)', m.base],
+    let h = (o.marca ? '<p style="text-align:center;color:#b71c1c;font-weight:800">' + esc(o.marca) + '<\/p>' : '') +
+      '<p class="c" style="text-align:center">' + esc(o.organismo) + '<\/p><h2 style="text-align:center">' + esc(o.titulo || tituloDef) + '<\/h2>' +
+      '<p class="c" style="text-align:center">Periodo: ' + fCorta(o.desde) + ' – ' + fCorta(o.hasta) + (nomU ? ' · Unidad: ' + esc(nomU) : '') + (nomO ? ' · Obligación: ' + esc(nomO) : '') + ' · Fecha del informe: ' + fCorta(hoy()) + '<\/p>';
+    const resumen = () => '<h3>1. Resumen<\/h3>' + tab(['Indicador', 'Valor'], [['Entregas asignadas (excluidas no aplicables)', m.asignadas], ['No aplicables', m.na], ['Exigibles (recibidas + vencidas sin remitir)', m.base],
       ['Recibidas en plazo', m.enPlazo], ['Recibidas fuera de plazo', m.fuera + (m.retrasoMedio != null ? ' (retraso medio ' + m.retrasoMedio + ' días)' : '')], ['Vencidas sin remitir', m.vencidas], ['Pendientes aún en plazo', m.pendientes],
       ['Validadas', m.validadas], ['Puntualidad (en plazo / exigibles)', pctTxt(m.puntualidad)], ['Remisión (recibidas / exigibles)', pctTxt(m.remision)], ['Cumplimiento (validadas / exigibles)', pctTxt(m.cumplimiento)]]);
     const rank = (porU) => tab([porU ? 'Unidad' : 'Obligación', 'Asignadas', 'Exigibles', 'En plazo', 'Fuera de plazo', 'Vencidas', 'Validadas', 'Puntualidad', 'Cumplimiento'],
@@ -1087,26 +1098,26 @@
     const incs = d.es.filter(esIncumplida).sort((a, b) => b.s.retraso - a.s.retraso);
     const filaInc = e => [e.uEtq, e.oNom, e.periodo, fCorta(e.nlt), e.recepcion ? fCorta(e.recepcion) : 'Sin remitir', e.s.retraso + ' d', e.s.k === 'vencida' ? 'Vencida sin remitir' : 'Fuera de plazo'];
     const cabInc = ['Unidad', 'Obligación', 'Periodo', 'NLT', 'Recepción', 'Retraso', 'Situación'];
-    if (o.tipo === 'periodo') h += resumen() + '<h3>2. Cumplimiento por unidad</h3>' + rank(true) + '<h3>3. Cumplimiento por obligación</h3>' + rank(false) + '<h3>4. Incumplimientos</h3>' + tab(cabInc, incs.map(filaInc)) +
-      '<h3>5. Eventos</h3><p>' + d.evs.length + ' eventos en el periodo · ' + d.evs.filter(v => !v.cerrado).length + ' abiertos · ' + d.evs.filter(v => v.vencido).length + ' vencidos.</p>';
-    else if (o.tipo === 'unidad') h += resumen() + '<h3>2. Cumplimiento por obligación</h3>' + rank(false) + '<h3>3. Detalle de entregas</h3>' +
+    if (o.tipo === 'periodo') h += resumen() + '<h3>2. Cumplimiento por unidad<\/h3>' + rank(true) + '<h3>3. Cumplimiento por obligación<\/h3>' + rank(false) + '<h3>4. Incumplimientos<\/h3>' + tab(cabInc, incs.map(filaInc)) +
+      '<h3>5. Eventos<\/h3><p>' + d.evs.length + ' eventos en el periodo · ' + d.evs.filter(v => !v.cerrado).length + ' abiertos · ' + d.evs.filter(v => v.vencido).length + ' vencidos.<\/p>';
+    else if (o.tipo === 'unidad') h += resumen() + '<h3>2. Cumplimiento por obligación<\/h3>' + rank(false) + '<h3>3. Detalle de entregas<\/h3>' +
       tab(['Obligación', 'Periodo', 'NLT', 'Recepción', 'Estado', 'Situación', 'Observaciones'], d.es.slice().sort((a, b) => (a.nlt || '').localeCompare(b.nlt || '')).map(e => [e.oNom, e.periodo, fCorta(e.nlt), fCorta(e.recepcion), e.estadoN, e.s.k === 'vencida' ? 'Vencida ' + e.s.retraso + ' d' : e.s.fuera ? 'Fuera de plazo ' + e.s.retraso + ' d' : e.s.recibida ? 'En plazo' : e.s.k === 'na' ? 'No aplicable' : 'Pendiente', e.obs]));
-    else if (o.tipo === 'obligacion') h += resumen() + '<h3>2. Cumplimiento por unidad</h3>' + rank(true) + '<h3>3. Unidades que faltan por remitir</h3>' +
+    else if (o.tipo === 'obligacion') h += resumen() + '<h3>2. Cumplimiento por unidad<\/h3>' + rank(true) + '<h3>3. Unidades que faltan por remitir<\/h3>' +
       tab(['Unidad', 'Periodo', 'NLT', 'Situación'], d.es.filter(e => !e.s.recibida && e.s.k !== 'na').sort((a, b) => porNombre(a.uEtq, b.uEtq)).map(e => [e.uEtq, e.periodo, fCorta(e.nlt), e.s.k === 'vencida' ? 'Vencida ' + e.s.retraso + ' d' : 'Pendiente en plazo']));
-    else if (o.tipo === 'incumplimientos') h += resumen() + '<h3>2. Relación de incumplimientos (' + incs.length + ')</h3>' + tab(cabInc, incs.map(filaInc)) + '<h3>3. Incumplimientos por unidad</h3>' +
+    else if (o.tipo === 'incumplimientos') h += resumen() + '<h3>2. Relación de incumplimientos (' + incs.length + ')<\/h3>' + tab(cabInc, incs.map(filaInc)) + '<h3>3. Incumplimientos por unidad<\/h3>' +
       tab(['Unidad', 'Vencidas sin remitir', 'Fuera de plazo', 'Total'], agrupar(incs, e => e.uK, e => e.uEtq).sort((a, b) => b.es.length - a.es.length).map(g => [g.nombre, g.vencidas, g.fuera, g.es.length]));
     else if (o.tipo === 'retrasos') {
       const fr = d.es.filter(e => e.s.fuera).sort((a, b) => b.s.retraso - a.s.retraso);
-      h += '<h3>1. Entregas recibidas fuera de plazo (' + fr.length + ')</h3><p>Retraso medio: ' + (m.retrasoMedio == null ? '—' : m.retrasoMedio + ' días') + '.</p>' + tab(cabInc, fr.map(filaInc)) +
-        '<h3>2. Retraso por unidad</h3>' + tab(['Unidad', 'Entregas fuera de plazo', 'Retraso medio (días)', 'Retraso máximo (días)'], agrupar(fr, e => e.uK, e => e.uEtq).sort((a, b) => b.retrasoMedio - a.retrasoMedio).map(g => [g.nombre, g.fuera, g.retrasoMedio, Math.max.apply(null, g.es.map(e => e.s.retraso))])) +
-        '<h3>3. Vencidas aún sin remitir</h3>' + tab(cabInc, d.es.filter(e => e.s.k === 'vencida').sort((a, b) => b.s.retraso - a.s.retraso).map(filaInc));
+      h += '<h3>1. Entregas recibidas fuera de plazo (' + fr.length + ')<\/h3><p>Retraso medio: ' + (m.retrasoMedio == null ? '—' : m.retrasoMedio + ' días') + '.<\/p>' + tab(cabInc, fr.map(filaInc)) +
+        '<h3>2. Retraso por unidad<\/h3>' + tab(['Unidad', 'Entregas fuera de plazo', 'Retraso medio (días)', 'Retraso máximo (días)'], agrupar(fr, e => e.uK, e => e.uEtq).sort((a, b) => b.retrasoMedio - a.retrasoMedio).map(g => [g.nombre, g.fuera, g.retrasoMedio, Math.max.apply(null, g.es.map(e => e.s.retraso))])) +
+        '<h3>3. Vencidas aún sin remitir<\/h3>' + tab(cabInc, d.es.filter(e => e.s.k === 'vencida').sort((a, b) => b.s.retraso - a.s.retraso).map(filaInc));
     } else if (o.tipo === 'reincidencia') {
       const r = reincidencias(d.es);
-      h += '<h3>1. Unidad y obligación incumplida 2 o más veces (' + r.length + ')</h3>' + tab(['Unidad', 'Obligación', 'Incumplimientos', 'Periodos'], r.map(g => [g.unidad, g.obligacion, g.es.length, g.es.map(e => e.periodo).sort().join(', ')])) +
-        '<h3>2. Unidades con más incumplimientos</h3>' + tab(['Unidad', 'Incumplimientos', 'Obligaciones distintas'], agrupar(d.es.filter(esIncumplida), e => e.uK, e => e.uEtq).sort((a, b) => b.es.length - a.es.length).map(g => [g.nombre, g.es.length, unicos(g.es.map(e => e.oK)).length]));
+      h += '<h3>1. Unidad y obligación incumplida 2 o más veces (' + r.length + ')<\/h3>' + tab(['Unidad', 'Obligación', 'Incumplimientos', 'Periodos'], r.map(g => [g.unidad, g.obligacion, g.es.length, g.es.map(e => e.periodo).sort().join(', ')])) +
+        '<h3>2. Unidades con más incumplimientos<\/h3>' + tab(['Unidad', 'Incumplimientos', 'Obligaciones distintas'], agrupar(d.es.filter(esIncumplida), e => e.uK, e => e.uEtq).sort((a, b) => b.es.length - a.es.length).map(g => [g.nombre, g.es.length, unicos(g.es.map(e => e.oK)).length]));
     } else if (o.tipo === 'eventos') {
-      h += '<h3>1. Resumen</h3>' + tab(['Indicador', 'Valor'], [['Eventos', d.evs.length], ['Abiertos', d.evs.filter(v => !v.cerrado).length], ['Vencidos', d.evs.filter(v => v.vencido).length], ['Finalizados', d.evs.filter(v => v.estadoN === 'Finalizado').length], ['Cancelados', d.evs.filter(v => v.estadoN === 'Cancelado').length]]) +
-        '<h3>2. Relación</h3>' + tab(['Activación', 'Límite', 'Unidad', 'Tipo', 'Evento', 'Responsable', 'Estado', 'Cierre'], d.evs.slice().sort((a, b) => (a.activacion || '').localeCompare(b.activacion || '')).map(v => [fCorta(v.activacion), fCorta(v.limite), v.uEtq, v.tipo, v.titulo, v.responsable, v.vencido ? 'Vencido' : v.estadoN, fCorta(v.cierre)]));
+      h += '<h3>1. Resumen<\/h3>' + tab(['Indicador', 'Valor'], [['Eventos', d.evs.length], ['Abiertos', d.evs.filter(v => !v.cerrado).length], ['Vencidos', d.evs.filter(v => v.vencido).length], ['Finalizados', d.evs.filter(v => v.estadoN === 'Finalizado').length], ['Cancelados', d.evs.filter(v => v.estadoN === 'Cancelado').length]]) +
+        '<h3>2. Relación<\/h3>' + tab(['Activación', 'Límite', 'Unidad', 'Tipo', 'Evento', 'Responsable', 'Estado', 'Cierre'], d.evs.slice().sort((a, b) => (a.activacion || '').localeCompare(b.activacion || '')).map(v => [fCorta(v.activacion), fCorta(v.limite), v.uEtq, v.tipo, v.titulo, v.responsable, v.vencido ? 'Vencido' : v.estadoN, fCorta(v.cierre)]));
     }
     return h;
   }
@@ -1125,17 +1136,17 @@
   VISTAS.informes = {
     barra: () => {
       const o = infOpc();
-      return '<div class="barra"><h2>Informes</h2></div><div class="card" id="infOpts"><div class="grid">' +
-        '<div><label class="lbl">Tipo de informe</label><select name="tipo">' + opciones(TIPOS_INF, o.tipo) + '</select></div>' +
-        '<div><label class="lbl">Desde (NLT)</label><input type="date" name="desde" value="' + esc(o.desde) + '"></div><div><label class="lbl">Hasta (NLT)</label><input type="date" name="hasta" value="' + esc(o.hasta) + '"></div>' +
-        '<div><label class="lbl">Unidad</label><select name="uni">' + opciones(opcUnidades(), o.uni, 'Todas') + '</select></div>' +
-        '<div><label class="lbl">Obligación</label><select name="obl">' + opciones(opcOblig(), o.obl, 'Todas') + '</select></div></div>' +
-        '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' + [['mes', 'Este mes'], ['mesPasado', 'Mes pasado'], ['trimestre', 'Este trimestre'], ['trimestrePasado', 'Trimestre pasado'], ['anio', 'Este año'], ['anioPasado', 'Año pasado']].map(p => '<button data-infper="' + p[0] + '">' + p[1] + '</button>').join('') + '</div>' +
-        '<div class="grid"><div><label class="lbl">Organismo</label><input name="organismo" value="' + esc(o.organismo) + '"></div><div><label class="lbl">Título (vacío = automático)</label><input name="titulo" value="' + esc(o.titulo) + '"></div>' +
-        '<div><label class="lbl">Marca (p. ej. USO OFICIAL)</label><input name="marca" value="' + esc(o.marca) + '"></div></div>' +
-        '<div class="acc" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"><button class="prim" data-inf="imprimir">Imprimir / PDF</button><button data-inf="word">Descargar Word</button><button data-inf="csv">Datos en CSV (Excel)</button><button data-inf="copiar">Copiar texto</button></div></div>';
+      return '<div class="barra"><h2>Informes<\/h2><\/div><div class="card" id="infOpts"><div class="grid">' +
+        '<div><label class="lbl">Tipo de informe<\/label><select name="tipo">' + opciones(TIPOS_INF, o.tipo) + '<\/select><\/div>' +
+        '<div><label class="lbl">Desde (NLT)<\/label><input type="date" name="desde" value="' + esc(o.desde) + '"><\/div><div><label class="lbl">Hasta (NLT)<\/label><input type="date" name="hasta" value="' + esc(o.hasta) + '"><\/div>' +
+        '<div><label class="lbl">Unidad<\/label><select name="uni">' + opciones(opcUnidades(), o.uni, 'Todas') + '<\/select><\/div>' +
+        '<div><label class="lbl">Obligación<\/label><select name="obl">' + opciones(opcOblig(), o.obl, 'Todas') + '<\/select><\/div><\/div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' + [['mes', 'Este mes'], ['mesPasado', 'Mes pasado'], ['trimestre', 'Este trimestre'], ['trimestrePasado', 'Trimestre pasado'], ['anio', 'Este año'], ['anioPasado', 'Año pasado']].map(p => '<button data-infper="' + p[0] + '">' + p[1] + '<\/button>').join('') + '<\/div>' +
+        '<div class="grid"><div><label class="lbl">Organismo<\/label><input name="organismo" value="' + esc(o.organismo) + '"><\/div><div><label class="lbl">Título (vacío = automático)<\/label><input name="titulo" value="' + esc(o.titulo) + '"><\/div>' +
+        '<div><label class="lbl">Marca (p. ej. USO OFICIAL)<\/label><input name="marca" value="' + esc(o.marca) + '"><\/div><\/div>' +
+        '<div class="acc" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"><button class="prim" data-inf="imprimir">Imprimir / PDF<\/button><button data-inf="word">Descargar Word<\/button><button data-inf="csv">Datos en CSV (Excel)<\/button><button data-inf="copiar">Copiar texto<\/button><\/div><\/div>';
     },
-    res: () => '<div class="informe" id="informeDoc">' + htmlInforme(infOpc()) + '</div>'
+    res: () => '<div class="informe" id="informeDoc">' + htmlInforme(infOpc()) + '<\/div>'
   };
   function leerInf() {
     const o = infOpc(), f = $('#infOpts');
@@ -1146,7 +1157,7 @@
   function accionInforme(a) {
     const o = leerInf(), nombre = 'Informe_NLT_SUIGESUR_' + o.tipo + '_' + o.desde + '_' + o.hasta;
     if (a === 'imprimir') { document.body.classList.add('imprimiendo'); window.print(); setTimeout(() => document.body.classList.remove('imprimiendo'), 800); }
-    else if (a === 'word') descargar(nombre + '.doc', '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>body{font-family:Arial;font-size:10pt}h2{font-size:13pt}h3{font-size:11pt;color:#3b4a2f}</style></head><body>' + htmlInforme(o, true) + '</body></html>', 'application/msword');
+    else if (a === 'word') descargar(nombre + '.doc', '\x3chtml xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">\x3chead>\x3cmeta charset="utf-8"><style>body{font-family:Arial;font-size:10pt}h2{font-size:13pt}h3{font-size:11pt;color:#3b4a2f}<\/style><\/head>\x3cbody>' + htmlInforme(o, true) + '<\/body><\/html>', 'application/msword');
     else if (a === 'csv') { const d = datosInforme(o); descargar(nombre + '.csv', csvFilas(CAB_CSV_E, d.es.map(filaCsvE)), 'text/csv;charset=utf-8'); }
     else if (a === 'copiar') {
       const txt = ($('#informeDoc').innerText || '').trim();
@@ -1156,66 +1167,66 @@
 
   // ---------- Ajustes ----------
   VISTAS.ajustes = {
-    barra: () => '<div class="barra"><h2>Ajustes y diagnóstico</h2><div class="acc"><button data-acc="copiarDiag">Copiar diagnóstico</button><button data-acc="exportarJSON">Copia de seguridad (JSON)</button></div></div>',
+    barra: () => '<div class="barra"><h2>Ajustes y diagnóstico<\/h2><div class="acc"><button data-acc="copiarDiag">Copiar diagnóstico<\/button><button data-acc="exportarJSON">Copia de seguridad (JSON)<\/button><\/div><\/div>',
     res: () => {
       const pw = permWeb;
-      let h = '<div class="card"><h3>Conexión con SharePoint</h3>' + (errorGeneral ? htmlError(errorGeneral, 'Sin conexión') : '') +
-        '<div class="grid"><div><label class="lbl">Sitio en uso</label><div>' + (web ? '<code>' + esc(web.url) + '</code> · ' + esc(web.titulo || '') : '<span class="muted">sin conectar</span>') + '</div></div>' +
-        '<div><label class="lbl">Usuario</label><div>' + esc(yo ? yo.Title : '—') + '</div></div>' +
-        '<div><label class="lbl">Formato REST</label><div>' + (verbose ? 'verbose (SharePoint 2013)' : 'JSON ligero (nometadata); escritura en verbose') + '</div></div>' +
-        '<div><label class="lbl">Permisos en el sitio</label><div>' + (pw ? (pw.gestionar ? '✔ Puede crear listas y columnas' : '✖ No puede crear listas ni columnas') : '—') + '</div></div></div>' +
-        '<label class="lbl">Sitio de SharePoint (vacío = detectar a partir de esta página; el de SUIGESUR es …/et/SUIGESUR/JSUIGE, sin «/aplicaciones»)</label>' +
-        '<div style="display:flex;gap:6px"><input id="aSitio" value="' + esc(pref.sitio) + '" placeholder="' + esc(location.origin) + '/et/SUIGESUR/JSUIGE"><button data-acc="reconectar">Conectar</button></div></div>';
-      h += '<div class="card"><h3>Estructura de las listas<span class="small muted">las columnas se localizan por nombre interno o por nombre visible</span></h3>' +
-        '<p class="small muted">Si una columna existe con otro nombre, asígnala en el desplegable. «Crear» solo añade lo que falta: nunca borra ni renombra listas, columnas ni datos.</p>' + LISTAS.map(estructuraLista).join('') + '</div>';
-      h += '<div class="card"><h3>Catálogos iniciales</h3><p class="small">Carga controlada: verás la relación y elegirás qué se crea. Solo se proponen los elementos que no existen (por nombre). ' +
-        '<b>Antes de cargar las unidades, da de alta una a mano y comprueba que la verificación es correcta.</b></p>' +
-        '<div class="acc" style="display:flex;gap:6px;flex-wrap:wrap"><button data-acc="semillaOblig"' + (L.NLT_MAESTRO.info ? '' : ' disabled') + '>Catálogo NLT inicial (' + SEMILLA_OBLIG.length + ' obligaciones)…</button>' +
-        '<button data-acc="semillaUco"' + (L.UCO_SUIGESUR.info ? '' : ' disabled') + '>Unidades SUIGESUR (' + SEMILLA_UCO.length + ')…</button></div></div>';
-      h += '<div class="card"><h3>Registro de operaciones<span class="small muted">últimas ' + Math.min(REG.length, 60) + ' de esta sesión</span></h3>' +
+      let h = '<div class="card"><h3>Conexión con SharePoint<\/h3>' + (errorGeneral ? htmlError(errorGeneral, 'Sin conexión') : '') +
+        '<div class="grid"><div><label class="lbl">Sitio en uso<\/label><div>' + (web ? '<code>' + esc(web.url) + '<\/code> · ' + esc(web.titulo || '') : '<span class="muted">sin conectar<\/span>') + '<\/div><\/div>' +
+        '<div><label class="lbl">Usuario<\/label><div>' + esc(yo ? yo.Title : '—') + '<\/div><\/div>' +
+        '<div><label class="lbl">Formato REST<\/label><div>' + (verbose ? 'verbose (SharePoint 2013)' : 'JSON ligero (nometadata); escritura en verbose') + '<\/div><\/div>' +
+        '<div><label class="lbl">Permisos en el sitio<\/label><div>' + (pw ? (pw.gestionar ? '✔ Puede crear listas y columnas' : '✖ No puede crear listas ni columnas') : '—') + '<\/div><\/div><\/div>' +
+        '<label class="lbl">Sitio de SharePoint (vacío = detectar a partir de esta página; el de SUIGESUR es …/et/SUIGESUR/JSUIGE, sin «/aplicaciones»)<\/label>' +
+        '<div style="display:flex;gap:6px"><input id="aSitio" value="' + esc(pref.sitio) + '" placeholder="' + esc(location.origin) + '/et/SUIGESUR/JSUIGE"><button data-acc="reconectar">Conectar<\/button><\/div><\/div>';
+      h += '<div class="card"><h3>Estructura de las listas<span class="small muted">las columnas se localizan por nombre interno o por nombre visible<\/span><\/h3>' +
+        '<p class="small muted">Si una columna existe con otro nombre, asígnala en el desplegable. «Crear» solo añade lo que falta: nunca borra ni renombra listas, columnas ni datos.<\/p>' + LISTAS.map(estructuraLista).join('') + '<\/div>';
+      h += '<div class="card"><h3>Catálogos iniciales<\/h3><p class="small">Carga controlada: verás la relación y elegirás qué se crea. Solo se proponen los elementos que no existen (por nombre). ' +
+        '<b>Antes de cargar las unidades, da de alta una a mano y comprueba que la verificación es correcta.<\/b><\/p>' +
+        '<div class="acc" style="display:flex;gap:6px;flex-wrap:wrap"><button data-acc="semillaOblig"' + (L.NLT_MAESTRO.info ? '' : ' disabled') + '>Catálogo NLT inicial (' + SEMILLA_OBLIG.length + ' obligaciones)…<\/button>' +
+        '<button data-acc="semillaUco"' + (L.UCO_SUIGESUR.info ? '' : ' disabled') + '>Unidades SUIGESUR (' + SEMILLA_UCO.length + ')…<\/button><\/div><\/div>';
+      h += '<div class="card"><h3>Registro de operaciones<span class="small muted">últimas ' + Math.min(REG.length, 60) + ' de esta sesión<\/span><\/h3>' +
         tabla(['Hora', 'Operación', 'Lista', 'Método', '#HTTP', 'Resultado', 'Endpoint / detalle'], REG.slice(0, 60).map(r => '<tr>' + td(r.hora.toLocaleTimeString('es-ES')) + td(esc(r.op)) + td(esc(r.lista)) + td(esc(r.metodo)) + td(r.status || '—', 1) +
-          td(r.ok ? '<span class="badge ok">correcto</span>' : '<span class="badge bad">error</span>') + td('<span class="small">' + esc(r.url) + (r.msg ? '<br><b>' + esc(r.msg) + '</b>' : '') + '</span>') + '</tr>')) + '</div>';
-      h += '<div class="card small muted">Los datos solo se guardan en SharePoint. Este navegador recuerda únicamente la pestaña, los filtros y la asignación de columnas. La página no se comunica con ningún servidor distinto de Colabora.</div>';
+          td(r.ok ? '<span class="badge ok">correcto<\/span>' : '<span class="badge bad">error<\/span>') + td('<span class="small">' + esc(r.url) + (r.msg ? '<br><b>' + esc(r.msg) + '<\/b>' : '') + '<\/span>') + '<\/tr>')) + '<\/div>';
+      h += '<div class="card small muted">Los datos solo se guardan en SharePoint. Este navegador recuerda únicamente la pestaña, los filtros y la asignación de columnas. La página no se comunica con ningún servidor distinto de Colabora.<\/div>';
       return h;
     }
   };
   function estructuraLista(n) {
     const S = L[n], d = DEF[n];
     const p = S.perm;
-    let h = '<div style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><b>' + n + '</b> · ' + esc(d.titulo) + ' — ';
-    if (S.estado === 'ok') h += '<span class="badge ok">lectura correcta</span> ' + S.items.length + ' elementos';
-    else h += '<span class="badge ' + (S.estado === 'no existe' ? 'warn' : 'bad') + '">' + esc(S.estado) + '</span>';
+    let h = '<div style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><b>' + n + '<\/b> · ' + esc(d.titulo) + ' — ';
+    if (S.estado === 'ok') h += '<span class="badge ok">lectura correcta<\/span> ' + S.items.length + ' elementos';
+    else h += '<span class="badge ' + (S.estado === 'no existe' ? 'warn' : 'bad') + '">' + esc(S.estado) + '<\/span>';
     if (p) h += ' · permisos: ' + [['ver', 'leer'], ['anadir', 'añadir'], ['editar', 'modificar'], ['borrar', 'eliminar'], ['gestionar', 'crear columnas']].map(x => (p[x[0]] ? '✔ ' : '✖ ') + x[1]).join(' · ');
     if (S.error) h += htmlError(S.error);
     if (S.estado === 'no existe') {
-      h += '<p><button data-acc="crearLista" data-lista="' + n + '"' + (permWeb && !permWeb.gestionar ? ' disabled title="Sin permiso para crear listas"' : '') + '>Crear la lista ' + n + ' con sus columnas…</button></p></div>';
+      h += '<p><button data-acc="crearLista" data-lista="' + n + '"' + (permWeb && !permWeb.gestionar ? ' disabled title="Sin permiso para crear listas"' : '') + '>Crear la lista ' + n + ' con sus columnas…<\/button><\/p><\/div>';
       return h;
     }
-    if (!S.info) return h + '</div>';
+    if (!S.info) return h + '<\/div>';
     const faltan = d.campos.filter(c => !(S.map[c.k] || []).length && (pref.mapa[n] || {})[c.k] !== '-');
     const opcCampos = S.campos.filter(c => !c.ReadOnlyField).sort((a, b) => porNombre(a.Title, b.Title)).map(c => [c.InternalName, c.Title + ' · ' + c.InternalName + ' (' + c.TypeAsString + ')']);
-    h += '<div class="tw"><table class="t" style="margin-top:6px"><thead><tr><th>Dato de la app</th><th>Nombre interno previsto</th><th>Tipo previsto</th><th>Columna en SharePoint</th><th>Asignar</th></tr></thead><tbody>' +
+    h += '<div class="tw"><table class="t" style="margin-top:6px"><thead><tr><th>Dato de la app<\/th><th>Nombre interno previsto<\/th><th>Tipo previsto<\/th><th>Columna en SharePoint<\/th><th>Asignar<\/th><\/tr><\/thead><tbody>' +
       d.campos.map(c => {
         const ints = S.map[c.k] || [], inc = (S.incompatibles || {})[c.k];
-        const est = ints.length ? '<span class="badge ok">✔</span> ' + ints.map(i => '<code>' + esc(i) + '</code> <span class="small muted">' + esc(S.porInterno[i].Title + ' · ' + S.porInterno[i].TypeAsString) + '</span>').join(' + ')
-          : inc ? '<span class="badge bad">tipo no válido</span> ' + esc(inc.join(', ')) : (pref.mapa[n] || {})[c.k] === '-' ? '<span class="badge none">no se usa</span>' : '<span class="badge ' + (c.req ? 'bad' : 'warn') + '">falta</span>';
-        return '<tr>' + td(esc(c.d) + (c.req ? ' <span class="small muted">(obligatoria)</span>' : '')) + td('<code>' + esc(c.in) + '</code>') + td(esc(c.t)) + td(est) +
-          td('<select data-mapa="' + n + '|' + c.k + '" style="min-width:160px">' + opciones([['', 'Automático'], ['-', '— No usar —']].concat(opcCampos), (pref.mapa[n] || {})[c.k] || '') + '</select>') + '</tr>';
-      }).join('') + '</tbody></table></div>';
-    if (faltan.length) h += '<p><button data-acc="crearCampos" data-lista="' + n + '"' + (p && !p.gestionar ? ' disabled title="Sin permiso para crear columnas"' : '') + '>Crear las ' + faltan.length + ' columnas que faltan…</button> <span class="small muted">' + esc(faltan.map(c => c.in).join(', ')) + '</span></p>';
-    return h + '</div>';
+        const est = ints.length ? '<span class="badge ok">✔<\/span> ' + ints.map(i => '<code>' + esc(i) + '<\/code> <span class="small muted">' + esc(S.porInterno[i].Title + ' · ' + S.porInterno[i].TypeAsString) + '<\/span>').join(' + ')
+          : inc ? '<span class="badge bad">tipo no válido<\/span> ' + esc(inc.join(', ')) : (pref.mapa[n] || {})[c.k] === '-' ? '<span class="badge none">no se usa<\/span>' : '<span class="badge ' + (c.req ? 'bad' : 'warn') + '">falta<\/span>';
+        return '<tr>' + td(esc(c.d) + (c.req ? ' <span class="small muted">(obligatoria)<\/span>' : '')) + td('<code>' + esc(c.in) + '<\/code>') + td(esc(c.t)) + td(est) +
+          td('<select data-mapa="' + n + '|' + c.k + '" style="min-width:160px">' + opciones([['', 'Automático'], ['-', '— No usar —']].concat(opcCampos), (pref.mapa[n] || {})[c.k] || '') + '<\/select>') + '<\/tr>';
+      }).join('') + '<\/tbody><\/table><\/div>';
+    if (faltan.length) h += '<p><button data-acc="crearCampos" data-lista="' + n + '"' + (p && !p.gestionar ? ' disabled title="Sin permiso para crear columnas"' : '') + '>Crear las ' + faltan.length + ' columnas que faltan…<\/button> <span class="small muted">' + esc(faltan.map(c => c.in).join(', ')) + '<\/span><\/p>';
+    return h + '<\/div>';
   }
 
   // ================= Creación de listas y columnas (solo añade) =================
-  const xmlEsc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const xmlEsc = s => String(s).replace(/&/g, '&amp;').replace(/[<]/g, '&lt;').replace(/"/g, '&quot;');
   function schemaXml(c) {
     const a = 'Name="' + c.in + '" StaticName="' + c.in + '" DisplayName="' + xmlEsc(c.d) + '"';
     switch (c.t) {
       case 'Note': return '<Field Type="Note" ' + a + ' NumLines="6" RichText="FALSE" />';
       case 'Number': return '<Field Type="Number" ' + a + ' Decimals="0" />';
       case 'DateTime': return '<Field Type="DateTime" ' + a + ' Format="DateOnly" />';
-      case 'Boolean': return '<Field Type="Boolean" ' + a + '><Default>1</Default></Field>';
-      case 'Choice': return '<Field Type="Choice" ' + a + ' FillInChoice="TRUE" Format="Dropdown"><CHOICES>' + c.choices.map(x => '<CHOICE>' + xmlEsc(x) + '</CHOICE>').join('') + '</CHOICES></Field>';
+      case 'Boolean': return '<Field Type="Boolean" ' + a + '><Default>1<\/Default><\/Field>';
+      case 'Choice': return '<Field Type="Choice" ' + a + ' FillInChoice="TRUE" Format="Dropdown"><CHOICES>' + c.choices.map(x => '<CHOICE>' + xmlEsc(x) + '<\/CHOICE>').join('') + '<\/CHOICES><\/Field>';
       default: return '<Field Type="Text" ' + a + ' MaxLength="255" />';
     }
   }
@@ -1248,8 +1259,8 @@
   const dlg = $('#dlg');
   function abrirDlg(titulo, cuerpo, pie) {
     alEnviar = null; dlg.oninput = null; dlg.onchange = null;
-    dlg.innerHTML = '<form method="dialog" id="fdlg" novalidate><div class="dh"><h2>' + esc(titulo) + '</h2><button type="button" data-cerrar title="Cerrar">✕</button></div><div class="db">' + cuerpo + '<div id="dlgMsg"></div></div>' +
-      '<div class="df">' + (pie || '') + '</div></form>';
+    dlg.innerHTML = '<form method="dialog" id="fdlg" novalidate><div class="dh"><h2>' + esc(titulo) + '<\/h2><button type="button" data-cerrar title="Cerrar">✕<\/button><\/div><div class="db">' + cuerpo + '<div id="dlgMsg"><\/div><\/div>' +
+      '<div class="df">' + (pie || '') + '<\/div><\/form>';
     if (!dlg.open) dlg.showModal();
     const p = dlg.querySelector('input:not([type=checkbox]):not([type=hidden]), select, textarea'); if (p) p.focus();
   }
@@ -1266,17 +1277,17 @@
     try { await fn(); } catch (e) { msg(htmlError(e, 'No se ha guardado')); }
     finally { if (dlg.open) ocupado(false); }
   }
-  const pieGuardar = (txt, extra) => (extra || '') + '<button type="button" data-cerrar>Cancelar</button><button type="submit" class="prim">' + esc(txt || 'Guardar en SharePoint') + '</button>';
-  const metaElem = o => o ? '<p class="meta">ID ' + o.id + ' · creado ' + esc(fHora(o.creado)) + (o.autor ? ' por ' + esc(o.autor) : '') + ' · modificado ' + esc(fHora(o.modificado)) + (o.editor ? ' por ' + esc(o.editor) : '') + '</p>' : '';
-  const linkSP = (n, o) => o && L[n].info && L[n].info.RootFolder ? '<a class="btn izq" target="_blank" rel="noopener" href="' + esc(location.origin + L[n].info.RootFolder.ServerRelativeUrl + '/DispForm.aspx?ID=' + o.id) + '">Ver en SharePoint</a>' : '';
-  const campo = (lbl, html, req) => '<div><label class="lbl">' + esc(lbl) + (req ? ' <i>*</i>' : '') + '</label>' + html + '</div>';
+  const pieGuardar = (txt, extra) => (extra || '') + '<button type="button" data-cerrar>Cancelar<\/button><button type="submit" class="prim">' + esc(txt || 'Guardar en SharePoint') + '<\/button>';
+  const metaElem = o => o ? '<p class="meta">ID ' + o.id + ' · creado ' + esc(fHora(o.creado)) + (o.autor ? ' por ' + esc(o.autor) : '') + ' · modificado ' + esc(fHora(o.modificado)) + (o.editor ? ' por ' + esc(o.editor) : '') + '<\/p>' : '';
+  const linkSP = (n, o) => o && L[n].info && L[n].info.RootFolder ? '<a class="btn izq" target="_blank" rel="noopener" href="' + esc(location.origin + L[n].info.RootFolder.ServerRelativeUrl + '/DispForm.aspx?ID=' + o.id) + '">Ver en SharePoint<\/a>' : '';
+  const campo = (lbl, html, req) => '<div><label class="lbl">' + esc(lbl) + (req ? ' <i>*<\/i>' : '') + '<\/label>' + html + '<\/div>';
   const inp = (name, val, attrs) => '<input name="' + name + '" value="' + esc(val == null ? '' : val) + '" ' + (attrs || '') + '>';
-  const txa = (name, val) => '<textarea name="' + name + '">' + esc(val || '') + '</textarea>';
-  const sel = (name, ops, val, vacioTxt) => '<select name="' + name + '">' + opciones(ops, val, vacioTxt) + '</select>';
-  const avisoFaltan = (n, ks) => { const f = ks.filter(k => !(L[n].map[k] || []).length).map(k => defCampo(n, k).d); return f.length ? '<div class="aviso small">La lista ' + n + ' no tiene las columnas: ' + esc(f.join(', ')) + '. Si las rellenas no se podrá guardar; créalas en Ajustes → Estructura.</div>' : ''; };
+  const txa = (name, val) => '<textarea name="' + name + '">' + esc(val || '') + '<\/textarea>';
+  const sel = (name, ops, val, vacioTxt) => '<select name="' + name + '">' + opciones(ops, val, vacioTxt) + '<\/select>';
+  const avisoFaltan = (n, ks) => { const f = ks.filter(k => !(L[n].map[k] || []).length).map(k => defCampo(n, k).d); return f.length ? '<div class="aviso small">La lista ' + n + ' no tiene las columnas: ' + esc(f.join(', ')) + '. Si las rellenas no se podrá guardar; créalas en Ajustes → Estructura.<\/div>' : ''; };
   function exigirLista(n) {
     if (L[n].info) return true;
-    abrirDlg('Lista no disponible', htmlError(L[n].error || errorSP('Leer lista', n, '', 0, 'La lista ' + n + ' no está disponible.', 'config')) + '<p>Revisa la estructura en <a href="#" data-ir="ajustes">Ajustes</a>.</p>', '<button type="button" data-cerrar>Cerrar</button>');
+    abrirDlg('Lista no disponible', htmlError(L[n].error || errorSP('Leer lista', n, '', 0, 'La lista ' + n + ' no está disponible.', 'config')) + '<p>Revisa la estructura en <a href="#" data-ir="ajustes">Ajustes<\/a>.<\/p>', '<button type="button" data-cerrar>Cerrar<\/button>');
     return false;
   }
 
@@ -1285,16 +1296,16 @@
     if (!exigirLista('UCO_SUIGESUR')) return;
     abrirDlg(u ? 'Unidad · ' + (u.siglas || u.nombre) : 'Nueva unidad',
       '<div class="grid">' + campo('Nombre de la unidad', inp('nombre', u && u.nombre, 'maxlength="255" required'), 1) + campo('Siglas', inp('siglas', u && u.siglas, 'maxlength="255"')) +
-      campo('Ámbito', inp('ambito', u && u.ambito, 'list="lAmb" maxlength="255"') + '<datalist id="lAmb">' + unicos(['UCO', 'BAE'].concat(U().map(x => x.ambito))).map(x => '<option value="' + esc(x) + '">').join('') + '</datalist>') +
-      campo('Contacto', inp('contacto', u && u.contacto, 'maxlength="255"')) + '</div>' +
-      '<label class="check"><input type="checkbox" name="activa"' + (!u || u.activa ? ' checked' : '') + '> Activa (aparece al asignar obligaciones)</label>' +
+      campo('Ámbito', inp('ambito', u && u.ambito, 'list="lAmb" maxlength="255"') + '<datalist id="lAmb">' + unicos(['UCO', 'BAE'].concat(U().map(x => x.ambito))).map(x => '<option value="' + esc(x) + '">').join('') + '<\/datalist>') +
+      campo('Contacto', inp('contacto', u && u.contacto, 'maxlength="255"')) + '<\/div>' +
+      '<label class="check"><input type="checkbox" name="activa"' + (!u || u.activa ? ' checked' : '') + '> Activa (aparece al asignar obligaciones)<\/label>' +
       campo('Observaciones', txa('obs', u && u.obs)) + avisoFaltan('UCO_SUIGESUR', ['siglas', 'ambito', 'contacto', 'activa', 'obs']) + metaElem(u),
       pieGuardar(u ? 'Guardar cambios' : 'Dar de alta', linkSP('UCO_SUIGESUR', u)));
     alEnviar = () => {
       const d = { nombre: vf('nombre'), siglas: vf('siglas'), ambito: vf('ambito'), contacto: vf('contacto'), activa: vf('activa'), obs: vf('obs') };
-      if (!d.nombre) return msg('<div class="error">El nombre de la unidad es obligatorio.</div>');
+      if (!d.nombre) return msg('<div class="error">El nombre de la unidad es obligatorio.<\/div>');
       const dup = U().find(x => x !== u && (norm(x.nombre) === norm(d.nombre) || (d.siglas && norm(x.siglas) === norm(d.siglas))));
-      if (dup) return msg('<div class="error">Ya existe la unidad «' + esc(dup.nombre) + '» (ID ' + dup.id + ') con ese nombre o siglas.</div>');
+      if (dup) return msg('<div class="error">Ya existe la unidad «' + esc(dup.nombre) + '» (ID ' + dup.id + ') con ese nombre o siglas.<\/div>');
       if (!(L.UCO_SUIGESUR.map.activa || []).length) delete d.activa;
       ejecutar(async () => {
         const r = await guardar('UCO_SUIGESUR', u, d, u ? 'Modificar unidad' : 'Alta de unidad');
@@ -1314,13 +1325,13 @@
       campo('Día NLT', inp('dia', o && o.dia, 'type="number" min="1" max="31"')) +
       campo('Meses NLT', inp('meses', o && o.meses, 'maxlength="255" placeholder="1,3,7 o ENE, MAR, JUL"')) +
       campo('Plazo (días desde el evento)', inp('plazo', o && o.plazo, 'type="number" min="0"')) +
-      campo('Categoría', inp('categoria', o && o.categoria, 'list="lCat" maxlength="255"') + '<datalist id="lCat">' + unicos(O().map(x => x.categoria)).map(x => '<option value="' + esc(x) + '">').join('') + '</datalist>') +
-      campo('Ámbito', inp('ambito', o && o.ambito, 'list="lAmbO" maxlength="255"') + '<datalist id="lAmbO"><option value="UCO"><option value="BAE"><option value="UCO y BAE"></datalist>') + '</div>' +
+      campo('Categoría', inp('categoria', o && o.categoria, 'list="lCat" maxlength="255"') + '<datalist id="lCat">' + unicos(O().map(x => x.categoria)).map(x => '<option value="' + esc(x) + '">').join('') + '<\/datalist>') +
+      campo('Ámbito', inp('ambito', o && o.ambito, 'list="lAmbO" maxlength="255"') + '<datalist id="lAmbO"><option value="UCO"><option value="BAE"><option value="UCO y BAE"><\/datalist>') + '<\/div>' +
       campo('Regla NLT en texto (eventos, a demanda o aclaraciones)', inp('regla', o && o.regla, 'maxlength="255" placeholder="Ej.: 15 días desde publicación en BOD · ASAP"')) +
-      '<p class="small muted" id="reglaPrev"></p>' +
+      '<p class="small muted" id="reglaPrev"><\/p>' +
       campo('Descripción', txa('descripcion', o && o.descripcion)) + campo('Observaciones', txa('obs', o && o.obs)) +
-      '<label class="check"><input type="checkbox" name="activa"' + (!o || o.activa ? ' checked' : '') + '> Activa</label>' +
-      (hab.length ? '<p class="small">Unidades habituales: ' + esc(hab.map(u => u.siglas || u.nombre).join(', ')) + ' <span class="muted">(se cambian desde «Asignar»)</span></p>' : '') +
+      '<label class="check"><input type="checkbox" name="activa"' + (!o || o.activa ? ' checked' : '') + '> Activa<\/label>' +
+      (hab.length ? '<p class="small">Unidades habituales: ' + esc(hab.map(u => u.siglas || u.nombre).join(', ')) + ' <span class="muted">(se cambian desde «Asignar»)<\/span><\/p>' : '') +
       avisoFaltan('NLT_MAESTRO', ['codigo', 'periodicidad', 'dia', 'meses', 'regla', 'plazo', 'categoria', 'ambito', 'activa', 'descripcion', 'obs']) + metaElem(o),
       pieGuardar(o ? 'Guardar cambios' : 'Crear obligación', linkSP('NLT_MAESTRO', o)));
     const prev = () => { const t = { periodicidad: vf('periodicidad'), dia: Number(vf('dia')) || null, meses: vf('meses'), regla: vf('regla'), plazo: Number(vf('plazo')) || null }; const p = plazosDe(t, new Date().getFullYear());
@@ -1329,14 +1340,14 @@
     alEnviar = () => {
       const d = { nombre: vf('nombre'), codigo: vf('codigo'), periodicidad: vf('periodicidad'), dia: vf('dia') === '' ? null : Number(vf('dia')), meses: parseMeses(vf('meses')).join(','), regla: vf('regla'),
         plazo: vf('plazo') === '' ? null : Number(vf('plazo')), categoria: vf('categoria'), ambito: vf('ambito'), descripcion: vf('descripcion'), obs: vf('obs'), activa: vf('activa') };
-      if (!d.nombre) return msg('<div class="error">El nombre es obligatorio.</div>');
-      if (vf('meses') && !d.meses) return msg('<div class="error">No se entienden los meses. Escribe números (1,3,7) o abreviaturas (ENE, MAR, JUL).</div>');
+      if (!d.nombre) return msg('<div class="error">El nombre es obligatorio.<\/div>');
+      if (vf('meses') && !d.meses) return msg('<div class="error">No se entienden los meses. Escribe números (1,3,7) o abreviaturas (ENE, MAR, JUL).<\/div>');
       if (esPeriodica(d)) {
-        if (!d.dia || d.dia < 1 || d.dia > 31) return msg('<div class="error">Las obligaciones periódicas necesitan el día NLT (1–31).</div>');
-        if (['Anual', 'Varias veces al año'].indexOf(d.periodicidad) >= 0 && !d.meses) return msg('<div class="error">Indica el mes o meses de la NLT.</div>');
+        if (!d.dia || d.dia < 1 || d.dia > 31) return msg('<div class="error">Las obligaciones periódicas necesitan el día NLT (1–31).<\/div>');
+        if (['Anual', 'Varias veces al año'].indexOf(d.periodicidad) >= 0 && !d.meses) return msg('<div class="error">Indica el mes o meses de la NLT.<\/div>');
       }
       const dup = O().find(x => x !== o && norm(x.nombre) === norm(d.nombre));
-      if (dup) return msg('<div class="error">Ya existe la obligación «' + esc(dup.nombre) + '» (ID ' + dup.id + ').</div>');
+      if (dup) return msg('<div class="error">Ya existe la obligación «' + esc(dup.nombre) + '» (ID ' + dup.id + ').<\/div>');
       if (!(L.NLT_MAESTRO.map.activa || []).length) delete d.activa;
       ejecutar(async () => {
         const r = await guardar('NLT_MAESTRO', o, d, o ? 'Modificar obligación' : 'Alta de obligación');
@@ -1352,23 +1363,23 @@
   function dlgAsignar(obId) {
     if (!exigirLista('CONTROL_ENTREGAS')) return;
     const obs = O().filter(o => o.activa && o.periodicidad !== 'Por evento');
-    if (!obs.length) { abrirDlg('Asignar obligación', '<div class="aviso">No hay obligaciones activas en el catálogo (las «Por evento» se gestionan en Eventos). Crea una en Obligaciones.</div>', '<button type="button" data-cerrar>Cerrar</button>'); return; }
-    if (!U().some(u => u.activa)) { abrirDlg('Asignar obligación', '<div class="aviso">No hay unidades activas. Da de alta al menos una en Unidades.</div>', '<button type="button" data-cerrar>Cerrar</button>'); return; }
+    if (!obs.length) { abrirDlg('Asignar obligación', '<div class="aviso">No hay obligaciones activas en el catálogo (las «Por evento» se gestionan en Eventos). Crea una en Obligaciones.<\/div>', '<button type="button" data-cerrar>Cerrar<\/button>'); return; }
+    if (!U().some(u => u.activa)) { abrirDlg('Asignar obligación', '<div class="aviso">No hay unidades activas. Da de alta al menos una en Unidades.<\/div>', '<button type="button" data-cerrar>Cerrar<\/button>'); return; }
     const ob = obs.find(o => o.id === obId) || obs[0];
     AS = { ob: ob, anio: new Date().getFullYear(), q: '', unis: new Set(unidadesHabituales(ob).filter(u => u.activa).map(u => u.id)) };
     AS.plazos = plazosIniciales();
     const grupos = PERIODICIDADES.filter(p => p !== 'Por evento').map(p => [p, obs.filter(o => o.periodicidad === p)]).concat([['Otras', obs.filter(o => PERIODICIDADES.indexOf(o.periodicidad) < 0)]]).filter(g => g[1].length);
     abrirDlg('Asignar obligación a unidades',
-      '<p class="small muted">Crea un registro de seguimiento por cada unidad y plazo que marques. Nada se asigna a unidades que no elijas.</p>' +
-      '<div class="grid">' + campo('1. Obligación', '<select name="ob">' + grupos.map(g => '<optgroup label="' + esc(g[0]) + '">' + g[1].map(o => '<option value="' + o.id + '"' + (o === ob ? ' selected' : '') + '>' + esc((o.codigo ? o.codigo + ' · ' : '') + o.nombre) + '</option>').join('') + '</optgroup>').join('') + '</select>', 1) +
-      campo('Año', '<input name="anio" type="number" min="2000" max="2100" value="' + AS.anio + '">') + '</div>' +
-      '<p class="small" id="asRegla"></p>' +
-      '<label class="lbl">2. Periodos y NLT (confirma o corrige la fecha)</label><div id="asPlazos"></div>' +
-      '<label class="lbl">3. Unidades</label><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><input name="asq" type="search" placeholder="Filtrar unidades…" style="flex:1;min-width:160px">' +
-      '<button type="button" data-as="hab">Habituales</button><button type="button" data-as="todas">Marcar visibles</button><button type="button" data-as="ninguna">Ninguna</button></div><div id="asUnis" class="lista-u"></div>' +
-      '<label class="check"><input type="checkbox" name="recordar"> Guardar esta selección como unidades habituales de la obligación</label>' +
-      '<div id="asResumen" class="info"></div><div id="asProg" class="small"></div>' + avisoFaltan('CONTROL_ENTREGAS', ['unidadId', 'obligacionId', 'siglas']),
-      '<button type="button" data-cerrar>Cancelar</button><button type="submit" class="prim" id="asCrear">Crear registros</button>');
+      '<p class="small muted">Crea un registro de seguimiento por cada unidad y plazo que marques. Nada se asigna a unidades que no elijas.<\/p>' +
+      '<div class="grid">' + campo('1. Obligación', '<select name="ob">' + grupos.map(g => '<optgroup label="' + esc(g[0]) + '">' + g[1].map(o => '<option value="' + o.id + '"' + (o === ob ? ' selected' : '') + '>' + esc((o.codigo ? o.codigo + ' · ' : '') + o.nombre) + '<\/option>').join('') + '<\/optgroup>').join('') + '<\/select>', 1) +
+      campo('Año', '<input name="anio" type="number" min="2000" max="2100" value="' + AS.anio + '">') + '<\/div>' +
+      '<p class="small" id="asRegla"><\/p>' +
+      '<label class="lbl">2. Periodos y NLT (confirma o corrige la fecha)<\/label><div id="asPlazos"><\/div>' +
+      '<label class="lbl">3. Unidades<\/label><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><input name="asq" type="search" placeholder="Filtrar unidades…" style="flex:1;min-width:160px">' +
+      '<button type="button" data-as="hab">Habituales<\/button><button type="button" data-as="todas">Marcar visibles<\/button><button type="button" data-as="ninguna">Ninguna<\/button><\/div><div id="asUnis" class="lista-u"><\/div>' +
+      '<label class="check"><input type="checkbox" name="recordar"> Guardar esta selección como unidades habituales de la obligación<\/label>' +
+      '<div id="asResumen" class="info"><\/div><div id="asProg" class="small"><\/div>' + avisoFaltan('CONTROL_ENTREGAS', ['unidadId', 'obligacionId', 'siglas']),
+      '<button type="button" data-cerrar>Cancelar<\/button><button type="submit" class="prim" id="asCrear">Crear registros<\/button>');
     pintarAsig();
     alEnviar = crearAsignacion;
   }
@@ -1385,27 +1396,27 @@
     return { ps: ps, nuevos: nuevos, dup: dup, ex: ex };
   }
   function pintarAsig() {
-    $('#asRegla').innerHTML = '<span class="chip">' + esc(AS.ob.periodicidad) + '</span> NLT: ' + esc(reglaTxt(AS.ob)) + (AS.ob.categoria ? ' · ' + esc(AS.ob.categoria) : '');
+    $('#asRegla').innerHTML = '<span class="chip">' + esc(AS.ob.periodicidad) + '<\/span> NLT: ' + esc(reglaTxt(AS.ob)) + (AS.ob.categoria ? ' · ' + esc(AS.ob.categoria) : '');
     $('#asPlazos').innerHTML = AS.plazos.map((p, i) => '<div class="plazo"><input type="checkbox" data-pl="' + i + '"' + (p.on ? ' checked' : '') + '>' +
-      (p.manual ? '<input data-plper="' + i + '" value="' + esc(p.periodo) + '" placeholder="Periodo (p. ej. 2026-11, 2026-S2, 2026)">' : '<span><b>' + esc(p.periodo) + '</b></span>') +
-      '<input type="date" data-plnlt="' + i + '" value="' + esc(p.nlt) + '"></div>').join('');
+      (p.manual ? '<input data-plper="' + i + '" value="' + esc(p.periodo) + '" placeholder="Periodo (p. ej. 2026-11, 2026-S2, 2026)">' : '<span><b>' + esc(p.periodo) + '<\/b><\/span>') +
+      '<input type="date" data-plnlt="' + i + '" value="' + esc(p.nlt) + '"><\/div>').join('');
     const q = norm(AS.q);
     const us = U().filter(u => u.activa).sort((a, b) => porNombre(a.siglas || a.nombre, b.siglas || b.nombre));
     const hab = new Set(unidadesHabituales(AS.ob).map(u => u.id));
-    $('#asUnis').innerHTML = us.map(u => '<label' + (q && norm(u.siglas + ' ' + u.nombre + ' ' + u.ambito).indexOf(q) < 0 ? ' hidden' : '') + '><input type="checkbox" data-asu="' + u.id + '"' + (AS.unis.has(u.id) ? ' checked' : '') + '> <span><b>' + esc(u.siglas || '') + '</b> ' + esc(u.siglas ? '– ' + u.nombre : u.nombre) + (hab.has(u.id) ? ' <span class="chip">habitual</span>' : '') + '</span></label>').join('');
+    $('#asUnis').innerHTML = us.map(u => '<label' + (q && norm(u.siglas + ' ' + u.nombre + ' ' + u.ambito).indexOf(q) < 0 ? ' hidden' : '') + '><input type="checkbox" data-asu="' + u.id + '"' + (AS.unis.has(u.id) ? ' checked' : '') + '> <span><b>' + esc(u.siglas || '') + '<\/b> ' + esc(u.siglas ? '– ' + u.nombre : u.nombre) + (hab.has(u.id) ? ' <span class="chip">habitual<\/span>' : '') + '<\/span><\/label>').join('');
     resumenAsig();
   }
   function resumenAsig() {
     const r = seleccionAsig();
-    $('#asResumen').innerHTML = '<b>' + AS.unis.size + '</b> unidades × <b>' + r.ps.length + '</b> periodos → se crearán <b>' + r.nuevos + '</b> registros' + (r.dup ? ' (' + r.dup + ' ya existen y se omiten)' : '') + '.' +
-      (r.nuevos > 60 ? '<br><b>Atención:</b> son muchos registros. Comprueba que realmente todas esas unidades tienen esta obligación.' : '');
+    $('#asResumen').innerHTML = '<b>' + AS.unis.size + '<\/b> unidades × <b>' + r.ps.length + '<\/b> periodos → se crearán <b>' + r.nuevos + '<\/b> registros' + (r.dup ? ' (' + r.dup + ' ya existen y se omiten)' : '') + '.' +
+      (r.nuevos > 60 ? '<br><b>Atención:<\/b> son muchos registros. Comprueba que realmente todas esas unidades tienen esta obligación.' : '');
     const b = $('#asCrear'); if (b) { b.textContent = 'Crear ' + r.nuevos + ' registros'; b.disabled = !r.nuevos; }
   }
   async function crearAsignacion() {
     const r = seleccionAsig();
-    if (!r.nuevos) return msg('<div class="error">No hay registros nuevos que crear: marca al menos una unidad y un periodo con NLT.</div>');
+    if (!r.nuevos) return msg('<div class="error">No hay registros nuevos que crear: marca al menos una unidad y un periodo con NLT.<\/div>');
     const malos = AS.plazos.filter(p => p.on && (!p.periodo || !p.nlt));
-    if (malos.length) return msg('<div class="error">Hay periodos marcados sin nombre o sin NLT.</div>');
+    if (malos.length) return msg('<div class="error">Hay periodos marcados sin nombre o sin NLT.<\/div>');
     if (r.nuevos > 60 && !confirm('Se van a crear ' + r.nuevos + ' registros en CONTROL_ENTREGAS. ¿Continuar?')) return;
     const ob = AS.ob, lote = [];
     U().filter(u => AS.unis.has(u.id)).forEach(u => r.ps.forEach(p => { if (!r.ex.has(claveDup(u.id, ob.id, p.periodo))) lote.push({ u: u, p: p }); }));
@@ -1426,15 +1437,15 @@
     }
     let habMsg = '';
     if (recordar) {
-      try { await guardar('NLT_MAESTRO', ob, { habituales: Array.from(AS.unis).join(';') }, 'Guardar unidades habituales'); habMsg = '<div class="bien">Unidades habituales guardadas en la obligación.</div>'; }
+      try { await guardar('NLT_MAESTRO', ob, { habituales: Array.from(AS.unis).join(';') }, 'Guardar unidades habituales'); habMsg = '<div class="bien">Unidades habituales guardadas en la obligación.<\/div>'; }
       catch (e) { habMsg = htmlError(e, 'No se han guardado las unidades habituales'); }
     }
     $('#asProg').textContent = '';
     ocupado(false);
     render();
-    msg((ok.length ? '<div class="bien">✔ ' + ok.length + ' registros creados y verificados en SharePoint.</div>' : '') +
+    msg((ok.length ? '<div class="bien">✔ ' + ok.length + ' registros creados y verificados en SharePoint.<\/div>' : '') +
       (err.length ? htmlError(err[0].e, err.length + ' registro(s) no creados (' + err.map(z => (z.x.u.siglas || z.x.u.nombre) + ' ' + z.x.p.periodo).slice(0, 8).join(', ') + ')') : '') +
-      (lote.length - ok.length - err.length > 0 ? '<div class="aviso">Se detuvo el proceso: ' + (lote.length - ok.length - err.length) + ' registros no se intentaron.</div>' : '') + habMsg);
+      (lote.length - ok.length - err.length > 0 ? '<div class="aviso">Se detuvo el proceso: ' + (lote.length - ok.length - err.length) + ' registros no se intentaron.<\/div>' : '') + habMsg);
     pintarAsig();
   }
 
@@ -1446,14 +1457,14 @@
     abrirDlg('Entrega · ' + e.uEtq + ' · ' + e.oNom,
       '<div class="grid">' + campo('Unidad', sel('unidad', us.map(u => [u.id, (u.siglas ? u.siglas + ' – ' : '') + u.nombre]), e.u ? e.u.id : '', e.u ? null : '(' + (e.unidad || 'sin unidad') + ')'), 1) +
       campo('Obligación', sel('obligacion', os.map(o => [o.id, o.nombre]), e.ob ? e.ob.id : '', e.ob ? null : '(' + (e.obligacion || 'sin obligación') + ')'), 1) +
-      campo('Periodo', inp('periodo', e.periodo, 'maxlength="255" required'), 1) + campo('Fecha NLT', inp('nlt', e.nlt, 'type="date" required'), 1) + '</div>' +
+      campo('Periodo', inp('periodo', e.periodo, 'maxlength="255" required'), 1) + campo('Fecha NLT', inp('nlt', e.nlt, 'type="date" required'), 1) + '<\/div>' +
       '<div class="grid">' + campo('Estado', sel('estado', unicos(ESTADOS_E.concat([e.estadoN])), e.estadoN), 1) + campo('Fecha de recepción', inp('recepcion', e.recepcion, 'type="date"')) +
-      campo('Fecha de validación', inp('validacion', e.validacion, 'type="date"')) + campo('Responsable / remitente', inp('responsable', e.responsable, 'maxlength="255"')) + '</div>' +
+      campo('Fecha de validación', inp('validacion', e.validacion, 'type="date"')) + campo('Responsable / remitente', inp('responsable', e.responsable, 'maxlength="255"')) + '<\/div>' +
       campo('Referencia documental', inp('referencia', e.referencia, 'maxlength="255" placeholder="N.º de registro, escrito, ruta…"')) + campo('Observaciones', txa('obs', e.obs)) +
-      '<p class="small">Situación actual: ' + badgeE(e) + (e.estado && e.estado !== e.estadoN ? ' <span class="muted">(valor guardado: «' + esc(e.estado) + '»)</span>' : '') + '</p>' +
-      '<p class="small muted">«Recibido» registra la llegada; solo «Validado» cuenta como cumplido. El retraso se calcula con la fecha de recepción frente a la NLT.</p>' +
+      '<p class="small">Situación actual: ' + badgeE(e) + (e.estado && e.estado !== e.estadoN ? ' <span class="muted">(valor guardado: «' + esc(e.estado) + '»)<\/span>' : '') + '<\/p>' +
+      '<p class="small muted">«Recibido» registra la llegada; solo «Validado» cuenta como cumplido. El retraso se calcula con la fecha de recepción frente a la NLT.<\/p>' +
       avisoFaltan('CONTROL_ENTREGAS', ['recepcion', 'validacion', 'responsable', 'referencia', 'obs']) + metaElem(e),
-      pieGuardar('Guardar cambios', linkSP('CONTROL_ENTREGAS', e) + '<button type="button" class="peligro" data-acc="papelera" data-id="' + e.id + '">Enviar a la papelera…</button>'));
+      pieGuardar('Guardar cambios', linkSP('CONTROL_ENTREGAS', e) + '<button type="button" class="peligro" data-acc="papelera" data-id="' + e.id + '">Enviar a la papelera…<\/button>'));
     dlg.onchange = ev => {
       if (ev.target.name !== 'estado') return;
       const v = ev.target.value, f = n => dlg.querySelector('[name=' + n + ']');
@@ -1466,10 +1477,10 @@
       if (u && u !== e.u) Object.assign(d, { unidad: u.nombre, siglas: u.siglas, unidadId: u.id });
       if (o && o !== e.ob) Object.assign(d, { obligacion: o.nombre, obligacionId: o.id });
       const err = validarEntrega(d);
-      if (err) return msg('<div class="error">' + esc(err) + '</div>');
+      if (err) return msg('<div class="error">' + esc(err) + '<\/div>');
       if (d.unidadId || d.obligacionId || d.periodo !== e.periodo) {
         const uu = u || e.u, oo = o || e.ob;
-        if (uu && oo && E().some(x => x !== e && x.u === uu && x.ob === oo && norm(x.periodo) === norm(d.periodo))) return msg('<div class="error">Ya existe otro registro de esa unidad, obligación y periodo.</div>');
+        if (uu && oo && E().some(x => x !== e && x.u === uu && x.ob === oo && norm(x.periodo) === norm(d.periodo))) return msg('<div class="error">Ya existe otro registro de esa unidad, obligación y periodo.<\/div>');
         d.titulo = ((uu ? uu.siglas || uu.nombre : e.uEtq) + ' · ' + (oo ? oo.nombre : e.oNom) + ' · ' + d.periodo).slice(0, 255);
       }
       ejecutar(async () => {
@@ -1504,7 +1515,7 @@
       try { await accionRapida(e, tipo, fecha); ok++; SEL.delete(e.id); } catch (er) { errs.push(er); if (er.status === 403 || er.tipo === 'config') break; }
     }
     render();
-    if (errs.length) abrirDlg('Resultado', '<div class="bien">' + ok + ' guardadas y verificadas.</div>' + htmlError(errs[0], errs.length + ' con error'), '<button type="button" data-cerrar>Cerrar</button>');
+    if (errs.length) abrirDlg('Resultado', '<div class="bien">' + ok + ' guardadas y verificadas.<\/div>' + htmlError(errs[0], errs.length + ' con error'), '<button type="button" data-cerrar>Cerrar<\/button>');
     else aviso(ok + ' entregas guardadas y verificadas');
   }
 
@@ -1516,13 +1527,13 @@
     const ob0 = v ? v.ob : oPorId.get(obId);
     abrirDlg(v ? 'Evento · ' + v.titulo : 'Nuevo evento',
       '<div class="grid">' + campo('Tipo de evento', sel('tipo', unicos(TIPOS_EV.concat(EV().map(x => x.tipo)).concat(v ? [v.tipo] : [])), v ? v.tipo : 'Novedad'), 1) +
-      campo('Unidad afectada', sel('unidad', us.map(u => [u.id, (u.siglas ? u.siglas + ' – ' : '') + u.nombre]), v && v.u ? v.u.id : '', v && !v.u && v.unidad ? '(' + v.unidad + ')' : 'General / sin unidad concreta')) + '</div>' +
+      campo('Unidad afectada', sel('unidad', us.map(u => [u.id, (u.siglas ? u.siglas + ' – ' : '') + u.nombre]), v && v.u ? v.u.id : '', v && !v.u && v.unidad ? '(' + v.unidad + ')' : 'General / sin unidad concreta')) + '<\/div>' +
       campo('Evento / actuación', inp('titulo', v ? v.titulo : (ob0 ? ob0.nombre : ''), 'maxlength="255" required'), 1) +
       campo('Obligación del catálogo que activa (opcional)', sel('ob', obsEv.map(o => [o.id, o.nombre + (o.regla ? ' · ' + o.regla : '')]), ob0 ? ob0.id : '', '— Ninguna —')) +
       '<div class="grid">' + campo('Fecha de activación', inp('activacion', v ? v.activacion : hoy(), 'type="date" required'), 1) + campo('Fecha límite', inp('limite', v ? v.limite : (ob0 && ob0.plazo != null ? sumarDias(hoy(), ob0.plazo) : ''), 'type="date"')) +
       campo('Responsable', inp('responsable', v && v.responsable, 'maxlength="255"')) + campo('Estado', sel('estado', unicos(ESTADOS_EV.concat(v ? [v.estadoN] : [])), v ? v.estadoN : 'Abierto'), 1) +
-      campo('Fecha de cierre', inp('cierre', v && v.cierre, 'type="date"')) + '</div>' +
-      campo('Observaciones / acciones', txa('obs', v && v.obs)) + '<p class="small muted" id="evRegla"></p>' +
+      campo('Fecha de cierre', inp('cierre', v && v.cierre, 'type="date"')) + '<\/div>' +
+      campo('Observaciones / acciones', txa('obs', v && v.obs)) + '<p class="small muted" id="evRegla"><\/p>' +
       avisoFaltan('SEGUIMIENTO_EVENTOS', ['tipo', 'unidad', 'unidadId', 'obligacionId', 'limite', 'cierre', 'responsable', 'obs']) + metaElem(v),
       pieGuardar(v ? 'Guardar cambios' : 'Registrar evento', linkSP('SEGUIMIENTO_EVENTOS', v)));
     const regla = () => { const o = oPorId.get(Number(vf('ob'))); $('#evRegla').textContent = o ? 'Regla NLT: ' + reglaTxt(o) : ''; };
@@ -1537,10 +1548,10 @@
       const d = { tipo: vf('tipo'), titulo: vf('titulo'), activacion: vf('activacion'), limite: vf('limite'), responsable: vf('responsable'), estado: vf('estado'), cierre: vf('cierre'), obs: vf('obs'), obligacionId: o ? o.id : null };
       if (u) Object.assign(d, { unidad: u.nombre, siglas: u.siglas, unidadId: u.id });
       else if (!v || v.u) Object.assign(d, { unidad: v && !v.u ? v.unidad : '', siglas: '', unidadId: null });
-      if (!d.titulo || !d.activacion) return msg('<div class="error">El evento y la fecha de activación son obligatorios.</div>');
-      if (d.limite && d.limite < d.activacion) return msg('<div class="error">La fecha límite es anterior a la activación.</div>');
-      if ((d.estado === 'Finalizado' || d.estado === 'Cancelado') && !d.cierre) return msg('<div class="error">Indica la fecha de cierre.</div>');
-      if (d.cierre && d.estado !== 'Finalizado' && d.estado !== 'Cancelado') return msg('<div class="error">Hay fecha de cierre: el estado debe ser «Finalizado» o «Cancelado».</div>');
+      if (!d.titulo || !d.activacion) return msg('<div class="error">El evento y la fecha de activación son obligatorios.<\/div>');
+      if (d.limite && d.limite < d.activacion) return msg('<div class="error">La fecha límite es anterior a la activación.<\/div>');
+      if ((d.estado === 'Finalizado' || d.estado === 'Cancelado') && !d.cierre) return msg('<div class="error">Indica la fecha de cierre.<\/div>');
+      if (d.cierre && d.estado !== 'Finalizado' && d.estado !== 'Cancelado') return msg('<div class="error">Hay fecha de cierre: el estado debe ser «Finalizado» o «Cancelado».<\/div>');
       ejecutar(async () => {
         const r = await guardar('SEGUIMIENTO_EVENTOS', v, d, v ? 'Modificar evento' : 'Alta de evento');
         dlg.close(); render(); aviso(r.sinCambios ? 'Sin cambios' : 'Evento guardado y verificado (ID ' + r.id + ')');
@@ -1588,16 +1599,16 @@
     const esO = n === 'NLT_MAESTRO', sem = esO ? SEMILLA_OBLIG : SEMILLA_UCO, actuales = esO ? O() : U();
     const existe = s => actuales.find(x => norm(x.nombre) === norm(s.nombre) || (esO && s.codigo && norm(x.codigo) === norm(s.codigo)) || (!esO && norm(x.siglas) === norm(s.nombre)));
     const filas = sem.map((s, i) => { const ex = existe(s); return '<label style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid var(--line)"><input type="checkbox" data-sem="' + i + '"' + (ex ? ' disabled' : ' checked') + '> <span>' +
-      (esO ? '<b>' + esc(s.codigo) + '</b> ' : '') + esc(s.nombre) + (esO ? ' <span class="small muted">· ' + esc(s.periodicidad) + ' · ' + esc(reglaTxt(s)) + '</span>' : '') + (ex ? ' <span class="badge none">ya existe (ID ' + ex.id + ')</span>' : '') + '</span></label>'; });
+      (esO ? '<b>' + esc(s.codigo) + '<\/b> ' : '') + esc(s.nombre) + (esO ? ' <span class="small muted">· ' + esc(s.periodicidad) + ' · ' + esc(reglaTxt(s)) + '<\/span>' : '') + (ex ? ' <span class="badge none">ya existe (ID ' + ex.id + ')<\/span>' : '') + '<\/span><\/label>'; });
     const nuevos = sem.filter(s => !existe(s)).length;
     abrirDlg(esO ? 'Catálogo NLT inicial' : 'Unidades SUIGESUR',
-      '<p class="small">' + nuevos + ' de ' + sem.length + ' no existen en ' + n + '. Desmarca lo que no quieras crear. Cada elemento se crea y se verifica por separado; si uno falla, el proceso se detiene.</p>' +
-      (!esO ? '<div class="aviso small">Esta relación procede de la versión anterior y <b>no lleva siglas</b> (no se inventan). Revísala antes: unidades y establecimientos pueden estar repetidos con nombres distintos.</div>' : '') +
-      '<div style="max-height:50vh;overflow:auto">' + filas.join('') + '</div><div id="semProg" class="small"></div>',
-      '<button type="button" data-cerrar>Cancelar</button><button type="submit" class="prim">Crear las marcadas</button>');
+      '<p class="small">' + nuevos + ' de ' + sem.length + ' no existen en ' + n + '. Desmarca lo que no quieras crear. Cada elemento se crea y se verifica por separado; si uno falla, el proceso se detiene.<\/p>' +
+      (!esO ? '<div class="aviso small">Esta relación procede de la versión anterior y <b>no lleva siglas<\/b> (no se inventan). Revísala antes: unidades y establecimientos pueden estar repetidos con nombres distintos.<\/div>' : '') +
+      '<div style="max-height:50vh;overflow:auto">' + filas.join('') + '<\/div><div id="semProg" class="small"><\/div>',
+      '<button type="button" data-cerrar>Cancelar<\/button><button type="submit" class="prim">Crear las marcadas<\/button>');
     alEnviar = async () => {
       const elegidos = $$('[data-sem]:checked', dlg).map(c => sem[Number(c.dataset.sem)]);
-      if (!elegidos.length) return msg('<div class="error">No hay nada marcado.</div>');
+      if (!elegidos.length) return msg('<div class="error">No hay nada marcado.<\/div>');
       if (!confirm('Se crearán ' + elegidos.length + ' elementos en ' + n + '. ¿Continuar?')) return;
       ocupado(true, 'Creando…'); let ok = 0, er = null;
       for (const s of elegidos) {
@@ -1607,7 +1618,7 @@
         try { await guardar(n, null, d, esO ? 'Alta de obligación (catálogo inicial)' : 'Alta de unidad (catálogo inicial)'); ok++; } catch (e) { er = e; break; }
       }
       $('#semProg').textContent = ''; ocupado(false); render();
-      msg('<div class="bien">' + ok + ' creados y verificados.</div>' + (er ? htmlError(er, 'Detenido') : ''));
+      msg('<div class="bien">' + ok + ' creados y verificados.<\/div>' + (er ? htmlError(er, 'Detenido') : ''));
       $$('[data-sem]', dlg).forEach(c => { const s = sem[Number(c.dataset.sem)]; if (existe(s)) { c.checked = false; c.disabled = true; } });
     };
   }
@@ -1615,15 +1626,15 @@
     const S = L[n];
     const faltan = crearL ? DEF[n].campos.filter(c => c.in !== 'Title') : DEF[n].campos.filter(c => c.in !== 'Title' && !(S.map[c.k] || []).length && (pref.mapa[n] || {})[c.k] !== '-');
     abrirDlg(crearL ? 'Crear la lista ' + n : 'Crear columnas en ' + n,
-      '<p>Se va a ' + (crearL ? 'crear la lista personalizada <b>' + n + '</b> en <code>' + esc(web.url) + '</code> y añadirle' : 'añadir a la lista <b>' + n + '</b>') + ' estas columnas:</p>' +
-      tabla(['Nombre interno', 'Nombre visible', 'Tipo'], faltan.map(c => '<tr>' + td('<code>' + c.in + '</code>') + td(esc(c.d)) + td(esc(c.t === 'Choice' ? 'Elección (admite otros valores): ' + c.choices.join(', ') : c.t === 'DateTime' ? 'Fecha (solo fecha)' : c.t === 'Note' ? 'Texto multilínea (sin formato)' : c.t === 'Boolean' ? 'Sí/No (Sí por defecto)' : c.t === 'Number' ? 'Número' : 'Texto (255)')) + '</tr>')) +
-      '<p class="small muted">No se borra ni se renombra nada existente' + (crearL ? '' : '') + '. Las columnas se añaden a la vista predeterminada. Al terminar se vuelve a leer la lista para comprobar que cada columna existe y con qué nombre interno.</p><div id="estProg" class="small"></div>',
-      '<button type="button" data-cerrar>Cancelar</button><button type="submit" class="prim">' + (crearL ? 'Crear lista y columnas' : 'Crear ' + faltan.length + ' columnas') + '</button>');
+      '<p>Se va a ' + (crearL ? 'crear la lista personalizada <b>' + n + '<\/b> en <code>' + esc(web.url) + '<\/code> y añadirle' : 'añadir a la lista <b>' + n + '<\/b>') + ' estas columnas:<\/p>' +
+      tabla(['Nombre interno', 'Nombre visible', 'Tipo'], faltan.map(c => '<tr>' + td('<code>' + c.in + '<\/code>') + td(esc(c.d)) + td(esc(c.t === 'Choice' ? 'Elección (admite otros valores): ' + c.choices.join(', ') : c.t === 'DateTime' ? 'Fecha (solo fecha)' : c.t === 'Note' ? 'Texto multilínea (sin formato)' : c.t === 'Boolean' ? 'Sí/No (Sí por defecto)' : c.t === 'Number' ? 'Número' : 'Texto (255)')) + '<\/tr>')) +
+      '<p class="small muted">No se borra ni se renombra nada existente' + (crearL ? '' : '') + '. Las columnas se añaden a la vista predeterminada. Al terminar se vuelve a leer la lista para comprobar que cada columna existe y con qué nombre interno.<\/p><div id="estProg" class="small"><\/div>',
+      '<button type="button" data-cerrar>Cancelar<\/button><button type="submit" class="prim">' + (crearL ? 'Crear lista y columnas' : 'Crear ' + faltan.length + ' columnas') + '<\/button>');
     alEnviar = () => ejecutar(async () => {
-      const prog = (t, er) => { if (t) $('#estProg').textContent = t; if (er) $('#estProg').insertAdjacentHTML('beforeend', '<div class="error">' + esc(er) + '</div>'); };
+      const prog = (t, er) => { if (t) $('#estProg').textContent = t; if (er) $('#estProg').insertAdjacentHTML('beforeend', '<div class="error">' + esc(er) + '<\/div>'); };
       const res = crearL ? await crearLista(n, prog) : await crearCampos(n, prog);
       render();
-      msg('<div class="' + (res.every(r => r[0] === '✔') ? 'bien' : 'aviso') + '">Resultado verificado:<br>' + res.map(esc).join('<br>') + '</div>');
+      msg('<div class="' + (res.every(r => r[0] === '✔') ? 'bien' : 'aviso') + '">Resultado verificado:<br>' + res.map(esc).join('<br>') + '<\/div>');
       $('#fdlg button[type=submit]').hidden = true;
     });
   }
@@ -1656,8 +1667,8 @@
     const v = VISTAS[pref.vista] || VISTAS.inicio;
     const sc = pref.vista !== 'ajustes' ? sinConexion() : '';
     if (sc) { $('#vista').innerHTML = sc; return; }
-    if (!cargadoEn && pref.vista !== 'ajustes') { $('#vista').innerHTML = '<p class="muted">Conectando con SharePoint…</p>'; return; }
-    $('#vista').innerHTML = v.barra() + '<div id="res">' + v.res() + '</div>';
+    if (!cargadoEn && pref.vista !== 'ajustes') { $('#vista').innerHTML = '<p class="muted">Conectando con SharePoint…<\/p>'; return; }
+    $('#vista').innerHTML = v.barra() + '<div id="res">' + v.res() + '<\/div>';
   }
   function renderRes() {
     const v = VISTAS[pref.vista]; const r = $('#res');
@@ -1708,14 +1719,14 @@
         case 'recibir': case 'validar':
           acc.disabled = true; acc.textContent = 'Guardando…';
           accionRapida(e, a).then(r => { renderRes(); aviso((a === 'recibir' ? 'Recepción registrada' : 'Validada') + ' y verificada (ID ' + r.id + ')'); })
-            .catch(er => { renderRes(); abrirDlg('No se ha guardado', htmlError(er), '<button type="button" data-cerrar>Cerrar</button>'); });
+            .catch(er => { renderRes(); abrirDlg('No se ha guardado', htmlError(er), '<button type="button" data-cerrar>Cerrar<\/button>'); });
           return;
         case 'cerrarEvento': {
           const v = EV().find(x => x.id === id);
           if (!confirm('¿Finalizar hoy el evento «' + v.titulo + '»?')) return;
           acc.disabled = true;
           guardar('SEGUIMIENTO_EVENTOS', v, { estado: 'Finalizado', cierre: hoy() }, 'Finalizar evento').then(() => { renderRes(); aviso('Evento finalizado y verificado'); })
-            .catch(er => { renderRes(); abrirDlg('No se ha guardado', htmlError(er), '<button type="button" data-cerrar>Cerrar</button>'); });
+            .catch(er => { renderRes(); abrirDlg('No se ha guardado', htmlError(er), '<button type="button" data-cerrar>Cerrar<\/button>'); });
           return;
         }
         case 'papelera':

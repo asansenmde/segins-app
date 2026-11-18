@@ -315,7 +315,29 @@ async function escenarioFueraDeSharePoint(b) {
   await p.close();
 }
 
+async function escenarioServidorQueInyecta(b) {
+  console.log('\n== Servidor que inserta un script tras <head>, </head> y <body> (como un filtro corporativo) ==');
+  const a = html.indexOf("<script>\n(function"), z = html.lastIndexOf('</script>');
+  const js = html.slice(a, z);
+  ok(!/<\/|<(html|head|body|meta|script|!--)/i.test(js.slice(8)), 'el código no contiene «</» ni etiquetas de documento literales');
+  const S = servidor('ligero');
+  const alterado = html.replace(/<head>|<\/head>|<body>/g, m => m + '<script>window.inyectado=(window.inyectado||0)+1</script>');
+  const p = await b.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await enrutar(p, S);
+  await p.route(PAGINA, r => r.fulfill({ body: alterado, contentType: 'text/html' }));
+  await p.goto(PAGINA); await esperar(p, 1200);
+  ok((await p.textContent('#estado')).includes('Conectado') && !(await p.innerText('body')).includes('htmlInforme'), 'arranca con el HTML alterado: ' + await p.textContent('#estado'));
+  // Archivo realmente roto: debe avisar en vez de quedarse en «Conectando…»
+  const roto = html.replace("window.CCNLT_ARRANCADA = true;", "window.CCNLT_ARRANCADA = true; }} roto(;");
+  await p.route(PAGINA, r => r.fulfill({ body: roto, contentType: 'text/html' }));
+  await p.goto(PAGINA); await esperar(p, 800);
+  ok((await p.textContent('#vista')).includes('no se ha podido ejecutar'), 'si el código no arranca, lo dice: ' + (await p.textContent('#vista')).slice(0, 90));
+  await p.close();
+}
+
 const b = await chromium.launch();
+await escenarioServidorQueInyecta(b);
 await escenarioLigero(b);
 await escenarioVerbose(b);
 await escenarioFueraDeSharePoint(b);
