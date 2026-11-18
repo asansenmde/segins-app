@@ -45,4 +45,27 @@ correo a la cuenta y copia cifrada entera.
   - cambios, a los afectados.
 - **Impresión:** cuadrante mensual. No se exporta a Outlook.
 
+## Decisiones del 18/11/2026 (segunda ronda)
+
+- **Horario:** cada servicio va de 08:00 a 08:00 del día siguiente; el de viernes a domingo acaba el lunes a las 08:00.
+  No hay saliente.
+- **Vacaciones:** los «más de 5 días» son **laborables**. Con 5 laborables o menos no se salta: hay que hacer un cambio.
+- **Comisión, baja y curso:** saltan el servicio siempre, aunque duren un solo día.
+- **Ausencia que coincide con parte del turno:** basta un día para que se salte el turno entero; lo hace el siguiente.
+- **Orden de la rotación:** por empleo y antigüedad, **del más antiguo al más moderno**. Quien entra nuevo ocupa su
+  lugar por empleo y antigüedad.
+- **Cambios de servicio:**
+  - **permuta** (yo hago tu servicio y tú el mío) o **cesión** (tú me cubres sin devolución);
+  - solo entre servicios del mismo tipo (diario con diario; fin de semana o festivo con fin de semana o festivo) y
+    dentro del mismo cuadrante;
+  - llevan **tres firmas** con AutoFirma (los dos interesados y el gestor), y el PDF firmado se guarda en Colabora.
+- **Cuadrante mensual:** no se firma. Se imprime como lista por días, con los dos cuadrantes juntos (cada día con su jefe
+  y su auxiliar, y los festivos marcados).
+- **Imprevisto el mismo día** (enfermedad repentina): la página propone el siguiente de la lista y el gestor lo confirma
+  o elige a otro. Queda anotado y se avisa a los dos.
+- **Estadística:** servicios hechos por persona (diario y festivo, por mes y por año), solo para consultar. No corrige
+  la rotación.
+- **Vista:** todos los dados de alta ven los dos cuadrantes enteros, con lo suyo resaltado.
+- **Datos de cada componente:** empleo, antigüedad, teléfono (se ve en el cuadrante) y negociado o destino.
+
 Pendiente de confirmar: ver la conversación del 18/11/2026 y `PENDIENTES.md`.
