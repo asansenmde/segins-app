@@ -540,4 +540,7 @@ con el formato *verbose* de SharePoint 2013.
   arrastra el PDF al correo (aviso en la ficha).
 - **2026-11-18 · 10:** aviso de comentarios con **SENDERO abierto en varias ventanas**: cada una relee lo guardado antes de comparar
   o marcar (antes se pisaban) y escucha los cambios de las otras (evento `storage`): lo visto en una se quita en todas.
+- **2026-11-18 · 11:** el aviso de comentarios salta **aunque el mensaje esté abierto en la ficha** (antes se daba por visto):
+  tras «Actualizar» la ficha se reabre sin marcarlo visto y el «Último comentario» sale resaltado con «💬 Nuevo» y «✓ Visto».
+  No avisa (a propósito) de los comentarios propios ni de los de SENDERO, ni de mensajes que no estaban en la carga anterior.
 

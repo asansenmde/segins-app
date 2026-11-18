@@ -533,7 +533,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-18 · 10';
+  var VERSION = '2026-11-18 · 11';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -818,10 +818,20 @@
     mensajes.forEach(function (m) {
       if (!m._x) return;
       var k = claveMensaje(m), c = textoCom(m);
-      if (!primera && k in comVistos && comVistos[k] !== c && c && !esPropio(c) && !comNuevos[k] && abierto !== m) { comNuevos[k] = new Date().toISOString(); nuevos.push(m); }
+      if (!primera && k in comVistos && comVistos[k] !== c && c && !esPropio(c) && !comNuevos[k]) { comNuevos[k] = new Date().toISOString(); nuevos.push(m); }
       comVistos[k] = c;
     });
     guardarCom(); pintarAvisoCom();
+  }
+  var reabriendo = false;
+  function resaltarComentario(m) {
+    if (!AVISO_COMENT || !comNuevos[claveMensaje(m)]) return;
+    var dt = Array.prototype.filter.call(document.querySelectorAll('#detalle .ficha-campos dt'), function (d) { return d.textContent === 'Último comentario'; })[0];
+    if (!dt) return;
+    var dd = dt.nextElementSibling; dd.style.background = '#fff3c4'; dd.style.borderRadius = '6px'; dd.style.padding = '2px 6px';
+    dd.insertAdjacentHTML('afterbegin', '<span class="tag t-com">💬 Nuevo</span> ');
+    dd.insertAdjacentHTML('beforeend', ' <button type="button" id="comVistoFicha" class="small">✓ Visto</button>');
+    $('comVistoFicha').addEventListener('click', function () { releerCom(); var k = claveMensaje(m); comVistos = comVistos || {}; comVistos[k] = textoCom(m); delete comNuevos[k]; guardarCom(); pintarAvisoCom(); pintarTabla(); abrir(m); });
   }
   function pintarAvisoCom() {
     var el = $('avisoComent'); if (!el) return;
@@ -1870,7 +1880,8 @@
     b.disabled = true; b.textContent = '⟳ Actualizando…';
     cargar().then(function () {
       b.disabled = false; b.textContent = '⟳ Actualizar';
-      if (clave) { var m = mensajes.filter(function (x) { return claveMensaje(x) === clave; })[0]; if (m) abrir(m); }
+      // 18/11/2026: al reabrir la ficha tras actualizar no se da por visto un comentario nuevo: se resalta en la ficha
+      if (clave) { var m = mensajes.filter(function (x) { return claveMensaje(x) === clave; })[0]; if (m) { reabriendo = true; abrir(m); reabriendo = false; resaltarComentario(m); } }
     }, function () { b.disabled = false; b.textContent = '⟳ Actualizar'; });
   });
 
@@ -2237,7 +2248,7 @@
     else if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); cambiarVisto(abierto, !vistos[claveMensaje(abierto)]); }
   });
   function abrir(m) {
-    if (AVISO_COMENT && m._x) { releerCom(); var kc = claveMensaje(m); comVistos = comVistos || {}; comVistos[kc] = textoCom(m); if (comNuevos[kc]) { delete comNuevos[kc]; guardarCom(); pintarAvisoCom(); } else guardarCom(); }
+    if (AVISO_COMENT && m._x && !reabriendo) { releerCom(); var kc = claveMensaje(m); comVistos = comVistos || {}; comVistos[kc] = textoCom(m); if (comNuevos[kc]) { delete comNuevos[kc]; guardarCom(); pintarAvisoCom(); } else guardarCom(); }
     abierto = m; pintarTabla();
     $('layout').classList.add('detalle-abierto'); $('detalle').hidden = false;
     var l = m._lista, base = "web/lists(guid'" + l.id + "')/items(" + m.ID + ')';

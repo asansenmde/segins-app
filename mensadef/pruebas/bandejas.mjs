@@ -581,8 +581,12 @@ for (const n of [0, 40]) {
 {
   const ctl = await p.isVisible('#ctlComent'), auto = await p.isChecked('#autoAct'), sinWindows = !(await p.$('#notifCom'));
   await p.fill('#buscar', ''); await p.waitForTimeout(300);
+  // Con el mensaje abierto en la ficha cuando llega el comentario: también avisa y lo resalta en la ficha
+  await p.click('#lista tbody tr[data-i]:has-text("Mensaje 2 de 8d71") >> nth=0'); await p.waitForTimeout(600);
   comExtra = true; await p.click('#actualizar'); await p.waitForFunction(() => !document.getElementById('actualizar').disabled, null, { timeout: 30000 }); await p.waitForTimeout(500);
   const filas = await p.$$eval('#lista tbody tr[data-i]', l => l.filter(t => t.querySelector('.t-com')).map(t => (t.textContent.match(/Mensaje \d+ de \w+/) || [''])[0]));
+  const enFicha = !!(await p.$('#comVistoFicha')) && /💬 Nuevo/.test(await p.textContent('#detalle'));
+  console.log('comentarios nuevos con el mensaje abierto: resaltado en la ficha', enFicha); if (!enFicha) console.log('Error: comentario nuevo con la ficha abierta');
   const franja = (await p.textContent('#avisoComent').catch(() => '')).replace(/\s+/g, ' ');
   // Otra ventana (misma memoria del navegador) marca vistos los comentarios: en esta desaparece la etiqueta sin recargar
   const p2 = await ctx.newPage(); await p2.goto(O + WEB + '/SitePages/ambito.aspx');
