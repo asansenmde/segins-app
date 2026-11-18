@@ -179,6 +179,10 @@ async function prueba(verbose) {
   let t = await texto(p);
   comprueba(tag + 'la gestora ve las pestañas de gestión, sin Ajustes ni Accesos', await p.$$eval('#tabs a', a => a.map(x => x.dataset.v).join(',')) === 'mes,mios,cambios,anio,ausencias,componentes,festivos');
   comprueba(tag + 'enero de 2027 sale como propuesta sin guardar', /enero de 2027/.test(t) && /PROPUESTA SIN GUARDAR/.test(t));
+  const rot = await p.$$eval('details.rotacion table.rot', ts => ts.map(x => [...x.rows].slice(1).map(r => r.cells[0].textContent + ' ' + r.cells[1].textContent.replace(/\s+/g, ' ').trim())));
+  comprueba(tag + 'el gestor ve el orden de la rotación de los dos cuadrantes y quién empieza', rot.length === 2 && /^1º TENIENTE CORONEL OFICIAL NUMERO 1 ▶ empieza diario ▶ empieza fin de semana/.test(rot[0][0]) && /^6º CAPITAN OFICIAL NUMERO 6/.test(rot[0][5]) && rot[1].length === 7, JSON.stringify(rot));
+  comprueba(tag + 'y las ausencias del mes de cada uno', /Comisión de servicio 6-12\/1 · salta/.test(await p.textContent('details.rotacion')) && /Asuntos propios 13-13\/1 · cambio/.test(await p.textContent('details.rotacion')));
+  comprueba(tag + 'en cada turno, las personas salen con su número de orden', /^1º · TENIENTE CORONEL/.test(await p.$eval('table.cuad select', s => s.options[s.selectedIndex].text)));
   const filas = await p.$$eval('table.cuad tbody tr', trs => trs.map(tr => [tr.cells[0].querySelector('b').textContent, tr.cells[1].textContent, ...[2, 3].map(i => { const s = tr.cells[i].querySelector('select'); return s.options[s.selectedIndex].text; })]));
   const fila = r => filas.find(f => f[0] === r) || [];
   comprueba(tag + 'turnos: Vie 1–Dom 3 (festivo dentro) es un fin de semana', fila('Vie 1 – Dom 3 ene')[1] === 'Fin de semana', JSON.stringify(filas.slice(0, 4)));

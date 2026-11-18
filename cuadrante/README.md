@@ -9,7 +9,7 @@
 | `colabora/cuadrante.html` | **Copia cifrada que se sube a Colabora** (`cd cuadrante/proteger && node proteger.mjs`). |
 | `pruebas/simulacion.mjs` | Prueba completa contra un SharePoint simulado, en formato ligero y *verbose*. Con `CUAD_HTML=cuadrante/colabora/cuadrante.html` prueba la copia cifrada y con `PROXY=1`, el filtro de la red. |
 
-## Puesta en marcha (versión 2026-11-18 · 3: fase 1 y cambios de servicio)
+## Puesta en marcha (versión 2026-11-18 · 4: fase 1 y cambios de servicio)
 
 1. Subir `colabora/cuadrante.html` a una biblioteca del sitio JSUIGE (por ejemplo `…/JSUIGE/aplicaciones/`) y abrirla con
    la cuenta que tiene Control total.
@@ -119,6 +119,13 @@ correo a la cuenta y copia cifrada entera.
   y queda anotado «sin firma».
 - **Control total en JSUIGE:** el usuario. Desde Ajustes crea las listas y el grupo `CUADRANTE_GESTORES`, y aprueba
   las solicitudes de acceso.
+
+## Orden de la rotación en el cuadrante del mes (18/11/2026)
+
+Encima del mes, el gestor ve para cada cuadrante el orden de la rotación (del más antiguo al más moderno, con empleo y
+antigüedad), quién empieza el diario y quién el fin de semana, cuántos servicios lleva cada uno en el mes y sus
+ausencias. Cada ausencia sale con su color y dice si salta el servicio o si hay que hacer un cambio. En cada turno, las
+personas salen con su número de orden. El cuadro se puede plegar y la página lo recuerda.
 
 ## Cambios de servicio (18/11/2026)
 

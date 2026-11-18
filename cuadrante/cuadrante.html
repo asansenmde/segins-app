@@ -207,6 +207,10 @@
   table.anio th.mesc { text-transform: capitalize; background: var(--surface-2); }
   .card.aus { border-left: 5px solid var(--line); }
   .card.cambio { border-left: 5px solid #6a3d9a; }
+  .rotgrid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 8px; overflow-x: auto; }
+  table.rot th:nth-child(1) { width: 52px; } table.rot th:nth-child(3) { width: 100px; } table.rot th:nth-child(4), table.rot th:nth-child(5) { width: 80px; text-align: center; }
+  .rotgrid h4 { margin: 4px 0 6px; } table.rot td.num { text-align: center; font-weight: 700; }
+  .chipaus { display: inline-block; border-radius: 6px; padding: 1px 6px; margin: 1px 2px 1px 0; font-size: .74rem; font-weight: 600; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -6444,7 +6448,7 @@ var Cipher = {
   };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-18 · 3';
+  var VERSION = '2026-11-18 · 4';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuadrante de servicios · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -6947,9 +6951,35 @@ var Cipher = {
     if (e.propuesta && !turnos.some(function (t) { return t.inicio < ym + '-01'; })) avisos.push('<div class="nota">Es el primer mes: elige arriba quién empieza cada rotación (por defecto, el más antiguo).</div>');
     if (e.publicado && !e.propuesta && hayCambios()) avisos.push('<div class="aviso"><label class="lbl" style="margin-top:0">Motivo del cambio (se anota y va en el aviso a los afectados)</label><input id="motivoCambio" placeholder="Imprevisto, cambio de servicio autorizado…"></div>');
     var conf = conflictos(e);
-    return nav + acc + avisos.join('') + emp + (conf ? '<div class="card conflictos"><h3 style="margin-top:0">⚠ Revisar</h3>' + conf + '</div>' : '') + tablaMes(true) + leyenda() +
+    return nav + acc + avisos.join('') + panelRotacion() + emp + (conf ? '<div class="card conflictos"><h3 style="margin-top:0">⚠ Revisar</h3>' + conf + '</div>' : '') + tablaMes(true) + leyenda() +
       '<p class="small muted">Rotación del más antiguo al más moderno (empleo, antigüedad y escalafón). Quien tiene una ausencia aprobada que salta el servicio pierde el turno; ' +
       'con asuntos propios, o vacaciones y permisos de ' + VAC_MAX + ' días laborables o menos, no se salta: debe hacer un cambio. Cada turno cuenta en el mes en que empieza.</p>';
+  }
+
+  // Orden de la rotación (para el gestor): del más antiguo al más moderno, quién empieza el mes, servicios y ausencias del mes
+  function panelRotacion() {
+    var e = edicion, ym = e.ym, ini = ym + '-01', fin = finMes(ym);
+    var bloques = CUADRANTES.map(function (qq) {
+      var q = qq[0], l = ordenados(q), pD = puntero(q, 'D', ym, l), pF = puntero(q, 'F', ym, l);
+      // Quién empezó el mes: el del primer turno de cada tipo (en un mes guardado) o el que toca por la rotación
+      var primero = function (k) { var f = e.filas.find(function (x) { return clase(x.tipo) === k && x.q[q].compId; }); return f ? f.q[q].compId : null; };
+      var empD = e.propuesta || !e.guardado ? (l[pD] && l[pD].id) : primero('D'), empF = e.propuesta || !e.guardado ? (l[pF] && l[pF].id) : primero('F');
+      var filas = l.map(function (c, i) {
+        var nD = 0, nF = 0;
+        e.filas.forEach(function (f) { if (f.q[q].compId === c.id) { if (clase(f.tipo) === 'D') nD++; else nF++; } });
+        var aus = ausDe(c, ini, fin, ['APROBADA', 'PENDIENTE']);
+        var act = activo(c, ini, fin);
+        return '<tr class="' + (act ? '' : 'debaja') + '"><td>' + (i + 1) + 'º</td><td><b>' + nombreCon(c) + '</b>' +
+          (c.id === empD ? ' <span class="badge tD">▶ empieza diario</span>' : '') + (c.id === empF ? ' <span class="badge tF">▶ empieza fin de semana</span>' : '') + '</td>' +
+          '<td class="small">' + esc(fCorta(c.antig)) + '</td><td class="num">' + (nD || '·') + '</td><td class="num">' + (nF || '·') + '</td><td class="small">' +
+          (act ? '' : 'De baja en el cuadrante. ') + aus.map(function (a) { return '<span class="chipaus" style="' + colorAus(a.tipo) + '" title="' + esc((TXT_AUS[a.tipo] || a.tipo) + (a.estado === 'PENDIENTE' ? ' (pendiente)' : '')) + '">' +
+            esc((TXT_AUS[a.tipo] || a.tipo) + ' ' + aFecha(a.desde).getDate() + '-' + aFecha(a.hasta).getDate() + '/' + (aFecha(a.hasta).getMonth() + 1)) + (a.estado === 'PENDIENTE' ? ' ?' : '') + (salta(a) ? ' · salta' : ' · cambio') + '</span>'; }).join(' ') + '</td></tr>';
+      }).join('');
+      return '<div><h4>' + esc(qq[1]) + ' <span class="small muted">(' + esc(q.toLowerCase()) + ')</span></h4><table class="t rot"><tr><th>Orden</th><th>Componente</th><th>Antigüedad</th><th title="Servicios de diario este mes">Diario</th><th title="Fines de semana y festivos este mes">Fin de semana</th><th>Ausencias del mes</th></tr>' +
+        (filas || '<tr><td colspan="6" class="muted">Sin componentes: dalos de alta en «Componentes».</td></tr>') + '</table></div>';
+    }).join('');
+    return '<details class="card rotacion"' + (e.propuesta || pref.rotAbierta !== false ? ' open' : '') + ' data-rotdet="1"><summary style="cursor:pointer"><b>👥 Orden de la rotación y quién va este mes</b> <span class="small muted">· del más antiguo al más moderno (empleo, antigüedad y escalafón). ' +
+      'Cada rotación sigue donde se quedó el mes anterior; quien tiene una ausencia que salta el servicio pierde su turno.</span></summary><div class="rotgrid">' + bloques + '</div></details>';
   }
   function conflictos(e) {
     var l = [];
@@ -6977,7 +7007,7 @@ var Cipher = {
             var x = f.q[qq[0]], c = compPorId(x.compId), avs = avisosCelda(c, f);
             var cambiado = x.item && x.compId !== x.orig;
             var cel = editable ? '<select data-celda="' + i + '|' + qq[0] + '" class="' + (cambiado ? 'cambiado' : '') + '"><option value="">— sin asignar —</option>' +
-              ordenados(qq[0]).filter(function (y) { return activo(y, f.inicio, f.fin) || y.id === x.compId; }).map(function (y) { return '<option value="' + y.id + '"' + (y.id === x.compId ? ' selected' : '') + '>' + esc([y.empleo, y.nombre].join(' ')) + '</option>'; }).join('') + '</select>'
+              ordenados(qq[0]).map(function (y, n) { return [y, n]; }).filter(function (p) { return activo(p[0], f.inicio, f.fin) || p[0].id === x.compId; }).map(function (p) { var y = p[0]; return '<option value="' + y.id + '"' + (y.id === x.compId ? ' selected' : '') + '>' + (p[1] + 1) + 'º · ' + esc([y.empleo, y.nombre].join(' ')) + '</option>'; }).join('') + '</select>'
               : nombreCon(c) + (c && c.tel ? ' <span class="small muted">☎ ' + esc(c.tel) + '</span>' : '');
             if (editable && x.compId) cel = '<div class="celda">' + cel + '<button class="chico" data-imprevisto="' + i + '|' + qq[0] + '" title="Imprevisto: no puede hacer el servicio. Propone al siguiente disponible">⚡</button></div>';
             return '<td>' + cel + (editable && cambiado ? '<div class="small txt-warn">Antes: ' + nombreCon(compPorId(x.orig)) + '</div>' : '') +
@@ -8036,6 +8066,7 @@ var Cipher = {
     if (el.id === 'aCorreo' && esAdmin) { pref.correo = el.checked; guardarPref(); return; }
     if (el.id === 'aSitio' && esAdmin) { pref.sitio = el.value.trim() || pref.sitio; guardarPref(); cargar(); return; }
   });
+  document.addEventListener('toggle', function (e) { if (e.target && e.target.dataset && e.target.dataset.rotdet) { pref.rotAbierta = e.target.open; guardarPref(); } }, true);
   window.addEventListener('beforeunload', function (e) { if (esGestor && edicion && edicion.sucio && hayCambios() && !edicion.propuesta) { e.preventDefault(); e.returnValue = ''; } });
 
   render();
