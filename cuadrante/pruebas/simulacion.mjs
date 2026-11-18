@@ -385,6 +385,32 @@ async function prueba(verbose) {
     correos.some(c => /RECHAZADO/.test(c.asunto) && c.to.includes('i:0#.w|et\\sub1')));
   comprueba(tag + 'sin errores de página (cesión)', errs.length === 0, errs.join(' | '));
   await b.close();
+  // Cesión CON devolución: se ve en el cuadrante mientras está en trámite y, al validarse, queda como servicio debido
+  ({ b, p, errs } = await abrir(21, false, verbose));
+  await tab(p, 'mios'); await p.click('[data-cambiopedir="' + tC.Id + '"]'); await p.waitForTimeout(300);
+  await p.selectOption('#fCambio [name=tipo]', 'CESION'); await p.waitForTimeout(200);
+  await p.selectOption('#fCambio [name=comp]', String(id[26])); await p.waitForTimeout(200);
+  comprueba(tag + 'la cesión ofrece «Le devolveré el servicio», marcado', await p.$eval('#fCambio [name=devol]', x => x.checked) && /Le devolveré el servicio a SARGENTO PRIMERO SUBOFICIAL NUMERO 6/.test(await p.textContent('#fCambio')));
+  await p.fill('#fCambio [name=motivo]', 'Asuntos propios'); await p.click('[data-cambiofirmar]'); await p.waitForTimeout(1200);
+  const cb3 = LCB.items[2], pdfC = cb3 && cb3.__adj && cb3.__adj['CAMBIO-3-1-solicitante.pdf'];
+  comprueba(tag + 'guarda la cesión con devolución (y lo pone en el PDF)', cb3 && cb3.TipoCambio === 'CESION' && cb3.Devolucion === 'SI' && !!pdfC && /Devoluci.n\) Tj/.test(pdfC.toString('latin1')) && /queda debiendo un servicio a SUBOFICIAL NUMERO 6/.test(pdfC.toString('latin1')));
+  await tab(p, 'mes'); await p.goto(PAGINA + '?mes=' + tC.Mes); await p.waitForTimeout(1200);
+  comprueba(tag + 'el cuadrante marca el cambio en trámite (también para los componentes)', /Cambio nº 3 en trámite \(pendiente del compañero\) con SARGENTO PRIMERO SUBOFICIAL NUMERO 6/.test(await texto(p)), (await texto(p)).slice(0, 200));
+  await b.close();
+  ({ b, p, errs } = await abrir(26, false, verbose)); await p.click('[data-cambioaceptar="3"]'); await p.waitForTimeout(1200); await b.close();
+  ({ b, p, errs } = await abrir(8, false, verbose, PAGINA + '?mes=' + tC.Mes));
+  comprueba(tag + 'el gestor ve el cambio en trámite en el mes', /Cambio nº 3 en trámite \(pendiente del gestor\)/.test(await texto(p)));
+  await tab(p, 'cambios'); await p.click('[data-cambiovalidar="3"]:not([data-sinfirma])'); await p.waitForTimeout(2000);
+  const dv = listas['CUADRANTE DEUDAS'].items.find(x => x.Deudor === id[21] && x.Acreedor === id[26]);
+  comprueba(tag + 'validada: lo hace SUB6, el turno dice «lo hace … en lugar de …» y SUB1 queda debiéndole un servicio', tC.Componente === id[26] && tC.Asignacion === 'CAMBIO' &&
+    /Cambio nº 3 \(cesión\): lo hace SUBOFICIAL NUMERO 6 en lugar de SUBOFICIAL NUMERO 1/.test(tC.MotivoAsignacion) && !!dv && dv.EstadoDeuda === 'PENDIENTE' && /Cesión del servicio .* \(cambio nº 3\)/.test(dv.Motivo) && /Queda registrado que/.test(await texto(p)), JSON.stringify([tC.Componente, tC.MotivoAsignacion, dv]));
+  await tab(p, 'mes');
+  comprueba(tag + 'el mes ofrece ya ese servicio debido para asignarlo', /SUBOFICIAL NUMERO 1<\/b> debe un servicio a <b>SARGENTO PRIMERO SUBOFICIAL NUMERO 6/.test(await p.innerHTML('#vista')) || /SUBOFICIAL NUMERO 1 debe un servicio a SARGENTO PRIMERO SUBOFICIAL NUMERO 6/.test(await texto(p)));
+  comprueba(tag + 'sin errores de página (cesión con devolución)', errs.length === 0, errs.join(' | '));
+  await b.close();
+  ({ b, p, errs } = await abrir(26, false, verbose, PAGINA + '?mes=' + tC.Mes));
+  comprueba(tag + 'el componente ve en el cuadrante que es un cambio y por qué', /cambio de servicio Cambio nº 3 \(cesión\): lo hace SUBOFICIAL NUMERO 6 en lugar de SUBOFICIAL NUMERO 1/.test(await texto(p)));
+  await b.close();
 
   // 6. Alguien sin acceso lo solicita: el aviso va a la cuenta del administrador
   ({ b, p, errs } = await abrir(40, false, verbose));

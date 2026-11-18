@@ -209,7 +209,7 @@
   .card.cambio { border-left: 5px solid #6a3d9a; }
   .asg { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; } .asg input.motivoc { flex: 1; min-width: 180px; padding: 4px 8px; font-size: .82rem; }
   .aMANUAL { background: #efe7f8; color: #5b2f8c; } .aDEUDA { background: #ffe0b2; color: #8a3b00; } .aCAMBIO { background: #e3ecf8; color: #1d4f91; }
-  .card.deuda { border-left: 5px solid #e08a00; } .deudafila { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .card.deuda { border-left: 5px solid #e08a00; } .cambiot { color: #5b2f8c; font-weight: 600; margin-top: 3px; } .deudafila { padding: 6px 0; border-bottom: 1px solid var(--line); }
   #fReglas h4 { margin: 12px 0 4px; color: var(--brand); } #fReglas .grid { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); } #fReglas table.t select { padding: 4px 8px; }
   .rotgrid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 8px; overflow-x: auto; }
   table.rot th:nth-child(1) { width: 52px; } table.rot th:nth-child(3) { width: 100px; } table.rot th:nth-child(4), table.rot th:nth-child(5) { width: 80px; text-align: center; }
@@ -6452,7 +6452,7 @@ var Cipher = {
   };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-19 · 1';
+  var VERSION = '2026-11-19 · 2';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuadrante de servicios · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -6506,7 +6506,7 @@ var Cipher = {
     cambios: [campoOp('Cuadrante', 'Cuadrante', ['OFICIALES', 'SUBOFICIALES']), campoOp('TipoCambio', 'Tipo de cambio', ['PERMUTA', 'CESION']), campoPer('Solicitante', 'Solicitante'), campoNum('SolicitanteComp', 'Solicitante (nº)'),
       campoPer('Companero', 'Compañero'), campoNum('CompaneroComp', 'Compañero (nº)'), campoNum('TurnoA', 'Servicio que cede (nº)'), campoNum('TurnoB', 'Servicio que recibe (nº)'), campoNota('Descripcion', 'Descripción'),
       campoNota('Motivo', 'Motivo'), campoOp('EstadoCambio', 'Estado', ['PENDIENTE DEL COMPAÑERO', 'PENDIENTE DEL GESTOR', 'VALIDADO', 'RECHAZADO', 'ANULADO']), campoNota('Respuesta', 'Respuesta'),
-      campoTxt('Firmas', 'Firmas'), campoNota('Historial', 'Historial')],
+      campoTxt('Firmas', 'Firmas'), campoNota('Historial', 'Historial'), campoTxt('Devolucion', 'Devolución (cesión)')],
     deudas: [campoOp('Cuadrante', 'Cuadrante', ['OFICIALES', 'SUBOFICIALES']), campoNum('Deudor', 'Debe el servicio (nº)'), campoNum('Acreedor', 'Se lo debe a (nº)'),
       campoOp('ClaseTurno', 'Tipo de servicio', ['CUALQUIERA', 'DIARIO', 'FIN DE SEMANA']), campoNota('Motivo', 'Motivo'), campoOp('EstadoDeuda', 'Estado', ['PENDIENTE', 'SALDADA', 'ANULADA']),
       campoNum('TurnoSaldado', 'Turno con el que se salda (nº)'), campoNota('Historial', 'Historial')],
@@ -7077,6 +7077,8 @@ var Cipher = {
             var asg = x.compId && !porRotacion(x.asig) ? '<div class="asg"><span class="badge a' + x.asig + '">' + { MANUAL: '✋ a mano', DEUDA: '💳 servicio debido', CAMBIO: '🔁 cambio de servicio' }[x.asig] + '</span>' +
               (editable ? ' <input class="motivoc" data-motivo="' + i + '|' + qq[0] + '" value="' + esc(x.motivo || '') + '" placeholder="Motivo (p. ej. debía servicio por el cambio del día 3)">' +
                 (edicion.propuesta ? ' <button class="chico" data-rotacion="' + i + '|' + qq[0] + '" title="Quitar la asignación a mano y volver a la rotación">↺</button>' : '') : (x.motivo ? ' <span class="small muted">' + esc(x.motivo) + '</span>' : '')) + '</div>' : '';
+            var enTramite = x.item && hayCambiosLista() ? cambioDeTurno(x.item.id) : null;
+            if (enTramite) asg += '<div class="small cambiot">🔁 Cambio nº ' + enTramite.id + ' en trámite (' + esc(enTramite.estado.toLowerCase()) + ')' + (compPorId(enTramite.compComp) ? ' con ' + nombreCon(compPorId(enTramite.compComp)) : '') + '</div>';
             return '<td>' + cel + asg + (editable && cambiado ? '<div class="small txt-warn">Antes: ' + nombreCon(compPorId(x.orig)) + '</div>' : '') +
               (editable ? x.notas.map(function (n) { return '<div class="small muted">' + esc(n) + '</div>'; }).join('') : '') +
               (editable ? avs.map(function (a) { return '<div class="small ' + (a[0] === 'rojo' ? 'txt-bad' : 'txt-warn') + '">⚠ ' + esc(a[1]) + '</div>'; }).join('') : '') + '</td>';
@@ -7418,7 +7420,7 @@ var Cipher = {
   function imprimirMes() {
     var e = edicion, src = function (s) { var i = $(s); return i ? i.src : ''; }, exacto = '-webkit-print-color-adjust:exact;print-color-adjust:exact;';
     var filas = e.filas.map(function (f) {
-      var cel = function (q) { var c = compPorId(f.q[q].compId); return c ? esc([c.empleo, c.nombre].join(' ')) + (c.tel ? '<br><small>☎ ' + esc(c.tel) + '</small>' : '') : '—'; };
+      var cel = function (q) { var x = f.q[q], c = compPorId(x.compId); return c ? esc([c.empleo, c.nombre].join(' ')) + (c.tel ? '<br><small>☎ ' + esc(c.tel) + '</small>' : '') + (x.asig === 'CAMBIO' && x.motivo ? '<br><small><b>Cambio:</b> ' + esc(x.motivo) + '</small>' : '') : '—'; };
       var fest = []; for (var d = f.inicio; d <= f.fin; d = addDias(d, 1)) if (festMap[d] && festMap[d].ambito !== 'PUENTE') fest.push(festMap[d].nombre);
       return '<tr class="' + (f.tipo !== 'DIARIO' ? 'fin' : '') + '"><td><b>' + esc(rotulo(f)) + '</b>' + (fest.length ? '<br><small>' + esc(fest.join(' · ')) + '</small>' : '') + '</td><td>' + esc(TIPOS_TURNO[f.tipo]) + '</td><td>' + cel('OFICIALES') + '</td><td>' + cel('SUBOFICIALES') + '</td></tr>';
     }).join('');
@@ -7762,7 +7764,7 @@ var Cipher = {
   // 3) Un gestor lo valida y firma (o lo rechaza): el cuadrante se cambia solo y se avisa a los dos.
   // Cada firma añade un adjunto al elemento: CAMBIO-<n>-1-solicitante.pdf, -2-companero.pdf, -3-validado.pdf.
   var EC = { comp: 'PENDIENTE DEL COMPAÑERO', gest: 'PENDIENTE DEL GESTOR', ok: 'VALIDADO', no: 'RECHAZADO', anul: 'ANULADO' };
-  var TIPO_CAMBIO = { PERMUTA: 'Permuta (cada uno hace el servicio del otro)', CESION: 'Cesión (el compañero le cubre, sin devolución)' };
+  var TIPO_CAMBIO = { PERMUTA: 'Permuta (cada uno hace el servicio del otro)', CESION: 'Cesión (el compañero le hace el servicio)' };
   var PASOS_FIRMA = [['1-solicitante', 'EL SOLICITANTE'], ['2-companero', 'EL COMPAÑERO'], ['3-validado', 'VALIDA: EL GESTOR DEL SERVICIO']];
   var nombrePdf = function (id, k) { return 'CAMBIO-' + id + '-' + PASOS_FIRMA[k][0] + '.pdf'; };
   var cambios = [], cambioForm = null;
@@ -7770,13 +7772,15 @@ var Cipher = {
   var aCambio = function (x) {
     return { id: x.Id, cuadrante: x.Cuadrante || '', tipo: x.TipoCambio || 'PERMUTA', sol: persona(x.Solicitante), solComp: Number(x.SolicitanteComp) || null, comp: persona(x.Companero), compComp: Number(x.CompaneroComp) || null,
       turnoA: Number(x.TurnoA) || null, turnoB: Number(x.TurnoB) || null, desc: x.Descripcion || '', motivo: x.Motivo || '', estado: x.EstadoCambio || EC.comp, respuesta: x.Respuesta || '',
-      firmas: String(x.Firmas || '').split(',').filter(Boolean).map(Number), historial: x.Historial || '', creado: x.Created };
+      firmas: String(x.Firmas || '').split(',').filter(Boolean).map(Number), historial: x.Historial || '', creado: x.Created, devol: x.TipoCambio === 'CESION' && x.Devolucion !== 'NO' };
   };
   function leerCambios() {
     if (!hayCambiosLista()) { cambios = []; return Promise.resolve(); }
-    return todas(urlL('cambios') + '/items?$top=2000&$select=' + ['Id', 'Cuadrante', 'TipoCambio', 'SolicitanteComp', 'CompaneroComp', 'TurnoA', 'TurnoB', 'Descripcion', 'Motivo', 'EstadoCambio', 'Respuesta', 'Firmas', 'Historial', 'Created']
-      .concat(SEL_PER('Solicitante'), SEL_PER('Companero')).join(',') + '&$expand=Solicitante,Companero').then(function (l) { cambios = l.map(aCambio); }, function () { cambios = []; });
+    var base = ['Id', 'Cuadrante', 'TipoCambio', 'SolicitanteComp', 'CompaneroComp', 'TurnoA', 'TurnoB', 'Descripcion', 'Motivo', 'EstadoCambio', 'Respuesta', 'Firmas', 'Historial', 'Created'];
+    var leer = function (sel) { return todas(urlL('cambios') + '/items?$top=2000&$select=' + sel.concat(SEL_PER('Solicitante'), SEL_PER('Companero')).join(',') + '&$expand=Solicitante,Companero'); };
+    return leer(base.concat(['Devolucion'])).catch(function (e) { if (e.status !== 400) throw e; return leer(base); }).then(function (l) { cambios = l.map(aCambio); }, function () { cambios = []; });
   }
+
   var turnoPorId = function (id) { return turnos.find(function (t) { return t.id === Number(id); }) || null; };
   var abiertoCambio = function (c) { return c.estado === EC.comp || c.estado === EC.gest; };
   var cambioDeTurno = function (tid) { return cambios.find(function (c) { return abiertoCambio(c) && (c.turnoA === tid || c.turnoB === tid); }) || null; };
@@ -7800,6 +7804,8 @@ var Cipher = {
       (function () { var tB = tipo === 'PERMUTA' ? turnoPorId(cambioForm.turnoB) : null, mias = tB ? ausDe(miComp, tB.inicio, tB.fin, ['APROBADA', 'PENDIENTE']) : [];
         return mias.length ? '<div class="aviso small">⚠ Ojo: el servicio que recibes (' + esc(txtTurno(tB)) + ') coincide con tus ' + esc(mias.map(function (a) { return (TXT_AUS[a.tipo] || a.tipo).toLowerCase() + ' del ' + fCorta(a.desde) + ' al ' + fCorta(a.hasta); }).join(', ')) + '.</div>' : ''; })() +
       (avisoComp.length ? '<div class="aviso small">⚠ ' + nombreCon(sel) + ' tiene ' + esc(avisoComp.map(function (a) { return (TXT_AUS[a.tipo] || a.tipo).toLowerCase() + ' del ' + fCorta(a.desde) + ' al ' + fCorta(a.hasta); }).join(', ')) + ' esos días.</div>' : '') +
+      (tipo === 'CESION' ? '<label class="check"><input type="checkbox" name="devol"' + (cambioForm.devol === false ? '' : ' checked') + '> Le devolveré el servicio' + (sel ? ' a ' + nombreCon(sel) : '') +
+        ' <span class="small muted">(al validarse queda como servicio debido y el gestor lo asigna después)</span></label>' : '') +
       '<label class="lbl req">Motivo</label><textarea name="motivo" rows="2" placeholder="Asuntos propios, vacaciones, curso…"></textarea>' +
       '<p class="small muted">Al pulsar se genera el documento de la solicitud y se firma con AutoFirma (responde «Abrir» si el navegador pregunta y elige tu certificado). Después lo firma tu compañero y lo valida un gestor; hasta entonces el cuadrante no cambia.</p>' +
       '<div id="cambioMsg"></div><div class="acciones"><button class="prim" data-cambiofirmar="1">✍️ Firmar y enviar la solicitud</button><button data-cambiocancelar="1">Cancelar</button></div></div>';
@@ -7808,6 +7814,7 @@ var Cipher = {
     var f = $('#fCambio'); if (!f) return;
     ['tipo', 'comp', 'turnoB'].forEach(function (n) { var el = f.querySelector('[name="' + n + '"]'); if (el) cambioForm[n] = el.value; });
     var m = f.querySelector('[name="motivo"]'); if (m) cambioForm.motivo = m.value;
+    var dv = f.querySelector('[name="devol"]'); if (dv) cambioForm.devol = dv.checked;
   };
   function fichaCambio(c, gestion) {
     var tA = turnoPorId(c.turnoA), tB = turnoPorId(c.turnoB), sc = compPorId(c.solComp), cc = compPorId(c.compComp);
@@ -7816,6 +7823,7 @@ var Cipher = {
     var firmas = PASOS_FIRMA.map(function (p, k) { return (c.firmas.indexOf(k + 1) >= 0 ? '✔ ' : '· ') + esc(p[1].toLowerCase()); }).join(' &nbsp; ');
     var h = '<div class="card cambio" data-cambio="' + c.id + '"><b>🔁 ' + esc(c.tipo === 'CESION' ? 'Cesión' : 'Permuta') + ' nº ' + c.id + '</b> ' + badge + ' <span class="small muted">· ' + esc(papelDe(c.cuadrante)) + ' · pedida el ' + esc(fHora(c.creado)) + '</span>' +
       '<div class="small"><b>' + nombreCon(sc) + '</b> cede ' + esc(txtTurno(tA)) + ' a <b>' + nombreCon(cc) + '</b>' + (c.tipo === 'PERMUTA' ? ', que le da ' + esc(txtTurno(tB)) : '') + '.</div>' +
+      (c.tipo === 'CESION' ? '<div class="small">Devolución: ' + (c.devol ? 'sí, ' + nombreCon(sc) + ' le devolverá el servicio' : 'no') + '</div>' : '') +
       (c.motivo ? '<div class="small">Motivo: ' + esc(c.motivo) + '</div>' : '') + '<div class="small muted">Firmas: ' + firmas + '</div>' +
       (c.respuesta ? '<div class="small ' + (c.estado === EC.no ? 'txt-bad' : '') + '"><b>' + (c.estado === EC.no ? 'Motivo del rechazo' : 'Observación') + ':</b> ' + esc(c.respuesta) + '</div>' : '') +
       (c.firmas.length ? '<div class="small"><a href="#" data-cambiopdf="' + c.id + '">📄 Ver el documento firmado</a></div>' : '');
@@ -7946,9 +7954,10 @@ var Cipher = {
         .then(function (b) { return { nombre: l[0].FileName, url: location.origin + l[0].ServerRelativeUrl, bytes: new Uint8Array(b) }; });
     });
   }
-  var filasCambio = function (tipo, sc, tA, cc, tB, motivo) {
+  var filasCambio = function (tipo, sc, tA, cc, tB, motivo, devol) {
     return [['Tipo de cambio', TIPO_CAMBIO[tipo]], ['Solicitante', [sc.empleo, sc.nombre].join(' ')], ['Servicio que cede', txtTurno(tA)], ['Compañero', [cc.empleo, cc.nombre].join(' ')]]
-      .concat(tipo === 'PERMUTA' ? [['Servicio que recibe a cambio', txtTurno(tB)]] : []).concat([['Motivo', motivo], ['Fecha de la solicitud', fHora(new Date())]]);
+      .concat(tipo === 'PERMUTA' ? [['Servicio que recibe a cambio', txtTurno(tB)]] : [['Devolución', devol ? 'Sí: queda debiendo un servicio a ' + cc.nombre : 'No']])
+      .concat([['Motivo', motivo], ['Fecha de la solicitud', fHora(new Date())]]);
   };
   var msgEn = function (sel, cls, html) { var el = $(sel); if (el) el.innerHTML = '<div class="' + cls + '">' + html + '</div>'; };
   var anotarCambio = function (c, txt) { return (c.historial ? c.historial + '\n' : '') + anotacion(txt); };
@@ -7956,24 +7965,24 @@ var Cipher = {
   // Paso 1: pedir y firmar
   function pedirCambio(boton) {
     leerFormCambio();
-    var tA = turnoPorId(cambioForm.turno), cc = compPorId(cambioForm.comp), tipo = cambioForm.tipo || 'PERMUTA', tB = tipo === 'PERMUTA' ? turnoPorId(cambioForm.turnoB) : null, motivo = (cambioForm.motivo || '').trim();
+    var tA = turnoPorId(cambioForm.turno), cc = compPorId(cambioForm.comp), tipo = cambioForm.tipo || 'PERMUTA', tB = tipo === 'PERMUTA' ? turnoPorId(cambioForm.turnoB) : null, motivo = (cambioForm.motivo || '').trim(), devol = tipo === 'CESION' && cambioForm.devol !== false;
     var faltan = []; if (!cc) faltan.push('compañero'); if (tipo === 'PERMUTA' && !tB) faltan.push('servicio del compañero'); if (!motivo) faltan.push('motivo');
     if (faltan.length) return msgEn('#cambioMsg', 'error', 'Falta: ' + esc(faltan.join(', ')) + '.');
     if (cambioDeTurno(tA.id)) return msgEn('#cambioMsg', 'error', 'Ese servicio ya tiene un cambio en trámite.');
-    var doc = pdfCambio({ cuadrante: tA.cuadrante, filas: filasCambio(tipo, miComp, tA, cc, tB, motivo), firmantes: [miComp.nombre, cc.nombre, ''] });
+    var doc = pdfCambio({ cuadrante: tA.cuadrante, filas: filasCambio(tipo, miComp, tA, cc, tB, motivo, devol), firmantes: [miComp.nombre, cc.nombre, ''] });
     boton.disabled = true;
     msgEn('#cambioMsg', 'aviso', '⏳ Abriendo AutoFirma… Si el navegador pregunta, pulsa «Abrir». Elige tu certificado y escribe el PIN.');
     var firmado = null, nuevo = null;
     firmar(doc.bytes, 0, 'Solicitud de cambio de servicio (' + txtTurno(tA) + ')').then(function (pdf) {
       firmado = pdf; msgEn('#cambioMsg', 'aviso', '⏳ Firmado. Guardando la solicitud…');
       return crearItem('cambios', { Title: (tipo === 'CESION' ? 'Cesión' : 'Permuta') + ' · ' + miComp.nombre + ' · ' + tA.inicio, Cuadrante: tA.cuadrante, TipoCambio: tipo, SolicitanteId: miComp.persona.Id, SolicitanteComp: miComp.id,
-        CompaneroId: cc.persona.Id, CompaneroComp: cc.id, TurnoA: tA.id, TurnoB: tB ? tB.id : null, Descripcion: miComp.nombre + ' cede ' + txtTurno(tA) + ' a ' + cc.nombre + (tB ? ', que le da ' + txtTurno(tB) : ''),
-        Motivo: motivo, EstadoCambio: EC.comp, Firmas: '1', Historial: anotacion('Solicitado y firmado por ' + miComp.nombre) });
+        CompaneroId: cc.persona.Id, CompaneroComp: cc.id, TurnoA: tA.id, TurnoB: tB ? tB.id : null, Descripcion: miComp.nombre + ' cede ' + txtTurno(tA) + ' a ' + cc.nombre + (tB ? ', que le da ' + txtTurno(tB) : devol ? ', a quien se lo devolverá' : ''),
+        Motivo: motivo, Devolucion: tipo === 'CESION' ? (devol ? 'SI' : 'NO') : '', EstadoCambio: EC.comp, Firmas: '1', Historial: anotacion('Solicitado y firmado por ' + miComp.nombre) });
     }).then(function (n) {
       nuevo = n && (n.Id || n.ID);
       return subirPdf(nuevo, nombrePdf(nuevo, 0), firmado);
     }).then(function () {
-      return enviarCorreo(correoDe('SE LE HA SOLICITADO UN CAMBIO DE SERVICIO. ENTRE EN «MIS SERVICIOS» PARA ACEPTARLO Y FIRMARLO, O RECHAZARLO.', filasCambio(tipo, miComp, tA, cc, tB, motivo),
+      return enviarCorreo(correoDe('SE LE HA SOLICITADO UN CAMBIO DE SERVICIO. ENTRE EN «MIS SERVICIOS» PARA ACEPTARLO Y FIRMARLO, O RECHAZARLO.', filasCambio(tipo, miComp, tA, cc, tB, motivo, devol),
         'CUADRANTE DE SERVICIOS · SOLICITUD DE CAMBIO DE SERVICIO DE ' + miComp.nombre.toUpperCase(), [destDe(cc.persona)]));
     }).then(function (r) {
       cambioForm = null;
@@ -7997,7 +8006,7 @@ var Cipher = {
   // Pasos 2 y 3: firmar sobre el último PDF (si no hay, se genera de nuevo)
   function firmarSobre(c, k, razon) {
     return ultimoPdf(c).catch(function () { return null; }).then(function (doc) {
-      var base = doc ? doc.bytes : pdfCambio({ cuadrante: c.cuadrante, filas: filasCambio(c.tipo, compPorId(c.solComp), turnoPorId(c.turnoA), compPorId(c.compComp), turnoPorId(c.turnoB), c.motivo), firmantes: [c.sol && c.sol.Title, c.comp && c.comp.Title, ''] }).bytes;
+      var base = doc ? doc.bytes : pdfCambio({ cuadrante: c.cuadrante, filas: filasCambio(c.tipo, compPorId(c.solComp), turnoPorId(c.turnoA), compPorId(c.compComp), turnoPorId(c.turnoB), c.motivo, c.devol), firmantes: [c.sol && c.sol.Title, c.comp && c.comp.Title, ''] }).bytes;
       return firmar(base, k, razon);
     }).then(function (pdf) { return subirPdf(c.id, nombrePdf(c.id, k), pdf); });
   }
@@ -8022,17 +8031,23 @@ var Cipher = {
     var tA = turnoPorId(c.turnoA), tB = turnoPorId(c.turnoB), sc = compPorId(c.solComp), cc = compPorId(c.compComp);
     var nota = 'Cambio de servicio nº ' + id + ' (' + (c.tipo === 'CESION' ? 'cesión' : 'permuta') + ') validado por ' + yo.Title + (sinFirma ? ' sin firma electrónica' : '');
     (sinFirma ? Promise.resolve() : firmarSobre(c, 2, 'Validación del cambio de servicio nº ' + id)).then(function () {
-      return cambiarItem('turnos', tA.id, { Componente: cc.id, Nombre: cc.nombre, Asignacion: 'CAMBIO', MotivoAsignacion: 'Cambio de servicio nº ' + id + ' (' + (c.tipo === 'CESION' ? 'cesión' : 'permuta') + ')', Historial: (tA.historial ? tA.historial + '\n' : '') + anotacion(nota + ': ' + sc.nombre + ' → ' + cc.nombre) });
+      return cambiarItem('turnos', tA.id, { Componente: cc.id, Nombre: cc.nombre, Asignacion: 'CAMBIO', MotivoAsignacion: 'Cambio nº ' + id + ' (' + (c.tipo === 'CESION' ? 'cesión' : 'permuta') + '): lo hace ' + cc.nombre + ' en lugar de ' + sc.nombre, Historial: (tA.historial ? tA.historial + '\n' : '') + anotacion(nota + ': ' + sc.nombre + ' → ' + cc.nombre) });
     }).then(function () {
       if (c.tipo !== 'PERMUTA') return;
-      return cambiarItem('turnos', tB.id, { Componente: sc.id, Nombre: sc.nombre, Asignacion: 'CAMBIO', MotivoAsignacion: 'Cambio de servicio nº ' + id + ' (permuta)', Historial: (tB.historial ? tB.historial + '\n' : '') + anotacion(nota + ': ' + cc.nombre + ' → ' + sc.nombre) });
+      return cambiarItem('turnos', tB.id, { Componente: sc.id, Nombre: sc.nombre, Asignacion: 'CAMBIO', MotivoAsignacion: 'Cambio nº ' + id + ' (permuta): lo hace ' + sc.nombre + ' en lugar de ' + cc.nombre, Historial: (tB.historial ? tB.historial + '\n' : '') + anotacion(nota + ': ' + cc.nombre + ' → ' + sc.nombre) });
     }).then(function () {
       return cambiarItem('cambios', id, { EstadoCambio: EC.ok, Respuesta: obs, Firmas: sinFirma ? c.firmas.join(',') : c.firmas.concat([3]).join(','), Historial: anotarCambio(c, nota + (obs ? ' (' + obs + ')' : '')) });
     }).then(function () {
-      return enviarCorreo(correoDe('SE HA VALIDADO EL CAMBIO DE SERVICIO. EL CUADRANTE YA ESTÁ ACTUALIZADO.', [['Cambio', 'Nº ' + id + ' · ' + c.desc], ['Validado por', yo.Title], ['Observación', obs]].filter(function (x) { return x[1]; }),
+      // Cesión con devolución: el solicitante queda debiendo un servicio del mismo tipo al compañero
+      if (c.tipo !== 'CESION' || !c.devol || !info.deudas) return;
+      return crearItem('deudas', { Title: sc.nombre + ' debe un servicio a ' + cc.nombre, Cuadrante: c.cuadrante, Deudor: sc.id, Acreedor: cc.id, ClaseTurno: tA.tipo === 'DIARIO' ? 'DIARIO' : 'FIN DE SEMANA',
+        Motivo: 'Cesión del servicio ' + txtTurno(tA) + ' (cambio nº ' + id + ')', EstadoDeuda: 'PENDIENTE', Historial: anotacion('Registrado al validar el cambio nº ' + id) }).then(leerDeudas);
+    }).then(function () {
+      return enviarCorreo(correoDe('SE HA VALIDADO EL CAMBIO DE SERVICIO. EL CUADRANTE YA ESTÁ ACTUALIZADO.', [['Cambio', 'Nº ' + id + ' · ' + c.desc], ['Devolución', c.tipo === 'CESION' ? (c.devol ? sc.nombre + ' queda debiendo un servicio a ' + cc.nombre + '; el gestor se lo asignará' : 'No') : ''], ['Validado por', yo.Title], ['Observación', obs]].filter(function (x) { return x[1]; }),
         'CUADRANTE DE SERVICIOS · CAMBIO DE SERVICIO Nº ' + id + ' VALIDADO', limpia([destDe(sc.persona), destDe(cc.persona)]), enlacePagina() + '?mes=' + tA.mes));
     }).then(function (r) {
-      resultado = { cls: correoBien(r) ? 'okmsg' : 'aviso', html: '✓ Cambio nº ' + id + ' validado' + (sinFirma ? ' (sin firma del gestor)' : ' y firmado') + '. El cuadrante está actualizado.' + msgCorreo(r) };
+      resultado = { cls: correoBien(r) ? 'okmsg' : 'aviso', html: '✓ Cambio nº ' + id + ' validado' + (sinFirma ? ' (sin firma del gestor)' : ' y firmado') + '. El cuadrante está actualizado.' +
+        (c.tipo === 'CESION' && c.devol && info.deudas ? ' Queda registrado que ' + esc(sc.nombre) + ' debe un servicio a ' + esc(cc.nombre) + ' (sale en «Servicios debidos pendientes»).' : '') + msgCorreo(r) };
       return Promise.all([leerCambios(), leerTurnos()]);
     }).then(function () { prepararMes(edicion.ym); render(); }).catch(function (e) { boton.disabled = false; msg('error', esc(e.message || e)); });
   }

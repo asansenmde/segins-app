@@ -9,7 +9,7 @@
 | `colabora/cuadrante.html` | **Copia cifrada que se sube a Colabora** (`cd cuadrante/proteger && node proteger.mjs`). |
 | `pruebas/simulacion.mjs` | Prueba completa contra un SharePoint simulado, en formato ligero y *verbose*. Con `CUAD_HTML=cuadrante/colabora/cuadrante.html` prueba la copia cifrada y con `PROXY=1`, el filtro de la red. |
 
-## Puesta en marcha (versión 2026-11-19 · 1)
+## Puesta en marcha (versión 2026-11-19 · 2)
 
 1. Subir `colabora/cuadrante.html` a una biblioteca del sitio JSUIGE (por ejemplo `…/JSUIGE/aplicaciones/`) y abrirla con
    la cuenta que tiene Control total.
@@ -184,6 +184,15 @@ personas salen con su número de orden. El cuadro se puede plegar y la página l
    - Al validar, el cuadrante se cambia solo y queda en el historial del turno.
    - Les llega un correo a los dos interesados.
    - «Validar sin firma» queda anotado, por si el gestor no puede firmar.
+
+**Cesión con devolución (19/11/2026).** Al pedir una cesión sale marcado «Le devolveré el servicio» (se puede
+desmarcar), y queda en el PDF. Al validarla, se registra sola como servicio debido del solicitante al compañero, del
+mismo tipo de servicio, y el gestor la asigna desde «Servicios debidos pendientes».
+
+**El cambio se ve en el cuadrante, para todos:**
+- mientras está en trámite: «🔁 Cambio nº N en trámite (pendiente del compañero / del gestor) con …»;
+- una vez validado: la etiqueta «cambio de servicio» y «Cambio nº N (cesión): lo hace X en lugar de Y». También sale en
+  el cuadrante impreso.
 
 Antes de firmar se comprueba que el cuadrante sigue igual que cuando se pidió. Los adjuntos son
 `CAMBIO-<n>-1-solicitante.pdf`, `-2-companero.pdf` y `-3-validado.pdf`, cada uno con una firma más. La librería
