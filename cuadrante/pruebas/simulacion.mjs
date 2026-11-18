@@ -42,13 +42,15 @@ async function abrir(id, esAdmin, verbose, url) {
   p.on('dialog', d => d.accept());
   await ctx.route('**/*', async r => {
     const req = r.request(), u = decodeURIComponent(req.url());
+    const am = u.match(/\/att\/([^/]+)\/(\d+)\/(.+)$/);
+    if (am) { const it = listas[am[1]].items.find(x => x.Id === +am[2]); const buf = it && it.__adj && it.__adj[am[3]]; return buf ? r.fulfill({ body: buf, contentType: 'application/pdf' }) : r.fulfill({ status: 404, body: '' }); }
     const J = (obj, st) => r.fulfill({ status: st || 200, contentType: 'application/json', body: JSON.stringify(verbose ? { d: verboso(obj.value ? { results: obj.value } : obj) } : obj) });
     if (!u.includes('/_api/')) return r.fulfill({ body: process.env.PROXY ? html.replace(/<\/head>/gi, '<script>/*filtro*/</script></head>') : html, contentType: 'text/html' });
     if (verbose && req.method() === 'GET' && /nometadata/.test(req.headers().accept || '')) return r.fulfill({ status: 406, body: '' });
     const resto = u.split('/_api/')[1], lm = resto.match(/getbytitle\('([^']+)'\)/), L = lm && listas[lm[1].toUpperCase()];
     const NO = () => r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: { message: { value: 'List does not exist' } } }) });
     if (req.method() === 'POST') {
-      const c = JSON.parse(req.postData() || '{}'); posts.push({ ruta: resto, cuerpo: c, cab: req.headers() });
+      let c = {}; try { c = JSON.parse(req.postData() || '{}'); } catch (e) { c = {}; } posts.push({ ruta: resto, cuerpo: c, cab: req.headers() });
       if (resto === 'contextinfo') return J({ GetContextWebInformation: { FormDigestValue: 'D', FormDigestTimeoutSeconds: 1800 } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = c.properties, dest = [pr.To, pr.CC, pr.BCC].flatMap(x => x ? x.results : []);
@@ -63,7 +65,10 @@ async function abrir(id, esAdmin, verbose, url) {
       if (L) {
         if (/fields\/createfieldasxml/.test(resto)) { L.campos.push(/Name="([^"]+)"/.exec(c.parameters.SchemaXml)[1]); return J({}); }
         if (/breakroleinheritance|addroleassignment/.test(resto)) { if (/breakrole/.test(resto)) L.info.HasUniqueRoleAssignments = true; return J({}); }
-        if (/AttachmentFiles\/add/.test(resto)) { const m = resto.match(/items\((\d+)\)/); const it = L.items.find(x => x.Id === +m[1]); if (it) it.Attachments = true; return J({}); }
+        if (/AttachmentFiles\/add/.test(resto)) {
+          const m = resto.match(/items\((\d+)\)/), fn = resto.match(/FileName='([^']+)'/)[1], it = L.items.find(x => x.Id === +m[1]);
+          if (it) { it.Attachments = true; (it.__adj = it.__adj || {})[fn] = req.postDataBuffer(); } return J({});
+        }
         const rc = resto.match(/items\((\d+)\)\/recycle\(\)/);
         if (rc) { L.items = L.items.filter(x => x.Id !== +rc[1]); return J({ Recycle: 'g' }); }
         const mi = resto.match(/items\((\d+)\)$/);
@@ -91,6 +96,8 @@ async function abrir(id, esAdmin, verbose, url) {
       if (lm[1].startsWith('CUADRANTE') && !admin && !Object.keys(grupos).some(g => g.startsWith('CUADRANTE') && grupos[g].includes(yoId))) return NO();
       if (/\/fields/.test(resto)) return J({ value: L.campos.map(n => ({ InternalName: n })) });
       if (/\/roleassignments/.test(resto)) return J({ value: [] });
+      const ad = resto.match(/items\((\d+)\)\/AttachmentFiles/);
+      if (ad) { const it = L.items.find(x => x.Id === +ad[1]); return J({ value: Object.keys((it && it.__adj) || {}).map(n => ({ FileName: n, ServerRelativeUrl: '/att/' + lm[1].toUpperCase() + '/' + it.Id + '/' + n })) }); }
       if (/\/items/.test(resto)) {
         const fl = (u.match(/\$filter=([^&]*)/) || [])[1] || '', me = fl.match(/SolicitanteId eq (\d+)/), app = fl.match(/Aplicacion eq '([^']+)'/);
         return J({ value: L.items.filter(x => (!me || x.SolicitanteId === +me[1]) && (!app || x.Aplicacion === app[1])).map(conPersonas) });
@@ -100,6 +107,13 @@ async function abrir(id, esAdmin, verbose, url) {
     return r.fulfill({ status: 404, body: '{}' });
   });
   await p.goto(url || PAGINA); await p.waitForTimeout(1200);
+  // AutoFirma simulado: añade una «firma» (un /ByteRange) al final del PDF que recibe
+  await p.evaluate(() => {
+    window.__firmas = [];
+    if (typeof AutoScript === 'undefined') return;
+    AutoScript.cargarAppAfirma = function () {};
+    AutoScript.sign = (datos, alg, fmt, prm, ok) => { window.__firmas.push({ alg, fmt, prm }); setTimeout(() => ok(btoa(atob(datos) + '\n%firma\n/ByteRange [0 10 20 30]\n')), 30); };
+  });
   return { b, p, errs };
 }
 const texto = async p => (await p.textContent('#vista')).replace(/\s+/g, ' ');
@@ -114,7 +128,7 @@ async function prueba(verbose) {
   let { b, p, errs } = await abrir(7, true, verbose);
   comprueba(tag + 'sin listas, el administrador va a Ajustes', /Falta «CUADRANTE COMPONENTES»/.test(await texto(p)), (await texto(p)).slice(0, 200));
   await p.click('[data-ajlistas]'); await p.waitForTimeout(2500);
-  comprueba(tag + 'crea las 4 listas con sus columnas', ['CUADRANTE COMPONENTES', 'CUADRANTE TURNOS', 'CUADRANTE AUSENCIAS', 'CUADRANTE FESTIVOS'].every(t => listas[t] && listas[t].campos.length >= 2) && listas['CUADRANTE TURNOS'].campos.includes('EstadoTurno'));
+  comprueba(tag + 'crea las 5 listas con sus columnas', ['CUADRANTE COMPONENTES', 'CUADRANTE TURNOS', 'CUADRANTE AUSENCIAS', 'CUADRANTE FESTIVOS', 'CUADRANTE CAMBIOS'].every(t => listas[t] && listas[t].campos.length >= 2) && listas['CUADRANTE TURNOS'].campos.includes('EstadoTurno'));
   await tab(p, 'ajustes');
   await p.click('[data-ajgrupo="CUADRANTE_GESTORES"]'); await p.waitForTimeout(800);
   await p.click('[data-ajgrupo="CUADRANTE_USUARIOS"]'); await p.waitForTimeout(800);
@@ -124,7 +138,7 @@ async function prueba(verbose) {
   comprueba(tag + 'añade a la gestora al grupo de gestores', grupos.CUADRANTE_GESTORES.includes(8));
   await p.click('[data-ajpermisos]'); await p.waitForTimeout(1500);
   const asig = posts.filter(x => /addroleassignment/.test(x.ruta));
-  comprueba(tag + 'da permisos: lectura a usuarios (colaborar en ausencias) y colaborar a gestores', asig.length === 8 && asig.some(x => /AUSENCIAS'\)\/roleassignments\/addroleassignment\(principalid=\d+,roledefid=1073741827/.test(x.ruta)) && posts.filter(x => /breakroleinheritance/.test(x.ruta)).length === 4, asig.length);
+  comprueba(tag + 'da permisos: lectura a usuarios (colaborar en ausencias) y colaborar a gestores', asig.length === 10 && asig.some(x => /AUSENCIAS'\)\/roleassignments\/addroleassignment\(principalid=\d+,roledefid=1073741827/.test(x.ruta)) && posts.filter(x => /breakroleinheritance/.test(x.ruta)).length === 5 && asig.some(x => /CAMBIOS'\)\/roleassignments\/addroleassignment\(principalid=\d+,roledefid=1073741827/.test(x.ruta)), asig.length);
   // el administrador deja su cuenta para el aviso directo de las solicitudes de acceso
   comprueba(tag + 'el administrador deja su cuenta en la descripción de la lista común', /asansen@et\.mde\.es=i:0#\.w\|et\\asansen/.test(listas['SOLICITUDES ACCESO APLICACIONES'].info.Description));
   // alta de un componente desde el formulario
@@ -163,7 +177,7 @@ async function prueba(verbose) {
   // 3. La gestora propone, revisa y publica enero de 2027
   ({ b, p, errs } = await abrir(8, false, verbose, PAGINA + '?mes=2027-01'));
   let t = await texto(p);
-  comprueba(tag + 'la gestora ve las pestañas de gestión, sin Ajustes ni Accesos', await p.$$eval('#tabs a', a => a.map(x => x.dataset.v).join(',')) === 'mes,mios,anio,ausencias,componentes,festivos');
+  comprueba(tag + 'la gestora ve las pestañas de gestión, sin Ajustes ni Accesos', await p.$$eval('#tabs a', a => a.map(x => x.dataset.v).join(',')) === 'mes,mios,cambios,anio,ausencias,componentes,festivos');
   comprueba(tag + 'enero de 2027 sale como propuesta sin guardar', /enero de 2027/.test(t) && /PROPUESTA SIN GUARDAR/.test(t));
   const filas = await p.$$eval('table.cuad tbody tr', trs => trs.map(tr => [tr.cells[0].querySelector('b').textContent, tr.cells[1].textContent, ...[2, 3].map(i => { const s = tr.cells[i].querySelector('select'); return s.options[s.selectedIndex].text; })]));
   const fila = r => filas.find(f => f[0] === r) || [];
@@ -245,6 +259,71 @@ async function prueba(verbose) {
   if (process.env.FOTOS && !verbose) { await p.setViewportSize({ width: 1300, height: 900 }); await p.screenshot({ path: process.env.FOTOS + '/anio.png' }); }
   comprueba(tag + 'la comisión sale con su color en la vista anual', (await p.$$eval('table.anio td', tds => tds.filter(x => /0, 176, 80/.test(x.style.background)).length)) > 0);
   comprueba(tag + 'sin errores de página (gestión)', errs.length === 0, errs.join(' | '));
+  await b.close();
+
+  // 5b. Cambio de servicio con tres firmas: SUB3 (vacaciones cortas el 11-12) pide una permuta a SUB4
+  const LT2 = listas['CUADRANTE TURNOS'], LCB = listas['CUADRANTE CAMBIOS'];
+  const tA = LT2.items.find(x => x.Cuadrante === 'SUBOFICIALES' && x.Componente === id[23] && x.Inicio.startsWith('2027-01-11'));
+  ({ b, p, errs } = await abrir(23, false, verbose));
+  await tab(p, 'mios');
+  comprueba(tag + 'el servicio con vacaciones cortas ofrece «Pedir cambio» destacado', !!tA && await p.$eval('[data-cambiopedir="' + tA.Id + '"]', x => x.classList.contains('prim')).catch(() => false));
+  await p.click('[data-cambiopedir="' + tA.Id + '"]'); await p.waitForTimeout(300);
+  const compas = await p.$$eval('#fCambio [name=comp] option', o => o.map(x => x.textContent).filter(Boolean));
+  comprueba(tag + 'solo ofrece compañeros de su cuadrante', compas.length > 1 && compas.slice(1).every(x => /SUBOFICIAL|SARGENTO/.test(x)) && !compas.some(x => /SUBOFICIAL NUMERO 3/.test(x)), compas.join(' | '));
+  await p.selectOption('#fCambio [name=comp]', String(id[24])); await p.waitForTimeout(300);
+  const opsB = await p.$$eval('#fCambio [name=turnoB] option', o => o.map(x => [x.value, x.textContent]).filter(x => x[0]));
+  comprueba(tag + 'en la permuta solo salen servicios de diario del compañero', opsB.length > 0 && opsB.every(x => /diario/.test(x[1])), JSON.stringify(opsB));
+  const tB = LT2.items.find(x => x.Id === Number(opsB[opsB.length - 1][0]));
+  await p.selectOption('#fCambio [name=turnoB]', opsB[opsB.length - 1][0]); await p.waitForTimeout(300);
+  comprueba(tag + 'avisa si el servicio que recibe choca con sus propias vacaciones', /el servicio que recibes \(Mié 13 – Jue 14 ene/.test(await p.textContent('#fCambio')));
+  await p.fill('#fCambio [name=motivo]', 'Vacaciones del 11 al 13');
+  correos.length = 0; await p.click('[data-cambiofirmar]'); await p.waitForTimeout(1500);
+  const cb = LCB.items[0], f1 = await p.evaluate(() => window.__firmas.map(f => f.prm));
+  const pdf1 = cb && cb.__adj && cb.__adj['CAMBIO-' + cb.Id + '-1-solicitante.pdf'];
+  comprueba(tag + 'paso 1: firma con AutoFirma (PAdES, recuadro del solicitante) y guarda la solicitud', f1.length === 1 && /signaturePositionOnPageLowerLeftX=54/.test(f1[0]) && cb && cb.EstadoCambio === 'PENDIENTE DEL COMPAÑERO' && cb.TurnoA === tA.Id && cb.TurnoB === tB.Id && cb.TipoCambio === 'PERMUTA' && cb.Firmas === '1', JSON.stringify(cb && { ...cb, __adj: 0 }));
+  comprueba(tag + 'el PDF firmado queda adjunto', !!pdf1 && pdf1.toString('latin1').startsWith('%PDF-1.4') && /SOLICITUD DE CAMBIO DE SERVICIO/.test(pdf1.toString('latin1')) && (pdf1.toString('latin1').match(/\/ByteRange/g) || []).length === 1);
+  comprueba(tag + 'avisa al compañero a su cuenta', correos.some(c => /SOLICITUD DE CAMBIO/.test(c.asunto) && c.to.includes('i:0#.w|et\\sub4')));
+  comprueba(tag + 'el servicio queda «cambio en trámite»', /Cambio nº 1 en trámite/.test(await texto(p)));
+  comprueba(tag + 'sin errores de página (solicitante)', errs.length === 0, errs.join(' | '));
+  await b.close();
+  // paso 2: el compañero acepta y firma
+  ({ b, p, errs } = await abrir(24, false, verbose));
+  comprueba(tag + 'el compañero entra directamente en «Mis servicios» con el cambio que le piden', /Cambios que te piden/.test(await texto(p)) && !!(await p.$('[data-cambioaceptar="1"]')));
+  correos.length = 0; await p.click('[data-cambioaceptar="1"]'); await p.waitForTimeout(1500);
+  const pdf2 = cb.__adj['CAMBIO-1-2-companero.pdf'];
+  comprueba(tag + 'paso 2: firma sobre el mismo PDF (dos firmas) y pasa al gestor', cb.EstadoCambio === 'PENDIENTE DEL GESTOR' && cb.Firmas === '1,2' && !!pdf2 && (pdf2.toString('latin1').match(/\/ByteRange/g) || []).length === 2 && pdf2.toString('latin1').startsWith(pdf1.toString('latin1')) &&
+    /signaturePositionOnPageLowerLeftX=22\d/.test((await p.evaluate(() => window.__firmas.map(f => f.prm)))[0] || ''));
+  comprueba(tag + 'avisa a los gestores', correos.some(c => /PENDIENTE DE VALIDAR/.test(c.asunto) && c.to.includes('i:0#.w|et\\gestora')));
+  comprueba(tag + 'sin errores de página (compañero)', errs.length === 0, errs.join(' | '));
+  await b.close();
+  // paso 3: la gestora valida y firma; el cuadrante cambia solo
+  ({ b, p, errs } = await abrir(8, false, verbose, PAGINA + '?mes=2027-01'));
+  comprueba(tag + 'la pestaña Cambios marca 1 pendiente', /1/.test(await p.textContent('#tabs a[data-v="cambios"] i')));
+  await tab(p, 'cambios');
+  correos.length = 0; await p.click('[data-cambiovalidar="1"]:not([data-sinfirma])'); await p.waitForTimeout(2000);
+  const pdf3 = cb.__adj['CAMBIO-1-3-validado.pdf']; if (process.env.FOTOS && !verbose) fs.writeFileSync(process.env.FOTOS + '/cambio.pdf', pdf3);
+  comprueba(tag + 'paso 3: tres firmas, VALIDADO y permuta aplicada en el cuadrante', cb.EstadoCambio === 'VALIDADO' && cb.Firmas === '1,2,3' && !!pdf3 && (pdf3.toString('latin1').match(/\/ByteRange/g) || []).length === 3 &&
+    tA.Componente === id[24] && tB.Componente === id[23] && /Cambio de servicio nº 1 \(permuta\) validado/.test(tA.Historial), JSON.stringify([tA.Componente, tB.Componente, cb.EstadoCambio]));
+  comprueba(tag + 'avisa a los dos interesados', correos.some(c => /VALIDADO/.test(c.asunto) && c.to.includes('i:0#.w|et\\sub3') && c.to.includes('i:0#.w|et\\sub4')));
+  await tab(p, 'mes');
+  { const tm = await texto(p); comprueba(tag + 'el mes ya no avisa de que SUB3 debe hacer un cambio el 11-12', !/Lun 11 – Mar 12 ene · Auxiliar de servicio · BRIGADA SUBOFICIAL NUMERO 3/.test(tm), (tm.match(/Revisar.{200}/) || [''])[0]); }
+  comprueba(tag + 'sin errores de página (gestora, cambios)', errs.length === 0, errs.join(' | '));
+  await b.close();
+  // Cesión rechazada por el compañero
+  const tC = LT2.items.filter(x => x.Cuadrante === 'SUBOFICIALES' && x.Componente === id[21]).sort((a, b) => a.Inicio.localeCompare(b.Inicio)).pop();
+  ({ b, p, errs } = await abrir(21, false, verbose));
+  await tab(p, 'mios'); await p.click('[data-cambiopedir="' + tC.Id + '"]'); await p.waitForTimeout(300);
+  await p.selectOption('#fCambio [name=tipo]', 'CESION'); await p.waitForTimeout(200);
+  comprueba(tag + 'en la cesión no se pide servicio a cambio', !(await p.$('#fCambio [name=turnoB]')));
+  await p.selectOption('#fCambio [name=comp]', String(id[22])); await p.waitForTimeout(200); await p.fill('#fCambio [name=motivo]', 'Curso');
+  await p.click('[data-cambiofirmar]'); await p.waitForTimeout(1200); await b.close();
+  ({ b, p, errs } = await abrir(22, false, verbose));
+  await p.fill('[data-cambio="2"] .cambioResp', 'Estoy de guardia ese día'); correos.length = 0;
+  await p.click('[data-cambiorechazar="2"]'); await p.waitForTimeout(1200);
+  const cb2 = LCB.items[1];
+  comprueba(tag + 'cesión rechazada por el compañero con motivo y aviso a los dos', cb2.TipoCambio === 'CESION' && cb2.EstadoCambio === 'RECHAZADO' && cb2.Respuesta === 'Estoy de guardia ese día' && tC.Componente === id[21] &&
+    correos.some(c => /RECHAZADO/.test(c.asunto) && c.to.includes('i:0#.w|et\\sub1')));
+  comprueba(tag + 'sin errores de página (cesión)', errs.length === 0, errs.join(' | '));
   await b.close();
 
   // 6. Alguien sin acceso lo solicita: el aviso va a la cuenta del administrador

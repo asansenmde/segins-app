@@ -9,12 +9,12 @@
 | `colabora/cuadrante.html` | **Copia cifrada que se sube a Colabora** (`cd cuadrante/proteger && node proteger.mjs`). |
 | `pruebas/simulacion.mjs` | Prueba completa contra un SharePoint simulado, en formato ligero y *verbose*. Con `CUAD_HTML=cuadrante/colabora/cuadrante.html` prueba la copia cifrada y con `PROXY=1`, el filtro de la red. |
 
-## Puesta en marcha (fase 1, versión 2026-11-18 · 1)
+## Puesta en marcha (versión 2026-11-18 · 3: fase 1 y cambios de servicio)
 
 1. Subir `colabora/cuadrante.html` a una biblioteca del sitio JSUIGE (por ejemplo `…/JSUIGE/aplicaciones/`) y abrirla con
    la cuenta que tiene Control total.
 2. En **Ajustes**:
-   - «Crear las listas que faltan» (las cuatro, con sus columnas);
+   - «Crear las listas que faltan» (las cinco, con sus columnas; «CUADRANTE CAMBIOS» es la de los cambios de servicio);
    - crear los grupos `CUADRANTE_GESTORES` y `CUADRANTE_USUARIOS`;
    - añadir a los gestores;
    - «Dar los permisos».
@@ -119,6 +119,28 @@ correo a la cuenta y copia cifrada entera.
   y queda anotado «sin firma».
 - **Control total en JSUIGE:** el usuario. Desde Ajustes crea las listas y el grupo `CUADRANTE_GESTORES`, y aprueba
   las solicitudes de acceso.
+
+## Cambios de servicio (18/11/2026)
+
+1. **Pedir.** El interesado, en «Mis servicios», pulsa «🔁 Pedir cambio» en uno de sus servicios publicados. El botón
+   sale destacado si ese servicio tiene el aviso «debe hacer un cambio». Elige:
+   - el tipo: **permuta** (cada uno hace el del otro; solo servicios del mismo tipo) o **cesión** (el compañero le
+     cubre sin devolución);
+   - el compañero, de su mismo cuadrante;
+   - el motivo.
+
+   La página genera el PDF de la solicitud, que se firma con AutoFirma (recuadro del solicitante). Se guarda en
+   «CUADRANTE CAMBIOS» con el PDF adjunto y le llega un correo al compañero.
+2. **Aceptar.** El compañero lo ve al entrar: «Aceptar y firmar» firma el mismo PDF en su recuadro; también puede
+   «Rechazar» con motivo. Al aceptar, les llega un correo a los gestores.
+3. **Validar.** Un gestor, en la pestaña «Cambios», pulsa «Validar y firmar» (tercera firma) o «Rechazar».
+   - Al validar, el cuadrante se cambia solo y queda en el historial del turno.
+   - Les llega un correo a los dos interesados.
+   - «Validar sin firma» queda anotado, por si el gestor no puede firmar.
+
+Antes de firmar se comprueba que el cuadrante sigue igual que cuando se pidió. Los adjuntos son
+`CAMBIO-<n>-1-solicitante.pdf`, `-2-companero.pdf` y `-3-validado.pdf`, cada uno con una firma más. La librería
+de AutoFirma va pegada en el HTML, como en VSA.
 
 ## Lo que se toma de la hoja actual (Excel de 2026, solo como referencia)
 

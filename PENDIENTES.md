@@ -27,10 +27,10 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
    2026-11-17 · 3, y **abrir cada una una vez con la cuenta del administrador** (deja su cuenta guardada en la descripción
    de la lista de solicitudes; en Accesos sale «✔ guardada»). Probar con alguien sin acceso: le debe llegar el aviso o
    salirle «Falta un paso» con el botón de Outlook.
-11. **Cuadrante de servicios (18/11/2026), fase 1 (versión 2026-11-18 · 2):** subir `cuadrante/colabora/cuadrante.html` a JSUIGE y seguir la
+11. **Cuadrante de servicios (18/11/2026), versión 2026-11-18 · 3 (fase 1 y cambios de servicio con firma):** subir `cuadrante/colabora/cuadrante.html` a JSUIGE y seguir la
    «Puesta en marcha» de `cuadrante/README.md` (listas, grupos, gestores, permisos, componentes, festivos de 2027 y
-   publicar enero). Fase 2, pendiente: cambios de servicio (permuta y cesión) con tres firmas de AutoFirma, permisos
-   autorizados traídos de la aplicación de Permisos y botón «Comunicar al cuadrante» en Permisos.
+   publicar enero). Probar un cambio de servicio real con AutoFirma y TEMD (las tres firmas). Pendiente: traer los
+   permisos autorizados de la aplicación de Permisos y el botón «Comunicar al cuadrante» en Permisos.
 
 ## Pendiente de que el usuario decida
 
