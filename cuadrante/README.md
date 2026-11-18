@@ -82,5 +82,27 @@ correo a la cuenta y copia cifrada entera.
   impresión y autoría. Sin escudo.
 - **Inicio:** enero de 2027. En diciembre el gestor da de alta a los componentes e indica el siguiente de cada lista;
   no se meten meses anteriores.
+- **Permisos:** se pasan al cuadrante **todos los permisos AUTORIZADOS**. Entran ya aprobados (solo se avisa al
+  gestor), y el gestor puede cambiarles el tipo. Las ausencias comunicadas a mano (comisión, baja, curso) sí las aprueba
+  el gestor.
+- **AutoFirma:** todos tienen certificado y AutoFirma. Si alguien no puede firmar, el gestor puede validar igualmente
+  y queda anotado «sin firma».
+- **Control total en JSUIGE:** el usuario. Desde Ajustes crea las listas y el grupo `CUADRANTE_GESTORES`, y aprueba
+  las solicitudes de acceso.
+
+## Diseño propuesto
+
+Listas, que crea la página desde Ajustes:
+
+| Lista | Qué guarda |
+|---|---|
+| CUADRANTE COMPONENTES | persona, cuadrante (oficiales/suboficiales), empleo, antigüedad, teléfono, negociado, alta/baja |
+| CUADRANTE TURNOS | cada turno publicado: fecha de inicio y fin, tipo (diario/fin de semana/festivo/puente), cuadrante, persona, estado |
+| CUADRANTE AUSENCIAS | persona, tipo, fechas, origen (a mano o Permisos), adjunto, estado, motivo del rechazo |
+| CUADRANTE CAMBIOS | permuta o cesión, turnos, las dos personas, firmas (PDF adjunto), estado, historial |
+| CUADRANTE FESTIVOS | fecha, nombre, ámbito (nacional/Andalucía/Sevilla), puentes marcados por el gestor |
+
+Acceso: lista común «SOLICITUDES ACCESO APLICACIONES» con aviso directo al administrador. Ver el cuadrante: quien esté
+de alta en CUADRANTE COMPONENTES. Gestionar: el grupo `CUADRANTE_GESTORES`. Ajustes y Accesos: solo con Control total.
 
 Pendiente de confirmar: ver la conversación del 18/11/2026 y `PENDIENTES.md`.
