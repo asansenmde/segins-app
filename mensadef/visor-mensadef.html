@@ -531,7 +531,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-18 · 2';
+  var VERSION = '2026-11-18 · 3';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1565,28 +1565,64 @@
   var normRef = function (v) { return String(v || '').toUpperCase().replace(/\s+/g, '').replace(/[‐-―]/g, '-'); };
   var refsDe = function (m) { var x = m._x || {}; return [m.MensajeNum_referencia, x.NumeroRegistroEntrada, x.NumeroRegistroSalida, x.Nref].map(normRef).filter(Boolean); };
   var casaRef = function (m, r) { return refsDe(m).some(function (v) { return v === r || (r.length >= 5 && v.length >= 5 && (v.indexOf(r) >= 0 || r.indexOf(v) >= 0)); }); };
+  // 18/11/2026 (tarde): «Su referencia» trae texto libre («S/Ref.: …», «escrito n.º …», fechas): se sacan los trozos que
+  // parecen referencias (llevan números) y se busca cada uno en N.º referencia y registros de los demás mensajes. Si hay
+  // varios, se elige de una lista; siempre queda una caja para corregir el texto a mano y volver a buscar.
+  function trozosRef(texto) {
+    var t = String(texto || '').toUpperCase(), l = [];
+    (t.match(/[A-Z0-9ÁÉÍÓÚÑ][A-Z0-9ÁÉÍÓÚÑ\-\/\.]*[0-9][A-Z0-9ÁÉÍÓÚÑ\-\/\.]*/g) || []).forEach(function (x) {
+      x = x.replace(/[\.\-\/]+$/, '');
+      if (x.length < 3 || /^\d{1,2}[\/\.-]\d{1,2}([\/\.-]\d{2,4})?$/.test(x) || /^(19|20)\d\d$/.test(x)) return;   // fechas y años sueltos
+      l.push(normRef(x));
+    });
+    var entero = normRef(texto); if (entero && entero.length <= 40) l.unshift(entero);
+    return l.filter(function (x, i) { return x && l.indexOf(x) === i; }).slice(0, 6);
+  }
+  var digitos = function (v) { return String(v || '').replace(/\D/g, ''); };
+  // Exacto o contenido (≥ 5 caracteres); y, más flojo, mismos dígitos si son 5 o más
+  var casaAlguno = function (m, trozos) { return trozos.some(function (r) { return casaRef(m, r); }) ||
+    trozos.some(function (r) { var d = digitos(r); return d.length >= 5 && refsDe(m).some(function (v) { return digitos(v) === d; }); }); };
   function irAReferencia(desde, ref) {
-    var r = normRef(ref), msg = function (t) { if ($('msgRef')) $('msgRef').textContent = t; };
-    if (!r) return;
-    var ya = mensajes.filter(function (x) { return x !== desde && casaRef(x, r); })[0];
-    if (ya) return abrir(ya);
-    if (!modoApi || !apiCtx) return msg('No está en lo cargado.');
-    msg('Buscando en MENSADEF…');
-    var tareas = []; celulasElegidas().forEach(function (c) { [1, 2].forEach(function (es) { tareas.push({ c: c, es: es }); }); });
-    var hallado = null;
+    var caja = $('msgRef'), msg = function (t) { if (caja) caja.innerHTML = t; };
+    var trozos = trozosRef(ref);
+    // Caja para corregir la referencia a mano
+    var cajaBuscar = function (antes) {
+      msg((antes || '') + '<span style="display:inline-flex;gap:4px;margin-top:4px"><input id="refManual" size="22" value="' + esc(ref) + '" title="Corrige la referencia y pulsa Buscar"><button type="button" id="refBuscar">🔎 Buscar</button></span>');
+      $('refBuscar').addEventListener('click', function () { irAReferencia(desde, $('refManual').value); });
+      $('refManual').addEventListener('keydown', function (e) { if (e.key === 'Enter') irAReferencia(desde, $('refManual').value); });
+    };
+    if (!trozos.length) return cajaBuscar('No veo ninguna referencia en ese texto. ');
+    var elegir = function (l, donde) {
+      if (l.length === 1) return abrirHallado(l[0]);
+      cajaBuscar('<b>' + l.length + ' mensajes ' + donde + ':</b><br>' + l.slice(0, 8).map(function (x, i) {
+        return '<a href="#" data-cand="' + i + '">' + esc((x.MensajeNum_referencia || '') + ' · ' + verFecha(fechaDe(x)) + ' · ' + String(x._asunto || '').slice(0, 60)) + '</a>'; }).join('<br>') + '<br>');
+      Array.prototype.forEach.call(caja.querySelectorAll('[data-cand]'), function (a) { a.addEventListener('click', function (e) { e.preventDefault(); abrirHallado(l[Number(a.getAttribute('data-cand'))]); }); });
+    };
+    var abrirHallado = function (x) {
+      var k = claveMensaje(x), igual = mensajes.filter(function (y) { return claveMensaje(y) === k; })[0];
+      if (!igual) { x._fueraPeriodo = true; mensajes.push(x); filtrar(); }
+      abrir(igual || x);
+    };
+    var ya = mensajes.filter(function (x) { return x !== desde && casaAlguno(x, trozos); });
+    if (ya.length) return elegir(ya, 'cargados con esa referencia');
+    if (!modoApi || !apiCtx) return cajaBuscar('No está en lo cargado. ');
+    msg('Buscando ' + esc(trozos.join(', ')) + ' en MENSADEF…');
+    var tareas = []; trozos.slice(0, 4).forEach(function (tr) { celulasElegidas().forEach(function (c) { [1, 2].forEach(function (es) { tareas.push({ c: c, es: es, tr: tr }); }); }); });
+    var hallados = [], vistos = {};
     var una = function (t) {
-      return pedirApi('buzon/ObtenerBuzonCelula', { idCelula: t.c.id, emailUsuario: apiCtx.email, urlColeccionSitio: apiCtx.url, indicePagina: 1, tamanoPagina: 50, tipoES: t.es, criterioBusqueda: String(ref).trim(), soloPendientes: false }).then(function (d) {
+      return pedirApi('buzon/ObtenerBuzonCelula', { idCelula: t.c.id, emailUsuario: apiCtx.email, urlColeccionSitio: apiCtx.url, indicePagina: 1, tamanoPagina: 50, tipoES: t.es, criterioBusqueda: t.tr, soloPendientes: false }).then(function (d) {
         var els = (d && (d.ListaElementos || d.listaElementos)) || primerArray(d) || [];
-        var ms = els.map(function (e) { return deApi(e, t.c, t.es); }).filter(function (x) { return casaRef(x, r) && (!desde || x.MensajeId !== desde.MensajeId); });
-        if (ms.length && !hallado) hallado = ms[0];
+        els.map(function (e) { return deApi(e, t.c, t.es); }).forEach(function (x) {
+          var k = claveMensaje(x);
+          if (!vistos[k] && casaAlguno(x, trozos) && (!desde || x.MensajeId !== desde.MensajeId)) { vistos[k] = 1; hallados.push(x); }
+        });
       }, function () { /* esa bandeja no responde: se sigue con las demás */ });
     };
-    var cola = tareas.slice(), trabajador = function () { var t = cola.shift(); if (!t || hallado) return Promise.resolve(); return una(t).then(trabajador); };
-    Promise.all([trabajador(), trabajador(), trabajador(), trabajador()]).then(function () {
-      if (!hallado) return msg('No encuentro ningún mensaje con la referencia ' + ref + ' en tus células.');
-      var k = claveMensaje(hallado), igual = mensajes.filter(function (x) { return claveMensaje(x) === k; })[0];
-      if (!igual) { hallado._fueraPeriodo = true; mensajes.push(hallado); filtrar(); }
-      abrir(igual || hallado);
+    var cola = tareas.slice(), trabajador = function () { var t = cola.shift(); if (!t) return Promise.resolve(); return una(t).then(trabajador); };
+    Promise.all([trabajador(), trabajador(), trabajador(), trabajador(), trabajador(), trabajador()]).then(function () {
+      if (abierto !== desde) return;
+      if (!hallados.length) return cajaBuscar('No encuentro ningún mensaje con ' + esc(trozos.join(', ')) + ' en tus células. ');
+      elegir(hallados, 'en MENSADEF');
     });
   }
   // 🖨 Imprimir / PDF (18/11/2026): el mensaje con formato de oficio en una ventana nueva y la ventana de imprimir del

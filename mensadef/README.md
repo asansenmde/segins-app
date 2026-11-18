@@ -516,4 +516,8 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-18 · 2:** **«Su referencia» pulsable** (petición del jefe del usuario): abre el mensaje con ese número de registro
   o referencia; si no está en lo cargado, lo busca en MENSADEF con su buscador (`criterioBusqueda`) en todas las células,
   entrada y salida, lo añade a la lista y lo abre. Las pruebas cargan 3 días (`INICIO=sin` comprueba que por defecto es hoy).
+- **2026-11-18 · 3:** «Su referencia» con **texto libre** («S/Ref.: …», «escrito n.º … de fecha»): se sacan los trozos que parecen
+  referencias (llevan números; sin fechas ni años sueltos) y se busca cada uno en N.º referencia y registros (exacto, contenido
+  si tiene 5 o más caracteres, o los mismos dígitos si son 5 o más). Si hay varios, lista para elegir; si no, caja para
+  corregir la referencia a mano y «🔎 Buscar».
 

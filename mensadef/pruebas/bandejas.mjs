@@ -26,7 +26,7 @@ const bandeja = (cel, es, pag, tam) => {
   for (let i = (pag - 1) * tam; i < Math.min(total, pag * tam); i++) els.push({ IdMensaje: '0000' + cel.slice(0, 4) + '-' + es + '000-0000-0000-' + String(i).padStart(12, '0'), IdBuzonCelula: G3, Asunto: process.env.PRESENTA ? ASUNTOS[i % ASUNTOS.length] : 'Mensaje ' + i + ' de ' + cel.slice(0, 4),
     Cuerpo: process.env.PRESENTA ? '<p>Se remite para su conocimiento y efectos la documentación adjunta. Se ruega acuse de recibo y, en su caso, la designación de un punto de contacto antes del próximo viernes.</p>' : '<p>Texto del mensaje ' + i + '</p><script>alert(1)</script>', Fecha: hace(i < 130 ? i * 0.3 : 24 * 40 + i), FechaRegistroEntrada: hace(i), IdEstadoMensaje: 3,
     NombreEstadoUltimaDistribucionSalida: es === '2' && i === 0 ? 'Pendiente de Validar' : '', EstadoMensaje: es === '2' && i === 0 ? 'Borrador' : es === '2' && i === 2 ? 'Enviado' : es === '2' && i === 1 ? 'Pendiente de firma' : i === 7 ? 'Pendiente de firma' : i % 3 ? 'Pendiente' : 'Leído', EstadoParaUsuario: i % 2 ? 'No leído' : 'Leído', TipoES: es === '1' ? 'E' : 'S', TipoMensaje: i % 4 ? 'Informe' : 'Orden', CodigoPrioridad: i % 9 ? 'R' : 'U',
-    CelulaRemitente: i % 2 ? 'ET 2SUIGE JEFATURA' : 'ET 2SUIGE REGISTRO', CelulaDestinataria: 'ET 2SUIGE SETEC SEGURIDAD', NumeroRegistroEntrada: 'RE-' + i, Sref: i === 3 ? 'RE-1' : i === 4 ? 'RS-ANTIGUO-9' : 'SREF-' + i,
+    CelulaRemitente: i % 2 ? 'ET 2SUIGE JEFATURA' : 'ET 2SUIGE REGISTRO', CelulaDestinataria: 'ET 2SUIGE SETEC SEGURIDAD', NumeroRegistroEntrada: 'RE-' + i, Sref: i === 3 ? 'Su escrito n.º RE-1 de 12/11/2026' : i === 4 ? 'S/Ref.: RS-ANTIGUO-9 (correo)' : 'SREF-' + i,
     ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 3 === 0 ? 'ACCIÓN' : i % 3 === 1 ? 'INFORMACIÓN' : '', UltimoComentario: i % 10 === 5 ? 'Añadido como tarea en META (META) por OTRA PERSONA el 12/11/2026, 10:00:00 · SENDERO' : i % 4 === 0 ? 'Comentario ficticio ' + i : '', Firma: i % 2 ? (process.env.PRESENTA ? 'GENERAL JEFE DE LA SUIGE' : 'GENERAL JEFE <b>A</b>') : '', MotivoDistribucion: i % 3 ? 'Para conocimiento' : 'Para actuación', EnviableARubrica: es === '2' ? 'true' : 'false', BuzonPersonal: false, IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
   return { ListaElementos: els, ListaAgrupaciones: [], IndicePagina: pag, TamanoPagina: tam, TotalRegistros: total };
 };
@@ -576,15 +576,22 @@ for (const n of [0, 40]) {
   console.log('localizar RE-' + n + ':', await pest.evaluate(() => ({ abierto: window.abierto || '', buscado: window.buscado || '', aviso: (document.getElementById('avisoVisor') || {}).textContent || '', resaltada: !!document.querySelector('tr[style*="outline"]'), url: location.hash.slice(0, 20) })));
   await pest.close(); await p.bringToFront();
 }
-// 18/11/2026: «Su referencia» pulsable: RE-3 se refiere a RE-1 (cargado) y RE-4 a RS-ANTIGUO-9 (de otra fecha, en MENSADEF)
-{ await p.fill('#buscar', 'RE-3'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
-  const ref1 = await p.textContent('.irRef').catch(() => ''); await p.click('.irRef'); await p.waitForTimeout(600);
-  const a1 = await p.$$eval('#detalle .ficha-campos dt', l => (l.find(d => d.textContent === 'N.º referencia') || {}).nextElementSibling?.textContent || '');
+// 18/11/2026: «Su referencia» pulsable con texto libre: RE-3 → «Su escrito n.º RE-1 de 12/11/2026» (cargado); RE-4 → «S/Ref.:
+// RS-ANTIGUO-9 (correo)» (de otra fecha, en MENSADEF); RE-5 → «SREF-5» (no existe): caja para corregirla a mano (RE-2)
+{ const refDe = () => p.$$eval('#detalle .ficha-campos dt', l => (l.find(d => d.textContent === 'N.º referencia') || {}).nextElementSibling?.textContent || '');
+  // Si hay varios con esa referencia (en la simulación, una por célula), SENDERO da una lista: se elige el primero
+  let listas = 0; const elegir = async () => { if (await p.$('#msgRef [data-cand]')) { listas++; await p.click('#msgRef [data-cand] >> nth=0'); await p.waitForTimeout(600); } };
+  await p.fill('#buscar', 'RE-3'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
+  await p.click('.irRef'); await p.waitForTimeout(600); await elegir(); const a1 = await refDe();
   await p.fill('#buscar', 'RE-4'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
   const n0 = buscadosRef.length; await p.click('.irRef'); await p.waitForFunction(() => /Mensaje antiguo referenciado/.test((document.querySelector('#detalle') || {}).textContent || ''), null, { timeout: 20000 }).catch(() => 0);
-  const antiguo = /Mensaje antiguo referenciado/.test(await p.textContent('#detalle'));
-  console.log('referencia: «' + ref1.trim() + '» abre', a1, '| la de otra fecha se busca en MENSADEF:', buscadosRef.length - n0, 'consultas · abierta:', antiguo);
-  if (!/RE-1/.test(ref1) || a1 !== 'RE-1' || !antiguo || buscadosRef.length === n0) console.log('Error: ir a la referencia');
+  const antiguo = /Mensaje antiguo referenciado/.test(await p.textContent('#detalle')), busco = [...new Set(buscadosRef.slice(n0))];
+  await p.fill('#buscar', 'RE-5'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
+  await p.click('.irRef'); await p.waitForSelector('#refManual', { timeout: 20000 }).catch(() => 0);
+  const caja = !!(await p.$('#refManual')); if (caja) { await p.fill('#refManual', 'RE-2'); await p.click('#refBuscar'); await p.waitForTimeout(600); await elegir(); }
+  const a3 = await refDe();
+  console.log('referencia: texto libre → abre', a1, '| la de otra fecha: buscó', busco.join(' y '), '· abierta:', antiguo, '| sin encontrar: caja para corregir', caja, '→ RE-2 abre', a3, '| listas para elegir:', listas);
+  if (a1 !== 'RE-1' || !antiguo || !busco.includes('RS-ANTIGUO-9') || !caja || a3 !== 'RE-2') console.log('Error: ir a la referencia');
   await p.fill('#buscar', ''); await p.waitForTimeout(300); }
 // 18/11/2026: «🖨 Imprimir / PDF»: ventana con el mensaje en formato de oficio
 { await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
