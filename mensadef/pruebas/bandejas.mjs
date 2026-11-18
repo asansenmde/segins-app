@@ -584,6 +584,16 @@ for (const n of [0, 40]) {
   comExtra = true; await p.click('#actualizar'); await p.waitForFunction(() => !document.getElementById('actualizar').disabled, null, { timeout: 30000 }); await p.waitForTimeout(500);
   const filas = await p.$$eval('#lista tbody tr[data-i]', l => l.filter(t => t.querySelector('.t-com')).map(t => (t.textContent.match(/Mensaje \d+ de \w+/) || [''])[0]));
   const franja = (await p.textContent('#avisoComent').catch(() => '')).replace(/\s+/g, ' ');
+  // Otra ventana (misma memoria del navegador) marca vistos los comentarios: en esta desaparece la etiqueta sin recargar
+  const p2 = await ctx.newPage(); await p2.goto(O + WEB + '/SitePages/ambito.aspx');
+  const antesOtra = await p.$$eval('#lista tbody tr[data-i] .t-com', l => l.length);
+  await p2.evaluate(M => localStorage.setItem(M + 'comNuevos', '{}'), MEM); await p.waitForTimeout(600);
+  const trasOtra = await p.$$eval('#lista tbody tr[data-i] .t-com', l => l.length);
+  const guardado = await p2.evaluate(M => localStorage.getItem(M + 'comNuevos'), MEM);
+  await p2.evaluate(([M, g]) => localStorage.setItem(M + 'comNuevos', g), [MEM, JSON.stringify({ '00008d71-1000-0000-0000-000000000002': new Date().toISOString() })]); await p.waitForTimeout(600);
+  const vuelve = await p.$$eval('#lista tbody tr[data-i] .t-com', l => l.length); await p2.close();
+  console.log('comentarios nuevos en dos ventanas: aquí', antesOtra, '→ vistos en la otra', trasOtra, '→ marcado en la otra', vuelve);
+  if (antesOtra !== 1 || trasOtra !== 0 || vuelve !== 1) console.log('Error: aviso de comentarios en dos ventanas');
   await p.click('#verComNuevos').catch(() => 0); await p.waitForTimeout(300); const solo = await p.$$eval('#lista tbody tr[data-i]', l => l.length);
   if (solo) { await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(500); }
   const tras = await p.$$eval('#lista tbody tr[data-i] .t-com', l => l.length), franja2 = await p.isVisible('#avisoComent');

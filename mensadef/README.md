@@ -538,4 +538,6 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-18 · 9:** **«✉ Enviar con el PDF»** en la ficha: descarga el PDF original (primer anexo .pdf; si no hay, abre el
   oficio de SENDERO para «Guardar como PDF») y abre el correo de Outlook preparado; el navegador no deja adjuntar, así que se
   arrastra el PDF al correo (aviso en la ficha).
+- **2026-11-18 · 10:** aviso de comentarios con **SENDERO abierto en varias ventanas**: cada una relee lo guardado antes de comparar
+  o marcar (antes se pisaban) y escucha los cambios de las otras (evento `storage`): lo visto en una se quita en todas.
 
