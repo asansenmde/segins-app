@@ -577,21 +577,27 @@ for (const n of [0, 40]) {
   await pest.close(); await p.bringToFront();
 }
 // 18/11/2026: «Su referencia» pulsable con texto libre: RE-3 → «Su escrito n.º RE-1 de 12/11/2026» (cargado); RE-4 → «S/Ref.:
-// RS-ANTIGUO-9 (correo)» (de otra fecha, en MENSADEF); RE-5 → «SREF-5» (no existe): caja para corregirla a mano (RE-2)
-{ const refDe = () => p.$$eval('#detalle .ficha-campos dt', l => { const dd = (l.find(d => d.textContent === 'N.º referencia') || {}).nextElementSibling; return dd ? ((dd.querySelector('a') || dd).textContent || '').replace(/🔗\s*/, '').trim() : ''; });
-  // Si hay varios con esa referencia (en la simulación, una por célula), SENDERO da una lista: se elige el primero
-  let listas = 0; const elegir = async () => { if (await p.$('#msgRef [data-cand]')) { listas++; await p.click('#msgRef [data-cand] >> nth=0'); await p.waitForTimeout(600); } };
+// RS-ANTIGUO-9 (correo)» (de otra fecha, en MENSADEF); RE-5 → «SREF-5» (no existe): caja para corregirla a mano (RE-2).
+// El encontrado sale en una ventana encima; al cerrarla sigue la ficha de antes y la lista no cambia.
+{ const refFicha = () => p.$$eval('#detalle .ficha-campos dt', l => { const dd = (l.find(d => d.textContent === 'N.º referencia') || {}).nextElementSibling; return dd ? ((dd.querySelector('a') || dd).textContent || '').replace(/🔗\s*/, '').trim() : ''; });
+  const refVentana = () => p.$$eval('#refModal dt', l => ((l.find(d => d.textContent === 'N.º referencia') || {}).nextElementSibling || {}).textContent || '').catch(() => '');
+  let listas = 0; const elegir = async (id) => { if (await p.$('#' + id + ' [data-cand]')) { listas++; await p.click('#' + id + ' [data-cand] >> nth=0'); await p.waitForTimeout(600); } };
+  const cerrar = async () => { if (await p.$('#refCerrar')) { await p.click('#refCerrar'); await p.waitForTimeout(300); } };
   await p.fill('#buscar', 'RE-3'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
-  await p.click('.irRef[data-msg="msgRef"]'); await p.waitForTimeout(600); await elegir(); const a1 = await refDe();
+  await p.click('.irRef[data-msg="msgRef"]'); await p.waitForTimeout(600); await elegir('msgRef');
+  const a1 = await refVentana(); await cerrar(); const sigue1 = await refFicha();
   await p.fill('#buscar', 'RE-4'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
-  const n0 = buscadosRef.length; await p.click('.irRef[data-msg="msgRef"]'); await p.waitForFunction(() => /Mensaje antiguo referenciado/.test((document.querySelector('#detalle') || {}).textContent || ''), null, { timeout: 20000 }).catch(() => 0);
-  const antiguo = /Mensaje antiguo referenciado/.test(await p.textContent('#detalle')), busco = [...new Set(buscadosRef.slice(n0))];
+  const n0 = buscadosRef.length; await p.click('.irRef[data-msg="msgRef"]'); await p.waitForFunction(() => /Mensaje antiguo referenciado/.test((document.querySelector('#refModal') || {}).textContent || ''), null, { timeout: 20000 }).catch(() => 0);
+  const antiguo = /Mensaje antiguo referenciado/.test(await p.textContent('#refModal').catch(() => '')), busco = [...new Set(buscadosRef.slice(n0))];
+  await p.waitForTimeout(600); const conTexto = !/Cargando el texto/.test(await p.textContent('#refAnexos').catch(() => ''));
+  await p.keyboard.press('Escape'); await p.waitForTimeout(300); const cerradaEsc = !(await p.$('#refModal')), sigue2 = await refFicha();
+  const fueraLista = !(await p.$$eval('#lista tbody tr[data-i]', l => l.some(t => /Mensaje antiguo referenciado/.test(t.textContent))));
   await p.fill('#buscar', 'RE-5'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
   await p.click('.irRef[data-msg="msgRef"]'); await p.waitForSelector('#msgRef .refManual', { timeout: 20000 }).catch(() => 0);
-  const caja = !!(await p.$('#msgRef .refManual')); if (caja) { await p.fill('#msgRef .refManual', 'RE-2'); await p.click('#msgRef .refBuscar'); await p.waitForTimeout(600); await elegir(); }
-  const a3 = await refDe();
-  console.log('referencia: texto libre → abre', a1, '| la de otra fecha: buscó', busco.join(' y '), '· abierta:', antiguo, '| sin encontrar: caja para corregir', caja, '→ RE-2 abre', a3, '| listas para elegir:', listas);
-  if (a1 !== 'RE-1' || !antiguo || !busco.includes('RS-ANTIGUO-9') || !caja || a3 !== 'RE-2') console.log('Error: ir a la referencia');
+  const caja = !!(await p.$('#msgRef .refManual')); if (caja) { await p.fill('#msgRef .refManual', 'RE-2'); await p.click('#msgRef .refBuscar'); await p.waitForTimeout(600); await elegir('msgRef'); }
+  const a3 = await refVentana(); await cerrar();
+  console.log('referencia: texto libre → ventana con', a1, '· al cerrar sigue', sigue1, '| la de otra fecha: buscó', busco.join(' y '), '· en la ventana:', antiguo, '· texto y anexos:', conTexto, '· Esc la cierra:', cerradaEsc, '· sigue', sigue2, '· no entra en la lista:', fueraLista, '| a mano RE-2 →', a3, '| listas:', listas);
+  if (a1 !== 'RE-1' || sigue1 !== 'RE-3' || !antiguo || !busco.includes('RS-ANTIGUO-9') || !conTexto || !cerradaEsc || sigue2 !== 'RE-4' || !fueraLista || !caja || a3 !== 'RE-2') console.log('Error: ir a la referencia');
   // «N.º referencia» pulsable: desde RE-1, los que lo citan en «Su referencia» (RE-3) y los que llevan el mismo número
   await p.fill('#buscar', 'RE-1'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
   await p.click('.irRef[data-msg="msgRefN"]'); await p.waitForTimeout(800);

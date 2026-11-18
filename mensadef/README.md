@@ -522,4 +522,7 @@ con el formato *verbose* de SharePoint 2013.
   corregir la referencia a mano y «🔎 Buscar».
 - **2026-11-18 · 4:** **«N.º referencia» también pulsable**: busca los mensajes que citan ese número en su «Su referencia»
   (respuestas, comparando por trozos: «RE-1» no casa con «SREF-10») y los que llevan ese mismo número.
+- **2026-11-18 · 5:** el mensaje encontrado por una referencia se ve en una **ventana encima** (datos, texto, anexos, «🖨 Imprimir /
+  PDF», «Abrir en MENSADEF»); «✕ Cerrar y volver», Esc o pulsar fuera la quitan y se sigue en la lista y la ficha de antes. Ya
+  no se añade a la lista (antes, uno de hace meses se quedaba en la lista de hoy).
 

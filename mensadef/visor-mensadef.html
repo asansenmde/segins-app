@@ -531,7 +531,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-18 · 4';
+  var VERSION = '2026-11-18 · 5';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1602,11 +1602,8 @@
         return '<a href="#" data-cand="' + i + '">' + esc((x.MensajeNum_referencia || '') + ' · ' + verFecha(fechaDe(x)) + ' · ' + String(x._asunto || '').slice(0, 60)) + '</a>'; }).join('<br>') + '<br>');
       Array.prototype.forEach.call(caja.querySelectorAll('[data-cand]'), function (a) { a.addEventListener('click', function (e) { e.preventDefault(); abrirHallado(l[Number(a.getAttribute('data-cand'))]); }); });
     };
-    var abrirHallado = function (x) {
-      var k = claveMensaje(x), igual = mensajes.filter(function (y) { return claveMensaje(y) === k; })[0];
-      if (!igual) { x._fueraPeriodo = true; mensajes.push(x); filtrar(); }
-      abrir(igual || x);
-    };
+    // 18/11/2026: el mensaje encontrado se ve en una ventana encima; al cerrarla se sigue donde se estaba (lista y ficha)
+    var abrirHallado = function (x) { verReferenciado(x); };
     var ya = mensajes.filter(function (x) { return x !== desde && casa(x); });
     if (ya.length) return elegir(ya, 'cargados con esa referencia');
     if (!modoApi || !apiCtx) return cajaBuscar('No está en lo cargado. ');
@@ -1628,6 +1625,43 @@
       if (!hallados.length) return cajaBuscar('No encuentro ningún mensaje con ' + esc(trozos.join(', ')) + ' en tus células. ');
       elegir(hallados, 'en MENSADEF');
     });
+  }
+  // Ventana del mensaje referenciado (18/11/2026): datos, texto y anexos de solo lectura, con Imprimir/PDF y «Abrir en
+  // MENSADEF». No toca la lista ni la ficha abierta; «Cerrar», Esc o pulsar fuera la quitan.
+  function verReferenciado(x) {
+    var viejo = $('refModal'); if (viejo) viejo.parentNode.removeChild(viejo);
+    var d = document.createElement('div'); d.id = 'refModal';
+    d.style.cssText = 'position:fixed;inset:0;background:rgba(10,20,35,.55);z-index:9000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 12px';
+    var f = fechaDe(x), xx = x._x || {};
+    var filas = [['Fecha', f ? verFecha(f) : ''], ['Bandeja', xx.__es || ''], ['Remitente', autoridad(x) || ''], ['N.º referencia', x.MensajeNum_referencia || ''], ['Su referencia', x.MensajeSu_referencia || ''],
+      ['Firma', CLAVES.firma(x) || ''], ['Célula', sitioDe(x) || ''], ['Estado', x.MensajeEstado || '']].filter(function (r) { return r[1]; });
+    d.innerHTML = '<div class="card" style="max-width:900px;width:100%;margin:0;box-shadow:0 12px 40px rgba(0,0,0,.35)">' +
+      '<div style="display:flex;gap:8px;align-items:center;border-bottom:2px solid #12315a;padding-bottom:8px;margin-bottom:10px"><b style="color:#12315a">🔗 Mensaje referenciado</b>' +
+      '<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><button type="button" id="refImprimir">🖨 Imprimir / PDF</button>' + (x._api ? '<button type="button" id="refMensadef">Abrir en MENSADEF</button>' : '') +
+      '<button type="button" class="prim" id="refCerrar">✕ Cerrar y volver</button></span></div>' +
+      '<h2 style="margin:0 0 8px;font-size:1.1rem">' + esc(x._asunto || x.Title || '(sin asunto)') + '</h2>' +
+      '<dl class="ficha-campos">' + filas.map(function (r) { return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>'; }).join('') + '</dl>' +
+      '<div id="refAnexos" class="small muted" style="margin:8px 0">📎 Cargando el texto y los anexos…</div>' +
+      '<div id="refTexto" style="white-space:pre-wrap;border:1px solid #d3dce8;border-radius:8px;padding:10px;max-height:50vh;overflow:auto">' + esc(x._cuerpo || '') + '</div></div>';
+    document.body.appendChild(d);
+    var cerrar = function () { if (d.parentNode) d.parentNode.removeChild(d); document.removeEventListener('keydown', tecla, true); };
+    var tecla = function (e) { if (e.key === 'Escape') { e.stopPropagation(); cerrar(); } };
+    document.addEventListener('keydown', tecla, true);
+    d.addEventListener('click', function (e) { if (e.target === d) cerrar(); });
+    $('refCerrar').addEventListener('click', cerrar);
+    $('refImprimir').addEventListener('click', function () { imprimirMensaje(x); });
+    if ($('refMensadef')) $('refMensadef').addEventListener('click', function () { localizarEnMensadef(x); });
+    if (!x._api || !apiCtx) { $('refAnexos').textContent = ''; return; }
+    cuerpoCompleto(x).then(function (j) {
+      if (!$('refModal')) return;
+      if (j.Cuerpo && !x._cuerpo) { x._cuerpo = texto(String(j.Cuerpo)); $('refTexto').textContent = x._cuerpo; }
+      var ds = (j.AnexosDigitales || []).filter(Boolean); x._anexos = ds;
+      $('refAnexos').innerHTML = ds.length ? '<b>📎 Anexos (' + ds.length + ')</b>' + ds.map(function (a, i) {
+        var nom = a.Titulo || a.Nombre || 'Anexo ' + (i + 1), cif = /\.cif$/i.test(a.Nombre || ''), u = urlAnexo(a);
+        return '<div class="anexo"><span class="ic">' + iconoAnexo(a.Nombre || nom) + '</span><div class="nm">' + esc(nom) + '</div>' + (u ? (cif ? '' : '<button type="button" data-refanexo="' + i + '" data-modo="abrir">Abrir</button>') + '<button type="button" data-refanexo="' + i + '" data-modo="bajar">⬇ Descargar</button>' : '') + '</div>'; }).join('') : 'Sin anexos digitales.';
+      Array.prototype.forEach.call($('refAnexos').querySelectorAll('[data-refanexo]'), function (b) { b.addEventListener('click', function () { usarAnexo(x, Number(b.getAttribute('data-refanexo')), b.getAttribute('data-modo'), b); }); });
+      if (!$('refTexto').textContent) $('refTexto').textContent = '(sin texto)';
+    }, function () { if ($('refAnexos')) $('refAnexos').textContent = 'No se pudieron leer el texto y los anexos: ábrelo en MENSADEF.'; });
   }
   // 🖨 Imprimir / PDF (18/11/2026): el mensaje con formato de oficio en una ventana nueva y la ventana de imprimir del
   // navegador («Guardar como PDF»). Con los destinatarios y anexos si ya se han leído (al abrir la ficha).
