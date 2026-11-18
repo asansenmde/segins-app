@@ -577,21 +577,19 @@ for (const n of [0, 40]) {
   await pest.close(); await p.bringToFront();
 }
 // 18/11/2026: aviso de comentarios nuevos (de momento solo en pruebas): al actualizar, RE-2 trae un comentario de otra persona
-// (aviso) y RE-6 uno de SENDERO (sin aviso); notificación de Windows simulada
-if (!FINAL) {
-  await p.evaluate(() => { window.__notif = []; window.Notification = function (t, o) { window.__notif.push(t + ' | ' + (o && o.body)); }; window.Notification.permission = 'granted'; window.Notification.requestPermission = () => Promise.resolve('granted'); });
-  const ctl = await p.isVisible('#ctlComent'), auto = await p.isChecked('#autoAct');
-  await p.check('#notifCom'); await p.waitForTimeout(200);
+// (aviso) y RE-6 uno de SENDERO (sin aviso); sin notificación de Windows (MENSADEF no la permite)
+{
+  const ctl = await p.isVisible('#ctlComent'), auto = await p.isChecked('#autoAct'), sinWindows = !(await p.$('#notifCom'));
   await p.fill('#buscar', ''); await p.waitForTimeout(300);
   comExtra = true; await p.click('#actualizar'); await p.waitForFunction(() => !document.getElementById('actualizar').disabled, null, { timeout: 30000 }); await p.waitForTimeout(500);
   const filas = await p.$$eval('#lista tbody tr[data-i]', l => l.filter(t => t.querySelector('.t-com')).map(t => (t.textContent.match(/Mensaje \d+ de \w+/) || [''])[0]));
-  const franja = (await p.textContent('#avisoComent').catch(() => '')).replace(/\s+/g, ' '), notif = await p.evaluate(() => window.__notif);
+  const franja = (await p.textContent('#avisoComent').catch(() => '')).replace(/\s+/g, ' ');
   await p.click('#verComNuevos').catch(() => 0); await p.waitForTimeout(300); const solo = await p.$$eval('#lista tbody tr[data-i]', l => l.length);
   if (solo) { await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(500); }
   const tras = await p.$$eval('#lista tbody tr[data-i] .t-com', l => l.length), franja2 = await p.isVisible('#avisoComent');
   if (await p.isVisible('#verComNuevos')) { await p.click('#verComNuevos'); await p.waitForTimeout(300); }
-  console.log('comentarios nuevos: controles', ctl, '· actualizar solo', auto, '| avisa en', filas.join(','), '| franja «' + franja.slice(0, 45) + '» | notificación:', notif.length, '| ver solo esos:', solo, '| al abrirlo: etiquetas', tras, '· franja', franja2);
-  if (!ctl || !auto || filas.length !== 1 || !/Mensaje 2 de 8d71/.test(filas[0]) || !/1 mensaje con comentario nuevo/.test(franja) || notif.length !== 1 || solo !== 1 || tras) console.log('Error: aviso de comentarios');
+  console.log('comentarios nuevos: controles', ctl, '· actualizar solo', auto, '| avisa en', filas.join(','), '| franja «' + franja.slice(0, 45) + '» | sin aviso de Windows:', sinWindows, '| ver solo esos:', solo, '| al abrirlo: etiquetas', tras, '· franja', franja2);
+  if (!ctl || !auto || filas.length !== 1 || !/Mensaje 2 de 8d71/.test(filas[0]) || !/1 mensaje con comentario nuevo/.test(franja) || !sinWindows || solo !== 1 || tras) console.log('Error: aviso de comentarios');
   comExtra = false;
 }
 // 18/11/2026: «Su referencia» pulsable con texto libre: RE-3 → «Su escrito n.º RE-1 de 12/11/2026» (cargado); RE-4 → «S/Ref.:

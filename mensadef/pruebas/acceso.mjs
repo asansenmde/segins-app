@@ -59,7 +59,8 @@ const anadir = async (tipo, valor, resp = '', meta = '', psit = '') => { await p
 await anadir('Ámbito', '2suige', 'gestor@pruebas.invalid', 'https://colabora.mdef.es/et/ORG/META.html', 'https://colabora.mdef.es/et/ORG/puntos-situacion.html'); await anadir('Ámbito', '3SUIGE', 'gestor@pruebas.invalid');
 await p.click('#rCuerpo tr:has-text("3SUIGE") [data-act]'); await p.waitForTimeout(600);
 console.log('reglas:', est.listas['SENDERO Autorizados'].items.map(x => x.Tipo + ' ' + x.Title + (x.Activo ? '' : ' (inactiva)') + (x.Responsables ? ' resp ' + x.Responsables : '')).join(' | '));
-await pulsar('[data-pest="version"]'); await p.fill('#vVer', '2026-12-01 · 1'); await p.uncheck('#vObligar'); await pulsar('#vGuardar');
+await pulsar('[data-pest="version"]'); await p.fill('#vVer', '2026-12-01 · 1'); await p.fill('#vNov', '- Carga solo hoy al abrir\n- Imprimir el oficio en PDF'); await p.uncheck('#vObligar'); await pulsar('#vGuardar');
+{ const nov = await p.inputValue('#vNovVig').catch(() => ''); console.log('novedades: guardadas con la versión:', /Imprimir el oficio/.test(nov)); if (!/Carga solo hoy[\s\S]*Imprimir el oficio/.test(nov)) error('novedades'); }
 console.log('versión vigente:', await p.textContent('#cont p'));
 // 16/11/2026: «✉ Avisar por correo» de la versión vigente (copia oculta; el responsable con cuenta antigua, a la buena)
 // Antes de enviar sale la lista con casillas: se añade una persona, se desmarca y no le llega
@@ -74,6 +75,8 @@ est.listas['SENDERO Autorizados'].items.push({ Id: 990, Title: 'quitada@pruebas.
   console.log('aviso de versión:', (await p.textContent('#vAvisoMsg')).trim().slice(0, 120), '| correos', nuevos.length, '| destinatarios', dest.join(','), '| asunto', (nuevos[0] || {}).asunto);
   if (dest.includes('quitada@pruebas.invalid')) error('avisa a quien se desmarcó');
   est.listas['SENDERO Autorizados'].items = est.listas['SENDERO Autorizados'].items.filter(x => x.Id !== 990);
+  console.log('novedades en el correo:', /Novedades[\s\S]*Carga solo hoy[\s\S]*Imprimir el oficio/.test((nuevos[0] || {}).cuerpo || ''));
+  if (!/Novedades[\s\S]*Carga solo hoy/.test((nuevos[0] || {}).cuerpo || '')) error('novedades en el correo');
   if (!nuevos.length || !dest.includes('gestor.nuevo@pruebas.invalid') || !/Versión nueva 2026-12-01 · 1/.test((nuevos[0] || {}).asunto || '') || !/Abrir la página de SENDERO/.test((nuevos[0] || {}).cuerpo || '')) error('aviso de versión por correo'); }
 { const antes = await p.inputValue('#vCad'); await p.selectOption('#vCad', '60'); await pulsar('#vCadGuardar');
   const r = await preguntar('2SUIGE'); await p.selectOption('#vCad', '0'); await pulsar('#vCadGuardar'); const r2 = await preguntar('2SUIGE');

@@ -59,7 +59,7 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-17 · 1';
+  var VERSION = '2026-11-18 · 1';
   // Solo se contesta a SENDERO, que funciona en MENSADEF (el favorito escribe su página sobre la de MENSADEF)
   var ORIGEN_SENDERO = 'https://mensadef.mdef.es';
   var L_AUT = 'SENDERO Autorizados', L_SOL = 'SENDERO Solicitudes', GRUPO = 'SENDERO Administradores';
@@ -250,11 +250,12 @@
     }).catch(function () { /* columna sin crear o sin permiso */ });
   }
   var enlacePagina = function () { return location.href.split('#')[0]; };
-  function cuerpoCorreo(intro, filas, enlace, textoEnlace) {
+  function cuerpoCorreo(intro, filas, enlace, textoEnlace, bloque) {
     var h = '<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#1c2a3a"><div style="background:#efc000;color:#12315a;font-weight:bold;padding:6px 10px">SENDERO · Control de acceso</div>' +
       '<p>' + esc(intro) + '</p><table style="border-collapse:collapse">' + filas.map(function (f) { return '<tr><td style="padding:3px 10px 3px 0;color:#5a6676">' + esc(f[0]) + '</td><td style="padding:3px 0"><b>' + esc(f[1]) + '</b></td></tr>'; }).join('') + '</table>' +
+      (bloque ? '<p style="margin:10px 0 4px"><b>' + esc(bloque[0]) + '</b></p><div style="white-space:pre-wrap;border-left:3px solid #efc000;padding:4px 10px">' + esc(bloque[1]) + '</div>' : '') +
       (enlace ? '<p><a href="' + esc(enlace) + '">' + esc(textoEnlace) + '</a></p>' : '') + '<p style="color:#5a6676;font-size:12px">SENDERO · © 2026 Cte. Alfredo Sánchez Sender</p></div>';
-    return { html: h, texto: intro + '\n\n' + filas.map(function (f) { return f[0] + ': ' + f[1]; }).join('\n') + (enlace ? '\n\n' + textoEnlace + ': ' + enlace : '') };
+    return { html: h, texto: intro + '\n\n' + filas.map(function (f) { return f[0] + ': ' + f[1]; }).join('\n') + (bloque ? '\n\n' + bloque[0] + ':\n' + bloque[1] : '') + (enlace ? '\n\n' + textoEnlace + ': ' + enlace : '') };
   }
   // Aviso de solicitud nueva: al administrador y a los responsables del ámbito
   function avisarSolicitud(sol) {
@@ -304,14 +305,16 @@
   // (30, 60, 90; 0 = indefinida). Sin anotar, 30.
   var ES_VERSION = /^\d{4}-\d\d-\d\d · \d+$/;
   function leerVersiones() {
-    return todas(urlL(L_AUT) + "/items?$select=Id,Title,Tipo,Activo,Nota&$filter=" + encodeURIComponent("Tipo eq 'Versión'") + '&$top=200').then(function (l) {
+    return todas(urlL(L_AUT) + "/items?$select=Id,Title,Tipo,Activo,Nota,Responsables&$filter=" + encodeURIComponent("Tipo eq 'Versión'") + '&$top=200').then(function (l) {
       var v = l.filter(function (x) { return activo(x) && ES_VERSION.test(String(x.Title || '').trim()); }).sort(function (a, b) { return b.Id - a.Id; })[0];
       var c = l.filter(function (x) { return norm(x.Title) === 'caducidad'; }).sort(function (a, b) { return b.Id - a.Id; })[0];
       var dias = c ? (/indefinid/i.test(c.Nota || '') ? 0 : Number(c.Nota) || 30) : 30;
       // 16/11/2026: versión mínima obligatoria (elemento «Mínima»): las anteriores ya no abren
       var mi = l.filter(function (x) { return norm(x.Title) === 'minima' || norm(x.Title) === 'mínima'; }).sort(function (a, b) { return b.Id - a.Id; })[0];
       var minima = mi && activo(mi) && ES_VERSION.test(String(mi.Nota || '').trim()) ? String(mi.Nota).trim() : '';
-      return { vigente: v ? { version: v.Title || '', url: (v.Nota || '').trim() } : null, caducidad: dias, idCaducidad: c ? c.Id : null, minima: minima, idMinima: mi ? mi.Id : null };
+      // 18/11/2026: las novedades de cada versión van en «Responsables» (en las versiones esa columna no se usa)
+      var historial = l.filter(function (x) { return ES_VERSION.test(String(x.Title || '').trim()); }).sort(function (a, b) { return b.Id - a.Id; }).map(function (x) { return { version: x.Title, novedades: x.Responsables || '' }; });
+      return { historial: historial, vigente: v ? { id: v.Id, version: v.Title || '', url: (v.Nota || '').trim(), novedades: v.Responsables || '' } : null, caducidad: dias, idCaducidad: c ? c.Id : null, minima: minima, idMinima: mi ? mi.Id : null };
     }, function () { return { vigente: null, caducidad: 30, idCaducidad: null, minima: '', idMinima: null }; });
   }
   var numVersion = function (v) { var x = /^(\d{4})-(\d\d)-(\d\d) · (\d+)/.exec(String(v || '').trim()); return x ? Number(x[1] + x[2] + x[3]) * 1000 + Number(x[4]) : 0; };
@@ -564,14 +567,22 @@
       // 16/11/2026: SENDERO no se descarga: se instala desde su página en Colabora (por defecto, aplicaciones/SENDERO.html de JSUIGE)
       var v = vs.vigente, pagina = (v && v.url) || 'https://colabora.mdef.es/et/SUIGESUR/JSUIGE/aplicaciones/SENDERO.html';
       $('cont').innerHTML = '<p>Versión vigente: ' + (v ? '<b>' + esc(v.version) + '</b>' + (v.url ? ' · <a href="' + esc(v.url) + '" target="_blank" rel="noopener">página de instalación</a>' : '') : '<span class="muted">ninguna anotada</span>') + '</p>' +
+        // Novedades de la vigente (se pueden escribir o corregir antes de avisar) e historial de versiones
+        (v ? '<div class="card" style="background:#f8faf6"><b>Novedades de la ' + esc(v.version) + '</b><textarea id="vNovVig" maxlength="4000" style="margin-top:4px">' + esc(v.novedades || '') + '</textarea><button type="button" id="vNovGuardar">Guardar novedades</button></div>' : '') +
+        ((vs.historial || []).length > 1 ? '<details style="margin:0 0 10px"><summary>Historial de versiones (' + vs.historial.length + ')</summary>' + vs.historial.slice(0, 12).map(function (h) { return '<p style="margin:6px 0"><b>' + esc(h.version) + '</b>' + (h.novedades ? '<br><span style="white-space:pre-wrap">' + esc(h.novedades) + '</span>' : ' <span class="muted">(sin novedades anotadas)</span>') + '</p>'; }).join('') + '</details>' : '') +
         '<p class="muted">Cuando subas un SENDERO nuevo a su página de Colabora (SENDERO.html, donde se arrastra el botón a favoritos), anota aquí su versión: a quien tenga una anterior, SENDERO le avisará de que hay una nueva con el enlace a esa página. No se descarga ningún archivo.</p>' +
         '<div class="card" style="background:#f8faf6"><b>Caducidad de SENDERO</b><p class="muted">Cada favorito vale estos días desde el día en que se generó; los 5 últimos avisa y después no abre. Se aplica al momento a todos los favoritos, también a los ya repartidos.</p>' +
         '<label>Cada versión vale<select id="vCad"><option value="30">30 días</option><option value="60">60 días</option><option value="90">90 días</option><option value="0">Indefinida (no caduca)</option></select></label> <button type="button" class="prim" id="vCadGuardar">Guardar</button></div>' +
         '<label>Versión (la que sale en SENDERO)<input id="vVer" size="18" placeholder="2026-11-15 · 1"></label>' +
+        '<label style="display:flex">Novedades de esta versión (van en el correo de aviso; una por línea)<textarea id="vNov" maxlength="4000" placeholder="- Al abrir carga solo hoy\n- Imprimir el oficio en PDF"></textarea></label>' +
         '<label>Página de SENDERO en Colabora<input id="vUrl" size="60" value="' + esc(pagina) + '"></label>' +
         '<label style="flex-direction:row;align-items:center;gap:6px;color:#1c2a3a"><input type="checkbox" id="vObligar" checked> Obligatoria: las versiones anteriores dejan de abrir</label> <button type="button" class="prim" id="vGuardar">Anotar</button>' +
         '<div class="card" style="background:#f8faf6;margin-top:12px"><b>Versión obligatoria</b><p>' + (vs.minima ? 'Ahora solo abren la <b>' + esc(vs.minima) + '</b> y posteriores. Las anteriores muestran «Esta versión de SENDERO ya no se puede usar» con el enlace a la página de instalación. <button type="button" id="vSinMinima">Quitar la obligación</button>' : '<span class="muted">Ninguna: abren todas las versiones (hasta que caduquen).</span>') + '</p></div>';
       $('vCad').value = String(vs.caducidad);
+      if ($('vNovGuardar')) $('vNovGuardar').addEventListener('click', function () {
+        var b = this; b.disabled = true;
+        cambiarElemento(L_AUT, v.id, { Responsables: $('vNovVig').value.trim() }, NO_PERMISO).then(function () { toast('Novedades guardadas'); pintarGestion(); }, function (e) { b.disabled = false; toast('No se pudo: ' + (e.message || e)); });
+      });
       if ($('vSinMinima')) $('vSinMinima').addEventListener('click', function () {
         if (!confirm('¿Quitar la obligación? Volverán a abrir las versiones anteriores (hasta que caduquen).')) return;
         this.disabled = true; cambiarElemento(L_AUT, vs.idMinima, { Activo: false }, NO_PERMISO).then(function () { toast('Ya no hay versión obligatoria'); pintarGestion(); }, function (e) { toast('No se pudo: ' + (e.message || e)); });
@@ -612,7 +623,7 @@
           if (!elegidos.length) return;
           $('vAvisoMsg').textContent = 'Enviando a ' + elegidos.length + '…';
           var c = cuerpoCorreo('Hay una versión nueva de SENDERO (' + v.version + '). Instálala desde su página en Colabora: ábrela y arrastra el botón a tu barra de favoritos, en lugar del SENDERO que tienes. SENDERO no se descarga ni se reenvía.',
-            [['Versión', v.version], ['Aviso de', yo.nombre || yo.email]], v.url || pagina, 'Abrir la página de SENDERO en Colabora');
+            [['Versión', v.version], ['Aviso de', yo.nombre || yo.email]], v.url || pagina, 'Abrir la página de SENDERO en Colabora', v.novedades ? ['Novedades', v.novedades] : null);
           enviarCorreo({ to: [yo.email], bcc: elegidos, asunto: 'SENDERO · Versión nueva ' + v.version, html: c.html, texto: c.texto, nombres: {} }).then(function (r) { b.disabled = false; $('vAvisoMsg').innerHTML = msgCorreo(r); });
           });
         }).catch(function (e) { b.disabled = false; $('vAvisoMsg').textContent = 'No se pudo: ' + (e.message || e); });
@@ -623,7 +634,7 @@
         if (!/^https:\/\/[^/]+\.mdef\.es\//i.test(url)) return toast('La dirección tiene que ser de Colabora (https://…mdef.es/…)');
         b.disabled = true;
         var obligar = $('vObligar').checked;
-        crearElemento(L_AUT, { Title: ver, Tipo: 'Versión', Activo: true, Nota: url }, NO_PERMISO).then(function () {
+        crearElemento(L_AUT, { Title: ver, Tipo: 'Versión', Activo: true, Nota: url, Responsables: $('vNov').value.trim() }, NO_PERMISO).then(function () {
           if (!obligar) return;
           return vs.idMinima ? cambiarElemento(L_AUT, vs.idMinima, { Nota: ver, Activo: true }, NO_PERMISO) : crearElemento(L_AUT, { Title: 'Mínima', Tipo: 'Versión', Activo: true, Nota: ver }, NO_PERMISO);
         }).then(function () { toast(obligar ? 'Versión anotada y obligatoria' : 'Versión anotada'); pintarGestion(); }, function (e) { b.disabled = false; toast('No se pudo: ' + (e.message || e)); });

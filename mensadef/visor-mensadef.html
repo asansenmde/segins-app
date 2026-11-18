@@ -444,7 +444,7 @@
       <button type="button" class="prim" id="cargar">Cargar</button>
       <button type="button" id="actualizar" title="Vuelve a leer MENSADEF con las mismas fechas y células, sin cerrar la ficha abierta">⟳ Actualizar</button>
       <span class="small muted" id="ultimaAct" title="Última lectura de MENSADEF"></span>
-      <span id="ctlComent" hidden style="display:inline-flex;gap:10px;flex-wrap:wrap"><label class="check" title="Mientras SENDERO esté abierto, vuelve a leer MENSADEF cada 10 minutos (sin mover la ficha)"><input type="checkbox" id="autoAct"> Actualizar solo cada 10 min</label><label class="check" title="Notificación de Windows cuando haya comentarios nuevos (el navegador pide permiso la primera vez)"><input type="checkbox" id="notifCom"> Aviso de Windows de comentarios nuevos</label></span>
+      <span id="ctlComent" hidden style="display:inline-flex;gap:10px;flex-wrap:wrap"><label class="check" title="Mientras SENDERO esté abierto, vuelve a leer MENSADEF cada 10 minutos (sin mover la ficha)"><input type="checkbox" id="autoAct"> Actualizar solo cada 10 min</label></span>
     </div>
     <div id="avisoComent" hidden style="margin-top:8px;background:#fff3c4;border:1px solid #c9a84c;border-radius:10px;padding:6px 10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"></div>
     <div class="fila" id="filaCelulas" style="display:none;margin-top:8px"><button type="button" class="prim" id="elegirCelulas">📂 Cargar células…</button><span class="muted" id="resumenCelulas"></span></div>
@@ -533,7 +533,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-18 · 7';
+  var VERSION = '2026-11-18 · 8';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -792,12 +792,12 @@
   // 13/11/2026: «pasado a tarea» = marcado en este navegador o con el comentario «Añadido como tarea en META» en MENSADEF
   // (así se ve también lo que pasó otra persona o desde otro ordenador)
   // 16/11/2026: lo pasado al Punto de Situación (desde este navegador o, para todos, por el comentario de MENSADEF)
-  // ---------- Aviso de comentarios nuevos (18/11/2026, de momento solo en la copia de pruebas) ----------
+  // ---------- Aviso de comentarios nuevos (18/11/2026, en las dos copias desde la 2026-11-18 · 8) ----------
   // Tras cada lectura se compara el último comentario de cada mensaje con el que había: si ha cambiado y no es de SENDERO
   // («… · SENDERO») ni del propio usuario («… — SU NOMBRE»), es nuevo: «💬 Nuevo comentario» en la fila hasta abrirlo, franja con
-  // el número (pulsar = ver solo esos) y, si se quiere, notificación de Windows. La primera vez solo se apunta lo que hay.
+  // el número (pulsar = ver solo esos). La primera vez solo se apunta lo que hay.
   // Solo se ve el ÚLTIMO comentario (es lo que da MENSADEF) y solo con SENDERO abierto (con actualización cada 10 min).
-  var AVISO_COMENT = PRUEBAS;
+  var AVISO_COMENT = true;   // 18/11/2026: probado por el usuario; sin la notificación de Windows (MENSADEF no la permite)
   var comVistos = leer('comVistos', null), comNuevos = leer('comNuevos', {}) || {}, soloComNuevos = false;
   var textoCom = function (m) { return String((m._x && m._x.UltimoComentario) || '').replace(/\s+/g, ' ').trim(); };
   function guardarCom() {
@@ -815,9 +815,6 @@
       comVistos[k] = c;
     });
     guardarCom(); pintarAvisoCom();
-    if (nuevos.length && leer('notifCom', false) && window.Notification && Notification.permission === 'granted') {
-      try { new Notification('SENDERO · ' + nuevos.length + (nuevos.length === 1 ? ' comentario nuevo' : ' comentarios nuevos'), { body: nuevos.slice(0, 3).map(function (m) { return '💬 ' + String(m._asunto || '').slice(0, 70); }).join('\n'), tag: 'sendero-comentarios' }); } catch (e) { /* sin notificaciones */ }
-    }
   }
   function pintarAvisoCom() {
     var el = $('avisoComent'); if (!el) return;
@@ -831,14 +828,8 @@
   }
   if (AVISO_COMENT) {
     $('ctlComent').hidden = false;
-    $('autoAct').checked = leer('autoAct', true); $('notifCom').checked = !!leer('notifCom', false) && !!window.Notification && Notification.permission === 'granted';
+    $('autoAct').checked = leer('autoAct', true);
     $('autoAct').addEventListener('change', function () { guardar('autoAct', this.checked); });
-    $('notifCom').addEventListener('change', function () {
-      var c = this;
-      if (!c.checked) return guardar('notifCom', false);
-      if (!window.Notification) { c.checked = false; return alert('Este navegador no permite notificaciones.'); }
-      Notification.requestPermission().then(function (p) { c.checked = p === 'granted'; guardar('notifCom', c.checked); if (p !== 'granted') alert('El navegador no ha dado permiso para las notificaciones de MENSADEF.'); });
-    });
     // Cada minuto mira si han pasado 10 desde la última lectura (y no se está cargando)
     setInterval(function () { if ($('autoAct').checked && modoApi && ultimaLectura && Date.now() - ultimaLectura.getTime() >= (Number(leer('autoActMin', 10)) || 10) * 60000 && !$('actualizar').disabled) $('actualizar').click(); }, 60000);
   }
