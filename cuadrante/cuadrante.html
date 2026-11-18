@@ -257,7 +257,7 @@
   };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-18 · 1';
+  var VERSION = '2026-11-18 · 2';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuadrante de servicios · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -284,7 +284,10 @@
     ['PERMISO', '#ffc000', '#3d2a00'], ['OTROS', '#e46c0a', '#fff']];
   var TXT_AUS = { 'VACACIONES': 'Vacaciones', 'ASUNTOS PROPIOS': 'Asuntos propios', 'BAJA MEDICA': 'Baja médica', 'COMISION DE SERVICIO': 'Comisión de servicio', 'PERMISO': 'Permiso', 'OTROS': 'Otros' };
   var colorAus = function (t) { var x = TIPOS_AUS.find(function (y) { return y[0] === t; }) || TIPOS_AUS[5]; return 'background:' + x[1] + ';color:' + x[2]; };
-  var VAC_MAX = 5;   // vacaciones de más de 5 días laborables: se salta el servicio; con 5 o menos, hay que hacer un cambio
+  var VAC_MAX = 5;   // vacaciones y permisos de más de 5 días laborables: se salta el servicio; con 5 o menos, hay que hacer un cambio
+  // Qué salta el servicio (18/11/2026): comisión de servicio y baja médica, siempre; vacaciones, permisos y otros, solo si
+  // pasan de 5 días laborables; los asuntos propios nunca (hay que hacer un cambio de servicio).
+  var SIEMPRE_SALTA = ['COMISION DE SERVICIO', 'BAJA MEDICA'], NUNCA_SALTA = ['ASUNTOS PROPIOS'];
   var TIPOS_TURNO = { 'DIARIO': 'Diario', 'FIN DE SEMANA': 'Fin de semana', 'FESTIVO': 'Festivo' };
   var clase = function (tipo) { return tipo === 'DIARIO' ? 'D' : 'F'; };
   // Control de acceso: lista común de solicitudes, aviso directo al administrador (como en Incidentes)
@@ -477,8 +480,7 @@
     return res.filter(function (t) { return t.inicio >= primero && t.inicio <= ultimo; });
   }
   var laborables = function (desde, hasta) { var n = 0; for (var d = desde; d <= hasta; d = addDias(d, 1)) { var w = dSem(d); if (w >= 1 && w <= 5 && !festMap[d]) n++; } return n; };
-  // Se salta el servicio: vacaciones de más de 5 días laborables, y cualquier otra ausencia (comisión, baja, curso, permiso…)
-  var salta = function (a) { return a.tipo !== 'VACACIONES' || laborables(a.desde, a.hasta) > VAC_MAX; };
+  var salta = function (a) { return SIEMPRE_SALTA.indexOf(a.tipo) >= 0 || (NUNCA_SALTA.indexOf(a.tipo) < 0 && laborables(a.desde, a.hasta) > VAC_MAX); };
   var deComp = function (a, c) { return a.comp === c.id || (!a.comp && a.persona && c.persona && a.persona.Id === c.persona.Id); };
   var solapa = function (a, ini, fin) { return a.desde <= fin && a.hasta >= ini; };
   var ausDe = function (c, ini, fin, estados) { return ausencias.filter(function (a) { return deComp(a, c) && estados.indexOf(a.estado) >= 0 && solapa(a, ini, fin); }); };
@@ -539,7 +541,7 @@
     var r = [], a = ausSalta(c, f.inicio, f.fin);
     if (!activo(c, f.inicio, f.fin)) r.push(['rojo', 'No está de alta en el cuadrante esos días']);
     if (a) r.push(['rojo', (TXT_AUS[a.tipo] || a.tipo) + ' del ' + fCorta(a.desde) + ' al ' + fCorta(a.hasta) + ': hay que sustituirle']);
-    ausDe(c, f.inicio, f.fin, ['APROBADA', 'PENDIENTE']).filter(function (x) { return !salta(x); }).forEach(function (x) { r.push(['ambar', 'Vacaciones de ' + laborables(x.desde, x.hasta) + ' días laborables' + (x.estado === 'PENDIENTE' ? ' (pendientes de aprobar)' : '') + ': debe hacer un cambio de servicio']); });
+    ausDe(c, f.inicio, f.fin, ['APROBADA', 'PENDIENTE']).filter(function (x) { return !salta(x); }).forEach(function (x) { r.push(['ambar', (TXT_AUS[x.tipo] || x.tipo) + ' (' + laborables(x.desde, x.hasta) + ' días laborables' + (x.estado === 'PENDIENTE' ? ', pendiente de aprobar' : '') + '): no salta, debe hacer un cambio de servicio']); });
     ausDe(c, f.inicio, f.fin, ['PENDIENTE']).filter(salta).forEach(function (x) { r.push(['ambar', (TXT_AUS[x.tipo] || x.tipo) + ' pendiente de aprobar']); });
     return r;
   }
@@ -754,7 +756,7 @@
     var conf = conflictos(e);
     return nav + acc + avisos.join('') + emp + (conf ? '<div class="card conflictos"><h3 style="margin-top:0">⚠ Revisar</h3>' + conf + '</div>' : '') + tablaMes(true) + leyenda() +
       '<p class="small muted">Rotación del más antiguo al más moderno (empleo, antigüedad y escalafón). Quien tiene una ausencia aprobada que salta el servicio pierde el turno; ' +
-      'con vacaciones de ' + VAC_MAX + ' días laborables o menos no se salta: debe hacer un cambio. Cada turno cuenta en el mes en que empieza.</p>';
+      'con asuntos propios, o vacaciones y permisos de ' + VAC_MAX + ' días laborables o menos, no se salta: debe hacer un cambio. Cada turno cuenta en el mes en que empieza.</p>';
   }
   function conflictos(e) {
     var l = [];
@@ -822,7 +824,8 @@
       '<div><label class="lbl req">Desde</label><input type="date" name="desde"></div><div><label class="lbl req">Hasta</label><input type="date" name="hasta"></div></div>' +
       '<label class="lbl">Observaciones</label><textarea name="obs" rows="2" placeholder="Lugar de la comisión, curso, pendiente de incorporación…"></textarea>' +
       '<label class="lbl">Documento (opcional: orden de comisión, parte…)</label><input type="file" name="adj" multiple>' +
-      '<p class="small muted">Las vacaciones de más de ' + VAC_MAX + ' días laborables, las comisiones, bajas y demás ausencias saltan el servicio (se pierde el turno). Con vacaciones de ' + VAC_MAX + ' días laborables o menos no se salta: hay que hacer un cambio de servicio. ' +
+      '<p class="small muted">Saltan el servicio (se pierde el turno): las comisiones de servicio y las bajas, y las vacaciones, permisos y otras ausencias de más de ' + VAC_MAX + ' días laborables. ' +
+        'No saltan, y hay que hacer un cambio de servicio: los asuntos propios y las vacaciones o permisos de ' + VAC_MAX + ' días laborables o menos. ' +
       (paraOtro ? 'Registrada por un gestor, queda aprobada.' : 'La aprueba el gestor y te llega un correo.') + '</p>' +
       '<div id="ausErr"></div><div class="acciones"><button class="prim" data-ausguardar="' + (paraOtro ? '1' : '0') + '">' + (paraOtro ? 'Registrar la ausencia' : '📨 Comunicar al gestor') + '</button></div></div>';
   }
@@ -830,7 +833,7 @@
   function fichaAus(a, gestion) {
     var c = compPorId(a.comp) || comps.find(function (x) { return deComp(a, x); });
     var serv = c ? turnos.filter(function (t) { return t.comp === c.id && t.inicio <= a.hasta && t.fin >= a.desde; }) : [];
-    var lab = a.tipo === 'VACACIONES' ? ' · ' + laborables(a.desde, a.hasta) + ' días laborables (' + (salta(a) ? 'salta el servicio' : 'no salta: hay que hacer un cambio') + ')' : '';
+    var lab = SIEMPRE_SALTA.indexOf(a.tipo) < 0 ? ' · ' + laborables(a.desde, a.hasta) + ' días laborables (' + (salta(a) ? 'salta el servicio' : 'no salta: hay que hacer un cambio') + ')' : '';
     return '<div class="card aus" data-ausid="' + a.id + '"><span class="cuadro" style="' + colorAus(a.tipo) + '"></span> <b>' + esc(TXT_AUS[a.tipo] || a.tipo) + '</b> ' + badgeEstadoAus(a.estado) +
       (gestion ? ' · ' + nombreCon(c) + (c ? ' <span class="small muted">(' + esc(papelDe(c.cuadrante)) + ')</span>' : '') : '') +
       '<div class="small">Del <b>' + esc(fCorta(a.desde)) + '</b> al <b>' + esc(fCorta(a.hasta)) + '</b>' + lab + (a.origen ? ' · ' + esc(a.origen) : '') + '</div>' +
@@ -1065,15 +1068,15 @@
     crearItem('aus', cuerpo).then(function (n) { nuevo = n && (n.Id || n.ID); return archivos.length && nuevo ? subirAdjuntos(nuevo, archivos) : []; }).then(function (fallos) {
       a.id = nuevo;
       var serv = c ? turnos.filter(function (t) { return t.comp === c.id && t.estado === 'PUBLICADO' && solapa(a, t.inicio, t.fin); }) : [];
-      var corta = a.tipo === 'VACACIONES' && !salta(a);
+      var corta = !salta(a);
       var filas = [['Componente', c ? [c.empleo, c.nombre].join(' ') : yo.Title], ['Cuadrante', c ? papelDe(c.cuadrante) : ''], ['Tipo', TXT_AUS[a.tipo]], ['Desde', fCorta(a.desde)], ['Hasta', fCorta(a.hasta)],
-        ['Días laborables', a.tipo === 'VACACIONES' ? String(laborables(a.desde, a.hasta)) + (corta ? ' (no salta el servicio: debe hacer un cambio)' : ' (salta el servicio)') : ''], ['Observaciones', a.obs],
+        ['Días laborables', SIEMPRE_SALTA.indexOf(a.tipo) < 0 ? String(laborables(a.desde, a.hasta)) + (corta ? ' (no salta el servicio: debe hacer un cambio)' : ' (salta el servicio)') : ''], ['Observaciones', a.obs],
         ['Servicios publicados que coinciden', serv.map(function (t) { return rotulo(t); }).join(', ')]].filter(function (x) { return x[1]; });
       var envio = paraOtro ? Promise.resolve(null) : destGestores().then(function (to) {
         return enviarCorreo(correoDe('NUEVA AUSENCIA COMUNICADA PARA EL CUADRANTE DE SERVICIOS. REVÍSELA EN LA PESTAÑA «AUSENCIAS».', filas, 'CUADRANTE DE SERVICIOS · AUSENCIA DE ' + (c ? c.nombre : yo.Title).toUpperCase(), to));
       });
       return envio.then(function (r) {
-        var aviso = serv.length ? (corta ? ' Tienes servicio ' + serv.map(function (t) { return rotulo(t); }).join(', ') + ': con vacaciones de ' + VAC_MAX + ' días laborables o menos no se salta, <b>tienes que buscar un cambio de servicio</b>.' :
+        var aviso = serv.length ? (corta ? ' Tienes servicio ' + serv.map(function (t) { return rotulo(t); }).join(', ') + ': ' + (NUNCA_SALTA.indexOf(a.tipo) >= 0 ? 'con asuntos propios' : 'con ' + VAC_MAX + ' días laborables o menos') + ' no se salta el servicio, <b>tienes que buscar un cambio de servicio</b>.' :
           ' Coincide con tu servicio ' + serv.map(function (t) { return rotulo(t); }).join(', ') + ': el gestor buscará sustituto al aprobarla.') : '';
         resultado = { cls: !r || correoBien(r) ? 'okmsg' : 'aviso', html: (paraOtro ? '✓ Ausencia registrada y aprobada.' : '✓ Ausencia comunicada al gestor.' + (r ? msgCorreo(r) : '')) + aviso +
           (fallos.length ? ' <span class="txt-bad">No se pudo adjuntar: ' + esc(fallos.join(', ')) + '.</span>' : '') };

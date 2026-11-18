@@ -157,6 +157,8 @@ async function prueba(verbose) {
   const aus = (pid, tipo, d, h, est) => LA.items.push({ Id: ++LA.n, PersonaId: pid, Componente: id[pid], TipoAusencia: tipo, Desde: d + 'T12:00:00Z', Hasta: h + 'T12:00:00Z', EstadoAusencia: est || 'APROBADA', Created: new Date().toISOString() });
   aus(13, 'COMISION DE SERVICIO', '2027-01-06', '2027-01-12');          // OF3: salta lo que le toque del 6 al 12
   aus(23, 'VACACIONES', '2027-01-11', '2027-01-13');                    // SUB3: 3 laborables → no salta, debe hacer un cambio
+  aus(24, 'ASUNTOS PROPIOS', '2027-01-13', '2027-01-13');               // SUB4: asuntos propios → no salta, debe hacer un cambio
+  aus(25, 'PERMISO', '2027-01-18', '2027-01-26');                       // SUB5: permiso de 7 laborables → salta
 
   // 3. La gestora propone, revisa y publica enero de 2027
   ({ b, p, errs } = await abrir(8, false, verbose, PAGINA + '?mes=2027-01'));
@@ -174,13 +176,15 @@ async function prueba(verbose) {
   const secD = filas.filter(f => f[1] === 'Diario').map(f => f[2].slice(-1)).join('');
   comprueba(tag + 'rotación de diario 1-2-(3 salta)-4-5-6 (el capitán, el último) y vuelta a empezar', secD.startsWith('1245612'), secD);
   comprueba(tag + 'SUB3 con vacaciones cortas no salta: queda puesto y se avisa de que debe hacer un cambio', /SUBOFICIAL NUMERO 3/.test(fila('Lun 11 – Mar 12 ene')[3]) && /debe hacer un cambio de servicio/.test(t), fila('Lun 11 – Mar 12 ene')[3]);
+  comprueba(tag + 'asuntos propios no saltan: SUB4 sigue el 13-14 con aviso de cambio', /SUBOFICIAL NUMERO 4/.test(fila('Mié 13 – Jue 14 ene')[3]) && /Asuntos propios \(1 días laborables\): no salta/.test(t), fila('Mié 13 – Jue 14 ene')[3]);
+  comprueba(tag + 'un permiso de más de 5 días laborables salta: SUB5 no tiene turnos del 18 al 26', !filas.some(f => f[0] >= 'Lun 18' && /SUBOFICIAL NUMERO 5/.test(f[3]) && ['Lun 18 – Mar 19 ene', 'Mié 20 – Jue 21 ene', 'Vie 22 – Dom 24 ene', 'Lun 25 – Mar 26 ene'].includes(f[0])) && /Salta SUBOFICIAL NUMERO 5 \(permiso\)/.test(t));
   await p.click('[data-guardarmes="1"]'); await p.waitForTimeout(4000);
   const LT = listas['CUADRANTE TURNOS'];
   comprueba(tag + 'publica: 2 turnos por fila, todos PUBLICADO, con el mes y el componente', LT.items.length === filas.length * 2 && LT.items.every(x => x.EstadoTurno === 'PUBLICADO' && x.Mes === '2027-01') && LT.items.every(x => x.Componente), LT.items.length + ' / ' + filas.length);
   const avisados = new Set(correos.filter(c => /SUS SERVICIOS/.test(c.asunto)).flatMap(c => c.to));
-  comprueba(tag + 'avisa a cada uno de sus servicios, a su CUENTA', avisados.size === 13 && [...avisados].every(x => /^i:0#\.w\|et\\/.test(x)), [...avisados].join(','));
+  comprueba(tag + 'avisa a cada uno de sus servicios, a su CUENTA', avisados.size === 12 && !avisados.has('i:0#.w|et\\sub5') && [...avisados].every(x => /^i:0#\.w\|et\\/.test(x)), [...avisados].join(','));
   t = await texto(p);
-  comprueba(tag + 'resultado: publicado y avisados 13 de 13 (6 oficiales y 7 suboficiales)', /publicado\. Avisados por correo: 13 de 13/.test(t), t.slice(0, 200));
+  comprueba(tag + 'resultado: publicado y avisados 12 de 12 (SUB5 no tiene turnos por su permiso)', /publicado\. Avisados por correo: 12 de 12/.test(t), t.slice(0, 200));
   if (process.env.FOTOS && !verbose) { await p.setViewportSize({ width: 1300, height: 900 }); await p.screenshot({ path: process.env.FOTOS + '/mes-gestor.png', fullPage: false }); }
   // Imprimir
   const [imp] = await Promise.all([p.context().waitForEvent('page'), p.click('[data-imprimir]')]); await imp.waitForLoadState(); await imp.waitForTimeout(300);

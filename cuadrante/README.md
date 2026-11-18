@@ -44,11 +44,13 @@ correo a la cuenta y copia cifrada entera.
 - **Puente:** el gestor lo marca a mano. El fin de semana más los festivos pegados son un solo turno.
 - **Rotación:** cada cuadrante tiene su rotación de entre semana y su rotación de fin de semana. Cada persona está en las dos.
 - **Se salta el servicio** (y quien se salta **pierde el turno**: lo hace el siguiente y la rotación sigue) con:
-  - vacaciones de **más de 5 días**;
-  - comisión de servicio;
-  - baja médica, curso o permiso.
-- **Vacaciones de 5 días o menos:** no se salta. Si coinciden con un servicio, el usuario tiene que hacer un **cambio de
-  servicio**; es lo único que se permite. La página avisa del choque y el gestor ve si está resuelto.
+  - comisión de servicio y baja médica, siempre (aunque sea un día);
+  - vacaciones, permisos y otras ausencias de **más de 5 días laborables**.
+- **No se salta, y hay que hacer un cambio de servicio** (es lo único que se permite), con:
+  - los **asuntos propios**;
+  - las vacaciones o permisos de 5 días laborables o menos.
+
+  La página avisa del choque y el gestor ve si está resuelto (corregido el 18/11/2026).
 - **Turnos cortos:** si un festivo parte un bloque de entre semana, el día que queda es turno de diario. Por ejemplo,
   con el martes festivo, el lunes es diario. El día festivo es turno de festivo.
 - **Turno entre dos meses** (lunes 30 y martes 1): cuenta en el mes en que empieza. La rotación es la misma de un mes a otro.
@@ -78,8 +80,7 @@ correo a la cuenta y copia cifrada entera.
 
 - **Horario:** cada servicio va de 08:00 a 08:00 del día siguiente; el de viernes a domingo acaba el lunes a las 08:00.
   No hay saliente.
-- **Vacaciones:** los «más de 5 días» son **laborables**. Con 5 laborables o menos no se salta: hay que hacer un cambio.
-- **Comisión, baja y curso:** saltan el servicio siempre, aunque duren un solo día.
+- **Los 5 días son laborables.** Comisión y baja saltan siempre; asuntos propios nunca (hay que hacer un cambio).
 - **Ausencia que coincide con parte del turno:** basta un día para que se salte el turno entero; lo hace el siguiente.
 - **Orden de la rotación:** por empleo y antigüedad, **del más antiguo al más moderno**. Quien entra nuevo ocupa su
   lugar por empleo y antigüedad.
