@@ -1,0 +1,1804 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Centro de Control NLT · SUIGESUR</title>
+<!--
+  CENTRO DE CONTROL NLT SUIGESUR
+  Se sube a una biblioteca del sitio de Colabora (p. ej. /et/SUIGESUR/JSUIGE/aplicaciones) y se abre desde allí.
+  Trabaja con cuatro listas del sitio (NLT_MAESTRO, UCO_SUIGESUR, CONTROL_ENTREGAS, SEGUIMIENTO_EVENTOS) usando la
+  sesión del usuario y la API REST de SharePoint. No carga nada de internet ni envía datos fuera del servidor.
+  Los datos están solo en SharePoint: el navegador guarda únicamente preferencias (pestaña, filtros, columnas).
+  Cada alta o modificación se relee del servidor y solo se da por buena si los valores coinciden.
+-->
+<style>
+  :root {
+    --bg: #f4f5f0; --surface: #fff; --surface-2: #eef1ea; --text: #1f261f; --muted: #5f685f; --line: #d9ddd3;
+    --brand: #3b4a2f; --brand-2: #56693f; --on-brand: #fff;
+    --ok: #2e7d32; --ok-bg: #dcefdc; --warn: #9a5b00; --warn-bg: #fdebc8; --bad: #b71c1c; --bad-bg: #fbdada;
+    --info: #1d4f91; --info-bg: #dde8f7; --na: #555; --na-bg: #e7e7e7;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .top { position: sticky; top: 0; z-index: 5; background: var(--brand); color: var(--on-brand); padding: 10px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .top h1 { margin: 0; font-size: 1.05rem; flex: 1; min-width: 220px; letter-spacing: .02em; }
+  .top h1 small { font-weight: 400; opacity: .8; font-size: .78rem; display: block; letter-spacing: 0; }
+  .top .estado { font-size: .8rem; background: rgba(255,255,255,.12); border-radius: 999px; padding: 3px 10px; cursor: pointer; border: 0; color: inherit; font-weight: 600; }
+  .top .estado.bad { background: #b71c1c; } .top .estado.warn { background: #9a5b00; } .top .estado.ok { background: rgba(255,255,255,.18); }
+  .top button.b { background: rgba(255,255,255,.15); color: inherit; border: 0; }
+  nav.tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; margin: 12px 0; overflow-x: auto; }
+  nav.tabs a { flex: 1; text-align: center; padding: 8px 10px; border-radius: 9px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .9rem; cursor: pointer; white-space: nowrap; }
+  nav.tabs a.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  main { max-width: 1320px; margin: 0 auto; padding: 0 16px 60px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+  .card h3 { margin: 0 0 8px; font-size: .95rem; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .card h3 .small { font-weight: 400; }
+  .muted { color: var(--muted); } .small { font-size: .82rem; }
+  button, .btn { font: inherit; font-weight: 600; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); cursor: pointer; text-decoration: none; display: inline-block; }
+  button:disabled { opacity: .55; cursor: default; }
+  .btn.prim, button.prim { background: var(--brand); color: #fff; border-color: var(--brand); }
+  button.peq { padding: 2px 8px; font-size: .78rem; border-radius: 8px; }
+  button.peligro { color: var(--bad); border-color: var(--bad-bg); }
+  select, input, textarea { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--text); width: 100%; }
+  textarea { min-height: 70px; resize: vertical; }
+  input[type=checkbox] { width: auto; }
+  label.lbl { display: block; font-size: .78rem; font-weight: 600; color: var(--muted); margin: 8px 0 3px; }
+  label.lbl i { color: var(--bad); font-style: normal; }
+  label.check { display: inline-flex; gap: 6px; align-items: center; margin: 3px 12px 3px 0; font-size: .9rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+  .filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-bottom: 10px; }
+  .filtros > div { flex: 1 1 140px; min-width: 120px; }
+  .filtros > div.q { flex: 2 1 220px; }
+  .filtros label.lbl { margin-top: 0; }
+  .barra { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin: 4px 0 10px; }
+  .barra h2 { margin: 0; font-size: 1.15rem; }
+  .barra .acc { display: flex; gap: 6px; flex-wrap: wrap; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 10px; }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; text-align: left; font: inherit; color: inherit; cursor: default; }
+  .kpi[data-ir] { cursor: pointer; } .kpi[data-ir]:hover { border-color: var(--brand-2); }
+  .kpi span { display: block; font-size: .76rem; color: var(--muted); font-weight: 600; }
+  .kpi b { display: block; font-size: 1.55rem; line-height: 1.2; }
+  .kpi small { color: var(--muted); font-size: .74rem; }
+  .kpi.bad b { color: var(--bad); } .kpi.warn b { color: var(--warn); } .kpi.ok b { color: var(--ok); }
+  .dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 10px; }
+  .dos > .card { margin-bottom: 0; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .74rem; font-weight: 700; white-space: nowrap; }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); } .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .badge.bad { background: var(--bad-bg); color: var(--bad); } .badge.info { background: var(--info-bg); color: var(--info); }
+  .badge.none { background: var(--na-bg); color: var(--na); }
+  .chip { background: var(--surface-2); color: var(--muted); border-radius: 6px; padding: 1px 7px; font-weight: 600; font-size: .75rem; white-space: nowrap; }
+  .tw { overflow-x: auto; }
+  table.t { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  table.t th { background: var(--brand); color: #fff; text-align: left; padding: 6px; font-weight: 600; position: sticky; top: 0; white-space: nowrap; }
+  table.t th.n, table.t td.n { text-align: right; }
+  table.t td { border-bottom: 1px solid var(--line); padding: 5px 6px; vertical-align: top; }
+  table.t tr.clic { cursor: pointer; } table.t tr.clic:hover td { background: var(--surface-2); }
+  table.t tr.sel td { background: #f3f7ec; }
+  .vacio { text-align: center; color: var(--muted); padding: 18px; }
+  .bar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; min-width: 60px; }
+  .bar > i { display: block; height: 100%; background: var(--brand-2); border-radius: 0 4px 4px 0; }
+  .fila-bar { display: grid; grid-template-columns: minmax(120px, 1.3fr) 2fr auto; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: .84rem; cursor: pointer; }
+  .fila-bar:last-child { border-bottom: 0; }
+  .fila-bar .bar > i { background: var(--bad); opacity: .8; }
+  .cel { text-align: center; font-weight: 700; font-size: .78rem; border-radius: 6px; padding: 3px 0; min-width: 44px; }
+  .cel.ok { background: var(--ok-bg); color: var(--ok); } .cel.warn { background: var(--warn-bg); color: var(--warn); } .cel.bad { background: var(--bad-bg); color: var(--bad); } .cel.none { color: var(--muted); }
+  .pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .pills a { padding: 5px 12px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-weight: 600; cursor: pointer; text-decoration: none; font-size: .86rem; }
+  .pills a.on { background: var(--brand); color: #fff; }
+  .aviso { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
+  .error { background: var(--bad-bg); color: var(--bad); border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-weight: 600; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .error small { display: block; font-weight: 400; margin-top: 4px; }
+  .bien { background: var(--ok-bg); color: var(--ok); border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-weight: 600; }
+  .info { background: var(--info-bg); color: var(--info); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
+  dialog { width: min(820px, calc(100vw - 16px)); max-height: calc(100vh - 16px); border: 0; border-radius: 14px; padding: 0; }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  .dh { position: sticky; top: 0; z-index: 2; background: var(--brand); color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+  .dh h2 { margin: 0; font-size: 1.05rem; }
+  .dh button { background: transparent; color: #fff; border: 0; font-size: 1.3rem; padding: 0 4px; }
+  .db { padding: 12px 16px; }
+  .df { position: sticky; bottom: 0; background: #fff; border-top: 1px solid var(--line); padding: 10px 16px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+  .df .izq { margin-right: auto; }
+  .lista-u { border: 1px solid var(--line); border-radius: 10px; max-height: 260px; overflow: auto; padding: 4px 8px; columns: 2 260px; }
+  .lista-u label { display: flex; gap: 6px; align-items: flex-start; font-size: .84rem; padding: 2px 0; break-inside: avoid; }
+  .plazo { display: grid; grid-template-columns: auto 1fr 160px; gap: 8px; align-items: center; padding: 3px 0; border-bottom: 1px solid var(--line); }
+  .meta { font-size: .78rem; color: var(--muted); margin-top: 10px; }
+  .informe { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 18px; font-size: .86rem; overflow-x: auto; }
+  .informe h2 { text-align: center; text-transform: uppercase; font-size: 1.1rem; margin: 6px 0; }
+  .informe h3 { color: var(--brand); margin: 16px 0 6px; font-size: .95rem; }
+  .informe .c { text-align: center; margin: 2px 0; color: var(--muted); font-size: .85rem; }
+  .graf svg { width: 100%; height: auto; display: block; }
+  .graf text { font: 11px system-ui, "Segoe UI", sans-serif; fill: var(--muted); }
+  .graf rect.b { fill: var(--brand-2); } .graf rect.b:hover { fill: var(--brand); }
+  .graf line { stroke: var(--line); }
+  .leyenda { display: flex; gap: 12px; flex-wrap: wrap; font-size: .78rem; color: var(--muted); margin-top: 6px; }
+  .leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .apilada { display: flex; height: 14px; border-radius: 4px; overflow: hidden; gap: 2px; background: var(--surface); }
+  .apilada i { display: block; height: 100%; }
+  .s-ok { background: var(--ok); } .s-fuera { background: #d98c1a; } .s-venc { background: var(--bad); } .s-pend { background: #8aa1c4; } .s-na { background: #bbb; }
+  code { background: var(--surface-2); padding: 0 4px; border-radius: 4px; font-size: .85em; }
+  @media (max-width: 640px) { .dos { grid-template-columns: 1fr; } .plazo { grid-template-columns: auto 1fr; } .plazo input[type=date] { grid-column: 2; } }
+  @media print {
+    body.imprimiendo .top, body.imprimiendo nav.tabs, body.imprimiendo #vista > :not(#informeDoc) { display: none !important; }
+    body.imprimiendo .informe { border: 0; padding: 0; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>CENTRO DE CONTROL NLT · SUIGESUR<small>Obligaciones, entregas y cumplimiento de seguridad</small></h1>
+  <button class="estado" id="estado" data-ir="ajustes" title="Estado de la conexión con SharePoint">Conectando…</button>
+  <span class="estado" id="escritura" hidden></span>
+  <button class="b" id="recargar" title="Volver a leer las listas de SharePoint">↻ Actualizar</button>
+</header>
+<main>
+  <noscript><div class="error">Esta página necesita JavaScript.</div></noscript>
+  <nav class="tabs" id="tabs">
+    <a data-v="inicio">Inicio</a><a data-v="entregas">Entregas</a><a data-v="obligaciones">Obligaciones</a><a data-v="unidades">Unidades</a><a data-v="eventos">Eventos</a><a data-v="analisis">Análisis</a><a data-v="informes">Informes</a><a data-v="ajustes">Ajustes</a>
+  </nav>
+  <div id="vista"><p class="muted">Conectando con SharePoint…</p></div>
+</main>
+<dialog id="dlg"></dialog>
+<script>
+  // Comprobación en sintaxis antigua: si el navegador es Internet Explorer, avisa (el resto del código no se ejecutaría).
+  if (document.documentMode || !window.fetch || !window.Promise || !Element.prototype.closest || !window.HTMLDialogElement) {
+    document.getElementById('vista').innerHTML = '<div class="error">Tu navegador abre esta página en modo Internet Explorer o es muy antiguo. Ábrela en Microsoft Edge o Chrome.</div>';
+    document.getElementById('estado').textContent = 'Navegador no compatible';
+    window.NAVEGADOR_ANTIGUO = true;
+  }
+</script>
+<script>
+(function () {
+  'use strict';
+  if (window.NAVEGADOR_ANTIGUO) return;
+
+  // ================= Utilidades =================
+  const $ = (s, el) => (el || document).querySelector(s);
+  const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const pad = n => String(n).padStart(2, '0');
+  const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const hoy = () => iso(new Date());
+  const aFecha = s => { const p = String(s).slice(0, 10).split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); };
+  const diasEntre = (a, b) => Math.round((aFecha(b) - aFecha(a)) / 864e5);
+  const sumarDias = (s, n) => { const d = aFecha(s); d.setDate(d.getDate() + n); return iso(d); };
+  const sinTildes = s => String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const norm = s => sinTildes(s).replace(/[^a-z0-9ñ]+/g, ' ').trim();
+  const fCorta = s => s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+  const fHora = d => { const x = new Date(d); return isNaN(x) ? '' : x.toLocaleDateString('es-ES') + ' ' + x.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); };
+  const hora = () => new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const MES = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+  const MESL = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const lista = v => v == null ? [] : Array.isArray(v) ? v : Array.isArray(v.results) ? v.results : [];
+  const vacio = v => v == null || v === '' || (Array.isArray(v) && !v.length);
+  const pct = (a, b) => b ? Math.round(a / b * 100) : null;
+  const pctTxt = p => p == null ? '—' : p + ' %';
+  const unicos = arr => Array.from(new Set(arr.filter(x => x !== '' && x != null)));
+  const porNombre = (a, b) => String(a).localeCompare(String(b), 'es', { numeric: true });
+  const texto = html => {
+    if (!html) return '';
+    if (!/[<&]/.test(html)) return String(html).trim();
+    const d = new DOMParser().parseFromString(String(html).replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li)>/gi, '\n'), 'text/html');
+    return (d.body.textContent || '').replace(/​/g, '').replace(/\n{3,}/g, '\n\n').trim();
+  };
+  const fechaSP = v => v ? iso(new Date(v)) : '';
+  const opciones = (arr, sel, vacioTxt) => (vacioTxt != null ? '<option value="">' + esc(vacioTxt) + '</option>' : '') +
+    arr.map(o => { const v = Array.isArray(o) ? o[0] : o, t = Array.isArray(o) ? o[1] : o; return '<option value="' + esc(v) + '"' + (String(v) === String(sel) ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('');
+
+  // ================= Preferencias (solo en este navegador; nunca datos) =================
+  const CLAVE = 'centro-control-nlt-suigesur';
+  const pref = { vista: 'inicio', sitio: '', mapa: {}, f: {}, sub: 'unidades', organismo: 'SUBINSPECCIÓN GENERAL DEL EJÉRCITO SUR' };
+  try { Object.assign(pref, JSON.parse(localStorage.getItem(CLAVE)) || {}); } catch (e) { /* sin memoria local */ }
+  const guardarPref = () => { try { localStorage.setItem(CLAVE, JSON.stringify(pref)); } catch (e) { /* sin memoria local */ } };
+  const F = Object.assign({ anio: String(new Date().getFullYear()), per: '', uni: '', obl: '', cat: '', tipo: '', sit: '', q: '', est: '',
+    oq: '', oper: '', ocat: '', oact: 'activas', uq: '', uamb: '', uact: 'activas', eq: '', esit: 'abiertos', etipo: '', euni: '',
+    adesde: '', ahasta: '', gran: 'mensual' }, pref.f || {});
+  const guardarF = () => { pref.f = F; guardarPref(); };
+
+  // ================= Estructura de las listas =================
+  // k: clave interna de la app · in: nombre interno preferido · alt: otros nombres internos o visibles aceptados
+  // multi: se escribe en todas las columnas encontradas y se lee la primera con valor (compatibilidad con la versión anterior)
+  const ESTADOS_E = ['Pendiente', 'Recibido', 'En revisión', 'Validado', 'Requiere subsanación', 'No aplicable'];
+  const ESTADOS_EV = ['Abierto', 'En curso', 'Finalizado', 'Cancelado'];
+  const PERIODICIDADES = ['Mensual', 'Varias veces al año', 'Trimestral', 'Semestral', 'Anual', 'A demanda', 'Por evento'];
+  const TIPOS_EV = ['Cambio de destino', 'Relevo de mando', 'Incidente de seguridad', 'Novedad', 'Autoevaluación', 'Caducidad de acreditación',
+    'Revisión de documentación', 'Evaluación', 'Solicitud', 'Otra actuación'];
+  const DEF = {
+    NLT_MAESTRO: { titulo: 'Catálogo de obligaciones', campos: [
+      { k: 'nombre', in: 'Title', alt: ['NombreObligacion', 'Nombre de la obligación'], t: 'Text', d: 'Obligación', multi: true, req: true },
+      { k: 'codigo', in: 'Codigo', alt: ['Código', 'Identificador'], t: 'Text', d: 'Código' },
+      { k: 'descripcion', in: 'Descripcion', alt: ['Descripción'], t: 'Note', d: 'Descripción' },
+      { k: 'periodicidad', in: 'Periodicidad', t: 'Choice', d: 'Periodicidad', choices: PERIODICIDADES },
+      { k: 'dia', in: 'DiaNLT', alt: ['Día NLT'], t: 'Number', d: 'Día NLT' },
+      { k: 'meses', in: 'Meses', alt: ['Meses NLT'], t: 'Text', d: 'Meses NLT' },
+      { k: 'regla', in: 'ReglaNLT', alt: ['Regla NLT'], t: 'Text', d: 'Regla NLT' },
+      { k: 'plazo', in: 'PlazoDias', alt: ['Plazo (días)'], t: 'Number', d: 'Plazo (días desde el evento)' },
+      { k: 'categoria', in: 'Categoria', alt: ['Categoría'], t: 'Text', d: 'Categoría' },
+      { k: 'ambito', in: 'Ambito', alt: ['Ámbito', 'Tipo'], t: 'Text', d: 'Ámbito' },
+      { k: 'activa', in: 'Activa', alt: ['Activo'], t: 'Boolean', d: 'Activa' },
+      { k: 'habituales', in: 'UnidadesHabituales', alt: ['UnidadesIncluidas', 'Unidades habituales'], t: 'Note', d: 'Unidades habituales' },
+      { k: 'obs', in: 'Observaciones', alt: ['Notas'], t: 'Note', d: 'Observaciones' }] },
+    UCO_SUIGESUR: { titulo: 'Catálogo de unidades', campos: [
+      { k: 'nombre', in: 'Title', alt: ['NombreUnidad', 'Nombre de la unidad', 'Unidad'], t: 'Text', d: 'Unidad', multi: true, req: true },
+      { k: 'siglas', in: 'Siglas', t: 'Text', d: 'Siglas' },
+      { k: 'ambito', in: 'Ambito', alt: ['Ámbito'], t: 'Text', d: 'Ámbito' },
+      { k: 'contacto', in: 'Contacto', alt: ['Responsable'], t: 'Text', d: 'Contacto' },
+      { k: 'activa', in: 'Activa', alt: ['Activo'], t: 'Boolean', d: 'Activa' },
+      { k: 'obs', in: 'Observaciones', alt: ['Notas'], t: 'Note', d: 'Observaciones' }] },
+    CONTROL_ENTREGAS: { titulo: 'Control de entregas', campos: [
+      { k: 'titulo', in: 'Title', t: 'Text', d: 'Título', req: true },
+      { k: 'unidad', in: 'Unidad', t: 'Text', d: 'Unidad', req: true },
+      { k: 'siglas', in: 'SiglasUnidad', alt: ['Siglas'], t: 'Text', d: 'Siglas unidad' },
+      { k: 'unidadId', in: 'UnidadID', alt: ['IdUnidad'], t: 'Number', d: 'ID unidad' },
+      { k: 'obligacion', in: 'Obligacion', alt: ['Obligación'], t: 'Text', d: 'Obligación', req: true },
+      { k: 'obligacionId', in: 'ObligacionID', alt: ['IdObligacion'], t: 'Number', d: 'ID obligación' },
+      { k: 'periodo', in: 'Periodo', t: 'Text', d: 'Periodo', req: true },
+      { k: 'nlt', in: 'FechaNLT', alt: ['Fecha NLT', 'NLT'], t: 'DateTime', d: 'Fecha NLT', req: true },
+      { k: 'recepcion', in: 'FechaRecepcion', alt: ['Fecha de recepción'], t: 'DateTime', d: 'Fecha de recepción' },
+      { k: 'validacion', in: 'FechaValidacion', alt: ['Fecha de validación'], t: 'DateTime', d: 'Fecha de validación' },
+      { k: 'estado', in: 'Estado', t: 'Choice', d: 'Estado', choices: ESTADOS_E, req: true },
+      { k: 'responsable', in: 'Responsable', alt: ['ResponsableEntrega'], t: 'Text', d: 'Responsable / remitente' },
+      { k: 'referencia', in: 'Referencia', alt: ['LinkDocumento', 'Referencia documental'], t: 'Text', d: 'Referencia documental' },
+      { k: 'obs', in: 'Observaciones', alt: ['Notas'], t: 'Note', d: 'Observaciones' }] },
+    SEGUIMIENTO_EVENTOS: { titulo: 'Seguimiento de eventos', campos: [
+      { k: 'titulo', in: 'Title', alt: ['Evento'], t: 'Text', d: 'Evento / actuación', multi: true, req: true },
+      { k: 'tipo', in: 'TipoEvento', alt: ['Tipo de evento', 'Tipo'], t: 'Choice', d: 'Tipo de evento', choices: TIPOS_EV },
+      { k: 'unidad', in: 'Unidad', t: 'Text', d: 'Unidad' },
+      { k: 'siglas', in: 'SiglasUnidad', alt: ['Siglas'], t: 'Text', d: 'Siglas unidad' },
+      { k: 'unidadId', in: 'UnidadID', alt: ['IdUnidad'], t: 'Number', d: 'ID unidad' },
+      { k: 'obligacionId', in: 'ObligacionID', alt: ['IdObligacion'], t: 'Number', d: 'ID obligación' },
+      { k: 'activacion', in: 'FechaActivacion', alt: ['Fecha de activación'], t: 'DateTime', d: 'Fecha de activación', req: true },
+      { k: 'limite', in: 'FechaLimite', alt: ['Fecha límite'], t: 'DateTime', d: 'Fecha límite' },
+      { k: 'cierre', in: 'FechaCierre', alt: ['Fecha de cierre', 'FechaFinalizacion'], t: 'DateTime', d: 'Fecha de cierre' },
+      { k: 'estado', in: 'Estado', t: 'Choice', d: 'Estado', choices: ESTADOS_EV, req: true },
+      { k: 'responsable', in: 'Responsable', t: 'Text', d: 'Responsable' },
+      { k: 'obs', in: 'Observaciones', alt: ['AccionNotas', 'Notas'], t: 'Note', d: 'Observaciones' }] }
+  };
+  const LISTAS = Object.keys(DEF);
+  const defCampo = (n, k) => DEF[n].campos.find(d => d.k === k);
+  const TIPOS_ESCRIBIBLES = ['Text', 'Note', 'Number', 'Currency', 'Integer', 'DateTime', 'Boolean', 'Choice', 'MultiChoice', 'URL'];
+
+  // ================= Estado =================
+  let web = null, yo = null, permWeb = null, verbose = false, cargando = false, cargadoEn = null, errorGeneral = null;
+  const L = {};
+  LISTAS.forEach(n => { L[n] = { estado: 'sin leer', info: null, campos: [], porInterno: {}, map: {}, items: [], error: null, perm: null }; });
+  const REG = [];            // registro de operaciones (diagnóstico)
+  let ultimaEscritura = null; // { ok, txt }
+  const O = () => L.NLT_MAESTRO.items, U = () => L.UCO_SUIGESUR.items, E = () => L.CONTROL_ENTREGAS.items, EV = () => L.SEGUIMIENTO_EVENTOS.items;
+  let uPorId = new Map(), oPorId = new Map();
+
+  // ================= Errores y registro =================
+  function errorSP(op, listaN, url, status, mensaje, tipo) {
+    const e = new Error(mensaje);
+    Object.assign(e, { op: op, lista: listaN, url: url, status: status, tipo: tipo || (status === 403 || status === 401 ? 'permiso' : status === 0 ? 'red' : 'http') });
+    return e;
+  }
+  const rutaCorta = u => { try { return decodeURIComponent(String(u || '').replace(location.origin, '')); } catch (e) { return String(u || ''); } };
+  function registrar(op, listaN, metodo, url, status, ok, msg) {
+    REG.unshift({ hora: new Date(), op: op, lista: listaN || '', metodo: metodo, url: rutaCorta(url), status: status, ok: ok, msg: msg || '' });
+    if (REG.length > 400) REG.length = 400;
+  }
+  function mensajeSP(j, txt) {
+    if (j) {
+      const e = j.error || j['odata.error'] || (j.d && j.d.error);
+      if (e && e.message) return typeof e.message === 'string' ? e.message : (e.message.value || '');
+    }
+    const m = /<m:message[^>]*>([^<]+)</.exec(txt || '');
+    return m ? m[1] : String(txt || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+  }
+  function explicar(status, sp) {
+    const base = { 400: 'Petición rechazada por SharePoint', 401: 'La sesión de Colabora ha caducado o no está autenticada', 403: 'Sin permiso para esta operación',
+      404: 'No existe (lista, columna o elemento)', 406: 'Formato no admitido', 409: 'Conflicto en SharePoint', 412: 'Otra persona ha modificado el elemento',
+      415: 'Formato no admitido', 429: 'SharePoint limita las peticiones; espera un momento', 500: 'Error interno de SharePoint', 503: 'SharePoint no está disponible' }[status] || 'Error HTTP ' + status;
+    let pista = '';
+    if (/does not exist on type|no existe en el tipo|property .* does not exist/i.test(sp)) pista = ' → una columna enviada no existe en la lista (nombre interno distinto). Revisa Ajustes → Estructura.';
+    else if (/security validation|validación de seguridad/i.test(sp)) pista = ' → el FormDigest ha caducado; vuelve a intentarlo.';
+    else if (/list .* does not exist|lista .* no existe/i.test(sp)) pista = ' → la lista no existe en este sitio.';
+    return base + (sp ? ': ' + sp : '') + pista;
+  }
+
+  // ================= SharePoint: peticiones =================
+  async function http(op, listaN, url, o) {
+    o = o || {};
+    const metodo = o.metodo || 'GET';
+    const accept = o.accept || 'application/json;odata=verbose';
+    const cab = Object.assign({ Accept: accept }, metodo === 'POST' ? { 'Content-Type': 'application/json;odata=verbose' } : {}, o.cab || {});
+    let r;
+    try {
+      r = await fetch(url, { method: metodo, credentials: 'same-origin', headers: cab, body: o.cuerpo == null ? undefined : JSON.stringify(o.cuerpo) });
+    } catch (e) {
+      registrar(op, listaN, metodo, url, 0, false, 'Sin respuesta: ' + e.message);
+      throw errorSP(op, listaN, url, 0, 'Sin respuesta del servidor (' + e.message + '). Comprueba la red o que la página se abre desde Colabora.');
+    }
+    const txt = await r.text();
+    let j = null; try { j = txt ? JSON.parse(txt) : null; } catch (e) { /* respuesta sin JSON */ }
+    if (!r.ok) {
+      const sp = mensajeSP(j, txt);
+      const e = errorSP(op, listaN, url, r.status, explicar(r.status, sp));
+      e.detalle = sp;
+      if (!o.silencioso) registrar(op, listaN, metodo, url, r.status, false, e.message);
+      throw e;
+    }
+    if (metodo !== 'GET' || o.registrar) registrar(op, listaN, metodo, url, r.status, true, o.nota || '');
+    return j;
+  }
+  // Lectura: JSON ligero y, si el servidor no lo admite (SharePoint 2013), verbose. Devuelve { value, odata.nextLink } o la entidad.
+  function normalizar(j) {
+    if (!j) return j;
+    const d = j.d || j;
+    if (d.results) return { value: d.results, 'odata.nextLink': d.__next };
+    return d;
+  }
+  async function api(op, listaN, url, o) {
+    if (!verbose) {
+      try { return await http(op, listaN, url, Object.assign({ accept: 'application/json;odata=nometadata', silencioso: true }, o)); }
+      catch (e) {
+        if ([400, 406, 415].indexOf(e.status) < 0) { registrar(op, listaN, 'GET', url, e.status, false, e.message); throw e; }
+        try { const r = normalizar(await http(op, listaN, url, Object.assign({}, o, { silencioso: true }))); verbose = true; return r; }
+        catch (e2) { registrar(op, listaN, 'GET', url, e2.status, false, e2.message); throw e2; }
+      }
+    }
+    return normalizar(await http(op, listaN, url, o));
+  }
+  async function paginar(op, listaN, url) {
+    let todos = [], sig = url;
+    while (sig) {
+      const d = await api(op, listaN, sig);
+      todos = todos.concat(lista(d.value));
+      sig = d['odata.nextLink'] || d['@odata.nextLink'] || null;
+    }
+    return todos;
+  }
+  function webDe(ruta) {
+    const partes = ruta.split('/').filter(Boolean), cands = [];
+    for (let i = partes.length; i >= 0; i--) cands.push(location.origin + (i ? '/' + partes.slice(0, i).join('/') : ''));
+    const probar = n => {
+      if (n >= cands.length) return Promise.reject(errorSP('Conectar', '', location.href, 0, 'No se encuentra el sitio de SharePoint a partir de esta página', 'config'));
+      return api('Buscar sitio (sondeo; un 404 aquí es normal)', '', cands[n] + '/_api/web?$select=Url,Title', {}).then(w => ({ url: w.Url || cands[n], titulo: w.Title }))
+        .catch(e => { if (e.status === 401) throw e; return probar(n + 1); });
+    };
+    return probar(0);
+  }
+  let digest = null, digestHasta = 0;
+  async function obtenerDigest() {
+    if (digest && Date.now() < digestHasta) return digest;
+    const j = await http('Obtener FormDigest (contextinfo)', '', web.url + '/_api/contextinfo', { metodo: 'POST', nota: 'token de escritura' });
+    const i = j && j.d ? j.d.GetContextWebInformation : j;
+    if (!i || !i.FormDigestValue) throw errorSP('Obtener FormDigest (contextinfo)', '', web.url + '/_api/contextinfo', 200, 'SharePoint no ha devuelto el FormDigest', 'config');
+    digest = i.FormDigestValue; digestHasta = Date.now() + ((i.FormDigestTimeoutSeconds || 1800) - 60) * 1000;
+    return digest;
+  }
+  async function enviar(op, listaN, url, cuerpo, extra, nota) {
+    for (let intento = 0; intento < 2; intento++) {
+      const dg = await obtenerDigest();
+      try { return await http(op, listaN, url, { metodo: 'POST', cuerpo: cuerpo, cab: Object.assign({ 'X-RequestDigest': dg }, extra || {}), nota: nota }); }
+      catch (e) {
+        if (intento === 0 && e.status === 403 && /security validation|validación de seguridad/i.test(e.detalle || '')) { digest = null; continue; }
+        throw e;
+      }
+    }
+  }
+  const urlL = n => web.url + "/_api/web/lists/getbytitle('" + encodeURIComponent(n.replace(/'/g, "''")) + "')";
+  const permisos = p => { const b = (p && (p.EffectiveBasePermissions || p)) || {}; const low = Number(b.Low) || 0;
+    return { ver: !!(low & 0x1), anadir: !!(low & 0x2), editar: !!(low & 0x4), borrar: !!(low & 0x8), gestionar: !!(low & 0x800) }; };
+
+  // ================= Columnas: localizar los nombres internos reales =================
+  const tipoOK = f => f && !f.ReadOnlyField && TIPOS_ESCRIBIBLES.indexOf(f.TypeAsString) >= 0;
+  function resolver(n) {
+    const S = L[n]; S.map = {}; S.porInterno = {}; S.incompatibles = {};
+    S.campos.forEach(c => { S.porInterno[c.InternalName] = c; });
+    const usados = new Set();
+    DEF[n].campos.forEach(d => {
+      const ov = (pref.mapa[n] || {})[d.k];
+      let res = [];
+      if (ov === '-') res = [];
+      else if (ov && S.porInterno[ov]) res = [ov];
+      else {
+        [d.in].concat(d.alt || []).forEach(c => {
+          const f = S.campos.find(x => x.InternalName.toLowerCase() === c.toLowerCase());
+          if (f && res.indexOf(f.InternalName) < 0) res.push(f.InternalName);
+        });
+        if (!res.length) {
+          const tit = [d.d].concat(d.alt || []).map(norm);
+          const f = S.campos.find(x => !x.ReadOnlyField && !usados.has(x.InternalName) && tit.indexOf(norm(x.Title)) >= 0);
+          if (f) res.push(f.InternalName);
+        }
+        if (!d.multi) res = res.slice(0, 1);
+      }
+      const malos = res.filter(i => !tipoOK(S.porInterno[i]));
+      if (malos.length) S.incompatibles[d.k] = malos.map(i => i + ' (' + S.porInterno[i].TypeAsString + ')');
+      S.map[d.k] = res.filter(i => tipoOK(S.porInterno[i]));
+      S.map[d.k].forEach(i => usados.add(i));
+    });
+  }
+  function leerValor(f, raw) {
+    if (!f) return null;
+    switch (f.TypeAsString) {
+      case 'DateTime': return raw ? fechaSP(raw) : '';
+      case 'Number': case 'Currency': case 'Integer': return raw == null || raw === '' ? null : Number(raw);
+      case 'Boolean': return raw == null ? null : (raw === true || raw === 1 || raw === '1' || raw === 'true');
+      case 'MultiChoice': return lista(raw).join(', ');
+      case 'URL': return raw && raw.Url ? raw.Url : (typeof raw === 'string' ? raw : '');
+      case 'Note': return f.RichText ? texto(raw) : String(raw == null ? '' : raw).replace(/\r\n/g, '\n').trim();
+      default: return raw == null ? '' : String(raw).trim();
+    }
+  }
+  function valorSP(f, v) {
+    switch (f.TypeAsString) {
+      case 'DateTime': return v ? aFecha(v).toISOString() : null;
+      case 'Number': case 'Currency': case 'Integer': return v === '' || v == null || isNaN(Number(v)) ? null : Number(v);
+      case 'Boolean': return !!v;
+      case 'MultiChoice': return { __metadata: { type: 'Collection(Edm.String)' }, results: vacio(v) ? [] : String(v).split(/\s*,\s*/) };
+      case 'URL': return v ? { __metadata: { type: 'SP.FieldUrlValue' }, Url: String(v), Description: String(v).slice(0, 255) } : null;
+      default: return v == null ? '' : String(v);
+    }
+  }
+  function mismoValor(f, leido, escrito) {
+    switch (f.TypeAsString) {
+      case 'DateTime': return (leido || '') === (escrito || '');
+      case 'Number': case 'Currency': case 'Integer': return (leido == null ? null : Number(leido)) === (escrito === '' || escrito == null ? null : Number(escrito));
+      case 'Boolean': return !!leido === !!escrito;
+      default: {
+        const a = String(leido == null ? '' : leido).replace(/\r\n/g, '\n').trim(), b = String(escrito == null ? '' : escrito).replace(/\r\n/g, '\n').trim();
+        return f.RichText ? a.replace(/\s+/g, ' ') === b.replace(/\s+/g, ' ') : a === b;
+      }
+    }
+  }
+  const internosLectura = n => unicos([].concat.apply([], Object.values(L[n].map)));
+
+  // Elemento de SharePoint → objeto de la app
+  function aObj(n, raw) {
+    const S = L[n];
+    const o = { id: raw.Id != null ? raw.Id : raw.ID, creado: raw.Created || '', modificado: raw.Modified || '', autor: (raw.Author && raw.Author.Title) || '', editor: (raw.Editor && raw.Editor.Title) || '' };
+    DEF[n].campos.forEach(d => {
+      let v = null;
+      for (const i of (S.map[d.k] || [])) { const x = leerValor(S.porInterno[i], raw[i]); if (x !== '' && x != null) { v = x; break; } }
+      o[d.k] = v == null ? (d.t === 'Boolean' || d.t === 'Number' ? null : '') : v;
+    });
+    if (n === 'NLT_MAESTRO' || n === 'UCO_SUIGESUR') o.activa = o.activa !== false;
+    if (n === 'CONTROL_ENTREGAS') o.estadoN = normEstado(o.estado, o);
+    if (n === 'SEGUIMIENTO_EVENTOS') o.estadoN = normEstadoEv(o.estado, o);
+    return o;
+  }
+  function normEstado(v, o) {
+    const s = sinTildes(v);
+    if (/no aplic|^n\/?a$/.test(s)) return 'No aplicable';
+    if (/subsan|devuel|incomplet/.test(s)) return 'Requiere subsanación';
+    if (/valid|cumplid|conform/.test(s)) return 'Validado';
+    if (/revis/.test(s)) return 'En revisión';
+    if (/recib|entreg|remitid/.test(s)) return 'Recibido';
+    if (o && o.recepcion) return 'Recibido';
+    return 'Pendiente';
+  }
+  function normEstadoEv(v, o) {
+    const s = sinTildes(v);
+    if (/cancel|anulad/.test(s)) return 'Cancelado';
+    if (/finaliz|cerrad|terminad|resuelt|complet/.test(s)) return 'Finalizado';
+    if (o && o.cierre) return 'Finalizado';
+    if (/curso|tramit/.test(s)) return 'En curso';
+    return 'Abierto';
+  }
+
+  // ================= Lectura de las listas =================
+  async function cargarLista(n) {
+    const S = L[n], base = urlL(n);
+    S.error = null;
+    try {
+      S.info = await api('Leer lista', n, base + '?$select=Id,Title,ItemCount,ListItemEntityTypeFullName,RootFolder/ServerRelativeUrl&$expand=RootFolder', { registrar: true });
+    } catch (e) {
+      S.info = null; S.items = []; S.campos = []; S.map = {}; S.porInterno = {}; S.error = e;
+      S.estado = e.status === 404 ? 'no existe' : (e.status === 401 || e.status === 403) ? 'sin permiso' : 'error de lectura';
+      return;
+    }
+    try {
+      const f = await api('Leer columnas', n, base + '/fields?$select=InternalName,Title,TypeAsString,Hidden,ReadOnlyField,Choices,RichText,Required,FillInChoice');
+      S.campos = lista(f.value).filter(x => !x.Hidden).map(x => Object.assign(x, { Choices: lista(x.Choices) }));
+      resolver(n);
+    } catch (e) { S.error = e; S.estado = 'error de lectura'; S.items = []; return; }
+    try { S.perm = permisos(await api('Leer permisos', n, base + '/EffectiveBasePermissions')); } catch (e) { S.perm = null; }
+    try {
+      const sel = ['Id', 'Created', 'Modified', 'Author/Title', 'Editor/Title'].concat(internosLectura(n));
+      const items = await paginar('Leer elementos', n, base + '/items?$top=500&$select=' + sel.join(',') + '&$expand=Author,Editor');
+      S.items = items.map(r => aObj(n, r));
+      S.estado = 'ok'; S.leidoEn = new Date();
+      registrar('Leer elementos', n, 'GET', base + '/items', 200, true, S.items.length + ' elementos');
+    } catch (e) { S.error = e; S.estado = 'error de lectura'; S.items = []; }
+  }
+  async function cargar() {
+    if (cargando) return;
+    cargando = true; errorGeneral = null;
+    pintarEstado();
+    try {
+      if (location.protocol === 'file:') throw errorSP('Conectar', '', location.href, 0, 'La página está abierta desde el disco. Súbela a la biblioteca de Colabora (…/JSUIGE/aplicaciones) y ábrela desde allí.', 'config');
+      if (!web) {
+        if (pref.sitio) {
+          const u = pref.sitio.replace(/\/+$/, '');
+          if (u.indexOf(location.origin) !== 0) throw errorSP('Conectar', '', u, 0, 'El sitio indicado en Ajustes (' + u + ') no está en el mismo servidor que la página (' + location.origin + ').', 'config');
+          const w = await api('Conectar', '', u + '/_api/web?$select=Url,Title', { registrar: true });
+          web = { url: w.Url || u, titulo: w.Title };
+        } else {
+          web = await webDe(location.pathname.replace(/\/[^/]*$/, ''));
+          registrar('Conectar', '', 'GET', web.url + '/_api/web', 200, true, 'Sitio: ' + web.titulo);
+        }
+      }
+      if (!yo) yo = await api('Usuario actual', '', web.url + '/_api/web/currentuser?$select=Id,Title,Email').catch(() => null);
+      permWeb = await api('Permisos del sitio', '', web.url + '/_api/web/EffectiveBasePermissions').then(permisos).catch(() => null);
+      await Promise.all(LISTAS.map(cargarLista));
+      enriquecer();
+      cargadoEn = new Date();
+    } catch (e) {
+      errorGeneral = e; web = pref.sitio ? null : web;
+    }
+    cargando = false;
+    pintarEstado(); render();
+  }
+  async function recargarLista(n) { await cargarLista(n); enriquecer(); pintarEstado(); }
+
+  // Relaciones y situación calculada
+  function enriquecer() {
+    uPorId = new Map(U().map(u => [u.id, u])); oPorId = new Map(O().map(o => [o.id, o]));
+    const uPorNombre = new Map(); U().forEach(u => { uPorNombre.set(norm(u.nombre), u); if (u.siglas) uPorNombre.set(norm(u.siglas), u); });
+    const oPorNombre = new Map(O().map(o => [norm(o.nombre), o]));
+    E().forEach(e => {
+      e.u = (e.unidadId && uPorId.get(e.unidadId)) || uPorNombre.get(norm(e.siglas)) || uPorNombre.get(norm(e.unidad)) || null;
+      e.ob = (e.obligacionId && oPorId.get(e.obligacionId)) || oPorNombre.get(norm(e.obligacion)) || null;
+      e.uEtq = e.u ? (e.u.siglas || e.u.nombre) : (e.siglas || e.unidad || '(sin unidad)');
+      e.uNom = e.u ? e.u.nombre : (e.unidad || e.siglas || '');
+      e.uK = e.u ? 'u' + e.u.id : 'n:' + norm(e.siglas || e.unidad);
+      e.oNom = e.ob ? e.ob.nombre : (e.obligacion || '(sin obligación)');
+      e.oK = e.ob ? 'o' + e.ob.id : 'n:' + norm(e.obligacion);
+      e.cat = e.ob ? e.ob.categoria : ''; e.tipo = e.ob ? e.ob.periodicidad : '';
+      e.s = situacion(e);
+    });
+    EV().forEach(v => {
+      v.u = (v.unidadId && uPorId.get(v.unidadId)) || uPorNombre.get(norm(v.siglas)) || uPorNombre.get(norm(v.unidad)) || null;
+      v.uEtq = v.u ? (v.u.siglas || v.u.nombre) : (v.siglas || v.unidad || 'General');
+      v.ob = v.obligacionId ? oPorId.get(v.obligacionId) || null : null;
+      v.cerrado = v.estadoN === 'Finalizado' || v.estadoN === 'Cancelado';
+      v.vencido = !v.cerrado && !!v.limite && v.limite < hoy();
+    });
+  }
+  // Situación de una entrega. Recibir no es cumplir: «Validado» es lo único que cuenta como cumplido.
+  const RECIBIDOS = ['Recibido', 'En revisión', 'Validado', 'Requiere subsanación'];
+  function situacion(e) {
+    const s = { k: 'pendiente', recibida: false, validada: false, fuera: false, retraso: 0, dias: null, base: false };
+    if (e.estadoN === 'No aplicable') { s.k = 'na'; return s; }
+    if (RECIBIDOS.indexOf(e.estadoN) >= 0) {
+      s.recibida = true; s.base = true; s.validada = e.estadoN === 'Validado';
+      s.k = s.validada ? 'validada' : e.estadoN === 'Requiere subsanación' ? 'subsanar' : e.estadoN === 'En revisión' ? 'revision' : 'recibida';
+      if (e.nlt && e.recepcion && e.recepcion > e.nlt) { s.fuera = true; s.retraso = diasEntre(e.nlt, e.recepcion); }
+      s.sinFecha = !e.recepcion;
+      return s;
+    }
+    if (e.nlt) {
+      s.dias = diasEntre(hoy(), e.nlt);
+      if (s.dias < 0) { s.k = 'vencida'; s.base = true; s.retraso = -s.dias; }
+    }
+    return s;
+  }
+  // Indicadores sobre una base coherente: entregas exigibles = recibidas + vencidas sin remitir (las «no aplicables» no cuentan)
+  function metricas(es) {
+    const m = { total: es.length, na: 0, asignadas: 0, pendientes: 0, vencidas: 0, recibidas: 0, enPlazo: 0, fuera: 0, validadas: 0, revision: 0, subsanar: 0, base: 0, incumpl: 0, sumRetraso: 0, nRetraso: 0 };
+    es.forEach(e => {
+      const s = e.s;
+      if (s.k === 'na') { m.na++; return; }
+      m.asignadas++;
+      if (s.base) m.base++;
+      if (s.recibida) { m.recibidas++; if (s.fuera) { m.fuera++; m.sumRetraso += s.retraso; m.nRetraso++; } else m.enPlazo++; }
+      if (s.validada) m.validadas++;
+      if (s.k === 'revision') m.revision++;
+      if (s.k === 'subsanar') m.subsanar++;
+      if (s.k === 'vencida') m.vencidas++;
+      if (s.k === 'pendiente') m.pendientes++;
+    });
+    m.incumpl = m.vencidas + m.fuera;
+    m.puntualidad = pct(m.enPlazo, m.base);
+    m.remision = pct(m.recibidas, m.base);
+    m.cumplimiento = pct(m.validadas, m.base);
+    m.retrasoMedio = m.nRetraso ? Math.round(m.sumRetraso / m.nRetraso) : null;
+    return m;
+  }
+  const esIncumplida = e => e.s.k === 'vencida' || e.s.fuera;
+
+  // ================= Escritura verificada =================
+  // 1) escribe, 2) recibe la respuesta, 3) relee el elemento del servidor, 4) compara cada columna, 5) solo entonces confirma.
+  async function leerElemento(n, id, op) {
+    const sel = ['Id', 'Created', 'Modified', 'Author/Title', 'Editor/Title'].concat(internosLectura(n));
+    const j = await http(op, n, urlL(n) + '/items(' + id + ')?$select=' + sel.join(',') + '&$expand=Author,Editor', { registrar: true });
+    return j && j.d ? j.d : j;
+  }
+  function marcarEscritura(ok, txt) {
+    ultimaEscritura = { ok: ok, txt: txt, hora: hora() };
+    const el = $('#escritura'); el.hidden = false;
+    el.className = 'estado ' + (ok === true ? 'ok' : ok === false ? 'bad' : 'warn');
+    el.textContent = (ok === true ? '✔ ' : ok === false ? '✖ ' : '… ') + txt;
+    el.title = txt;
+  }
+  async function guardar(n, obj, datos, op) {
+    const S = L[n];
+    if (!S.info) throw errorSP(op, n, '', 0, 'La lista ' + n + ' no existe en el sitio o no se ha podido leer. Revisa Ajustes → Estructura.', 'config');
+    const cuerpo = { __metadata: { type: S.info.ListItemEntityTypeFullName } }, escritos = [], faltan = [];
+    Object.keys(datos).forEach(k => {
+      const d = defCampo(n, k), v = datos[k];
+      if (obj && mismoValor({ TypeAsString: d.t === 'Note' ? 'Text' : d.t }, obj[k], v)) return;
+      const ints = S.map[k] || [];
+      if (!ints.length) { if (!vacio(v)) faltan.push('«' + d.d + '» (' + d.in + ')'); return; }
+      ints.forEach(i => { cuerpo[i] = valorSP(S.porInterno[i], v); escritos.push({ k: k, i: i, v: v }); });
+    });
+    if (faltan.length) throw errorSP(op, n, '', 0, 'En la lista ' + n + ' no existen las columnas ' + faltan.join(', ') + '. No se ha escrito nada. Créalas o asígnalas en Ajustes → Estructura.', 'config');
+    if (!escritos.length) return { id: obj.id, sinCambios: true, item: obj };
+    marcarEscritura(null, 'Escribiendo en ' + n + '…');
+    let id;
+    try {
+      if (obj) {
+        const act = await leerElemento(n, obj.id, op + ' · releer antes de modificar');
+        if (obj.modificado && act.Modified && new Date(act.Modified).getTime() !== new Date(obj.modificado).getTime())
+          throw errorSP(op, n, urlL(n) + '/items(' + obj.id + ')', 412, 'Otra persona ha modificado este elemento (' + fHora(act.Modified) + ') desde que se cargó. Pulsa Actualizar, revisa sus cambios y repite el tuyo.');
+        await enviar(op, n, urlL(n) + '/items(' + obj.id + ')', cuerpo, { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': (act.__metadata && act.__metadata.etag) || '*' }, 'ID ' + obj.id);
+        id = obj.id;
+      } else {
+        const r = await enviar(op, n, urlL(n) + '/items', cuerpo, null, 'alta');
+        const d = r && (r.d || r);
+        id = d && (d.Id != null ? d.Id : d.ID);
+        if (id == null) throw errorSP(op, n, urlL(n) + '/items', 201, 'SharePoint respondió sin devolver el ID del elemento creado: no se puede verificar. Comprueba la lista antes de repetir.', 'verificacion');
+      }
+      const raw = await leerElemento(n, id, 'Verificar ' + op.toLowerCase()).catch(e => {
+        throw errorSP('Verificar ' + op.toLowerCase(), n, e.url, e.status, (e.status === 404 ? 'El elemento ' + id + ' no aparece al releer la lista. ' : 'No se ha podido releer el elemento ' + id + ': ') + e.message, 'verificacion');
+      });
+      const dif = escritos.filter(w => !mismoValor(S.porInterno[w.i], leerValor(S.porInterno[w.i], raw[w.i]), w.v))
+        .map(w => w.i + ': enviado «' + (w.v == null ? '' : w.v) + '», guardado «' + (leerValor(S.porInterno[w.i], raw[w.i]) == null ? '' : leerValor(S.porInterno[w.i], raw[w.i])) + '»');
+      if (dif.length) throw errorSP('Verificar ' + op.toLowerCase(), n, urlL(n) + '/items(' + id + ')', 200, 'Escritura NO verificada: el elemento ID ' + id + ' existe en SharePoint, pero con valores distintos de los enviados (revísalo antes de repetir):\n' + dif.join('\n'), 'verificacion');
+      const item = aObj(n, raw);
+      const pos = S.items.findIndex(x => x.id === id);
+      if (pos >= 0) S.items[pos] = item; else S.items.push(item);
+      enriquecer();
+      registrar('Verificación correcta', n, 'GET', urlL(n) + '/items(' + id + ')', 200, true, 'ID ' + id + ' · ' + escritos.length + ' columnas comprobadas');
+      marcarEscritura(true, 'Verificado en ' + n + ' · ID ' + id + ' · ' + hora());
+      return { id: id, item: item };
+    } catch (e) {
+      marcarEscritura(false, (e.tipo === 'verificacion' ? 'Sin verificar' : 'Error de escritura') + ' en ' + n + (e.status && e.tipo !== 'verificacion' ? ' (HTTP ' + e.status + ')' : ''));
+      throw e;
+    }
+  }
+  async function reciclar(n, obj, op) {
+    marcarEscritura(null, 'Enviando a la papelera…');
+    try {
+      await enviar(op, n, urlL(n) + '/items(' + obj.id + ')/recycle()', null, null, 'ID ' + obj.id + ' a la papelera de reciclaje');
+      let sigue = true;
+      try { await http('Verificar papelera', n, urlL(n) + '/items(' + obj.id + ')?$select=Id', { silencioso: true }); } catch (e) { if (e.status === 404) sigue = false; else throw e; }
+      if (sigue) throw errorSP('Verificar papelera', n, urlL(n) + '/items(' + obj.id + ')', 200, 'El elemento sigue en la lista tras enviarlo a la papelera.', 'verificacion');
+      L[n].items = L[n].items.filter(x => x.id !== obj.id); enriquecer();
+      registrar('Verificación correcta', n, 'GET', urlL(n) + '/items(' + obj.id + ')', 404, true, 'ID ' + obj.id + ' ya no está en la lista (en la papelera)');
+      marcarEscritura(true, 'ID ' + obj.id + ' enviado a la papelera · ' + hora());
+    } catch (e) { marcarEscritura(false, 'Error al enviar a la papelera'); throw e; }
+  }
+  function htmlError(e, contexto) {
+    const det = [e.op && 'Operación: ' + e.op, e.lista && 'Lista: ' + e.lista, e.status ? 'HTTP: ' + e.status : (e.tipo === 'config' ? 'Tipo: configuración' : ''), e.url && 'Endpoint: ' + rutaCorta(e.url)].filter(Boolean);
+    return '<div class="error">' + esc((contexto ? contexto + ': ' : '') + (e.message || e)) + (det.length ? '<small>' + esc(det.join(' · ')) + '</small>' : '') + '</div>';
+  }
+
+  // ================= Reglas NLT =================
+  function parseMeses(txt) {
+    const r = [];
+    String(txt || '').split(/[\s,;/]+/).filter(Boolean).forEach(t => {
+      let m = Number(t);
+      if (!m) { const i = MES.findIndex(x => sinTildes(t).toUpperCase().indexOf(x) === 0); m = i >= 0 ? i + 1 : 0; }
+      if (m >= 1 && m <= 12 && r.indexOf(m) < 0) r.push(m);
+    });
+    return r.sort((a, b) => a - b);
+  }
+  const esPeriodica = o => o && ['A demanda', 'Por evento'].indexOf(o.periodicidad) < 0 && !!o.periodicidad;
+  const tipoOb = o => !o ? '' : o.periodicidad === 'A demanda' ? 'A demanda' : o.periodicidad === 'Por evento' ? 'Por evento' : 'Periódica';
+  function mesesDe(o) {
+    const m = parseMeses(o.meses);
+    if (m.length) return m;
+    return { Mensual: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], Trimestral: [3, 6, 9, 12], Semestral: [6, 12] }[o.periodicidad] || [];
+  }
+  function reglaTxt(o) {
+    if (!esPeriodica(o)) return o.regla || (o.plazo ? o.plazo + ' días desde el evento' : o.periodicidad || '—');
+    const ms = mesesDe(o), dia = o.dia ? pad(o.dia) : '¿?';
+    if (o.periodicidad === 'Mensual' && ms.length === 12) return 'Día ' + dia + ' de cada mes';
+    return ms.length ? ms.map(m => dia + ' ' + MES[m - 1]).join(' · ') : (o.regla || 'Sin meses definidos');
+  }
+  function etiquetaPeriodo(o, anio, mes) {
+    if (o.periodicidad === 'Anual') return String(anio);
+    if (o.periodicidad === 'Semestral') return anio + '-S' + (mes <= 6 ? 1 : 2);
+    if (o.periodicidad === 'Trimestral') return anio + '-T' + Math.ceil(mes / 3);
+    return anio + '-' + pad(mes);
+  }
+  function plazosDe(o, anio) {
+    if (!esPeriodica(o)) return [];
+    return mesesDe(o).map(m => {
+      const ult = new Date(anio, m, 0).getDate();
+      return { periodo: etiquetaPeriodo(o, anio, m), nlt: anio + '-' + pad(m) + '-' + pad(Math.min(o.dia || ult, ult)) };
+    });
+  }
+  const fechaRef = e => e.nlt || (/^\d{4}-\d{2}/.test(e.periodo) ? e.periodo.slice(0, 7) + '-01' : /^\d{4}$/.test(e.periodo) ? e.periodo + '-12-31' : fechaSP(e.creado));
+  function enPeriodo(fecha, anio, per) {
+    if (!anio) return true;
+    if (!fecha) return false;
+    const y = +fecha.slice(0, 4), m = +fecha.slice(5, 7);
+    if (y !== +anio) return false;
+    if (!per) return true;
+    if (per[0] === 'T') return Math.ceil(m / 3) === +per[1];
+    return m === +per;
+  }
+  const aniosDatos = () => unicos(E().map(e => fechaRef(e).slice(0, 4)).concat(EV().map(v => (v.activacion || '').slice(0, 4))).concat([String(new Date().getFullYear())])).sort().reverse();
+  const PERIODOS = [['', 'Año completo'], ['T1', '1.er trimestre'], ['T2', '2.º trimestre'], ['T3', '3.er trimestre'], ['T4', '4.º trimestre']].concat(MESL.map((m, i) => [String(i + 1), m]));
+
+  // ================= Presentación común =================
+  function badgeE(e) {
+    const s = e.s;
+    let b;
+    if (s.k === 'na') b = '<span class="badge none">No aplicable</span>';
+    else if (s.k === 'vencida') b = '<span class="badge bad">Vencida · ' + s.retraso + ' d</span>';
+    else if (s.k === 'pendiente') b = s.dias == null ? '<span class="badge info">Pendiente (sin NLT)</span>' : s.dias === 0 ? '<span class="badge warn">Vence hoy</span>' : s.dias <= 7 ? '<span class="badge warn">Pendiente · ' + s.dias + ' d</span>' : '<span class="badge info">Pendiente</span>';
+    else {
+      b = s.validada ? '<span class="badge ok">✔ Validado</span>' : s.k === 'subsanar' ? '<span class="badge warn">Requiere subsanación</span>' : s.k === 'revision' ? '<span class="badge info">En revisión</span>' : '<span class="badge info">Recibido</span>';
+      b += ' ' + (s.fuera ? '<span class="badge bad">Fuera de plazo +' + s.retraso + ' d</span>' : s.sinFecha ? '<span class="badge none">Sin fecha recepción</span>' : '<span class="badge ok">En plazo</span>');
+    }
+    return b;
+  }
+  function badgeEv(v) {
+    if (v.estadoN === 'Cancelado') return '<span class="badge none">Cancelado</span>';
+    if (v.estadoN === 'Finalizado') return '<span class="badge ok">Finalizado</span>';
+    if (v.vencido) return '<span class="badge bad">Vencido · ' + diasEntre(v.limite, hoy()) + ' d</span>';
+    if (v.limite && diasEntre(hoy(), v.limite) <= 7) return '<span class="badge warn">' + esc(v.estadoN) + ' · ' + diasEntre(hoy(), v.limite) + ' d</span>';
+    return '<span class="badge info">' + esc(v.estadoN) + '</span>';
+  }
+  function tabla(cabs, filas, opt) {
+    opt = opt || {};
+    return '<div class="tw"><table class="t"><thead><tr>' + cabs.map(c => { const n = c[0] === '#'; return '<th' + (n ? ' class="n"' : '') + '>' + esc(n ? c.slice(1) : c) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      (filas.length ? filas.join('') : '<tr><td colspan="' + cabs.length + '" class="vacio">' + esc(opt.vacio || 'Sin registros') + '</td></tr>') + '</tbody></table></div>';
+  }
+  const td = (v, n) => '<td' + (n ? ' class="n"' : '') + '>' + v + '</td>';
+  const celPct = p => '<span class="cel ' + (p == null ? 'none' : p >= 90 ? 'ok' : p >= 70 ? 'warn' : 'bad') + '">' + pctTxt(p) + '</span>';
+  function kpi(lbl, val, sub, cls, ir) {
+    return '<div class="kpi ' + (cls || '') + '"' + (ir ? ' data-ir="' + esc(ir) + '"' : '') + '><span>' + esc(lbl) + '</span><b>' + esc(val) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>';
+  }
+  function apilada(m) {
+    const t = m.enPlazo + m.fuera + m.vencidas + m.pendientes;
+    if (!t) return '<p class="small muted">Sin entregas asignadas en la selección.</p>';
+    const seg = (n, c, l) => n ? '<i class="' + c + '" style="width:' + (n / t * 100) + '%" title="' + esc(l + ': ' + n) + '"></i>' : '';
+    return '<div class="apilada" role="img" aria-label="Distribución de entregas">' + seg(m.enPlazo, 's-ok', 'Recibidas en plazo') + seg(m.fuera, 's-fuera', 'Recibidas fuera de plazo') + seg(m.vencidas, 's-venc', 'Vencidas sin remitir') + seg(m.pendientes, 's-pend', 'Pendientes en plazo') + '</div>' +
+      '<div class="leyenda"><span><i class="s-ok"></i>En plazo ' + m.enPlazo + '</span><span><i class="s-fuera"></i>Fuera de plazo ' + m.fuera + '</span><span><i class="s-venc"></i>Vencidas sin remitir ' + m.vencidas + '</span><span><i class="s-pend"></i>Pendientes en plazo ' + m.pendientes + '</span>' + (m.na ? '<span><i class="s-na"></i>No aplicables ' + m.na + ' (excluidas)</span>' : '') + '</div>';
+  }
+  // Gráfico de barras de porcentaje (una serie, 0–100 %); el valor exacto aparece al pasar el ratón y en la tabla adjunta
+  function grafPct(datos, titulo, ancho) {
+    const W = ancho || 1200, H = 200, ml = 34, mb = 24, mt = 10, n = Math.max(datos.length, 1), bw = (W - ml - 8) / n;
+    let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(titulo) + '">';
+    [0, 50, 100].forEach(v => { const y = mt + (H - mt - mb) * (1 - v / 100); s += '<line x1="' + ml + '" x2="' + W + '" y1="' + y + '" y2="' + y + '"/><text x="' + (ml - 6) + '" y="' + (y + 4) + '" text-anchor="end">' + v + '%</text>'; });
+    datos.forEach((d, i) => {
+      const x = ml + i * bw + bw * 0.18, w = Math.max(bw * 0.64, 2);
+      if (d.v != null) {
+        const h = Math.max((H - mt - mb) * d.v / 100, d.v > 0 ? 2 : 0), y = H - mb - h, r = Math.min(4, w / 2, h);
+        s += '<path class="b" d="M' + x + ',' + (H - mb) + 'V' + (y + r) + 'Q' + x + ',' + y + ' ' + (x + r) + ',' + y + 'H' + (x + w - r) + 'Q' + (x + w) + ',' + y + ' ' + (x + w) + ',' + (y + r) + 'V' + (H - mb) + 'Z" fill="var(--brand-2)"><title>' + esc(d.etq + ': ' + d.v + ' % · ' + (d.tip || '')) + '</title></path>';
+      } else s += '<text x="' + (x + w / 2) + '" y="' + (H - mb - 4) + '" text-anchor="middle">–</text>';
+      if (n <= 16 || i % Math.ceil(n / 16) === 0) s += '<text x="' + (x + w / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(d.corta || d.etq) + '</text>';
+    });
+    return '<div class="graf">' + s + '<line x1="' + ml + '" x2="' + W + '" y1="' + (H - mb) + '" y2="' + (H - mb) + '" style="stroke:var(--muted)"/></svg></div>';
+  }
+  function filasBarras(grupos, campo, max, ir) {
+    if (!grupos.length) return '<p class="small muted">Sin incumplimientos en la selección.</p>';
+    return grupos.map(g => '<div class="fila-bar"' + (ir ? ' data-ir="' + esc(ir(g)) + '"' : '') + ' title="' + esc(g.nombre + ': ' + g[campo] + ' incumplimientos de ' + g.base + ' exigibles') + '"><span>' + esc(g.nombre) + '</span><div class="bar"><i style="width:' + (max ? g[campo] / max * 100 : 0) + '%"></i></div><b>' + g[campo] + '</b></div>').join('');
+  }
+  function agrupar(es, clave, nombre) {
+    const m = new Map();
+    es.forEach(e => { const k = clave(e); if (!m.has(k)) m.set(k, { k: k, nombre: nombre(e), es: [] }); m.get(k).es.push(e); });
+    return Array.from(m.values()).map(g => Object.assign(g, metricas(g.es)));
+  }
+  function reincidencias(es) {
+    const m = new Map();
+    es.filter(esIncumplida).forEach(e => { const k = e.uK + '|' + e.oK; if (!m.has(k)) m.set(k, { uK: e.uK, oK: e.oK, unidad: e.uEtq, obligacion: e.oNom, es: [] }); m.get(k).es.push(e); });
+    return Array.from(m.values()).filter(g => g.es.length >= 2).sort((a, b) => b.es.length - a.es.length || porNombre(a.unidad, b.unidad));
+  }
+
+  // ---- filtros comunes de entregas ----
+  function filtrarE(f) {
+    return E().filter(e => enPeriodo(fechaRef(e), f.anio, f.per) && (!f.uni || e.uK === f.uni) && (!f.obl || e.oK === f.obl) && (!f.cat || e.cat === f.cat) && (!f.tipo || e.tipo === f.tipo));
+  }
+  const opcUnidades = () => unicos(E().map(e => e.uK)).map(k => { const e = E().find(x => x.uK === k); return [k, e.uEtq + (e.u && e.u.siglas && e.u.nombre !== e.u.siglas ? ' – ' + e.u.nombre : '')]; })
+    .concat(U().filter(u => !E().some(e => e.uK === 'u' + u.id)).map(u => ['u' + u.id, (u.siglas ? u.siglas + ' – ' : '') + u.nombre])).sort((a, b) => porNombre(a[1], b[1]));
+  const opcOblig = () => unicos(E().map(e => e.oK)).map(k => [k, E().find(x => x.oK === k).oNom])
+    .concat(O().filter(o => !E().some(e => e.oK === 'o' + o.id)).map(o => ['o' + o.id, o.nombre])).sort((a, b) => porNombre(a[1], b[1]));
+  function barraFiltrosComun(extra) {
+    return '<div class="filtros" id="filtros">' +
+      '<div><label class="lbl">Año</label><select data-f="anio">' + opciones(aniosDatos(), F.anio, 'Todos los años') + '</select></div>' +
+      '<div><label class="lbl">Periodo</label><select data-f="per"' + (F.anio ? '' : ' disabled') + '>' + opciones(PERIODOS, F.per) + '</select></div>' +
+      '<div><label class="lbl">Unidad</label><select data-f="uni">' + opciones(opcUnidades(), F.uni, 'Todas') + '</select></div>' +
+      '<div><label class="lbl">Obligación</label><select data-f="obl">' + opciones(opcOblig(), F.obl, 'Todas') + '</select></div>' +
+      '<div><label class="lbl">Tipo</label><select data-f="tipo">' + opciones(unicos(O().map(o => o.periodicidad)).sort(porNombre), F.tipo, 'Todos') + '</select></div>' +
+      '<div><label class="lbl">Categoría</label><select data-f="cat">' + opciones(unicos(O().map(o => o.categoria)).sort(porNombre), F.cat, 'Todas') + '</select></div>' +
+      (extra || '') + '</div>';
+  }
+
+  // ================= Vistas =================
+  function sinConexion() {
+    if (cargando && !cargadoEn) return '<p class="muted">Conectando con SharePoint…</p>';
+    if (errorGeneral) return htmlError(errorGeneral, 'No hay conexión con SharePoint') + '<p class="muted">No se muestran datos: la aplicación solo trabaja con los registros reales de SharePoint. Revisa <a href="#" data-ir="ajustes">Ajustes</a>.</p>';
+    return '';
+  }
+  function avisoListas(ns) {
+    const mal = ns.filter(n => L[n].estado !== 'ok');
+    return mal.length ? '<div class="aviso">' + mal.map(n => '<b>' + n + '</b>: ' + esc(L[n].estado) + (L[n].error ? ' — ' + esc(L[n].error.message) : '')).join('<br>') + '<br><a href="#" data-ir="ajustes">Revisar en Ajustes → Estructura</a></div>' : '';
+  }
+
+  // ---------- Inicio ----------
+  const VISTAS = {};
+  VISTAS.inicio = {
+    barra: () => '<div class="barra"><h2>Situación general</h2><div class="acc"><button class="prim" data-acc="asignar">＋ Asignar obligación</button><button data-acc="nuevoEvento">＋ Evento</button></div></div>' +
+      avisoListas(LISTAS) + barraFiltrosComun(),
+    res: () => {
+      const es = filtrarE(F), m = metricas(es), h = hoy();
+      const unisInc = agrupar(es.filter(esIncumplida), e => e.uK, e => e.uEtq).map(g => Object.assign(g, { n: g.es.length, base: metricas(es.filter(e => e.uK === g.k)).base })).sort((a, b) => b.n - a.n);
+      const oblInc = agrupar(es.filter(esIncumplida), e => e.oK, e => e.oNom).map(g => Object.assign(g, { n: g.es.length, base: metricas(es.filter(e => e.oK === g.k)).base })).sort((a, b) => b.n - a.n);
+      const venc = es.filter(e => e.s.k === 'vencida').sort((a, b) => b.s.retraso - a.s.retraso);
+      const prox = E().filter(e => e.s.k === 'pendiente' && e.nlt && e.nlt >= h && diasEntre(h, e.nlt) <= 15 && (!F.uni || e.uK === F.uni) && (!F.obl || e.oK === F.obl)).sort((a, b) => a.nlt.localeCompare(b.nlt));
+      const evAb = EV().filter(v => !v.cerrado), evVenc = evAb.filter(v => v.vencido);
+      const reinc = reincidencias(es);
+      const anio = F.anio || String(new Date().getFullYear());
+      const evol = MESL.map((ml, i) => { const mm = metricas(E().filter(e => enPeriodo(fechaRef(e), anio, String(i + 1)) && (!F.uni || e.uK === F.uni) && (!F.obl || e.oK === F.obl) && (!F.cat || e.cat === F.cat) && (!F.tipo || e.tipo === F.tipo))); return { etq: ml + ' ' + anio, corta: MES[i], v: mm.puntualidad, tip: mm.enPlazo + ' en plazo de ' + mm.base + ' exigibles' }; });
+      const filaE = e => '<tr class="clic" data-entrega="' + e.id + '">' + td(fCorta(e.nlt)) + td(esc(e.uEtq)) + td(esc(e.oNom)) + td(esc(e.periodo)) + td(badgeE(e)) + '</tr>';
+      return '<div class="kpis">' +
+        kpi('Asignadas', m.asignadas, m.na ? m.na + ' no aplicables (excluidas)' : 'en la selección', '', 'entregas:') +
+        kpi('Pendientes en plazo', m.pendientes, 'aún no vencidas', '', 'entregas:pendiente') +
+        kpi('Vencidas sin remitir', m.vencidas, 'NLT superada', m.vencidas ? 'bad' : 'ok', 'entregas:vencida') +
+        kpi('Recibidas', m.recibidas, m.enPlazo + ' en plazo · ' + m.fuera + ' fuera', '', 'entregas:recibidas') +
+        kpi('Fuera de plazo', m.fuera, m.retrasoMedio != null ? 'retraso medio ' + m.retrasoMedio + ' d' : '', m.fuera ? 'warn' : '', 'entregas:fuera') +
+        kpi('Validadas', m.validadas, (m.revision + m.subsanar) + ' en revisión o subsanación', '', 'entregas:validada') +
+        kpi('Puntualidad', pctTxt(m.puntualidad), 'en plazo / ' + m.base + ' exigibles', m.puntualidad == null ? '' : m.puntualidad >= 90 ? 'ok' : m.puntualidad >= 70 ? 'warn' : 'bad') +
+        kpi('Cumplimiento', pctTxt(m.cumplimiento), 'validadas / exigibles', m.cumplimiento == null ? '' : m.cumplimiento >= 90 ? 'ok' : m.cumplimiento >= 70 ? 'warn' : 'bad') +
+        kpi('Unidades con incumplimientos', unisInc.length, 'de ' + unicos(es.map(e => e.uK)).length + ' con entregas', unisInc.length ? 'bad' : 'ok', 'analisis:unidades') +
+        kpi('Eventos abiertos', evAb.length, evVenc.length + ' vencidos', evVenc.length ? 'bad' : '', 'eventos:') + '</div>' +
+        '<div class="card"><h3>Distribución de las entregas<span class="small muted">exigibles = recibidas + vencidas sin remitir</span></h3>' + apilada(m) + '</div>' +
+        '<div class="dos">' +
+        '<div class="card"><h3>Vencidas sin remitir<span class="small muted">' + venc.length + '</span></h3>' + tabla(['NLT', 'Unidad', 'Obligación', 'Periodo', 'Situación'], venc.slice(0, 12).map(filaE), { vacio: 'Ninguna entrega vencida sin remitir' }) + (venc.length > 12 ? '<p class="small"><a href="#" data-ir="entregas:vencida">Ver las ' + venc.length + '</a></p>' : '') + '</div>' +
+        '<div class="card"><h3>NLT próximas (15 días)<span class="small muted">' + prox.length + '</span></h3>' + tabla(['NLT', 'Unidad', 'Obligación', 'Periodo', 'Situación'], prox.slice(0, 12).map(filaE), { vacio: 'Sin vencimientos en los próximos 15 días' }) + '</div>' +
+        '<div class="card"><h3>Unidades con más incumplimientos<span class="small muted">vencidas + fuera de plazo</span></h3>' + filasBarras(unisInc.slice(0, 10), 'n', unisInc[0] && unisInc[0].n, g => 'uni:' + g.k) + '</div>' +
+        '<div class="card"><h3>Obligaciones con más incumplimientos</h3>' + filasBarras(oblInc.slice(0, 10), 'n', oblInc[0] && oblInc[0].n, g => 'obl:' + g.k) + '</div>' +
+        '<div class="card"><h3>Puntualidad mensual ' + esc(anio) + '<span class="small muted">en plazo / exigibles</span></h3>' + grafPct(evol, 'Puntualidad mensual ' + anio, 440) + '</div>' +
+        '<div class="card"><h3>Reincidencia<span class="small muted">misma unidad y obligación, 2 o más incumplimientos</span></h3>' + tabla(['Unidad', 'Obligación', '#Veces', 'Periodos'], reinc.slice(0, 8).map(g => '<tr>' + td(esc(g.unidad)) + td(esc(g.obligacion)) + td(g.es.length, 1) + td(esc(g.es.map(e => e.periodo).sort().join(', '))) + '</tr>'), { vacio: 'Sin reincidencias en la selección' }) + '</div>' +
+        '<div class="card"><h3>Eventos vencidos o próximos</h3>' + tabla(['Límite', 'Unidad', 'Evento', 'Situación'], evAb.filter(v => v.limite && diasEntre(h, v.limite) <= 7).sort((a, b) => a.limite.localeCompare(b.limite)).slice(0, 10)
+          .map(v => '<tr class="clic" data-evento="' + v.id + '">' + td(fCorta(v.limite)) + td(esc(v.uEtq)) + td(esc(v.titulo)) + td(badgeEv(v)) + '</tr>'), { vacio: 'Sin eventos vencidos ni próximos' }) + '</div>' +
+        '</div>';
+    }
+  };
+
+  // ---------- Entregas ----------
+  const SEL = new Set();
+  let limiteFilas = 300;
+  const SITS = [['', 'Todas'], ['pendiente', 'Pendientes en plazo'], ['vencida', 'Vencidas sin remitir'], ['incumplida', 'Incumplidas (vencidas o fuera de plazo)'], ['recibidas', 'Recibidas (todas)'],
+    ['plazo', 'Recibidas en plazo'], ['fuera', 'Recibidas fuera de plazo'], ['sinvalidar', 'Recibidas sin validar'], ['revision', 'En revisión'], ['subsanar', 'Requiere subsanación'], ['validada', 'Validadas'], ['na', 'No aplicables']];
+  function cumpleSit(e, k) {
+    const s = e.s;
+    switch (k) {
+      case '': return true;
+      case 'incumplida': return esIncumplida(e);
+      case 'recibidas': return s.recibida;
+      case 'plazo': return s.recibida && !s.fuera;
+      case 'fuera': return s.fuera;
+      case 'sinvalidar': return s.recibida && !s.validada;
+      default: return s.k === k;
+    }
+  }
+  function entregasFiltradas() {
+    const q = norm(F.q);
+    return filtrarE(F).filter(e => cumpleSit(e, F.sit) && (!F.est || e.estadoN === F.est) &&
+      (!q || norm([e.uEtq, e.uNom, e.oNom, e.periodo, e.responsable, e.referencia, e.obs].join(' ')).indexOf(q) >= 0))
+      .sort((a, b) => (a.nlt || '9').localeCompare(b.nlt || '9') || porNombre(a.uEtq, b.uEtq));
+  }
+  VISTAS.entregas = {
+    barra: () => '<div class="barra"><h2>Control de entregas</h2><div class="acc"><button class="prim" data-acc="asignar">＋ Asignar obligación a unidades</button><button data-acc="csvEntregas">Exportar CSV</button></div></div>' +
+      avisoListas(['CONTROL_ENTREGAS']) +
+      barraFiltrosComun('<div><label class="lbl">Situación</label><select data-f="sit">' + opciones(SITS, F.sit) + '</select></div>' +
+        '<div><label class="lbl">Estado registrado</label><select data-f="est">' + opciones(ESTADOS_E, F.est, 'Todos') + '</select></div>' +
+        '<div class="q"><label class="lbl">Buscar</label><input data-f="q" type="search" value="' + esc(F.q) + '" placeholder="Unidad, obligación, periodo, referencia…"></div>'),
+    res: () => {
+      const es = entregasFiltradas(), m = metricas(es);
+      Array.from(SEL).forEach(id => { if (!es.some(e => e.id === id)) SEL.delete(id); });
+      const filas = es.slice(0, limiteFilas).map(e => '<tr class="clic' + (SEL.has(e.id) ? ' sel' : '') + '" data-entrega="' + e.id + '">' +
+        '<td><input type="checkbox" data-sel="' + e.id + '"' + (SEL.has(e.id) ? ' checked' : '') + ' aria-label="Seleccionar"></td>' +
+        td(fCorta(e.nlt)) + td('<b>' + esc(e.uEtq) + '</b>') + td(esc(e.oNom)) + td(esc(e.periodo)) + td(fCorta(e.recepcion)) + td(badgeE(e)) +
+        td((e.s.k === 'pendiente' || e.s.k === 'vencida' ? '<button class="peq" data-acc="recibir" data-id="' + e.id + '" title="Registrar recepción con fecha de hoy">Recibido hoy</button> ' : '') +
+          (e.s.recibida && !e.s.validada ? '<button class="peq" data-acc="validar" data-id="' + e.id + '" title="Marcar como validado hoy">Validar</button>' : '')) + '</tr>');
+      return '<p class="small muted">' + es.length + ' registros · ' + m.vencidas + ' vencidos sin remitir · ' + m.recibidas + ' recibidos (' + m.fuera + ' fuera de plazo) · ' + m.validadas + ' validados · puntualidad ' + pctTxt(m.puntualidad) + '</p>' +
+        (SEL.size ? '<div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b>' + SEL.size + ' seleccionadas</b>' +
+          '<label class="check">Fecha <input type="date" id="loteFecha" value="' + hoy() + '" style="width:auto"></label>' +
+          '<button data-acc="loteRecibir">Registrar recepción</button><button data-acc="loteValidar">Validar</button><button data-acc="loteNA">No aplicable</button><button data-acc="loteQuitar">Quitar selección</button><span id="loteRes" class="small"></span></div>' : '') +
+        tabla(['', 'NLT', 'Unidad', 'Obligación', 'Periodo', 'Recepción', 'Situación', 'Acciones'], filas,
+          { vacio: E().length ? 'Ningún registro con estos filtros' : 'Todavía no hay obligaciones asignadas. Usa «Asignar obligación a unidades».' }) +
+        (es.length > limiteFilas ? '<p><button data-acc="masFilas">Mostrar más (' + (es.length - limiteFilas) + ' restantes)</button></p>' : '') +
+        (es.length ? '<p class="small"><label class="check"><input type="checkbox" data-acc="selTodas"' + (es.slice(0, limiteFilas).every(e => SEL.has(e.id)) ? ' checked' : '') + '> Seleccionar las ' + Math.min(es.length, limiteFilas) + ' visibles</label></p>' : '');
+    }
+  };
+
+  // ---------- Obligaciones (catálogo) ----------
+  VISTAS.obligaciones = {
+    barra: () => '<div class="barra"><h2>Catálogo de obligaciones</h2><div class="acc"><button class="prim" data-acc="nuevaOblig">＋ Nueva obligación</button></div></div>' +
+      '<div class="info small">El <b>catálogo</b> define qué se remite y con qué NLT. No crea entregas: las obligaciones de cada unidad se crean con «Asignar», solo para las unidades que elijas.</div>' +
+      avisoListas(['NLT_MAESTRO']) +
+      '<div class="filtros"><div class="q"><label class="lbl">Buscar</label><input data-f="oq" type="search" value="' + esc(F.oq) + '" placeholder="Nombre, código, categoría…"></div>' +
+      '<div><label class="lbl">Periodicidad</label><select data-f="oper">' + opciones(unicos(PERIODICIDADES.concat(O().map(o => o.periodicidad))), F.oper, 'Todas') + '</select></div>' +
+      '<div><label class="lbl">Categoría</label><select data-f="ocat">' + opciones(unicos(O().map(o => o.categoria)).sort(porNombre), F.ocat, 'Todas') + '</select></div>' +
+      '<div><label class="lbl">Estado</label><select data-f="oact">' + opciones([['activas', 'Activas'], ['inactivas', 'Inactivas'], ['', 'Todas']], F.oact) + '</select></div></div>',
+    res: () => {
+      const q = norm(F.oq);
+      const os = O().filter(o => (!q || norm([o.nombre, o.codigo, o.categoria, o.ambito, o.descripcion].join(' ')).indexOf(q) >= 0) && (!F.oper || o.periodicidad === F.oper) && (!F.ocat || o.categoria === F.ocat) &&
+        (F.oact === 'activas' ? o.activa : F.oact === 'inactivas' ? !o.activa : true))
+        .sort((a, b) => PERIODICIDADES.indexOf(a.periodicidad) - PERIODICIDADES.indexOf(b.periodicidad) || porNombre(a.codigo || a.nombre, b.codigo || b.nombre));
+      return tabla(['Código', 'Obligación', 'Periodicidad', 'NLT', 'Categoría', 'Ámbito', '#Habituales', '#Asignadas', 'Estado', ''], os.map(o => {
+        const n = E().filter(e => e.ob === o).length, hab = unidadesHabituales(o).length;
+        return '<tr class="clic" data-oblig="' + o.id + '">' + td(esc(o.codigo)) + td('<b>' + esc(o.nombre) + '</b>' + (o.descripcion ? '<div class="small muted">' + esc(o.descripcion.slice(0, 140)) + '</div>' : '')) +
+          td(esc(o.periodicidad) + ' <span class="chip">' + tipoOb(o) + '</span>') + td(esc(reglaTxt(o))) + td(esc(o.categoria)) + td(esc(o.ambito)) + td(hab || '—', 1) + td(n, 1) +
+          td(o.activa ? '<span class="badge ok">Activa</span>' : '<span class="badge none">Inactiva</span>') +
+          td(o.activa && o.periodicidad !== 'Por evento' ? '<button class="peq" data-acc="asignar" data-id="' + o.id + '">Asignar</button>' : o.activa ? '<button class="peq" data-acc="nuevoEvento" data-id="' + o.id + '">Evento</button>' : '') + '</tr>';
+      }), { vacio: O().length ? 'Ninguna obligación con estos filtros' : 'El catálogo está vacío. Crea una obligación o carga el catálogo inicial desde Ajustes.' });
+    }
+  };
+  function unidadesHabituales(o) {
+    const toks = String(o.habituales || '').split(/[;,\n]+/).map(t => t.trim()).filter(Boolean);
+    return U().filter(u => toks.some(t => (/^\d+$/.test(t) && Number(t) === u.id) || norm(t) === norm(u.siglas) || norm(t) === norm(u.nombre)));
+  }
+
+  // ---------- Unidades ----------
+  VISTAS.unidades = {
+    barra: () => '<div class="barra"><h2>Catálogo de unidades</h2><div class="acc"><button class="prim" data-acc="nuevaUnidad">＋ Nueva unidad</button></div></div>' + avisoListas(['UCO_SUIGESUR']) +
+      '<div class="filtros"><div class="q"><label class="lbl">Buscar</label><input data-f="uq" type="search" value="' + esc(F.uq) + '" placeholder="Nombre, siglas, contacto…"></div>' +
+      '<div><label class="lbl">Ámbito</label><select data-f="uamb">' + opciones(unicos(U().map(u => u.ambito)).sort(porNombre), F.uamb, 'Todos') + '</select></div>' +
+      '<div><label class="lbl">Estado</label><select data-f="uact">' + opciones([['activas', 'Activas'], ['inactivas', 'Inactivas'], ['', 'Todas']], F.uact) + '</select></div></div>',
+    res: () => {
+      const q = norm(F.uq);
+      const us = U().filter(u => (!q || norm([u.nombre, u.siglas, u.contacto, u.ambito].join(' ')).indexOf(q) >= 0) && (!F.uamb || u.ambito === F.uamb) &&
+        (F.uact === 'activas' ? u.activa : F.uact === 'inactivas' ? !u.activa : true)).sort((a, b) => porNombre(a.siglas || a.nombre, b.siglas || b.nombre));
+      return '<p class="small muted">' + us.length + ' de ' + U().length + ' unidades</p>' +
+        tabla(['Siglas', 'Unidad', 'Ámbito', 'Contacto', '#Asignadas', '#Vencidas', 'Puntualidad', 'Estado', 'ID'], us.map(u => {
+          const m = metricas(E().filter(e => e.u === u));
+          return '<tr class="clic" data-unidad="' + u.id + '">' + td('<b>' + esc(u.siglas) + '</b>') + td(esc(u.nombre)) + td(esc(u.ambito)) + td(esc(u.contacto)) + td(m.asignadas, 1) + td(m.vencidas || '', 1) + td(celPct(m.puntualidad)) +
+            td(u.activa ? '<span class="badge ok">Activa</span>' : '<span class="badge none">Inactiva</span>') + td('<span class="small muted">' + u.id + '</span>', 1) + '</tr>';
+        }), { vacio: U().length ? 'Ninguna unidad con estos filtros' : 'No hay unidades. Da de alta una a mano para comprobar la escritura antes de cargar el catálogo completo.' });
+    }
+  };
+
+  // ---------- Eventos ----------
+  VISTAS.eventos = {
+    barra: () => {
+      const ab = EV().filter(v => !v.cerrado), y = String(new Date().getFullYear());
+      return '<div class="barra"><h2>Seguimiento de eventos</h2><div class="acc"><button class="prim" data-acc="nuevoEvento">＋ Nuevo evento</button><button data-acc="csvEventos">Exportar CSV</button></div></div>' + avisoListas(['SEGUIMIENTO_EVENTOS']) +
+        '<div class="kpis">' + kpi('Abiertos', ab.length, 'abiertos o en curso') + kpi('Vencidos', ab.filter(v => v.vencido).length, 'fecha límite superada', ab.some(v => v.vencido) ? 'bad' : 'ok') +
+        kpi('Próximos 7 días', ab.filter(v => v.limite && !v.vencido && diasEntre(hoy(), v.limite) <= 7).length, 'fecha límite cercana', 'warn') +
+        kpi('Sin fecha límite', ab.filter(v => !v.limite).length, 'abiertos') + kpi('Cerrados ' + y, EV().filter(v => v.cerrado && (v.cierre || '').slice(0, 4) === y).length, 'finalizados o cancelados') + '</div>' +
+        '<div class="filtros"><div><label class="lbl">Situación</label><select data-f="esit">' + opciones([['abiertos', 'Abiertos (pendientes)'], ['vencidos', 'Vencidos'], ['cerrados', 'Finalizados / cancelados'], ['', 'Todos']], F.esit) + '</select></div>' +
+        '<div><label class="lbl">Tipo</label><select data-f="etipo">' + opciones(unicos(TIPOS_EV.concat(EV().map(v => v.tipo))), F.etipo, 'Todos') + '</select></div>' +
+        '<div><label class="lbl">Unidad</label><select data-f="euni">' + opciones(unicos(EV().map(v => v.uEtq)).sort(porNombre), F.euni, 'Todas') + '</select></div>' +
+        '<div class="q"><label class="lbl">Buscar</label><input data-f="eq" type="search" value="' + esc(F.eq) + '" placeholder="Evento, responsable, observaciones…"></div></div>';
+    },
+    res: () => {
+      const q = norm(F.eq);
+      const vs = EV().filter(v => (F.esit === 'abiertos' ? !v.cerrado : F.esit === 'vencidos' ? v.vencido : F.esit === 'cerrados' ? v.cerrado : true) && (!F.etipo || v.tipo === F.etipo) && (!F.euni || v.uEtq === F.euni) &&
+        (!q || norm([v.titulo, v.tipo, v.uEtq, v.responsable, v.obs].join(' ')).indexOf(q) >= 0))
+        .sort((a, b) => (a.cerrado - b.cerrado) || (a.limite || '9').localeCompare(b.limite || '9'));
+      return tabla(['Activación', 'Límite', 'Unidad', 'Tipo', 'Evento / actuación', 'Responsable', 'Situación', 'Cierre', ''], vs.map(v => '<tr class="clic" data-evento="' + v.id + '">' + td(fCorta(v.activacion)) + td(fCorta(v.limite)) + td(esc(v.uEtq)) + td(esc(v.tipo)) +
+        td('<b>' + esc(v.titulo) + '</b>' + (v.ob ? '<div class="small muted">' + esc(v.ob.nombre) + '</div>' : '')) + td(esc(v.responsable)) + td(badgeEv(v)) + td(fCorta(v.cierre)) +
+        td(!v.cerrado ? '<button class="peq" data-acc="cerrarEvento" data-id="' + v.id + '">Finalizar hoy</button>' : '') + '</tr>'), { vacio: EV().length ? 'Ningún evento con estos filtros' : 'No hay eventos registrados.' });
+    }
+  };
+
+  // ---------- Análisis ----------
+  const SUBS = [['unidades', 'Ranking de unidades'], ['obligaciones', 'Obligaciones'], ['evolucion', 'Evolución'], ['comparativa', 'Comparativa entre años'], ['reincidencia', 'Reincidencia'], ['matriz', 'Matriz unidad × obligación']];
+  VISTAS.analisis = {
+    barra: () => '<div class="barra"><h2>Análisis y estadísticas</h2><div class="acc"><button data-acc="csvAnalisis">Exportar esta tabla CSV</button></div></div>' +
+      '<div class="pills">' + SUBS.map(s => '<a data-sub="' + s[0] + '" class="' + (pref.sub === s[0] ? 'on' : '') + '">' + s[1] + '</a>').join('') + '</div>' +
+      barraFiltrosComun(pref.sub === 'evolucion' ? '<div><label class="lbl">Agrupar por</label><select data-f="gran">' + opciones([['mensual', 'Mes'], ['trimestral', 'Trimestre'], ['anual', 'Año']], F.gran) + '</select></div>' : '') +
+      '<p class="small muted">Puntualidad = recibidas en plazo / exigibles. Remisión = recibidas / exigibles. Cumplimiento = validadas / exigibles. Exigibles = recibidas + vencidas sin remitir; las «no aplicables» y las pendientes aún en plazo no cuentan.</p>',
+    res: () => { const r = analisis(); ultimoAnalisis = r; return r.html; }
+  };
+  let ultimoAnalisis = null;
+  function analisis() {
+    const es = filtrarE(pref.sub === 'evolucion' || pref.sub === 'comparativa' ? Object.assign({}, F, pref.sub === 'comparativa' ? { anio: '', per: '' } : {}) : F);
+    const cabRank = ['Nombre', '#Asignadas', '#Exigibles', '#En plazo', '#Fuera plazo', '#Vencidas', '#Validadas', 'Puntualidad', 'Remisión', 'Cumplimiento', '#Retraso medio (d)', '#Reincidencia'];
+    const filaRank = (g, reinc) => [g.nombre, g.asignadas, g.base, g.enPlazo, g.fuera, g.vencidas, g.validadas, pctTxt(g.puntualidad), pctTxt(g.remision), pctTxt(g.cumplimiento), g.retrasoMedio == null ? '' : g.retrasoMedio, reinc];
+    const pintar = (cabs, filas, raw) => ({ html: tabla(cabs, filas.map(f => '<tr>' + f.map((c, i) => td(raw && raw[i] ? c : esc(c), cabs[i][0] === '#')).join('') + '</tr>')), cabs: cabs.map(c => c.replace(/^#/, '')), filas: filas });
+    const ordenRank = (a, b) => (a.puntualidad == null) - (b.puntualidad == null) || (a.puntualidad - b.puntualidad) || b.incumpl - a.incumpl;
+    const reinc = reincidencias(es);
+    if (pref.sub === 'unidades' || pref.sub === 'obligaciones') {
+      const porU = pref.sub === 'unidades';
+      const gs = agrupar(es, e => porU ? e.uK : e.oK, e => porU ? e.uEtq : e.oNom).sort(ordenRank);
+      const filas = gs.map(g => filaRank(g, reinc.filter(r => (porU ? r.uK : r.oK) === g.k).length));
+      const t = pintar(cabRank, filas);
+      const peor = gs.filter(g => g.base).slice(0, 15);
+      t.html = '<div class="card"><h3>' + (porU ? 'Unidades' : 'Obligaciones') + ' con menor puntualidad<span class="small muted">' + peor.length + ' con entregas exigibles</span></h3>' +
+        grafPct(peor.map(g => ({ etq: g.nombre, corta: g.nombre.slice(0, 10), v: g.puntualidad, tip: g.enPlazo + ' en plazo de ' + g.base })), 'Puntualidad') + '</div>' +
+        '<div class="card"><h3>' + (porU ? 'Ranking de cumplimiento por unidad' : 'Cumplimiento por obligación') + '<span class="small muted">ordenado de peor a mejor puntualidad · reincidencia = ' + (porU ? 'obligaciones' : 'unidades') + ' con 2 o más incumplimientos</span></h3>' + t.html + '</div>';
+      return t;
+    }
+    if (pref.sub === 'evolucion') {
+      const clave = e => { const f = fechaRef(e); return F.gran === 'anual' ? f.slice(0, 4) : F.gran === 'trimestral' ? f.slice(0, 4) + '-T' + Math.ceil(+f.slice(5, 7) / 3) : f.slice(0, 7); };
+      const gs = agrupar(es, clave, clave).sort((a, b) => a.k.localeCompare(b.k));
+      const filas = gs.map((g, i) => { const prev = gs[i - 1]; const d = prev && prev.puntualidad != null && g.puntualidad != null ? g.puntualidad - prev.puntualidad : null;
+        return [g.k, g.asignadas, g.base, g.enPlazo, g.fuera, g.vencidas, g.incumpl, pctTxt(g.puntualidad), pctTxt(g.cumplimiento), d == null ? '' : (d > 0 ? '▲ +' : d < 0 ? '▼ ' : '= ') + d + ' pts'];
+      });
+      const t = pintar(['Periodo', '#Asignadas', '#Exigibles', '#En plazo', '#Fuera plazo', '#Vencidas', '#Incumplimientos', 'Puntualidad', 'Cumplimiento', 'Tendencia'], filas);
+      t.html = '<div class="card"><h3>Evolución de la puntualidad</h3>' + grafPct(gs.map(g => ({ etq: g.k, corta: F.gran === 'mensual' ? MES[+g.k.slice(5, 7) - 1] + ' ' + g.k.slice(2, 4) : g.k, v: g.puntualidad, tip: g.enPlazo + ' en plazo de ' + g.base })), 'Evolución') + '</div><div class="card">' + t.html + '</div>';
+      return t;
+    }
+    if (pref.sub === 'comparativa') {
+      const anios = unicos(es.map(e => fechaRef(e).slice(0, 4))).sort();
+      const filas = MESL.map((ml, i) => [ml].concat(anios.map(y => pctTxt(metricas(es.filter(e => enPeriodo(fechaRef(e), y, String(i + 1)))).puntualidad))));
+      filas.push(['TOTAL AÑO'].concat(anios.map(y => pctTxt(metricas(es.filter(e => enPeriodo(fechaRef(e), y, ''))).puntualidad))));
+      filas.push(['Incumplimientos'].concat(anios.map(y => String(metricas(es.filter(e => enPeriodo(fechaRef(e), y, ''))).incumpl))));
+      const t = pintar(['Mes'].concat(anios.map(y => 'Puntualidad ' + y)), filas);
+      t.html = '<div class="card"><h3>Comparativa de puntualidad entre años<span class="small muted">mismo filtro de unidad, obligación y tipo; ignora el año seleccionado</span></h3>' + (anios.length ? t.html : '<p class="muted">Sin datos.</p>') + '</div>';
+      return t;
+    }
+    if (pref.sub === 'reincidencia') {
+      const filas = reinc.map(g => [g.unidad, g.obligacion, g.es.length, g.es.filter(e => e.s.k === 'vencida').length, g.es.filter(e => e.s.fuera).length, g.es.map(e => e.periodo).sort().join(', ')]);
+      const t = pintar(['Unidad', 'Obligación', '#Incumplimientos', '#Vencidas sin remitir', '#Fuera de plazo', 'Periodos'], filas);
+      const uRec = agrupar(es.filter(esIncumplida), e => e.uK, e => e.uEtq).map(g => ({ nombre: g.nombre, n: g.es.length, meses: unicos(g.es.map(e => fechaRef(e).slice(0, 7))).length, base: 0 })).filter(g => g.meses >= 2).sort((a, b) => b.meses - a.meses || b.n - a.n);
+      const porMes = MESL.map((m, i) => ({ nombre: m, n: es.filter(e => esIncumplida(e) && +fechaRef(e).slice(5, 7) === i + 1).length, base: 0 }));
+      const maxMes = Math.max.apply(null, porMes.map(x => x.n).concat([0]));
+      t.html = '<div class="card"><h3>Unidad + obligación incumplida 2 o más veces<span class="small muted">' + reinc.length + '</span></h3>' + t.html + '</div><div class="dos">' +
+        '<div class="card"><h3>Unidades con incumplimientos en varios meses</h3>' + tabla(['Unidad', '#Meses distintos', '#Incumplimientos'], uRec.map(g => '<tr>' + td(esc(g.nombre)) + td(g.meses, 1) + td(g.n, 1) + '</tr>'), { vacio: 'Ninguna' }) + '</div>' +
+        '<div class="card"><h3>Meses en que se concentran los incumplimientos</h3>' + (maxMes ? porMes.map(x => '<div class="fila-bar" style="cursor:default"><span>' + x.nombre + '</span><div class="bar"><i style="width:' + (x.n / maxMes * 100) + '%"></i></div><b>' + x.n + '</b></div>').join('') : '<p class="small muted">Sin incumplimientos.</p>') + '</div></div>';
+      return t;
+    }
+    // matriz
+    const us = agrupar(es, e => e.uK, e => e.uEtq).sort((a, b) => porNombre(a.nombre, b.nombre));
+    const os = agrupar(es, e => e.oK, e => e.oNom).sort((a, b) => porNombre(a.nombre, b.nombre));
+    const celdas = us.map(u => [u.nombre].concat(os.map(o => { const m = metricas(u.es.filter(e => e.oK === o.k)); return m.asignadas ? { p: m.puntualidad, t: m.enPlazo + '/' + m.base + ' en plazo · ' + m.vencidas + ' vencidas · ' + m.fuera + ' fuera' } : null; })));
+    const html = '<div class="card"><h3>Matriz de puntualidad<span class="small muted">' + us.length + ' unidades × ' + os.length + ' obligaciones · celda vacía = sin asignación</span></h3><div class="tw"><table class="t"><thead><tr><th>Unidad</th>' +
+      os.map((o, i) => '<th title="' + esc(o.nombre) + '">' + (i + 1) + '</th>').join('') + '</tr></thead><tbody>' +
+      celdas.map(f => '<tr><td><b>' + esc(f[0]) + '</b></td>' + f.slice(1).map(c => '<td>' + (c ? '<span title="' + esc(c.t) + '">' + celPct(c.p) + '</span>' : '') + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>' +
+      '<p class="small muted">' + os.map((o, i) => (i + 1) + ' = ' + esc(o.nombre)).join(' · ') + '</p></div>';
+    return { html: html, cabs: ['Unidad'].concat(os.map(o => o.nombre)), filas: celdas.map(f => [f[0]].concat(f.slice(1).map(c => c ? pctTxt(c.p) : ''))) };
+  }
+
+  // ---------- Informes ----------
+  const TIPOS_INF = [['periodo', 'Informe de seguimiento (mensual, trimestral o anual)'], ['unidad', 'Informe por unidad'], ['obligacion', 'Informe por obligación'], ['incumplimientos', 'Informe de incumplimientos'],
+    ['retrasos', 'Informe de retrasos'], ['reincidencia', 'Informe de reincidencia'], ['eventos', 'Informe de eventos']];
+  function infDef() { const y = new Date().getFullYear(), m = new Date().getMonth(); return { tipo: 'periodo', desde: iso(new Date(y, m, 1)), hasta: iso(new Date(y, m + 1, 0)), uni: '', obl: '', titulo: '', organismo: pref.organismo, marca: '' }; }
+  const infOpc = () => Object.assign(infDef(), pref.informe || {});
+  function periodoRapido(p) {
+    const d = new Date(), y = d.getFullYear(), m = d.getMonth(), q = Math.floor(m / 3);
+    return { mes: [new Date(y, m, 1), new Date(y, m + 1, 0)], mesPasado: [new Date(y, m - 1, 1), new Date(y, m, 0)], trimestre: [new Date(y, q * 3, 1), new Date(y, q * 3 + 3, 0)],
+      trimestrePasado: [new Date(y, q * 3 - 3, 1), new Date(y, q * 3, 0)], anio: [new Date(y, 0, 1), new Date(y, 11, 31)], anioPasado: [new Date(y - 1, 0, 1), new Date(y - 1, 11, 31)] }[p].map(iso);
+  }
+  function datosInforme(o) {
+    const en = f => f && (!o.desde || f >= o.desde) && (!o.hasta || f <= o.hasta);
+    const es = E().filter(e => en(fechaRef(e)) && (!o.uni || e.uK === o.uni) && (!o.obl || e.oK === o.obl));
+    const evs = EV().filter(v => (en(v.activacion) || en(v.limite) || en(v.cierre) || (!v.cerrado && v.activacion && v.activacion <= o.hasta)) && (!o.uni || ('u' + (v.u && v.u.id)) === o.uni));
+    return { es: es, evs: evs };
+  }
+  function htmlInforme(o, paraWord) {
+    const d = datosInforme(o), m = metricas(d.es), tt = paraWord ? ' border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse;width:100%;font-size:9pt"' : ' class="t"';
+    const tab = (cabs, filas) => '<table' + tt + '><thead><tr>' + cabs.map(c => '<th' + (paraWord ? ' style="background:#3b4a2f;color:#fff;text-align:left"' : '') + '>' + esc(c) + '</th>').join('') + '</tr></thead><tbody>' +
+      (filas.length ? filas.map(f => '<tr>' + f.map(c => '<td>' + esc(c) + '</td>').join('') + '</tr>').join('') : '<tr><td colspan="' + cabs.length + '">Sin registros</td></tr>') + '</tbody></table>';
+    const nomU = o.uni ? (opcUnidades().find(x => x[0] === o.uni) || [, o.uni])[1] : '', nomO = o.obl ? (opcOblig().find(x => x[0] === o.obl) || [, o.obl])[1] : '';
+    const tituloDef = { periodo: 'Informe de seguimiento de obligaciones NLT', unidad: 'Informe de cumplimiento · ' + (nomU || 'todas las unidades'), obligacion: 'Informe de cumplimiento · ' + (nomO || 'todas las obligaciones'),
+      incumplimientos: 'Informe de incumplimientos', retrasos: 'Informe de retrasos en la remisión', reincidencia: 'Informe de reincidencia', eventos: 'Informe de seguimiento de eventos' }[o.tipo];
+    let h = (o.marca ? '<p style="text-align:center;color:#b71c1c;font-weight:800">' + esc(o.marca) + '</p>' : '') +
+      '<p class="c" style="text-align:center">' + esc(o.organismo) + '</p><h2 style="text-align:center">' + esc(o.titulo || tituloDef) + '</h2>' +
+      '<p class="c" style="text-align:center">Periodo: ' + fCorta(o.desde) + ' – ' + fCorta(o.hasta) + (nomU ? ' · Unidad: ' + esc(nomU) : '') + (nomO ? ' · Obligación: ' + esc(nomO) : '') + ' · Fecha del informe: ' + fCorta(hoy()) + '</p>';
+    const resumen = () => '<h3>1. Resumen</h3>' + tab(['Indicador', 'Valor'], [['Entregas asignadas (excluidas no aplicables)', m.asignadas], ['No aplicables', m.na], ['Exigibles (recibidas + vencidas sin remitir)', m.base],
+      ['Recibidas en plazo', m.enPlazo], ['Recibidas fuera de plazo', m.fuera + (m.retrasoMedio != null ? ' (retraso medio ' + m.retrasoMedio + ' días)' : '')], ['Vencidas sin remitir', m.vencidas], ['Pendientes aún en plazo', m.pendientes],
+      ['Validadas', m.validadas], ['Puntualidad (en plazo / exigibles)', pctTxt(m.puntualidad)], ['Remisión (recibidas / exigibles)', pctTxt(m.remision)], ['Cumplimiento (validadas / exigibles)', pctTxt(m.cumplimiento)]]);
+    const rank = (porU) => tab([porU ? 'Unidad' : 'Obligación', 'Asignadas', 'Exigibles', 'En plazo', 'Fuera de plazo', 'Vencidas', 'Validadas', 'Puntualidad', 'Cumplimiento'],
+      agrupar(d.es, e => porU ? e.uK : e.oK, e => porU ? e.uEtq : e.oNom).sort((a, b) => (a.puntualidad == null) - (b.puntualidad == null) || a.puntualidad - b.puntualidad || porNombre(a.nombre, b.nombre))
+        .map(g => [g.nombre, g.asignadas, g.base, g.enPlazo, g.fuera, g.vencidas, g.validadas, pctTxt(g.puntualidad), pctTxt(g.cumplimiento)]));
+    const incs = d.es.filter(esIncumplida).sort((a, b) => b.s.retraso - a.s.retraso);
+    const filaInc = e => [e.uEtq, e.oNom, e.periodo, fCorta(e.nlt), e.recepcion ? fCorta(e.recepcion) : 'Sin remitir', e.s.retraso + ' d', e.s.k === 'vencida' ? 'Vencida sin remitir' : 'Fuera de plazo'];
+    const cabInc = ['Unidad', 'Obligación', 'Periodo', 'NLT', 'Recepción', 'Retraso', 'Situación'];
+    if (o.tipo === 'periodo') h += resumen() + '<h3>2. Cumplimiento por unidad</h3>' + rank(true) + '<h3>3. Cumplimiento por obligación</h3>' + rank(false) + '<h3>4. Incumplimientos</h3>' + tab(cabInc, incs.map(filaInc)) +
+      '<h3>5. Eventos</h3><p>' + d.evs.length + ' eventos en el periodo · ' + d.evs.filter(v => !v.cerrado).length + ' abiertos · ' + d.evs.filter(v => v.vencido).length + ' vencidos.</p>';
+    else if (o.tipo === 'unidad') h += resumen() + '<h3>2. Cumplimiento por obligación</h3>' + rank(false) + '<h3>3. Detalle de entregas</h3>' +
+      tab(['Obligación', 'Periodo', 'NLT', 'Recepción', 'Estado', 'Situación', 'Observaciones'], d.es.slice().sort((a, b) => (a.nlt || '').localeCompare(b.nlt || '')).map(e => [e.oNom, e.periodo, fCorta(e.nlt), fCorta(e.recepcion), e.estadoN, e.s.k === 'vencida' ? 'Vencida ' + e.s.retraso + ' d' : e.s.fuera ? 'Fuera de plazo ' + e.s.retraso + ' d' : e.s.recibida ? 'En plazo' : e.s.k === 'na' ? 'No aplicable' : 'Pendiente', e.obs]));
+    else if (o.tipo === 'obligacion') h += resumen() + '<h3>2. Cumplimiento por unidad</h3>' + rank(true) + '<h3>3. Unidades que faltan por remitir</h3>' +
+      tab(['Unidad', 'Periodo', 'NLT', 'Situación'], d.es.filter(e => !e.s.recibida && e.s.k !== 'na').sort((a, b) => porNombre(a.uEtq, b.uEtq)).map(e => [e.uEtq, e.periodo, fCorta(e.nlt), e.s.k === 'vencida' ? 'Vencida ' + e.s.retraso + ' d' : 'Pendiente en plazo']));
+    else if (o.tipo === 'incumplimientos') h += resumen() + '<h3>2. Relación de incumplimientos (' + incs.length + ')</h3>' + tab(cabInc, incs.map(filaInc)) + '<h3>3. Incumplimientos por unidad</h3>' +
+      tab(['Unidad', 'Vencidas sin remitir', 'Fuera de plazo', 'Total'], agrupar(incs, e => e.uK, e => e.uEtq).sort((a, b) => b.es.length - a.es.length).map(g => [g.nombre, g.vencidas, g.fuera, g.es.length]));
+    else if (o.tipo === 'retrasos') {
+      const fr = d.es.filter(e => e.s.fuera).sort((a, b) => b.s.retraso - a.s.retraso);
+      h += '<h3>1. Entregas recibidas fuera de plazo (' + fr.length + ')</h3><p>Retraso medio: ' + (m.retrasoMedio == null ? '—' : m.retrasoMedio + ' días') + '.</p>' + tab(cabInc, fr.map(filaInc)) +
+        '<h3>2. Retraso por unidad</h3>' + tab(['Unidad', 'Entregas fuera de plazo', 'Retraso medio (días)', 'Retraso máximo (días)'], agrupar(fr, e => e.uK, e => e.uEtq).sort((a, b) => b.retrasoMedio - a.retrasoMedio).map(g => [g.nombre, g.fuera, g.retrasoMedio, Math.max.apply(null, g.es.map(e => e.s.retraso))])) +
+        '<h3>3. Vencidas aún sin remitir</h3>' + tab(cabInc, d.es.filter(e => e.s.k === 'vencida').sort((a, b) => b.s.retraso - a.s.retraso).map(filaInc));
+    } else if (o.tipo === 'reincidencia') {
+      const r = reincidencias(d.es);
+      h += '<h3>1. Unidad y obligación incumplida 2 o más veces (' + r.length + ')</h3>' + tab(['Unidad', 'Obligación', 'Incumplimientos', 'Periodos'], r.map(g => [g.unidad, g.obligacion, g.es.length, g.es.map(e => e.periodo).sort().join(', ')])) +
+        '<h3>2. Unidades con más incumplimientos</h3>' + tab(['Unidad', 'Incumplimientos', 'Obligaciones distintas'], agrupar(d.es.filter(esIncumplida), e => e.uK, e => e.uEtq).sort((a, b) => b.es.length - a.es.length).map(g => [g.nombre, g.es.length, unicos(g.es.map(e => e.oK)).length]));
+    } else if (o.tipo === 'eventos') {
+      h += '<h3>1. Resumen</h3>' + tab(['Indicador', 'Valor'], [['Eventos', d.evs.length], ['Abiertos', d.evs.filter(v => !v.cerrado).length], ['Vencidos', d.evs.filter(v => v.vencido).length], ['Finalizados', d.evs.filter(v => v.estadoN === 'Finalizado').length], ['Cancelados', d.evs.filter(v => v.estadoN === 'Cancelado').length]]) +
+        '<h3>2. Relación</h3>' + tab(['Activación', 'Límite', 'Unidad', 'Tipo', 'Evento', 'Responsable', 'Estado', 'Cierre'], d.evs.slice().sort((a, b) => (a.activacion || '').localeCompare(b.activacion || '')).map(v => [fCorta(v.activacion), fCorta(v.limite), v.uEtq, v.tipo, v.titulo, v.responsable, v.vencido ? 'Vencido' : v.estadoN, fCorta(v.cierre)]));
+    }
+    return h;
+  }
+  function csvFilas(cabs, filas) {
+    const c = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    return '﻿' + [cabs].concat(filas).map(f => f.map(c).join(';')).join('\r\n');
+  }
+  const CAB_CSV_E = ['ID', 'Unidad', 'Siglas', 'Obligación', 'Categoría', 'Tipo', 'Periodo', 'Fecha NLT', 'Fecha recepción', 'Fecha validación', 'Estado', 'Situación', 'Fuera de plazo', 'Días de retraso', 'Responsable', 'Referencia', 'Observaciones', 'Creado', 'Modificado', 'Modificado por'];
+  const filaCsvE = e => [e.id, e.uNom, e.u ? e.u.siglas : e.siglas, e.oNom, e.cat, e.tipo, e.periodo, fCorta(e.nlt), fCorta(e.recepcion), fCorta(e.validacion), e.estadoN,
+    (SITS.find(s => s[0] === e.s.k) || [, e.s.k === 'recibida' ? 'Recibida' : e.s.k])[1], e.s.fuera ? 'Sí' : '', e.s.retraso || '', e.responsable, e.referencia, e.obs, fHora(e.creado), fHora(e.modificado), e.editor];
+  function descargar(nombre, contenido, tipo) {
+    const url = URL.createObjectURL(new Blob([contenido], { type: tipo })), a = document.createElement('a');
+    a.href = url; a.download = nombre; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+  }
+  VISTAS.informes = {
+    barra: () => {
+      const o = infOpc();
+      return '<div class="barra"><h2>Informes</h2></div><div class="card" id="infOpts"><div class="grid">' +
+        '<div><label class="lbl">Tipo de informe</label><select name="tipo">' + opciones(TIPOS_INF, o.tipo) + '</select></div>' +
+        '<div><label class="lbl">Desde (NLT)</label><input type="date" name="desde" value="' + esc(o.desde) + '"></div><div><label class="lbl">Hasta (NLT)</label><input type="date" name="hasta" value="' + esc(o.hasta) + '"></div>' +
+        '<div><label class="lbl">Unidad</label><select name="uni">' + opciones(opcUnidades(), o.uni, 'Todas') + '</select></div>' +
+        '<div><label class="lbl">Obligación</label><select name="obl">' + opciones(opcOblig(), o.obl, 'Todas') + '</select></div></div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' + [['mes', 'Este mes'], ['mesPasado', 'Mes pasado'], ['trimestre', 'Este trimestre'], ['trimestrePasado', 'Trimestre pasado'], ['anio', 'Este año'], ['anioPasado', 'Año pasado']].map(p => '<button data-infper="' + p[0] + '">' + p[1] + '</button>').join('') + '</div>' +
+        '<div class="grid"><div><label class="lbl">Organismo</label><input name="organismo" value="' + esc(o.organismo) + '"></div><div><label class="lbl">Título (vacío = automático)</label><input name="titulo" value="' + esc(o.titulo) + '"></div>' +
+        '<div><label class="lbl">Marca (p. ej. USO OFICIAL)</label><input name="marca" value="' + esc(o.marca) + '"></div></div>' +
+        '<div class="acc" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"><button class="prim" data-inf="imprimir">Imprimir / PDF</button><button data-inf="word">Descargar Word</button><button data-inf="csv">Datos en CSV (Excel)</button><button data-inf="copiar">Copiar texto</button></div></div>';
+    },
+    res: () => '<div class="informe" id="informeDoc">' + htmlInforme(infOpc()) + '</div>'
+  };
+  function leerInf() {
+    const o = infOpc(), f = $('#infOpts');
+    ['tipo', 'desde', 'hasta', 'uni', 'obl', 'organismo', 'titulo', 'marca'].forEach(k => { const el = f.querySelector('[name=' + k + ']'); if (el) o[k] = el.value; });
+    pref.informe = o; pref.organismo = o.organismo; guardarPref();
+    return o;
+  }
+  function accionInforme(a) {
+    const o = leerInf(), nombre = 'Informe_NLT_SUIGESUR_' + o.tipo + '_' + o.desde + '_' + o.hasta;
+    if (a === 'imprimir') { document.body.classList.add('imprimiendo'); window.print(); setTimeout(() => document.body.classList.remove('imprimiendo'), 800); }
+    else if (a === 'word') descargar(nombre + '.doc', '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>body{font-family:Arial;font-size:10pt}h2{font-size:13pt}h3{font-size:11pt;color:#3b4a2f}</style></head><body>' + htmlInforme(o, true) + '</body></html>', 'application/msword');
+    else if (a === 'csv') { const d = datosInforme(o); descargar(nombre + '.csv', csvFilas(CAB_CSV_E, d.es.map(filaCsvE)), 'text/csv;charset=utf-8'); }
+    else if (a === 'copiar') {
+      const txt = ($('#informeDoc').innerText || '').trim();
+      (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => aviso('Informe copiado')).catch(() => descargar(nombre + '.txt', txt, 'text/plain;charset=utf-8'));
+    }
+  }
+
+  // ---------- Ajustes ----------
+  VISTAS.ajustes = {
+    barra: () => '<div class="barra"><h2>Ajustes y diagnóstico</h2><div class="acc"><button data-acc="copiarDiag">Copiar diagnóstico</button><button data-acc="exportarJSON">Copia de seguridad (JSON)</button></div></div>',
+    res: () => {
+      const pw = permWeb;
+      let h = '<div class="card"><h3>Conexión con SharePoint</h3>' + (errorGeneral ? htmlError(errorGeneral, 'Sin conexión') : '') +
+        '<div class="grid"><div><label class="lbl">Sitio en uso</label><div>' + (web ? '<code>' + esc(web.url) + '</code> · ' + esc(web.titulo || '') : '<span class="muted">sin conectar</span>') + '</div></div>' +
+        '<div><label class="lbl">Usuario</label><div>' + esc(yo ? yo.Title : '—') + '</div></div>' +
+        '<div><label class="lbl">Formato REST</label><div>' + (verbose ? 'verbose (SharePoint 2013)' : 'JSON ligero (nometadata); escritura en verbose') + '</div></div>' +
+        '<div><label class="lbl">Permisos en el sitio</label><div>' + (pw ? (pw.gestionar ? '✔ Puede crear listas y columnas' : '✖ No puede crear listas ni columnas') : '—') + '</div></div></div>' +
+        '<label class="lbl">Sitio de SharePoint (vacío = detectar a partir de esta página; el de SUIGESUR es …/et/SUIGESUR/JSUIGE, sin «/aplicaciones»)</label>' +
+        '<div style="display:flex;gap:6px"><input id="aSitio" value="' + esc(pref.sitio) + '" placeholder="' + esc(location.origin) + '/et/SUIGESUR/JSUIGE"><button data-acc="reconectar">Conectar</button></div></div>';
+      h += '<div class="card"><h3>Estructura de las listas<span class="small muted">las columnas se localizan por nombre interno o por nombre visible</span></h3>' +
+        '<p class="small muted">Si una columna existe con otro nombre, asígnala en el desplegable. «Crear» solo añade lo que falta: nunca borra ni renombra listas, columnas ni datos.</p>' + LISTAS.map(estructuraLista).join('') + '</div>';
+      h += '<div class="card"><h3>Catálogos iniciales</h3><p class="small">Carga controlada: verás la relación y elegirás qué se crea. Solo se proponen los elementos que no existen (por nombre). ' +
+        '<b>Antes de cargar las unidades, da de alta una a mano y comprueba que la verificación es correcta.</b></p>' +
+        '<div class="acc" style="display:flex;gap:6px;flex-wrap:wrap"><button data-acc="semillaOblig"' + (L.NLT_MAESTRO.info ? '' : ' disabled') + '>Catálogo NLT inicial (' + SEMILLA_OBLIG.length + ' obligaciones)…</button>' +
+        '<button data-acc="semillaUco"' + (L.UCO_SUIGESUR.info ? '' : ' disabled') + '>Unidades SUIGESUR (' + SEMILLA_UCO.length + ')…</button></div></div>';
+      h += '<div class="card"><h3>Registro de operaciones<span class="small muted">últimas ' + Math.min(REG.length, 60) + ' de esta sesión</span></h3>' +
+        tabla(['Hora', 'Operación', 'Lista', 'Método', '#HTTP', 'Resultado', 'Endpoint / detalle'], REG.slice(0, 60).map(r => '<tr>' + td(r.hora.toLocaleTimeString('es-ES')) + td(esc(r.op)) + td(esc(r.lista)) + td(esc(r.metodo)) + td(r.status || '—', 1) +
+          td(r.ok ? '<span class="badge ok">correcto</span>' : '<span class="badge bad">error</span>') + td('<span class="small">' + esc(r.url) + (r.msg ? '<br><b>' + esc(r.msg) + '</b>' : '') + '</span>') + '</tr>')) + '</div>';
+      h += '<div class="card small muted">Los datos solo se guardan en SharePoint. Este navegador recuerda únicamente la pestaña, los filtros y la asignación de columnas. La página no se comunica con ningún servidor distinto de Colabora.</div>';
+      return h;
+    }
+  };
+  function estructuraLista(n) {
+    const S = L[n], d = DEF[n];
+    const p = S.perm;
+    let h = '<div style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><b>' + n + '</b> · ' + esc(d.titulo) + ' — ';
+    if (S.estado === 'ok') h += '<span class="badge ok">lectura correcta</span> ' + S.items.length + ' elementos';
+    else h += '<span class="badge ' + (S.estado === 'no existe' ? 'warn' : 'bad') + '">' + esc(S.estado) + '</span>';
+    if (p) h += ' · permisos: ' + [['ver', 'leer'], ['anadir', 'añadir'], ['editar', 'modificar'], ['borrar', 'eliminar'], ['gestionar', 'crear columnas']].map(x => (p[x[0]] ? '✔ ' : '✖ ') + x[1]).join(' · ');
+    if (S.error) h += htmlError(S.error);
+    if (S.estado === 'no existe') {
+      h += '<p><button data-acc="crearLista" data-lista="' + n + '"' + (permWeb && !permWeb.gestionar ? ' disabled title="Sin permiso para crear listas"' : '') + '>Crear la lista ' + n + ' con sus columnas…</button></p></div>';
+      return h;
+    }
+    if (!S.info) return h + '</div>';
+    const faltan = d.campos.filter(c => !(S.map[c.k] || []).length && (pref.mapa[n] || {})[c.k] !== '-');
+    const opcCampos = S.campos.filter(c => !c.ReadOnlyField).sort((a, b) => porNombre(a.Title, b.Title)).map(c => [c.InternalName, c.Title + ' · ' + c.InternalName + ' (' + c.TypeAsString + ')']);
+    h += '<div class="tw"><table class="t" style="margin-top:6px"><thead><tr><th>Dato de la app</th><th>Nombre interno previsto</th><th>Tipo previsto</th><th>Columna en SharePoint</th><th>Asignar</th></tr></thead><tbody>' +
+      d.campos.map(c => {
+        const ints = S.map[c.k] || [], inc = (S.incompatibles || {})[c.k];
+        const est = ints.length ? '<span class="badge ok">✔</span> ' + ints.map(i => '<code>' + esc(i) + '</code> <span class="small muted">' + esc(S.porInterno[i].Title + ' · ' + S.porInterno[i].TypeAsString) + '</span>').join(' + ')
+          : inc ? '<span class="badge bad">tipo no válido</span> ' + esc(inc.join(', ')) : (pref.mapa[n] || {})[c.k] === '-' ? '<span class="badge none">no se usa</span>' : '<span class="badge ' + (c.req ? 'bad' : 'warn') + '">falta</span>';
+        return '<tr>' + td(esc(c.d) + (c.req ? ' <span class="small muted">(obligatoria)</span>' : '')) + td('<code>' + esc(c.in) + '</code>') + td(esc(c.t)) + td(est) +
+          td('<select data-mapa="' + n + '|' + c.k + '" style="min-width:160px">' + opciones([['', 'Automático'], ['-', '— No usar —']].concat(opcCampos), (pref.mapa[n] || {})[c.k] || '') + '</select>') + '</tr>';
+      }).join('') + '</tbody></table></div>';
+    if (faltan.length) h += '<p><button data-acc="crearCampos" data-lista="' + n + '"' + (p && !p.gestionar ? ' disabled title="Sin permiso para crear columnas"' : '') + '>Crear las ' + faltan.length + ' columnas que faltan…</button> <span class="small muted">' + esc(faltan.map(c => c.in).join(', ')) + '</span></p>';
+    return h + '</div>';
+  }
+
+  // ================= Creación de listas y columnas (solo añade) =================
+  const xmlEsc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  function schemaXml(c) {
+    const a = 'Name="' + c.in + '" StaticName="' + c.in + '" DisplayName="' + xmlEsc(c.d) + '"';
+    switch (c.t) {
+      case 'Note': return '<Field Type="Note" ' + a + ' NumLines="6" RichText="FALSE" />';
+      case 'Number': return '<Field Type="Number" ' + a + ' Decimals="0" />';
+      case 'DateTime': return '<Field Type="DateTime" ' + a + ' Format="DateOnly" />';
+      case 'Boolean': return '<Field Type="Boolean" ' + a + '><Default>1</Default></Field>';
+      case 'Choice': return '<Field Type="Choice" ' + a + ' FillInChoice="TRUE" Format="Dropdown"><CHOICES>' + c.choices.map(x => '<CHOICE>' + xmlEsc(x) + '</CHOICE>').join('') + '</CHOICES></Field>';
+      default: return '<Field Type="Text" ' + a + ' MaxLength="255" />';
+    }
+  }
+  async function crearCampos(n, informe) {
+    const faltan = DEF[n].campos.filter(c => c.in !== 'Title' && !(L[n].map[c.k] || []).length && (pref.mapa[n] || {})[c.k] !== '-');
+    for (const c of faltan) {
+      informe('Creando ' + n + '.' + c.in + '…');
+      try {
+        await enviar('Crear columna ' + c.in, n, urlL(n) + '/fields/addfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: schemaXml(c), Options: 8 | 16 } }, null, c.in + ' (' + c.t + ')');
+      } catch (e) { informe(null, '✖ ' + c.in + ': ' + e.message); }
+    }
+    await recargarLista(n);
+    // Verificación: se vuelve a leer la lista de columnas y se comprueba cada una
+    return faltan.map(c => { const ints = L[n].map[c.k] || []; return ints.length ? '✔ ' + c.d + ' → columna ' + ints[0] + ' (' + L[n].porInterno[ints[0]].TypeAsString + ')' : '✖ ' + c.d + ' (' + c.in + '): no aparece tras crearla'; });
+  }
+  async function crearLista(n, informe) {
+    informe('Creando la lista ' + n + '…');
+    await enviar('Crear lista', n, web.url + '/_api/web/lists', { __metadata: { type: 'SP.List' }, AllowContentTypes: true, BaseTemplate: 100, ContentTypesEnabled: false, Description: 'Centro de Control NLT SUIGESUR · ' + DEF[n].titulo, Title: n }, null, 'lista personalizada');
+    await recargarLista(n);
+    if (!L[n].info) throw errorSP('Verificar lista', n, urlL(n), L[n].error && L[n].error.status, 'La lista no aparece tras crearla: ' + (L[n].error ? L[n].error.message : ''), 'verificacion');
+    const titulo = L[n].campos.find(c => c.InternalName === 'Title');
+    if (titulo && titulo.Title !== DEF[n].campos[0].d && DEF[n].campos[0].in === 'Title') {
+      // Solo en la lista recién creada: el título visible de la columna Title pasa a ser el de la app
+      await enviar('Renombrar columna Title', n, urlL(n) + "/fields/getbyinternalnameortitle('Title')", { __metadata: { type: 'SP.Field' }, Title: DEF[n].campos[0].d }, { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }, 'título visible').catch(() => {});
+    }
+    return crearCampos(n, informe);
+  }
+
+  // ================= Diálogos =================
+  const dlg = $('#dlg');
+  function abrirDlg(titulo, cuerpo, pie) {
+    alEnviar = null; dlg.oninput = null; dlg.onchange = null;
+    dlg.innerHTML = '<form method="dialog" id="fdlg" novalidate><div class="dh"><h2>' + esc(titulo) + '</h2><button type="button" data-cerrar title="Cerrar">✕</button></div><div class="db">' + cuerpo + '<div id="dlgMsg"></div></div>' +
+      '<div class="df">' + (pie || '') + '</div></form>';
+    if (!dlg.open) dlg.showModal();
+    const p = dlg.querySelector('input:not([type=checkbox]):not([type=hidden]), select, textarea'); if (p) p.focus();
+  }
+  const vf = name => { const el = dlg.querySelector('[name="' + name + '"]'); return el ? (el.type === 'checkbox' ? el.checked : el.value.trim()) : ''; };
+  const msg = html => { const m = $('#dlgMsg'); if (m) { m.innerHTML = html; m.scrollIntoView({ block: 'nearest' }); } };
+  function ocupado(si, txt) {
+    $$('#fdlg .df button').forEach(b => { b.disabled = si; });
+    const b = $('#fdlg button[type=submit]'); if (b) { if (si) { b.dataset.txt = b.textContent; b.textContent = txt || 'Guardando y verificando…'; } else if (b.dataset.txt) b.textContent = b.dataset.txt; }
+  }
+  let alEnviar = null;
+  async function ejecutar(fn) {
+    msg('');
+    ocupado(true);
+    try { await fn(); } catch (e) { msg(htmlError(e, 'No se ha guardado')); }
+    finally { if (dlg.open) ocupado(false); }
+  }
+  const pieGuardar = (txt, extra) => (extra || '') + '<button type="button" data-cerrar>Cancelar</button><button type="submit" class="prim">' + esc(txt || 'Guardar en SharePoint') + '</button>';
+  const metaElem = o => o ? '<p class="meta">ID ' + o.id + ' · creado ' + esc(fHora(o.creado)) + (o.autor ? ' por ' + esc(o.autor) : '') + ' · modificado ' + esc(fHora(o.modificado)) + (o.editor ? ' por ' + esc(o.editor) : '') + '</p>' : '';
+  const linkSP = (n, o) => o && L[n].info && L[n].info.RootFolder ? '<a class="btn izq" target="_blank" rel="noopener" href="' + esc(location.origin + L[n].info.RootFolder.ServerRelativeUrl + '/DispForm.aspx?ID=' + o.id) + '">Ver en SharePoint</a>' : '';
+  const campo = (lbl, html, req) => '<div><label class="lbl">' + esc(lbl) + (req ? ' <i>*</i>' : '') + '</label>' + html + '</div>';
+  const inp = (name, val, attrs) => '<input name="' + name + '" value="' + esc(val == null ? '' : val) + '" ' + (attrs || '') + '>';
+  const txa = (name, val) => '<textarea name="' + name + '">' + esc(val || '') + '</textarea>';
+  const sel = (name, ops, val, vacioTxt) => '<select name="' + name + '">' + opciones(ops, val, vacioTxt) + '</select>';
+  const avisoFaltan = (n, ks) => { const f = ks.filter(k => !(L[n].map[k] || []).length).map(k => defCampo(n, k).d); return f.length ? '<div class="aviso small">La lista ' + n + ' no tiene las columnas: ' + esc(f.join(', ')) + '. Si las rellenas no se podrá guardar; créalas en Ajustes → Estructura.</div>' : ''; };
+  function exigirLista(n) {
+    if (L[n].info) return true;
+    abrirDlg('Lista no disponible', htmlError(L[n].error || errorSP('Leer lista', n, '', 0, 'La lista ' + n + ' no está disponible.', 'config')) + '<p>Revisa la estructura en <a href="#" data-ir="ajustes">Ajustes</a>.</p>', '<button type="button" data-cerrar>Cerrar</button>');
+    return false;
+  }
+
+  // ---------- Unidad ----------
+  function dlgUnidad(u) {
+    if (!exigirLista('UCO_SUIGESUR')) return;
+    abrirDlg(u ? 'Unidad · ' + (u.siglas || u.nombre) : 'Nueva unidad',
+      '<div class="grid">' + campo('Nombre de la unidad', inp('nombre', u && u.nombre, 'maxlength="255" required'), 1) + campo('Siglas', inp('siglas', u && u.siglas, 'maxlength="255"')) +
+      campo('Ámbito', inp('ambito', u && u.ambito, 'list="lAmb" maxlength="255"') + '<datalist id="lAmb">' + unicos(['UCO', 'BAE'].concat(U().map(x => x.ambito))).map(x => '<option value="' + esc(x) + '">').join('') + '</datalist>') +
+      campo('Contacto', inp('contacto', u && u.contacto, 'maxlength="255"')) + '</div>' +
+      '<label class="check"><input type="checkbox" name="activa"' + (!u || u.activa ? ' checked' : '') + '> Activa (aparece al asignar obligaciones)</label>' +
+      campo('Observaciones', txa('obs', u && u.obs)) + avisoFaltan('UCO_SUIGESUR', ['siglas', 'ambito', 'contacto', 'activa', 'obs']) + metaElem(u),
+      pieGuardar(u ? 'Guardar cambios' : 'Dar de alta', linkSP('UCO_SUIGESUR', u)));
+    alEnviar = () => {
+      const d = { nombre: vf('nombre'), siglas: vf('siglas'), ambito: vf('ambito'), contacto: vf('contacto'), activa: vf('activa'), obs: vf('obs') };
+      if (!d.nombre) return msg('<div class="error">El nombre de la unidad es obligatorio.</div>');
+      const dup = U().find(x => x !== u && (norm(x.nombre) === norm(d.nombre) || (d.siglas && norm(x.siglas) === norm(d.siglas))));
+      if (dup) return msg('<div class="error">Ya existe la unidad «' + esc(dup.nombre) + '» (ID ' + dup.id + ') con ese nombre o siglas.</div>');
+      if (!(L.UCO_SUIGESUR.map.activa || []).length) delete d.activa;
+      ejecutar(async () => {
+        const r = await guardar('UCO_SUIGESUR', u, d, u ? 'Modificar unidad' : 'Alta de unidad');
+        dlg.close(); render(); aviso(r.sinCambios ? 'Sin cambios' : (u ? 'Unidad modificada' : 'Unidad creada') + ' y verificada en SharePoint (ID ' + r.id + ')');
+      });
+    };
+  }
+
+  // ---------- Obligación ----------
+  function dlgObligacion(o) {
+    if (!exigirLista('NLT_MAESTRO')) return;
+    const hab = o ? unidadesHabituales(o) : [];
+    abrirDlg(o ? 'Obligación · ' + o.nombre : 'Nueva obligación',
+      campo('Nombre de la obligación', inp('nombre', o && o.nombre, 'maxlength="255" required'), 1) +
+      '<div class="grid">' + campo('Código', inp('codigo', o && o.codigo, 'maxlength="255" placeholder="Ej.: M-01"')) +
+      campo('Periodicidad', sel('periodicidad', unicos(PERIODICIDADES.concat(o ? [o.periodicidad] : [])), o ? o.periodicidad : 'Mensual'), 1) +
+      campo('Día NLT', inp('dia', o && o.dia, 'type="number" min="1" max="31"')) +
+      campo('Meses NLT', inp('meses', o && o.meses, 'maxlength="255" placeholder="1,3,7 o ENE, MAR, JUL"')) +
+      campo('Plazo (días desde el evento)', inp('plazo', o && o.plazo, 'type="number" min="0"')) +
+      campo('Categoría', inp('categoria', o && o.categoria, 'list="lCat" maxlength="255"') + '<datalist id="lCat">' + unicos(O().map(x => x.categoria)).map(x => '<option value="' + esc(x) + '">').join('') + '</datalist>') +
+      campo('Ámbito', inp('ambito', o && o.ambito, 'list="lAmbO" maxlength="255"') + '<datalist id="lAmbO"><option value="UCO"><option value="BAE"><option value="UCO y BAE"></datalist>') + '</div>' +
+      campo('Regla NLT en texto (eventos, a demanda o aclaraciones)', inp('regla', o && o.regla, 'maxlength="255" placeholder="Ej.: 15 días desde publicación en BOD · ASAP"')) +
+      '<p class="small muted" id="reglaPrev"></p>' +
+      campo('Descripción', txa('descripcion', o && o.descripcion)) + campo('Observaciones', txa('obs', o && o.obs)) +
+      '<label class="check"><input type="checkbox" name="activa"' + (!o || o.activa ? ' checked' : '') + '> Activa</label>' +
+      (hab.length ? '<p class="small">Unidades habituales: ' + esc(hab.map(u => u.siglas || u.nombre).join(', ')) + ' <span class="muted">(se cambian desde «Asignar»)</span></p>' : '') +
+      avisoFaltan('NLT_MAESTRO', ['codigo', 'periodicidad', 'dia', 'meses', 'regla', 'plazo', 'categoria', 'ambito', 'activa', 'descripcion', 'obs']) + metaElem(o),
+      pieGuardar(o ? 'Guardar cambios' : 'Crear obligación', linkSP('NLT_MAESTRO', o)));
+    const prev = () => { const t = { periodicidad: vf('periodicidad'), dia: Number(vf('dia')) || null, meses: vf('meses'), regla: vf('regla'), plazo: Number(vf('plazo')) || null }; const p = plazosDe(t, new Date().getFullYear());
+      $('#reglaPrev').textContent = 'NLT resultante: ' + reglaTxt(t) + (p.length ? ' · ' + p.length + ' plazos al año (' + p.map(x => x.periodo).join(', ') + ')' : ''); };
+    dlg.oninput = prev; prev();
+    alEnviar = () => {
+      const d = { nombre: vf('nombre'), codigo: vf('codigo'), periodicidad: vf('periodicidad'), dia: vf('dia') === '' ? null : Number(vf('dia')), meses: parseMeses(vf('meses')).join(','), regla: vf('regla'),
+        plazo: vf('plazo') === '' ? null : Number(vf('plazo')), categoria: vf('categoria'), ambito: vf('ambito'), descripcion: vf('descripcion'), obs: vf('obs'), activa: vf('activa') };
+      if (!d.nombre) return msg('<div class="error">El nombre es obligatorio.</div>');
+      if (vf('meses') && !d.meses) return msg('<div class="error">No se entienden los meses. Escribe números (1,3,7) o abreviaturas (ENE, MAR, JUL).</div>');
+      if (esPeriodica(d)) {
+        if (!d.dia || d.dia < 1 || d.dia > 31) return msg('<div class="error">Las obligaciones periódicas necesitan el día NLT (1–31).</div>');
+        if (['Anual', 'Varias veces al año'].indexOf(d.periodicidad) >= 0 && !d.meses) return msg('<div class="error">Indica el mes o meses de la NLT.</div>');
+      }
+      const dup = O().find(x => x !== o && norm(x.nombre) === norm(d.nombre));
+      if (dup) return msg('<div class="error">Ya existe la obligación «' + esc(dup.nombre) + '» (ID ' + dup.id + ').</div>');
+      if (!(L.NLT_MAESTRO.map.activa || []).length) delete d.activa;
+      ejecutar(async () => {
+        const r = await guardar('NLT_MAESTRO', o, d, o ? 'Modificar obligación' : 'Alta de obligación');
+        dlg.close(); render(); aviso(r.sinCambios ? 'Sin cambios' : 'Obligación guardada y verificada (ID ' + r.id + ')');
+      });
+    };
+  }
+
+  // ---------- Asignación selectiva ----------
+  let AS = null;
+  const claveDup = (uId, oId, periodo) => uId + '|' + oId + '|' + norm(periodo);
+  function existentes() { const s = new Set(); E().forEach(e => { if (e.u && e.ob) s.add(claveDup(e.u.id, e.ob.id, e.periodo)); }); return s; }
+  function dlgAsignar(obId) {
+    if (!exigirLista('CONTROL_ENTREGAS')) return;
+    const obs = O().filter(o => o.activa && o.periodicidad !== 'Por evento');
+    if (!obs.length) { abrirDlg('Asignar obligación', '<div class="aviso">No hay obligaciones activas en el catálogo (las «Por evento» se gestionan en Eventos). Crea una en Obligaciones.</div>', '<button type="button" data-cerrar>Cerrar</button>'); return; }
+    if (!U().some(u => u.activa)) { abrirDlg('Asignar obligación', '<div class="aviso">No hay unidades activas. Da de alta al menos una en Unidades.</div>', '<button type="button" data-cerrar>Cerrar</button>'); return; }
+    const ob = obs.find(o => o.id === obId) || obs[0];
+    AS = { ob: ob, anio: new Date().getFullYear(), q: '', unis: new Set(unidadesHabituales(ob).filter(u => u.activa).map(u => u.id)) };
+    AS.plazos = plazosIniciales();
+    const grupos = PERIODICIDADES.filter(p => p !== 'Por evento').map(p => [p, obs.filter(o => o.periodicidad === p)]).concat([['Otras', obs.filter(o => PERIODICIDADES.indexOf(o.periodicidad) < 0)]]).filter(g => g[1].length);
+    abrirDlg('Asignar obligación a unidades',
+      '<p class="small muted">Crea un registro de seguimiento por cada unidad y plazo que marques. Nada se asigna a unidades que no elijas.</p>' +
+      '<div class="grid">' + campo('1. Obligación', '<select name="ob">' + grupos.map(g => '<optgroup label="' + esc(g[0]) + '">' + g[1].map(o => '<option value="' + o.id + '"' + (o === ob ? ' selected' : '') + '>' + esc((o.codigo ? o.codigo + ' · ' : '') + o.nombre) + '</option>').join('') + '</optgroup>').join('') + '</select>', 1) +
+      campo('Año', '<input name="anio" type="number" min="2000" max="2100" value="' + AS.anio + '">') + '</div>' +
+      '<p class="small" id="asRegla"></p>' +
+      '<label class="lbl">2. Periodos y NLT (confirma o corrige la fecha)</label><div id="asPlazos"></div>' +
+      '<label class="lbl">3. Unidades</label><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><input name="asq" type="search" placeholder="Filtrar unidades…" style="flex:1;min-width:160px">' +
+      '<button type="button" data-as="hab">Habituales</button><button type="button" data-as="todas">Marcar visibles</button><button type="button" data-as="ninguna">Ninguna</button></div><div id="asUnis" class="lista-u"></div>' +
+      '<label class="check"><input type="checkbox" name="recordar"> Guardar esta selección como unidades habituales de la obligación</label>' +
+      '<div id="asResumen" class="info"></div><div id="asProg" class="small"></div>' + avisoFaltan('CONTROL_ENTREGAS', ['unidadId', 'obligacionId', 'siglas']),
+      '<button type="button" data-cerrar>Cancelar</button><button type="submit" class="prim" id="asCrear">Crear registros</button>');
+    pintarAsig();
+    alEnviar = crearAsignacion;
+  }
+  function plazosIniciales() {
+    const ps = plazosDe(AS.ob, AS.anio), h = hoy();
+    if (!ps.length) return [{ periodo: AS.anio === new Date().getFullYear() ? h.slice(0, 7) : String(AS.anio), nlt: AS.ob.plazo ? sumarDias(h, AS.ob.plazo) : '', on: true, manual: true }];
+    const sig = ps.findIndex(p => p.nlt >= h);
+    return ps.map((p, i) => Object.assign(p, { on: i === (sig >= 0 ? sig : ps.length - 1) })).concat([{ periodo: '', nlt: '', on: false, manual: true }]);
+  }
+  function seleccionAsig() {
+    const ps = AS.plazos.filter(p => p.on && p.periodo && p.nlt), ex = existentes();
+    let nuevos = 0, dup = 0;
+    AS.unis.forEach(uid => ps.forEach(p => { if (ex.has(claveDup(uid, AS.ob.id, p.periodo))) dup++; else nuevos++; }));
+    return { ps: ps, nuevos: nuevos, dup: dup, ex: ex };
+  }
+  function pintarAsig() {
+    $('#asRegla').innerHTML = '<span class="chip">' + esc(AS.ob.periodicidad) + '</span> NLT: ' + esc(reglaTxt(AS.ob)) + (AS.ob.categoria ? ' · ' + esc(AS.ob.categoria) : '');
+    $('#asPlazos').innerHTML = AS.plazos.map((p, i) => '<div class="plazo"><input type="checkbox" data-pl="' + i + '"' + (p.on ? ' checked' : '') + '>' +
+      (p.manual ? '<input data-plper="' + i + '" value="' + esc(p.periodo) + '" placeholder="Periodo (p. ej. 2026-11, 2026-S2, 2026)">' : '<span><b>' + esc(p.periodo) + '</b></span>') +
+      '<input type="date" data-plnlt="' + i + '" value="' + esc(p.nlt) + '"></div>').join('');
+    const q = norm(AS.q);
+    const us = U().filter(u => u.activa).sort((a, b) => porNombre(a.siglas || a.nombre, b.siglas || b.nombre));
+    const hab = new Set(unidadesHabituales(AS.ob).map(u => u.id));
+    $('#asUnis').innerHTML = us.map(u => '<label' + (q && norm(u.siglas + ' ' + u.nombre + ' ' + u.ambito).indexOf(q) < 0 ? ' hidden' : '') + '><input type="checkbox" data-asu="' + u.id + '"' + (AS.unis.has(u.id) ? ' checked' : '') + '> <span><b>' + esc(u.siglas || '') + '</b> ' + esc(u.siglas ? '– ' + u.nombre : u.nombre) + (hab.has(u.id) ? ' <span class="chip">habitual</span>' : '') + '</span></label>').join('');
+    resumenAsig();
+  }
+  function resumenAsig() {
+    const r = seleccionAsig();
+    $('#asResumen').innerHTML = '<b>' + AS.unis.size + '</b> unidades × <b>' + r.ps.length + '</b> periodos → se crearán <b>' + r.nuevos + '</b> registros' + (r.dup ? ' (' + r.dup + ' ya existen y se omiten)' : '') + '.' +
+      (r.nuevos > 60 ? '<br><b>Atención:</b> son muchos registros. Comprueba que realmente todas esas unidades tienen esta obligación.' : '');
+    const b = $('#asCrear'); if (b) { b.textContent = 'Crear ' + r.nuevos + ' registros'; b.disabled = !r.nuevos; }
+  }
+  async function crearAsignacion() {
+    const r = seleccionAsig();
+    if (!r.nuevos) return msg('<div class="error">No hay registros nuevos que crear: marca al menos una unidad y un periodo con NLT.</div>');
+    const malos = AS.plazos.filter(p => p.on && (!p.periodo || !p.nlt));
+    if (malos.length) return msg('<div class="error">Hay periodos marcados sin nombre o sin NLT.</div>');
+    if (r.nuevos > 60 && !confirm('Se van a crear ' + r.nuevos + ' registros en CONTROL_ENTREGAS. ¿Continuar?')) return;
+    const ob = AS.ob, lote = [];
+    U().filter(u => AS.unis.has(u.id)).forEach(u => r.ps.forEach(p => { if (!r.ex.has(claveDup(u.id, ob.id, p.periodo))) lote.push({ u: u, p: p }); }));
+    const recordar = vf('recordar');
+    msg(''); ocupado(true, 'Creando…');
+    const ok = [], err = [];
+    for (let i = 0; i < lote.length; i++) {
+      const x = lote[i];
+      $('#asProg').textContent = 'Creando y verificando ' + (i + 1) + ' de ' + lote.length + '…';
+      try {
+        await guardar('CONTROL_ENTREGAS', null, { titulo: ((x.u.siglas || x.u.nombre) + ' · ' + ob.nombre + ' · ' + x.p.periodo).slice(0, 255), unidad: x.u.nombre, siglas: x.u.siglas, unidadId: x.u.id,
+          obligacion: ob.nombre, obligacionId: ob.id, periodo: x.p.periodo, nlt: x.p.nlt, estado: 'Pendiente' }, 'Asignar obligación');
+        ok.push(x);
+      } catch (e) {
+        err.push({ x: x, e: e });
+        if (e.tipo === 'config' || e.status === 403 || e.status === 401) break;   // el resto fallaría igual
+      }
+    }
+    let habMsg = '';
+    if (recordar) {
+      try { await guardar('NLT_MAESTRO', ob, { habituales: Array.from(AS.unis).join(';') }, 'Guardar unidades habituales'); habMsg = '<div class="bien">Unidades habituales guardadas en la obligación.</div>'; }
+      catch (e) { habMsg = htmlError(e, 'No se han guardado las unidades habituales'); }
+    }
+    $('#asProg').textContent = '';
+    ocupado(false);
+    render();
+    msg((ok.length ? '<div class="bien">✔ ' + ok.length + ' registros creados y verificados en SharePoint.</div>' : '') +
+      (err.length ? htmlError(err[0].e, err.length + ' registro(s) no creados (' + err.map(z => (z.x.u.siglas || z.x.u.nombre) + ' ' + z.x.p.periodo).slice(0, 8).join(', ') + ')') : '') +
+      (lote.length - ok.length - err.length > 0 ? '<div class="aviso">Se detuvo el proceso: ' + (lote.length - ok.length - err.length) + ' registros no se intentaron.</div>' : '') + habMsg);
+    pintarAsig();
+  }
+
+  // ---------- Entrega ----------
+  function dlgEntrega(e) {
+    if (!exigirLista('CONTROL_ENTREGAS')) return;
+    const us = U().filter(u => u.activa || (e && e.u === u)).sort((a, b) => porNombre(a.siglas || a.nombre, b.siglas || b.nombre));
+    const os = O().filter(o => o.activa || (e && e.ob === o)).sort((a, b) => porNombre(a.nombre, b.nombre));
+    abrirDlg('Entrega · ' + e.uEtq + ' · ' + e.oNom,
+      '<div class="grid">' + campo('Unidad', sel('unidad', us.map(u => [u.id, (u.siglas ? u.siglas + ' – ' : '') + u.nombre]), e.u ? e.u.id : '', e.u ? null : '(' + (e.unidad || 'sin unidad') + ')'), 1) +
+      campo('Obligación', sel('obligacion', os.map(o => [o.id, o.nombre]), e.ob ? e.ob.id : '', e.ob ? null : '(' + (e.obligacion || 'sin obligación') + ')'), 1) +
+      campo('Periodo', inp('periodo', e.periodo, 'maxlength="255" required'), 1) + campo('Fecha NLT', inp('nlt', e.nlt, 'type="date" required'), 1) + '</div>' +
+      '<div class="grid">' + campo('Estado', sel('estado', unicos(ESTADOS_E.concat([e.estadoN])), e.estadoN), 1) + campo('Fecha de recepción', inp('recepcion', e.recepcion, 'type="date"')) +
+      campo('Fecha de validación', inp('validacion', e.validacion, 'type="date"')) + campo('Responsable / remitente', inp('responsable', e.responsable, 'maxlength="255"')) + '</div>' +
+      campo('Referencia documental', inp('referencia', e.referencia, 'maxlength="255" placeholder="N.º de registro, escrito, ruta…"')) + campo('Observaciones', txa('obs', e.obs)) +
+      '<p class="small">Situación actual: ' + badgeE(e) + (e.estado && e.estado !== e.estadoN ? ' <span class="muted">(valor guardado: «' + esc(e.estado) + '»)</span>' : '') + '</p>' +
+      '<p class="small muted">«Recibido» registra la llegada; solo «Validado» cuenta como cumplido. El retraso se calcula con la fecha de recepción frente a la NLT.</p>' +
+      avisoFaltan('CONTROL_ENTREGAS', ['recepcion', 'validacion', 'responsable', 'referencia', 'obs']) + metaElem(e),
+      pieGuardar('Guardar cambios', linkSP('CONTROL_ENTREGAS', e) + '<button type="button" class="peligro" data-acc="papelera" data-id="' + e.id + '">Enviar a la papelera…</button>'));
+    dlg.onchange = ev => {
+      if (ev.target.name !== 'estado') return;
+      const v = ev.target.value, f = n => dlg.querySelector('[name=' + n + ']');
+      if (RECIBIDOS.indexOf(v) >= 0 && !f('recepcion').value) f('recepcion').value = hoy();
+      if (v === 'Validado' && !f('validacion').value) f('validacion').value = hoy();
+    };
+    alEnviar = () => {
+      const u = uPorId.get(Number(vf('unidad'))), o = oPorId.get(Number(vf('obligacion')));
+      const d = { periodo: vf('periodo'), nlt: vf('nlt'), estado: vf('estado'), recepcion: vf('recepcion'), validacion: vf('validacion'), responsable: vf('responsable'), referencia: vf('referencia'), obs: vf('obs') };
+      if (u && u !== e.u) Object.assign(d, { unidad: u.nombre, siglas: u.siglas, unidadId: u.id });
+      if (o && o !== e.ob) Object.assign(d, { obligacion: o.nombre, obligacionId: o.id });
+      const err = validarEntrega(d);
+      if (err) return msg('<div class="error">' + esc(err) + '</div>');
+      if (d.unidadId || d.obligacionId || d.periodo !== e.periodo) {
+        const uu = u || e.u, oo = o || e.ob;
+        if (uu && oo && E().some(x => x !== e && x.u === uu && x.ob === oo && norm(x.periodo) === norm(d.periodo))) return msg('<div class="error">Ya existe otro registro de esa unidad, obligación y periodo.</div>');
+        d.titulo = ((uu ? uu.siglas || uu.nombre : e.uEtq) + ' · ' + (oo ? oo.nombre : e.oNom) + ' · ' + d.periodo).slice(0, 255);
+      }
+      ejecutar(async () => {
+        const r = await guardar('CONTROL_ENTREGAS', e, d, 'Modificar entrega');
+        dlg.close(); render(); aviso(r.sinCambios ? 'Sin cambios' : 'Entrega guardada y verificada (ID ' + r.id + ')');
+      });
+    };
+  }
+  function validarEntrega(d) {
+    if (!d.periodo || !d.nlt) return 'El periodo y la NLT son obligatorios.';
+    if (RECIBIDOS.indexOf(d.estado) >= 0 && !d.recepcion) return 'Indica la fecha de recepción.';
+    if (d.estado === 'Pendiente' && d.recepcion) return 'Hay fecha de recepción pero el estado es «Pendiente». Cambia el estado o borra la fecha.';
+    if (d.recepcion && d.recepcion > hoy()) return 'La fecha de recepción no puede ser futura.';
+    if (d.estado === 'Validado' && !d.validacion) return 'Indica la fecha de validación.';
+    if (d.validacion && d.recepcion && d.validacion < d.recepcion) return 'La validación no puede ser anterior a la recepción.';
+    return '';
+  }
+  async function accionRapida(e, tipo, fecha) {
+    fecha = fecha || hoy();
+    const d = tipo === 'recibir' ? { estado: 'Recibido', recepcion: e.recepcion || fecha } : tipo === 'validar' ? { estado: 'Validado', recepcion: e.recepcion || fecha, validacion: fecha } : { estado: 'No aplicable' };
+    return guardar('CONTROL_ENTREGAS', e, d, tipo === 'recibir' ? 'Registrar recepción' : tipo === 'validar' ? 'Validar entrega' : 'Marcar no aplicable');
+  }
+  async function lote(tipo) {
+    const fecha = ($('#loteFecha') || {}).value || hoy();
+    if (fecha > hoy()) { aviso('La fecha no puede ser futura'); return; }
+    const es = E().filter(e => SEL.has(e.id)).filter(e => tipo === 'recibir' ? !e.s.recibida && e.s.k !== 'na' : tipo === 'validar' ? e.s.recibida && !e.s.validada : e.s.k !== 'na');
+    if (!es.length) { $('#loteRes').textContent = 'Ninguna de las seleccionadas admite esa acción.'; return; }
+    if (!confirm({ recibir: 'Registrar la recepción', validar: 'Validar', na: 'Marcar como no aplicables' }[tipo] + ' de ' + es.length + ' entregas?')) return;
+    let ok = 0; const errs = [];
+    for (const e of es) {
+      $('#loteRes').textContent = 'Guardando ' + (ok + errs.length + 1) + ' de ' + es.length + '…';
+      try { await accionRapida(e, tipo, fecha); ok++; SEL.delete(e.id); } catch (er) { errs.push(er); if (er.status === 403 || er.tipo === 'config') break; }
+    }
+    render();
+    if (errs.length) abrirDlg('Resultado', '<div class="bien">' + ok + ' guardadas y verificadas.</div>' + htmlError(errs[0], errs.length + ' con error'), '<button type="button" data-cerrar>Cerrar</button>');
+    else aviso(ok + ' entregas guardadas y verificadas');
+  }
+
+  // ---------- Evento ----------
+  function dlgEvento(v, obId) {
+    if (!exigirLista('SEGUIMIENTO_EVENTOS')) return;
+    const us = U().filter(u => u.activa || (v && v.u === u)).sort((a, b) => porNombre(a.siglas || a.nombre, b.siglas || b.nombre));
+    const obsEv = O().filter(o => o.activa && (o.periodicidad === 'Por evento' || o.periodicidad === 'A demanda' || (v && v.ob === o)));
+    const ob0 = v ? v.ob : oPorId.get(obId);
+    abrirDlg(v ? 'Evento · ' + v.titulo : 'Nuevo evento',
+      '<div class="grid">' + campo('Tipo de evento', sel('tipo', unicos(TIPOS_EV.concat(EV().map(x => x.tipo)).concat(v ? [v.tipo] : [])), v ? v.tipo : 'Novedad'), 1) +
+      campo('Unidad afectada', sel('unidad', us.map(u => [u.id, (u.siglas ? u.siglas + ' – ' : '') + u.nombre]), v && v.u ? v.u.id : '', v && !v.u && v.unidad ? '(' + v.unidad + ')' : 'General / sin unidad concreta')) + '</div>' +
+      campo('Evento / actuación', inp('titulo', v ? v.titulo : (ob0 ? ob0.nombre : ''), 'maxlength="255" required'), 1) +
+      campo('Obligación del catálogo que activa (opcional)', sel('ob', obsEv.map(o => [o.id, o.nombre + (o.regla ? ' · ' + o.regla : '')]), ob0 ? ob0.id : '', '— Ninguna —')) +
+      '<div class="grid">' + campo('Fecha de activación', inp('activacion', v ? v.activacion : hoy(), 'type="date" required'), 1) + campo('Fecha límite', inp('limite', v ? v.limite : (ob0 && ob0.plazo != null ? sumarDias(hoy(), ob0.plazo) : ''), 'type="date"')) +
+      campo('Responsable', inp('responsable', v && v.responsable, 'maxlength="255"')) + campo('Estado', sel('estado', unicos(ESTADOS_EV.concat(v ? [v.estadoN] : [])), v ? v.estadoN : 'Abierto'), 1) +
+      campo('Fecha de cierre', inp('cierre', v && v.cierre, 'type="date"')) + '</div>' +
+      campo('Observaciones / acciones', txa('obs', v && v.obs)) + '<p class="small muted" id="evRegla"></p>' +
+      avisoFaltan('SEGUIMIENTO_EVENTOS', ['tipo', 'unidad', 'unidadId', 'obligacionId', 'limite', 'cierre', 'responsable', 'obs']) + metaElem(v),
+      pieGuardar(v ? 'Guardar cambios' : 'Registrar evento', linkSP('SEGUIMIENTO_EVENTOS', v)));
+    const regla = () => { const o = oPorId.get(Number(vf('ob'))); $('#evRegla').textContent = o ? 'Regla NLT: ' + reglaTxt(o) : ''; };
+    regla();
+    dlg.onchange = ev => {
+      const f = n => dlg.querySelector('[name=' + n + ']');
+      if (ev.target.name === 'ob' || ev.target.name === 'activacion') { const o = oPorId.get(Number(vf('ob'))); if (o && o.plazo != null && f('activacion').value && (!f('limite').value || ev.target.name === 'ob')) f('limite').value = sumarDias(f('activacion').value, o.plazo); if (ev.target.name === 'ob' && o && !f('titulo').value) f('titulo').value = o.nombre; regla(); }
+      if (ev.target.name === 'estado' && (ev.target.value === 'Finalizado' || ev.target.value === 'Cancelado') && !f('cierre').value) f('cierre').value = hoy();
+    };
+    alEnviar = () => {
+      const u = uPorId.get(Number(vf('unidad'))), o = oPorId.get(Number(vf('ob')));
+      const d = { tipo: vf('tipo'), titulo: vf('titulo'), activacion: vf('activacion'), limite: vf('limite'), responsable: vf('responsable'), estado: vf('estado'), cierre: vf('cierre'), obs: vf('obs'), obligacionId: o ? o.id : null };
+      if (u) Object.assign(d, { unidad: u.nombre, siglas: u.siglas, unidadId: u.id });
+      else if (!v || v.u) Object.assign(d, { unidad: v && !v.u ? v.unidad : '', siglas: '', unidadId: null });
+      if (!d.titulo || !d.activacion) return msg('<div class="error">El evento y la fecha de activación son obligatorios.</div>');
+      if (d.limite && d.limite < d.activacion) return msg('<div class="error">La fecha límite es anterior a la activación.</div>');
+      if ((d.estado === 'Finalizado' || d.estado === 'Cancelado') && !d.cierre) return msg('<div class="error">Indica la fecha de cierre.</div>');
+      if (d.cierre && d.estado !== 'Finalizado' && d.estado !== 'Cancelado') return msg('<div class="error">Hay fecha de cierre: el estado debe ser «Finalizado» o «Cancelado».</div>');
+      ejecutar(async () => {
+        const r = await guardar('SEGUIMIENTO_EVENTOS', v, d, v ? 'Modificar evento' : 'Alta de evento');
+        dlg.close(); render(); aviso(r.sinCambios ? 'Sin cambios' : 'Evento guardado y verificado (ID ' + r.id + ')');
+      });
+    };
+  }
+
+  // ---------- Carga de catálogos iniciales (controlada) ----------
+  const SEMILLA_OBLIG = [
+    ['M-01', 'Actualización NT 08/22. Disco mensual', 'Mensual', 5, '', 'Seguridad', ''], ['M-02', 'Estado de operatividad de EQUICIN de Especialidad', 'Mensual', 5, '', 'Cinológica', ''],
+    ['M-03', 'Informe Núcleos Cinológicos de Guardia y Centinela — GYC', 'Mensual', 5, '', 'Cinológica', ''], ['M-04', 'Estadillo de mantenimiento MESEINS', 'Mensual', 5, '', 'MESEINS', ''],
+    ['M-05', 'Vigilantes de Seguridad. Cuestionario de seguimiento VSA', 'Mensual', 5, '', 'VSA', ''], ['M-06', 'Vigilantes de Seguridad. Información descubiertos VSA/VS', 'Mensual', 5, '', 'VSA', ''],
+    ['P-01', 'HPS TROPA CECONSEG', 'Varias veces al año', 5, '1,3,7,9,11', 'HPS', ''], ['P-02', 'Inventario CRIPTO', 'Varias veces al año', 20, '1,5,9', 'CRIPTO', ''],
+    ['D-01', 'Informe del Plan de Actividades de Seguridad de Instalaciones — BAE', 'A demanda', null, '', 'Plan de actividades', 'A demanda'],
+    ['D-02', 'Informe del Plan de Actividades de Seguridad — UCO', 'A demanda', null, '', 'Plan de actividades', 'A demanda'],
+    ['S-01', 'Cuadro semestral de resultados de analíticas, nuevo modelo', 'Semestral', 10, '6,12', 'Drogas', ''], ['S-02', 'Informe MESEINS', 'Semestral', 10, '6,12', 'MESEINS', ''],
+    ['A-01', 'Informe Anual de Seguridad de UCO', 'Anual', 1, '12', 'Seguridad', ''], ['A-02', 'Informe Anual de Seguridad de Instalaciones — BAE', 'Anual', 1, '11', 'Seguridad', ''],
+    ['A-03', 'Memoria anual de drogas', 'Anual', 10, '12', 'Drogas', ''], ['A-04', 'Encuestas anuales de drogas', 'Anual', 10, '11', 'Drogas', ''],
+    ['A-05', 'Informe Autoevaluación de Seguridad de Instalaciones y actualización Datos Básicos de Seguridad BAE', 'Anual', 30, '9', 'Seguridad', ''],
+    ['A-06', 'Propuesta de actividades de seguridad valoradas', 'Anual', 7, '3', 'Plan de actividades', ''],
+    ['A-07', 'SEGINFOINS, SEGINFOPER, SEGINFODOC y LOPD', 'Anual', 10, '12', 'Seguridad de la información', ''],
+    ['A-08', 'CODRESPOS — Documentación Seguridad Ordenador Aislado', 'Anual', 31, '3', 'Seguridad de la información', 'Primer trimestre (NLT propuesta 31 MAR; confirmar)'],
+    ['E-01', 'Informe de personal por cambio de destino', 'Por evento', null, '', 'Personal', '15 días desde publicación en BOD', 15],
+    ['E-02', 'Partes de novedades', 'Por evento', null, '', 'Novedades', 'ASAP', 0], ['E-03', 'Informe de incidentes', 'Por evento', null, '', 'Incidentes', 'ASAP', 0],
+    ['E-04', 'Autoevaluación de Seguridad de Unidad', 'Por evento', null, '', 'Seguridad', 'Tras relevo de mando o evaluación integral'],
+    ['E-05', 'Plan de Protección de locales ZAR', 'Por evento', null, '', 'Seguridad', 'Revisión según Oficio 07/11/23'],
+    ['E-06', 'Solicitudes de acreditación de sistemas CIS', 'Por evento', null, '', 'CIS', 'Iniciar y controlar seis meses antes de la caducidad']
+  ].map(x => ({ codigo: x[0], nombre: x[1], periodicidad: x[2], dia: x[3], meses: x[4], categoria: x[5], regla: x[6], plazo: x[7] == null ? null : x[7], activa: true }));
+  // Relación de la versión anterior (ChatGPT). Sin siglas: no se inventan; se completan al editar cada unidad.
+  const SEMILLA_UCO = ['JEFATURA SUIGE 2', 'UAPOSUR', 'USAC BUENAVISTA', 'USAC BUENAVISTA (LOS BARRIOS)', 'USAC CAMARINAL (TARIFA)', 'USAC CAMPOSOTO', 'USAC CERVANTES (GRANADA)', 'USAC MONTEJAQUE',
+    'USAC SANTA BARBARA', 'USAC TENTEGORRA', 'USAC TORREBLANCA (SEVILLA)', 'USAC VIGIL DE QUIÑONES', 'USBAD TTE RUIZ', 'USBAD TTE FLOMESTA', 'USBA EL COPERO', 'USBA MENACHO', 'USBA MURIANO', 'USBA SOTOMAYOR',
+    'ACUARTELAMIENTO LA BORBOLLA', 'ACUARTELAMIENTO TORREBLANCA', 'ACUARTELAMIENTO EL PICACHO', 'ACUARTELAMIENTO ESPAÑA', 'ACUARTELAMIENTO CHARCO REDONDO', 'ACUARTELAMIENTO BUJEO', 'ACUARTELAMIENTO CERVANTES',
+    'ACUARTELAMIENTO ADALIDES', 'ACUARTELAMIENTO CAMPOSOTO', 'ACUARTELAMIENTO TENTEGORRA', 'ACUARTELAMIENTO LOS ARCOS', 'ACUARTELAMIENTO SANTA ANA', 'ACUARTELAMIENTO EL VACAR',
+    'ACUARTELAMIENTO DEL MANDO DE ADIESTRAMIENTO Y DOCTRINA', 'ACUARTELAMIENTO MONTEJAQUE', 'ACUARTELAMIENTO SANTA BÁRBARA', 'ACUARTELAMIENTO CORTIJO DE BUENAVISTA', 'ACUARTELAMIENTO SAN MIGUEL',
+    'ACUARTELAMIENTO VIGIL DE QUIÑONES', 'ACUARTELAMIENTO SAN FERNANDO EL HIGUERÓN', 'BASE DISCONTINUA TENIENTE RUIZ', 'BASE DISCONTINUA TENIENTE FLOMESTA', 'BASE EL COPERO', 'BASE CERRO MURIANO',
+    'BASE ÁLVAREZ DE SOTOMAYOR', 'BASE GENERAL MENACHO', 'CAMPO DE MANIOBRAS Y TIRO CERRO MURIANO', 'CAMPO DE MANIOBRAS Y TIRO ÁLVAREZ DE SOTOMAYOR', 'CENTRO DEPORTIVO SOCIOCULTURAL MILITAR MELILLA',
+    'ESTABLECIMIENTO PARQUE DE ARTILLERÍA DE CARTAGENA', 'RESIDENCIA LOGÍSTICA MILITAR DE ALMERÍA', 'RESIDENCIA LOGÍSTICA MILITAR DE BADAJOZ', 'RESIDENCIA LOGÍSTICA MILITAR DE CARTAGENA',
+    'RESIDENCIA LOGÍSTICA MILITAR DE CÓRDOBA', 'RESIDENCIA LOGÍSTICA MILITAR DE GRANADA', 'RESIDENCIA LOGÍSTICA MILITAR DE SEVILLA', 'RESIDENCIA MILITAR DE ACCIÓN SOCIAL DE DESCANSO FERNANDO PRIMO DE RIVERA',
+    'RESIDENCIA MILITAR DE ACCIÓN SOCIAL DE DESCANSO LA CORTADURA', 'RESIDENCIA MILITAR DE ACCIÓN SOCIAL DE DESCANSO CASTAÑÓN DE MENA', 'RESIDENCIA MILITAR DE ACCIÓN SOCIAL DE DESCANSO ARCHENA',
+    'RESIDENCIA MILITAR DE ACCIÓN SOCIAL DE DESCANSO FUERTE SANTIAGO', 'RESIDENCIA MILITAR DE ACCIÓN SOCIAL DE ESTUDIANTES SAN HERMENEGILDO', 'RESIDENCIA MILITAR DE ACCIÓN SOCIAL DE ESTUDIANTES VIRGEN PAZ',
+    'CENTRO DEPORTIVO MILITAR HISPALIS', 'CENTRO DEPORTIVO MILITAR SANCHA BRAVA', 'CENTRO DEPORTIVO MILITAR LOS MONDRAGONES', 'CENTRO DEPORTIVO SOCIOCULTURAL MILITAR CEUTA',
+    'RESIDENCIA LOGÍSTICA MILITAR DE MELILLA', 'RESIDENCIA LOGÍSTICA MILITAR GENERAL GALERA', 'RESIDENCIA LOGÍSTICA MILITAR VIRGEN DE ÁFRICA'].map(n => ({ nombre: n, activa: true }));
+  function dlgSemilla(n) {
+    if (!exigirLista(n)) return;
+    const esO = n === 'NLT_MAESTRO', sem = esO ? SEMILLA_OBLIG : SEMILLA_UCO, actuales = esO ? O() : U();
+    const existe = s => actuales.find(x => norm(x.nombre) === norm(s.nombre) || (esO && s.codigo && norm(x.codigo) === norm(s.codigo)) || (!esO && norm(x.siglas) === norm(s.nombre)));
+    const filas = sem.map((s, i) => { const ex = existe(s); return '<label style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid var(--line)"><input type="checkbox" data-sem="' + i + '"' + (ex ? ' disabled' : ' checked') + '> <span>' +
+      (esO ? '<b>' + esc(s.codigo) + '</b> ' : '') + esc(s.nombre) + (esO ? ' <span class="small muted">· ' + esc(s.periodicidad) + ' · ' + esc(reglaTxt(s)) + '</span>' : '') + (ex ? ' <span class="badge none">ya existe (ID ' + ex.id + ')</span>' : '') + '</span></label>'; });
+    const nuevos = sem.filter(s => !existe(s)).length;
+    abrirDlg(esO ? 'Catálogo NLT inicial' : 'Unidades SUIGESUR',
+      '<p class="small">' + nuevos + ' de ' + sem.length + ' no existen en ' + n + '. Desmarca lo que no quieras crear. Cada elemento se crea y se verifica por separado; si uno falla, el proceso se detiene.</p>' +
+      (!esO ? '<div class="aviso small">Esta relación procede de la versión anterior y <b>no lleva siglas</b> (no se inventan). Revísala antes: unidades y establecimientos pueden estar repetidos con nombres distintos.</div>' : '') +
+      '<div style="max-height:50vh;overflow:auto">' + filas.join('') + '</div><div id="semProg" class="small"></div>',
+      '<button type="button" data-cerrar>Cancelar</button><button type="submit" class="prim">Crear las marcadas</button>');
+    alEnviar = async () => {
+      const elegidos = $$('[data-sem]:checked', dlg).map(c => sem[Number(c.dataset.sem)]);
+      if (!elegidos.length) return msg('<div class="error">No hay nada marcado.</div>');
+      if (!confirm('Se crearán ' + elegidos.length + ' elementos en ' + n + '. ¿Continuar?')) return;
+      ocupado(true, 'Creando…'); let ok = 0, er = null;
+      for (const s of elegidos) {
+        $('#semProg').textContent = 'Creando y verificando ' + (ok + 1) + ' de ' + elegidos.length + ': ' + s.nombre;
+        const d = Object.assign({}, s);
+        Object.keys(d).forEach(k => { if (!(L[n].map[k] || []).length && vacio(d[k])) delete d[k]; if (k === 'activa' && !(L[n].map.activa || []).length) delete d[k]; });
+        try { await guardar(n, null, d, esO ? 'Alta de obligación (catálogo inicial)' : 'Alta de unidad (catálogo inicial)'); ok++; } catch (e) { er = e; break; }
+      }
+      $('#semProg').textContent = ''; ocupado(false); render();
+      msg('<div class="bien">' + ok + ' creados y verificados.</div>' + (er ? htmlError(er, 'Detenido') : ''));
+      $$('[data-sem]', dlg).forEach(c => { const s = sem[Number(c.dataset.sem)]; if (existe(s)) { c.checked = false; c.disabled = true; } });
+    };
+  }
+  function dlgEstructura(n, crearL) {
+    const S = L[n];
+    const faltan = crearL ? DEF[n].campos.filter(c => c.in !== 'Title') : DEF[n].campos.filter(c => c.in !== 'Title' && !(S.map[c.k] || []).length && (pref.mapa[n] || {})[c.k] !== '-');
+    abrirDlg(crearL ? 'Crear la lista ' + n : 'Crear columnas en ' + n,
+      '<p>Se va a ' + (crearL ? 'crear la lista personalizada <b>' + n + '</b> en <code>' + esc(web.url) + '</code> y añadirle' : 'añadir a la lista <b>' + n + '</b>') + ' estas columnas:</p>' +
+      tabla(['Nombre interno', 'Nombre visible', 'Tipo'], faltan.map(c => '<tr>' + td('<code>' + c.in + '</code>') + td(esc(c.d)) + td(esc(c.t === 'Choice' ? 'Elección (admite otros valores): ' + c.choices.join(', ') : c.t === 'DateTime' ? 'Fecha (solo fecha)' : c.t === 'Note' ? 'Texto multilínea (sin formato)' : c.t === 'Boolean' ? 'Sí/No (Sí por defecto)' : c.t === 'Number' ? 'Número' : 'Texto (255)')) + '</tr>')) +
+      '<p class="small muted">No se borra ni se renombra nada existente' + (crearL ? '' : '') + '. Las columnas se añaden a la vista predeterminada. Al terminar se vuelve a leer la lista para comprobar que cada columna existe y con qué nombre interno.</p><div id="estProg" class="small"></div>',
+      '<button type="button" data-cerrar>Cancelar</button><button type="submit" class="prim">' + (crearL ? 'Crear lista y columnas' : 'Crear ' + faltan.length + ' columnas') + '</button>');
+    alEnviar = () => ejecutar(async () => {
+      const prog = (t, er) => { if (t) $('#estProg').textContent = t; if (er) $('#estProg').insertAdjacentHTML('beforeend', '<div class="error">' + esc(er) + '</div>'); };
+      const res = crearL ? await crearLista(n, prog) : await crearCampos(n, prog);
+      render();
+      msg('<div class="' + (res.every(r => r[0] === '✔') ? 'bien' : 'aviso') + '">Resultado verificado:<br>' + res.map(esc).join('<br>') + '</div>');
+      $('#fdlg button[type=submit]').hidden = true;
+    });
+  }
+
+  // ================= Pintado general =================
+  function pintarEstado() {
+    const el = $('#estado');
+    let txt, cls;
+    if (cargando) { txt = 'Leyendo SharePoint…'; cls = ''; }
+    else if (errorGeneral) { txt = errorGeneral.tipo === 'permiso' ? 'Sin permisos' : errorGeneral.tipo === 'config' ? 'Error de configuración' : 'Error de conexión'; cls = 'bad'; }
+    else {
+      const mal = LISTAS.filter(n => L[n].estado !== 'ok');
+      const sinCols = LISTAS.filter(n => L[n].estado === 'ok' && DEF[n].campos.some(c => c.req && !(L[n].map[c.k] || []).length));
+      if (mal.some(n => L[n].estado === 'sin permiso')) { txt = 'Sin permiso en ' + mal.filter(n => L[n].estado === 'sin permiso').join(', '); cls = 'bad'; }
+      else if (mal.some(n => L[n].estado === 'error de lectura')) { txt = 'Error de lectura'; cls = 'bad'; }
+      else if (mal.length || sinCols.length) { txt = 'Conectado · revisar estructura'; cls = 'warn'; }
+      else { txt = 'Conectado · lectura correcta · ' + (cargadoEn ? cargadoEn.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''); cls = 'ok'; }
+    }
+    el.textContent = txt; el.className = 'estado ' + cls;
+    el.title = web ? web.url : '';
+  }
+  let avisoT = null;
+  function aviso(t) {
+    const el = $('#escritura'); if (!el) return;
+    el.hidden = false; el.textContent = t; el.className = 'estado ok';
+    clearTimeout(avisoT); avisoT = setTimeout(() => { if (ultimaEscritura) marcarEscritura(ultimaEscritura.ok, ultimaEscritura.txt); else el.hidden = true; }, 4000);
+  }
+  function render() {
+    $$('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.v === pref.vista));
+    const v = VISTAS[pref.vista] || VISTAS.inicio;
+    const sc = pref.vista !== 'ajustes' ? sinConexion() : '';
+    if (sc) { $('#vista').innerHTML = sc; return; }
+    if (!cargadoEn && pref.vista !== 'ajustes') { $('#vista').innerHTML = '<p class="muted">Conectando con SharePoint…</p>'; return; }
+    $('#vista').innerHTML = v.barra() + '<div id="res">' + v.res() + '</div>';
+  }
+  function renderRes() {
+    const v = VISTAS[pref.vista]; const r = $('#res');
+    if (v && r) r.innerHTML = v.res(); else render();
+  }
+  function irA(dest) {
+    const p = dest.split(':'), vista = p[0], val = p.slice(1).join(':');
+    if (vista === 'uni' || vista === 'obl') { F[vista] = val; pref.vista = 'entregas'; F.sit = 'incumplida'; }
+    else {
+      pref.vista = vista;
+      if (vista === 'entregas' && p.length > 1) F.sit = val;
+      if (vista === 'analisis' && val) pref.sub = val;
+      if (vista === 'eventos' && p.length > 1) F.esit = 'abiertos';
+    }
+    guardarF(); render(); window.scrollTo(0, 0);
+  }
+
+  // ================= Eventos de la interfaz =================
+  document.addEventListener('click', ev => {
+    const el = ev.target;
+    const tab = el.closest('#tabs a'); if (tab) { pref.vista = tab.dataset.v; guardarPref(); limiteFilas = 300; render(); return; }
+    if (el.closest('#recargar')) { cargar(); return; }
+    if (el.closest('[data-cerrar]')) { ev.preventDefault(); dlg.close(); return; }
+    const ir = el.closest('[data-ir]'); if (ir) { ev.preventDefault(); if (dlg.open) dlg.close(); irA(ir.dataset.ir); return; }
+    const sub = el.closest('[data-sub]'); if (sub) { pref.sub = sub.dataset.sub; guardarPref(); render(); return; }
+    const ip = el.closest('[data-infper]'); if (ip) { const r = periodoRapido(ip.dataset.infper); $('#infOpts [name=desde]').value = r[0]; $('#infOpts [name=hasta]').value = r[1]; leerInf(); renderRes(); return; }
+    const inf = el.closest('[data-inf]'); if (inf) { accionInforme(inf.dataset.inf); return; }
+    const as = el.closest('[data-as]');
+    if (as && AS) {
+      const vis = $$('#asUnis label:not([hidden]) [data-asu]').map(c => Number(c.dataset.asu));
+      if (as.dataset.as === 'hab') AS.unis = new Set(unidadesHabituales(AS.ob).filter(u => u.activa).map(u => u.id));
+      if (as.dataset.as === 'todas') vis.forEach(id => AS.unis.add(id));
+      if (as.dataset.as === 'ninguna') AS.unis.clear();
+      pintarAsig(); return;
+    }
+    if (el.matches('[data-sel]')) { const id = Number(el.dataset.sel); if (el.checked) SEL.add(id); else SEL.delete(id); renderRes(); return; }
+    if (el.matches('[data-acc=selTodas]')) { entregasFiltradas().slice(0, limiteFilas).forEach(e => { if (el.checked) SEL.add(e.id); else SEL.delete(e.id); }); renderRes(); return; }
+    const acc = el.closest('[data-acc]');
+    if (acc) {
+      ev.preventDefault();
+      const id = Number(acc.dataset.id), a = acc.dataset.acc;
+      const e = E().find(x => x.id === id);
+      switch (a) {
+        case 'asignar': return dlgAsignar(id || null);
+        case 'nuevoEvento': return dlgEvento(null, id || null);
+        case 'nuevaUnidad': return dlgUnidad(null);
+        case 'nuevaOblig': return dlgObligacion(null);
+        case 'recibir': case 'validar':
+          acc.disabled = true; acc.textContent = 'Guardando…';
+          accionRapida(e, a).then(r => { renderRes(); aviso((a === 'recibir' ? 'Recepción registrada' : 'Validada') + ' y verificada (ID ' + r.id + ')'); })
+            .catch(er => { renderRes(); abrirDlg('No se ha guardado', htmlError(er), '<button type="button" data-cerrar>Cerrar</button>'); });
+          return;
+        case 'cerrarEvento': {
+          const v = EV().find(x => x.id === id);
+          if (!confirm('¿Finalizar hoy el evento «' + v.titulo + '»?')) return;
+          acc.disabled = true;
+          guardar('SEGUIMIENTO_EVENTOS', v, { estado: 'Finalizado', cierre: hoy() }, 'Finalizar evento').then(() => { renderRes(); aviso('Evento finalizado y verificado'); })
+            .catch(er => { renderRes(); abrirDlg('No se ha guardado', htmlError(er), '<button type="button" data-cerrar>Cerrar</button>'); });
+          return;
+        }
+        case 'papelera':
+          if (!confirm('¿Enviar a la papelera de reciclaje de SharePoint el registro ID ' + e.id + ' (' + e.uEtq + ' · ' + e.oNom + ' · ' + e.periodo + ')?\n\nSe puede restaurar desde la Papelera de reciclaje del sitio.')) return;
+          return ejecutar(async () => { await reciclar('CONTROL_ENTREGAS', e, 'Enviar entrega a la papelera'); dlg.close(); render(); aviso('Registro enviado a la papelera (verificado)'); });
+        case 'loteRecibir': return lote('recibir');
+        case 'loteValidar': return lote('validar');
+        case 'loteNA': return lote('na');
+        case 'loteQuitar': SEL.clear(); return renderRes();
+        case 'masFilas': limiteFilas += 300; return renderRes();
+        case 'csvEntregas': return descargar('CONTROL_ENTREGAS_' + hoy() + '.csv', csvFilas(CAB_CSV_E, entregasFiltradas().map(filaCsvE)), 'text/csv;charset=utf-8');
+        case 'csvEventos': return descargar('SEGUIMIENTO_EVENTOS_' + hoy() + '.csv', csvFilas(['ID', 'Tipo', 'Evento', 'Unidad', 'Obligación', 'Activación', 'Límite', 'Estado', 'Vencido', 'Cierre', 'Responsable', 'Observaciones'],
+          EV().map(v => [v.id, v.tipo, v.titulo, v.uEtq, v.ob ? v.ob.nombre : '', fCorta(v.activacion), fCorta(v.limite), v.estadoN, v.vencido ? 'Sí' : '', fCorta(v.cierre), v.responsable, v.obs])), 'text/csv;charset=utf-8');
+        case 'csvAnalisis': { const r = ultimoAnalisis || analisis(); return descargar('Analisis_' + pref.sub + '_' + hoy() + '.csv', csvFilas(r.cabs, r.filas), 'text/csv;charset=utf-8'); }
+        case 'reconectar': pref.sitio = $('#aSitio').value.trim().replace(/\/+$/, ''); guardarPref(); web = null; yo = null; digest = null; return cargar();
+        case 'crearLista': return dlgEstructura(acc.dataset.lista, true);
+        case 'crearCampos': return dlgEstructura(acc.dataset.lista, false);
+        case 'semillaOblig': return dlgSemilla('NLT_MAESTRO');
+        case 'semillaUco': return dlgSemilla('UCO_SUIGESUR');
+        case 'copiarDiag': {
+          const t = ['CENTRO DE CONTROL NLT SUIGESUR · diagnóstico ' + new Date().toLocaleString('es-ES'), 'Sitio: ' + (web ? web.url : '—'), 'Formato: ' + (verbose ? 'verbose' : 'nometadata'), errorGeneral ? 'Error general: ' + errorGeneral.message : '']
+            .concat(LISTAS.map(n => n + ': ' + L[n].estado + ' · ' + L[n].items.length + ' elementos · permisos ' + JSON.stringify(L[n].perm) + ' · columnas: ' + DEF[n].campos.map(c => c.k + '=' + ((L[n].map[c.k] || []).join('+') || 'FALTA')).join(', ')))
+            .concat(['', 'Operaciones:']).concat(REG.slice(0, 80).map(r => r.hora.toLocaleTimeString('es-ES') + ' | ' + r.op + ' | ' + r.lista + ' | ' + r.metodo + ' ' + r.url + ' | HTTP ' + r.status + ' | ' + (r.ok ? 'OK' : 'ERROR') + ' | ' + r.msg)).join('\n');
+          (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => aviso('Diagnóstico copiado')).catch(() => descargar('diagnostico-nlt-suigesur.txt', t, 'text/plain;charset=utf-8'));
+          return;
+        }
+        case 'exportarJSON': {
+          const limpio = arr => arr.map(o => { const c = {}; Object.keys(o).forEach(k => { if (['u', 'ob', 's'].indexOf(k) < 0) c[k] = o[k]; }); return c; });
+          return descargar('NLT_SUIGESUR_copia_' + hoy() + '.json', JSON.stringify({ exportado: new Date().toISOString(), sitio: web && web.url, NLT_MAESTRO: limpio(O()), UCO_SUIGESUR: limpio(U()), CONTROL_ENTREGAS: limpio(E()), SEGUIMIENTO_EVENTOS: limpio(EV()) }, null, 1), 'application/json');
+        }
+      }
+      return;
+    }
+    if (el.closest('a[href="#"]')) ev.preventDefault();
+    if (el.closest('input, button, select, a, label')) return;
+    const fe = el.closest('[data-entrega]'); if (fe) { const e = E().find(x => x.id === Number(fe.dataset.entrega)); if (e) dlgEntrega(e); return; }
+    const fo = el.closest('[data-oblig]'); if (fo) { const o = oPorId.get(Number(fo.dataset.oblig)); if (o) dlgObligacion(o); return; }
+    const fu = el.closest('[data-unidad]'); if (fu) { const u = uPorId.get(Number(fu.dataset.unidad)); if (u) dlgUnidad(u); return; }
+    const fv = el.closest('[data-evento]'); if (fv) { const v = EV().find(x => x.id === Number(fv.dataset.evento)); if (v) dlgEvento(v); return; }
+  });
+  document.addEventListener('change', ev => {
+    const el = ev.target;
+    if (el.dataset.f !== undefined && el.type !== 'search') {
+      F[el.dataset.f] = el.value; if (el.dataset.f === 'anio' && !el.value) F.per = '';
+      guardarF(); limiteFilas = 300;
+      if (el.dataset.f === 'anio' || pref.vista === 'analisis') render(); else renderRes();
+      return;
+    }
+    if (el.closest('#infOpts')) { leerInf(); renderRes(); return; }
+    if (el.dataset.mapa) {
+      const p = el.dataset.mapa.split('|');
+      pref.mapa[p[0]] = pref.mapa[p[0]] || {};
+      if (el.value) pref.mapa[p[0]][p[1]] = el.value; else delete pref.mapa[p[0]][p[1]];
+      guardarPref(); resolver(p[0]);
+      recargarLista(p[0]).then(render);
+      return;
+    }
+    if (AS && dlg.open) {
+      if (el.name === 'ob') { AS.ob = oPorId.get(Number(el.value)); AS.unis = new Set(unidadesHabituales(AS.ob).filter(u => u.activa).map(u => u.id)); AS.plazos = plazosIniciales(); pintarAsig(); return; }
+      if (el.name === 'anio') { AS.anio = Number(el.value) || new Date().getFullYear(); AS.plazos = plazosIniciales(); pintarAsig(); return; }
+      if (el.dataset.pl !== undefined) { AS.plazos[Number(el.dataset.pl)].on = el.checked; resumenAsig(); return; }
+      if (el.dataset.plnlt !== undefined) { AS.plazos[Number(el.dataset.plnlt)].nlt = el.value; resumenAsig(); return; }
+      if (el.dataset.asu !== undefined) { const id = Number(el.dataset.asu); if (el.checked) AS.unis.add(id); else AS.unis.delete(id); resumenAsig(); return; }
+    }
+  });
+  document.addEventListener('input', ev => {
+    const el = ev.target;
+    if (el.dataset.f !== undefined && el.type === 'search') {
+      F[el.dataset.f] = el.value; guardarF(); limiteFilas = 300;
+      renderRes();
+      return;
+    }
+    if (AS && dlg.open) {
+      if (el.name === 'asq') { AS.q = el.value; const q = norm(el.value); $$('#asUnis label').forEach(l => { l.hidden = !!q && norm(l.textContent).indexOf(q) < 0; }); return; }
+      if (el.dataset.plper !== undefined) { const p = AS.plazos[Number(el.dataset.plper)]; p.periodo = el.value.trim(); if (p.periodo && p.nlt) p.on = true; resumenAsig(); const c = $('[data-pl="' + el.dataset.plper + '"]'); if (c) c.checked = p.on; return; }
+    }
+  });
+  dlg.addEventListener('submit', ev => { ev.preventDefault(); if (alEnviar) alEnviar(); });
+  dlg.addEventListener('close', () => { AS = null; alEnviar = null; dlg.oninput = null; dlg.onchange = null; });
+
+  render();
+  cargar();
+})();
+</script>
+</body>
+</html>
