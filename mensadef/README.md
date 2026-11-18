@@ -529,4 +529,9 @@ con el formato *verbose* de SharePoint 2013.
   DEFENSA, sellos USO OFICIAL, remitente, recuadro de firma electrónica, registros electrónicos de salida y entrada, bloque
   «O F I C I O» (S/REF., N/REF., FECHA, ASUNTO, ANEXOS, DESTINATARIO, COPIA), texto en letra de oficio y firma. Sin escudo ni
   CSV: en el margen dice que es una copia impresa desde SENDERO y que el original firmado está en MENSADEF.
+- **2026-11-18 · 7 (solo pruebas):** **aviso de comentarios nuevos** (`AVISO_COMENT = PRUEBAS`): tras cada lectura se compara el
+  último comentario de cada mensaje con el anterior; si cambia y no es de SENDERO («… · SENDERO») ni del usuario, «💬 Nuevo
+  comentario» en la fila hasta abrirlo, franja con el número («Ver solo esos», «Marcar todos como vistos») y, si se activa,
+  notificación de Windows. La primera vez solo se apunta. «Actualizar solo cada 10 min» (marcado). Límites: solo el último
+  comentario y solo con SENDERO abierto.
 

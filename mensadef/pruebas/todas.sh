@@ -7,7 +7,7 @@ for v in "FINAL=1" "X=1" "PORTAL=1 FINAL=1" "PORTAL=1 FINAL=1 VENTANA=1" "PORTAL
   salida=$(env $v node bandejas.mjs 2>&1)
   if echo "$salida" | grep -q "errores: \[\]" && ! echo "$salida" | grep -q "Error"; then r=bien; else r=MAL; fallos=$((fallos+1)); fi
   echo "== $v: $r"
-  echo "$salida" | grep -E "^referencia:|^imprimir:|^carga progresiva|^al abrir:|^acceso:|^VISTO|^estado:|visto con filtro|tecla V|leído al abrir|rúbrica:|bandera puesta|comentario:|al añadir a META|bajo el asunto|columna Firma|Sin bandera|agrupar:|plegar grupos|PUNTO|gestor por defecto|filtros: Tipo|sin células marcadas|responder en MENSADEF|o pasar o firmar|Tarea» junto al asunto|botón derecho|entrada automática|tras iniciar" | cut -c1-110 | sed 's/^/   /'
+  echo "$salida" | grep -E "^comentarios nuevos|^referencia:|^imprimir:|^carga progresiva|^al abrir:|^acceso:|^VISTO|^estado:|visto con filtro|tecla V|leído al abrir|rúbrica:|bandera puesta|comentario:|al añadir a META|bajo el asunto|columna Firma|Sin bandera|agrupar:|plegar grupos|PUNTO|gestor por defecto|filtros: Tipo|sin células marcadas|responder en MENSADEF|o pasar o firmar|Tarea» junto al asunto|botón derecho|entrada automática|tras iniciar" | cut -c1-110 | sed 's/^/   /'
 done
 # Página de control de acceso en Colabora (original y protegida, ligero y verbose)
 for v in "X=1" "VERBOSE=1" "PROTEGIDA=1" "PROTEGIDA=1 VERBOSE=1" "LIMITADO=1" "LIMITADO=1 PROTEGIDA=1 VERBOSE=1"; do

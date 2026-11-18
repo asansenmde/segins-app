@@ -27,7 +27,7 @@ const bandeja = (cel, es, pag, tam) => {
     Cuerpo: process.env.PRESENTA ? '<p>Se remite para su conocimiento y efectos la documentación adjunta. Se ruega acuse de recibo y, en su caso, la designación de un punto de contacto antes del próximo viernes.</p>' : '<p>Texto del mensaje ' + i + '</p><script>alert(1)</script>', Fecha: hace(i < 130 ? i * 0.3 : 24 * 40 + i), FechaRegistroEntrada: hace(i), IdEstadoMensaje: 3,
     NombreEstadoUltimaDistribucionSalida: es === '2' && i === 0 ? 'Pendiente de Validar' : '', EstadoMensaje: es === '2' && i === 0 ? 'Borrador' : es === '2' && i === 2 ? 'Enviado' : es === '2' && i === 1 ? 'Pendiente de firma' : i === 7 ? 'Pendiente de firma' : i % 3 ? 'Pendiente' : 'Leído', EstadoParaUsuario: i % 2 ? 'No leído' : 'Leído', TipoES: es === '1' ? 'E' : 'S', TipoMensaje: i % 4 ? 'Informe' : 'Orden', CodigoPrioridad: i % 9 ? 'R' : 'U',
     CelulaRemitente: i % 2 ? 'ET 2SUIGE JEFATURA' : 'ET 2SUIGE REGISTRO', CelulaDestinataria: 'ET 2SUIGE SETEC SEGURIDAD', NumeroRegistroEntrada: 'RE-' + i, Sref: i === 3 ? 'Su escrito n.º RE-1 de 12/11/2026' : i === 4 ? 'S/Ref.: RS-ANTIGUO-9 (correo)' : 'SREF-' + i,
-    ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 3 === 0 ? 'ACCIÓN' : i % 3 === 1 ? 'INFORMACIÓN' : '', UltimoComentario: i % 10 === 5 ? 'Añadido como tarea en META (META) por OTRA PERSONA el 12/11/2026, 10:00:00 · SENDERO' : i % 4 === 0 ? 'Comentario ficticio ' + i : '', Firma: i % 2 ? (process.env.PRESENTA ? 'GENERAL JEFE DE LA SUIGE' : 'GENERAL JEFE <b>A</b>') : '', MotivoDistribucion: i % 3 ? 'Para conocimiento' : 'Para actuación', EnviableARubrica: es === '2' ? 'true' : 'false', BuzonPersonal: false, IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
+    ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 3 === 0 ? 'ACCIÓN' : i % 3 === 1 ? 'INFORMACIÓN' : '', UltimoComentario: comExtra && cel === G1 && es === '1' && i === 2 ? 'Revisado, falta el informe — OTRA PERSONA' : comExtra && cel === G1 && es === '1' && i === 6 ? 'Añadido al Punto de Situación por OTRA PERSONA el 18/11/2026 · SENDERO' : i % 10 === 5 ? 'Añadido como tarea en META (META) por OTRA PERSONA el 12/11/2026, 10:00:00 · SENDERO' : i % 4 === 0 ? 'Comentario ficticio ' + i : '', Firma: i % 2 ? (process.env.PRESENTA ? 'GENERAL JEFE DE LA SUIGE' : 'GENERAL JEFE <b>A</b>') : '', MotivoDistribucion: i % 3 ? 'Para conocimiento' : 'Para actuación', EnviableARubrica: es === '2' ? 'true' : 'false', BuzonPersonal: false, IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
   return { ListaElementos: els, ListaAgrupaciones: [], IndicePagina: pag, TamanoPagina: tam, TotalRegistros: total };
 };
 const b = await chromium.launch();
@@ -37,7 +37,7 @@ const FINAL = !!process.env.FINAL, MEM = FINAL ? 'visorMensadef.' : 'visorMensad
 await mp.goto(new URL(FINAL ? '../marcador-visor-mensadef.html' : '../marcador-visor-mensadef-pruebas.html', import.meta.url).href);
 const codigo = decodeURIComponent((await mp.getAttribute('#marcador', 'href')).slice(11));
 const ctx = await b.newContext({ acceptDownloads: true }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
-const llamadas = [], buscadosRef = [];
+const llamadas = [], buscadosRef = []; let comExtra = false;   // comExtra: en la siguiente lectura llegan comentarios nuevos
 await ctx.route(API + '/**', r => {
   const u = new URL(r.request().url()), q = Object.fromEntries(u.searchParams), ruta = u.pathname.replace('/api/', '');
   llamadas.push(ruta + (q.idCelula ? ' ' + q.idCelula.slice(0, 4) + ' es' + q.tipoES + ' p' + q.indicePagina : ''));
@@ -575,6 +575,24 @@ for (const n of [0, 40]) {
   await pest.waitForFunction(() => window.abierto || (document.getElementById('avisoVisor') || {}).style?.background === 'rgb(138, 28, 28)', null, { timeout: 30000 }).catch(() => 0);
   console.log('localizar RE-' + n + ':', await pest.evaluate(() => ({ abierto: window.abierto || '', buscado: window.buscado || '', aviso: (document.getElementById('avisoVisor') || {}).textContent || '', resaltada: !!document.querySelector('tr[style*="outline"]'), url: location.hash.slice(0, 20) })));
   await pest.close(); await p.bringToFront();
+}
+// 18/11/2026: aviso de comentarios nuevos (de momento solo en pruebas): al actualizar, RE-2 trae un comentario de otra persona
+// (aviso) y RE-6 uno de SENDERO (sin aviso); notificación de Windows simulada
+if (!FINAL) {
+  await p.evaluate(() => { window.__notif = []; window.Notification = function (t, o) { window.__notif.push(t + ' | ' + (o && o.body)); }; window.Notification.permission = 'granted'; window.Notification.requestPermission = () => Promise.resolve('granted'); });
+  const ctl = await p.isVisible('#ctlComent'), auto = await p.isChecked('#autoAct');
+  await p.check('#notifCom'); await p.waitForTimeout(200);
+  await p.fill('#buscar', ''); await p.waitForTimeout(300);
+  comExtra = true; await p.click('#actualizar'); await p.waitForFunction(() => !document.getElementById('actualizar').disabled, null, { timeout: 30000 }); await p.waitForTimeout(500);
+  const filas = await p.$$eval('#lista tbody tr[data-i]', l => l.filter(t => t.querySelector('.t-com')).map(t => (t.textContent.match(/Mensaje \d+ de \w+/) || [''])[0]));
+  const franja = (await p.textContent('#avisoComent').catch(() => '')).replace(/\s+/g, ' '), notif = await p.evaluate(() => window.__notif);
+  await p.click('#verComNuevos').catch(() => 0); await p.waitForTimeout(300); const solo = await p.$$eval('#lista tbody tr[data-i]', l => l.length);
+  if (solo) { await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(500); }
+  const tras = await p.$$eval('#lista tbody tr[data-i] .t-com', l => l.length), franja2 = await p.isVisible('#avisoComent');
+  if (await p.isVisible('#verComNuevos')) { await p.click('#verComNuevos'); await p.waitForTimeout(300); }
+  console.log('comentarios nuevos: controles', ctl, '· actualizar solo', auto, '| avisa en', filas.join(','), '| franja «' + franja.slice(0, 45) + '» | notificación:', notif.length, '| ver solo esos:', solo, '| al abrirlo: etiquetas', tras, '· franja', franja2);
+  if (!ctl || !auto || filas.length !== 1 || !/Mensaje 2 de 8d71/.test(filas[0]) || !/1 mensaje con comentario nuevo/.test(franja) || notif.length !== 1 || solo !== 1 || tras) console.log('Error: aviso de comentarios');
+  comExtra = false;
 }
 // 18/11/2026: «Su referencia» pulsable con texto libre: RE-3 → «Su escrito n.º RE-1 de 12/11/2026» (cargado); RE-4 → «S/Ref.:
 // RS-ANTIGUO-9 (correo)» (de otra fecha, en MENSADEF); RE-5 → «SREF-5» (no existe): caja para corregirla a mano (RE-2).

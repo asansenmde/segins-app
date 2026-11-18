@@ -156,7 +156,7 @@
   tbody tr.visto { color: var(--muted); }
   td.ver { width: 34px; text-align: center; }
   td.ver input { width: 18px; height: 18px; cursor: pointer; }
-  .tag.t-tarea { background: #efe3fb; color: #6b3fa0; } .tag.t-psit { background: #dde8f7; color: #12315a; border: 1px solid #c9a84c; } .tag.t-pend { background: #fff3c4; color: #7a5a00; border: 1px dashed #c9a84c; } .tag.t-visto { background: var(--okbg); color: var(--ok); }
+  .tag.t-tarea { background: #efe3fb; color: #6b3fa0; } .tag.t-psit { background: #dde8f7; color: #12315a; border: 1px solid #c9a84c; } .tag.t-com { background: #fde7e4; color: #a4261e; border: 1px solid #e3a49c; } .tag.t-pend { background: #fff3c4; color: #7a5a00; border: 1px dashed #c9a84c; } .tag.t-visto { background: var(--okbg); color: var(--ok); }
   tr.dia-cab td { background: linear-gradient(90deg, #eef1ea, #f7f8f4); color: #3b4a2f; font-weight: 800; font-size: .78rem; letter-spacing: .6px; text-transform: uppercase; padding: 8px 10px; cursor: default; }
   tr.dia-cab:hover { background: none; }
   td.es { width: 30px; text-align: center; font-size: 1.05rem; }
@@ -444,7 +444,9 @@
       <button type="button" class="prim" id="cargar">Cargar</button>
       <button type="button" id="actualizar" title="Vuelve a leer MENSADEF con las mismas fechas y células, sin cerrar la ficha abierta">⟳ Actualizar</button>
       <span class="small muted" id="ultimaAct" title="Última lectura de MENSADEF"></span>
+      <span id="ctlComent" hidden style="display:inline-flex;gap:10px;flex-wrap:wrap"><label class="check" title="Mientras SENDERO esté abierto, vuelve a leer MENSADEF cada 10 minutos (sin mover la ficha)"><input type="checkbox" id="autoAct"> Actualizar solo cada 10 min</label><label class="check" title="Notificación de Windows cuando haya comentarios nuevos (el navegador pide permiso la primera vez)"><input type="checkbox" id="notifCom"> Aviso de Windows de comentarios nuevos</label></span>
     </div>
+    <div id="avisoComent" hidden style="margin-top:8px;background:#fff3c4;border:1px solid #c9a84c;border-radius:10px;padding:6px 10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"></div>
     <div class="fila" id="filaCelulas" style="display:none;margin-top:8px"><button type="button" class="prim" id="elegirCelulas">📂 Cargar células…</button><span class="muted" id="resumenCelulas"></span></div>
     <div class="card" id="cajaCelulas" hidden style="margin:8px 0"></div>
     <div class="muted" id="estado">Preparando…</div>
@@ -531,7 +533,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-18 · 6';
+  var VERSION = '2026-11-18 · 7';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -790,6 +792,56 @@
   // 13/11/2026: «pasado a tarea» = marcado en este navegador o con el comentario «Añadido como tarea en META» en MENSADEF
   // (así se ve también lo que pasó otra persona o desde otro ordenador)
   // 16/11/2026: lo pasado al Punto de Situación (desde este navegador o, para todos, por el comentario de MENSADEF)
+  // ---------- Aviso de comentarios nuevos (18/11/2026, de momento solo en la copia de pruebas) ----------
+  // Tras cada lectura se compara el último comentario de cada mensaje con el que había: si ha cambiado y no es de SENDERO
+  // («… · SENDERO») ni del propio usuario («… — SU NOMBRE»), es nuevo: «💬 Nuevo comentario» en la fila hasta abrirlo, franja con
+  // el número (pulsar = ver solo esos) y, si se quiere, notificación de Windows. La primera vez solo se apunta lo que hay.
+  // Solo se ve el ÚLTIMO comentario (es lo que da MENSADEF) y solo con SENDERO abierto (con actualización cada 10 min).
+  var AVISO_COMENT = PRUEBAS;
+  var comVistos = leer('comVistos', null), comNuevos = leer('comNuevos', {}) || {}, soloComNuevos = false;
+  var textoCom = function (m) { return String((m._x && m._x.UltimoComentario) || '').replace(/\s+/g, ' ').trim(); };
+  function guardarCom() {
+    var ks = Object.keys(comVistos || {}); if (ks.length > 3000) ks.slice(0, ks.length - 3000).forEach(function (k) { delete comVistos[k]; });
+    guardar('comVistos', comVistos || {}); guardar('comNuevos', comNuevos);
+  }
+  var esPropio = function (c) { return /·\s*SENDERO\s*$/i.test(c) || (!!nombreYo && c.slice(-nombreYo.length - 4).toUpperCase().indexOf(nombreYo.toUpperCase()) >= 0 && /—/.test(c.slice(-nombreYo.length - 4))); };
+  function detectarComentarios() {
+    var primera = !comVistos; if (primera) comVistos = {};
+    var nuevos = [];
+    mensajes.forEach(function (m) {
+      if (!m._x) return;
+      var k = claveMensaje(m), c = textoCom(m);
+      if (!primera && k in comVistos && comVistos[k] !== c && c && !esPropio(c) && !comNuevos[k] && abierto !== m) { comNuevos[k] = new Date().toISOString(); nuevos.push(m); }
+      comVistos[k] = c;
+    });
+    guardarCom(); pintarAvisoCom();
+    if (nuevos.length && leer('notifCom', false) && window.Notification && Notification.permission === 'granted') {
+      try { new Notification('SENDERO · ' + nuevos.length + (nuevos.length === 1 ? ' comentario nuevo' : ' comentarios nuevos'), { body: nuevos.slice(0, 3).map(function (m) { return '💬 ' + String(m._asunto || '').slice(0, 70); }).join('\n'), tag: 'sendero-comentarios' }); } catch (e) { /* sin notificaciones */ }
+    }
+  }
+  function pintarAvisoCom() {
+    var el = $('avisoComent'); if (!el) return;
+    var n = mensajes.filter(function (m) { return comNuevos[claveMensaje(m)]; }).length;
+    if (!n && !soloComNuevos) { el.hidden = true; el.style.display = 'none'; return; }
+    el.hidden = false; el.style.display = 'flex';
+    el.innerHTML = '<b>💬 ' + n + (n === 1 ? ' mensaje con comentario nuevo' : ' mensajes con comentarios nuevos') + '</b>' +
+      '<button type="button" id="verComNuevos">' + (soloComNuevos ? 'Ver todos' : 'Ver solo esos') + '</button>' + (n ? '<button type="button" id="comVistosTodos">Marcar todos como vistos</button>' : '');
+    $('verComNuevos').addEventListener('click', function () { soloComNuevos = !soloComNuevos; mostrar = 300; filtrar(); pintarAvisoCom(); });
+    if ($('comVistosTodos')) $('comVistosTodos').addEventListener('click', function () { comNuevos = {}; soloComNuevos = false; guardarCom(); filtrar(); pintarAvisoCom(); });
+  }
+  if (AVISO_COMENT) {
+    $('ctlComent').hidden = false;
+    $('autoAct').checked = leer('autoAct', true); $('notifCom').checked = !!leer('notifCom', false) && !!window.Notification && Notification.permission === 'granted';
+    $('autoAct').addEventListener('change', function () { guardar('autoAct', this.checked); });
+    $('notifCom').addEventListener('change', function () {
+      var c = this;
+      if (!c.checked) return guardar('notifCom', false);
+      if (!window.Notification) { c.checked = false; return alert('Este navegador no permite notificaciones.'); }
+      Notification.requestPermission().then(function (p) { c.checked = p === 'granted'; guardar('notifCom', c.checked); if (p !== 'granted') alert('El navegador no ha dado permiso para las notificaciones de MENSADEF.'); });
+    });
+    // Cada minuto mira si han pasado 10 desde la última lectura (y no se está cargando)
+    setInterval(function () { if ($('autoAct').checked && modoApi && ultimaLectura && Date.now() - ultimaLectura.getTime() >= (Number(leer('autoActMin', 10)) || 10) * 60000 && !$('actualizar').disabled) $('actualizar').click(); }, 60000);
+  }
   var enviadosPsit = leer('enviadosPsit', {});
   // 16/11/2026: «Quitar del PSIT» / «Quitar de META»: se recuerda aquí (quitados) y se deja comentario en MENSADEF
   // («Quitado del Punto de Situación…», «Quitado de META…»), que es lo que ven los demás. Gana lo más reciente.
@@ -1878,6 +1930,7 @@
       var parcial = primera ? function (l) { if (Date.now() - ultimoPintado < 1000) return; ultimoPintado = Date.now(); mensajes = l; pintarTodo(); } : null;
       return cargarApi(desde, hasta, parcial).then(function (r) {
         mensajes = r.mensajes; $('cargar').disabled = false; ultimaLectura = new Date(); pintarUltima();
+        if (AVISO_COMENT) detectarComentarios();
         // Tiempos de la carga (al pasar el ratón por el estado): total y las bandejas más lentas
         var lentas = tiemposCarga.slice().sort(function (a, b) { return b.ms - a.ms; }).slice(0, 8);
         $('estado').title = 'Carga en ' + (tiemposCarga.total / 1000).toFixed(1) + ' s · ' + tiemposCarga.length + ' bandejas, 6 a la vez. Las más lentas:\n' +
@@ -1992,6 +2045,7 @@
       if (o && organo(m) !== o) return false;
       if (a && autoridad(m) !== a) return false;
       if (adj && !m.Attachments) return false;
+      if (soloComNuevos && !comNuevos[claveMensaje(m)]) return false;
       if (pas) { var et = !!pasadoATarea(m), ep = !!pasadoAPsit(m);
         if (pas === 'tarea' ? !et : pas === 'psit' ? !ep : pas === 'ambos' ? !(et && ep) : pas === 'alguno' ? !(et || ep) : (et || ep)) return false; }
       if (q.length) {
@@ -2089,6 +2143,7 @@
   }
   function etiquetasFila(m) {
     return (pasadoATarea(m) ? ' <span class="tag t-tarea" title="Pasado a tarea en META">➜ Tarea</span>' : '') + (pasadoAPsit(m) ? ' <span class="tag t-psit" title="Pasado al Punto de Situación">★ PSIT</span>' : '') +
+      (comNuevos[claveMensaje(m)] ? ' <span class="tag t-com" title="Alguien ha escrito un comentario desde la última vez">💬 Nuevo comentario</span>' : '') +
       (pendienteDe(m, 'psit') ? ' <span class="tag t-pend" title="Abierto en el PSIT: falta decir si se guardó">⏳ ¿PSIT?</span>' : '') + (pendienteDe(m, 'tarea') ? ' <span class="tag t-pend" title="Abierto en META: falta decir si se creó la tarea">⏳ ¿Tarea?</span>' : '') + (m._rubrica && m._rubrica.enviado ? ' <span class="tag t-tarea" title="Pasado a rúbrica desde SENDERO">✍ Rúbrica</span>' : '');
   }
   function tablaBandejas(filas) {
@@ -2169,6 +2224,7 @@
     else if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); cambiarVisto(abierto, !vistos[claveMensaje(abierto)]); }
   });
   function abrir(m) {
+    if (AVISO_COMENT && m._x) { var kc = claveMensaje(m); comVistos = comVistos || {}; comVistos[kc] = textoCom(m); if (comNuevos[kc]) { delete comNuevos[kc]; guardarCom(); pintarAvisoCom(); } else guardarCom(); }
     abierto = m; pintarTabla();
     $('layout').classList.add('detalle-abierto'); $('detalle').hidden = false;
     var l = m._lista, base = "web/lists(guid'" + l.id + "')/items(" + m.ID + ')';
