@@ -533,7 +533,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-18 · 8';
+  var VERSION = '2026-11-18 · 9';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1755,6 +1755,21 @@
       setTimeout(function () { try { w.focus(); w.print(); } catch (e) { /* el usuario pulsa el botón */ } }, 400);
     });
   }
+  // ✉ Enviar con el PDF (18/11/2026): el navegador no puede adjuntar archivos a un correo de Outlook. Se descarga el PDF (el
+  // primer anexo .pdf, que suele ser el oficio original firmado; si no hay, el oficio de SENDERO para «Guardar como PDF») y se
+  // abre el correo preparado: solo queda arrastrar el PDF al correo.
+  function enviarConPdf(m, boton) {
+    var txt = boton.textContent; boton.disabled = true; boton.textContent = 'Preparando…';
+    var listo = m._api && apiCtx ? cuerpoCompleto(m).then(function (j) { if (j && j.AnexosDigitales && !m._anexos) m._anexos = j.AnexosDigitales.filter(Boolean); }, function () {}) : Promise.resolve();
+    listo.then(function () {
+      var i = (m._anexos || []).findIndex(function (a) { return /\.pdf$/i.test(a.Nombre || a.Titulo || '') && urlAnexo(a); });
+      if (i >= 0) usarAnexo(m, i, 'bajar', { disabled: false, textContent: '' }); else imprimirMensaje(m);
+      setTimeout(function () { correoMensaje(m); }, 800);
+      boton.disabled = false; boton.textContent = txt;
+      var aviso = i >= 0 ? 'Se ha descargado el PDF original («' + ((m._anexos[i].Nombre || m._anexos[i].Titulo)) + '»)' : 'En la ventana del oficio elige «Guardar como PDF»';
+      if ($('colabora')) $('colabora').insertAdjacentHTML('afterbegin', '<p class="small" style="background:#fff3c4;border:1px solid #c9a84c;border-radius:8px;padding:6px 10px">✉ ' + esc(aviso) + ' y arrástralo al correo que se ha abierto en Outlook.</p>');
+    });
+  }
   // ✉ Enviar por correo (09/11/2026): correo de Outlook (mailto) con lo relevante del mensaje y los enlaces a MENSADEF
   // y a la carpeta de sus documentos. Sin adjuntos: se ven desde el enlace. No toca MENSADEF.
   function correoMensaje(m) {
@@ -2260,6 +2275,7 @@
       '<div class="utiles"><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + botonLeido(m) + '<span class="sepu"></span>' +
       '<button type="button" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Correo</button>' +
       '<button type="button" id="imprimirMsg" title="Imprime el mensaje con formato de oficio; en la ventana de imprimir elige «Guardar como PDF»">🖨 Imprimir / PDF</button>' +
+      '<button type="button" id="enviarPdf" title="Descarga el PDF (el original si viene como anexo; si no, el oficio para guardarlo en PDF) y abre el correo de Outlook preparado">✉ Enviar con el PDF</button>' +
       '<button type="button" id="copiarTarea" title="Copia asunto, referencia, fecha y autoridad para pegarlos en un gestor">📋 Copiar</button>' + (selectorBandera(m) ? '<span class="sepu"></span>' + selectorBandera(m) : '') + '</div></div></div><div id="colabora"></div>' +
       (m._api ? '<div class="cab-msg">' + (m._x.__es ? '<span class="tag st-azul">' + (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + esc(m._x.__es) + '</span>' : '') +
         (m.MensajeTipo_es ? '<span class="tag t-tipo">' + esc(m.MensajeTipo_es) + '</span>' : '') + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') +
@@ -2305,6 +2321,7 @@
     $('verDet').addEventListener('click', function () { cambiarVisto(m, !vistos[claveMensaje(m)]); });
     $('porCorreo').addEventListener('click', function () { correoMensaje(m); });
     $('imprimirMsg').addEventListener('click', function () { imprimirMensaje(m); });
+    $('enviarPdf').addEventListener('click', function () { enviarConPdf(m, this); });
     Array.prototype.forEach.call($('detalle').querySelectorAll('.irRef'), function (a) { a.addEventListener('click', function (e) { e.preventDefault(); irAReferencia(m, a.getAttribute('data-ref'), !!a.getAttribute('data-su'), a.getAttribute('data-msg')); }); });
     $('aColabora').addEventListener('click', function () { pasarAColabora(m, disp); });
     // 15/11/2026 (tarde): vuelve a pasar por META, que detecta la célula y lo lleva al PSIT, hasta que el PSIT acepte el paso

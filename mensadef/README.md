@@ -535,4 +535,7 @@ con el formato *verbose* de SharePoint 2013.
   notificación de Windows. La primera vez solo se apunta. «Actualizar solo cada 10 min» (marcado). Límites: solo el último
   comentario y solo con SENDERO abierto.
 - **2026-11-18 · 8:** el aviso de comentarios pasa al **definitivo**, **sin la notificación de Windows** (MENSADEF no la permite).
+- **2026-11-18 · 9:** **«✉ Enviar con el PDF»** en la ficha: descarga el PDF original (primer anexo .pdf; si no hay, abre el
+  oficio de SENDERO para «Guardar como PDF») y abre el correo de Outlook preparado; el navegador no deja adjuntar, así que se
+  arrastra el PDF al correo (aviso en la ficha).
 

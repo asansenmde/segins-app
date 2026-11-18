@@ -631,6 +631,13 @@ for (const n of [0, 40]) {
   if (r.uso !== 2 || !r.firma || r.regs.join() !== 'SALIDA,ENTRADA' || ['S/REF.', 'N/REF.', 'FECHA', 'ASUNTO', 'ANEXOS', 'DESTINATARIO', 'COPIA'].some(k => !r.campos.includes(k)) || !r.texto || !r.csv) console.log('Error: imprimir mensaje');
   if (process.env.CAPTURA_OFICIO) await w.pdf({ path: process.env.CAPTURA_OFICIO, format: 'A4', printBackground: true });
   await w.close(); await p.bringToFront(); }
+// 18/11/2026: «✉ Enviar con el PDF»: descarga el PDF original (anexo .pdf) y abre el correo preparado
+{ await p.click('#lista tbody tr[data-i] >> nth=1'); await p.waitForTimeout(1200);
+  await p.evaluate(() => { window.__mailto = ''; const o = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { if (/^mailto:/.test(this.href)) { window.__mailto = this.href; return; } return o.call(this); }; });
+  const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 15000 }).catch(() => null), p.click('#enviarPdf')]); await p.waitForTimeout(1200);
+  const mail = await p.evaluate(() => window.__mailto), aviso = await p.textContent('#colabora').catch(() => '');
+  console.log('enviar con PDF: descarga', dl ? dl.suggestedFilename() : 'ninguna', '| correo preparado:', /^mailto:/.test(mail), '| aviso:', /arrástralo al correo/.test(aviso));
+  if (!dl || !/\.pdf$/i.test(dl.suggestedFilename()) || !/^mailto:/.test(mail) || !/arrástralo al correo/.test(aviso)) console.log('Error: enviar con el PDF'); }
 // «Responder» (13/11/2026): abre el mensaje en MENSADEF y pulsa su «Responder» (no «Responder a todos»)
 { await p.fill('#buscar', 'RE-0'); await p.waitForTimeout(400);
   await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(200);
