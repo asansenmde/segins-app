@@ -27,6 +27,11 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
    2026-11-17 · 3, y **abrir cada una una vez con la cuenta del administrador** (deja su cuenta guardada en la descripción
    de la lista de solicitudes; en Accesos sale «✔ guardada»). Probar con alguien sin acceso: le debe llegar el aviso o
    salirle «Falta un paso» con el botón de Outlook.
+11. **Cuadrante de servicios (18/11/2026), fase 1:** subir `cuadrante/colabora/cuadrante.html` a JSUIGE y seguir la
+   «Puesta en marcha» de `cuadrante/README.md` (listas, grupos, gestores, permisos, componentes, festivos de 2027 y
+   publicar enero). Fase 2, pendiente: cambios de servicio (permuta y cesión) con tres firmas de AutoFirma, permisos
+   autorizados traídos de la aplicación de Permisos y botón «Comunicar al cuadrante» en Permisos.
+   Duda abierta: ¿los asuntos propios saltan el servicio aunque sean de un día (ahora sí) o van como las vacaciones cortas?
 
 ## Pendiente de que el usuario decida
 
@@ -37,11 +42,6 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
 - **Gestor de Tareas común:** ¿control de acceso con solicitud, como META, o sigue abierto a quien tenga permiso en la lista?
 - **Página de diagnóstico de permisos** (solo lectura: qué grupos tienen qué nivel en cada lista). Pedida el 20/10/2026.
 - **Nuevo proyecto «Acciones derivadas de inspecciones técnicas»:** esperando la estructura de la plantilla.
-- **Nuevo proyecto «Cuadrante de servicios» (`cuadrante/`):** reglas en `cuadrante/README.md`; faltan las dudas del 18/11/2026
-  (vacaciones cortas, festivo que parte un bloque, origen de las vacaciones, firma) y el formato del cuadrante actual.
-
-## Hecho (resumen)
-
 - **Todas las de Colabora:** autoría y copia **cifrada entera** (`proteger/cifrado.mjs`, 13/11), envío robusto de correo,
   control de acceso con solicitud (lista común «SOLICITUDES ACCESO APLICACIONES», no la interna «Solicitudes de acceso»),
   Ajustes y Accesos solo con Control total.

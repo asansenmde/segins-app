@@ -1,5 +1,34 @@
 # Cuadrante de servicios `[CUADRANTE]`
 
+
+## Archivos
+
+| Archivo | Para qué |
+|---|---|
+| `cuadrante.html` | Original legible: el que se edita. |
+| `colabora/cuadrante.html` | **Copia cifrada que se sube a Colabora** (`cd cuadrante/proteger && node proteger.mjs`). |
+| `pruebas/simulacion.mjs` | Prueba completa contra un SharePoint simulado, en formato ligero y *verbose*. Con `CUAD_HTML=cuadrante/colabora/cuadrante.html` prueba la copia cifrada y con `PROXY=1`, el filtro de la red. |
+
+## Puesta en marcha (fase 1, versión 2026-11-18 · 1)
+
+1. Subir `colabora/cuadrante.html` a una biblioteca del sitio JSUIGE (por ejemplo `…/JSUIGE/aplicaciones/`) y abrirla con
+   la cuenta que tiene Control total.
+2. En **Ajustes**:
+   - «Crear las listas que faltan» (las cuatro, con sus columnas);
+   - crear los grupos `CUADRANTE_GESTORES` y `CUADRANTE_USUARIOS`;
+   - añadir a los gestores;
+   - «Dar los permisos».
+3. En **Accesos**: crear o preparar la lista común «SOLICITUDES ACCESO APLICACIONES», si no está. Al abrir la página, tu
+   cuenta queda guardada para el aviso directo.
+4. Los gestores, en **Componentes**, dan de alta a los oficiales y suboficiales con empleo, antigüedad, escalafón,
+   teléfono y negociado. También entran solos al aprobar en Accesos una solicitud como componente.
+5. En **Festivos**: «Añadir los nacionales y de Andalucía de 2027» y, a mano, los locales de Sevilla, los traslados y
+   los puentes.
+6. En **Cuadrante del mes**, enero de 2027:
+   - elegir quién empieza cada rotación (es el primer mes);
+   - revisar la propuesta;
+   - «Publicar y avisar a cada uno».
+
 Página para Colabora, sitio JSUIGE. Lleva dos cuadrantes: el de **oficiales** (jefe de servicio) y el de **suboficiales**
 (auxiliar de servicio). Aún no hay nada creado en SharePoint: las listas las creará la propia página desde Ajustes.
 Modelo obligatorio de Colabora (`CLAUDE.md`): control de acceso con solicitud, Ajustes y Accesos solo con Control total,
