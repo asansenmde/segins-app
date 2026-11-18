@@ -9,12 +9,14 @@
 | `colabora/cuadrante.html` | **Copia cifrada que se sube a Colabora** (`cd cuadrante/proteger && node proteger.mjs`). |
 | `pruebas/simulacion.mjs` | Prueba completa contra un SharePoint simulado, en formato ligero y *verbose*. Con `CUAD_HTML=cuadrante/colabora/cuadrante.html` prueba la copia cifrada y con `PROXY=1`, el filtro de la red. |
 
-## Puesta en marcha (versión 2026-11-18 · 4: fase 1 y cambios de servicio)
+## Puesta en marcha (versión 2026-11-19 · 1)
 
 1. Subir `colabora/cuadrante.html` a una biblioteca del sitio JSUIGE (por ejemplo `…/JSUIGE/aplicaciones/`) y abrirla con
    la cuenta que tiene Control total.
 2. En **Ajustes**:
-   - «Crear las listas que faltan» (las cinco, con sus columnas; «CUADRANTE CAMBIOS» es la de los cambios de servicio);
+   - «Crear las listas que faltan» (las siete, con sus columnas: componentes, turnos, ausencias, festivos, cambios de servicio,
+     servicios debidos y reglas);
+   - revisar y guardar las **reglas del cuadrante** (tarjeta 0);
    - crear los grupos `CUADRANTE_GESTORES` y `CUADRANTE_USUARIOS`;
    - añadir a los gestores;
    - «Dar los permisos».
@@ -119,6 +121,44 @@ correo a la cuenta y copia cifrada entera.
   y queda anotado «sin firma».
 - **Control total en JSUIGE:** el usuario. Desde Ajustes crea las listas y el grupo `CUADRANTE_GESTORES`, y aprueba
   las solicitudes de acceso.
+
+## Reglas configurables (19/11/2026)
+
+El administrador las cambia en Ajustes, tarjeta «0. Reglas del cuadrante». Se guardan en la lista «CUADRANTE AJUSTES»
+(elemento «REGLAS»); sin ella valen las de por defecto, que son las acordadas.
+
+- **Ausencias.**
+  - El número de días (5) y si se cuentan laborables o naturales.
+  - Para cada tipo de ausencia: «salta siempre», «salta si pasa del número de días» o «no salta nunca: debe hacer un
+    cambio».
+- **Turnos.**
+  - Diario de 2 días o de 1.
+  - Fin de semana de viernes a domingo, o sábado y domingo.
+  - Si los festivos y puentes pegados al fin de semana forman un solo turno.
+- **Rotación y orden.**
+  - Una rotación para diario y otra para fines de semana y festivos, o una sola.
+  - Orden del más antiguo al más moderno, o al revés.
+- **Correo:** si se envían los avisos.
+
+Los cambios valen para las propuestas nuevas: los meses ya guardados no se tocan, pero se pueden volver a proponer.
+
+## Asignación a mano y servicios debidos (19/11/2026)
+
+- **Cómo se asignó cada turno.** Cada turno guarda si fue por rotación, a mano, por un servicio debido o por un cambio
+  de servicio, y el motivo (columnas `Asignacion` y `MotivoAsignacion`). En el mes se ve con una etiqueta y un campo de
+  motivo.
+- **La rotación solo avanza con los turnos de rotación.** Si el gestor pone a alguien a mano o le asigna un servicio
+  debido, quien iba por rotación pasa al turno siguiente: en una propuesta, el resto del mes se recalcula solo. «↺»
+  devuelve el turno a la rotación. Al volver a proponer un mes, se respetan los turnos a mano, debidos y de cambio.
+- **Servicios debidos** (lista «CUADRANTE DEUDAS»), para lo que se arrastra del pasado.
+  - En la pestaña «Cambios», el gestor registra quién debe un servicio, a quién (opcional), de qué tipo y por qué.
+  - En el mes, la tarjeta «Servicios debidos pendientes» los ofrece con los turnos posibles; ★ marca los turnos de
+    la persona a quien se le debe.
+  - Al asignarlo y guardar, el turno queda como «servicio debido» con su motivo y el servicio debido, saldado con
+    ese turno.
+  - En el cuadro de la rotación, la columna «Debe» cuenta los servicios debidos pendientes de cada uno.
+- **Más motivos.** Las sustituciones (⚡ imprevisto, «poner al siguiente disponible») quedan «a mano» con su motivo, y
+  los cambios de servicio validados, como «cambio de servicio».
 
 ## Orden de la rotación en el cuadrante del mes (18/11/2026)
 

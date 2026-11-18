@@ -138,9 +138,15 @@ async function prueba(verbose) {
   comprueba(tag + 'añade a la gestora al grupo de gestores', grupos.CUADRANTE_GESTORES.includes(8));
   await p.click('[data-ajpermisos]'); await p.waitForTimeout(1500);
   const asig = posts.filter(x => /addroleassignment/.test(x.ruta));
-  comprueba(tag + 'da permisos: lectura a usuarios (colaborar en ausencias) y colaborar a gestores', asig.length === 10 && asig.some(x => /AUSENCIAS'\)\/roleassignments\/addroleassignment\(principalid=\d+,roledefid=1073741827/.test(x.ruta)) && posts.filter(x => /breakroleinheritance/.test(x.ruta)).length === 5 && asig.some(x => /CAMBIOS'\)\/roleassignments\/addroleassignment\(principalid=\d+,roledefid=1073741827/.test(x.ruta)), asig.length);
+  comprueba(tag + 'da permisos: lectura a usuarios (colaborar en ausencias) y colaborar a gestores', asig.length === 14 && asig.some(x => /AUSENCIAS'\)\/roleassignments\/addroleassignment\(principalid=\d+,roledefid=1073741827/.test(x.ruta)) && posts.filter(x => /breakroleinheritance/.test(x.ruta)).length === 7 && asig.some(x => /CAMBIOS'\)\/roleassignments\/addroleassignment\(principalid=\d+,roledefid=1073741827/.test(x.ruta)), asig.length);
   // el administrador deja su cuenta para el aviso directo de las solicitudes de acceso
   comprueba(tag + 'el administrador deja su cuenta en la descripción de la lista común', /asansen@et\.mde\.es=i:0#\.w\|et\\asansen/.test(listas['SOLICITUDES ACCESO APLICACIONES'].info.Description));
+  // reglas del cuadrante (por defecto) guardadas en «CUADRANTE AJUSTES»
+  comprueba(tag + 'Ajustes muestra las reglas con los asuntos propios que no saltan', /Reglas del cuadrante/.test(await texto(p)) && await p.$eval('[data-rtipo="ASUNTOS PROPIOS"]', x => x.value) === 'NUNCA' && await p.$eval('[data-rtipo="COMISION DE SERVICIO"]', x => x.value) === 'SIEMPRE');
+  if (process.env.FOTOS && !verbose) { await p.setViewportSize({ width: 1300, height: 1300 }); await p.evaluate(() => window.scrollTo(0, 0)); await p.screenshot({ path: process.env.FOTOS + '/reglas.png' }); }
+  await p.click('[data-reglasguardar]'); await p.waitForTimeout(800);
+  const rg = items('CUADRANTE AJUSTES')[0];
+  comprueba(tag + 'guarda las reglas', rg && rg.Title === 'REGLAS' && JSON.parse(rg.Valor).dias === 5 && JSON.parse(rg.Valor).tipos['ASUNTOS PROPIOS'] === 'NUNCA', rg && rg.Valor);
   // alta de un componente desde el formulario
   await tab(p, 'componentes'); await p.click('[data-compnuevo]'); await p.waitForTimeout(300);
   await p.fill('#fComp [name=cuenta]', 'alta@et.mde.es'); await p.selectOption('#fComp [name=cuadrante]', 'SUBOFICIALES'); await p.selectOption('#fComp [name=empleo]', 'SARGENTO');
@@ -248,11 +254,12 @@ async function prueba(verbose) {
     await p.fill('#motivoCambio', 'Vacaciones aprobadas'); correos.length = 0;
     await p.click('[data-guardarmes="0"]'); await p.waitForTimeout(2500);
     const cambiado = LT.items.find(x => x.Id === LT.items.find(y => y.Componente !== id[12] && y.Inicio === misTurnos[0].Inicio && y.Cuadrante === 'OFICIALES')?.Id);
-    comprueba(tag + 'guarda el cambio con historial y avisa a los dos afectados', !!cambiado && /Cambio: OFICIAL NUMERO 2 → /.test(cambiado.Historial) && /Vacaciones aprobadas/.test(cambiado.Historial) && correos.some(c => /CAMBIO EN EL CUADRANTE/.test(c.asunto) && c.to.includes('i:0#.w|et\\of2') && c.to.length === 2), JSON.stringify(correos.map(c => [c.asunto, c.to])));
+    comprueba(tag + 'guarda el cambio con historial y avisa a los dos afectados', !!cambiado && /Cambio: OFICIAL NUMERO 2 → /.test(cambiado.Historial) && /Sustituye a OFICIAL NUMERO 2/.test(cambiado.Historial) && cambiado.Asignacion === 'MANUAL' && correos.some(c => /CAMBIO EN EL CUADRANTE/.test(c.asunto) && c.to.includes('i:0#.w|et\\of2') && c.to.length === 2), JSON.stringify(correos.map(c => [c.asunto, c.to])));
   }
   // Imprevisto el mismo día
   await p.click('[data-imprevisto="0|SUBOFICIALES"]'); await p.waitForTimeout(300);
-  await p.fill('#motivoCambio', 'Enfermedad repentina'); correos.length = 0;
+  comprueba(tag + 'el imprevisto queda «a mano» con su motivo, que se puede cambiar', /a mano/.test(await p.textContent('table.cuad tbody tr:first-child')) && /Imprevisto: /.test(await p.inputValue('[data-motivo="0|SUBOFICIALES"]')));
+  await p.fill('[data-motivo="0|SUBOFICIALES"]', 'Enfermedad repentina'); await p.press('[data-motivo="0|SUBOFICIALES"]', 'Tab'); await p.waitForTimeout(200); correos.length = 0;
   await p.click('[data-guardarmes="0"]'); await p.waitForTimeout(2000);
   comprueba(tag + 'imprevisto: pone al siguiente disponible y avisa a los dos', correos.some(c => /CAMBIO EN EL CUADRANTE/.test(c.asunto) && /Enfermedad repentina/.test(c.cuerpo)), JSON.stringify(correos.map(c => c.asunto)));
   // Vista anual
@@ -264,6 +271,55 @@ async function prueba(verbose) {
   comprueba(tag + 'la comisión sale con su color en la vista anual', (await p.$$eval('table.anio td', tds => tds.filter(x => /0, 176, 80/.test(x.style.background)).length)) > 0);
   comprueba(tag + 'sin errores de página (gestión)', errs.length === 0, errs.join(' | '));
   await b.close();
+
+  // 5c. Servicios debidos y asignación a mano en una propuesta (febrero de 2027)
+  ({ b, p, errs } = await abrir(8, false, verbose, PAGINA + '?mes=2027-02'));
+  await tab(p, 'cambios');
+  await p.selectOption('#fDeuda [name=deudor]', String(id[15])); await p.selectOption('#fDeuda [name=acreedor]', String(id[11]));
+  await p.fill('#fDeuda [name=motivo]', 'Por el cambio del 3 de diciembre'); await p.click('[data-deudaguardar]'); await p.waitForTimeout(800);
+  const LD = listas['CUADRANTE DEUDAS'], dd = LD.items[0];
+  comprueba(tag + 'registra el servicio debido', dd && dd.Deudor === id[15] && dd.Acreedor === id[11] && dd.EstadoDeuda === 'PENDIENTE');
+  await tab(p, 'mes');
+  const celdas = async () => p.$$eval('table.cuad tbody tr', trs => trs.map(tr => [tr.cells[0].querySelector('b').textContent, tr.cells[1].textContent, tr.cells[2].querySelector('select').value]));
+  const antes = await celdas();
+  comprueba(tag + 'el mes ofrece el servicio debido, con los turnos del acreedor primero (★)', /Servicios debidos pendientes/.test(await texto(p)) && /^★ /.test(await p.$eval('[data-deudaturno]', s => s.options[0].textContent)));
+  const elegido = Number(await p.$eval('[data-deudaturno]', s => s.value));
+  const claseEl = antes[elegido][1], quitado = antes[elegido][2];
+  await p.click('[data-deudaasignar]'); await p.waitForTimeout(300);
+  const desp = await celdas();
+  comprueba(tag + 'asignado con su motivo; quien iba por rotación pasa al siguiente turno de ese tipo', desp[elegido][2] === String(id[15]) && /servicio debido/.test(await p.textContent('table.cuad tbody tr:nth-child(' + (elegido + 1) + ')')) &&
+    desp.slice(elegido + 1).find(f => f[1] === claseEl)[2] === quitado, JSON.stringify([antes.slice(elegido, elegido + 4), desp.slice(elegido, elegido + 4)]));
+  // asignación a mano: el resto del mes se recalcula
+  const otro = desp.findIndex((f, i) => i > elegido && f[1] === 'Diario');
+  const aMano = desp[otro][2] === String(id[14]) ? String(id[13]) : String(id[14]);
+  await p.selectOption('[data-celda="' + otro + '|OFICIALES"]', aMano); await p.waitForTimeout(300);
+  await p.fill('[data-motivo="' + otro + '|OFICIALES"]', 'Lo pide el jefe'); await p.press('[data-motivo="' + otro + '|OFICIALES"]', 'Tab'); await p.waitForTimeout(200);
+  comprueba(tag + 'la asignación a mano queda marcada, con su motivo', /a mano/.test(await p.textContent('table.cuad tbody tr:nth-child(' + (otro + 1) + ')')) && await p.inputValue('[data-motivo="' + otro + '|OFICIALES"]') === 'Lo pide el jefe');
+  if (process.env.FOTOS && !verbose) { await p.setViewportSize({ width: 1300, height: 1000 }); await p.evaluate(() => document.querySelector('details.rotacion').open = false); await p.screenshot({ path: process.env.FOTOS + '/deuda.png' }); }
+  await p.click('[data-guardarmes="0"]'); await p.waitForTimeout(3000);
+  const feb = LT.items.filter(x => x.Mes === '2027-02' && x.Cuadrante === 'OFICIALES');
+  const tDeuda = feb.find(x => x.Asignacion === 'DEUDA'), tMano = feb.find(x => x.Asignacion === 'MANUAL');
+  comprueba(tag + 'al guardar: turno «servicio debido» con motivo y el servicio debido queda saldado con ese turno', !!tDeuda && tDeuda.Componente === id[15] && /Debía servicio a OFICIAL NUMERO 1: Por el cambio del 3 de diciembre/.test(tDeuda.MotivoAsignacion) && dd.EstadoDeuda === 'SALDADA' && dd.TurnoSaldado === tDeuda.Id, JSON.stringify([tDeuda, dd.EstadoDeuda]));
+  comprueba(tag + 'y el turno a mano con su motivo', !!tMano && tMano.MotivoAsignacion === 'Lo pide el jefe' && /a mano \(Lo pide el jefe\)/.test(tMano.Historial));
+  // marzo empieza por el siguiente al último que hizo diario POR ROTACIÓN en febrero (lo puesto a mano no cuenta)
+  const orden = [11, 12, 13, 14, 15, 16].map(x => id[x]);
+  const ultRot = feb.filter(x => x.TipoTurno === 'DIARIO' && (x.Asignacion || 'ROTACION') === 'ROTACION').sort((a, b) => a.Inicio.localeCompare(b.Inicio)).pop();
+  const debe = orden[(orden.indexOf(ultRot.Componente) + 1) % 6];
+  await p.click('[data-mes="1"]'); await p.waitForTimeout(400);
+  const empieza = await p.$$eval('details.rotacion table.rot', ts => [...ts[0].rows].slice(1).filter(r => /empieza diario/.test(r.textContent)).map(r => r.cells[1].textContent));
+  comprueba(tag + 'marzo sigue la rotación sin contar lo puesto a mano ni el servicio debido', empieza.length === 1 && empieza[0].includes(LC.items.find(c => c.Id === debe).Title), empieza.join() + ' / ' + LC.items.find(c => c.Id === debe).Title);
+  comprueba(tag + 'sin errores de página (servicios debidos)', errs.length === 0, errs.join(' | '));
+  await b.close();
+  // reglas cambiadas: diario de 1 día, sábado y domingo, y una sola rotación (abril de 2027, con las reglas en la lista)
+  const rgl = items('CUADRANTE AJUSTES')[0], antesReg = rgl.Valor;
+  rgl.Valor = JSON.stringify({ ...JSON.parse(antesReg), diario: 1, finde: 'SD', rotacion: 'UNICA' });
+  ({ b, p, errs } = await abrir(8, false, verbose, PAGINA + '?mes=2027-04'));
+  const abr = await p.$$eval('table.cuad tbody tr', trs => trs.map(tr => [tr.cells[0].querySelector('b').textContent, tr.cells[1].textContent]));
+  comprueba(tag + 'con otras reglas: diario de un día, el viernes es diario y el fin de semana es sábado y domingo', abr.some(f => f[0] === 'Lun 5 abr' && f[1] === 'Diario') && abr.some(f => f[0] === 'Vie 9 abr' && f[1] === 'Diario') && abr.some(f => f[0] === 'Sáb 10 – Dom 11 abr'), JSON.stringify(abr.slice(0, 8)));
+  comprueba(tag + 'con una sola rotación, el panel marca un solo «empieza»', (await p.$$eval('details.rotacion table.rot', ts => [...ts[0].rows].filter(r => /empieza/.test(r.textContent)).length)) === 1);
+  comprueba(tag + 'sin errores de página (otras reglas)', errs.length === 0, errs.join(' | '));
+  await b.close();
+  rgl.Valor = antesReg;
 
   // 5b. Cambio de servicio con tres firmas: SUB3 (vacaciones cortas el 11-12) pide una permuta a SUB4
   const LT2 = listas['CUADRANTE TURNOS'], LCB = listas['CUADRANTE CAMBIOS'];
@@ -314,7 +370,7 @@ async function prueba(verbose) {
   comprueba(tag + 'sin errores de página (gestora, cambios)', errs.length === 0, errs.join(' | '));
   await b.close();
   // Cesión rechazada por el compañero
-  const tC = LT2.items.filter(x => x.Cuadrante === 'SUBOFICIALES' && x.Componente === id[21]).sort((a, b) => a.Inicio.localeCompare(b.Inicio)).pop();
+  const tC = LT2.items.filter(x => x.Cuadrante === 'SUBOFICIALES' && x.Componente === id[21] && x.EstadoTurno === 'PUBLICADO').sort((a, b) => a.Inicio.localeCompare(b.Inicio)).pop();
   ({ b, p, errs } = await abrir(21, false, verbose));
   await tab(p, 'mios'); await p.click('[data-cambiopedir="' + tC.Id + '"]'); await p.waitForTimeout(300);
   await p.selectOption('#fCambio [name=tipo]', 'CESION'); await p.waitForTimeout(200);

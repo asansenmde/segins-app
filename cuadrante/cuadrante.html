@@ -207,6 +207,10 @@
   table.anio th.mesc { text-transform: capitalize; background: var(--surface-2); }
   .card.aus { border-left: 5px solid var(--line); }
   .card.cambio { border-left: 5px solid #6a3d9a; }
+  .asg { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; } .asg input.motivoc { flex: 1; min-width: 180px; padding: 4px 8px; font-size: .82rem; }
+  .aMANUAL { background: #efe7f8; color: #5b2f8c; } .aDEUDA { background: #ffe0b2; color: #8a3b00; } .aCAMBIO { background: #e3ecf8; color: #1d4f91; }
+  .card.deuda { border-left: 5px solid #e08a00; } .deudafila { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  #fReglas h4 { margin: 12px 0 4px; color: var(--brand); } #fReglas .grid { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); } #fReglas table.t select { padding: 4px 8px; }
   .rotgrid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 8px; overflow-x: auto; }
   table.rot th:nth-child(1) { width: 52px; } table.rot th:nth-child(3) { width: 100px; } table.rot th:nth-child(4), table.rot th:nth-child(5) { width: 80px; text-align: center; }
   .rotgrid h4 { margin: 4px 0 6px; } table.rot td.num { text-align: center; font-weight: 700; }
@@ -6448,7 +6452,7 @@ var Cipher = {
   };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-18 · 4';
+  var VERSION = '2026-11-19 · 1';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuadrante de servicios · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -6461,9 +6465,9 @@ var Cipher = {
   if (/^\d{4}-\d{2}$/.test(q0.get('mes') || '')) { pref.mes = q0.get('mes'); pref.vista = 'mes'; }
 
   // ---------- Listas, grupos y valores ----------
-  var LISTAS = { comp: 'CUADRANTE COMPONENTES', turnos: 'CUADRANTE TURNOS', aus: 'CUADRANTE AUSENCIAS', fest: 'CUADRANTE FESTIVOS', cambios: 'CUADRANTE CAMBIOS' };
-  var OPCIONALES = ['cambios'];   // sin ella la aplicación funciona, pero sin cambios de servicio
-  var NOMBRE_LISTA = { comp: 'Componentes', turnos: 'Turnos de servicio', aus: 'Ausencias', fest: 'Festivos y puentes', cambios: 'Cambios de servicio' };
+  var LISTAS = { comp: 'CUADRANTE COMPONENTES', turnos: 'CUADRANTE TURNOS', aus: 'CUADRANTE AUSENCIAS', fest: 'CUADRANTE FESTIVOS', cambios: 'CUADRANTE CAMBIOS', deudas: 'CUADRANTE DEUDAS', ajustes: 'CUADRANTE AJUSTES' };
+  var OPCIONALES = ['cambios', 'deudas', 'ajustes'];   // sin ella la aplicación funciona, pero sin cambios de servicio
+  var NOMBRE_LISTA = { comp: 'Componentes', turnos: 'Turnos de servicio', aus: 'Ausencias', fest: 'Festivos y puentes', cambios: 'Cambios de servicio', deudas: 'Servicios debidos', ajustes: 'Reglas del cuadrante' };
   var GRUPOS = { gestores: 'CUADRANTE_GESTORES', usuarios: 'CUADRANTE_USUARIOS' };
   var CUADRANTES = [['OFICIALES', 'Jefe de servicio'], ['SUBOFICIALES', 'Auxiliar de servicio']];
   var papelDe = function (q) { return q === 'OFICIALES' ? 'Jefe de servicio' : 'Auxiliar de servicio'; };
@@ -6476,10 +6480,6 @@ var Cipher = {
     ['PERMISO', '#ffc000', '#3d2a00'], ['OTROS', '#e46c0a', '#fff']];
   var TXT_AUS = { 'VACACIONES': 'Vacaciones', 'ASUNTOS PROPIOS': 'Asuntos propios', 'BAJA MEDICA': 'Baja médica', 'COMISION DE SERVICIO': 'Comisión de servicio', 'PERMISO': 'Permiso', 'OTROS': 'Otros' };
   var colorAus = function (t) { var x = TIPOS_AUS.find(function (y) { return y[0] === t; }) || TIPOS_AUS[5]; return 'background:' + x[1] + ';color:' + x[2]; };
-  var VAC_MAX = 5;   // vacaciones y permisos de más de 5 días laborables: se salta el servicio; con 5 o menos, hay que hacer un cambio
-  // Qué salta el servicio (18/11/2026): comisión de servicio y baja médica, siempre; vacaciones, permisos y otros, solo si
-  // pasan de 5 días laborables; los asuntos propios nunca (hay que hacer un cambio de servicio).
-  var SIEMPRE_SALTA = ['COMISION DE SERVICIO', 'BAJA MEDICA'], NUNCA_SALTA = ['ASUNTOS PROPIOS'];
   var TIPOS_TURNO = { 'DIARIO': 'Diario', 'FIN DE SEMANA': 'Fin de semana', 'FESTIVO': 'Festivo' };
   var clase = function (tipo) { return tipo === 'DIARIO' ? 'D' : 'F'; };
   // Control de acceso: lista común de solicitudes, aviso directo al administrador (como en Incidentes)
@@ -6497,7 +6497,8 @@ var Cipher = {
       campoFecha('Antiguedad', 'Antigüedad en el empleo'), campoTxt('Telefono', 'Teléfono'), campoTxt('Negociado', 'Negociado / destino'), campoFecha('FechaAlta', 'Alta en el cuadrante'),
       campoFecha('FechaBaja', 'Baja en el cuadrante'), campoNota('Observaciones', 'Observaciones')],
     turnos: [campoOp('Cuadrante', 'Cuadrante', ['OFICIALES', 'SUBOFICIALES']), campoFecha('Inicio', 'Inicio'), campoFecha('Fin', 'Fin'), campoOp('TipoTurno', 'Tipo de turno', ['DIARIO', 'FIN DE SEMANA', 'FESTIVO']),
-      campoNum('Componente', 'Componente (nº)'), campoTxt('Nombre', 'Nombre'), campoTxt('Mes', 'Mes'), campoOp('EstadoTurno', 'Estado', ['BORRADOR', 'PUBLICADO']), campoNota('Historial', 'Historial')],
+      campoNum('Componente', 'Componente (nº)'), campoTxt('Nombre', 'Nombre'), campoTxt('Mes', 'Mes'), campoOp('EstadoTurno', 'Estado', ['BORRADOR', 'PUBLICADO']), campoNota('Historial', 'Historial'),
+      campoOp('Asignacion', 'Asignación', ['ROTACION', 'MANUAL', 'DEUDA', 'CAMBIO']), campoNota('MotivoAsignacion', 'Motivo de la asignación')],
     aus: [campoPer('Persona', 'Persona'), campoNum('Componente', 'Componente (nº)'), campoOp('TipoAusencia', 'Tipo', TIPOS_AUS.map(function (x) { return x[0]; })), campoFecha('Desde', 'Desde'), campoFecha('Hasta', 'Hasta'),
       campoNota('Observaciones', 'Observaciones'), campoOp('EstadoAusencia', 'Estado', ['PENDIENTE', 'APROBADA', 'DENEGADA', 'ANULADA']), campoNota('Motivo', 'Motivo del rechazo'), campoTxt('Origen', 'Origen'),
       campoPer('ResueltoPor', 'Resuelto por'), campoFecha('FechaResolucion', 'Fecha de resolución')],
@@ -6505,7 +6506,11 @@ var Cipher = {
     cambios: [campoOp('Cuadrante', 'Cuadrante', ['OFICIALES', 'SUBOFICIALES']), campoOp('TipoCambio', 'Tipo de cambio', ['PERMUTA', 'CESION']), campoPer('Solicitante', 'Solicitante'), campoNum('SolicitanteComp', 'Solicitante (nº)'),
       campoPer('Companero', 'Compañero'), campoNum('CompaneroComp', 'Compañero (nº)'), campoNum('TurnoA', 'Servicio que cede (nº)'), campoNum('TurnoB', 'Servicio que recibe (nº)'), campoNota('Descripcion', 'Descripción'),
       campoNota('Motivo', 'Motivo'), campoOp('EstadoCambio', 'Estado', ['PENDIENTE DEL COMPAÑERO', 'PENDIENTE DEL GESTOR', 'VALIDADO', 'RECHAZADO', 'ANULADO']), campoNota('Respuesta', 'Respuesta'),
-      campoTxt('Firmas', 'Firmas'), campoNota('Historial', 'Historial')]
+      campoTxt('Firmas', 'Firmas'), campoNota('Historial', 'Historial')],
+    deudas: [campoOp('Cuadrante', 'Cuadrante', ['OFICIALES', 'SUBOFICIALES']), campoNum('Deudor', 'Debe el servicio (nº)'), campoNum('Acreedor', 'Se lo debe a (nº)'),
+      campoOp('ClaseTurno', 'Tipo de servicio', ['CUALQUIERA', 'DIARIO', 'FIN DE SEMANA']), campoNota('Motivo', 'Motivo'), campoOp('EstadoDeuda', 'Estado', ['PENDIENTE', 'SALDADA', 'ANULADA']),
+      campoNum('TurnoSaldado', 'Turno con el que se salda (nº)'), campoNota('Historial', 'Historial')],
+    ajustes: [campoNota('Valor', 'Valor')]
   };
   var nombreCampo = function (xml) { return /Name="([^"]+)"/.exec(xml)[1]; };
 
@@ -6587,7 +6592,7 @@ var Cipher = {
   };
   var aTurno = function (x) {
     return { id: x.Id, cuadrante: x.Cuadrante || '', inicio: fechaSP(x.Inicio), fin: fechaSP(x.Fin) || fechaSP(x.Inicio), tipo: x.TipoTurno || 'DIARIO', comp: x.Componente == null || x.Componente === '' ? null : Number(x.Componente),
-      nombre: x.Nombre || '', mes: x.Mes || fechaSP(x.Inicio).slice(0, 7), estado: x.EstadoTurno || 'BORRADOR', historial: x.Historial || '' };
+      nombre: x.Nombre || '', mes: x.Mes || fechaSP(x.Inicio).slice(0, 7), estado: x.EstadoTurno || 'BORRADOR', historial: x.Historial || '', asig: x.Asignacion || 'ROTACION', motivoAsig: x.MotivoAsignacion || '' };
   };
   var SEL_PER = function (n) { return [n + '/Id', n + '/Title', n + '/EMail', n + '/Name']; };
   function leerComps() {
@@ -6606,10 +6611,12 @@ var Cipher = {
       .then(function (l) { ausencias = l.map(aAus).filter(function (a) { return a.desde && a.hasta; }); });
   }
   function leerTurnos() {
-    var desde = (new Date().getFullYear() - 1) + '-01-01T00:00:00Z';
-    return todas(urlL('turnos') + '/items?$top=5000&$select=Id,Cuadrante,Inicio,Fin,TipoTurno,Componente,Nombre,Mes,EstadoTurno,Historial&$filter=' + encodeURIComponent("Inicio ge datetime'" + desde + "'"))
+    var desde = (new Date().getFullYear() - 1) + '-01-01T00:00:00Z', base = ['Id', 'Cuadrante', 'Inicio', 'Fin', 'TipoTurno', 'Componente', 'Nombre', 'Mes', 'EstadoTurno', 'Historial'];
+    var leer = function (sel) { return todas(urlL('turnos') + '/items?$top=5000&$select=' + sel.join(',') + '&$filter=' + encodeURIComponent("Inicio ge datetime'" + desde + "'")); };
+    return leer(base.concat(['Asignacion', 'MotivoAsignacion'])).catch(function (e) { if (e.status !== 400) throw e; return leer(base); })
       .then(function (l) { turnos = l.map(aTurno).filter(function (t) { return t.inicio; }); });
   }
+
   function leerInfoListas() {
     info = {}; errListas = {};
     return Promise.all(Object.keys(LISTAS).map(function (k) {
@@ -6633,7 +6640,7 @@ var Cipher = {
         if (esGestor || misGrupos.indexOf(GRUPOS.usuarios) >= 0) { cargadoEn = null; $('#tabs').innerHTML = ''; $('#vista').innerHTML = '<div class="card aviso">La aplicación aún no está preparada en Colabora (faltan sus listas). Avisa al administrador.</div>'; $('#estadoCarga').textContent = 'Sin preparar'; return null; }
         pantallaAcceso(); return null;
       }
-      return Promise.all([leerComps(), leerFestivos(), leerAusencias(), leerTurnos(), leerCambios()]).then(function () { return true; });
+      return leerAjustesReglas().then(function () { return Promise.all([leerComps(), leerFestivos(), leerAusencias(), leerTurnos(), leerCambios(), leerDeudas()]); }).then(function () { return true; });
     }).then(function (ok) {
       if (!ok) return;
       miComp = comps.find(function (c) { return c.persona && c.persona.Id === yo.Id && activo(c, hoy(), hoy()); }) || comps.find(function (c) { return c.persona && c.persona.Id === yo.Id; }) || null;
@@ -6653,22 +6660,51 @@ var Cipher = {
   var aviso = function (txt) { $('#estadoCarga').textContent = txt; };
   var toast = function (t) { aviso(t); };
 
+  // ---------- Reglas (las configura el administrador en Ajustes; 18/11/2026) ----------
+  // Se guardan en la lista «CUADRANTE AJUSTES» (elemento «REGLAS», JSON). Sin la lista, valen las de por defecto.
+  var CFG_DEF = { dias: 5, cuenta: 'LABORABLES', tipos: { 'VACACIONES': 'DIAS', 'ASUNTOS PROPIOS': 'NUNCA', 'BAJA MEDICA': 'SIEMPRE', 'COMISION DE SERVICIO': 'SIEMPRE', 'PERMISO': 'DIAS', 'OTROS': 'DIAS' },
+    diario: 2, finde: 'VSD', unir: true, rotacion: 'SEPARADAS', orden: 'ANTIGUO', correo: true };
+  var copia = function (o) { return JSON.parse(JSON.stringify(o)); };
+  var CFG = copia(CFG_DEF), cfgItem = null;
+  var aplicarCfg = function (v) { var c = copia(CFG_DEF); if (v && typeof v === 'object') { Object.keys(c).forEach(function (k) { if (v[k] !== undefined && k !== 'tipos') c[k] = v[k]; }); if (v.tipos) Object.keys(c.tipos).forEach(function (t) { if (v.tipos[t]) c.tipos[t] = v.tipos[t]; }); } CFG = c; };
+  function leerAjustesReglas() {
+    if (!info.ajustes) { aplicarCfg(null); cfgItem = null; return Promise.resolve(); }
+    return todas(urlL('ajustes') + '/items?$top=50&$select=Id,Title,Valor').then(function (l) {
+      var it = l.find(function (x) { return String(x.Title).toUpperCase() === 'REGLAS'; }); cfgItem = it ? it.Id : null;
+      var v = null; try { v = it ? JSON.parse(it.Valor || 'null') : null; } catch (e) { v = null; }
+      aplicarCfg(v);
+    }, function () { aplicarCfg(null); });
+  }
+  var regla = function (t) { return CFG.tipos[t] || 'DIAS'; };
+  // Las reglas en una frase (para los formularios y la ayuda)
+  function textoReglas() {
+    var por = function (r) { return TIPOS_AUS.filter(function (t) { return regla(t[0]) === r; }).map(function (t) { return (TXT_AUS[t[0]] || t[0]).toLowerCase(); }); };
+    var y = function (l) { return l.length > 1 ? l.slice(0, -1).join(', ') + ' y ' + l[l.length - 1] : l.join(''); };
+    var s = por('SIEMPRE'), d = por('DIAS'), n = por('NUNCA');
+    return 'Saltan el servicio (se pierde el turno): ' + [s.length ? y(s) + ' (siempre)' : '', d.length ? y(d) + ' de más de ' + txtDias() : ''].filter(Boolean).join(', y ') + '. ' +
+      'No saltan, y hay que hacer un cambio de servicio: ' + [n.length ? y(n) : '', d.length ? y(d) + ' de ' + txtDias() + ' o menos' : ''].filter(Boolean).join(', y ') + '.';
+  }
+  var txtDias = function () { return CFG.dias + ' días ' + (CFG.cuenta === 'NATURALES' ? 'naturales' : 'laborables'); };
+
   // ---------- Calendario de turnos ----------
-  // Turnos de diario: lunes-martes y miércoles-jueves. Fin de semana: de viernes a domingo. Los festivos y los días de
-  // puente que marca el gestor se unen a los días libres pegados (un puente es un solo turno). Un festivo suelto entre
-  // semana es turno de festivo; el día de diario que queda suelto es turno de diario de un día.
-  var libre = function (s) { var w = dSem(s); return w === 5 || w === 6 || w === 0 || !!festMap[s]; };
+  // Diario: bloques de 2 días (lunes-martes y miércoles-jueves) o de 1. Fin de semana: de viernes a domingo o sábado y
+  // domingo. Los festivos y los puentes que marca el gestor se unen a los días libres pegados (si así está configurado).
+  // Un festivo suelto entre semana es turno de festivo; el día de diario que queda suelto es turno de diario de un día.
+  var esFinde = function (s) { var w = dSem(s); return w === 6 || w === 0 || (CFG.finde === 'VSD' && w === 5); };
+  var clase_dia = function (s) { return esFinde(s) ? 'W' : festMap[s] ? 'H' : ''; };
+  var libre = function (s) { return !!clase_dia(s); };
   function calendarioMes(ym) {
     var primero = ym + '-01', ultimo = finMes(ym), d = addDias(primero, -10), hasta = addDias(ultimo, 10), res = [];
+    var sigue = function (a, b) { return CFG.unir ? libre(b) : clase_dia(b) === clase_dia(a); };
     while (d <= hasta) {
       if (libre(d)) {
         var ini = d, n = 0;
-        while (libre(addDias(d, 1)) && n < 40) { d = addDias(d, 1); n++; }
+        while (sigue(d, addDias(d, 1)) && n < 40) { d = addDias(d, 1); n++; }
         var dias = []; for (var x = ini; x <= d; x = addDias(x, 1)) dias.push(x);
         res.push({ inicio: ini, fin: d, tipo: dias.some(function (y) { var w = dSem(y); return w === 6 || w === 0; }) ? 'FIN DE SEMANA' : 'FESTIVO' });
         d = addDias(d, 1);
       } else {
-        var w = dSem(d), pareja = (w === 1 || w === 3) ? addDias(d, 1) : null;
+        var w = dSem(d), pareja = CFG.diario === 2 && (w === 1 || w === 3) ? addDias(d, 1) : null;
         if (pareja && !libre(pareja)) { res.push({ inicio: d, fin: pareja, tipo: 'DIARIO' }); d = addDias(pareja, 1); }
         else { res.push({ inicio: d, fin: d, tipo: 'DIARIO' }); d = addDias(d, 1); }
       }
@@ -6677,7 +6713,8 @@ var Cipher = {
     return res.filter(function (t) { return t.inicio >= primero && t.inicio <= ultimo; });
   }
   var laborables = function (desde, hasta) { var n = 0; for (var d = desde; d <= hasta; d = addDias(d, 1)) { var w = dSem(d); if (w >= 1 && w <= 5 && !festMap[d]) n++; } return n; };
-  var salta = function (a) { return SIEMPRE_SALTA.indexOf(a.tipo) >= 0 || (NUNCA_SALTA.indexOf(a.tipo) < 0 && laborables(a.desde, a.hasta) > VAC_MAX); };
+  var diasAus = function (a) { if (CFG.cuenta === 'NATURALES') { var n = 0; for (var d = a.desde; d <= a.hasta; d = addDias(d, 1)) n++; return n; } return laborables(a.desde, a.hasta); };
+  var salta = function (a) { var r = regla(a.tipo); return r === 'SIEMPRE' || (r === 'DIAS' && diasAus(a) > CFG.dias); };
   var deComp = function (a, c) { return a.comp === c.id || (!a.comp && a.persona && c.persona && a.persona.Id === c.persona.Id); };
   var solapa = function (a, ini, fin) { return a.desde <= fin && a.hasta >= ini; };
   var ausDe = function (c, ini, fin, estados) { return ausencias.filter(function (a) { return deComp(a, c) && estados.indexOf(a.estado) >= 0 && solapa(a, ini, fin); }); };
@@ -6685,28 +6722,39 @@ var Cipher = {
   var activo = function (c, ini, fin) { return (!c.alta || c.alta <= fin) && (!c.baja || c.baja > ini); };
   var compPorId = function (id) { return comps.find(function (c) { return c.id === Number(id); }) || null; };
   function ordenados(q) {
-    return comps.filter(function (c) { return c.cuadrante === q; }).sort(function (a, b) {
+    var l = comps.filter(function (c) { return c.cuadrante === q; }).sort(function (a, b) {
       return (rangoEmpleo(a.empleo) - rangoEmpleo(b.empleo)) || String(a.antig || '9999').localeCompare(String(b.antig || '9999')) ||
         ((a.escalafon == null ? 1e9 : a.escalafon) - (b.escalafon == null ? 1e9 : b.escalafon)) || a.nombre.localeCompare(b.nombre);
     });
+    return CFG.orden === 'MODERNO' ? l.reverse() : l;
   }
-  // Quién empieza la rotación de un mes: el siguiente al último que hizo ese tipo de turno antes del mes (o el que elija el gestor)
+  // Rotaciones: separadas (diario y fin de semana/festivo) o una sola para todo
+  var claseRot = function (tipo) { return CFG.rotacion === 'UNICA' ? 'U' : clase(tipo); };
+  var ROTS = function () { return CFG.rotacion === 'UNICA' ? ['U'] : ['D', 'F']; };
+  var ASIG = { ROTACION: 'Por rotación', MANUAL: 'Asignado a mano', DEUDA: 'Servicio debido', CAMBIO: 'Cambio de servicio' };
+  var porRotacion = function (asig) { return !asig || asig === 'ROTACION'; };
+  // Quién empieza la rotación de un mes: el siguiente al último que hizo ese tipo de turno POR ROTACIÓN antes del mes
+  // (los asignados a mano, por servicio debido o por cambio no la mueven), o el que elija el gestor.
   var empiezaPor = {};
   function puntero(q, k, ym, lst) {
     var el = empiezaPor[ym] && empiezaPor[ym][q + k];
     if (el) { var i0 = lst.findIndex(function (c) { return c.id === Number(el); }); if (i0 >= 0) return i0; }
-    var prev = turnos.filter(function (t) { return t.cuadrante === q && clase(t.tipo) === k && t.inicio < ym + '-01' && t.comp; }).sort(function (a, b) { return b.inicio.localeCompare(a.inicio); })[0];
+    var prev = turnos.filter(function (t) { return t.cuadrante === q && claseRot(t.tipo) === k && t.inicio < ym + '-01' && t.comp && porRotacion(t.asig); }).sort(function (a, b) { return b.inicio.localeCompare(a.inicio); })[0];
     if (!prev) return 0;
     var i = lst.findIndex(function (c) { return c.id === prev.comp; });
     return i < 0 ? 0 : (i + 1) % Math.max(lst.length, 1);
   }
-  function proponer(ym) {
+  // fijos: { 'OFICIALES|2027-01-04': { compId, asig, motivo, deuda } }: se respetan y la rotación no avanza con ellos
+  function proponer(ym, fijos) {
+    fijos = fijos || {};
     var filas = calendarioMes(ym).map(function (t) { return { inicio: t.inicio, fin: t.fin, tipo: t.tipo, q: {} }; });
     CUADRANTES.forEach(function (qq) {
       var q = qq[0], lst = ordenados(q);
-      ['D', 'F'].forEach(function (k) {
+      ROTS().forEach(function (k) {
         var ptr = puntero(q, k, ym, lst);
-        filas.filter(function (f) { return clase(f.tipo) === k; }).forEach(function (f) {
+        filas.filter(function (f) { return claseRot(f.tipo) === k; }).forEach(function (f) {
+          var fj = fijos[q + '|' + f.inicio];
+          if (fj) { f.q[q] = { item: null, compId: fj.compId, orig: null, notas: [], asig: fj.asig, motivo: fj.motivo || '', deuda: fj.deuda || null }; return; }
           var notas = [], elegido = null;
           for (var i = 0; i < lst.length; i++) {
             var j = (ptr + i) % lst.length, c = lst[j];
@@ -6715,7 +6763,7 @@ var Cipher = {
             if (a) { notas.push('Salta ' + c.nombre + ' (' + (TXT_AUS[a.tipo] || a.tipo).toLowerCase() + '): pierde el turno'); continue; }
             elegido = c; ptr = j + 1; break;
           }
-          f.q[q] = { item: null, compId: elegido ? elegido.id : null, orig: null, notas: notas };
+          f.q[q] = { item: null, compId: elegido ? elegido.id : null, orig: null, notas: notas, asig: 'ROTACION', motivo: '' };
         });
       });
     });
@@ -6732,13 +6780,13 @@ var Cipher = {
     }
     return null;
   }
-  // Avisos de una persona en un turno: ausencia que salta el servicio, vacaciones cortas (hay que hacer un cambio), pendientes, baja
+  // Avisos de una persona en un turno: ausencia que salta el servicio, ausencia que no salta (hay que hacer un cambio), pendientes, baja
   function avisosCelda(c, f) {
     if (!c) return [];
     var r = [], a = ausSalta(c, f.inicio, f.fin);
     if (!activo(c, f.inicio, f.fin)) r.push(['rojo', 'No está de alta en el cuadrante esos días']);
     if (a) r.push(['rojo', (TXT_AUS[a.tipo] || a.tipo) + ' del ' + fCorta(a.desde) + ' al ' + fCorta(a.hasta) + ': hay que sustituirle']);
-    ausDe(c, f.inicio, f.fin, ['APROBADA', 'PENDIENTE']).filter(function (x) { return !salta(x); }).forEach(function (x) { r.push(['ambar', (TXT_AUS[x.tipo] || x.tipo) + ' (' + laborables(x.desde, x.hasta) + ' días laborables' + (x.estado === 'PENDIENTE' ? ', pendiente de aprobar' : '') + '): no salta, debe hacer un cambio de servicio']); });
+    ausDe(c, f.inicio, f.fin, ['APROBADA', 'PENDIENTE']).filter(function (x) { return !salta(x); }).forEach(function (x) { r.push(['ambar', (TXT_AUS[x.tipo] || x.tipo) + ' (' + diasAus(x) + ' días ' + (CFG.cuenta === 'NATURALES' ? 'naturales' : 'laborables') + (x.estado === 'PENDIENTE' ? ', pendiente de aprobar' : '') + '): no salta, debe hacer un cambio de servicio']); });
     ausDe(c, f.inicio, f.fin, ['PENDIENTE']).filter(salta).forEach(function (x) { r.push(['ambar', (TXT_AUS[x.tipo] || x.tipo) + ' pendiente de aprobar']); });
     return r;
   }
@@ -6746,25 +6794,41 @@ var Cipher = {
   // ---------- Mes en edición ----------
   var edicion = null;
   var guardadosMes = function (ym) { return turnos.filter(function (t) { return t.mes === ym; }); };
+  // Asignaciones que no son de rotación (a mano, servicio debido, cambio): se respetan al volver a proponer el mes
+  function fijosDe(ym) {
+    var m = {};
+    if (edicion && edicion.ym === ym) edicion.filas.forEach(function (f) { CUADRANTES.forEach(function (q) { var x = f.q[q[0]]; if (x && !porRotacion(x.asig) && x.compId) m[q[0] + '|' + f.inicio] = { compId: x.compId, asig: x.asig, motivo: x.motivo, deuda: x.deuda }; }); });
+    else guardadosMes(ym).forEach(function (t) { if (!porRotacion(t.asig) && t.comp) m[t.cuadrante + '|' + t.inicio] = { compId: t.comp, asig: t.asig, motivo: t.motivoAsig }; });
+    return m;
+  }
   function prepararMes(ym, proponerYa) {
     var g = guardadosMes(ym);
     if (g.length && !proponerYa) {
       var por = {};
       g.forEach(function (t) {
         var f = por[t.inicio] || (por[t.inicio] = { inicio: t.inicio, fin: t.fin, tipo: t.tipo, q: {} });
-        f.q[t.cuadrante] = { item: t, compId: t.comp, orig: t.comp, notas: [] };
+        f.q[t.cuadrante] = { item: t, compId: t.comp, orig: t.comp, notas: [], asig: t.asig || 'ROTACION', motivo: t.motivoAsig || '', asigOrig: t.asig || 'ROTACION', motivoOrig: t.motivoAsig || '' };
       });
       var filas = Object.keys(por).sort().map(function (k) { return por[k]; });
-      filas.forEach(function (f) { CUADRANTES.forEach(function (q) { if (!f.q[q[0]]) f.q[q[0]] = { item: null, compId: null, orig: null, notas: [] }; }); });
+      filas.forEach(function (f) { CUADRANTES.forEach(function (q) { if (!f.q[q[0]]) f.q[q[0]] = { item: null, compId: null, orig: null, notas: [], asig: 'ROTACION', motivo: '' }; }); });
       var cal = calendarioMes(ym).map(function (t) { return t.inicio + t.fin + t.tipo; }).join('|');
       edicion = { ym: ym, filas: filas, propuesta: false, sucio: false, publicado: g.every(function (t) { return t.estado === 'PUBLICADO'; }), guardado: true,
         calCambiado: cal !== filas.map(function (f) { return f.inicio + f.fin + f.tipo; }).join('|') };
     } else {
-      edicion = { ym: ym, filas: proponer(ym), propuesta: true, sucio: true, publicado: g.length > 0 && g.every(function (t) { return t.estado === 'PUBLICADO'; }), guardado: g.length > 0, calCambiado: false };
+      var fj = fijosDe(ym);
+      edicion = { ym: ym, filas: proponer(ym, fj), propuesta: true, sucio: true, publicado: g.length > 0 && g.every(function (t) { return t.estado === 'PUBLICADO'; }), guardado: g.length > 0, calCambiado: false };
     }
   }
-  var hayCambios = function () { return edicion && edicion.filas.some(function (f) { return CUADRANTES.some(function (q) { var c = f.q[q[0]]; return c.item ? c.compId !== c.orig : true; }); }); };
-
+  var celdaCambiada = function (c) { return c.item ? (c.compId !== c.orig || (c.asig || 'ROTACION') !== (c.asigOrig || 'ROTACION') || (c.motivo || '') !== (c.motivoOrig || '')) : true; };
+  var hayCambios = function () { return edicion && edicion.filas.some(function (f) { return CUADRANTES.some(function (q) { return celdaCambiada(f.q[q[0]]); }); }); };
+  // El gestor pone a alguien en un turno: queda «a mano» (con su motivo). En una propuesta, el resto del mes se recalcula
+  // para que quien iba por rotación pase al turno siguiente.
+  function asignarCelda(i, q, compId, asig, motivo, deuda) {
+    var x = edicion.filas[i].q[q];
+    x.compId = compId ? Number(compId) : null; x.asig = asig || 'MANUAL'; x.motivo = motivo != null ? motivo : x.motivo || ''; x.deuda = deuda || null;
+    edicion.sucio = true;
+    if (edicion.propuesta) edicion.filas = proponer(edicion.ym, fijosDe(edicion.ym));
+  }
   // ---------- Correo oficial ----------
   var enlacePagina = function () {
     try {
@@ -6861,7 +6925,7 @@ var Cipher = {
     var bcc = c.bcc || [], todos = c.to.concat(c.cc || [], bcc), desvios = [], llegaron = [];
     var res = function (ok, n, motivo, rech) { return { ok: ok, n: n, motivo: motivo, rechazados: rech || [], desvios: desvios, llegaron: ok ? (llegaron.length ? llegaron : todos) : [], sinVer: c.sinVer || [], mailto: mailto(c) }; };
     if (!c.to.length) return Promise.resolve(res(false, 0, 'no se encontraron destinatarios'));
-    if (!pref.correo) return Promise.resolve(res(false, 0, 'avisos por correo desactivados en Ajustes'));
+    if (!CFG.correo) return Promise.resolve(res(false, 0, 'avisos por correo desactivados en Ajustes'));
     return enviarUno(c.to, c.cc || [], bcc, c).then(function () { return res(true, todos.length); }, function (e) {
       var m = e.message || String(e);
       if (!DEST_MAL.test(m)) return res(false, 0, m);
@@ -6902,12 +6966,12 @@ var Cipher = {
 
   // ---------- Vistas ----------
   var ICO = { mes: '📅', mios: '👤', cambios: '🔁', anio: '🗓', ausencias: '🧳', componentes: '👥', festivos: '🎉', ajustes: '⚙', accesos: '🔐' };
-  var SUB = { mes: 'Jefe y auxiliar de cada día', mios: 'Mis servicios, ausencias y cambios', cambios: 'Validar cambios de servicio', anio: 'Vista anual y estadística', ausencias: 'Aprobar ausencias', componentes: 'Altas, orden y bajas',
+  var SUB = { mes: 'Jefe y auxiliar de cada día', mios: 'Mis servicios, ausencias y cambios', cambios: 'Cambios y servicios debidos', anio: 'Vista anual y estadística', ausencias: 'Aprobar ausencias', componentes: 'Altas, orden y bajas',
     festivos: 'Festivos y puentes', ajustes: 'Listas, grupos y permisos', accesos: 'Solicitudes de acceso' };
   var nAusPend = function () { return ausencias.filter(function (a) { return a.estado === 'PENDIENTE'; }).length; };
   function render() {
     var v = [['mes', 'Cuadrante del mes'], ['mios', 'Mis servicios']];
-    if (esGestor && !listasFaltan().length) v = v.concat((hayCambiosLista() ? [['cambios', 'Cambios']] : []).concat([['anio', 'Año'], ['ausencias', 'Ausencias'], ['componentes', 'Componentes'], ['festivos', 'Festivos']]));
+    if (esGestor && !listasFaltan().length) v = v.concat((hayCambiosLista() || info.deudas ? [['cambios', 'Cambios']] : []).concat([['anio', 'Año'], ['ausencias', 'Ausencias'], ['componentes', 'Componentes'], ['festivos', 'Festivos']]));
     if (esAdmin) v = v.concat([['ajustes', 'Ajustes'], ['accesos', 'Accesos']]);
     if (listasFaltan().length) v = v.filter(function (x) { return ['ajustes', 'accesos'].indexOf(x[0]) >= 0; });
     if (!v.some(function (x) { return x[0] === pref.vista; })) pref.vista = v[0] ? v[0][0] : 'mes';
@@ -6951,9 +7015,9 @@ var Cipher = {
     if (e.propuesta && !turnos.some(function (t) { return t.inicio < ym + '-01'; })) avisos.push('<div class="nota">Es el primer mes: elige arriba quién empieza cada rotación (por defecto, el más antiguo).</div>');
     if (e.publicado && !e.propuesta && hayCambios()) avisos.push('<div class="aviso"><label class="lbl" style="margin-top:0">Motivo del cambio (se anota y va en el aviso a los afectados)</label><input id="motivoCambio" placeholder="Imprevisto, cambio de servicio autorizado…"></div>');
     var conf = conflictos(e);
-    return nav + acc + avisos.join('') + panelRotacion() + emp + (conf ? '<div class="card conflictos"><h3 style="margin-top:0">⚠ Revisar</h3>' + conf + '</div>' : '') + tablaMes(true) + leyenda() +
+    return nav + acc + avisos.join('') + panelRotacion() + panelDeudasMes() + emp + (conf ? '<div class="card conflictos"><h3 style="margin-top:0">⚠ Revisar</h3>' + conf + '</div>' : '') + tablaMes(true) + leyenda() +
       '<p class="small muted">Rotación del más antiguo al más moderno (empleo, antigüedad y escalafón). Quien tiene una ausencia aprobada que salta el servicio pierde el turno; ' +
-      'con asuntos propios, o vacaciones y permisos de ' + VAC_MAX + ' días laborables o menos, no se salta: debe hacer un cambio. Cada turno cuenta en el mes en que empieza.</p>';
+      'si la ausencia no salta el servicio, debe hacer un cambio. Los turnos puestos a mano o por servicios debidos no mueven la rotación. Cada turno cuenta en el mes en que empieza.</p>';
   }
 
   // Orden de la rotación (para el gestor): del más antiguo al más moderno, quién empieza el mes, servicios y ausencias del mes
@@ -6971,12 +7035,12 @@ var Cipher = {
         var act = activo(c, ini, fin);
         return '<tr class="' + (act ? '' : 'debaja') + '"><td>' + (i + 1) + 'º</td><td><b>' + nombreCon(c) + '</b>' +
           (c.id === empD ? ' <span class="badge tD">▶ empieza diario</span>' : '') + (c.id === empF ? ' <span class="badge tF">▶ empieza fin de semana</span>' : '') + '</td>' +
-          '<td class="small">' + esc(fCorta(c.antig)) + '</td><td class="num">' + (nD || '·') + '</td><td class="num">' + (nF || '·') + '</td><td class="small">' +
+          '<td class="small">' + esc(fCorta(c.antig)) + '</td><td class="num">' + (nD || '·') + '</td><td class="num">' + (nF || '·') + '</td><td class="num">' + (deudasPend(c.id).length ? '<span class="badge aDEUDA" title="' + esc(deudasPend(c.id).map(function (d) { return d.motivo; }).join(' · ')) + '">' + deudasPend(c.id).length + '</span>' : '·') + '</td><td class="small">' +
           (act ? '' : 'De baja en el cuadrante. ') + aus.map(function (a) { return '<span class="chipaus" style="' + colorAus(a.tipo) + '" title="' + esc((TXT_AUS[a.tipo] || a.tipo) + (a.estado === 'PENDIENTE' ? ' (pendiente)' : '')) + '">' +
             esc((TXT_AUS[a.tipo] || a.tipo) + ' ' + aFecha(a.desde).getDate() + '-' + aFecha(a.hasta).getDate() + '/' + (aFecha(a.hasta).getMonth() + 1)) + (a.estado === 'PENDIENTE' ? ' ?' : '') + (salta(a) ? ' · salta' : ' · cambio') + '</span>'; }).join(' ') + '</td></tr>';
       }).join('');
-      return '<div><h4>' + esc(qq[1]) + ' <span class="small muted">(' + esc(q.toLowerCase()) + ')</span></h4><table class="t rot"><tr><th>Orden</th><th>Componente</th><th>Antigüedad</th><th title="Servicios de diario este mes">Diario</th><th title="Fines de semana y festivos este mes">Fin de semana</th><th>Ausencias del mes</th></tr>' +
-        (filas || '<tr><td colspan="6" class="muted">Sin componentes: dalos de alta en «Componentes».</td></tr>') + '</table></div>';
+      return '<div><h4>' + esc(qq[1]) + ' <span class="small muted">(' + esc(q.toLowerCase()) + ')</span></h4><table class="t rot"><tr><th>Orden</th><th>Componente</th><th>Antigüedad</th><th title="Servicios de diario este mes">Diario</th><th title="Fines de semana y festivos este mes">Fin de semana</th><th title="Servicios que debe (pendientes)">Debe</th><th>Ausencias del mes</th></tr>' +
+        (filas || '<tr><td colspan="7" class="muted">Sin componentes: dalos de alta en «Componentes».</td></tr>') + '</table></div>';
     }).join('');
     return '<details class="card rotacion"' + (e.propuesta || pref.rotAbierta !== false ? ' open' : '') + ' data-rotdet="1"><summary style="cursor:pointer"><b>👥 Orden de la rotación y quién va este mes</b> <span class="small muted">· del más antiguo al más moderno (empleo, antigüedad y escalafón). ' +
       'Cada rotación sigue donde se quedó el mes anterior; quien tiene una ausencia que salta el servicio pierde su turno.</span></summary><div class="rotgrid">' + bloques + '</div></details>';
@@ -7010,7 +7074,10 @@ var Cipher = {
               ordenados(qq[0]).map(function (y, n) { return [y, n]; }).filter(function (p) { return activo(p[0], f.inicio, f.fin) || p[0].id === x.compId; }).map(function (p) { var y = p[0]; return '<option value="' + y.id + '"' + (y.id === x.compId ? ' selected' : '') + '>' + (p[1] + 1) + 'º · ' + esc([y.empleo, y.nombre].join(' ')) + '</option>'; }).join('') + '</select>'
               : nombreCon(c) + (c && c.tel ? ' <span class="small muted">☎ ' + esc(c.tel) + '</span>' : '');
             if (editable && x.compId) cel = '<div class="celda">' + cel + '<button class="chico" data-imprevisto="' + i + '|' + qq[0] + '" title="Imprevisto: no puede hacer el servicio. Propone al siguiente disponible">⚡</button></div>';
-            return '<td>' + cel + (editable && cambiado ? '<div class="small txt-warn">Antes: ' + nombreCon(compPorId(x.orig)) + '</div>' : '') +
+            var asg = x.compId && !porRotacion(x.asig) ? '<div class="asg"><span class="badge a' + x.asig + '">' + { MANUAL: '✋ a mano', DEUDA: '💳 servicio debido', CAMBIO: '🔁 cambio de servicio' }[x.asig] + '</span>' +
+              (editable ? ' <input class="motivoc" data-motivo="' + i + '|' + qq[0] + '" value="' + esc(x.motivo || '') + '" placeholder="Motivo (p. ej. debía servicio por el cambio del día 3)">' +
+                (edicion.propuesta ? ' <button class="chico" data-rotacion="' + i + '|' + qq[0] + '" title="Quitar la asignación a mano y volver a la rotación">↺</button>' : '') : (x.motivo ? ' <span class="small muted">' + esc(x.motivo) + '</span>' : '')) + '</div>' : '';
+            return '<td>' + cel + asg + (editable && cambiado ? '<div class="small txt-warn">Antes: ' + nombreCon(compPorId(x.orig)) + '</div>' : '') +
               (editable ? x.notas.map(function (n) { return '<div class="small muted">' + esc(n) + '</div>'; }).join('') : '') +
               (editable ? avs.map(function (a) { return '<div class="small ' + (a[0] === 'rojo' ? 'txt-bad' : 'txt-warn') + '">⚠ ' + esc(a[1]) + '</div>'; }).join('') : '') + '</td>';
           }).join('') + '</tr>';
@@ -7055,8 +7122,7 @@ var Cipher = {
       '<div><label class="lbl req">Desde</label><input type="date" name="desde"></div><div><label class="lbl req">Hasta</label><input type="date" name="hasta"></div></div>' +
       '<label class="lbl">Observaciones</label><textarea name="obs" rows="2" placeholder="Lugar de la comisión, curso, pendiente de incorporación…"></textarea>' +
       '<label class="lbl">Documento (opcional: orden de comisión, parte…)</label><input type="file" name="adj" multiple>' +
-      '<p class="small muted">Saltan el servicio (se pierde el turno): las comisiones de servicio y las bajas, y las vacaciones, permisos y otras ausencias de más de ' + VAC_MAX + ' días laborables. ' +
-        'No saltan, y hay que hacer un cambio de servicio: los asuntos propios y las vacaciones o permisos de ' + VAC_MAX + ' días laborables o menos. ' +
+      '<p class="small muted">' + textoReglas() + ' ' +
       (paraOtro ? 'Registrada por un gestor, queda aprobada.' : 'La aprueba el gestor y te llega un correo.') + '</p>' +
       '<div id="ausErr"></div><div class="acciones"><button class="prim" data-ausguardar="' + (paraOtro ? '1' : '0') + '">' + (paraOtro ? 'Registrar la ausencia' : '📨 Comunicar al gestor') + '</button></div></div>';
   }
@@ -7064,7 +7130,7 @@ var Cipher = {
   function fichaAus(a, gestion) {
     var c = compPorId(a.comp) || comps.find(function (x) { return deComp(a, x); });
     var serv = c ? turnos.filter(function (t) { return t.comp === c.id && t.inicio <= a.hasta && t.fin >= a.desde; }) : [];
-    var lab = SIEMPRE_SALTA.indexOf(a.tipo) < 0 ? ' · ' + laborables(a.desde, a.hasta) + ' días laborables (' + (salta(a) ? 'salta el servicio' : 'no salta: hay que hacer un cambio') + ')' : '';
+    var lab = regla(a.tipo) !== 'SIEMPRE' ? ' · ' + diasAus(a) + ' días ' + (CFG.cuenta === 'NATURALES' ? 'naturales' : 'laborables') + ' (' + (salta(a) ? 'salta el servicio' : 'no salta: hay que hacer un cambio') + ')' : '';
     return '<div class="card aus" data-ausid="' + a.id + '"><span class="cuadro" style="' + colorAus(a.tipo) + '"></span> <b>' + esc(TXT_AUS[a.tipo] || a.tipo) + '</b> ' + badgeEstadoAus(a.estado) +
       (gestion ? ' · ' + nombreCon(c) + (c ? ' <span class="small muted">(' + esc(papelDe(c.cuadrante)) + ')</span>' : '') : '') +
       '<div class="small">Del <b>' + esc(fCorta(a.desde)) + '</b> al <b>' + esc(fCorta(a.hasta)) + '</b>' + lab + (a.origen ? ' · ' + esc(a.origen) : '') + '</div>' +
@@ -7201,7 +7267,10 @@ var Cipher = {
   function guardarMes(publicar, boton) {
     var e = edicion, ym = e.ym, eraPublicado = e.publicado && !e.propuesta;
     var motivo = $('#motivoCambio') ? $('#motivoCambio').value.trim() : '';
-    if (eraPublicado && hayCambios() && !motivo) { $('#motivoCambio').focus(); return toast('Escribe el motivo del cambio'); }
+    var sinMotivo = e.filas.some(function (f) { return CUADRANTES.some(function (q) { var x = f.q[q[0]]; return x.item && x.compId !== x.orig && !x.motivo; }); });
+    if (eraPublicado && hayCambios() && sinMotivo && !motivo) { $('#motivoCambio').focus(); return toast('Escribe el motivo del cambio'); }
+    var aMano = e.filas.some(function (f) { return CUADRANTES.some(function (q) { var x = f.q[q[0]]; return (x.asig === 'MANUAL' || x.asig === 'DEUDA') && !x.motivo && x.compId; }); });
+    if (aMano && !motivo && !window.confirm('Hay turnos asignados a mano sin motivo. ¿Guardar igualmente?')) return;
     if (publicar && !window.confirm('Se publica el cuadrante de ' + mesTxt(ym) + ' y se avisa por correo a cada uno de sus servicios. ¿Seguir?')) return;
     var sinAsignar = e.filas.some(function (f) { return CUADRANTES.some(function (q) { return !f.q[q[0]].compId; }); });
     if (publicar && sinAsignar && !window.confirm('Hay turnos sin asignar. ¿Publicar igualmente?')) return;
@@ -7213,25 +7282,29 @@ var Cipher = {
       CUADRANTES.forEach(function (qq) {
         var x = f.q[qq[0]], k = qq[0] + '|' + f.inicio, it = existentes[k], c = compPorId(x.compId);
         delete existentes[k];
-        var cuerpo = { Title: qq[0] + ' · ' + f.inicio, Cuadrante: qq[0], Inicio: aSP(f.inicio), Fin: aSP(f.fin), TipoTurno: f.tipo, Componente: c ? c.id : null, Nombre: c ? c.nombre : '', Mes: ym, EstadoTurno: estado };
+        var asig = c ? (x.asig || 'ROTACION') : 'ROTACION', mot = x.motivo || (asig !== 'ROTACION' || (it && it.comp !== (c ? c.id : null)) ? motivo : '');
+        var cuerpo = { Title: qq[0] + ' · ' + f.inicio, Cuadrante: qq[0], Inicio: aSP(f.inicio), Fin: aSP(f.fin), TipoTurno: f.tipo, Componente: c ? c.id : null, Nombre: c ? c.nombre : '', Mes: ym, EstadoTurno: estado,
+          Asignacion: asig, MotivoAsignacion: asig === 'ROTACION' && !(it && it.comp !== (c ? c.id : null)) ? '' : mot };
         var notas = x.notas.length ? x.notas.join('; ') : '';
+        var nota = (asig !== 'ROTACION' ? ASIG[asig].toLowerCase() : 'por rotación') + (mot ? ' (' + mot + ')' : '') + (notas ? ' · ' + notas : '');
+        var saldar = function (idTurno) { return x.deuda ? saldarDeuda(x.deuda, idTurno, f, c) : null; };
         if (it) {
           var cambia = it.comp !== (c ? c.id : null);
-          if (cambia && eraPublicado) cambios.push({ f: f, q: qq[0], antes: compPorId(it.comp), ahora: c });
-          if (cambia || it.estado !== estado || it.fin !== f.fin || it.tipo !== f.tipo) {
-            if (cambia) cuerpo.Historial = (it.historial ? it.historial + '\n' : '') + anotacion((eraPublicado ? 'Cambio' : 'Borrador') + ': ' + (it.nombre || '—') + ' → ' + (c ? c.nombre : '—') + (motivo ? ' (' + motivo + ')' : '') + (notas ? ' · ' + notas : ''));
-            ops.push(function () { return cambiarItem('turnos', it.id, cuerpo); });
+          if (cambia && eraPublicado) cambios.push({ f: f, q: qq[0], antes: compPorId(it.comp), ahora: c, motivo: mot || motivo });
+          if (cambia || it.estado !== estado || it.fin !== f.fin || it.tipo !== f.tipo || (it.asig || 'ROTACION') !== asig || (it.motivoAsig || '') !== cuerpo.MotivoAsignacion) {
+            if (cambia || (it.asig || 'ROTACION') !== asig) cuerpo.Historial = (it.historial ? it.historial + '\n' : '') + anotacion((eraPublicado ? 'Cambio' : 'Borrador') + ': ' + (it.nombre || '—') + ' → ' + (c ? c.nombre : '—') + ', ' + nota);
+            ops.push(function () { return cambiarItem('turnos', it.id, cuerpo).then(function () { return saldar(it.id); }); });
           }
         } else {
-          cuerpo.Historial = anotacion((estado === 'PUBLICADO' ? 'Publicado' : 'Propuesto') + ': ' + (c ? c.nombre : 'sin asignar') + (notas ? ' · ' + notas : ''));
-          ops.push(function () { return crearItem('turnos', cuerpo); });
+          cuerpo.Historial = anotacion((estado === 'PUBLICADO' ? 'Publicado' : 'Propuesto') + ': ' + (c ? c.nombre : 'sin asignar') + ', ' + nota);
+          ops.push(function () { return crearItem('turnos', cuerpo).then(function (n) { return saldar(n && (n.Id || n.ID)); }); });
         }
       });
     });
     Object.keys(existentes).forEach(function (k) { var it = existentes[k]; ops.push(function () { return papelera('turnos', it.id); }); });
     var hechos = 0;
     enSerie(ops, function (op) { return op().then(function () { hechos++; if (hechos % 10 === 0) toast('Guardando… ' + hechos + ' de ' + ops.length); }); }).then(function () {
-      return leerTurnos();
+      return Promise.all([leerTurnos(), leerDeudas()]);
     }).then(function () {
       prepararMes(ym); render();
       if (publicar && !eraPublicado) return avisarPublicacion(ym);
@@ -7261,7 +7334,7 @@ var Cipher = {
     var mal = [], n = 0;
     return enSerie(cambios, function (x) {
       var dest = limpia([x.antes && destDe(x.antes.persona), x.ahora && destDe(x.ahora.persona)]);
-      var filas = [['Turno', rotulo(x.f)], ['Tipo', (TIPOS_TURNO[x.f.tipo] || x.f.tipo) + ' · ' + papelDe(x.q)], ['Lo tenía', x.antes ? x.antes.nombre : '—'], ['Lo hace ahora', x.ahora ? x.ahora.nombre : 'sin asignar'], ['Motivo', motivo], ['Cambio hecho por', yo.Title]];
+      var filas = [['Turno', rotulo(x.f)], ['Tipo', (TIPOS_TURNO[x.f.tipo] || x.f.tipo) + ' · ' + papelDe(x.q)], ['Lo tenía', x.antes ? x.antes.nombre : '—'], ['Lo hace ahora', x.ahora ? x.ahora.nombre : 'sin asignar'], ['Motivo', x.motivo || motivo], ['Cambio hecho por', yo.Title]];
       if (!dest.length) return Promise.resolve();
       return enviarCorreo(correoDe('CAMBIO EN EL CUADRANTE DE SERVICIOS.', filas, 'CAMBIO EN EL CUADRANTE DE SERVICIOS · ' + rotulo(x.f).toUpperCase(), dest, enlacePagina() + '?mes=' + edicion.ym))
         .then(function (r) { if (correoBien(r)) n++; else mal.push(rotulo(x.f)); });
@@ -7301,13 +7374,13 @@ var Cipher = {
       var serv = c ? turnos.filter(function (t) { return t.comp === c.id && t.estado === 'PUBLICADO' && solapa(a, t.inicio, t.fin); }) : [];
       var corta = !salta(a);
       var filas = [['Componente', c ? [c.empleo, c.nombre].join(' ') : yo.Title], ['Cuadrante', c ? papelDe(c.cuadrante) : ''], ['Tipo', TXT_AUS[a.tipo]], ['Desde', fCorta(a.desde)], ['Hasta', fCorta(a.hasta)],
-        ['Días laborables', SIEMPRE_SALTA.indexOf(a.tipo) < 0 ? String(laborables(a.desde, a.hasta)) + (corta ? ' (no salta el servicio: debe hacer un cambio)' : ' (salta el servicio)') : ''], ['Observaciones', a.obs],
+        ['Días (' + (CFG.cuenta === 'NATURALES' ? 'naturales' : 'laborables') + ')', regla(a.tipo) !== 'SIEMPRE' ? String(diasAus(a)) + (corta ? ' (no salta el servicio: debe hacer un cambio)' : ' (salta el servicio)') : ''], ['Observaciones', a.obs],
         ['Servicios publicados que coinciden', serv.map(function (t) { return rotulo(t); }).join(', ')]].filter(function (x) { return x[1]; });
       var envio = paraOtro ? Promise.resolve(null) : destGestores().then(function (to) {
         return enviarCorreo(correoDe('NUEVA AUSENCIA COMUNICADA PARA EL CUADRANTE DE SERVICIOS. REVÍSELA EN LA PESTAÑA «AUSENCIAS».', filas, 'CUADRANTE DE SERVICIOS · AUSENCIA DE ' + (c ? c.nombre : yo.Title).toUpperCase(), to));
       });
       return envio.then(function (r) {
-        var aviso = serv.length ? (corta ? ' Tienes servicio ' + serv.map(function (t) { return rotulo(t); }).join(', ') + ': ' + (NUNCA_SALTA.indexOf(a.tipo) >= 0 ? 'con asuntos propios' : 'con ' + VAC_MAX + ' días laborables o menos') + ' no se salta el servicio, <b>tienes que buscar un cambio de servicio</b>.' :
+        var aviso = serv.length ? (corta ? ' Tienes servicio ' + serv.map(function (t) { return rotulo(t); }).join(', ') + ': ' + (regla(a.tipo) === 'NUNCA' ? 'con ' + (TXT_AUS[a.tipo] || a.tipo).toLowerCase() : 'con ' + txtDias() + ' o menos') + ' no se salta el servicio, <b>tienes que buscar un cambio de servicio</b>.' :
           ' Coincide con tu servicio ' + serv.map(function (t) { return rotulo(t); }).join(', ') + ': el gestor buscará sustituto al aprobarla.') : '';
         resultado = { cls: !r || correoBien(r) ? 'okmsg' : 'aviso', html: (paraOtro ? '✓ Ausencia registrada y aprobada.' : '✓ Ausencia comunicada al gestor.' + (r ? msgCorreo(r) : '')) + aviso +
           (fallos.length ? ' <span class="txt-bad">No se pudo adjuntar: ' + esc(fallos.join(', ')) + '.</span>' : '') };
@@ -7391,7 +7464,7 @@ var Cipher = {
     if (!aj) { cargarAjustes(); return '<div class="card"><p class="muted">Comprobando listas y grupos…</p></div>'; }
     if (aj.estado === 'cargando') return '<div class="card"><p class="muted">Comprobando listas y grupos…</p></div>';
     var faltan = listasFaltan(true);
-    var h = '<div class="card"><h3 style="margin-top:0">1. Listas de la aplicación <span class="small muted">· versión ' + esc(VERSION) + '</span></h3>' + Object.keys(LISTAS).map(function (k) {
+    var h = tarjetaReglas() + '<div class="card"><h3 style="margin-top:0">1. Listas de la aplicación <span class="small muted">· versión ' + esc(VERSION) + '</span></h3>' + Object.keys(LISTAS).map(function (k) {
       var fc = aj.faltanCampos[k] || [];
       return '<p class="small">' + (info[k] ? (fc.length ? '✕ <span class="txt-bad">«' + esc(LISTAS[k]) + '» sin las columnas ' + esc(fc.join(', ')) + '</span> <button class="prim" data-ajcampos="' + k + '">Crear las columnas</button>' : '✔ «' + esc(LISTAS[k]) + '» (' + esc(NOMBRE_LISTA[k]) + ')') :
         '✕ Falta «' + esc(LISTAS[k]) + '» (' + esc(NOMBRE_LISTA[k]) + ')') + '</p>';
@@ -7403,9 +7476,8 @@ var Cipher = {
       return '<tr><td>' + esc(u.Title) + '</td><td class="small muted">' + esc(u.Email || '') + '</td><td><button class="chico peligro" data-ajquitar="' + u.Id + '" data-nombre="' + esc(u.Title) + '">Quitar</button></td></tr>';
     }).join('') || '<tr><td class="muted">Nadie aún.</td></tr>') + '</table><div class="grid" style="margin-top:8px"><div><label class="lbl">Añadir gestor (correo o usuario)</label><input id="ajGestor" placeholder="nombre@et.mde.es"></div></div>' +
       '<div class="acciones"><button class="prim" data-ajanadir="1">＋ Añadir gestor</button></div></div>';
-    h += '<div class="card"><h3 style="margin-top:0">3. Permisos de las listas</h3><p class="small">Da a «' + esc(GRUPOS.usuarios) + '» permiso de <b>lectura</b> en componentes, turnos y festivos y de <b>colaborar</b> en ausencias, y a «' + esc(GRUPOS.gestores) + '» permiso de <b>colaborar</b> en las cuatro. ' +
-      'También colaborar en cambios de servicio, para pedirlos y aceptarlos. Las listas dejan de heredar los permisos del sitio.</p><div class="acciones"><button class="prim" data-ajpermisos="1"' + (faltan.length || aj.grupos.indexOf(GRUPOS.gestores) < 0 || aj.grupos.indexOf(GRUPOS.usuarios) < 0 ? ' disabled' : '') + '>Dar los permisos</button></div><div id="ajPermMsg"></div></div>';
-    h += '<div class="card"><h3 style="margin-top:0">4. Correo y sitio</h3><label class="check"><input type="checkbox" id="aCorreo"' + (pref.correo ? ' checked' : '') + '> Enviar los avisos por correo</label>' +
+    h += '<div class="card"><h3 style="margin-top:0">3. Permisos de las listas</h3><p class="small">Da a «' + esc(GRUPOS.usuarios) + '» permiso de <b>lectura</b> en componentes, turnos, festivos, servicios debidos y reglas, y de <b>colaborar</b> en ausencias y cambios de servicio (para comunicarlas, pedirlos y aceptarlos); y a «' + esc(GRUPOS.gestores) + '» permiso de <b>colaborar</b> en todas. Las reglas solo las cambia el administrador (Control total). Las listas dejan de heredar los permisos del sitio.</p><div class="acciones"><button class="prim" data-ajpermisos="1"' + (faltan.length || aj.grupos.indexOf(GRUPOS.gestores) < 0 || aj.grupos.indexOf(GRUPOS.usuarios) < 0 ? ' disabled' : '') + '>Dar los permisos</button></div><div id="ajPermMsg"></div></div>';
+    h += '<div class="card"><h3 style="margin-top:0">4. Correo de prueba y sitio</h3>' +
       '<div class="acciones"><button data-correoprueba="1">Enviarme un correo de prueba</button></div><div id="aPrueba"></div>' +
       '<label class="lbl">Sitio de Colabora</label><input id="aSitio" value="' + esc(pref.sitio) + '"><div class="acciones"><button data-restablecer="1">Restablecer (' + esc(POR_DEFECTO.sitio) + ')</button></div></div>';
     return h;
@@ -7421,7 +7493,7 @@ var Cipher = {
       toast('Creando «' + LISTAS[k] + '»…');
       return enviarSP(web + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: LISTAS[k], Description: 'Cuadrante de servicios · ' + NOMBRE_LISTA[k] + ' (creada por la página)' }, 'No tienes permiso para crear listas en el sitio')
         .then(function () { return crearCampos(k); });
-    }).then(leerInfoListas).then(function () { aj = null; return listasFaltan().length ? null : Promise.all([leerComps(), leerFestivos(), leerAusencias(), leerTurnos(), leerCambios()]); })
+    }).then(leerInfoListas).then(function () { aj = null; return listasFaltan().length ? null : leerAjustesReglas().then(function () { return Promise.all([leerComps(), leerFestivos(), leerAusencias(), leerTurnos(), leerCambios(), leerDeudas()]); }); })
       .then(function () { prepararMes(pref.mes); render(); toast('Listas creadas'); })
       .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); leerInfoListas().then(function () { aj = null; render(); }); });
   }
@@ -7452,9 +7524,9 @@ var Cipher = {
       return enSerie(Object.keys(LISTAS), function (k) {
         var dar = function (p, rd) { return enviarSP(urlL(k) + '/roleassignments/addroleassignment(principalid=' + Number(p) + ',roledefid=' + Number(rd) + ')', {}, 'No tienes permiso para cambiar los permisos de la lista'); };
         return (info[k] && info[k].HasUniqueRoleAssignments ? Promise.resolve() : enviarSP(urlL(k) + '/breakroleinheritance(copyRoleAssignments=true,clearSubscopes=true)', {}, 'No tienes permiso para cambiar los permisos de la lista'))
-          .then(function () { return dar(usu, k === 'aus' || k === 'cambios' ? colaborar : leer); }).then(function () { return dar(ges, colaborar); });
+          .then(function () { return dar(usu, k === 'aus' || k === 'cambios' ? colaborar : leer); }).then(function () { return dar(ges, k === 'ajustes' ? leer : colaborar); });
       });
-    }).then(leerInfoListas).then(function () { el.innerHTML = '<div class="okmsg">✓ Permisos dados en las cuatro listas.</div>'; boton.disabled = false; })
+    }).then(leerInfoListas).then(function () { el.innerHTML = '<div class="okmsg">✓ Permisos dados en las listas de la aplicación.</div>'; boton.disabled = false; })
       .catch(function (e) { boton.disabled = false; el.innerHTML = '<div class="error">No se pudo: ' + esc(e.message || e) + '</div>'; });
   }
 
@@ -7756,10 +7828,10 @@ var Cipher = {
   function vistaCambios() {
     var pend = cambios.filter(function (c) { return c.estado === EC.gest; }), espera = cambios.filter(function (c) { return c.estado === EC.comp; }),
       hechos = cambios.filter(function (c) { return !abiertoCambio(c); }).sort(function (a, b) { return b.id - a.id; });
-    if (!hayCambiosLista()) return '<div class="card aviso">Falta la lista «' + esc(LISTAS.cambios) + '». El administrador la crea en Ajustes.</div>';
+    if (!hayCambiosLista()) return '<div class="card aviso">Falta la lista «' + esc(LISTAS.cambios) + '». El administrador la crea en Ajustes.</div>' + vistaDeudas();
     return '<div class="sec"><span>Pendientes de validar</span><span>' + pend.length + '</span></div>' + (pend.map(function (c) { return fichaCambio(c, true); }).join('') || '<div class="card vacio">No hay cambios pendientes de validar.</div>') +
       '<div class="sec"><span>Esperando la firma del compañero</span><span>' + espera.length + '</span></div>' + (espera.map(function (c) { return fichaCambio(c, true); }).join('') || '<div class="card vacio">Ninguno.</div>') +
-      '<details class="card"><summary style="cursor:pointer"><b>Resueltos</b> <span class="muted">(' + hechos.length + ')</span></summary>' + (hechos.map(function (c) { return fichaCambio(c, true); }).join('') || '<p class="muted small">Ninguno.</p>') + '</details>';
+      '<details class="card"><summary style="cursor:pointer"><b>Resueltos</b> <span class="muted">(' + hechos.length + ')</span></summary>' + (hechos.map(function (c) { return fichaCambio(c, true); }).join('') || '<p class="muted small">Ninguno.</p>') + '</details>' + vistaDeudas();
   }
 
   // PDF de la solicitud (A4, Helvetica, sin librerías; como el de VSA) con tres recuadros de firma
@@ -7950,10 +8022,10 @@ var Cipher = {
     var tA = turnoPorId(c.turnoA), tB = turnoPorId(c.turnoB), sc = compPorId(c.solComp), cc = compPorId(c.compComp);
     var nota = 'Cambio de servicio nº ' + id + ' (' + (c.tipo === 'CESION' ? 'cesión' : 'permuta') + ') validado por ' + yo.Title + (sinFirma ? ' sin firma electrónica' : '');
     (sinFirma ? Promise.resolve() : firmarSobre(c, 2, 'Validación del cambio de servicio nº ' + id)).then(function () {
-      return cambiarItem('turnos', tA.id, { Componente: cc.id, Nombre: cc.nombre, Historial: (tA.historial ? tA.historial + '\n' : '') + anotacion(nota + ': ' + sc.nombre + ' → ' + cc.nombre) });
+      return cambiarItem('turnos', tA.id, { Componente: cc.id, Nombre: cc.nombre, Asignacion: 'CAMBIO', MotivoAsignacion: 'Cambio de servicio nº ' + id + ' (' + (c.tipo === 'CESION' ? 'cesión' : 'permuta') + ')', Historial: (tA.historial ? tA.historial + '\n' : '') + anotacion(nota + ': ' + sc.nombre + ' → ' + cc.nombre) });
     }).then(function () {
       if (c.tipo !== 'PERMUTA') return;
-      return cambiarItem('turnos', tB.id, { Componente: sc.id, Nombre: sc.nombre, Historial: (tB.historial ? tB.historial + '\n' : '') + anotacion(nota + ': ' + cc.nombre + ' → ' + sc.nombre) });
+      return cambiarItem('turnos', tB.id, { Componente: sc.id, Nombre: sc.nombre, Asignacion: 'CAMBIO', MotivoAsignacion: 'Cambio de servicio nº ' + id + ' (permuta)', Historial: (tB.historial ? tB.historial + '\n' : '') + anotacion(nota + ': ' + cc.nombre + ' → ' + sc.nombre) });
     }).then(function () {
       return cambiarItem('cambios', id, { EstadoCambio: EC.ok, Respuesta: obs, Firmas: sinFirma ? c.firmas.join(',') : c.firmas.concat([3]).join(','), Historial: anotarCambio(c, nota + (obs ? ' (' + obs + ')' : '')) });
     }).then(function () {
@@ -7988,6 +8060,120 @@ var Cipher = {
     ultimoPdf(c).then(function (d) { if (d) window.open(d.url, '_blank', 'noopener'); else toast('No hay documento firmado'); }).catch(function (e) { toast('No se pudo abrir: ' + (e.message || e)); });
   }
 
+  // ---------- Servicios debidos (18/11/2026) ----------
+  // Lo que se arrastra del pasado: «X debe un servicio (a Y) por …». El gestor lo registra en «Cambios» y, al preparar un
+  // mes, se lo asigna en un turno con su motivo: el turno queda como «servicio debido», no mueve la rotación (quien iba
+  // por rotación pasa al turno siguiente) y, al guardar, el servicio debido queda saldado con ese turno.
+  var deudas = [];
+  var aDeuda = function (x) {
+    return { id: x.Id, cuadrante: x.Cuadrante || '', deudor: Number(x.Deudor) || null, acreedor: Number(x.Acreedor) || null, clase: x.ClaseTurno || 'CUALQUIERA', motivo: x.Motivo || '',
+      estado: x.EstadoDeuda || 'PENDIENTE', turno: Number(x.TurnoSaldado) || null, historial: x.Historial || '', creado: x.Created };
+  };
+  function leerDeudas() {
+    if (!info.deudas) { deudas = []; return Promise.resolve(); }
+    return todas(urlL('deudas') + '/items?$top=2000&$select=Id,Cuadrante,Deudor,Acreedor,ClaseTurno,Motivo,EstadoDeuda,TurnoSaldado,Historial,Created').then(function (l) { deudas = l.map(aDeuda); }, function () { deudas = []; });
+  }
+  var deudasPend = function (compId) { return deudas.filter(function (d) { return d.estado === 'PENDIENTE' && (compId == null || d.deudor === compId); }); };
+  var claseOk = function (d, tipo) { return d.clase === 'CUALQUIERA' || (d.clase === 'DIARIO') === (tipo === 'DIARIO'); };
+  var txtDeuda = function (d) { var a = compPorId(d.acreedor); return 'Debía servicio' + (a ? ' a ' + a.nombre : '') + (d.motivo ? ': ' + d.motivo : ''); };
+  function saldarDeuda(id, idTurno, f, c) {
+    var d = deudas.find(function (x) { return x.id === id; }); if (!d) return null;
+    return cambiarItem('deudas', id, { EstadoDeuda: 'SALDADA', TurnoSaldado: idTurno || null, Historial: (d.historial ? d.historial + '\n' : '') + anotacion('Saldado con el servicio ' + rotulo(f) + (c ? ' (' + c.nombre + ')' : '')) });
+  }
+  // Tarjeta del mes: servicios debidos pendientes, con el turno donde asignarlos
+  function panelDeudasMes() {
+    var e = edicion, usadas = {};
+    e.filas.forEach(function (f) { CUADRANTES.forEach(function (q) { var x = f.q[q[0]]; if (x.deuda) usadas[x.deuda] = rotulo(f); }); });
+    var l = deudasPend(null);
+    if (!l.length) return '';
+    return '<div class="card deuda"><h3 style="margin-top:0">💳 Servicios debidos pendientes <span class="small muted">· asígnalos en un turno del mes; quien iba por rotación pasa al siguiente</span></h3>' + l.map(function (d) {
+      var c = compPorId(d.deudor), a = compPorId(d.acreedor);
+      if (usadas[d.id]) return '<div class="small">✔ ' + nombreCon(c) + ': asignado en ' + esc(usadas[d.id]) + ' (se salda al guardar).</div>';
+      var ops = e.filas.map(function (f, i) { return [f, i]; }).filter(function (p) { var x = p[0].q[d.cuadrante]; return p[0].fin >= hoy() && claseOk(d, p[0].tipo) && x && !x.deuda && x.asig !== 'CAMBIO' && x.compId !== d.deudor && c && activo(c, p[0].inicio, p[0].fin) && !ausSalta(c, p[0].inicio, p[0].fin); })
+        .sort(function (x, y) { return ((y[0].q[d.cuadrante].compId === d.acreedor) - (x[0].q[d.cuadrante].compId === d.acreedor)) || x[0].inicio.localeCompare(y[0].inicio); });
+      return '<div class="deudafila"><div class="small"><b>' + nombreCon(c) + '</b> debe un servicio' + (a ? ' a <b>' + nombreCon(a) + '</b>' : '') + (d.clase !== 'CUALQUIERA' ? ' (' + esc(d.clase.toLowerCase()) + ')' : '') + (d.motivo ? ' · ' + esc(d.motivo) : '') + '</div>' +
+        '<div class="celda"><select data-deudaturno="' + d.id + '">' + (ops.length ? ops.map(function (p) { var x = p[0].q[d.cuadrante], ah = compPorId(x.compId); return '<option value="' + p[1] + '">' + (a && x.compId === a.id ? '★ ' : '') + esc(rotulo(p[0]) + ' · ' + (TIPOS_TURNO[p[0].tipo] || '') + ' · ahora: ' + (ah ? ah.nombre : 'sin asignar')) + '</option>'; }).join('') : '<option value="">No hay turnos disponibles este mes</option>') +
+        '</select><button class="chico prim" data-deudaasignar="' + d.id + '"' + (ops.length ? '' : ' disabled') + '>Asignar</button></div></div>';
+    }).join('') + '<p class="small muted">★ = turno que ahora tiene la persona a quien se le debe.</p></div>';
+  }
+  function asignarDeuda(id) {
+    var d = deudas.find(function (x) { return x.id === id; }), sel = $('[data-deudaturno="' + id + '"]');
+    if (!d || !sel || sel.value === '') return;
+    asignarCelda(Number(sel.value), d.cuadrante, d.deudor, 'DEUDA', txtDeuda(d), d.id);
+    render(); toast('Servicio debido asignado: guarda el mes para que quede saldado');
+  }
+  // Registro (pestaña «Cambios»)
+  function vistaDeudas() {
+    if (!info.deudas) return '<div class="sec"><span>💳 Servicios debidos</span></div><div class="card aviso small">Falta la lista «' + esc(LISTAS.deudas) + '». El administrador la crea en Ajustes («Crear las listas que faltan»).</div>';
+    var pend = deudasPend(null), resto = deudas.filter(function (d) { return d.estado !== 'PENDIENTE'; }).sort(function (a, b) { return b.id - a.id; });
+    var selComp = function (n, vacio) { return '<select name="' + n + '"><option value="">' + vacio + '</option>' + CUADRANTES.map(function (q) { return '<optgroup label="' + esc(q[1]) + '">' + ordenados(q[0]).map(function (c) { return '<option value="' + c.id + '">' + nombreCon(c) + '</option>'; }).join('') + '</optgroup>'; }).join('') + '</select>'; };
+    var ficha = function (d) {
+      var c = compPorId(d.deudor), a = compPorId(d.acreedor), t = turnoPorId(d.turno);
+      return '<div class="card deuda"><b>' + nombreCon(c) + '</b> debe un servicio' + (a ? ' a <b>' + nombreCon(a) + '</b>' : '') + (d.clase !== 'CUALQUIERA' ? ' (' + esc(d.clase.toLowerCase()) + ')' : '') +
+        ' <span class="badge ' + (d.estado === 'PENDIENTE' ? 'eSin' : d.estado === 'SALDADA' ? 'ePub' : 'eBor') + '">' + esc(d.estado) + '</span>' + (d.motivo ? '<div class="small">' + esc(d.motivo) + '</div>' : '') +
+        (t ? '<div class="small muted">Saldado con ' + esc(txtTurno(t)) + '</div>' : '') + (d.estado === 'PENDIENTE' ? '<div class="acciones"><button class="chico" data-deudaanular="' + d.id + '">Anular</button></div>' : '') + '</div>';
+    };
+    return '<div class="sec"><span>💳 Servicios debidos pendientes</span><span>' + pend.length + '</span></div>' + (pend.map(ficha).join('') || '<div class="card vacio">Ninguno.</div>') +
+      '<div class="card" id="fDeuda"><h3 style="margin-top:0">Registrar un servicio debido</h3><p class="small muted">Para lo que se arrastra del pasado: quién debe un servicio, a quién (si es a alguien) y por qué. Se asigna después en el cuadrante del mes («Servicios debidos pendientes»).</p>' +
+      '<div class="grid"><div><label class="lbl req">Lo debe</label>' + selComp('deudor', 'Seleccionar…') + '</div><div><label class="lbl">Se lo debe a (opcional)</label>' + selComp('acreedor', '— a nadie en concreto —') + '</div>' +
+      '<div><label class="lbl">Tipo de servicio</label><select name="clase"><option value="CUALQUIERA">Cualquiera</option><option value="DIARIO">Diario</option><option value="FIN DE SEMANA">Fin de semana o festivo</option></select></div></div>' +
+      '<label class="lbl req">Motivo</label><input name="motivo" placeholder="Por el cambio del 3 de diciembre, servicio cedido el 15/10…"><div id="deudaErr"></div><div class="acciones"><button class="prim" data-deudaguardar="1">Registrar</button></div></div>' +
+      '<details class="card"><summary style="cursor:pointer"><b>Saldados y anulados</b> <span class="muted">(' + resto.length + ')</span></summary>' + (resto.map(ficha).join('') || '<p class="muted small">Ninguno.</p>') + '</details>';
+  }
+  function guardarDeuda(boton) {
+    var f = $('#fDeuda'), v = function (n) { return f.querySelector('[name="' + n + '"]').value.trim(); }, err = function (m) { $('#deudaErr').innerHTML = '<div class="error">' + esc(m) + '</div>'; };
+    var c = compPorId(v('deudor')), a = compPorId(v('acreedor'));
+    if (!c) return err('Elige quién debe el servicio.'); if (!v('motivo')) return err('Escribe el motivo.');
+    if (a && a.cuadrante !== c.cuadrante) return err('Los dos tienen que ser del mismo cuadrante.');
+    if (a && a.id === c.id) return err('No puede debérselo a sí mismo.');
+    boton.disabled = true;
+    crearItem('deudas', { Title: c.nombre + ' debe un servicio' + (a ? ' a ' + a.nombre : ''), Cuadrante: c.cuadrante, Deudor: c.id, Acreedor: a ? a.id : null, ClaseTurno: v('clase'), Motivo: v('motivo'), EstadoDeuda: 'PENDIENTE',
+      Historial: anotacion('Registrado') }).then(leerDeudas).then(function () { render(); toast('Servicio debido registrado'); })
+      .catch(function (e) { boton.disabled = false; err('No se pudo guardar: ' + (e.message || e)); });
+  }
+  function anularDeuda(id, boton) {
+    if (!window.confirm('¿Anular este servicio debido?')) return;
+    var d = deudas.find(function (x) { return x.id === id; }); boton.disabled = true;
+    cambiarItem('deudas', id, { EstadoDeuda: 'ANULADA', Historial: (d.historial ? d.historial + '\n' : '') + anotacion('Anulado') }).then(leerDeudas).then(function () { render(); toast('Anulado'); })
+      .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
+  }
+
+  // ---------- Reglas del cuadrante (Ajustes, solo el administrador) ----------
+  var OPS_REGLA = [['SIEMPRE', 'Salta siempre (pierde el turno)'], ['DIAS', 'Salta si pasa del número de días'], ['NUNCA', 'No salta nunca: debe hacer un cambio']];
+  function tarjetaReglas() {
+    var sel = function (id, ops, v) { return '<select id="' + id + '">' + ops.map(function (o) { return '<option value="' + o[0] + '"' + (String(v) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>'; };
+    return '<div class="card" id="fReglas"><h3 style="margin-top:0">0. Reglas del cuadrante</h3>' +
+      (info.ajustes ? '' : '<div class="aviso small">Para guardar las reglas hace falta la lista «' + esc(LISTAS.ajustes) + '»: créala con «Crear las listas que faltan». Mientras, valen las de por defecto.</div>') +
+      '<h4>Ausencias</h4><div class="grid"><div><label class="lbl">Número de días</label><input id="rDias" type="number" min="0" max="60" value="' + esc(CFG.dias) + '"></div><div><label class="lbl">Se cuentan</label>' +
+      sel('rCuenta', [['LABORABLES', 'Días laborables (lunes a viernes, sin festivos)'], ['NATURALES', 'Días naturales']], CFG.cuenta) + '</div></div>' +
+      '<table class="t"><tr><th>Tipo de ausencia</th><th>¿Salta el servicio?</th></tr>' + TIPOS_AUS.map(function (t) {
+        return '<tr><td><span class="cuadro" style="' + colorAus(t[0]) + '"></span> ' + esc(TXT_AUS[t[0]]) + '</td><td><select data-rtipo="' + t[0] + '">' + OPS_REGLA.map(function (o) { return '<option value="' + o[0] + '"' + (regla(t[0]) === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></td></tr>';
+      }).join('') + '</table>' +
+      '<h4>Turnos</h4><div class="grid"><div><label class="lbl">Turnos de diario</label>' + sel('rDiario', [[2, 'De 2 días (lunes-martes y miércoles-jueves)'], [1, 'De 1 día']], CFG.diario) + '</div>' +
+      '<div><label class="lbl">Fin de semana</label>' + sel('rFinde', [['VSD', 'De viernes a domingo'], ['SD', 'Sábado y domingo (el viernes es diario)']], CFG.finde) + '</div>' +
+      '<div><label class="lbl">Rotación</label>' + sel('rRotacion', [['SEPARADAS', 'Una para diario y otra para fines de semana y festivos'], ['UNICA', 'Una sola para todos los turnos']], CFG.rotacion) + '</div>' +
+      '<div><label class="lbl">Orden</label>' + sel('rOrden', [['ANTIGUO', 'Del más antiguo al más moderno'], ['MODERNO', 'Del más moderno al más antiguo']], CFG.orden) + '</div></div>' +
+      '<label class="check"><input type="checkbox" id="rUnir"' + (CFG.unir ? ' checked' : '') + '> Los festivos y puentes pegados al fin de semana forman un solo turno</label><br>' +
+      '<label class="check"><input type="checkbox" id="rCorreo"' + (CFG.correo ? ' checked' : '') + '> Enviar los avisos por correo</label>' +
+      '<p class="small muted">Ahora: ' + esc(textoReglas()) + ' Los cambios valen para las propuestas nuevas; los meses ya guardados no se tocan (se pueden volver a proponer).</p>' +
+      '<div class="acciones"><button class="prim" data-reglasguardar="1"' + (info.ajustes ? '' : ' disabled') + '>Guardar las reglas</button><button data-reglasdefecto="1"' + (info.ajustes ? '' : ' disabled') + '>Volver a las de por defecto</button></div></div>';
+  }
+  function guardarReglas(boton, porDefecto) {
+    var v;
+    if (porDefecto) { if (!window.confirm('¿Volver a las reglas por defecto?')) return; v = copia(CFG_DEF); }
+    else {
+      v = { dias: Math.max(0, Number($('#rDias').value) || 0), cuenta: $('#rCuenta').value, tipos: {}, diario: Number($('#rDiario').value), finde: $('#rFinde').value, unir: $('#rUnir').checked,
+        rotacion: $('#rRotacion').value, orden: $('#rOrden').value, correo: $('#rCorreo').checked };
+      $$('[data-rtipo]').forEach(function (x) { v.tipos[x.dataset.rtipo] = x.value; });
+    }
+    boton.disabled = true;
+    var cuerpo = { Title: 'REGLAS', Valor: JSON.stringify(v) };
+    (cfgItem ? cambiarItem('ajustes', cfgItem, cuerpo) : crearItem('ajustes', cuerpo)).then(leerAjustesReglas).then(function () {
+      if (edicion.propuesta) prepararMes(edicion.ym, true);
+      resultado = { cls: 'okmsg', html: '✓ Reglas guardadas. ' + esc(textoReglas()) }; render();
+    }).catch(function (e) { boton.disabled = false; toast('No se pudieron guardar: ' + (e.message || e)); });
+  }
+
   // ---------- Eventos ----------
   var accionCon = function (el, sel) { return el.closest('[' + sel + ']'); };
   document.addEventListener('click', function (e) {
@@ -8007,15 +8193,21 @@ var Cipher = {
     }
     if ((b = accionCon(el, 'data-guardarmes'))) { guardarMes(b.dataset.guardarmes === '1', b); return; }
     if (el.closest('[data-imprimir]')) { imprimirMes(); return; }
-    if ((b = accionCon(el, 'data-sustituir'))) { var p = b.dataset.sustituir.split('|'); edicion.filas[Number(p[0])].q[p[1]].compId = Number(p[2]); edicion.sucio = true; render(); return; }
+    if ((b = accionCon(el, 'data-sustituir'))) { var p = b.dataset.sustituir.split('|'), qa = compPorId(edicion.filas[Number(p[0])].q[p[1]].compId); asignarCelda(Number(p[0]), p[1], Number(p[2]), 'MANUAL', 'Sustituye a ' + (qa ? qa.nombre : '—') + ' (ausencia)'); render(); return; }
     if ((b = accionCon(el, 'data-imprevisto'))) {
       var pi = b.dataset.imprevisto.split('|'), fi = edicion.filas[Number(pi[0])], xi = fi.q[pi[1]], si = sustituto(pi[1], fi, xi.compId);
       if (!si) return toast('No hay nadie disponible en la rotación para ese turno');
       if (!window.confirm(nombreCon(compPorId(xi.compId)).replace(/<[^>]+>/g, '') + ' no puede hacer el servicio ' + rotulo(fi) + '. ¿Lo hace ' + si.nombre + ' (siguiente disponible)? Puedes elegir a otro en la lista.')) return;
-      xi.compId = si.id; edicion.sucio = true; render(); toast('Cambio preparado: pulsa «Guardar cambios y avisar»'); return;
+      var ni = compPorId(xi.compId); asignarCelda(Number(pi[0]), pi[1], si.id, 'MANUAL', 'Imprevisto: ' + (ni ? ni.nombre : '—') + ' no puede hacer el servicio'); render(); toast('Cambio preparado: revisa el motivo y guarda'); return;
     }
     if ((b = accionCon(el, 'data-cambiopedir'))) { cambioForm = { turno: Number(b.dataset.cambiopedir), tipo: 'PERMUTA' }; resultado = null; render(); window.scrollTo(0, 0); return; }
     if (el.closest('[data-cambiocancelar]')) { cambioForm = null; render(); return; }
+    if ((b = accionCon(el, 'data-rotacion'))) { var pr = b.dataset.rotacion.split('|'), xr = edicion.filas[Number(pr[0])].q[pr[1]]; xr.asig = 'ROTACION'; xr.motivo = ''; xr.deuda = null; edicion.filas = proponer(edicion.ym, fijosDe(edicion.ym)); render(); return; }
+    if ((b = accionCon(el, 'data-deudaasignar'))) { asignarDeuda(Number(b.dataset.deudaasignar)); return; }
+    if ((b = accionCon(el, 'data-deudaguardar'))) { guardarDeuda(b); return; }
+    if ((b = accionCon(el, 'data-deudaanular'))) { anularDeuda(Number(b.dataset.deudaanular), b); return; }
+    if ((b = accionCon(el, 'data-reglasguardar'))) { guardarReglas(b, false); return; }
+    if ((b = accionCon(el, 'data-reglasdefecto'))) { guardarReglas(b, true); return; }
     if ((b = accionCon(el, 'data-cambiofirmar'))) { pedirCambio(b); return; }
     if ((b = accionCon(el, 'data-cambioaceptar'))) { aceptarCambio(Number(b.dataset.cambioaceptar), b); return; }
     if ((b = accionCon(el, 'data-cambiorechazar'))) { rechazarCambio(Number(b.dataset.cambiorechazar), b); return; }
@@ -8061,9 +8253,15 @@ var Cipher = {
   document.addEventListener('change', function (e) {
     var el = e.target;
     if (el.closest && el.closest('#fCambio') && el.tagName === 'SELECT') { leerFormCambio(); if (el.name === 'comp') cambioForm.turnoB = ''; var mo = cambioForm.motivo; render(); var m2 = $('#fCambio [name="motivo"]'); if (m2) m2.value = mo || ''; return; }
-    if (el.dataset && el.dataset.celda) { var p = el.dataset.celda.split('|'); edicion.filas[Number(p[0])].q[p[1]].compId = el.value ? Number(el.value) : null; edicion.sucio = true; render(); return; }
+    if (el.dataset && el.dataset.celda) {
+      var p = el.dataset.celda.split('|'), xc = edicion.filas[Number(p[0])].q[p[1]], v = el.value ? Number(el.value) : null;
+      if (xc.item && v === xc.orig) { xc.compId = v; xc.asig = xc.asigOrig; xc.motivo = xc.motivoOrig; xc.deuda = null; edicion.sucio = true; }
+      else asignarCelda(Number(p[0]), p[1], v, 'MANUAL', '');
+      render(); var mi = $('[data-motivo="' + p[0] + '|' + p[1] + '"]'); if (mi && !mi.value) mi.focus(); return;
+    }
+    if (el.dataset && el.dataset.motivo) { var pm = el.dataset.motivo.split('|'); edicion.filas[Number(pm[0])].q[pm[1]].motivo = el.value.trim(); edicion.sucio = true; render(); return; }
+    if (el.dataset && el.dataset.rtipo !== undefined) return;
     if (el.dataset && el.dataset.empieza) { (empiezaPor[edicion.ym] = empiezaPor[edicion.ym] || {})[el.dataset.empieza] = Number(el.value); prepararMes(edicion.ym, true); render(); return; }
-    if (el.id === 'aCorreo' && esAdmin) { pref.correo = el.checked; guardarPref(); return; }
     if (el.id === 'aSitio' && esAdmin) { pref.sitio = el.value.trim() || pref.sitio; guardarPref(); cargar(); return; }
   });
   document.addEventListener('toggle', function (e) { if (e.target && e.target.dataset && e.target.dataset.rotdet) { pref.rotAbierta = e.target.open; guardarPref(); } }, true);
