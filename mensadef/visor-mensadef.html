@@ -531,7 +531,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-18 · 5';
+  var VERSION = '2026-11-18 · 6';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1668,24 +1668,49 @@
   function imprimirMensaje(m) {
     var w = window.open('', '_blank');
     if (!w) { alert('El navegador ha bloqueado la ventana. Permite las ventanas emergentes de MENSADEF.'); return; }
-    var x = m._x || {}, j = m._cuerpoCompleto || {}, f = fechaDe(m);
-    var nombres = function (l) { return (l || []).map(function (d) { return d && (d.Nombre || d.nombre); }).filter(Boolean).join(' · '); };
-    var filas = [['Asunto', m._asunto || m.Title || ''], ['Fecha', f ? f.toLocaleString('es-ES') : ''], ['Referencia', m.MensajeNum_referencia || ''], ['Su referencia', m.MensajeSu_referencia || ''],
-      ['Expediente', m.MensajeNum_expediente || ''], ['Remitente', autoridad(m) || ''], ['Firma', CLAVES.firma(m) || ''], ['Célula', sitioDe(m) || ''], ['Prioridad', x.CodigoPrioridad || ''],
-      ['Destinatarios', nombres(j.Destinatarios)], ['Con copia', nombres(j.DestinatariosCopia)], ['Anexos', (m._anexos || []).map(function (a) { return a.Titulo || a.Nombre; }).filter(Boolean).join(' · ')]]
-      .filter(function (r) { return r[1]; });
-    var h = '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>' + esc((m.MensajeNum_referencia ? m.MensajeNum_referencia + ' · ' : '') + (m._asunto || 'Mensaje')) + '</title><style>' +
-      'body{font:12pt/1.45 "Segoe UI",Arial,sans-serif;color:#111;margin:18mm 16mm}h1{font-size:15pt;margin:0 0 4mm;color:#12315a}' +
-      '.cab{border-bottom:2px solid #12315a;padding-bottom:3mm;margin-bottom:5mm;display:flex;justify-content:space-between;font-size:9pt;color:#444}' +
-      'table{border-collapse:collapse;width:100%;margin-bottom:6mm}td{border-bottom:1px solid #ddd;padding:1.5mm 2mm;vertical-align:top;font-size:10.5pt}td.k{width:32mm;color:#555;font-weight:600}' +
-      '.texto{white-space:pre-wrap;border:1px solid #ccc;border-radius:2mm;padding:4mm;font-size:11pt}.pie{margin-top:8mm;font-size:8pt;color:#777;text-align:center}@media print{.noimp{display:none}}' +
-      '</style></head><body><div class="cab"><span><b>MINISTERIO DE DEFENSA · EJÉRCITO DE TIERRA</b><br>Mensajería oficial · MENSADEF</span><span>' + esc(m.MensajeTipo_es || x.__es || '') + '</span></div>' +
-      '<h1>' + esc(m._asunto || m.Title || '(sin asunto)') + '</h1><table>' + filas.map(function (r) { return '<tr><td class="k">' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td></tr>'; }).join('') + '</table>' +
-      '<div class="texto">' + esc(m._cuerpo || '(sin texto)') + '</div>' +
-      '<p class="pie">Impreso desde SENDERO el ' + esc(new Date().toLocaleString('es-ES')) + '. El documento original firmado está en MENSADEF.</p>' +
-      '<p class="noimp" style="text-align:center"><button onclick="window.print()">🖨 Imprimir / Guardar como PDF</button></p></body></html>';
-    w.document.open(); w.document.write(h); w.document.close();
-    setTimeout(function () { try { w.focus(); w.print(); } catch (e) { /* el usuario pulsa el botón */ } }, 400);
+    w.document.open(); w.document.write('<p style="font:14px sans-serif;margin:40px">Preparando el oficio…</p>'); w.document.close();
+    // 18/11/2026: con el formato del oficio de MENSADEF (modelo dado por el usuario): cabecera, USO OFICIAL, firma electrónica,
+    // registros de salida y entrada, bloque OFICIO (S/REF., N/REF., FECHA, ASUNTO, ANEXOS, DESTINATARIO, COPIA), texto y firma.
+    // Destinatarios y anexos llegan con el cuerpo del mensaje: se esperan (si fallan, se imprime con lo que hay).
+    var listo = m._api && apiCtx ? cuerpoCompleto(m).catch(function () { return {}; }) : Promise.resolve(m._cuerpoCompleto || {});
+    listo.then(function (j) {
+      j = j || {};
+      if (j.Cuerpo && !m._cuerpo) m._cuerpo = texto(String(j.Cuerpo));
+      if (j.AnexosDigitales && !m._anexos) m._anexos = j.AnexosDigitales.filter(Boolean);
+      var x = m._x || {}, f = fechaDe(m);
+      var fh = function (v) { var d = v ? new Date(v) : null; return d && !isNaN(d) ? d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' ' + d.toLocaleTimeString('es-ES') : ''; };
+      var fl = function (v) { var d = v ? new Date(v) : null; return d && !isNaN(d) ? d.toLocaleDateString('es-ES') + ' ' + d.toLocaleTimeString('es-ES') : ''; };
+      var nombres = function (l) { return (l || []).map(function (d) { return d && (d.Nombre || d.nombre); }).filter(Boolean); };
+      var dest = nombres(j.Destinatarios), copia = nombres(j.DestinatariosCopia);
+      if (!dest.length && x.Destinatarios) dest = [String(x.Destinatarios)];
+      var firma = String(CLAVES.firma(m) || x.Firma || '').trim(), remit = autoridad(m) || x.CelulaRemitente || '';
+      var anexos = (m._anexos || []).map(function (a) { return a.Nombre || a.Titulo; }).filter(Boolean);
+      var registro = function (num, fecha, tipo) { return '<table class="reg"><tr><td>REGISTRO ELECTRÓNICO DEL MINISTERIO DE DEFENSA</td></tr><tr><td>' + esc(num || '—') + '</td></tr><tr><td>' + esc(fh(fecha) || '—') + '</td></tr><tr><td>' + tipo + '</td></tr></table>'; };
+      var filas = [['S/REF.', m.MensajeSu_referencia], ['N/REF.', x.Nref], ['FECHA', fl(f)], ['ASUNTO', m._asunto || m.Title], ['ANEXOS', anexos.join(' · ')], ['DESTINATARIO', dest.join(' · '), 1], ['COPIA', copia.join(' · '), 1]];
+      var h = '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>' + esc('OFICIO ' + (x.NumeroRegistroSalida || m.MensajeNum_referencia || '') + ' · ' + (m._asunto || '')) + '</title><style>' +
+        '@page{size:A4;margin:12mm 12mm 14mm 8mm}body{font:9.5pt Arial,Helvetica,sans-serif;color:#000;margin:0;padding-left:14mm}' +
+        '.cab{display:grid;grid-template-columns:1fr auto 1fr;align-items:start;gap:8mm;margin-bottom:6mm}.min{font-size:8.5pt;line-height:1.15;padding-top:6mm}' +
+        '.uso{border:3px double #1d5fa8;color:#1d5fa8;font:13pt Arial;letter-spacing:.06em;padding:1.5mm 4mm;margin-top:4mm}' +
+        '.der{background:#e6e6e6;font:7.5pt "Times New Roman",serif;padding:3mm 4mm;min-height:12mm;text-transform:uppercase}.der2{font:7.5pt "Times New Roman",serif;margin-top:3mm;text-transform:uppercase}' +
+        '.fila{display:grid;grid-template-columns:1.45fr 1fr 1fr;gap:3mm;margin-bottom:6mm}.firma{border:1px solid #000;padding:3mm;font-size:7.5pt;line-height:2;text-transform:uppercase}' +
+        'table.reg{border-collapse:collapse;width:100%;font-size:7.5pt;text-align:center}table.reg td{border:1px solid #000;padding:1.6mm 1mm}' +
+        '.ofi{position:relative;padding-left:2mm;margin:0 0 6mm}.ofi:before{content:"";position:absolute;left:-9mm;top:0;bottom:-3mm;width:7mm;border-top:1px solid #000;border-right:1px solid #000;border-bottom:1px solid #000}' +
+        '.ofi h2{font-size:9pt;letter-spacing:.45em;margin:0 0 2mm}table.dat{border-collapse:collapse;font-size:7.5pt}table.dat td{padding:1.4mm 2mm;vertical-align:top}table.dat td.k{width:38mm}table.dat td.b{font-weight:bold}' +
+        '.texto{font:11pt/1.5 "Times New Roman",serif;white-space:pre-wrap;text-align:justify;margin:0 6mm 8mm}.fin{text-align:center;font:7.5pt "Times New Roman",serif;text-transform:uppercase;line-height:2.2}' +
+        '.csv{position:fixed;left:4mm;bottom:30mm;transform:rotate(-90deg);transform-origin:left bottom;font:7pt "Times New Roman",serif;width:130mm;white-space:nowrap}' +
+        '.pie{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center}.noimp{text-align:center;margin:8mm}@media print{.noimp{display:none}}</style></head><body>' +
+        '<div class="cab"><div class="min"><b>MINISTERIO<br>DE DEFENSA</b></div><div class="uso">USO OFICIAL</div><div><div class="der">' + esc(remit) + '</div><div class="der2">' + esc(sitioDe(m) || '') + '</div></div></div>' +
+        '<div class="fila"><div class="firma">FIRMA ELECTRÓNICA MINISDEF-EC-WPG-PKI:<br>' + esc(firma || '—') + '<br>FECHA DE LA FIRMA: ' + esc(fl(x.FechaFirma || x.FechaRegistroSalida) || '—') + '</div>' +
+          registro(x.NumeroRegistroSalida, x.FechaRegistroSalida, 'SALIDA') + registro(x.NumeroRegistroEntrada, x.FechaRegistroEntrada, 'ENTRADA') + '</div>' +
+        '<div class="ofi"><h2>OFICIO</h2><table class="dat">' + filas.map(function (r) { return '<tr><td class="k' + (r[2] ? ' b' : '') + '">' + r[0] + '</td><td>' + esc(r[1] || '') + '</td></tr>'; }).join('') + '</table></div>' +
+        '<div class="texto">' + esc(m._cuerpo || '(sin texto)') + '</div>' +
+        (firma ? '<div class="fin">' + esc(firma) + '</div>' : '') +
+        '<div class="csv">Copia impresa desde SENDERO el ' + esc(new Date().toLocaleString('es-ES')) + '. No es el documento firmado: el original está en MENSADEF.</div>' +
+        '<div class="pie"><div class="uso">USO OFICIAL</div></div>' +
+        '<p class="noimp"><button onclick="window.print()">🖨 Imprimir / Guardar como PDF</button></p></body></html>';
+      w.document.open(); w.document.write(h); w.document.close();
+      setTimeout(function () { try { w.focus(); w.print(); } catch (e) { /* el usuario pulsa el botón */ } }, 400);
+    });
   }
   // ✉ Enviar por correo (09/11/2026): correo de Outlook (mailto) con lo relevante del mensaje y los enlaces a MENSADEF
   // y a la carpeta de sus documentos. Sin adjuntos: se ven desde el enlace. No toca MENSADEF.

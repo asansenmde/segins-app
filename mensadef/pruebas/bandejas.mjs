@@ -605,12 +605,15 @@ for (const n of [0, 40]) {
   console.log('referencia: «N.º referencia» RE-1 → candidatos', cands.join(','));
   if (!cands.includes('RE-3') || cands.some(c => /^RE-1\d/.test(c))) console.log('Error: N.º referencia');
   await p.fill('#buscar', ''); await p.waitForTimeout(300); }
-// 18/11/2026: «🖨 Imprimir / PDF»: ventana con el mensaje en formato de oficio
+// 18/11/2026: «🖨 Imprimir / PDF» con el formato del oficio de MENSADEF (cabecera, USO OFICIAL, firma, registros, OFICIO)
 { await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
-  const [w] = await Promise.all([ctx.waitForEvent('page'), p.click('#imprimirMsg')]); await w.waitForLoadState(); await w.waitForTimeout(600);
-  const r = await w.evaluate(() => ({ t: document.title, h1: (document.querySelector('h1') || {}).textContent || '', filas: [...document.querySelectorAll('td.k')].map(x => x.textContent), texto: !!document.querySelector('.texto'), boton: !!document.querySelector('.noimp button') }));
-  console.log('imprimir: ventana «' + r.h1.slice(0, 30) + '» | campos', r.filas.join(','), '| texto', r.texto, '| botón', r.boton);
-  if (!r.h1 || !r.filas.includes('Asunto') || !r.filas.includes('Fecha') || !r.texto || !r.boton) console.log('Error: imprimir mensaje');
+  const [w] = await Promise.all([ctx.waitForEvent('page'), p.click('#imprimirMsg')]); await w.waitForLoadState();
+  await w.waitForFunction(() => !!document.querySelector('.ofi'), null, { timeout: 20000 }).catch(() => 0);
+  const r = await w.evaluate(() => ({ uso: document.querySelectorAll('.uso').length, firma: /FIRMA ELECTRÓNICA/.test((document.querySelector('.firma') || {}).textContent || ''),
+    regs: [...document.querySelectorAll('table.reg')].map(t => t.rows[3].textContent), campos: [...document.querySelectorAll('table.dat td.k')].map(x => x.textContent), texto: !!document.querySelector('.texto'), csv: /SENDERO/.test((document.querySelector('.csv') || {}).textContent || '') }));
+  console.log('imprimir: USO OFICIAL', r.uso, '| firma', r.firma, '| registros', r.regs.join('/'), '| oficio:', r.campos.join(','), '| texto', r.texto, '| nota de copia', r.csv);
+  if (r.uso !== 2 || !r.firma || r.regs.join() !== 'SALIDA,ENTRADA' || ['S/REF.', 'N/REF.', 'FECHA', 'ASUNTO', 'ANEXOS', 'DESTINATARIO', 'COPIA'].some(k => !r.campos.includes(k)) || !r.texto || !r.csv) console.log('Error: imprimir mensaje');
+  if (process.env.CAPTURA_OFICIO) await w.pdf({ path: process.env.CAPTURA_OFICIO, format: 'A4', printBackground: true });
   await w.close(); await p.bringToFront(); }
 // «Responder» (13/11/2026): abre el mensaje en MENSADEF y pulsa su «Responder» (no «Responder a todos»)
 { await p.fill('#buscar', 'RE-0'); await p.waitForTimeout(400);

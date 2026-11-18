@@ -525,4 +525,8 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-18 · 5:** el mensaje encontrado por una referencia se ve en una **ventana encima** (datos, texto, anexos, «🖨 Imprimir /
   PDF», «Abrir en MENSADEF»); «✕ Cerrar y volver», Esc o pulsar fuera la quitan y se sigue en la lista y la ficha de antes. Ya
   no se añade a la lista (antes, uno de hace meses se quedaba en la lista de hoy).
+- **2026-11-18 · 6:** «🖨 Imprimir / PDF» con el **formato del oficio de MENSADEF** (modelo dado por el usuario): MINISTERIO DE
+  DEFENSA, sellos USO OFICIAL, remitente, recuadro de firma electrónica, registros electrónicos de salida y entrada, bloque
+  «O F I C I O» (S/REF., N/REF., FECHA, ASUNTO, ANEXOS, DESTINATARIO, COPIA), texto en letra de oficio y firma. Sin escudo ni
+  CSV: en el margen dice que es una copia impresa desde SENDERO y que el original firmado está en MENSADEF.
 
