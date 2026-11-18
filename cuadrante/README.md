@@ -90,6 +90,22 @@ correo a la cuenta y copia cifrada entera.
 - **Control total en JSUIGE:** el usuario. Desde Ajustes crea las listas y el grupo `CUADRANTE_GESTORES`, y aprueba
   las solicitudes de acceso.
 
+## Lo que se toma de la hoja actual (Excel de 2026, solo como referencia)
+
+- **Componentes:** nº de escalafón y fecha de antigüedad en el empleo, que sirven para ordenar la rotación.
+- **Tipos de ausencia, con su color:**
+  - vacaciones (verde claro);
+  - asuntos propios, «AAPP» (azul);
+  - baja médica (rojo);
+  - comisión de servicio (verde);
+  - permiso, como el de paternidad (naranja claro);
+  - otros (naranja), con observación libre (por ejemplo «pendiente de incorporación»).
+- **Baja del cuadrante:** se ve en gris oscuro desde la fecha de baja, sin borrar a la persona.
+- **Vista anual para el gestor:** el año entero en horizontal (una columna por turno, con el fin de semana resaltado),
+  además de la vista mensual.
+- **No se toma:** los días sueltos de diario (ahora son bloques de 2 días), la marca «C» antigua (los cambios van con
+  su propio registro) ni las marcas «RS» y «CS IT» (son comisión de servicio).
+
 ## Diseño propuesto
 
 Listas, que crea la página desde Ajustes:
