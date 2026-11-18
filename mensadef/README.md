@@ -520,4 +520,6 @@ con el formato *verbose* de SharePoint 2013.
   referencias (llevan números; sin fechas ni años sueltos) y se busca cada uno en N.º referencia y registros (exacto, contenido
   si tiene 5 o más caracteres, o los mismos dígitos si son 5 o más). Si hay varios, lista para elegir; si no, caja para
   corregir la referencia a mano y «🔎 Buscar».
+- **2026-11-18 · 4:** **«N.º referencia» también pulsable**: busca los mensajes que citan ese número en su «Su referencia»
+  (respuestas, comparando por trozos: «RE-1» no casa con «SREF-10») y los que llevan ese mismo número.
 

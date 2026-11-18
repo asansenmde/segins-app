@@ -531,7 +531,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-18 · 3';
+  var VERSION = '2026-11-18 · 4';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1582,14 +1582,18 @@
   // Exacto o contenido (≥ 5 caracteres); y, más flojo, mismos dígitos si son 5 o más
   var casaAlguno = function (m, trozos) { return trozos.some(function (r) { return casaRef(m, r); }) ||
     trozos.some(function (r) { var d = digitos(r); return d.length >= 5 && refsDe(m).some(function (v) { return digitos(v) === d; }); }); };
-  function irAReferencia(desde, ref) {
-    var caja = $('msgRef'), msg = function (t) { if (caja) caja.innerHTML = t; };
+  function irAReferencia(desde, ref, conSu, idMsg) {
+    var caja = $(idMsg || 'msgRef'), msg = function (t) { if (caja) caja.innerHTML = t; };
     var trozos = trozosRef(ref);
+    // Con «N.º referencia» también vale que el otro lo cite en su «Su referencia» (texto libre)
+    // (por trozos: «RE-1» no casa con «SREF-10»)
+    var casa = function (x) { return casaAlguno(x, trozos) || (conSu && x.MensajeSu_referencia && trozosRef(x.MensajeSu_referencia).some(function (t) { return trozos.some(function (r) { return t === r || (r.length >= 5 && t.length >= 5 && (t.indexOf(r) >= 0 || r.indexOf(t) >= 0)); }); })); };
     // Caja para corregir la referencia a mano
     var cajaBuscar = function (antes) {
-      msg((antes || '') + '<span style="display:inline-flex;gap:4px;margin-top:4px"><input id="refManual" size="22" value="' + esc(ref) + '" title="Corrige la referencia y pulsa Buscar"><button type="button" id="refBuscar">🔎 Buscar</button></span>');
-      $('refBuscar').addEventListener('click', function () { irAReferencia(desde, $('refManual').value); });
-      $('refManual').addEventListener('keydown', function (e) { if (e.key === 'Enter') irAReferencia(desde, $('refManual').value); });
+      msg((antes || '') + '<span style="display:inline-flex;gap:4px;margin-top:4px"><input class="refManual" size="22" value="' + esc(ref) + '" title="Corrige la referencia y pulsa Buscar"><button type="button" class="refBuscar">🔎 Buscar</button></span>');
+      var inp = caja.querySelector('.refManual'), otra = function () { irAReferencia(desde, inp.value, conSu, idMsg); };
+      caja.querySelector('.refBuscar').addEventListener('click', otra);
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') otra(); });
     };
     if (!trozos.length) return cajaBuscar('No veo ninguna referencia en ese texto. ');
     var elegir = function (l, donde) {
@@ -1603,7 +1607,7 @@
       if (!igual) { x._fueraPeriodo = true; mensajes.push(x); filtrar(); }
       abrir(igual || x);
     };
-    var ya = mensajes.filter(function (x) { return x !== desde && casaAlguno(x, trozos); });
+    var ya = mensajes.filter(function (x) { return x !== desde && casa(x); });
     if (ya.length) return elegir(ya, 'cargados con esa referencia');
     if (!modoApi || !apiCtx) return cajaBuscar('No está en lo cargado. ');
     msg('Buscando ' + esc(trozos.join(', ')) + ' en MENSADEF…');
@@ -1614,7 +1618,7 @@
         var els = (d && (d.ListaElementos || d.listaElementos)) || primerArray(d) || [];
         els.map(function (e) { return deApi(e, t.c, t.es); }).forEach(function (x) {
           var k = claveMensaje(x);
-          if (!vistos[k] && casaAlguno(x, trozos) && (!desde || x.MensajeId !== desde.MensajeId)) { vistos[k] = 1; hallados.push(x); }
+          if (!vistos[k] && casa(x) && (!desde || x.MensajeId !== desde.MensajeId)) { vistos[k] = 1; hallados.push(x); }
         });
       }, function () { /* esa bandeja no responde: se sigue con las demás */ });
     };
@@ -2127,7 +2131,9 @@
       // Destinatarios: la bandeja los trae vacíos en los de entrada; la lista completa (y con copia) llega con el cuerpo del mensaje
       fichaApi = '<dl class="ficha-campos">' + CAMPOS_FICHA.filter(function (c) { return c[1]; }).map(function (c) {
         // 18/11/2026: «Su referencia» pulsable: abre el mensaje al que se refiere (ver irAReferencia)
-        if (c[0] === 'Su referencia') return '<dt>' + esc(c[0]) + '</dt><dd><a href="#" class="irRef" data-ref="' + esc(c[1]) + '" title="Abre el mensaje con esta referencia">🔗 ' + esc(c[1]) + '</a> <span class="small muted" id="msgRef"></span></dd>';
+        if (c[0] === 'Su referencia') return '<dt>' + esc(c[0]) + '</dt><dd><a href="#" class="irRef" data-ref="' + esc(c[1]) + '" data-msg="msgRef" title="Abre el mensaje con esta referencia">🔗 ' + esc(c[1]) + '</a> <span class="small muted" id="msgRef"></span></dd>';
+        // «N.º referencia» pulsable: los mensajes que lo citan en su «Su referencia» (respuestas) o con ese mismo número
+        if (c[0] === 'N.º referencia') return '<dt>' + esc(c[0]) + '</dt><dd><a href="#" class="irRef" data-ref="' + esc(c[1]) + '" data-msg="msgRefN" data-su="1" title="Busca los mensajes que hacen referencia a este número (respuestas) o lo llevan">🔗 ' + esc(c[1]) + '</a> <span class="small muted" id="msgRefN"></span></dd>';
         return '<dt>' + esc(c[0]) + '</dt><dd' + (c[0] === 'Destinatarios' ? ' id="fDest"' : '') + '>' + (c[0] === 'Destinatarios' && c[1] === '\u2026' ? '<span class="muted">Cargando…</span>' : esc(c[1])) + '</dd>'; }).join('') + '</dl>';
     }
     var maxi = $('layout').classList.contains('max');
@@ -2193,7 +2199,7 @@
     $('verDet').addEventListener('click', function () { cambiarVisto(m, !vistos[claveMensaje(m)]); });
     $('porCorreo').addEventListener('click', function () { correoMensaje(m); });
     $('imprimirMsg').addEventListener('click', function () { imprimirMensaje(m); });
-    Array.prototype.forEach.call($('detalle').querySelectorAll('.irRef'), function (a) { a.addEventListener('click', function (e) { e.preventDefault(); irAReferencia(m, a.getAttribute('data-ref')); }); });
+    Array.prototype.forEach.call($('detalle').querySelectorAll('.irRef'), function (a) { a.addEventListener('click', function (e) { e.preventDefault(); irAReferencia(m, a.getAttribute('data-ref'), !!a.getAttribute('data-su'), a.getAttribute('data-msg')); }); });
     $('aColabora').addEventListener('click', function () { pasarAColabora(m, disp); });
     // 15/11/2026 (tarde): vuelve a pasar por META, que detecta la célula y lo lleva al PSIT, hasta que el PSIT acepte el paso
     // directo (sesión «[PUNTOS]»); entonces bastará con PSIT_DIRECTO = true

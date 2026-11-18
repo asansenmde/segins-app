@@ -578,20 +578,26 @@ for (const n of [0, 40]) {
 }
 // 18/11/2026: «Su referencia» pulsable con texto libre: RE-3 → «Su escrito n.º RE-1 de 12/11/2026» (cargado); RE-4 → «S/Ref.:
 // RS-ANTIGUO-9 (correo)» (de otra fecha, en MENSADEF); RE-5 → «SREF-5» (no existe): caja para corregirla a mano (RE-2)
-{ const refDe = () => p.$$eval('#detalle .ficha-campos dt', l => (l.find(d => d.textContent === 'N.º referencia') || {}).nextElementSibling?.textContent || '');
+{ const refDe = () => p.$$eval('#detalle .ficha-campos dt', l => { const dd = (l.find(d => d.textContent === 'N.º referencia') || {}).nextElementSibling; return dd ? ((dd.querySelector('a') || dd).textContent || '').replace(/🔗\s*/, '').trim() : ''; });
   // Si hay varios con esa referencia (en la simulación, una por célula), SENDERO da una lista: se elige el primero
   let listas = 0; const elegir = async () => { if (await p.$('#msgRef [data-cand]')) { listas++; await p.click('#msgRef [data-cand] >> nth=0'); await p.waitForTimeout(600); } };
   await p.fill('#buscar', 'RE-3'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
-  await p.click('.irRef'); await p.waitForTimeout(600); await elegir(); const a1 = await refDe();
+  await p.click('.irRef[data-msg="msgRef"]'); await p.waitForTimeout(600); await elegir(); const a1 = await refDe();
   await p.fill('#buscar', 'RE-4'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
-  const n0 = buscadosRef.length; await p.click('.irRef'); await p.waitForFunction(() => /Mensaje antiguo referenciado/.test((document.querySelector('#detalle') || {}).textContent || ''), null, { timeout: 20000 }).catch(() => 0);
+  const n0 = buscadosRef.length; await p.click('.irRef[data-msg="msgRef"]'); await p.waitForFunction(() => /Mensaje antiguo referenciado/.test((document.querySelector('#detalle') || {}).textContent || ''), null, { timeout: 20000 }).catch(() => 0);
   const antiguo = /Mensaje antiguo referenciado/.test(await p.textContent('#detalle')), busco = [...new Set(buscadosRef.slice(n0))];
   await p.fill('#buscar', 'RE-5'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
-  await p.click('.irRef'); await p.waitForSelector('#refManual', { timeout: 20000 }).catch(() => 0);
-  const caja = !!(await p.$('#refManual')); if (caja) { await p.fill('#refManual', 'RE-2'); await p.click('#refBuscar'); await p.waitForTimeout(600); await elegir(); }
+  await p.click('.irRef[data-msg="msgRef"]'); await p.waitForSelector('#msgRef .refManual', { timeout: 20000 }).catch(() => 0);
+  const caja = !!(await p.$('#msgRef .refManual')); if (caja) { await p.fill('#msgRef .refManual', 'RE-2'); await p.click('#msgRef .refBuscar'); await p.waitForTimeout(600); await elegir(); }
   const a3 = await refDe();
   console.log('referencia: texto libre → abre', a1, '| la de otra fecha: buscó', busco.join(' y '), '· abierta:', antiguo, '| sin encontrar: caja para corregir', caja, '→ RE-2 abre', a3, '| listas para elegir:', listas);
   if (a1 !== 'RE-1' || !antiguo || !busco.includes('RS-ANTIGUO-9') || !caja || a3 !== 'RE-2') console.log('Error: ir a la referencia');
+  // «N.º referencia» pulsable: desde RE-1, los que lo citan en «Su referencia» (RE-3) y los que llevan el mismo número
+  await p.fill('#buscar', 'RE-1'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
+  await p.click('.irRef[data-msg="msgRefN"]'); await p.waitForTimeout(800);
+  const cands = await p.$$eval('#msgRefN [data-cand]', l => l.map(x => x.textContent.split(' · ')[0]));
+  console.log('referencia: «N.º referencia» RE-1 → candidatos', cands.join(','));
+  if (!cands.includes('RE-3') || cands.some(c => /^RE-1\d/.test(c))) console.log('Error: N.º referencia');
   await p.fill('#buscar', ''); await p.waitForTimeout(300); }
 // 18/11/2026: «🖨 Imprimir / PDF»: ventana con el mensaje en formato de oficio
 { await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
