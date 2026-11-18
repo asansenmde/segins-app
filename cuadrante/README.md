@@ -67,5 +67,20 @@ correo a la cuenta y copia cifrada entera.
   la rotación.
 - **Vista:** todos los dados de alta ven los dos cuadrantes enteros, con lo suyo resaltado.
 - **Datos de cada componente:** empleo, antigüedad, teléfono (se ve en el cuadrante) y negociado o destino.
+- **Vacaciones de 5 laborables o menos sin cambio:** unos días antes del servicio la página avisa al gestor, que
+  decide si mantiene el servicio o asigna a otro.
+- **Cambios:** sin plazo ni límite (hasta el mismo día). La permuta no tiene plazo para devolverse; decide el gestor
+  al validar.
+- **Ausencias:** el adjunto (orden de comisión, parte) es opcional. Si el gestor la rechaza, el motivo es obligatorio
+  y se avisa al interesado.
+- **Días:** todos iguales, con un jefe y un auxiliar; no hay días especiales aparte de los festivos.
+- **Gestores:** grupo de Colabora `CUADRANTE_GESTORES`, sin nadie por encima. Cualquiera de ellos propone, publica,
+  aprueba ausencias y valida cambios.
+- **Correos:** al publicar el cuadrante (a cada uno, con sus servicios) y cuando hay cambios de servicio. **Sin
+  recordatorio diario.**
+- **Impreso:** como las demás aplicaciones: «USO OFICIAL», «CUADRANTE DE SERVICIOS · JSUIGE», mes y año, fecha de
+  impresión y autoría. Sin escudo.
+- **Inicio:** enero de 2027. En diciembre el gestor da de alta a los componentes e indica el siguiente de cada lista;
+  no se meten meses anteriores.
 
 Pendiente de confirmar: ver la conversación del 18/11/2026 y `PENDIENTES.md`.
