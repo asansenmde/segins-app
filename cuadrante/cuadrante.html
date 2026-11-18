@@ -209,7 +209,9 @@
   .card.cambio { border-left: 5px solid #6a3d9a; }
   .asg { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; } .asg input.motivoc { flex: 1; min-width: 180px; padding: 4px 8px; font-size: .82rem; }
   .aMANUAL { background: #efe7f8; color: #5b2f8c; } .aDEUDA { background: #ffe0b2; color: #8a3b00; } .aCAMBIO { background: #e3ecf8; color: #1d4f91; }
-  .card.deuda { border-left: 5px solid #e08a00; } .cambiot { color: #5b2f8c; font-weight: 600; margin-top: 3px; } .deudafila { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .card.deuda { border-left: 5px solid #e08a00; }
+  .selvista { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; } .selvista button { border: 0; border-radius: 0; } .selvista button.on { background: var(--brand); color: #fff; }
+  table.rejilla tr.mio td { background: #e3f2e3; font-weight: 600; } table.rejilla td b { font-size: .85rem; } .cambiot { color: #5b2f8c; font-weight: 600; margin-top: 3px; } .deudafila { padding: 6px 0; border-bottom: 1px solid var(--line); }
   #fReglas h4 { margin: 12px 0 4px; color: var(--brand); } #fReglas .grid { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); } #fReglas table.t select { padding: 4px 8px; }
   .rotgrid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 8px; overflow-x: auto; }
   table.rot th:nth-child(1) { width: 52px; } table.rot th:nth-child(3) { width: 100px; } table.rot th:nth-child(4), table.rot th:nth-child(5) { width: 80px; text-align: center; }
@@ -6452,7 +6454,7 @@ var Cipher = {
   };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-19 · 3';
+  var VERSION = '2026-11-19 · 5';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuadrante de servicios · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -6994,10 +6996,19 @@ var Cipher = {
       '<span class="badge ' + (e.publicado && !e.propuesta ? 'ePub' : e.guardado && !e.propuesta ? 'eBor' : 'eSin') + '">' + (e.publicado && !e.propuesta ? 'PUBLICADO' : e.guardado && !e.propuesta ? 'BORRADOR' : 'PROPUESTA SIN GUARDAR') + '</span></div>';
     if (!esGestor) {
       if (!e.publicado || e.propuesta) return nav + '<div class="card vacio">El cuadrante de ' + esc(mesTxt(ym)) + ' aún no está publicado.</div>';
-      return nav + '<div class="acciones"><button data-imprimir="1">🖨 Imprimir</button></div>' + tablaMes(false) + leyenda();
+      return nav + '<div class="acciones">' + selectorVista() + '<button data-imprimir="1">🖨 Imprimir</button></div>' + cuerpoMes(false) + leyenda();
     }
     var lst = function (q) { return ordenados(q); };
-    var acc = '<div class="acciones">' +
+    var cerrado = e.publicado && !e.propuesta && !e.editando, editandoPub = e.publicado && !e.propuesta && e.editando;
+    if (cerrado) {
+      var confC = conflictos(e);
+      return nav + '<div class="acciones">' + selectorVista() + '<button class="prim" data-editarmes="1" title="Abre el mes publicado para modificarlo; al guardar se avisa a todos con el cuadrante como queda">✏️ Editar cuadrante publicado</button><button data-imprimir="1">🖨 Imprimir</button></div>' +
+        '<div class="nota small">🔒 Cuadrante publicado: está cerrado. Para modificarlo, pulsa «Editar cuadrante publicado»; al guardar, todos los del mes reciben el cuadrante actualizado con los cambios marcados.</div>' +
+        panelRotacion() + (confC ? '<div class="card conflictos"><h3 style="margin-top:0">⚠ Revisar</h3>' + confC + '</div>' : '') + cuerpoMes(false) + leyenda();
+    }
+    var acc = editandoPub ? '<div class="acciones"><button class="prim" data-guardarmes="0"' + (hayCambios() ? '' : ' disabled') + '>💾 Guardar cambios y avisar a todos</button>' +
+      '<button data-cancelaredicion="1">✕ Cancelar la edición</button><button data-imprimir="1">🖨 Imprimir</button></div>' +
+      '<div class="aviso small">✏️ Estás editando un cuadrante publicado. Cambia lo necesario (con su motivo) y pulsa «Guardar cambios y avisar a todos»: se envía a todos los del mes el cuadrante como queda.</div>' : '<div class="acciones">' +
       '<button data-proponer="1" title="Vuelve a calcular el mes con la rotación, los festivos y las ausencias aprobadas">↻ ' + (e.guardado ? 'Proponer de nuevo' : 'Proponer el mes') + '</button>' +
       '<button class="prim" data-guardarmes="0"' + (hayCambios() || e.propuesta ? '' : ' disabled') + '>💾 ' + (e.publicado && !e.propuesta ? 'Guardar cambios y avisar' : 'Guardar borrador') + '</button>' +
       (!e.publicado || e.propuesta ? '<button class="verde" data-guardarmes="1">📢 Publicar y avisar a cada uno</button>' : '') +
@@ -7015,7 +7026,7 @@ var Cipher = {
     if (e.propuesta && !turnos.some(function (t) { return t.inicio < ym + '-01'; })) avisos.push('<div class="nota">Es el primer mes: elige arriba quién empieza cada rotación (por defecto, el más antiguo).</div>');
     if (e.publicado && !e.propuesta && hayCambios()) avisos.push('<div class="aviso"><label class="lbl" style="margin-top:0">Motivo del cambio (se anota y va en el aviso a los afectados)</label><input id="motivoCambio" placeholder="Imprevisto, cambio de servicio autorizado…"></div>');
     var conf = conflictos(e);
-    return nav + acc + avisos.join('') + panelRotacion() + panelDeudasMes() + emp + (conf ? '<div class="card conflictos"><h3 style="margin-top:0">⚠ Revisar</h3>' + conf + '</div>' : '') + tablaMes(true) + leyenda() +
+    return nav + acc + avisos.join('') + panelRotacion() + panelDeudasMes() + emp + (conf ? '<div class="card conflictos"><h3 style="margin-top:0">⚠ Revisar</h3>' + conf + '</div>' : '') + '<div class="acciones">' + selectorVista() + '</div>' + cuerpoMes(true) + leyenda() +
       '<p class="small muted">Rotación del más antiguo al más moderno (empleo, antigüedad y escalafón). Quien tiene una ausencia aprobada que salta el servicio pierde el turno; ' +
       'si la ausencia no salta el servicio, debe hacer un cambio. Los turnos puestos a mano o por servicios debidos no mueven la rotación. Cada turno cuenta en el mes en que empieza.</p>';
   }
@@ -7181,7 +7192,7 @@ var Cipher = {
         '<div class="card tablacont"><table class="t"><tr><th>Orden</th><th>Empleo</th><th>Nombre</th><th>Escalafón</th><th>Antigüedad</th><th>Teléfono</th><th>Negociado / destino</th><th>Alta</th><th>Baja</th><th></th></tr>' +
         (l.map(function (c, i) {
           return '<tr class="' + (activo(c, hoy(), hoy()) ? '' : 'debaja') + '"><td>' + (i + 1) + '</td><td>' + esc(c.empleo) + '</td><td><b>' + esc(c.nombre) + '</b>' + (c.persona ? '' : ' <span class="small txt-bad">sin cuenta</span>') + '</td><td>' + esc(c.escalafon == null ? '' : c.escalafon) + '</td>' +
-            '<td>' + esc(fCorta(c.antig)) + '</td><td>' + esc(c.tel) + '</td><td>' + esc(c.neg) + '</td><td>' + esc(fCorta(c.alta)) + '</td><td>' + esc(fCorta(c.baja)) + '</td><td><button class="chico" data-compeditar="' + c.id + '">Editar</button></td></tr>';
+            '<td>' + esc(fCorta(c.antig)) + '</td><td>' + esc(c.tel) + '</td><td>' + esc(c.neg) + '</td><td>' + esc(fCorta(c.alta)) + '</td><td>' + esc(fCorta(c.baja)) + '</td><td style="white-space:nowrap"><button class="chico" data-compeditar="' + c.id + '">Editar</button> ' + (activo(c, hoy(), hoy()) || !turnos.some(function (t) { return t.comp === c.id; }) ? '<button class="chico peligro" data-compquitar="' + c.id + '">Quitar</button>' : '') + '</td></tr>';
         }).join('') || '<tr><td colspan="10" class="muted">Nadie aún.</td></tr>') + '</table></div>';
     });
     return h + '<p class="small muted">El orden sale solo: empleo, fecha de antigüedad en el empleo y nº de escalafón. Para que alguien deje de entrar en la rotación, pon su fecha de baja (no se borra: queda en el histórico).</p>';
@@ -7201,6 +7212,22 @@ var Cipher = {
       '<div><label class="lbl">Baja en el cuadrante (deja de contar desde ese día)</label><input name="baja" type="date" value="' + esc(c ? c.baja : '') + '"></div></div>' +
       '<label class="lbl">Observaciones</label><textarea name="obs" rows="2">' + esc(c ? c.obs : '') + '</textarea>' +
       '<div id="compErr"></div><div class="acciones"><button class="prim" data-compguardar="1">Guardar</button><button data-compcancelar="1">Cancelar</button></div></div>';
+  }
+  // Quitar: con servicios en el cuadrante se le da de baja desde hoy (se conserva su histórico); sin ninguno, se borra
+  function quitarComp(id, boton) {
+    var c = compPorId(id), suyos = turnos.filter(function (t) { return t.comp === id; }), futuros = suyos.filter(function (t) { return t.fin >= hoy(); });
+    if (suyos.length) {
+      if (!window.confirm(c.nombre + ' tiene servicios en el cuadrante: se le da de baja desde hoy (deja de entrar en la rotación y se conserva su histórico).' +
+        (futuros.length ? ' OJO: tiene ' + futuros.length + ' servicio' + (futuros.length === 1 ? '' : 's') + ' de hoy en adelante, que habrá que reasignar en el cuadrante del mes.' : '') + ' ¿Seguir?')) return;
+      boton.disabled = true;
+      cambiarItem('comp', id, { FechaBaja: aSP(hoy()) }).then(leerComps).then(function () { prepararMes(edicion.ym, edicion.propuesta); render(); toast(c.nombre + ' dado de baja desde hoy'); })
+        .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
+      return;
+    }
+    if (!window.confirm('Se quita a ' + c.nombre + ' del cuadrante (va a la papelera de Colabora). ¿Seguir?')) return;
+    boton.disabled = true;
+    papelera('comp', id).then(leerComps).then(function () { compEdit = null; prepararMes(edicion.ym, edicion.propuesta); render(); toast(c.nombre + ' quitado del cuadrante'); })
+      .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
   }
   function guardarComp(boton) {
     var f = $('#fComp'), v = function (n) { var el = f.querySelector('[name="' + n + '"]'); return el ? el.value.trim() : ''; }, id = Number(f.dataset.id) || null;
@@ -7282,6 +7309,66 @@ var Cipher = {
     return nav + '<div class="card tablacont anual"><table class="t anio">' + cab + cuerpo + '</table></div>' + leyenda() + '<p class="small muted">X = servicio publicado · x = en borrador. La cuenta es solo para consultar: no cambia la rotación.</p>';
   }
 
+
+  // Cuadrante del mes «en tabla» (como la hoja de cálculo): una fila por persona y una columna por turno, con una X en
+  // sus servicios, el color de sus ausencias, los fines de semana resaltados, su fila marcada y la cuenta del mes.
+  // inline: estilos dentro de cada celda (para imprimir).
+  function rejillaMes(e, inline) {
+    var cs = e.filas, ini = e.ym + '-01', fin = finMes(e.ym);
+    var S = inline ? { fin: 'background:#fff2a8;', baja: 'background:#333;color:#fff;', mio: 'background:#e3f2e3;font-weight:bold;', grupo: 'background:#1b3a5c;color:#fff;text-align:left;' } : null;
+    var at = function (cls, st) { return inline ? (st ? ' style="' + st + '"' : '') : (cls ? ' class="' + cls + '"' : ''); };
+    var cab = '<tr><th class="pega"' + (inline ? ' style="text-align:left"' : '') + '>Componente</th>' + cs.map(function (c) {
+      var a = aFecha(c.inicio), b = aFecha(c.fin);
+      return '<th' + at(c.tipo !== 'DIARIO' ? 'ffin' : '', c.tipo !== 'DIARIO' ? S && S.fin : '') + ' title="' + esc(rotulo(c)) + '">' + DIAS[a.getDay()].charAt(0) + '<br>' + a.getDate() + (c.fin !== c.inicio ? '-' + b.getDate() : '') + '</th>';
+    }).join('') + '<th>Diario</th><th>Fin de sem.</th></tr>';
+    var cuerpo = CUADRANTES.map(function (qq) {
+      var l = ordenados(qq[0]).filter(function (c) { return activo(c, ini, fin) || cs.some(function (f) { return f.q[qq[0]] && f.q[qq[0]].compId === c.id; }); });
+      return '<tr><th colspan="' + (cs.length + 3) + '"' + at('grupo', S && S.grupo) + '>' + esc(qq[1].toUpperCase()) + ' · ' + esc(qq[0]) + '</th></tr>' + l.map(function (c) {
+        var nD = 0, nF = 0, mio = miComp && miComp.id === c.id;
+        var celdas = cs.map(function (f) {
+          var x = f.q[qq[0]], tiene = x && x.compId === c.id;
+          if (tiene) { if (clase(f.tipo) === 'D') nD++; else nF++; }
+          var a = ausDe(c, f.inicio, f.fin, ['APROBADA'])[0], marca = tiene ? 'X' + (x.asig && x.asig !== 'ROTACION' ? '*' : '') : '';
+          var tit = tiene && x.motivo ? ' title="' + esc(x.motivo) + '"' : a ? ' title="' + esc(TXT_AUS[a.tipo] || a.tipo) + '"' : '';
+          if (!activo(c, f.inicio, f.fin)) return '<td' + at('baja', S && S.baja) + '>' + marca + '</td>';
+          if (a) return '<td' + (inline ? ' style="' + colorAus(a.tipo) + ';-webkit-print-color-adjust:exact;print-color-adjust:exact"' : ' style="' + colorAus(a.tipo) + '"') + tit + '>' + marca + '</td>';
+          return '<td' + at(f.tipo !== 'DIARIO' ? 'ffin' : '', f.tipo !== 'DIARIO' ? S && S.fin : '') + tit + '>' + (tiene ? '<b>' + marca + '</b>' : '') + '</td>';
+        }).join('');
+        return '<tr' + (mio && !inline ? ' class="mio"' : '') + '><td class="pega"' + (inline && mio ? ' style="' + S.mio + 'text-align:left"' : inline ? ' style="text-align:left"' : '') + '>' + nombreCon(c) + (c.tel ? ' <span class="small muted">☎ ' + esc(c.tel) + '</span>' : '') + '</td>' + celdas +
+          '<td><b>' + nD + '</b></td><td><b>' + nF + '</b></td></tr>';
+      }).join('');
+    }).join('');
+    return '<table class="t anio rejilla">' + cab + cuerpo + '</table>';
+  }
+  var selectorVista = function () {
+    var v = pref.vistaMes === 'tabla' ? 'tabla' : 'turnos';
+    return '<div class="selvista"><button class="' + (v === 'turnos' ? 'on' : '') + '" data-vmes="turnos">📋 Por turnos</button><button class="' + (v === 'tabla' ? 'on' : '') + '" data-vmes="tabla">📊 En tabla</button></div>';
+  };
+  var cuerpoMes = function (editable) {
+    return pref.vistaMes === 'tabla' ? '<div class="card tablacont anual">' + rejillaMes(edicion, false) + '</div><p class="small muted">X = servicio · X* = asignado a mano, por servicio debido o por cambio (pasa el ratón para ver el motivo). Columnas resaltadas: fines de semana y festivos.' + (editable ? ' Para modificar turnos, vuelve a «Por turnos».' : '') + '</p>' : tablaMes(editable);
+  };
+  function imprimirRejilla() {
+    var e = edicion, src = function (s) { var i = $(s); return i ? i.src : ''; }, exacto = '-webkit-print-color-adjust:exact;print-color-adjust:exact;';
+    var doc = '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Cuadrante de servicios · ' + esc(mesTxt(e.ym)) + '</title><style>' +
+      '@page{size:A4 landscape;margin:.8cm .8cm 1.4cm}body{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#111;margin:0}' +
+      '.sup{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding-bottom:4px}.sup .m{height:40px}.sup .u{height:22px}' +
+      '.banda{background:#1b3a5c;color:#fff;border-bottom:3px solid #b8962e;padding:5px 10px;' + exacto + '}.banda .o{font-size:7pt;letter-spacing:1.5px;color:#e6d9a8}.banda .t{font-size:12pt;font-weight:bold}' +
+      '.sub{text-align:center;margin:5px 0 6px;font-size:10pt;font-weight:bold;color:#1b3a5c;text-transform:uppercase}' +
+      'table{width:100%;border-collapse:collapse}th,td{border:1px solid #999;padding:2px 3px;text-align:center;white-space:nowrap;' + exacto + '}th{background:#e8eef6}small,.small{font-size:6.5pt;color:#555}' +
+      '.ley span{display:inline-block;width:10px;height:10px;vertical-align:middle;margin:0 3px 0 8px;border:1px solid #999;' + exacto + '}' +
+      '.pie{position:fixed;bottom:-1cm;left:0;right:0;text-align:center;font-size:7pt;color:#555}.aviso{background:#fff4d6;padding:8px;margin:0 0 8px}@media print{.aviso{display:none}}</style><\/head><body>' +
+      '<div class="aviso">Si no se abre el diálogo de impresión, pulsa Ctrl+P. Para PDF, elige «Guardar como PDF».</div>' +
+      '<div class="sup"><img class="m" src="' + src('.oficial .minisdef') + '" alt="MINISTERIO DE DEFENSA"><img class="u" src="' + src('.oficial .uso') + '" alt="USO OFICIAL"><span></span></div>' +
+      '<div class="banda"><div class="o">EJÉRCITO DE TIERRA · SUIGESUR · JSUIGE</div><div class="t">CUADRANTE DE SERVICIOS · JSUIGE</div></div>' +
+      '<div class="sub">' + esc(mesTxt(e.ym)) + (e.publicado && !e.propuesta ? '' : ' · BORRADOR') + '</div>' + rejillaMes(e, true) +
+      '<p class="ley">' + TIPOS_AUS.map(function (t) { return '<span style="' + colorAus(t[0]) + '"></span>' + esc(TXT_AUS[t[0]]); }).join('') + '<span style="background:#333"></span>Baja · <b>X</b> servicio · <b>X*</b> a mano, debido o por cambio</p>' +
+      '<div class="pie">USO OFICIAL · Impreso por ' + esc(yo ? yo.Title : '') + ' el ' + new Date().toLocaleString('es-ES') + ' · Cuadrante de servicios · © 2026 ' + esc(AUTOR) + '</div>' +
+      '<scr' + 'ipt>window.onload=function(){setTimeout(function(){window.print()},500)}</scr' + 'ipt></body></html>';
+    var w = null; try { w = window.open('', '_blank'); } catch (x) { w = null; }
+    if (w && w.document) { w.document.open(); w.document.write(doc); w.document.close(); return; }
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([doc], { type: 'text/html;charset=utf-8' })); a.download = 'cuadrante-tabla-' + e.ym + '.html'; document.body.appendChild(a); a.click(); a.remove();
+  }
+
   // ---------- Guardar y publicar el mes ----------
   function guardarMes(publicar, boton) {
     var e = edicion, ym = e.ym, eraPublicado = e.publicado && !e.propuesta;
@@ -7349,18 +7436,27 @@ var Cipher = {
       return { cls: mal.length ? 'aviso' : 'okmsg', html: '✓ Cuadrante de ' + esc(mesTxt(ym)) + ' publicado. Avisados por correo: ' + bien + ' de ' + ids.length + '.' + (mal.length ? ' <b>No les llegó a:</b> ' + esc(mal.join(', ')) + '. Avísales tú.' : '') };
     });
   }
+  // Al guardar cambios de un mes publicado: a todos los del mes (y a quien deja de tener un servicio), el cuadrante como queda
   function avisarCambios(cambios, motivo) {
-    var mal = [], n = 0;
-    return enSerie(cambios, function (x) {
-      var dest = limpia([x.antes && destDe(x.antes.persona), x.ahora && destDe(x.ahora.persona)]);
-      var filas = [['Turno', rotulo(x.f)], ['Tipo', (TIPOS_TURNO[x.f.tipo] || x.f.tipo) + ' · ' + papelDe(x.q)], ['Lo tenía', x.antes ? x.antes.nombre : '—'], ['Lo hace ahora', x.ahora ? x.ahora.nombre : 'sin asignar'], ['Motivo', x.motivo || motivo], ['Cambio hecho por', yo.Title]];
-      if (!dest.length) return Promise.resolve();
-      return enviarCorreo(correoDe('CAMBIO EN EL CUADRANTE DE SERVICIOS.', filas, 'CAMBIO EN EL CUADRANTE DE SERVICIOS · ' + rotulo(x.f).toUpperCase(), dest, enlacePagina() + '?mes=' + edicion.ym))
-        .then(function (r) { if (correoBien(r)) n++; else mal.push(rotulo(x.f)); });
-    }).then(function () {
-      return { cls: mal.length ? 'aviso' : 'okmsg', html: '✓ Cambios guardados (' + cambios.length + '). Avisados los afectados de ' + n + ' cambio' + (n === 1 ? '' : 's') + '.' + (mal.length ? ' No salió el correo de: ' + esc(mal.join(', ')) + '.' : '') };
+    var ym = edicion.ym, ts = guardadosMes(ym), dest = [];
+    ts.forEach(function (t) { var c = compPorId(t.comp); if (c && c.persona) dest.push(destDe(c.persona)); });
+    cambios.forEach(function (x) { if (x.antes && x.antes.persona) dest.push(destDe(x.antes.persona)); });
+    dest = limpia(dest);
+    var cambiado = {}; cambios.forEach(function (x) { cambiado[x.q + '|' + x.f.inicio] = 1; });
+    var nombre = function (q, ini) { var t = ts.find(function (y) { return y.cuadrante === q && y.inicio === ini; }), c = t && compPorId(t.comp); return (c ? c.nombre : '—') + (cambiado[q + '|' + ini] ? ' (CAMBIADO)' : ''); };
+    var filas = cambios.map(function (x) { return ['CAMBIO · ' + rotulo(x.f), papelDe(x.q) + ': ' + (x.antes ? x.antes.nombre : '—') + ' → ' + (x.ahora ? x.ahora.nombre : 'sin asignar') + (x.motivo || motivo ? ' · ' + (x.motivo || motivo) : '')]; });
+    var vistos = {};
+    ts.slice().sort(function (a, b) { return a.inicio.localeCompare(b.inicio); }).forEach(function (t) {
+      if (vistos[t.inicio]) return; vistos[t.inicio] = 1;
+      filas.push([rotulo(t) + ' · ' + (TIPOS_TURNO[t.tipo] || t.tipo), 'Jefe: ' + nombre('OFICIALES', t.inicio) + '\nAuxiliar: ' + nombre('SUBOFICIALES', t.inicio)]);
+    });
+    filas.push(['Modificado por', yo.Title]);
+    return enviarCorreo(correoDe('SE HA MODIFICADO EL CUADRANTE DE SERVICIOS DE ' + mesTxt(ym).toUpperCase() + '. ARRIBA, LOS CAMBIOS; DEBAJO, EL CUADRANTE COMO QUEDA.', filas,
+      'CUADRANTE DE SERVICIOS ACTUALIZADO · ' + mesTxt(ym).toUpperCase(), dest, enlacePagina() + '?mes=' + ym)).then(function (r) {
+      return { cls: correoBien(r) ? 'okmsg' : 'aviso', html: '✓ Cambios guardados (' + cambios.length + ') y cuadrante actualizado enviado a ' + dest.length + ' persona' + (dest.length === 1 ? '' : 's') + '.' + msgCorreo(r) };
     });
   }
+
 
   // ---------- Ausencias ----------
   function subirAdjuntos(id, archivos) {
@@ -8215,17 +8311,20 @@ var Cipher = {
     if (el.closest('#recargar')) { accEstado = ''; aj = null; gestoresCache = null; resultado = null; cargar().then(function () { if (esAdmin && cargadoEn) cargarAccesos(); }); return; }
     if (el.closest('[data-quitarres]')) { e.preventDefault(); resultado = null; render(); return; }
     if ((b = accionCon(el, 'data-mes'))) {
-      if (edicion && edicion.sucio && esGestor && hayCambios() && !window.confirm('Hay cambios sin guardar en ' + mesTxt(edicion.ym) + '. ¿Salir sin guardar?')) return;
+      if (edicion && edicion.sucio && esGestor && hayCambios() && (edicion.propuesta || edicion.editando || !edicion.publicado) && !window.confirm('Hay cambios sin guardar en ' + mesTxt(edicion.ym) + '. ¿Salir sin guardar?')) return;
       pref.mes = sumaMes(edicion.ym, Number(b.dataset.mes)); guardarPref(); resultado = null; prepararMes(pref.mes); render(); return;
     }
     if ((b = accionCon(el, 'data-anio'))) { pref.anio = Number(pref.anio) + Number(b.dataset.anio); guardarPref(); render(); return; }
+    if (el.closest('[data-editarmes]')) { edicion.editando = true; resultado = null; render(); return; }
+    if (el.closest('[data-cancelaredicion]')) { if (hayCambios() && !window.confirm('Se descartan los cambios que no has guardado. ¿Seguir?')) return; prepararMes(edicion.ym); render(); return; }
     if (el.closest('[data-proponer]')) {
       if (edicion.guardado && !window.confirm('Se vuelve a calcular el mes entero y se pierden los cambios hechos a mano. ¿Seguir?')) return;
       prepararMes(edicion.ym, true); render(); return;
     }
     if ((b = accionCon(el, 'data-guardarmes'))) { guardarMes(b.dataset.guardarmes === '1', b); return; }
-    if (el.closest('[data-imprimir]')) { imprimirMes(); return; }
-    if ((b = accionCon(el, 'data-sustituir'))) { var p = b.dataset.sustituir.split('|'), qa = compPorId(edicion.filas[Number(p[0])].q[p[1]].compId); asignarCelda(Number(p[0]), p[1], Number(p[2]), 'MANUAL', 'Sustituye a ' + (qa ? qa.nombre : '—') + ' (ausencia)'); render(); return; }
+    if (el.closest('[data-imprimir]')) { if (pref.vistaMes === 'tabla') imprimirRejilla(); else imprimirMes(); return; }
+    if ((b = accionCon(el, 'data-vmes'))) { pref.vistaMes = b.dataset.vmes; guardarPref(); render(); return; }
+    if ((b = accionCon(el, 'data-sustituir'))) { if (edicion.publicado && !edicion.propuesta) edicion.editando = true; var p = b.dataset.sustituir.split('|'), qa = compPorId(edicion.filas[Number(p[0])].q[p[1]].compId); asignarCelda(Number(p[0]), p[1], Number(p[2]), 'MANUAL', 'Sustituye a ' + (qa ? qa.nombre : '—') + ' (ausencia)'); render(); return; }
     if ((b = accionCon(el, 'data-imprevisto'))) {
       var pi = b.dataset.imprevisto.split('|'), fi = edicion.filas[Number(pi[0])], xi = fi.q[pi[1]], si = sustituto(pi[1], fi, xi.compId);
       if (!si) return toast('No hay nadie disponible en la rotación para ese turno');
@@ -8253,6 +8352,7 @@ var Cipher = {
     if (el.closest('[data-compnuevo]')) { compEdit = 'nuevo'; render(); return; }
     if ((b = accionCon(el, 'data-compeditar'))) { compEdit = Number(b.dataset.compeditar); render(); window.scrollTo(0, 0); return; }
     if (el.closest('[data-compcancelar]')) { compEdit = null; render(); return; }
+    if ((b = accionCon(el, 'data-compquitar'))) { quitarComp(Number(b.dataset.compquitar), b); return; }
     if ((b = accionCon(el, 'data-compguardar'))) { guardarComp(b); return; }
     if ((b = accionCon(el, 'data-festanadir'))) {
       var fe = $('#fFecha').value; if (!fe) return toast('Elige la fecha');

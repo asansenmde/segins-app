@@ -222,6 +222,19 @@ async function prueba(verbose) {
   ({ b, p, errs } = await abrir(12, false, verbose, PAGINA + '?mes=2027-01'));
   comprueba(tag + 'el componente solo ve el mes y sus servicios', await p.$$eval('#tabs a', a => a.map(x => x.dataset.v).join(',')) === 'mes,mios');
   comprueba(tag + 've el cuadrante publicado con sus servicios resaltados y teléfonos', (await p.$$('table.cuad tr.mio')).length >= 2 && /☎ 6000000/.test(await texto(p)));
+  // vista «En tabla» (como la hoja de cálculo) e impresión en apaisado
+  await p.click('[data-vmes="tabla"]'); await p.waitForTimeout(300);
+  if (process.env.FOTOS && !verbose) { await p.setViewportSize({ width: 1300, height: 820 }); await p.screenshot({ path: process.env.FOTOS + '/tabla.png' }); }
+  const filaMia = await p.$$eval('table.rejilla tr.mio td', tds => tds.map(x => x.textContent.trim()));
+  const misX = filaMia.filter(x => /^X/.test(x)).length, misPub = LT.items.filter(x => x.Componente === id[12] && x.Mes === '2027-01').length;
+  comprueba(tag + 'el componente ve el mes en tabla, con su fila resaltada y una X por servicio', filaMia.length > 10 && misX === misPub && /OFICIAL NUMERO 2/.test(filaMia[0]), misX + ' / ' + misPub);
+  {
+    const [imp] = await Promise.all([p.context().waitForEvent('page'), p.click('[data-imprimir]')]); await imp.waitForLoadState(); await imp.waitForTimeout(300);
+    const ti = (await imp.textContent('body')).replace(/\s+/g, ' ');
+    comprueba(tag + 'imprime la tabla del mes (apaisado)', /CUADRANTE DE SERVICIOS · JSUIGE/.test(ti) && /JEFE DE SERVICIO · OFICIALES/.test(ti) && (await imp.$$('table tr')).length > 14 && /landscape/.test(await imp.content()));
+    await imp.close();
+  }
+  await p.click('[data-vmes="turnos"]'); await p.waitForTimeout(200);
   await tab(p, 'mios');
   t = await texto(p);
   comprueba(tag + '«Mis servicios» lista sus servicios publicados', /Mis servicios \(este mes y los siguientes\)/.test(t) && /Jue 7 ene/.test(t), t.slice(0, 300));
@@ -254,14 +267,18 @@ async function prueba(verbose) {
     await p.fill('#motivoCambio', 'Vacaciones aprobadas'); correos.length = 0;
     await p.click('[data-guardarmes="0"]'); await p.waitForTimeout(2500);
     const cambiado = LT.items.find(x => x.Id === LT.items.find(y => y.Componente !== id[12] && y.Inicio === misTurnos[0].Inicio && y.Cuadrante === 'OFICIALES')?.Id);
-    comprueba(tag + 'guarda el cambio con historial y avisa a los dos afectados', !!cambiado && /Cambio: OFICIAL NUMERO 2 → /.test(cambiado.Historial) && /Sustituye a OFICIAL NUMERO 2/.test(cambiado.Historial) && cambiado.Asignacion === 'MANUAL' && correos.some(c => /CAMBIO EN EL CUADRANTE/.test(c.asunto) && c.to.includes('i:0#.w|et\\of2') && c.to.length === 2), JSON.stringify(correos.map(c => [c.asunto, c.to])));
+    comprueba(tag + 'guarda el cambio con historial y avisa a los dos afectados', !!cambiado && /Cambio: OFICIAL NUMERO 2 → /.test(cambiado.Historial) && /Sustituye a OFICIAL NUMERO 2/.test(cambiado.Historial) && cambiado.Asignacion === 'MANUAL' && correos.some(c => /CUADRANTE DE SERVICIOS ACTUALIZADO/.test(c.asunto) && c.to.includes('i:0#.w|et\\of2') && c.to.length >= 12 && /\(CAMBIADO\)/.test(c.cuerpo) && /CAMBIO · /.test(c.cuerpo)), JSON.stringify(correos.map(c => [c.asunto, c.to])));
   }
+  // Publicado = cerrado: hay que pulsar «Editar cuadrante publicado»
+  comprueba(tag + 'el mes publicado queda cerrado (sin desplegables) con «Editar cuadrante publicado»', !(await p.$('table.cuad select')) && !!(await p.$('[data-editarmes]')) && /Cuadrante publicado: está cerrado/.test(await texto(p)));
+  await p.click('[data-editarmes]'); await p.waitForTimeout(300);
+  comprueba(tag + 'al editarlo se abren los turnos y se puede cancelar', !!(await p.$('table.cuad select')) && !!(await p.$('[data-cancelaredicion]')));
   // Imprevisto el mismo día
   await p.click('[data-imprevisto="0|SUBOFICIALES"]'); await p.waitForTimeout(300);
   comprueba(tag + 'el imprevisto queda «a mano» con su motivo, que se puede cambiar', /a mano/.test(await p.textContent('table.cuad tbody tr:first-child')) && /Imprevisto: /.test(await p.inputValue('[data-motivo="0|SUBOFICIALES"]')));
   await p.fill('[data-motivo="0|SUBOFICIALES"]', 'Enfermedad repentina'); await p.press('[data-motivo="0|SUBOFICIALES"]', 'Tab'); await p.waitForTimeout(200); correos.length = 0;
   await p.click('[data-guardarmes="0"]'); await p.waitForTimeout(2000);
-  comprueba(tag + 'imprevisto: pone al siguiente disponible y avisa a los dos', correos.some(c => /CAMBIO EN EL CUADRANTE/.test(c.asunto) && /Enfermedad repentina/.test(c.cuerpo)), JSON.stringify(correos.map(c => c.asunto)));
+  comprueba(tag + 'imprevisto: pone al siguiente disponible y avisa a los dos', correos.some(c => /CUADRANTE DE SERVICIOS ACTUALIZADO/.test(c.asunto) && /Enfermedad repentina/.test(c.cuerpo)) && !(await p.$('table.cuad select')), JSON.stringify(correos.map(c => c.asunto)));
   // Vista anual
   await tab(p, 'anio');
   while (!/Año 2027/.test(await texto(p))) { await p.click('[data-anio="1"]'); await p.waitForTimeout(150); }
@@ -404,8 +421,8 @@ async function prueba(verbose) {
   const dv = listas['CUADRANTE DEUDAS'].items.find(x => x.Deudor === id[21] && x.Acreedor === id[26]);
   comprueba(tag + 'validada: lo hace SUB6, el turno dice «lo hace … en lugar de …» y SUB1 queda debiéndole un servicio', tC.Componente === id[26] && tC.Asignacion === 'CAMBIO' &&
     /Cambio nº 3 \(cesión\): lo hace SUBOFICIAL NUMERO 6 en lugar de SUBOFICIAL NUMERO 1/.test(tC.MotivoAsignacion) && !!dv && dv.EstadoDeuda === 'PENDIENTE' && /Cesión del servicio .* \(cambio nº 3\)/.test(dv.Motivo) && /Queda registrado que/.test(await texto(p)), JSON.stringify([tC.Componente, tC.MotivoAsignacion, dv]));
-  await tab(p, 'mes');
-  comprueba(tag + 'el mes ofrece ya ese servicio debido para asignarlo', /SUBOFICIAL NUMERO 1<\/b> debe un servicio a <b>SARGENTO PRIMERO SUBOFICIAL NUMERO 6/.test(await p.innerHTML('#vista')) || /SUBOFICIAL NUMERO 1 debe un servicio a SARGENTO PRIMERO SUBOFICIAL NUMERO 6/.test(await texto(p)));
+  await tab(p, 'mes'); await p.click('[data-editarmes]'); await p.waitForTimeout(300);
+  comprueba(tag + 'al editar el mes, ofrece ya ese servicio debido para asignarlo', /SUBOFICIAL NUMERO 1<\/b> debe un servicio a <b>SARGENTO PRIMERO SUBOFICIAL NUMERO 6/.test(await p.innerHTML('#vista')) || /SUBOFICIAL NUMERO 1 debe un servicio a SARGENTO PRIMERO SUBOFICIAL NUMERO 6/.test(await texto(p)));
   comprueba(tag + 'sin errores de página (cesión con devolución)', errs.length === 0, errs.join(' | '));
   await b.close();
   ({ b, p, errs } = await abrir(26, false, verbose, PAGINA + '?mes=' + tC.Mes));
@@ -440,6 +457,14 @@ async function prueba(verbose) {
   correos.length = 0; await p.click('[data-accaprobar]'); await p.waitForTimeout(1500);
   comprueba(tag + 'aprobada: al grupo de usuarios, alta en el cuadrante y correo a su cuenta', grupos.CUADRANTE_USUARIOS.includes(40) && LC.items.some(c => c.PersonaId === 40 && c.Cuadrante === 'SUBOFICIALES' && c.Empleo === 'BRIGADA') &&
     sol.EstadoSolicitud === 'APROBADA' && correos.some(c => /ACCESO CONCEDIDO/.test(c.asunto) && c.to.includes('i:0#.w|et\\nuevo')));
+  // Quitar componentes: sin servicios se borra; con servicios, baja desde hoy
+  await tab(p, 'componentes');
+  const nuevo40 = LC.items.find(c => c.PersonaId === 40);
+  await p.click('[data-compquitar="' + nuevo40.Id + '"]'); await p.waitForTimeout(800);
+  comprueba(tag + 'quitar a quien no tiene servicios: se borra', !LC.items.some(c => c.PersonaId === 40));
+  await p.click('[data-compquitar="' + id[16] + '"]'); await p.waitForTimeout(800);
+  const c16 = LC.items.find(c => c.Id === id[16]);
+  comprueba(tag + 'quitar a quien tiene servicios: baja desde hoy, se conserva', !!c16 && /^\d{4}-\d{2}-\d{2}T12/.test(c16.FechaBaja || '') && /debaja/.test(await p.$eval('[data-compeditar="' + id[16] + '"]', b => b.closest('tr').className)));
   comprueba(tag + 'sin errores de página (administrador)', errs.length === 0, errs.join(' | '));
   await b.close();
 }

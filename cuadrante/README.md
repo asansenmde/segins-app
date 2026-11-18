@@ -9,7 +9,7 @@
 | `colabora/cuadrante.html` | **Copia cifrada que se sube a Colabora** (`cd cuadrante/proteger && node proteger.mjs`). |
 | `pruebas/simulacion.mjs` | Prueba completa contra un SharePoint simulado, en formato ligero y *verbose*. Con `CUAD_HTML=cuadrante/colabora/cuadrante.html` prueba la copia cifrada y con `PROXY=1`, el filtro de la red. |
 
-## Puesta en marcha (versión 2026-11-19 · 3)
+## Puesta en marcha (versión 2026-11-19 · 5)
 
 1. Subir `colabora/cuadrante.html` a una biblioteca del sitio JSUIGE (por ejemplo `…/JSUIGE/aplicaciones/`) y abrirla con
    la cuenta que tiene Control total.
@@ -121,6 +121,28 @@ correo a la cuenta y copia cifrada entera.
   y queda anotado «sin firma».
 - **Control total en JSUIGE:** el usuario. Desde Ajustes crea las listas y el grupo `CUADRANTE_GESTORES`, y aprueba
   las solicitudes de acceso.
+
+## Mes publicado, vista en tabla y quitar componentes (19/11/2026)
+
+- **Mes publicado cerrado.** Una vez publicado, el mes queda cerrado: nadie ve desplegables. Los gestores tienen
+  «✏️ Editar cuadrante publicado».
+  - Al editarlo cambian lo necesario, con su motivo, y pulsan «Guardar cambios y avisar a todos». Les llega a todos
+    los del mes, y a quien deja de tener un servicio, el cuadrante como queda: arriba los cambios y debajo cada turno,
+    con «(CAMBIADO)» en los que cambian.
+  - «Cancelar la edición» descarta los cambios sin guardar.
+  - «Poner a … (siguiente disponible)», en «Revisar», abre la edición directamente.
+- **Vista en tabla** para todos, con el selector «📋 Por turnos / 📊 En tabla» del cuadrante del mes. Es como la hoja
+  de cálculo:
+  - una fila por persona y una columna por turno, con su teléfono;
+  - X en sus servicios, y X* si es a mano, debido o por cambio (con el motivo al pasar el ratón);
+  - el color de las ausencias, los fines de semana resaltados, tu fila marcada y la cuenta del mes.
+
+  «Imprimir» imprime la vista que se está viendo; la tabla sale en A4 apaisado.
+- **Quitar componente** (en «Componentes»). Si tiene servicios, se le da de baja desde hoy: se conserva su histórico
+  y se avisa de cuántos servicios futuros hay que reasignar. Si no tiene ninguno, se quita de la lista (a la papelera de
+  Colabora).
+- **«Mis servicios»** enseña el mes en curso y los siguientes; a los gestores, también los de meses en borrador. Si sale
+  vacío, explica por qué: sin alta, alta con otra cuenta, mes sin publicar o propuesta sin guardar.
 
 ## Reglas configurables (19/11/2026)
 
