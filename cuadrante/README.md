@@ -9,7 +9,7 @@
 | `colabora/cuadrante.html` | **Copia cifrada que se sube a Colabora** (`cd cuadrante/proteger && node proteger.mjs`). |
 | `pruebas/simulacion.mjs` | Prueba completa contra un SharePoint simulado, en formato ligero y *verbose*. Con `CUAD_HTML=cuadrante/colabora/cuadrante.html` prueba la copia cifrada y con `PROXY=1`, el filtro de la red. |
 
-## Puesta en marcha (versión 2026-11-19 · 8)
+## Puesta en marcha (versión 2026-11-19 · 9)
 
 1. Subir `colabora/cuadrante.html` a una biblioteca del sitio JSUIGE (por ejemplo `…/JSUIGE/aplicaciones/`) y abrirla con
    la cuenta que tiene Control total.
@@ -28,8 +28,9 @@
    los puentes.
 6. En **Cuadrante del mes**, enero de 2027:
    - elegir quién empieza cada rotación (es el primer mes);
-   - revisar la propuesta;
-   - «Publicar y avisar a cada uno».
+   - revisar la propuesta y guardar el borrador;
+   - «Enviar como provisional» con un plazo para pedir cambios;
+   - cuando acabe el plazo, «Publicar el definitivo y avisar a cada uno».
 
 Página para Colabora, sitio JSUIGE. Lleva dos cuadrantes: el de **oficiales** (jefe de servicio) y el de **suboficiales**
 (auxiliar de servicio). Aún no hay nada creado en SharePoint: las listas las creará la propia página desde Ajustes.
@@ -121,6 +122,19 @@ correo a la cuenta y copia cifrada entera.
   y queda anotado «sin firma».
 - **Control total en JSUIGE:** el usuario. Desde Ajustes crea las listas y el grupo `CUADRANTE_GESTORES`, y aprueba
   las solicitudes de acceso.
+
+## Cuadrante provisional antes de publicar (19/11/2026)
+
+Para que nadie se lleve una sorpresa, el gestor puede enviar el borrador guardado **como provisional**, con un plazo
+para pedir cambios.
+- Cada componente recibe por correo sus servicios provisionales y el plazo; los gestores, la copia.
+- Mientras es provisional, todos lo ven con el aviso «Cuadrante PROVISIONAL» y pueden pedir cambios con «🔁 Pedir
+  cambio» (el circuito de siempre: firma, compañero y gestor). Los cambios validados ya van en el cuadrante.
+- El gestor puede seguir retocando el mes, «Volver a avisar del provisional» o «Retirar el provisional».
+- Al «Publicar el definitivo», cada uno recibe sus servicios definitivos y el mes queda cerrado.
+
+El estado del mes se guarda en «CUADRANTE AJUSTES» (elemento `MES aaaa-mm`); los turnos siguen en borrador hasta el
+definitivo.
 
 ## Correos: quién recibe cada aviso (19/11/2026, revisado)
 

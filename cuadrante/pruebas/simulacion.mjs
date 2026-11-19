@@ -339,6 +339,29 @@ async function prueba(verbose) {
   comprueba(tag + 'marzo sigue la rotación sin contar lo puesto a mano ni el servicio debido', empieza.length === 1 && empieza[0].includes(LC.items.find(c => c.Id === debe).Title), empieza.join() + ' / ' + LC.items.find(c => c.Id === debe).Title);
   comprueba(tag + 'sin errores de página (servicios debidos)', errs.length === 0, errs.join(' | '));
   await b.close();
+  // 5d. Febrero como PROVISIONAL antes de publicar: cada uno ve sus servicios y puede pedir cambios
+  ({ b, p, errs } = await abrir(8, false, verbose, PAGINA + '?mes=2027-02'));
+  comprueba(tag + 'el borrador ofrece «Enviar como provisional» con plazo', !!(await p.$('[data-provisional]')) && !!(await p.$('#provHasta')));
+  await p.fill('#provHasta', '2027-01-20'); correos.length = 0;
+  await p.click('[data-provisional]'); await p.waitForTimeout(3000);
+  const mesProv = items('CUADRANTE AJUSTES').find(x => x.Title === 'MES 2027-02');
+  comprueba(tag + 'queda como provisional con su plazo', !!mesProv && JSON.parse(mesProv.Valor).estado === 'PROVISIONAL' && JSON.parse(mesProv.Valor).hasta === '2027-01-20' && /PROVISIONAL/.test(await p.textContent('.mesnav')));
+  comprueba(tag + 'cada componente recibe sus servicios provisionales con el plazo, y los gestores la copia', correos.some(c => /PROVISIONAL · SUS SERVICIOS/.test(c.asunto) && /20\/01\/2027/.test(c.cuerpo)) && correos.some(c => /· PROVISIONAL$/.test(c.asunto) && c.to.includes('i:0#.w|et\\gestora')));
+  comprueba(tag + 'los turnos siguen en borrador (no publicados)', LT.items.filter(x => x.Mes === '2027-02').every(x => x.EstadoTurno === 'BORRADOR'));
+  await b.close();
+  ({ b, p, errs } = await abrir(15, false, verbose, PAGINA + '?mes=2027-02'));
+  comprueba(tag + 'el componente ve el provisional con el aviso y el plazo', /Cuadrante PROVISIONAL/.test(await texto(p)) && /hasta el 20\/01\/2027/.test(await texto(p)) && (await p.$$('table.cuad tr.mio')).length >= 1);
+  comprueba(tag + 'y puede pedir cambio de sus servicios provisionales', (await p.$$('table.cuad tr.mio [data-cambiopedir]')).length >= 1);
+  await tab(p, 'mios');
+  comprueba(tag + 'en «Mis servicios» salen marcados como provisionales', /provisional/.test(await texto(p)));
+  comprueba(tag + 'sin errores de página (provisional)', errs.length === 0, errs.join(' | '));
+  await b.close();
+  // y luego se publica el definitivo
+  ({ b, p, errs } = await abrir(8, false, verbose, PAGINA + '?mes=2027-02'));
+  correos.length = 0; await p.click('[data-guardarmes="1"]'); await p.waitForTimeout(4000);
+  comprueba(tag + 'al publicar el definitivo deja de ser provisional y se avisa de los servicios definitivos', JSON.parse(mesProv.Valor).estado === 'PUBLICADO' && LT.items.filter(x => x.Mes === '2027-02').every(x => x.EstadoTurno === 'PUBLICADO') &&
+    correos.some(c => /FEBRERO DE 2027 · SUS SERVICIOS$/.test(c.asunto)), JSON.stringify(correos.map(c => c.asunto)));
+  await b.close();
   // reglas cambiadas: diario de 1 día, sábado y domingo, y una sola rotación (abril de 2027, con las reglas en la lista)
   const rgl = items('CUADRANTE AJUSTES')[0], antesReg = rgl.Valor;
   rgl.Valor = JSON.stringify({ ...JSON.parse(antesReg), diario: 1, finde: 'SD', rotacion: 'UNICA' });
@@ -362,8 +385,9 @@ async function prueba(verbose) {
   await p.selectOption('#fCambio [name=comp]', String(id[24])); await p.waitForTimeout(300);
   const opsB = await p.$$eval('#fCambio [name=turnoB] option', o => o.map(x => [x.value, x.textContent]).filter(x => x[0]));
   comprueba(tag + 'en la permuta solo salen servicios de diario del compañero', opsB.length > 0 && opsB.every(x => /diario/.test(x[1])), JSON.stringify(opsB));
-  const tB = LT2.items.find(x => x.Id === Number(opsB[opsB.length - 1][0]));
-  await p.selectOption('#fCambio [name=turnoB]', opsB[opsB.length - 1][0]); await p.waitForTimeout(300);
+  const opB = opsB.find(x => /Mié 13 – Jue 14 ene/.test(x[1])) || opsB[opsB.length - 1];
+  const tB = LT2.items.find(x => x.Id === Number(opB[0]));
+  await p.selectOption('#fCambio [name=turnoB]', opB[0]); await p.waitForTimeout(300);
   comprueba(tag + 'avisa si el servicio que recibe choca con sus propias vacaciones', /el servicio que recibes \(Mié 13 – Jue 14 ene/.test(await p.textContent('#fCambio')));
   await p.fill('#fCambio [name=motivo]', 'Vacaciones del 11 al 13');
   correos.length = 0; await p.click('[data-cambiofirmar]'); await p.waitForTimeout(1500);

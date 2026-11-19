@@ -209,7 +209,7 @@
   .card.cambio { border-left: 5px solid #6a3d9a; }
   .asg { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; } .asg input.motivoc { flex: 1; min-width: 180px; padding: 4px 8px; font-size: .82rem; }
   .aMANUAL { background: #efe7f8; color: #5b2f8c; } .aDEUDA { background: #ffe0b2; color: #8a3b00; } .aCAMBIO { background: #e3ecf8; color: #1d4f91; }
-  .card.deuda { border-left: 5px solid #e08a00; }
+  .card.deuda { border-left: 5px solid #e08a00; } .eProv { background: #fff1b8; color: #6b4e00; border: 1px solid #d9a400; }
   .selvista { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; } .selvista button { border: 0; border-radius: 0; } .selvista button.on { background: var(--brand); color: #fff; }
   table.rejilla tr.mio td { background: #e3f2e3; font-weight: 600; } table.rejilla td b { font-size: .85rem; } .cambiot { color: #5b2f8c; font-weight: 600; margin-top: 3px; } .deudafila { padding: 6px 0; border-bottom: 1px solid var(--line); }
   #fReglas h4 { margin: 12px 0 4px; color: var(--brand); } #fReglas .grid { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); } #fReglas table.t select { padding: 4px 8px; }
@@ -6454,7 +6454,7 @@ var Cipher = {
   };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-19 · 8';
+  var VERSION = '2026-11-19 · 9';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuadrante de servicios · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -6669,9 +6669,15 @@ var Cipher = {
   var copia = function (o) { return JSON.parse(JSON.stringify(o)); };
   var CFG = copia(CFG_DEF), cfgItem = null;
   var aplicarCfg = function (v) { var c = copia(CFG_DEF); if (v && typeof v === 'object') { Object.keys(c).forEach(function (k) { if (v[k] !== undefined && k !== 'tipos') c[k] = v[k]; }); if (v.tipos) Object.keys(c.tipos).forEach(function (t) { if (v.tipos[t]) c.tipos[t] = v.tipos[t]; }); } CFG = c; };
+  // Meses enviados «como provisional»: los componentes los ven y pueden pedir cambios antes de la publicación definitiva
+  var mesesEstado = {};
+  var provisional = function (ym) { var m = mesesEstado[ym]; return m && m.estado === 'PROVISIONAL' ? m : null; };
+  var visible = function (t) { return t.estado === 'PUBLICADO' || !!provisional(t.mes); };
   function leerAjustesReglas() {
-    if (!info.ajustes) { aplicarCfg(null); cfgItem = null; return Promise.resolve(); }
-    return todas(urlL('ajustes') + '/items?$top=50&$select=Id,Title,Valor').then(function (l) {
+    if (!info.ajustes) { aplicarCfg(null); cfgItem = null; mesesEstado = {}; return Promise.resolve(); }
+    return todas(urlL('ajustes') + '/items?$top=500&$select=Id,Title,Valor').then(function (l) {
+      mesesEstado = {};
+      l.forEach(function (x) { var m = /^MES (\d{4}-\d{2})$/.exec(String(x.Title || '')); if (m) { try { mesesEstado[m[1]] = Object.assign({ id: x.Id }, JSON.parse(x.Valor || '{}')); } catch (e) { /* valor roto */ } } });
       var it = l.find(function (x) { return String(x.Title).toUpperCase() === 'REGLAS'; }); cfgItem = it ? it.Id : null;
       var v = null; try { v = it ? JSON.parse(it.Valor || 'null') : null; } catch (e) { v = null; }
       aplicarCfg(v);
@@ -7005,10 +7011,12 @@ var Cipher = {
 
   // Cuadrante del mes: todos ven el publicado (con lo suyo resaltado); los gestores lo proponen, retocan y publican
   function vistaMes() {
-    var e = edicion, ym = e.ym;
+    var e = edicion, ym = e.ym, prov = provisional(ym);
     var nav = '<div class="mesnav"><button data-mes="-1" title="Mes anterior">◀</button><h2>' + esc(mesTxt(ym)) + '</h2><button data-mes="1" title="Mes siguiente">▶</button>' +
-      '<span class="badge ' + (e.publicado && !e.propuesta ? 'ePub' : e.guardado && !e.propuesta ? 'eBor' : 'eSin') + '">' + (e.publicado && !e.propuesta ? 'PUBLICADO' : e.guardado && !e.propuesta ? 'BORRADOR' : 'PROPUESTA SIN GUARDAR') + '</span></div>';
+      '<span class="badge ' + (e.publicado && !e.propuesta ? 'ePub' : prov && e.guardado && !e.propuesta ? 'eProv' : e.guardado && !e.propuesta ? 'eBor' : 'eSin') + '">' + (e.publicado && !e.propuesta ? 'PUBLICADO' : prov && e.guardado && !e.propuesta ? 'PROVISIONAL' : e.guardado && !e.propuesta ? 'BORRADOR' : 'PROPUESTA SIN GUARDAR') + '</span></div>';
+    var avisoProv = prov && !e.publicado ? '<div class="aviso"><b>⚠ Cuadrante PROVISIONAL.</b> Revisa tus servicios: si necesitas un cambio, pídelo ' + (prov.hasta ? '<b>hasta el ' + esc(fCorta(prov.hasta)) + '</b>' : 'cuanto antes') + ' con «🔁 Pedir cambio». Después se publicará el definitivo.</div>' : '';
     if (!esGestor) {
+      if ((!e.publicado || e.propuesta) && prov && e.guardado && !e.propuesta) return nav + avisoProv + '<div class="acciones">' + selectorVista() + '<button data-imprimir="1">🖨 Imprimir</button></div>' + cuerpoMes(false) + leyenda();
       if (!e.publicado || e.propuesta) return nav + '<div class="card vacio">El cuadrante de ' + esc(mesTxt(ym)) + ' aún no está publicado.</div>';
       return nav + '<div class="acciones">' + selectorVista() + '<button data-imprimir="1">🖨 Imprimir</button></div>' + cuerpoMes(false) + leyenda();
     }
@@ -7025,8 +7033,12 @@ var Cipher = {
       '<div class="aviso small">✏️ Estás editando un cuadrante publicado. Cambia lo necesario (con su motivo) y pulsa «Guardar cambios y avisar a todos»: se envía a todos los del mes el cuadrante como queda.</div>' : '<div class="acciones">' +
       '<button data-proponer="1" title="Vuelve a calcular el mes con la rotación, los festivos y las ausencias aprobadas">↻ ' + (e.guardado ? 'Proponer de nuevo' : 'Proponer el mes') + '</button>' +
       '<button class="prim" data-guardarmes="0"' + (hayCambios() || e.propuesta ? '' : ' disabled') + '>💾 ' + (e.publicado && !e.propuesta ? 'Guardar cambios y avisar' : 'Guardar borrador') + '</button>' +
-      (!e.publicado || e.propuesta ? '<button class="verde" data-guardarmes="1">📢 Publicar y avisar a cada uno</button>' : '') +
-      '<button data-imprimir="1">🖨 Imprimir</button></div>';
+      (!e.publicado || e.propuesta ? '<button class="verde" data-guardarmes="1">📢 Publicar ' + (prov ? 'el definitivo' : '') + ' y avisar a cada uno</button>' : '') +
+      '<button data-imprimir="1">🖨 Imprimir</button></div>' +
+      (!e.publicado && !e.propuesta && e.guardado ? (prov ? avisoProv.replace('Revisa tus servicios: si necesitas', 'Los componentes lo ven y, si necesitan') + '<div class="acciones"><button data-provisional="1">✉ Volver a avisar del provisional</button><button data-retirarprov="1">Retirar el provisional</button></div>' :
+        '<div class="card"><b>👁 Antes de publicar:</b> envíalo como <b>provisional</b> para que cada uno vea sus servicios y pida los cambios que necesite. ' +
+        '<div class="grid" style="margin-top:6px"><div><label class="lbl">Plazo para pedir cambios</label><input type="date" id="provHasta" value="' + esc(addDias(hoy(), 7)) + '"></div></div>' +
+        '<div class="acciones"><button class="prim" data-provisional="1"' + (info.ajustes ? '' : ' disabled title="Falta la lista CUADRANTE AJUSTES (Ajustes › Crear las listas que faltan)"') + '>👁 Enviar como provisional y avisar a cada uno</button></div></div>') : '');
     var emp = e.propuesta ? '<details class="card"' + (turnos.some(function (t) { return t.inicio < ym + '-01'; }) ? '' : ' open') + '><summary style="cursor:pointer"><b>¿Quién empieza cada rotación?</b> <span class="small muted">(lo normal es seguir donde se quedó el mes anterior)</span></summary><div class="grid">' +
       CUADRANTES.map(function (qq) {
         return ['D', 'F'].map(function (k) {
@@ -7122,7 +7134,7 @@ var Cipher = {
   function vistaMios() {
     // Este mes (también lo ya pasado, en gris) y los siguientes; los gestores ven también los de meses en borrador
     var desdeMes = hoy().slice(0, 7) + '-01';
-    var mios = miComp ? turnos.filter(function (t) { return t.comp === miComp.id && t.fin >= desdeMes && (t.estado === 'PUBLICADO' || esGestor); }).sort(function (a, b) { return a.inicio.localeCompare(b.inicio); }) : [];
+    var mios = miComp ? turnos.filter(function (t) { return t.comp === miComp.id && t.fin >= desdeMes && (visible(t) || esGestor); }).sort(function (a, b) { return a.inicio.localeCompare(b.inicio); }) : [];
     var misAus = ausencias.filter(function (a) { return a.persona && a.persona.Id === yo.Id; }).sort(function (a, b) { return b.desde.localeCompare(a.desde); });
     var h = '<div class="hero"><div class="hola">Cuadrante de servicios · JSUIGE</div><div class="nom">' + esc(yo.Title) + '</div>' +
       (miComp ? '<span class="rolh">' + esc(papelDe(miComp.cuadrante)) + '</span><span class="rolh">' + esc(miComp.empleo || '') + '</span>' : '<span class="rolh">No estás dado de alta en ningún cuadrante</span>') +
@@ -7130,7 +7142,7 @@ var Cipher = {
     h += '<div class="sec"><span>Mis servicios (este mes y los siguientes)</span><span>' + mios.length + '</span></div>' + (mios.length ? '<div class="card"><table class="t">' + mios.map(function (t) {
       var avs = avisosCelda(miComp, t);
       var ct = hayCambiosLista() ? cambioDeTurno(t.id) : null;
-      return '<tr class="' + (t.fin < hoy() ? 'pasado' : '') + '"><td><b>' + esc(rotulo(t)) + '</b>' + (t.estado !== 'PUBLICADO' ? ' <span class="badge eBor" title="El mes aún no está publicado: solo lo ven los gestores">sin publicar</span>' : '') +
+      return '<tr class="' + (t.fin < hoy() ? 'pasado' : '') + '"><td><b>' + esc(rotulo(t)) + '</b>' + (t.estado !== 'PUBLICADO' && provisional(t.mes) ? ' <span class="badge eProv" title="Cuadrante provisional: aún puedes pedir cambios">provisional</span>' : '') + (t.estado !== 'PUBLICADO' && !provisional(t.mes) ? ' <span class="badge eBor" title="El mes aún no está publicado: solo lo ven los gestores">sin publicar</span>' : '') +
         (t.asig && t.asig !== 'ROTACION' && t.motivoAsig ? '<div class="small muted">' + esc(t.motivoAsig) + '</div>' : '') + '</td><td>' + badgeTipo(t.tipo) + '</td><td>' + esc(papelDe(t.cuadrante)) + '</td><td>' + avs.map(function (a) { return '<div class="small ' + (a[0] === 'rojo' ? 'txt-bad' : 'txt-warn') + '">⚠ ' + esc(a[1]) + '</div>'; }).join('') +
         (ct ? '<div class="small">🔁 Cambio nº ' + ct.id + ' en trámite (' + esc(ct.estado.toLowerCase()) + ')</div>' : '') + '</td><td>' +
         botonCambio(t, avs.some(function (a) { return a[0] === 'ambar'; })) + '</td></tr>';
@@ -7147,7 +7159,7 @@ var Cipher = {
   // «🔁 Pedir cambio» de un servicio, o por qué no se puede (en vez de no enseñar nada)
   function porQueNoCambio(t) {
     if (!hayCambiosLista()) return esAdmin ? 'Falta la lista «' + LISTAS.cambios + '»: créala en Ajustes («Crear las listas que faltan») y pulsa «Dar los permisos».' : 'Los cambios de servicio aún no están activados: avisa al administrador (falta la lista de cambios).';
-    if (t.estado !== 'PUBLICADO') return 'El mes aún no está publicado: el cambio se pide cuando se publique.';
+    if (!visible(t)) return 'El mes aún no está publicado ni enviado como provisional: el cambio se pide cuando lo vean todos.';
     if (t.fin < hoy()) return 'Este servicio ya ha pasado.';
     var ct = cambioDeTurno(t.id); if (ct) return 'Ya hay un cambio en trámite (nº ' + ct.id + ').';
     if (!miComp || t.comp !== miComp.id) return 'Solo puede pedirlo quien tiene el servicio.';
@@ -7453,14 +7465,33 @@ var Cipher = {
       return Promise.all([leerTurnos(), leerDeudas()]);
     }).then(function () {
       prepararMes(ym); render();
-      if (publicar && !eraPublicado) return avisarPublicacion(ym);
+      if (publicar && !eraPublicado) return estadoMes(ym, 'PUBLICADO').then(function () { return avisarPublicacion(ym); });
       if (eraPublicado && cambios.length) return avisarCambios(cambios, motivo);
       return { html: '✓ ' + (estado === 'PUBLICADO' ? 'Cambios guardados' : 'Borrador guardado') + ' (' + ops.length + ' operaciones).', cls: 'okmsg' };
     }).then(function (r) { resultado = r; render(); toast('Guardado'); })
       .catch(function (err) { boton.disabled = false; resultado = { cls: 'error', html: 'No se pudo guardar todo: ' + esc(err.message || err) + '. Pulsa Actualizar y revisa el mes.' }; render(); });
   }
-  // Al publicar: a cada componente, sus servicios del mes
-  function avisarPublicacion(ym) {
+  function estadoMes(ym, estado, extra) {
+    if (!info.ajustes) return Promise.resolve();
+    var m = mesesEstado[ym], v = JSON.stringify(Object.assign({ estado: estado, por: yo.Title, fecha: new Date().toISOString() }, extra || {}));
+    if (!m && estado !== 'PROVISIONAL') return Promise.resolve();
+    return (m ? cambiarItem('ajustes', m.id, { Valor: v }) : crearItem('ajustes', { Title: 'MES ' + ym, Valor: v })).then(leerAjustesReglas);
+  }
+  function enviarProvisional(boton) {
+    var ym = edicion.ym, prev = provisional(ym), hasta = $('#provHasta') ? $('#provHasta').value : (prev && prev.hasta) || '';
+    if (hayCambios()) return toast('Guarda antes el borrador');
+    if (!prev && !window.confirm('Cada componente verá el cuadrante de ' + mesTxt(ym) + ' como PROVISIONAL y recibirá sus servicios por correo, con el plazo para pedir cambios. ¿Seguir?')) return;
+    boton.disabled = true;
+    (prev ? Promise.resolve() : estadoMes(ym, 'PROVISIONAL', { hasta: hasta })).then(function () { return avisarPublicacion(ym, provisional(ym)); })
+      .then(function (r) { resultado = r; render(); }).catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
+  }
+  function retirarProvisional(boton) {
+    if (!window.confirm('Los componentes dejarán de ver el cuadrante provisional de ' + mesTxt(edicion.ym) + '. ¿Seguir?')) return;
+    boton.disabled = true;
+    estadoMes(edicion.ym, 'RETIRADO').then(function () { render(); toast('Provisional retirado'); }).catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
+  }
+  // Al publicar (o al enviarlo como provisional): a cada componente, sus servicios del mes; a los gestores, copia
+  function avisarPublicacion(ym, prov) {
     var ts = guardadosMes(ym), porComp = {};
     ts.forEach(function (t) { if (t.comp) (porComp[t.comp] = porComp[t.comp] || []).push(t); });
     var ids = Object.keys(porComp), bien = 0, mal = [];
@@ -7469,16 +7500,19 @@ var Cipher = {
       toast('Avisando ' + (i + 1) + ' de ' + ids.length + '…');
       if (!c || !destDe(c.persona)) { mal.push((c ? c.nombre : 'nº ' + id) + ' (sin cuenta)'); return Promise.resolve(); }
       var filas = l.map(function (t) { return [rotulo(t), (TIPOS_TURNO[t.tipo] || t.tipo) + ' · ' + papelDe(t.cuadrante)]; });
-      return enviarCorreo(correoDe('SE HA PUBLICADO EL CUADRANTE DE SERVICIOS DE ' + mesTxt(ym).toUpperCase() + '. ESTOS SON SUS SERVICIOS:', filas,
-        'CUADRANTE DE SERVICIOS · ' + mesTxt(ym).toUpperCase() + ' · SUS SERVICIOS', [destDe(c.persona)], enlacePagina() + '?mes=' + ym))
+      if (prov) filas.push(['Plazo para pedir cambios', prov.hasta ? 'Hasta el ' + fCorta(prov.hasta) : 'Cuanto antes']);
+      return enviarCorreo(correoDe(prov ? 'CUADRANTE DE SERVICIOS DE ' + mesTxt(ym).toUpperCase() + ' PROVISIONAL. ESTOS SON SUS SERVICIOS; SI NECESITA UN CAMBIO, PÍDALO EN LA APLICACIÓN («🔁 PEDIR CAMBIO») DENTRO DEL PLAZO:' :
+        'SE HA PUBLICADO EL CUADRANTE DE SERVICIOS DE ' + mesTxt(ym).toUpperCase() + '. ESTOS SON SUS SERVICIOS:', filas,
+        'CUADRANTE DE SERVICIOS · ' + mesTxt(ym).toUpperCase() + (prov ? ' · PROVISIONAL · SUS SERVICIOS' : ' · SUS SERVICIOS'), [destDe(c.persona)], enlacePagina() + '?mes=' + ym))
         .then(function (r) { if (correoBien(r)) bien++; else mal.push(c.nombre); });
     }).then(function () {
       return destGestores().then(function (g) {
-        return enviarCorreo(correoDe('SE HA PUBLICADO EL CUADRANTE DE SERVICIOS DE ' + mesTxt(ym).toUpperCase() + ' (COPIA PARA LOS GESTORES). ASÍ QUEDA:', filasCuadrante(ym, {}).concat([['Publicado por', yo.Title], ['Avisados por correo', bien + ' de ' + ids.length]]),
-          'CUADRANTE DE SERVICIOS · ' + mesTxt(ym).toUpperCase() + ' · PUBLICADO', g, enlacePagina() + '?mes=' + ym));
+        return enviarCorreo(correoDe((prov ? 'SE HA ENVIADO COMO PROVISIONAL' : 'SE HA PUBLICADO') + ' EL CUADRANTE DE SERVICIOS DE ' + mesTxt(ym).toUpperCase() + ' (COPIA PARA LOS GESTORES). ASÍ QUEDA:',
+          filasCuadrante(ym, {}).concat([[prov ? 'Enviado por' : 'Publicado por', yo.Title], ['Avisados por correo', bien + ' de ' + ids.length]], prov ? [['Plazo para pedir cambios', prov.hasta ? 'Hasta el ' + fCorta(prov.hasta) : '—']] : []),
+          'CUADRANTE DE SERVICIOS · ' + mesTxt(ym).toUpperCase() + (prov ? ' · PROVISIONAL' : ' · PUBLICADO'), g, enlacePagina() + '?mes=' + ym));
       });
     }).then(function (rg) {
-      return { cls: mal.length || !correoBien(rg) ? 'aviso' : 'okmsg', html: '✓ Cuadrante de ' + esc(mesTxt(ym)) + ' publicado. Avisados por correo con sus servicios: ' + bien + ' de ' + ids.length + '.' +
+      return { cls: mal.length || !correoBien(rg) ? 'aviso' : 'okmsg', html: '✓ Cuadrante de ' + esc(mesTxt(ym)) + (prov ? ' enviado como PROVISIONAL' + (prov.hasta ? ' (cambios hasta el ' + esc(fCorta(prov.hasta)) + ')' : '') : ' publicado') + '. Avisados por correo con sus servicios: ' + bien + ' de ' + ids.length + '.' +
         (mal.length ? ' <b>No les llegó a:</b> ' + esc(mal.join(', ')) + '. Avísales tú.' : '') + ' Copia del cuadrante a los gestores' + (correoBien(rg) ? ' (también al administrador).' : ':' + msgCorreo(rg)) };
     });
   }
@@ -7545,7 +7579,7 @@ var Cipher = {
     var nuevo = null;
     crearItem('aus', cuerpo).then(function (n) { nuevo = n && (n.Id || n.ID); return archivos.length && nuevo ? subirAdjuntos(nuevo, archivos) : []; }).then(function (fallos) {
       a.id = nuevo;
-      var serv = c ? turnos.filter(function (t) { return t.comp === c.id && t.estado === 'PUBLICADO' && solapa(a, t.inicio, t.fin); }) : [];
+      var serv = c ? turnos.filter(function (t) { return t.comp === c.id && visible(t) && solapa(a, t.inicio, t.fin); }) : [];
       var corta = !salta(a);
       var filas = [['Componente', c ? [c.empleo, c.nombre].join(' ') : yo.Title], ['Cuadrante', c ? papelDe(c.cuadrante) : ''], ['Tipo', TXT_AUS[a.tipo]], ['Desde', fCorta(a.desde)], ['Hasta', fCorta(a.hasta)],
         ['Días (' + (CFG.cuenta === 'NATURALES' ? 'naturales' : 'laborables') + ')', regla(a.tipo) !== 'SIEMPRE' ? String(diasAus(a)) + (corta ? ' (no salta el servicio: debe hacer un cambio)' : ' (salta el servicio)') : ''], ['Observaciones', a.obs],
@@ -7977,7 +8011,7 @@ var Cipher = {
     var tA = turnoPorId(cambioForm.turno); if (!tA) return '';
     var compas = ordenados(tA.cuadrante).filter(function (c) { return c.id !== miComp.id && activo(c, tA.inicio, tA.fin) && c.persona; });
     var sel = compPorId(cambioForm.comp), tipo = cambioForm.tipo || 'PERMUTA';
-    var suyos = sel ? turnos.filter(function (t) { return t.comp === sel.id && t.estado === 'PUBLICADO' && t.fin >= hoy() && t.cuadrante === tA.cuadrante && clase(t.tipo) === clase(tA.tipo) && !cambioDeTurno(t.id); })
+    var suyos = sel ? turnos.filter(function (t) { return t.comp === sel.id && visible(t) && t.fin >= hoy() && t.cuadrante === tA.cuadrante && clase(t.tipo) === clase(tA.tipo) && !cambioDeTurno(t.id); })
       .sort(function (a, b) { return a.inicio.localeCompare(b.inicio); }) : [];
     var avisoComp = sel ? ausDe(sel, tA.inicio, tA.fin, ['APROBADA', 'PENDIENTE']) : [];
     return '<div class="card turno" id="fCambio"><h3 style="margin-top:0">🔁 Pedir un cambio de mi servicio ' + esc(txtTurno(tA)) + '</h3>' +
@@ -8402,6 +8436,8 @@ var Cipher = {
       if (edicion.guardado && !window.confirm('Se vuelve a calcular el mes entero y se pierden los cambios hechos a mano. ¿Seguir?')) return;
       prepararMes(edicion.ym, true); render(); return;
     }
+    if ((b = accionCon(el, 'data-provisional'))) { enviarProvisional(b); return; }
+    if ((b = accionCon(el, 'data-retirarprov'))) { retirarProvisional(b); return; }
     if ((b = accionCon(el, 'data-guardarmes'))) { guardarMes(b.dataset.guardarmes === '1', b); return; }
     if (el.closest('[data-imprimir]')) { if (pref.vistaMes === 'tabla') imprimirRejilla(); else imprimirMes(); return; }
     if ((b = accionCon(el, 'data-vmes'))) { pref.vistaMes = b.dataset.vmes; guardarPref(); render(); return; }
