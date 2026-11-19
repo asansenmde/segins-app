@@ -266,4 +266,12 @@ autoría.
     19/11/2026: SENDERO (2026-11-18 · 11 con el arreglo de documentos): el enlace de MENSADEF del correo, el PSIT y META lleva a
       la célula, no al mensaje. El usuario lo deja así. PENDIENTE (opcional): si da la forma de la dirección de un mensaje abierto
       en MENSADEF (lo que va tras «#/», sin datos), poner el enlace directo.
+    19/11/2026: PENDIENTE (acordado, para la próxima versión de SENDERO, junto con lo demás): «🔎 Buscar en todo MENSADEF» junto a
+      «Buscar»: el texto va al buscador de MENSADEF (`criterioBusqueda` de buzon/ObtenerBuzonCelula) en todas las células, entrada
+      y salida, de cualquier fecha; resultados en una ventana encima (como las referencias), sin tocar la lista; pulsar = ver el
+      mensaje en esa ventana. Avisar si una bandeja da 50 (hay más). Comprobar con el usuario qué campos busca MENSADEF.
+    Resto pendiente de SENDERO (19/11/2026): probar de verdad «Ir a Rúbrica» y «↩ Responder»; PDF original y «Enviar correo» de
+      MENSADEF (Escuchar, opcional); recordar la autorización unos días (cuando el usuario lo diga); «Quitar del PSIT» en la
+      sesión [PUNTOS] (para-PUNTOS-quitar.md) y en META; enlace directo al mensaje (aparcado); limpieza de filtros (aparcado);
+      firmar desde SENDERO (idea).
 
