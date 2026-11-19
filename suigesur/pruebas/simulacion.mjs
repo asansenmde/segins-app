@@ -274,13 +274,31 @@ async function escenarioLigero(b) {
   ok(await p.isDisabled('[data-uob="' + itO('A-01').Id + '"]') && await p.isChecked('[data-uob="' + itO('M-05').Id + '"]'), 'la ficha de la unidad muestra sus obligaciones');
   await p.check('[data-uob="' + itO('M-01').Id + '"]'); await p.click('#fdlg button[type=submit]'); await esperar(p, 800);
   ok(itO('M-01').UnidadesHabituales === '2', 'obligación definida desde la ficha de la unidad: ' + itO('M-01').UnidadesHabituales);
+  // Alta de una obligación nueva por el formulario, con todos los campos y sus unidades
+  await pestana(p, 'obligaciones');
+  await p.click('[data-acc=nuevaOblig]'); await esperar(p);
+  await p.fill('[name=nombre]', 'Obligación nueva de prueba'); await p.fill('[name=codigo]', 'N-01'); await p.selectOption('[name=periodicidad]', 'Trimestral');
+  await p.fill('[name=dia]', '15'); await p.fill('[name=categoria]', 'Prueba'); await p.fill('[name=ambito]', 'UCO'); await p.fill('[name=regla]', 'Regla de prueba');
+  await p.fill('[name=descripcion]', 'Descripción'); await p.fill('[name=obs]', 'Obs');
+  await p.check('[name=quien][value=lista]'); await p.check('[data-obu="1"]');
+  await p.click('#fdlg button[type=submit]'); await esperar(p, 1000);
+  const nueva = S.listas.NLT_MAESTRO.items.find(i => i.Codigo === 'N-01');
+  ok(nueva && nueva.Title === 'Obligación nueva de prueba' && nueva.UnidadesHabituales === '1' && !(await p.evaluate(() => document.querySelector('#dlg').open)), 'alta de obligación por el formulario: ' + (await p.evaluate(() => document.querySelector('#dlg').open) ? await p.textContent('#dlgMsg') : 'verificada'));
+  // Alta de una unidad nueva marcando obligaciones
+  await pestana(p, 'unidades');
+  await p.click('[data-acc=nuevaUnidad]'); await esperar(p);
+  await p.fill('[name=nombre]', 'UNIDAD CINCO'); await p.fill('[name=siglas]', 'U5'); await p.fill('[name=obs]', 'Observación');
+  await p.check('[data-uob="' + nueva.Id + '"]');
+  await p.click('#fdlg button[type=submit]'); await esperar(p, 1200);
+  const u5 = S.listas.UCO_SUIGESUR.items.find(i => i.Siglas === 'U5');
+  ok(u5 && S.listas.NLT_MAESTRO.items.find(i => i.Codigo === 'N-01').UnidadesHabituales.split(';').includes(String(u5.Id)) && !(await p.evaluate(() => document.querySelector('#dlg').open)), 'alta de unidad con sus obligaciones: ' + (await p.evaluate(() => document.querySelector('#dlg').open) ? await p.textContent('#dlgMsg') : 'verificada'));
   // Generar todo 2027 solo para quien corresponde
   const activas = S.listas.UCO_SUIGESUR.items.filter(i => i.Activa !== false).length;
   await pestana(p, 'entregas'); await p.click('[data-acc=generar]'); await esperar(p);
   await p.fill('[name=ganio]', '2027'); await p.selectOption('[name=gdesde]', '1'); await p.selectOption('[name=ghasta]', '12'); await esperar(p, 300);
   const gt = await p.textContent('#genTabla');
-  const esperado = 3 * 12 + 1 * 12 + activas;
-  ok(gt.includes('Sin definir: no se genera') && gt.includes('Se crearán ' + esperado + ' registros'), 'previsión 2027: ' + esperado + ' registros (VSA 3×12, M-01 1×12, anual ' + activas + ')');
+  const esperado = 3 * 12 + 1 * 12 + activas + 2 * 4;
+  ok(gt.includes('Sin definir: no se genera') && gt.includes('Se crearán ' + esperado + ' registros'), 'previsión 2027: ' + esperado + ' registros (VSA 3×12, M-01 1×12, anual ' + activas + ', nueva trimestral 2×4)');
   await p.click('#genCrear'); await esperar(p, 8000);
   ok((await p.textContent('#dlgMsg')).includes(esperado + ' registros creados y verificados'), 'generación 2027: ' + (await p.textContent('#dlgMsg')).slice(0, 60));
   const e27 = S.listas.CONTROL_ENTREGAS.items.filter(i => /^2027/.test(i.Periodo));

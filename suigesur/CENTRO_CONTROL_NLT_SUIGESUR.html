@@ -507,6 +507,9 @@
       resolver(n);
     } catch (e) { S.error = e; S.estado = 'error de lectura'; S.items = []; return; }
     try { S.perm = permisos(await api('Leer permisos', n, base + '/EffectiveBasePermissions')); } catch (e) { S.perm = null; }
+    // Reglas de la lista que pueden rechazar una alta (columnas de valor único, validación, aprobación)
+    S.unicos = await api('Leer columnas únicas', n, base + "/fields?$select=InternalName&$filter=EnforceUniqueValues eq true").then(d => lista(d.value).map(x => x.InternalName)).catch(() => null);
+    S.reglas = await api('Leer reglas de la lista', n, base + '?$select=ValidationFormula,EnableModeration').catch(() => null);
     try {
       const sel = ['Id', 'Created', 'Modified', 'Author/Title', 'Editor/Title'].concat(internosLectura(n));
       const items = await paginar('Leer elementos', n, base + '/items?$top=500&$select=' + sel.join(',') + '&$expand=Author,Editor');
@@ -634,6 +637,7 @@
     Object.keys(datos).forEach(k => {
       const d = defCampo(n, k), v = datos[k];
       if (obj && mismoValor({ TypeAsString: d.t === 'Note' ? 'Text' : d.t }, obj[k], v)) return;
+      if (!obj && vacio(v)) return;   // en un alta no se envían vacíos (evita choques con columnas de valor único)
       const ints = S.map[k] || [];
       if (!ints.length) { if (!vacio(v)) faltan.push('«' + d.d + '» (' + d.in + ')'); return; }
       ints.forEach(i => { cuerpo[i] = valorSP(S.porInterno[i], v); escritos.push({ k: k, i: i, v: v }); });
@@ -1903,8 +1907,10 @@
         case 'semillaUco': return dlgSemilla('UCO_SUIGESUR');
         case 'copiarDiag': {
           const t = ['CENTRO DE CONTROL NLT SUIGESUR · diagnóstico ' + new Date().toLocaleString('es-ES'), 'Sitio: ' + (web ? web.url : '—'), 'Formato: ' + (verbose ? 'verbose' : 'nometadata'), errorGeneral ? 'Error general: ' + errorGeneral.message : '']
-            .concat(LISTAS.map(n => n + ': ' + L[n].estado + ' · ' + L[n].items.length + ' elementos · permisos ' + JSON.stringify(L[n].perm) + ' · columnas: ' + DEF[n].campos.map(c => c.k + '=' + ((L[n].map[c.k] || []).join('+') || 'FALTA')).join(', ')))
-            .concat(['', 'Operaciones:']).concat(REG.slice(0, 80).map(r => r.hora.toLocaleTimeString('es-ES') + ' | ' + r.op + ' | ' + r.lista + ' | ' + r.metodo + ' ' + r.url + ' | HTTP ' + r.status + ' | ' + (r.ok ? 'OK' : 'ERROR') + ' | ' + r.msg)).join('\n');
+            .concat(LISTAS.map(n => n + ': ' + L[n].estado + ' · ' + L[n].items.length + ' elementos · permisos ' + JSON.stringify(L[n].perm) + ' · columnas: ' + DEF[n].campos.map(c => c.k + '=' + ((L[n].map[c.k] || []).join('+') || 'FALTA')).join(', ') +
+              '\n   definición: ' + L[n].campos.filter(c => !c.ReadOnlyField).map(c => c.InternalName + ':' + c.TypeAsString + (c.Required ? ':obligatoria' : '') + ((L[n].unicos || []).indexOf(c.InternalName) >= 0 ? ':única' : '') + (c.Choices && c.Choices.length ? ':opciones=' + c.Choices.length + (c.FillInChoice ? '+libre' : '') : '')).join(', ') +
+              '\n   reglas: ' + (L[n].reglas ? 'validación=' + (L[n].reglas.ValidationFormula ? 'sí' : 'no') + ' · aprobación=' + (L[n].reglas.EnableModeration ? 'sí' : 'no') : 'no leídas') + ' · tipo=' + (L[n].info ? L[n].info.ListItemEntityTypeFullName : '—')))
+            .concat(['', 'Operaciones:']).concat(REG.slice(0, 80).map(r => r.hora.toLocaleTimeString('es-ES') + ' | ' + r.op + ' | ' + r.lista + ' | ' + r.metodo + ' ' + r.url + ' | HTTP ' + r.status + ' | ' + (r.ok ? 'OK' : 'ERROR') + ' | ' + String(r.msg).replace(/«[^»]*»/g, '«…»'))).join('\n');
           (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => aviso('Diagnóstico copiado')).catch(() => descargar('diagnostico-nlt-suigesur.txt', t, 'text/plain;charset=utf-8'));
           return;
         }
