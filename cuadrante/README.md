@@ -9,7 +9,7 @@
 | `colabora/cuadrante.html` | **Copia cifrada que se sube a Colabora** (`cd cuadrante/proteger && node proteger.mjs`). |
 | `pruebas/simulacion.mjs` | Prueba completa contra un SharePoint simulado, en formato ligero y *verbose*. Con `CUAD_HTML=cuadrante/colabora/cuadrante.html` prueba la copia cifrada y con `PROXY=1`, el filtro de la red. |
 
-## Puesta en marcha (versión 2026-11-19 · 5)
+## Puesta en marcha (versión 2026-11-19 · 6)
 
 1. Subir `colabora/cuadrante.html` a una biblioteca del sitio JSUIGE (por ejemplo `…/JSUIGE/aplicaciones/`) y abrirla con
    la cuenta que tiene Control total.
@@ -121,6 +121,26 @@ correo a la cuenta y copia cifrada entera.
   y queda anotado «sin firma».
 - **Control total en JSUIGE:** el usuario. Desde Ajustes crea las listas y el grupo `CUADRANTE_GESTORES`, y aprueba
   las solicitudes de acceso.
+
+## Correos: quién recibe cada aviso (19/11/2026, revisado)
+
+Todos van a la CUENTA de cada persona; en la prueba simulada no sale ninguno a una dirección. «Gestores» = integrantes
+de `CUADRANTE_GESTORES` y, siempre, el administrador (su cuenta se lee de la lista común de solicitudes, donde la deja al
+entrar). Antes, el administrador que no estaba en el grupo no recibía nada.
+
+| Cuándo | A quién |
+|---|---|
+| Se publica un mes | A cada componente, sus servicios. A los gestores, copia del cuadrante completo. |
+| Se modifica un mes publicado | A todos los del mes, a quien pierde un servicio y a los gestores: el cuadrante como queda. |
+| Alguien pide un cambio | Al compañero y a los gestores. |
+| El compañero acepta y firma | A los gestores. |
+| Se valida, se rechaza o se anula un cambio | A los dos interesados y, en copia, a los gestores. |
+| Se comunica una ausencia | A los gestores. |
+| Se aprueba o deniega una ausencia | Al interesado. |
+| Solicitud de acceso | Al administrador; la respuesta, al solicitante. |
+
+Quien no es componente no recibe «sus servicios», pero si es gestor (o administrador) recibe la copia. En Ajustes están
+esta tabla, «Enviarme un correo de prueba» y «Probar el aviso a los gestores» (dice a quién ha ido).
 
 ## Mes publicado, vista en tabla y quitar componentes (19/11/2026)
 

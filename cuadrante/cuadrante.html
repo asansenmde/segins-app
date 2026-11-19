@@ -6454,7 +6454,7 @@ var Cipher = {
   };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-19 · 5';
+  var VERSION = '2026-11-19 · 6';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuadrante de servicios · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -6865,12 +6865,18 @@ var Cipher = {
   var limpia = function (l) { var v = {}; return l.filter(function (x) { x = String(x || '').trim(); var k = x.toLowerCase(); if (!x || v[k]) return false; v[k] = 1; return true; }); };
   // Gestores: integrantes del grupo (el grupo se crea con «quién puede ver los miembros: todos»)
   var gestoresCache = null;
+  // Gestores: los integrantes del grupo y, siempre, el administrador de la aplicación (dirección fija; su CUENTA se lee de la
+  // lista común de solicitudes, donde la deja al entrar). Así el administrador recibe los avisos aunque no esté en el grupo.
   function destGestores() {
-    if (gestoresCache) return Promise.resolve(gestoresCache);
-    return todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(GRUPOS.gestores) + "')/users?$select=Id,Title,Email,LoginName")
-      .then(function (l) { gestoresCache = l.map(function (u) { apuntarPersona(u); return u.LoginName || u.Email; }).filter(Boolean); return gestoresCache; }, function () { return []; })
-      .then(function (l) { return l.length ? l : ACCESO.avisarCorreos.slice(); });
+    var grupo = gestoresCache ? Promise.resolve(gestoresCache) : todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(GRUPOS.gestores) + "')/users?$select=Id,Title,Email,LoginName")
+      .then(function (l) { gestoresCache = l.map(function (u) { apuntarPersona(u); return u.LoginName || u.Email; }).filter(Boolean); return gestoresCache; }, function () { return []; });
+    return Promise.all([grupo, leerCuentasAviso().catch(function () {})]).then(function (r) {
+      var adm = ACCESO.avisarCorreos.map(function (x) { return cuentaCache[String(x).toLowerCase()] || x; });
+      var l = r[0].concat(adm), vistos = {};
+      return l.filter(function (x) { var k = String(x).toLowerCase(); if (vistos[k]) return false; vistos[k] = 1; return true; });
+    });
   }
+  var conGestores = function (c) { return destGestores().then(function (g) { c.cc = g.filter(function (x) { return c.to.map(function (y) { return String(y).toLowerCase(); }).indexOf(String(x).toLowerCase()) < 0; }); return c; }); };
   function mailto(c) {
     var u = 'mailto:' + c.to.filter(function (x) { return /@/.test(x); }).map(encodeURIComponent).join(';') + '?' + 'subject=' + encodeURIComponent(c.asunto) + '&body=';
     var cuerpo = c.texto;
@@ -6958,6 +6964,13 @@ var Cipher = {
     return (r.ok ? ' Aviso enviado por Colabora a ' + r.n + ' destinatario' + (r.n === 1 ? '' : 's') + '.' : ' No se pudo enviar el aviso (' + esc(r.motivo) + ').') +
       (r.rechazados && r.rechazados.length ? ' Colabora no aceptó: ' + esc(r.rechazados.join(', ')) + '.' : '') + btn;
   };
+  function pruebaGestores(boton) {
+    var el = $('#aPrueba'); boton.disabled = true; el.innerHTML = '<p class="muted small">Enviando…</p>';
+    destGestores().then(function (g) {
+      return enviarCorreo(correoDe('PRUEBA: ASÍ LES LLEGAN A LOS GESTORES LOS AVISOS DEL CUADRANTE DE SERVICIOS.', [['Enviado por', yo.Title], ['Fecha', fHora(new Date())], ['Destinatarios', g.join(', ')]], 'PRUEBA · CUADRANTE DE SERVICIOS · AVISO A LOS GESTORES', g))
+        .then(function (r) { boton.disabled = false; el.innerHTML = '<div class="' + (correoBien(r) ? 'okmsg' : 'aviso') + '">' + (r.ok ? '✓ Enviado a ' + g.length + ' destinatario' + (g.length === 1 ? '' : 's') + ': ' + esc(g.join(', ')) + '.' : '✕') + msgCorreo(r) + '</div>'; });
+    }).catch(function (e) { boton.disabled = false; el.innerHTML = '<div class="error">' + esc(e.message || e) + '</div>'; });
+  }
   function correoPrueba(boton) {
     var el = $('#aPrueba');
     var c = correoDe('CORREO DE PRUEBA: ASÍ LLEGAN LOS AVISOS DEL CUADRANTE DE SERVICIOS.', [['Enviado por', yo.Title], ['Fecha', fHora(new Date())], ['Versión de la página', VERSION]],
@@ -7433,8 +7446,24 @@ var Cipher = {
         'CUADRANTE DE SERVICIOS · ' + mesTxt(ym).toUpperCase() + ' · SUS SERVICIOS', [destDe(c.persona)], enlacePagina() + '?mes=' + ym))
         .then(function (r) { if (correoBien(r)) bien++; else mal.push(c.nombre); });
     }).then(function () {
-      return { cls: mal.length ? 'aviso' : 'okmsg', html: '✓ Cuadrante de ' + esc(mesTxt(ym)) + ' publicado. Avisados por correo: ' + bien + ' de ' + ids.length + '.' + (mal.length ? ' <b>No les llegó a:</b> ' + esc(mal.join(', ')) + '. Avísales tú.' : '') };
+      return destGestores().then(function (g) {
+        return enviarCorreo(correoDe('SE HA PUBLICADO EL CUADRANTE DE SERVICIOS DE ' + mesTxt(ym).toUpperCase() + ' (COPIA PARA LOS GESTORES). ASÍ QUEDA:', filasCuadrante(ym, {}).concat([['Publicado por', yo.Title], ['Avisados por correo', bien + ' de ' + ids.length]]),
+          'CUADRANTE DE SERVICIOS · ' + mesTxt(ym).toUpperCase() + ' · PUBLICADO', g, enlacePagina() + '?mes=' + ym));
+      });
+    }).then(function (rg) {
+      return { cls: mal.length || !correoBien(rg) ? 'aviso' : 'okmsg', html: '✓ Cuadrante de ' + esc(mesTxt(ym)) + ' publicado. Avisados por correo con sus servicios: ' + bien + ' de ' + ids.length + '.' +
+        (mal.length ? ' <b>No les llegó a:</b> ' + esc(mal.join(', ')) + '. Avísales tú.' : '') + ' Copia del cuadrante a los gestores' + (correoBien(rg) ? ' (también al administrador).' : ':' + msgCorreo(rg)) };
     });
+  }
+  // Filas del cuadrante de un mes para los correos (jefe y auxiliar de cada turno)
+  function filasCuadrante(ym, cambiado) {
+    var ts = guardadosMes(ym), vistos = {}, filas = [];
+    var nombre = function (q, ini) { var t = ts.find(function (y) { return y.cuadrante === q && y.inicio === ini; }), c = t && compPorId(t.comp); return (c ? c.nombre : '—') + (cambiado[q + '|' + ini] ? ' (CAMBIADO)' : ''); };
+    ts.slice().sort(function (a, b) { return a.inicio.localeCompare(b.inicio); }).forEach(function (t) {
+      if (vistos[t.inicio]) return; vistos[t.inicio] = 1;
+      filas.push([rotulo(t) + ' · ' + (TIPOS_TURNO[t.tipo] || t.tipo), 'Jefe: ' + nombre('OFICIALES', t.inicio) + '\nAuxiliar: ' + nombre('SUBOFICIALES', t.inicio)]);
+    });
+    return filas;
   }
   // Al guardar cambios de un mes publicado: a todos los del mes (y a quien deja de tener un servicio), el cuadrante como queda
   function avisarCambios(cambios, motivo) {
@@ -7442,6 +7471,9 @@ var Cipher = {
     ts.forEach(function (t) { var c = compPorId(t.comp); if (c && c.persona) dest.push(destDe(c.persona)); });
     cambios.forEach(function (x) { if (x.antes && x.antes.persona) dest.push(destDe(x.antes.persona)); });
     dest = limpia(dest);
+    return destGestores().then(function (g) { dest = limpia(dest.concat(g)); return avisarCambiosA(dest, cambios, motivo, ym, ts); });
+  }
+  function avisarCambiosA(dest, cambios, motivo, ym, ts) {
     var cambiado = {}; cambios.forEach(function (x) { cambiado[x.q + '|' + x.f.inicio] = 1; });
     var nombre = function (q, ini) { var t = ts.find(function (y) { return y.cuadrante === q && y.inicio === ini; }), c = t && compPorId(t.comp); return (c ? c.nombre : '—') + (cambiado[q + '|' + ini] ? ' (CAMBIADO)' : ''); };
     var filas = cambios.map(function (x) { return ['CAMBIO · ' + rotulo(x.f), papelDe(x.q) + ': ' + (x.antes ? x.antes.nombre : '—') + ' → ' + (x.ahora ? x.ahora.nombre : 'sin asignar') + (x.motivo || motivo ? ' · ' + (x.motivo || motivo) : '')]; });
@@ -7592,8 +7624,20 @@ var Cipher = {
     }).join('') || '<tr><td class="muted">Nadie aún.</td></tr>') + '</table><div class="grid" style="margin-top:8px"><div><label class="lbl">Añadir gestor (correo o usuario)</label><input id="ajGestor" placeholder="nombre@et.mde.es"></div></div>' +
       '<div class="acciones"><button class="prim" data-ajanadir="1">＋ Añadir gestor</button></div></div>';
     h += '<div class="card"><h3 style="margin-top:0">3. Permisos de las listas</h3><p class="small">Da a «' + esc(GRUPOS.usuarios) + '» permiso de <b>lectura</b> en componentes, turnos, festivos, servicios debidos y reglas, y de <b>colaborar</b> en ausencias y cambios de servicio (para comunicarlas, pedirlos y aceptarlos); y a «' + esc(GRUPOS.gestores) + '» permiso de <b>colaborar</b> en todas. Las reglas solo las cambia el administrador (Control total). Las listas dejan de heredar los permisos del sitio.</p><div class="acciones"><button class="prim" data-ajpermisos="1"' + (faltan.length || aj.grupos.indexOf(GRUPOS.gestores) < 0 || aj.grupos.indexOf(GRUPOS.usuarios) < 0 ? ' disabled' : '') + '>Dar los permisos</button></div><div id="ajPermMsg"></div></div>';
-    h += '<div class="card"><h3 style="margin-top:0">4. Correo de prueba y sitio</h3>' +
-      '<div class="acciones"><button data-correoprueba="1">Enviarme un correo de prueba</button></div><div id="aPrueba"></div>' +
+    h += '<div class="card"><h3 style="margin-top:0">4. Correos: quién recibe cada aviso</h3>' +
+      '<p class="small muted">Los avisos van a la CUENTA de cada persona (Colabora no acepta las direcciones). «Gestores» = los del grupo «' + esc(GRUPOS.gestores) + '» y, siempre, el administrador (' + esc(ACCESO.avisarCorreos.join(', ')) + ').</p>' +
+      '<table class="t small"><tr><th>Cuándo</th><th>A quién</th></tr>' + [
+        ['Se publica un mes', 'A cada componente, sus servicios del mes. A los gestores, copia del cuadrante completo.'],
+        ['Se modifica un mes publicado', 'A todos los del mes, a quien deja de tener un servicio y a los gestores: el cuadrante como queda, con los cambios marcados.'],
+        ['Alguien pide un cambio de servicio', 'Al compañero (para aceptarlo y firmarlo) y a los gestores (para que estén atentos).'],
+        ['El compañero acepta y firma', 'A los gestores, para que lo validen.'],
+        ['Se valida, se rechaza o se anula un cambio', 'A los dos interesados y, en copia, a los gestores.'],
+        ['Alguien comunica una ausencia', 'A los gestores, para aprobarla.'],
+        ['Se aprueba o deniega una ausencia', 'Al interesado.'],
+        ['Solicitud de acceso a la aplicación', 'Al administrador. Al resolverla, al solicitante.']
+      ].map(function (x) { return '<tr><td><b>' + esc(x[0]) + '</b></td><td>' + esc(x[1]) + '</td></tr>'; }).join('') + '</table>' +
+      '<p class="small muted">Si un componente no tiene cuenta enlazada (sale «sin cuenta» en Componentes), no le llega nada. Quien no es componente (por ejemplo, el administrador) no recibe «sus servicios», pero sí la copia de los gestores.</p>' +
+      '<div class="acciones"><button data-correoprueba="1">Enviarme un correo de prueba</button><button data-pruebagestores="1">Probar el aviso a los gestores</button></div><div id="aPrueba"></div>' +
       '<label class="lbl">Sitio de Colabora</label><input id="aSitio" value="' + esc(pref.sitio) + '"><div class="acciones"><button data-restablecer="1">Restablecer (' + esc(POR_DEFECTO.sitio) + ')</button></div></div>';
     return h;
   }
@@ -8096,10 +8140,16 @@ var Cipher = {
       return subirPdf(nuevo, nombrePdf(nuevo, 0), firmado);
     }).then(function () {
       return enviarCorreo(correoDe('SE LE HA SOLICITADO UN CAMBIO DE SERVICIO. ENTRE EN «MIS SERVICIOS» PARA ACEPTARLO Y FIRMARLO, O RECHAZARLO.', filasCambio(tipo, miComp, tA, cc, tB, motivo, devol),
-        'CUADRANTE DE SERVICIOS · SOLICITUD DE CAMBIO DE SERVICIO DE ' + miComp.nombre.toUpperCase(), [destDe(cc.persona)]));
-    }).then(function (r) {
+        'CUADRANTE DE SERVICIOS · SOLICITUD DE CAMBIO DE SERVICIO DE ' + miComp.nombre.toUpperCase(), [destDe(cc.persona)])).then(function (r) {
+        return destGestores().then(function (g) {
+          return enviarCorreo(correoDe('NUEVA SOLICITUD DE CAMBIO DE SERVICIO (Nº ' + nuevo + '). PENDIENTE DE LA FIRMA DEL COMPAÑERO; DESPUÉS LA VALIDARÁ UN GESTOR EN LA PESTAÑA «CAMBIOS».', filasCambio(tipo, miComp, tA, cc, tB, motivo, devol),
+            'CUADRANTE DE SERVICIOS · CAMBIO DE SERVICIO Nº ' + nuevo + ' SOLICITADO', g));
+        }).then(function (rg) { return { r: r, rg: rg }; });
+      });
+    }).then(function (x) {
+      var r = x.r;
       cambioForm = null;
-      resultado = { cls: correoBien(r) ? 'okmsg' : 'aviso', html: '✓ Solicitud de cambio firmada y enviada a ' + esc(cc.nombre) + '. Cuando la firme, pasará al gestor.' + msgCorreo(r) };
+      resultado = { cls: correoBien(r) && correoBien(x.rg) ? 'okmsg' : 'aviso', html: '✓ Solicitud de cambio firmada y enviada a ' + esc(cc.nombre) + ' (y avisados los gestores). Cuando la firme, pasará al gestor para validarla.' + msgCorreo(r) + (correoBien(x.rg) ? '' : ' Aviso a los gestores:' + msgCorreo(x.rg)) };
       return leerCambios();
     }).then(function () { render(); })
       .catch(function (e) {
@@ -8156,8 +8206,8 @@ var Cipher = {
       return crearItem('deudas', { Title: sc.nombre + ' debe un servicio a ' + cc.nombre, Cuadrante: c.cuadrante, Deudor: sc.id, Acreedor: cc.id, ClaseTurno: tA.tipo === 'DIARIO' ? 'DIARIO' : 'FIN DE SEMANA',
         Motivo: 'Cesión del servicio ' + txtTurno(tA) + ' (cambio nº ' + id + ')', EstadoDeuda: 'PENDIENTE', Historial: anotacion('Registrado al validar el cambio nº ' + id) }).then(leerDeudas);
     }).then(function () {
-      return enviarCorreo(correoDe('SE HA VALIDADO EL CAMBIO DE SERVICIO. EL CUADRANTE YA ESTÁ ACTUALIZADO.', [['Cambio', 'Nº ' + id + ' · ' + c.desc], ['Devolución', c.tipo === 'CESION' ? (c.devol ? sc.nombre + ' queda debiendo un servicio a ' + cc.nombre + '; el gestor se lo asignará' : 'No') : ''], ['Validado por', yo.Title], ['Observación', obs]].filter(function (x) { return x[1]; }),
-        'CUADRANTE DE SERVICIOS · CAMBIO DE SERVICIO Nº ' + id + ' VALIDADO', limpia([destDe(sc.persona), destDe(cc.persona)]), enlacePagina() + '?mes=' + tA.mes));
+      return conGestores(correoDe('SE HA VALIDADO EL CAMBIO DE SERVICIO. EL CUADRANTE YA ESTÁ ACTUALIZADO.', [['Cambio', 'Nº ' + id + ' · ' + c.desc], ['Devolución', c.tipo === 'CESION' ? (c.devol ? sc.nombre + ' queda debiendo un servicio a ' + cc.nombre + '; el gestor se lo asignará' : 'No') : ''], ['Validado por', yo.Title], ['Observación', obs]].filter(function (x) { return x[1]; }),
+        'CUADRANTE DE SERVICIOS · CAMBIO DE SERVICIO Nº ' + id + ' VALIDADO', limpia([destDe(sc.persona), destDe(cc.persona)]), enlacePagina() + '?mes=' + tA.mes)).then(enviarCorreo);
     }).then(function (r) {
       resultado = { cls: correoBien(r) ? 'okmsg' : 'aviso', html: '✓ Cambio nº ' + id + ' validado' + (sinFirma ? ' (sin firma del gestor)' : ' y firmado') + '. El cuadrante está actualizado.' +
         (c.tipo === 'CESION' && c.devol && info.deudas ? ' Queda registrado que ' + esc(sc.nombre) + ' debe un servicio a ' + esc(cc.nombre) + ' (sale en «Servicios debidos pendientes»).' : '') + msgCorreo(r) };
@@ -8171,18 +8221,22 @@ var Cipher = {
     var quien = esGestor && c.estado === EC.gest ? 'el gestor ' + yo.Title : (miComp ? miComp.nombre : yo.Title);
     cambiarItem('cambios', id, { EstadoCambio: EC.no, Respuesta: resp, Historial: anotarCambio(c, 'Rechazado por ' + quien + ': ' + resp) }).then(function () {
       var sc = compPorId(c.solComp), cc = compPorId(c.compComp);
-      return enviarCorreo(correoDe('EL CAMBIO DE SERVICIO HA SIDO RECHAZADO.', [['Cambio', 'Nº ' + id + ' · ' + c.desc], ['Rechazado por', quien], ['Motivo', resp]],
-        'CUADRANTE DE SERVICIOS · CAMBIO DE SERVICIO Nº ' + id + ' RECHAZADO', limpia([sc && destDe(sc.persona), cc && destDe(cc.persona)])));
+      return conGestores(correoDe('EL CAMBIO DE SERVICIO HA SIDO RECHAZADO.', [['Cambio', 'Nº ' + id + ' · ' + c.desc], ['Rechazado por', quien], ['Motivo', resp]],
+        'CUADRANTE DE SERVICIOS · CAMBIO DE SERVICIO Nº ' + id + ' RECHAZADO', limpia([sc && destDe(sc.persona), cc && destDe(cc.persona)]))).then(enviarCorreo);
     }).then(function (r) { resultado = { cls: correoBien(r) ? 'okmsg' : 'aviso', html: 'Cambio nº ' + id + ' rechazado.' + msgCorreo(r) }; return leerCambios(); })
       .then(function () { render(); }).catch(function (e) { boton.disabled = false; caja.querySelector('.cambioMsg').innerHTML = '<div class="error">' + esc(e.message || e) + '</div>'; });
   }
   function anularCambio(id, boton) {
     if (!window.confirm('¿Anular la solicitud de cambio nº ' + id + '?')) return;
-    var c = cambios.find(function (x) { return x.id === id; });
+    var c = cambios.find(function (x) { return x.id === id; }), cc = compPorId(c.compComp);
     boton.disabled = true;
-    cambiarItem('cambios', id, { EstadoCambio: EC.anul, Historial: anotarCambio(c, 'Anulado por el solicitante') }).then(leerCambios).then(function () { render(); toast('Solicitud anulada'); })
+    cambiarItem('cambios', id, { EstadoCambio: EC.anul, Historial: anotarCambio(c, 'Anulado por el solicitante') }).then(function () {
+      return conGestores(correoDe('EL SOLICITANTE HA ANULADO LA SOLICITUD DE CAMBIO DE SERVICIO.', [['Cambio', 'Nº ' + id + ' · ' + c.desc]], 'CUADRANTE DE SERVICIOS · CAMBIO DE SERVICIO Nº ' + id + ' ANULADO',
+        limpia([cc && destDe(cc.persona)]))).then(function (m) { if (!m.to.length) { m.to = m.cc; m.cc = []; } return enviarCorreo(m); });
+    }).then(leerCambios).then(function () { render(); toast('Solicitud anulada'); })
       .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
   }
+
   function verPdfCambio(id) {
     var c = cambios.find(function (x) { return x.id === id; });
     ultimoPdf(c).then(function (d) { if (d) window.open(d.url, '_blank', 'noopener'); else toast('No hay documento firmado'); }).catch(function (e) { toast('No se pudo abrir: ' + (e.message || e)); });
@@ -8372,6 +8426,7 @@ var Cipher = {
     if ((b = accionCon(el, 'data-ajquitar'))) { quitarGestor(b); return; }
     if ((b = accionCon(el, 'data-ajpermisos'))) { darPermisos(b); return; }
     if ((b = accionCon(el, 'data-correoprueba'))) { correoPrueba(b); return; }
+    if ((b = accionCon(el, 'data-pruebagestores'))) { pruebaGestores(b); return; }
     if (el.closest('[data-restablecer]')) { pref.sitio = POR_DEFECTO.sitio; guardarPref(); cargar(); return; }
     if ((b = accionCon(el, 'data-accprueba'))) { probarAvisoSolicitud(b); return; }
     if ((b = accionCon(el, 'data-accsolicitar'))) { enviarSolicitud(b); return; }

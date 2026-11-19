@@ -54,6 +54,7 @@ async function abrir(id, esAdmin, verbose, url) {
       if (resto === 'contextinfo') return J({ GetContextWebInformation: { FormDigestValue: 'D', FormDigestTimeoutSeconds: 1800 } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = c.properties, dest = [pr.To, pr.CC, pr.BCC].flatMap(x => x ? x.results : []);
+        if (dest.some(x => /@/.test(x)) && process.env.VER_RECHAZOS) console.log('RECHAZO', pr.Subject, JSON.stringify(dest));
         if (dest.some(x => /@/.test(x))) return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } }) });
         correos.push({ to: dest, asunto: pr.Subject, cuerpo: pr.Body }); return J({});
       }
@@ -137,6 +138,8 @@ async function prueba(verbose) {
   await p.fill('#ajGestor', 'gestora@et.mde.es'); await p.click('[data-ajanadir]'); await p.waitForTimeout(800);
   comprueba(tag + 'añade a la gestora al grupo de gestores', grupos.CUADRANTE_GESTORES.includes(8));
   await p.click('[data-ajpermisos]'); await p.waitForTimeout(1500);
+  correos.length = 0; await p.click('[data-pruebagestores]'); await p.waitForTimeout(800);
+  comprueba(tag + 'Ajustes: «Probar el aviso a los gestores» llega a la gestora y al administrador', correos.some(c => /AVISO A LOS GESTORES/.test(c.asunto) && c.to.includes('i:0#.w|et\\gestora') && c.to.includes('i:0#.w|et\\asansen')) && /Quién recibe cada aviso|quién recibe cada aviso/.test(await texto(p)), JSON.stringify(correos.map(c => c.to)));
   const asig = posts.filter(x => /addroleassignment/.test(x.ruta));
   comprueba(tag + 'da permisos: lectura a usuarios (colaborar en ausencias) y colaborar a gestores', asig.length === 14 && asig.some(x => /AUSENCIAS'\)\/roleassignments\/addroleassignment\(principalid=\d+,roledefid=1073741827/.test(x.ruta)) && posts.filter(x => /breakroleinheritance/.test(x.ruta)).length === 7 && asig.some(x => /CAMBIOS'\)\/roleassignments\/addroleassignment\(principalid=\d+,roledefid=1073741827/.test(x.ruta)), asig.length);
   // el administrador deja su cuenta para el aviso directo de las solicitudes de acceso
@@ -208,7 +211,8 @@ async function prueba(verbose) {
   const avisados = new Set(correos.filter(c => /SUS SERVICIOS/.test(c.asunto)).flatMap(c => c.to));
   comprueba(tag + 'avisa a cada uno de sus servicios, a su CUENTA', avisados.size === 12 && !avisados.has('i:0#.w|et\\sub5') && [...avisados].every(x => /^i:0#\.w\|et\\/.test(x)), [...avisados].join(','));
   t = await texto(p);
-  comprueba(tag + 'resultado: publicado y avisados 12 de 12 (SUB5 no tiene turnos por su permiso)', /publicado\. Avisados por correo: 12 de 12/.test(t), t.slice(0, 200));
+  comprueba(tag + 'resultado: publicado y avisados 12 de 12 (SUB5 no tiene turnos por su permiso)', /publicado\. Avisados por correo con sus servicios: 12 de 12/.test(t) && /Copia del cuadrante a los gestores \(también al administrador\)/.test(t), t.slice(0, 300));
+  comprueba(tag + 'copia del cuadrante completo a los gestores y al administrador (que no es componente)', correos.some(c => /PUBLICADO$/.test(c.asunto) && c.to.includes('i:0#.w|et\\gestora') && c.to.includes('i:0#.w|et\\asansen') && /Jefe: /.test(c.cuerpo)), JSON.stringify(correos.filter(c => /PUBLICADO/.test(c.asunto)).map(c => c.to)));
   if (process.env.FOTOS && !verbose) { await p.setViewportSize({ width: 1300, height: 900 }); await p.screenshot({ path: process.env.FOTOS + '/mes-gestor.png', fullPage: false }); }
   // Imprimir
   const [imp] = await Promise.all([p.context().waitForEvent('page'), p.click('[data-imprimir]')]); await imp.waitForLoadState(); await imp.waitForTimeout(300);
@@ -360,6 +364,7 @@ async function prueba(verbose) {
   comprueba(tag + 'paso 1: firma con AutoFirma (PAdES, recuadro del solicitante) y guarda la solicitud', f1.length === 1 && /signaturePositionOnPageLowerLeftX=54/.test(f1[0]) && cb && cb.EstadoCambio === 'PENDIENTE DEL COMPAÑERO' && cb.TurnoA === tA.Id && cb.TurnoB === tB.Id && cb.TipoCambio === 'PERMUTA' && cb.Firmas === '1', JSON.stringify(cb && { ...cb, __adj: 0 }));
   comprueba(tag + 'el PDF firmado queda adjunto', !!pdf1 && pdf1.toString('latin1').startsWith('%PDF-1.4') && /SOLICITUD DE CAMBIO DE SERVICIO/.test(pdf1.toString('latin1')) && (pdf1.toString('latin1').match(/\/ByteRange/g) || []).length === 1);
   comprueba(tag + 'avisa al compañero a su cuenta', correos.some(c => /SOLICITUD DE CAMBIO/.test(c.asunto) && c.to.includes('i:0#.w|et\\sub4')));
+  comprueba(tag + 'y a los gestores (también al administrador), para que estén atentos', correos.some(c => /Nº 1 SOLICITADO/.test(c.asunto) && c.to.includes('i:0#.w|et\\gestora') && c.to.includes('i:0#.w|et\\asansen')), JSON.stringify(correos.map(c => [c.asunto, c.to])));
   comprueba(tag + 'el servicio queda «cambio en trámite»', /Cambio nº 1 en trámite/.test(await texto(p)));
   comprueba(tag + 'sin errores de página (solicitante)', errs.length === 0, errs.join(' | '));
   await b.close();
@@ -381,7 +386,7 @@ async function prueba(verbose) {
   const pdf3 = cb.__adj['CAMBIO-1-3-validado.pdf']; if (process.env.FOTOS && !verbose) fs.writeFileSync(process.env.FOTOS + '/cambio.pdf', pdf3);
   comprueba(tag + 'paso 3: tres firmas, VALIDADO y permuta aplicada en el cuadrante', cb.EstadoCambio === 'VALIDADO' && cb.Firmas === '1,2,3' && !!pdf3 && (pdf3.toString('latin1').match(/\/ByteRange/g) || []).length === 3 &&
     tA.Componente === id[24] && tB.Componente === id[23] && /Cambio de servicio nº 1 \(permuta\) validado/.test(tA.Historial), JSON.stringify([tA.Componente, tB.Componente, cb.EstadoCambio]));
-  comprueba(tag + 'avisa a los dos interesados', correos.some(c => /VALIDADO/.test(c.asunto) && c.to.includes('i:0#.w|et\\sub3') && c.to.includes('i:0#.w|et\\sub4')));
+  comprueba(tag + 'avisa a los dos interesados', correos.some(c => /VALIDADO/.test(c.asunto) && c.to.includes('i:0#.w|et\\sub3') && c.to.includes('i:0#.w|et\\sub4') && c.to.includes('i:0#.w|et\\gestora') && c.to.includes('i:0#.w|et\\asansen')));
   await tab(p, 'mes');
   { const tm = await texto(p); comprueba(tag + 'el mes ya no avisa de que SUB3 debe hacer un cambio el 11-12', !/Lun 11 – Mar 12 ene · Auxiliar de servicio · BRIGADA SUBOFICIAL NUMERO 3/.test(tm), (tm.match(/Revisar.{200}/) || [''])[0]); }
   comprueba(tag + 'sin errores de página (gestora, cambios)', errs.length === 0, errs.join(' | '));
