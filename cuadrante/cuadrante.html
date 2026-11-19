@@ -6454,7 +6454,7 @@ var Cipher = {
   };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-20 · 1';
+  var VERSION = '2026-11-20 · 2';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuadrante de servicios · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -7033,12 +7033,14 @@ var Cipher = {
       '<div class="aviso small">✏️ Estás editando un cuadrante publicado. Cambia lo necesario (con su motivo) y pulsa «Guardar cambios». No se envía ningún correo: después, en «✉ Avisos», eliges avisar a los implicados o enviar el cuadrante a todos.</div>' : '<div class="acciones">' +
       '<button data-proponer="1" title="Vuelve a calcular el mes con la rotación, los festivos y las ausencias aprobadas">↻ ' + (e.guardado ? 'Proponer de nuevo' : 'Proponer el mes') + '</button>' +
       '<button class="prim" data-guardarmes="0"' + (hayCambios() || e.propuesta ? '' : ' disabled') + '>💾 ' + (e.publicado && !e.propuesta ? 'Guardar cambios' : 'Guardar borrador') + '</button>' +
-      (!e.publicado || e.propuesta ? '<button class="verde" data-guardarmes="1">📢 Publicar ' + (prov ? 'el definitivo' : '') + ' y avisar a cada uno</button>' : '') +
+      (!e.publicado || e.propuesta ? '<button class="verde" data-guardarmes="1" title="Publica el mes (no envía correos: después decides si avisar)">📢 Publicar' + (prov ? ' el definitivo' : '') + '</button>' : '') +
       '<button data-imprimir="1">🖨 Imprimir</button></div>' +
-      (!e.publicado && !e.propuesta && e.guardado ? (prov ? avisoProv.replace('Revisa tus servicios: si necesitas', 'Los componentes lo ven y, si necesitan') + '<div class="acciones"><button data-provisional="1">✉ Volver a avisar del provisional</button><button data-retirarprov="1">Retirar el provisional</button></div>' :
+      (!e.publicado && !e.propuesta && e.guardado ? (prov ? avisoProv.replace('Revisa tus servicios: si necesitas', 'Los componentes lo ven y, si necesitan') +
+        '<div class="small">' + (prov.avisado ? '✉ Avisados de sus servicios provisionales el ' + esc(fHora(prov.avisado)) + '.' : '<b class="txt-warn">Aún no se ha avisado a nadie por correo.</b>') + '</div>' +
+        '<div class="acciones"><button class="prim" data-avisoprov="1" title="Envía a cada componente sus servicios provisionales y el plazo (y la copia a los gestores)">✉ Avisar a cada uno de sus servicios provisionales</button><button data-retirarprov="1">Retirar el provisional</button></div>' :
         '<div class="card"><b>👁 Antes de publicar:</b> envíalo como <b>provisional</b> para que cada uno vea sus servicios y pida los cambios que necesite. ' +
         '<div class="grid" style="margin-top:6px"><div><label class="lbl">Plazo para pedir cambios</label><input type="date" id="provHasta" value="' + esc(addDias(hoy(), 7)) + '"></div></div>' +
-        '<div class="acciones"><button class="prim" data-provisional="1"' + (info.ajustes ? '' : ' disabled title="Falta la lista CUADRANTE AJUSTES (Ajustes › Crear las listas que faltan)"') + '>👁 Enviar como provisional y avisar a cada uno</button></div></div>') : '');
+        '<div class="acciones"><button class="prim" data-provisional="1"' + (info.ajustes ? '' : ' disabled title="Falta la lista CUADRANTE AJUSTES (Ajustes › Crear las listas que faltan)"') + '>👁 Enviar como provisional</button></div><p class="small muted">No envía correos: después decides si avisar a cada uno.</p></div>') : '');
     var emp = e.propuesta ? '<details class="card"' + (turnos.some(function (t) { return t.inicio < ym + '-01'; }) ? '' : ' open') + '><summary style="cursor:pointer"><b>¿Quién empieza cada rotación?</b> <span class="small muted">(lo normal es seguir donde se quedó el mes anterior)</span></summary><div class="grid">' +
       CUADRANTES.map(function (qq) {
         return ['D', 'F'].map(function (k) {
@@ -7429,7 +7431,7 @@ var Cipher = {
     if (eraPublicado && hayCambios() && sinMotivo && !motivo) { $('#motivoCambio').focus(); return toast('Escribe el motivo del cambio'); }
     var aMano = e.filas.some(function (f) { return CUADRANTES.some(function (q) { var x = f.q[q[0]]; return (x.asig === 'MANUAL' || x.asig === 'DEUDA') && !x.motivo && x.compId; }); });
     if (aMano && !motivo && !window.confirm('Hay turnos asignados a mano sin motivo. ¿Guardar igualmente?')) return;
-    if (publicar && !window.confirm('Se publica el cuadrante de ' + mesTxt(ym) + ' y se avisa por correo a cada uno de sus servicios. ¿Seguir?')) return;
+    if (publicar && !window.confirm('Se publica el cuadrante de ' + mesTxt(ym) + '. No se envía ningún correo: después decides si avisar a cada uno de sus servicios. ¿Seguir?')) return;
     var sinAsignar = e.filas.some(function (f) { return CUADRANTES.some(function (q) { return !f.q[q[0]].compId; }); });
     if (publicar && sinAsignar && !window.confirm('Hay turnos sin asignar. ¿Publicar igualmente?')) return;
     boton.disabled = true; toast('Guardando…');
@@ -7465,7 +7467,7 @@ var Cipher = {
       return Promise.all([leerTurnos(), leerDeudas()]);
     }).then(function () {
       prepararMes(ym); render();
-      if (publicar && !eraPublicado) return estadoMes(ym, 'PUBLICADO').then(function () { return avisarPublicacion(ym); });
+      if (publicar && !eraPublicado) return estadoMes(ym, 'PUBLICADO').then(function () { return { cls: 'okmsg', html: '✓ Cuadrante de ' + esc(mesTxt(ym)) + ' publicado. No se ha enviado ningún correo: cuando quieras, en «✉ Avisos», «Avisar a cada uno de sus servicios».' }; });
       if (eraPublicado && cambios.length) return apuntarPendientes(ym, cambios, motivo).then(function () { return { cls: 'okmsg', html: '✓ Cambios guardados (' + cambios.length + '). No se ha enviado ningún correo: cuando quieras, avisa desde «✉ Avisos» a los implicados o a todos.' }; });
       return { html: '✓ ' + (estado === 'PUBLICADO' ? 'Cambios guardados' : 'Borrador guardado') + ' (' + ops.length + ' operaciones).', cls: 'okmsg' };
     }).then(function (r) { resultado = r; render(); toast('Guardado'); })
@@ -7496,13 +7498,14 @@ var Cipher = {
   function vaciarPendientes(ym) { pendMem[ym] = []; return info.ajustes && mesesEstado[ym] ? setMes(ym, { pend: [] }) : Promise.resolve(); }
   var aCambiosAviso = function (l) { return l.map(function (p) { return { f: { inicio: p.inicio, fin: p.fin, tipo: p.tipo }, q: p.q, antes: compPorId(p.antes), ahora: compPorId(p.ahora), motivo: p.motivo }; }); };
   function panelAvisos(ym) {
-    var l = pendientesMes(ym);
+    var l = pendientesMes(ym), m = mesesEstado[ym];
     return '<div class="card avisos"><h3 style="margin-top:0">✉ Avisos ' + (l.length ? '<span class="badge eSin">' + l.length + ' cambio' + (l.length === 1 ? '' : 's') + ' sin avisar</span>' : '<span class="small muted">· no hay cambios sin avisar</span>') + '</h3>' +
       (l.length ? '<ul class="lconf">' + l.map(function (p) {
         var a = compPorId(p.antes), b = compPorId(p.ahora);
         return '<li><b>' + esc(rotulo(p)) + '</b> · ' + esc(papelDe(p.q)) + ': ' + nombreCon(a) + ' → ' + nombreCon(b) + (p.motivo ? ' <span class="small muted">(' + esc(p.motivo) + ')</span>' : '') + '</li>';
       }).join('') + '</ul>' : '') +
-      '<div class="acciones"><button class="prim" data-avisarimplicados="1"' + (l.length ? '' : ' disabled') + ' title="Solo a quien tenía y a quien hace ahora cada servicio cambiado (con copia a los gestores)">✉ Avisar a los implicados</button>' +
+      '<div class="small">' + (m && m.avisadoPub ? '✉ Avisados de sus servicios el ' + esc(fHora(m.avisadoPub)) + '.' : '<b class="txt-warn">Aún no se ha avisado a cada uno de sus servicios' + (info.ajustes ? '' : ' (o no consta)') + '.</b>') + '</div>' +
+      '<div class="acciones"><button data-avisopub="1" title="A cada componente, sus servicios del mes (y la copia a los gestores)">✉ Avisar a cada uno de sus servicios</button><button class="prim" data-avisarimplicados="1"' + (l.length ? '' : ' disabled') + ' title="Solo a quien tenía y a quien hace ahora cada servicio cambiado (con copia a los gestores)">✉ Avisar a los implicados</button>' +
       '<button data-avisartodos="1" title="A todos los del mes y a los gestores: el cuadrante como queda, con los cambios marcados">✉ Enviar el cuadrante actualizado a todos</button></div>' +
       (!info.ajustes ? '<p class="small muted">Sin la lista «' + esc(LISTAS.ajustes) + '», los cambios sin avisar solo se recuerdan mientras no cierres la página.</p>' : '') + '</div>';
   }
@@ -7528,10 +7531,21 @@ var Cipher = {
   function enviarProvisional(boton) {
     var ym = edicion.ym, prev = provisional(ym), hasta = $('#provHasta') ? $('#provHasta').value : (prev && prev.hasta) || '';
     if (hayCambios()) return toast('Guarda antes el borrador');
-    if (!prev && !window.confirm('Cada componente verá el cuadrante de ' + mesTxt(ym) + ' como PROVISIONAL y recibirá sus servicios por correo, con el plazo para pedir cambios. ¿Seguir?')) return;
+    if (!window.confirm('Los componentes verán el cuadrante de ' + mesTxt(ym) + ' como PROVISIONAL y podrán pedir cambios. No se envía ningún correo. ¿Seguir?')) return;
     boton.disabled = true;
-    (prev ? Promise.resolve() : estadoMes(ym, 'PROVISIONAL', { hasta: hasta })).then(function () { return avisarPublicacion(ym, provisional(ym)); })
-      .then(function (r) { resultado = r; render(); }).catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
+    estadoMes(ym, 'PROVISIONAL', { hasta: hasta, avisado: '' }).then(function () {
+      resultado = { cls: 'okmsg', html: '✓ Cuadrante de ' + esc(mesTxt(ym)) + ' enviado como PROVISIONAL' + (hasta ? ' (cambios hasta el ' + esc(fCorta(hasta)) + ')' : '') + '. No se ha avisado a nadie: cuando quieras, «Avisar a cada uno de sus servicios provisionales».' }; render();
+    }).catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
+  }
+  // Avisos aparte (los decide el gestor): a cada uno, sus servicios del mes provisional o publicado
+  function avisarCadaUno(boton, prov) {
+    var ym = edicion.ym, p = prov ? provisional(ym) : null;
+    if (!window.confirm('Se envía a cada componente de ' + mesTxt(ym) + ' un correo con sus servicios' + (p ? ' provisionales y el plazo para pedir cambios' : '') + ', y la copia a los gestores. ¿Seguir?')) return;
+    boton.disabled = true;
+    avisarPublicacion(ym, p).then(function (r) {
+      resultado = r;
+      return info.ajustes ? setMes(ym, prov ? { avisado: new Date().toISOString() } : { avisadoPub: new Date().toISOString() }) : null;
+    }).then(function () { render(); }).catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
   }
   function retirarProvisional(boton) {
     if (!window.confirm('Los componentes dejarán de ver el cuadrante provisional de ' + mesTxt(edicion.ym) + '. ¿Seguir?')) return;
@@ -7736,7 +7750,7 @@ var Cipher = {
     h += '<div class="card"><h3 style="margin-top:0">4. Correos: quién recibe cada aviso</h3>' +
       '<p class="small muted">Los avisos van a la CUENTA de cada persona (Colabora no acepta las direcciones). «Gestores» = los del grupo «' + esc(GRUPOS.gestores) + '» y, siempre, el administrador (' + esc(ACCESO.avisarCorreos.join(', ')) + ').</p>' +
       '<table class="t small"><tr><th>Cuándo</th><th>A quién</th></tr>' + [
-        ['Se publica un mes', 'A cada componente, sus servicios del mes. A los gestores, copia del cuadrante completo.'],
+        ['Se envía como provisional o se publica un mes', 'Nadie: el gestor decide. Con «Avisar a cada uno de sus servicios», a cada componente sus servicios (y el plazo, si es provisional) y a los gestores la copia del cuadrante.'],
         ['Se modifica un mes publicado', 'Nadie al guardar. Desde «✉ Avisos» el gestor elige: a los implicados en los cambios (con copia a los gestores) o a todos los del mes y a los gestores, con el cuadrante como queda.'],
         ['Alguien pide un cambio de servicio', 'Al compañero (para aceptarlo y firmarlo) y a los gestores (para que estén atentos).'],
         ['El compañero acepta y firma', 'A los gestores, para que lo validen.'],
@@ -8486,6 +8500,8 @@ var Cipher = {
     }
     if ((b = accionCon(el, 'data-provisional'))) { enviarProvisional(b); return; }
     if ((b = accionCon(el, 'data-avisarimplicados'))) { avisarImplicados(b); return; }
+    if ((b = accionCon(el, 'data-avisoprov'))) { avisarCadaUno(b, true); return; }
+    if ((b = accionCon(el, 'data-avisopub'))) { avisarCadaUno(b, false); return; }
     if ((b = accionCon(el, 'data-avisartodos'))) { avisarTodos(b); return; }
     if ((b = accionCon(el, 'data-retirarprov'))) { retirarProvisional(b); return; }
     if ((b = accionCon(el, 'data-guardarmes'))) { guardarMes(b.dataset.guardarmes === '1', b); return; }

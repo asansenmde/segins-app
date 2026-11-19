@@ -29,8 +29,9 @@
 6. En **Cuadrante del mes**, enero de 2027:
    - elegir quién empieza cada rotación (es el primer mes);
    - revisar la propuesta y guardar el borrador;
-   - «Enviar como provisional» con un plazo para pedir cambios;
-   - cuando acabe el plazo, «Publicar el definitivo y avisar a cada uno».
+   - «Enviar como provisional» con un plazo para pedir cambios y, si quieres, «Avisar a cada uno de sus servicios
+     provisionales»;
+   - cuando acabe el plazo, «Publicar el definitivo» y, cuando decidas, «Avisar a cada uno de sus servicios».
 
 Página para Colabora, sitio JSUIGE. Lleva dos cuadrantes: el de **oficiales** (jefe de servicio) y el de **suboficiales**
 (auxiliar de servicio). Aún no hay nada creado en SharePoint: las listas las creará la propia página desde Ajustes.
@@ -125,6 +126,12 @@ correo a la cuenta y copia cifrada entera.
 
 ## Guardar y avisar, por separado (20/11/2026)
 
+**Ningún botón de guardar, enviar como provisional o publicar manda correos.** El gestor decide si avisa y a quién, con
+botones aparte, y la página enseña si ya se avisó y cuándo:
+- En el provisional: «✉ Avisar a cada uno de sus servicios provisionales» (sus servicios y el plazo; copia a los gestores).
+- En el mes publicado, recuadro «✉ Avisos»: «✉ Avisar a cada uno de sus servicios» (sus servicios definitivos; copia a
+  los gestores).
+
 Al editar un mes publicado, «💾 Guardar cambios» ya no envía correos, para no saturar a nadie. Los cambios quedan
 apuntados como «sin avisar» (en «CUADRANTE AJUSTES», elemento del mes). En el mes publicado, el recuadro «✉ Avisos»
 los lista y el gestor elige:
@@ -140,11 +147,13 @@ interesados y a los gestores.
 
 Para que nadie se lleve una sorpresa, el gestor puede enviar el borrador guardado **como provisional**, con un plazo
 para pedir cambios.
-- Cada componente recibe por correo sus servicios provisionales y el plazo; los gestores, la copia.
+- No se envía ningún correo al hacerlo. Si el gestor quiere, «Avisar a cada uno de sus servicios provisionales» manda
+  a cada componente sus servicios y el plazo, y a los gestores la copia; la página dice si ya se avisó y cuándo.
 - Mientras es provisional, todos lo ven con el aviso «Cuadrante PROVISIONAL» y pueden pedir cambios con «🔁 Pedir
   cambio» (el circuito de siempre: firma, compañero y gestor). Los cambios validados ya van en el cuadrante.
-- El gestor puede seguir retocando el mes, «Volver a avisar del provisional» o «Retirar el provisional».
-- Al «Publicar el definitivo», cada uno recibe sus servicios definitivos y el mes queda cerrado.
+- El gestor puede seguir retocando el mes, avisar (o volver a avisar) o «Retirar el provisional».
+- Al «Publicar el definitivo» el mes queda cerrado, sin correos; el aviso de los definitivos se manda aparte desde
+  «✉ Avisos».
 
 El estado del mes se guarda en «CUADRANTE AJUSTES» (elemento `MES aaaa-mm`); los turnos siguen en borrador hasta el
 definitivo.
@@ -157,7 +166,7 @@ entrar). Antes, el administrador que no estaba en el grupo no recibía nada.
 
 | Cuándo | A quién |
 |---|---|
-| Se publica un mes | A cada componente, sus servicios. A los gestores, copia del cuadrante completo. |
+| Se envía como provisional o se publica un mes | Nadie. Solo si el gestor pulsa «Avisar a cada uno de sus servicios»: a cada componente sus servicios (y el plazo, si es provisional) y a los gestores la copia del cuadrante. |
 | Se modifica un mes publicado | Nadie al guardar. Desde «✉ Avisos»: a los implicados (copia a los gestores) o a todos con el cuadrante actualizado. |
 | Alguien pide un cambio | Al compañero y a los gestores. |
 | El compañero acepta y firma | A los gestores. |
@@ -179,9 +188,8 @@ esta tabla, «Enviarme un correo de prueba» y «Probar el aviso a los gestores�
 
 - **Mes publicado cerrado.** Una vez publicado, el mes queda cerrado: nadie ve desplegables. Los gestores tienen
   «✏️ Editar cuadrante publicado».
-  - Al editarlo cambian lo necesario, con su motivo, y pulsan «Guardar cambios y avisar a todos». Les llega a todos
-    los del mes, y a quien deja de tener un servicio, el cuadrante como queda: arriba los cambios y debajo cada turno,
-    con «(CAMBIADO)» en los que cambian.
+  - Al editarlo cambian lo necesario, con su motivo, y pulsan «Guardar cambios» (sin correos). Desde «✉ Avisos» se avisa
+    a los implicados o a todos con el cuadrante como queda: arriba los cambios y debajo cada turno, con «(CAMBIADO)».
   - «Cancelar la edición» descarta los cambios sin guardar.
   - «Poner a … (siguiente disponible)», en «Revisar», abre la edición directamente.
 - **Vista en tabla** para todos, con el selector «📋 Por turnos / 📊 En tabla» del cuadrante del mes. Es como la hoja

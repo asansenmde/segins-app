@@ -207,13 +207,17 @@ async function prueba(verbose) {
   comprueba(tag + 'SUB3 con vacaciones cortas no salta: queda puesto y se avisa de que debe hacer un cambio', /SUBOFICIAL NUMERO 3/.test(fila('Lun 11 – Mar 12 ene')[3]) && /debe hacer un cambio de servicio/.test(t), fila('Lun 11 – Mar 12 ene')[3]);
   comprueba(tag + 'asuntos propios no saltan: SUB4 sigue el 13-14 con aviso de cambio', /SUBOFICIAL NUMERO 4/.test(fila('Mié 13 – Jue 14 ene')[3]) && /Asuntos propios \(1 días laborables\): no salta/.test(t), fila('Mié 13 – Jue 14 ene')[3]);
   comprueba(tag + 'un permiso de más de 5 días laborables salta: SUB5 no tiene turnos del 18 al 26', !filas.some(f => f[0] >= 'Lun 18' && /SUBOFICIAL NUMERO 5/.test(f[3]) && ['Lun 18 – Mar 19 ene', 'Mié 20 – Jue 21 ene', 'Vie 22 – Dom 24 ene', 'Lun 25 – Mar 26 ene'].includes(f[0])) && /Salta SUBOFICIAL NUMERO 5 \(permiso\)/.test(t));
-  await p.click('[data-guardarmes="1"]'); await p.waitForTimeout(4000);
+  correos.length = 0; await p.click('[data-guardarmes="1"]'); await p.waitForTimeout(4000);
   const LT = listas['CUADRANTE TURNOS'];
+  t = await texto(p);
+  comprueba(tag + 'publicar no envía correos: el gestor decide después', correos.length === 0 && /No se ha enviado ningún correo/.test(t) && /Aún no se ha avisado a cada uno de sus servicios/.test(t), JSON.stringify(correos.map(c => c.asunto)));
+  await p.click('[data-avisopub]'); await p.waitForTimeout(4000);
   comprueba(tag + 'publica: 2 turnos por fila, todos PUBLICADO, con el mes y el componente', LT.items.length === filas.length * 2 && LT.items.every(x => x.EstadoTurno === 'PUBLICADO' && x.Mes === '2027-01') && LT.items.every(x => x.Componente), LT.items.length + ' / ' + filas.length);
   const avisados = new Set(correos.filter(c => /SUS SERVICIOS/.test(c.asunto)).flatMap(c => c.to));
   comprueba(tag + 'avisa a cada uno de sus servicios, a su CUENTA', avisados.size === 12 && !avisados.has('i:0#.w|et\\sub5') && [...avisados].every(x => /^i:0#\.w\|et\\/.test(x)), [...avisados].join(','));
   t = await texto(p);
   comprueba(tag + 'resultado: publicado y avisados 12 de 12 (SUB5 no tiene turnos por su permiso)', /publicado\. Avisados por correo con sus servicios: 12 de 12/.test(t) && /Copia del cuadrante a los gestores \(también al administrador\)/.test(t), t.slice(0, 300));
+  comprueba(tag + 'queda anotado cuándo se avisó', /Avisados de sus servicios el /.test(t) && !!JSON.parse(items('CUADRANTE AJUSTES').find(x => x.Title === 'MES 2027-01').Valor).avisadoPub);
   comprueba(tag + 'copia del cuadrante completo a los gestores y al administrador (que no es componente)', correos.some(c => /PUBLICADO$/.test(c.asunto) && c.to.includes('i:0#.w|et\\gestora') && c.to.includes('i:0#.w|et\\asansen') && /Jefe: /.test(c.cuerpo)), JSON.stringify(correos.filter(c => /PUBLICADO/.test(c.asunto)).map(c => c.to)));
   if (process.env.FOTOS && !verbose) { await p.setViewportSize({ width: 1300, height: 900 }); await p.screenshot({ path: process.env.FOTOS + '/mes-gestor.png', fullPage: false }); }
   // Imprimir
@@ -354,7 +358,9 @@ async function prueba(verbose) {
   await p.click('[data-provisional]'); await p.waitForTimeout(3000);
   const mesProv = items('CUADRANTE AJUSTES').find(x => x.Title === 'MES 2027-02');
   comprueba(tag + 'queda como provisional con su plazo', !!mesProv && JSON.parse(mesProv.Valor).estado === 'PROVISIONAL' && JSON.parse(mesProv.Valor).hasta === '2027-01-20' && /PROVISIONAL/.test(await p.textContent('.mesnav')));
-  comprueba(tag + 'cada componente recibe sus servicios provisionales con el plazo, y los gestores la copia', correos.some(c => /PROVISIONAL · SUS SERVICIOS/.test(c.asunto) && /20\/01\/2027/.test(c.cuerpo)) && correos.some(c => /· PROVISIONAL$/.test(c.asunto) && c.to.includes('i:0#.w|et\\gestora')));
+  comprueba(tag + 'enviar como provisional no envía correos', correos.length === 0 && /No se ha avisado a nadie/.test(await texto(p)) && /Aún no se ha avisado a nadie por correo/.test(await texto(p)), JSON.stringify(correos.map(c => c.asunto)));
+  await p.click('[data-avisoprov]'); await p.waitForTimeout(4000);
+  comprueba(tag + 'con «Avisar a cada uno», cada componente recibe sus servicios provisionales con el plazo, y los gestores la copia', correos.some(c => /PROVISIONAL · SUS SERVICIOS/.test(c.asunto) && /20\/01\/2027/.test(c.cuerpo)) && correos.some(c => /· PROVISIONAL$/.test(c.asunto) && c.to.includes('i:0#.w|et\\gestora')));
   comprueba(tag + 'los turnos siguen en borrador (no publicados)', LT.items.filter(x => x.Mes === '2027-02').every(x => x.EstadoTurno === 'BORRADOR'));
   await b.close();
   ({ b, p, errs } = await abrir(15, false, verbose, PAGINA + '?mes=2027-02'));
@@ -367,8 +373,9 @@ async function prueba(verbose) {
   // y luego se publica el definitivo
   ({ b, p, errs } = await abrir(8, false, verbose, PAGINA + '?mes=2027-02'));
   correos.length = 0; await p.click('[data-guardarmes="1"]'); await p.waitForTimeout(4000);
-  comprueba(tag + 'al publicar el definitivo deja de ser provisional y se avisa de los servicios definitivos', JSON.parse(mesProv.Valor).estado === 'PUBLICADO' && LT.items.filter(x => x.Mes === '2027-02').every(x => x.EstadoTurno === 'PUBLICADO') &&
-    correos.some(c => /FEBRERO DE 2027 · SUS SERVICIOS$/.test(c.asunto)), JSON.stringify(correos.map(c => c.asunto)));
+  comprueba(tag + 'al publicar el definitivo deja de ser provisional, sin correos', JSON.parse(items('CUADRANTE AJUSTES').find(x => x.Title === 'MES 2027-02').Valor).estado === 'PUBLICADO' && LT.items.filter(x => x.Mes === '2027-02').every(x => x.EstadoTurno === 'PUBLICADO') && correos.length === 0, JSON.stringify(correos.map(c => c.asunto)));
+  await p.click('[data-avisopub]'); await p.waitForTimeout(4000);
+  comprueba(tag + 'y con «Avisar a cada uno» llegan los servicios definitivos', correos.some(c => /FEBRERO DE 2027 · SUS SERVICIOS$/.test(c.asunto)), JSON.stringify(correos.map(c => c.asunto)));
   await b.close();
   // reglas cambiadas: diario de 1 día, sábado y domingo, y una sola rotación (abril de 2027, con las reglas en la lista)
   const rgl = items('CUADRANTE AJUSTES')[0], antesReg = rgl.Valor;
