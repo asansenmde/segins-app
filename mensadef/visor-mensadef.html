@@ -534,7 +534,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-19 · 3';
+  var VERSION = '2026-11-19 · 4';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -2385,10 +2385,12 @@
     if (LEIDO && m._api && m._idBuzon && m._leido === false) cambiarLeido(m, true);
     if ($('aRubrica')) $('aRubrica').addEventListener('click', function () {
       var b = this;
-      if (!b.dataset.seguro) { b.dataset.seguro = '1'; b.textContent = '¿Pasar a rúbrica? Pulsa otra vez'; b.classList.add('seguro'); avisoBandera(m, 'Se enviará al portafirmas de MENSADEF con tu usuario.', false); return; }
+      // 19/11/2026: MENSADEF no deja pasar a rúbrica un mensaje sin «Firma» (quién lo firma): se avisa antes de intentarlo
+      if (!b.dataset.seguro) { b.dataset.seguro = '1'; b.textContent = '¿Pasar a rúbrica? Pulsa otra vez'; b.classList.add('seguro');
+        avisoBandera(m, sinFirma(m) ? 'Este mensaje no tiene puesto quién lo firma, y MENSADEF no lo pasa a rúbrica sin firma. Pulsa «Abrir en MENSADEF», pon la firma en el mensaje y vuelve aquí (o pulsa otra vez para intentarlo igualmente).' : 'Se enviará al portafirmas de MENSADEF con tu usuario.', sinFirma(m)); return; }
       b.disabled = true; b.textContent = 'Enviando a rúbrica…';
       pasarARubrica(m).then(function (info) { pintarTabla(); if (abierto === m) { abrir(m); avisoBandera(m, '✓ Pasado a rúbrica en MENSADEF' + (info ? ': ' + info : ''), false); } },
-        function (e) { b.disabled = false; delete b.dataset.seguro; b.classList.remove('seguro'); b.innerHTML = HTML_PASAR; avisoBandera(m, 'No se pudo pasar a rúbrica: ' + (e.message || e) + '. Prueba a pasarlo desde MENSADEF («Abrir en MENSADEF»): si allí te deja, avísame.', true); });
+        function (e) { b.disabled = false; delete b.dataset.seguro; b.classList.remove('seguro'); b.innerHTML = sinFirma(m) ? HTML_PASAR_SIN_FIRMA : HTML_PASAR; avisoBandera(m, /informado la firma|sin firma|firma/i.test(e.message || '') ? 'MENSADEF no lo pasa a rúbrica porque el mensaje no tiene puesto quién lo firma («' + ((/«([^»]+)»/.exec(e.message || '') || [])[1] || 'falta la firma') + '»). Pulsa «Abrir en MENSADEF», pon la firma en el mensaje y vuelve a pasarlo.' : 'No se pudo pasar a rúbrica: ' + (e.message || e) + '. Prueba a pasarlo desde MENSADEF («Abrir en MENSADEF»): si allí te deja, avísame.', true); });
     });
     if ($('selBandera')) $('selBandera').addEventListener('change', function () {
       var sel = this, id = sel.value; sel.disabled = true;
@@ -2622,8 +2624,10 @@
   function enFirma(m) { var r = m._rubrica; return !!(r && (r.enviado || /pendiente\s*(de\s*)?firma|firma\s+pendiente|en\s+firma|en\s+r[uú]brica|portafirmas/i.test(r.estado || ''))); }
   function conRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && r && (puedeRubrica(m) || r.enviado || /firma|r[uú]brica|portafirmas|validaci/i.test(r.estado || ''))); }
   var HTML_PASAR = '<span class="i">✍</span><span>Pasar a rúbrica<small>enviarlo al portafirmas</small></span>';
+  var HTML_PASAR_SIN_FIRMA = '<span class="i">✍</span><span>Pasar a rúbrica<small>⚠ falta la firma</small></span>';
+  var sinFirma = function (m) { return !String(CLAVES.firma(m) || (m._x && m._x.Firma) || '').trim(); };
   function botonRubrica(m) {
-    return (puedeRubrica(m) ? '<button type="button" class="gr gr-rub" id="aRubrica" title="Envía el mensaje al portafirmas (rúbrica) en MENSADEF">' + HTML_PASAR + '</button>' : '') +
+    return (puedeRubrica(m) ? '<button type="button" class="gr gr-rub" id="aRubrica" title="' + (sinFirma(m) ? 'El mensaje no tiene puesto quién lo firma: MENSADEF no lo pasa a rúbrica sin firma' : 'Envía el mensaje al portafirmas (rúbrica) en MENSADEF') + '">' + (sinFirma(m) ? HTML_PASAR_SIN_FIRMA : HTML_PASAR) + '</button>' : '') +
       // 13/11/2026: «Ir a Rúbrica» siempre (acceso al portafirmas para firmar); «Pasar a rúbrica» solo cuando procede
       (RUBRICA && m._api && !puedeRubrica(m) && enFirma(m) ? '<a href="' + esc(urlRubrica(m)) + '" target="' + esc(pestanaFirma(m)) + '" id="irRubrica" class="gr-a"><button type="button" class="gr gr-rub" title="Abre el Portafirmas con este mensaje localizado; allí pulsa el favorito «Firmar con SENDERO»"><span class="i">✍</span><span>Firmar en Rúbrica<small>se abre localizado en el portafirmas</small></span></button></a>' : '');
   }

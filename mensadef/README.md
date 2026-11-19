@@ -557,4 +557,7 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-19 · 3:** si MENSADEF rechaza una escritura (p. ej. «Pasar a rúbrica» con HTTP 500), se enseña **el motivo que da**
   (MensajeInformativo, Message, ExceptionMessage…) y, en rúbrica, que se pruebe desde MENSADEF. El paso a rúbrica no había
   cambiado; el 500 lo da MENSADEF.
+- **2026-11-19 · 4:** el 500 era «No se ha informado la firma.»: MENSADEF no pasa a rúbrica un mensaje sin «Firma» (quién lo
+  firma). Si el mensaje no la tiene, el botón dice «⚠ falta la firma» y avisa antes de intentarlo; si MENSADEF lo rechaza por eso,
+  explica que hay que ponerla en MENSADEF («Abrir en MENSADEF»). Pasada `RUB500=1` en `todas.sh`.
 
