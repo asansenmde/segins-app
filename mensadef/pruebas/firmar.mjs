@@ -1,4 +1,4 @@
-// Prueba del favorito «Firmar con SENDERO» (firmar-portafirmas.js) con un Portafirmas simulado (estructura de las escuchas de
+// Prueba de «Firmar con SENDERO» (firmar-portafirmas.js, dentro del favorito SENDERO) con un Portafirmas simulado (estructura de las escuchas de
 // «Explorar Portafirmas»: lista Firmantes.do con chkDoc, título enlazado a DetalleDocumento, visor showPFViewer y Firmar).
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
@@ -6,7 +6,7 @@ const { chromium } = require(require('child_process').execSync('npm root -g').to
 const PF = 'https://portafirmas.mdef.es';
 const b = await chromium.launch(), ctx = await b.newContext(), errs = [];
 const mp = await ctx.newPage();
-await mp.goto(new URL('../marcador-firmar-portafirmas.html', import.meta.url).href);
+await mp.goto(new URL('../marcador-visor-mensadef.html', import.meta.url).href);   // el favorito SENDERO, en el Portafirmas
 const codigo = decodeURIComponent((await mp.getAttribute('#marcador', 'href')).slice(11)); await mp.close();
 const fila = (cd, titulo) => '<tr><td>Normal</td><td><input type="checkbox" name="chkDoc" value="' + cd + '#1" onclick="window.clics=(window.clics||0)+1"></td>' +
   '<td><a href="/ePortafirmas/DetalleDocumento.do?codDocumento=' + cd + '">' + titulo + '</a></td><td>Oficio</td><td>X</td><td>1</td><td>18/11/26</td><td></td>' +

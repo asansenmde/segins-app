@@ -159,7 +159,10 @@ def generar(fuente, salida, nombre, titulo, intro, pasos, pruebas=False):
             pagina = sal.read_text(encoding='utf-8')
     # Fuera de MENSADEF (otra web, Colabora, Outlook…) el favorito no puede leer nada: lleva a la portada de MENSADEF, donde
     # basta con pulsarlo otra vez (10/11/2026)
-    ir = "if(!/^mensadef\\.mdef\\.es$/i.test(location.hostname)){location.href='https://mensadef.mdef.es/SitePages/Landing.aspx#/';return;}"
+    # 19/11/2026: en el Portafirmas el mismo favorito SENDERO hace lo de «Firmar con SENDERO» (un solo favorito, a petición del usuario)
+    firmar = (aqui / 'firmar-portafirmas.js').read_text(encoding='utf-8')
+    ir = "if(/(^|\\.)portafirmas\\.mdef\\.es$/i.test(location.hostname)){" + firmar + "return;}" + \
+         "if(!/^mensadef\\.mdef\\.es$/i.test(location.hostname)){location.href='https://mensadef.mdef.es/SitePages/Landing.aspx#/';return;}"
     codigo = '(function(){' + (ir if fuente == 'visor-mensadef.html' else '') + 'var h=' + json.dumps(pagina) + ';document.open();document.write(h);document.close();})()'
     marcador = 'javascript:' + urllib.parse.quote(codigo, safe='')
     uso = '\n'.join('      <li>' + p + '</li>' for p in pasos)
@@ -194,17 +197,7 @@ EXPLORAR_PF = ('explorar-portafirmas.js', 'marcador-explorar-portafirmas.html', 
 
 generar_acceso()
 
-FIRMAR_PF = ('firmar-portafirmas.js', 'marcador-firmar-portafirmas.html', 'Firmar con SENDERO', 'Firmar con SENDERO (Portafirmas)',
-             'Un <b>favorito</b> para <b>portafirmas.mdef.es</b> que localiza la petición del mensaje que elegiste en SENDERO («✍ Firmar en '
-             'Rúbrica»), la deja como la única marcada y te ofrece abrir el documento y firmarlo. La lectura («He leído el documento») y '
-             'la firma en AutoFirma (certificado y PIN) las haces tú.',
-             ['En SENDERO, abre el mensaje pendiente de firma y pulsa <b>✍ Firmar en Rúbrica</b>: se abre el Portafirmas.',
-              'Identifícate si te lo pide y entra como <b>Firmante</b>.',
-              'Pulsa el favorito <b>Firmar con SENDERO</b>: marca la petición y sale un recuadro abajo a la derecha.',
-              'Pulsa <b>📄 Abrir el documento</b>, léelo y pulsa <b>He leído el documento</b> en el visor.',
-              'Pulsa <b>✍ Firmar</b> y, en AutoFirma, elige tu certificado y pon el PIN.'])
-
-generar(*FIRMAR_PF)
+# 19/11/2026: «Firmar con SENDERO» va dentro del favorito SENDERO (en el Portafirmas); ya no hay favorito aparte
 
 if '--pruebas' in sys.argv:
     generar(*ESCUCHAR)
@@ -242,6 +235,9 @@ generar('visor-mensadef.html', 'marcador-visor-mensadef.html', 'SENDERO', 'SENDE
          'Pulsa un mensaje para ver su ficha (al abrirlo queda leído también en MENSADEF). Con <b>➜ Añadir tarea en META</b> se '
          'abre el Gestor de Tareas con el alta rellena, el negociado y el responsable: la primera vez te pide la dirección '
          'del Gestor y un nombre; puedes guardar varios y elegir en cada mensaje.',
-         'Para volver a MENSADEF normal, recarga la página (F5).'])
+         'Para volver a MENSADEF normal, recarga la página (F5).',
+         '<b>Para firmar en Rúbrica</b>: en un mensaje pendiente de firma pulsa <b>✍ Firmar en Rúbrica</b>; en el Portafirmas (identificado '
+         'como Firmante) pulsa <b>este mismo favorito SENDERO</b>: marca la petición, abres el documento, pulsas «He leído» y '
+         '<b>✍ Firmar</b> (AutoFirma te pide el certificado y el PIN).'])
 
 generar(*ESCUCHAR)

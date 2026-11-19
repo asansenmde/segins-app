@@ -1,4 +1,4 @@
-// «Firmar con SENDERO» (19/11/2026): favorito para portafirmas.mdef.es. SENDERO abre el Portafirmas con «✍ Firmar en
+// «Firmar con SENDERO» (19/11/2026): lo que hace el favorito SENDERO cuando se pulsa en portafirmas.mdef.es (va dentro de él). SENDERO abre el Portafirmas con «✍ Firmar en
 // Rúbrica» en una pestaña llamada «SENDEROFIRMA_<asunto>» (window.name se conserva aunque haya que identificarse). Este
 // favorito busca esa petición en la lista de pendientes, la deja como la única marcada y ofrece: «📄 Abrir el documento» (el
 // visor del Portafirmas, donde el usuario lo lee y pulsa «He leído el documento») y «✍ Firmar» (el botón Firmar del

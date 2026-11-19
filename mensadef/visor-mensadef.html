@@ -534,7 +534,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-19 · 4';
+  var VERSION = '2026-11-19 · 5';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -2629,7 +2629,7 @@
   function botonRubrica(m) {
     return (puedeRubrica(m) ? '<button type="button" class="gr gr-rub" id="aRubrica" title="' + (sinFirma(m) ? 'El mensaje no tiene puesto quién lo firma: MENSADEF no lo pasa a rúbrica sin firma' : 'Envía el mensaje al portafirmas (rúbrica) en MENSADEF') + '">' + (sinFirma(m) ? HTML_PASAR_SIN_FIRMA : HTML_PASAR) + '</button>' : '') +
       // 13/11/2026: «Ir a Rúbrica» siempre (acceso al portafirmas para firmar); «Pasar a rúbrica» solo cuando procede
-      (RUBRICA && m._api && !puedeRubrica(m) && enFirma(m) ? '<a href="' + esc(urlRubrica(m)) + '" target="' + esc(pestanaFirma(m)) + '" id="irRubrica" class="gr-a"><button type="button" class="gr gr-rub" title="Abre el Portafirmas con este mensaje localizado; allí pulsa el favorito «Firmar con SENDERO»"><span class="i">✍</span><span>Firmar en Rúbrica<small>se abre localizado en el portafirmas</small></span></button></a>' : '');
+      (RUBRICA && m._api && !puedeRubrica(m) && enFirma(m) ? '<a href="' + esc(urlRubrica(m)) + '" target="' + esc(pestanaFirma(m)) + '" id="irRubrica" class="gr-a"><button type="button" class="gr gr-rub" title="Abre el Portafirmas con este mensaje localizado; allí pulsa este mismo favorito SENDERO para marcarlo y firmarlo"><span class="i">✍</span><span>Firmar en Rúbrica<small>se abre localizado en el portafirmas</small></span></button></a>' : '');
   }
   function pasarARubrica(m) {
     if (!apiCtx || !m.MensajeId) return Promise.reject(new Error('este mensaje no viene del servicio de MENSADEF'));

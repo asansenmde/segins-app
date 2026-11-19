@@ -560,4 +560,6 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-19 · 4:** el 500 era «No se ha informado la firma.»: MENSADEF no pasa a rúbrica un mensaje sin «Firma» (quién lo
   firma). Si el mensaje no la tiene, el botón dice «⚠ falta la firma» y avisa antes de intentarlo; si MENSADEF lo rechaza por eso,
   explica que hay que ponerla en MENSADEF («Abrir en MENSADEF»). Pasada `RUB500=1` en `todas.sh`.
+- **2026-11-19 · 5:** **un solo favorito**: «Firmar con SENDERO» va dentro del favorito SENDERO; pulsado en portafirmas.mdef.es
+  hace lo de `firmar-portafirmas.js` (el generador lo pone delante del visor). Ya no hay `marcador-firmar-portafirmas.html`.
 
