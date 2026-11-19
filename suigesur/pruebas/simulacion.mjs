@@ -61,7 +61,8 @@ async function enrutar(page, S) {
       const m = resto.match(/^web\/lists\/getbytitle\('([^']+)'\)(.*)$/);
       if (!m || !S.listas[m[1]]) return err(404, "List does not exist.");
       const L = S.listas[m[1]], sub = m[2];
-      if (sub === '/fields/addfieldasxml') {
+      if (sub === '/fields/addfieldasxml') return err(404, 'No se encuentra el recurso para la solicitud addfieldasxml.');
+      if (sub === '/fields/createfieldasxml') {
         const x = cuerpo.parameters.SchemaXml;
         if (!cuerpo.parameters.__metadata) return err(400, 'Invalid JSON. A token was not recognized in the JSON content.');
         const name = x.match(/Name="([^"]+)"/)[1], tipo = x.match(/Type="([^"]+)"/)[1], disp = x.match(/DisplayName="([^"]+)"/)[1];
@@ -141,17 +142,17 @@ async function escenarioLigero(b) {
   ok(['Codigo', 'ReglaNLT', 'PlazoDias', 'UnidadesHabituales'].every(c => nombres('NLT_MAESTRO').includes(c)) && !nombres('NLT_MAESTRO').includes('Observaciones'), 'NLT_MAESTRO: añade las que faltan y reutiliza «Notas» como observaciones');
   ok(['UnidadID', 'FechaValidacion', 'Responsable'].every(c => nombres('CONTROL_ENTREGAS').includes(c)) && !nombres('CONTROL_ENTREGAS').includes('Referencia'), 'CONTROL_ENTREGAS: añade las que faltan y reutiliza «LinkDocumento»');
   ok(!nombres('UCO_SUIGESUR').includes('Title0') && nombres('UCO_SUIGESUR').filter(c => c === 'NombreUnidad').length === 1, 'UCO_SUIGESUR: sin columnas duplicadas');
-  const xml = S.posts.find(x => x.ruta.endsWith('addfieldasxml'));
-  ok(xml.cuerpo.parameters.__metadata.type === 'SP.XmlSchemaFieldCreationInformation' && xml.cuerpo.parameters.Options === 24, 'addfieldasxml con tipo y AddFieldInternalNameHint');
+  const xml = S.posts.find(x => x.ruta.endsWith('createfieldasxml'));
+  ok(xml.cuerpo.parameters.__metadata.type === 'SP.XmlSchemaFieldCreationInformation' && xml.cuerpo.parameters.Options === 24, 'createfieldasxml con tipo y AddFieldInternalNameHint');
   ok(S.listas.UCO_SUIGESUR.items.length === 2 && S.listas.CONTROL_ENTREGAS.items.length === 2, 'los datos existentes no se tocan');
   await pestana(p, 'ajustes');
   const aj = await p.textContent('#vista');
   ok((aj.match(/Lista y columnas correctas/g) || []).length === 4, 'Ajustes: las 4 listas correctas');
   ok(aj.includes('NombreUnidad'), 'el detalle técnico reconoce NombreUnidad de la versión anterior');
   await p.screenshot({ path: new URL('ajustes.png', import.meta.url).pathname, fullPage: true });
-  const nCrear = S.posts.filter(x => x.ruta.endsWith('addfieldasxml') || x.ruta === 'web/lists').length;
+  const nCrear = S.posts.filter(x => x.ruta.endsWith('fieldasxml') || x.ruta === 'web/lists').length;
   await p.reload(); await esperar(p, 1500);
-  ok(S.posts.filter(x => x.ruta.endsWith('addfieldasxml') || x.ruta === 'web/lists').length === nCrear && !(await p.textContent('#vista')).includes('preparadas automáticamente'), 'al volver a abrir no crea nada más');
+  ok(S.posts.filter(x => x.ruta.endsWith('fieldasxml') || x.ruta === 'web/lists').length === nCrear && !(await p.textContent('#vista')).includes('preparadas automáticamente'), 'al volver a abrir no crea nada más');
   // Unidades: lectura (Title vacío → NombreUnidad)
   await pestana(p, 'unidades');
   ok((await p.textContent('#res')).includes('UNIDAD DE PRUEBA UNO'), 'lee unidades existentes con Title vacío');
@@ -320,7 +321,7 @@ async function escenarioSinPermisoDeGestion(b) {
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   await enrutar(p, S);
   await p.goto(PAGINA); await esperar(p, 1500);
-  ok(!S.posts.some(x => x.ruta.endsWith('addfieldasxml') || x.ruta === 'web/lists'), 'no intenta crear nada sin permiso');
+  ok(!S.posts.some(x => x.ruta.endsWith('fieldasxml') || x.ruta === 'web/lists'), 'no intenta crear nada sin permiso');
   const v = await p.textContent('#vista');
   ok(v.includes('no tiene permiso') && v.includes('SEGUIMIENTO_EVENTOS'), 'explica qué falta y quién puede prepararlo');
   ok((await p.textContent('#estado')).includes('revisar estructura'), 'estado: ' + await p.textContent('#estado'));

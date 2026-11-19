@@ -1261,7 +1261,10 @@
     for (const c of faltan) {
       informe('Creando ' + n + '.' + c.in + '…');
       try {
-        await enviar('Crear columna ' + c.in, n, urlL(n) + '/fields/addfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: schemaXml(c), Options: 8 | 16 } }, null, c.in + ' (' + c.t + ')');
+        // Ruta REST documentada: fields/createfieldasxml («addfieldasxml» es el nombre en CSOM y Colabora responde 404)
+        const cuerpoF = { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: schemaXml(c), Options: 8 | 16 } };
+        await enviar('Crear columna ' + c.in, n, urlL(n) + '/fields/createfieldasxml', cuerpoF, null, c.in + ' (' + c.t + ')')
+          .catch(e => { if (e.status !== 404) throw e; return enviar('Crear columna ' + c.in + ' (ruta alternativa)', n, urlL(n) + '/fields/addfieldasxml', cuerpoF, null, c.in + ' (' + c.t + ')'); });
       } catch (e) { informe(null, '✖ ' + c.in + ': ' + e.message); }
     }
     await recargarLista(n);
