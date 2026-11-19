@@ -533,7 +533,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-18 · 11';
+  var VERSION = '2026-11-19 · 1';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1789,9 +1789,23 @@
   }
   // ✉ Enviar por correo (09/11/2026): correo de Outlook (mailto) con lo relevante del mensaje y los enlaces a MENSADEF
   // y a la carpeta de sus documentos. Sin adjuntos: se ven desde el enlace. No toca MENSADEF.
+  // 19/11/2026: carpeta de documentos del mensaje. MENSADEF da «UrlCarpeta» sin el ámbito delante
+  // («/SMDMDMensajesDocumentos_AAAAMMDD/<id>»): daba «Not Found». Se le pone el ámbito (el de un anexo o el de la colección) y
+  // se abre como vista de la biblioteca de SharePoint en esa carpeta (Forms/AllItems.aspx?RootFolder=…).
+  function carpetaDocs(m) {
+    var j = m._cuerpoCompleto || {}, c = String(j.UrlCarpeta || '').trim(), anx = (m._anexos || []).map(urlAnexo).filter(Boolean)[0] || '';
+    var ruta = function (u) { try { return decodeURI(new URL(u, location.origin).pathname); } catch (e) { return ''; } };
+    var path = c ? ruta(c) : anx ? ruta(anx).replace(/\/[^/]*$/, '') : '';
+    if (!path) return '';
+    if (!/^\/ambito\//i.test(path)) {
+      var base = (ruta(anx).match(/^\/ambito\/[^/]+/i) || [])[0] || (apiCtx && apiCtx.url ? ruta(apiCtx.url).replace(/\/$/, '') : '') || ((/^\/ambito\/[^/]+/i.exec(rutaBase) || [])[0] || '');
+      path = base + (path.charAt(0) === '/' ? '' : '/') + path;
+    }
+    var lib = /^(\/ambito\/[^/]+\/[^/]+)\/./i.exec(path);
+    return location.origin + (lib ? encodeURI(lib[1]) + '/Forms/AllItems.aspx?RootFolder=' + encodeURIComponent(path) : encodeURI(path));
+  }
   function correoMensaje(m) {
-    var x = m._x || {}, j = m._cuerpoCompleto, carpeta = j && j.UrlCarpeta ? String(j.UrlCarpeta) : '';
-    if (carpeta && !/^https?:\/\//i.test(carpeta)) carpeta = location.origin + (carpeta.charAt(0) === '/' ? '' : '/') + carpeta;
+    var x = m._x || {}, j = m._cuerpoCompleto, carpeta = carpetaDocs(m);
     var dest = j ? (j.Destinatarios || []).map(function (d) { return d && d.Nombre; }).filter(Boolean) : [];
     var anexos = (m._anexos || []).map(function (a) { return a.Titulo || a.Nombre; }).filter(Boolean);
     var linea = function (k, v) { return v ? k + ': ' + v : ''; };
@@ -1801,7 +1815,8 @@
       linea('Firma', x.Firma), linea('Prioridad', x.CodigoPrioridad), linea('Bandera', m._bandera && m._bandera.nombre), linea('Célula', sitioDe(m)),
       linea('Destinatarios', dest.length ? dest.slice(0, 5).join('; ') + (dest.length > 5 ? ' y ' + (dest.length - 5) + ' más' : '') : x.Destinatarios),
       linea('Anexos', anexos.length ? anexos.length + ' (' + anexos.join('; ') + ')' : ''), '────────────────────────'].filter(Boolean);
-    var pie = ['', carpeta ? 'Documentos del mensaje en MENSADEF: ' + encodeURI(decodeURI(carpeta)) : '', m._enlace ? 'Abrir MENSADEF: ' + m._enlace : '', '', 'Enviado con SENDERO · © 2026 Cte. Alfredo Sánchez Sender'].filter(function (l, i, a) { return l || a[i - 1]; });
+    // 19/11/2026: el enlace de MENSADEF es el de la célula (falta saber la dirección de un mensaje concreto): se dice así
+    var pie = ['', carpeta ? 'Documentos del mensaje en MENSADEF: ' + carpeta : '', m._enlace ? 'Abrir la célula en MENSADEF' + (m.MensajeNum_referencia ? ' (busca la referencia ' + m.MensajeNum_referencia + ')' : '') + ': ' + m._enlace : '', '', 'Enviado con SENDERO · © 2026 Cte. Alfredo Sánchez Sender'].filter(function (l, i, a) { return l || a[i - 1]; });
     var asunto = 'MENSADEF' + (m.MensajeNum_referencia ? ' · ' + m.MensajeNum_referencia : '') + ' · ' + (m._asunto || '');
     var hacer = function (t) { return 'mailto:?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(t); };
     var texto0 = cuerpo ? cuerpo : '', t = partes.concat(texto0 ? ['', texto0] : [], pie).join('\n');

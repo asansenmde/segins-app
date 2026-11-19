@@ -543,4 +543,8 @@ con el formato *verbose* de SharePoint 2013.
 - **2026-11-18 · 11:** el aviso de comentarios salta **aunque el mensaje esté abierto en la ficha** (antes se daba por visto):
   tras «Actualizar» la ficha se reabre sin marcarlo visto y el «Último comentario» sale resaltado con «💬 Nuevo» y «✓ Visto».
   No avisa (a propósito) de los comentarios propios ni de los de SENDERO, ni de mensajes que no estaban en la carga anterior.
+- **2026-11-19 · 1:** «✉ Correo»: el enlace a los **documentos del mensaje** daba «Not Found» porque MENSADEF da `UrlCarpeta` sin el
+  ámbito (`/SMDMDMensajesDocumentos_…/<id>`): ahora se le pone el ámbito y se abre la vista de la biblioteca en esa carpeta
+  (`/ambito/X/SMDMDMensajesDocumentos_…/Forms/AllItems.aspx?RootFolder=…`). El de MENSADEF se llama «Abrir la célula en
+  MENSADEF (busca la referencia …)», porque aún no se sabe la dirección de un mensaje concreto.
 
