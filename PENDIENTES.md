@@ -274,4 +274,8 @@ autoría.
       MENSADEF (Escuchar, opcional); recordar la autorización unos días (cuando el usuario lo diga); «Quitar del PSIT» en la
       sesión [PUNTOS] (para-PUNTOS-quitar.md) y en META; enlace directo al mensaje (aparcado); limpieza de filtros (aparcado);
       firmar desde SENDERO (idea).
+    19/11/2026: ACORDADO con el usuario, para la próxima versión: «✍ Firmar en Rúbrica» desde SENDERO = abrir el Portafirmas con la
+      petición localizada (como «Ir a Rúbrica») + favorito nuevo «Firmar con SENDERO» en portafirmas.mdef.es que la busca, la abre
+      (el Portafirmas exige abrirla), la marca y pulsa Firmar; AutoFirma pide certificado y PIN (siempre el usuario).
+      PENDIENTE DEL USUARIO: escucha con «Explorar Portafirmas» de una firma COMPLETA (abrir, marcar, Firmar y firmar de verdad).
 
