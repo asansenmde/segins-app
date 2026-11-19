@@ -74,7 +74,7 @@ await ctx.route(API + '/**', r => {
   if (ruta === 'buzon/BuzonCelulaMensajeLeido') { marcadoLeido++; leidos.push({ metodo: r.request().method(), q: [...u.searchParams.keys()].join(','), estado: q.estado, buzon: !!q.idBuzonCelula, cuerpo: r.request().postData() || '', passcode: hd.passcode === PASS }); return r.fulfill({ headers: H, json: {} }); }
   // 18/11/2026: el buscador de MENSADEF (criterioBusqueda): solo encuentra el mensaje antiguo RS-ANTIGUO-9 (salida de SEGURIDAD)
   if (ruta === 'buzon/ObtenerBuzonCelula' && q.criterioBusqueda) {
-    const hay = q.criterioBusqueda === 'RS-ANTIGUO-9' && q.idCelula === G1 && q.tipoES === '2';
+    const hay = (q.criterioBusqueda === 'RS-ANTIGUO-9' || /antiguo/i.test(q.criterioBusqueda)) && q.idCelula === G1 && q.tipoES === '2';
     const el = Object.assign({}, bandeja(G1, '2', 1, 1).ListaElementos[0], { IdMensaje: '0000aaaa-2000-0000-0000-999999999999', Asunto: 'Mensaje antiguo referenciado', NumeroRegistroSalida: 'RS-ANTIGUO-9', NumeroRegistroEntrada: '', FechaRegistroEntrada: hace(24 * 60), FechaRegistroSalida: hace(24 * 60) });
     buscadosRef.push(q.criterioBusqueda);
     return r.fulfill({ headers: H, json: { ListaElementos: hay ? [el] : [], TotalRegistros: hay ? 1 : 0 } });
@@ -505,6 +505,8 @@ console.log('¿lo ha marcado como leído en MENSADEF?', marcadoLeido > 0, '(sí:
     await p.click('#aRubrica'); await p.click('#aRubrica'); await p.waitForTimeout(500);
     const rr = rubricas[rubricas.length - 1] || {};
     console.log('rúbrica:', rr.metodo, rr.q, '| id:', !!rr.id, '| buzonPersonal=' + rr.personal, '| sin cuerpo:', rr.cuerpo === '', '| passcode:', rr.passcode, '|', (await p.textContent('#colabora p')).trim(), '| botón tras enviar:', !!(await p.$('#aRubrica')), '| marca en la tabla:', await p.$$eval('#lista tr[data-i] .tag', l => l.some(x => /Rúbrica/.test(x.textContent))));
+    console.log('pestaña del Portafirmas con el asunto:', /^SENDEROFIRMA_/.test(await p.getAttribute('#irRubrica', 'target').catch(() => '')));
+    if (!/^SENDEROFIRMA_/.test(await p.getAttribute('#irRubrica', 'target').catch(() => ''))) console.log('Error: pestaña de Firmar en Rúbrica');
     console.log('enlace a Rúbrica:', await p.getAttribute('#irRubrica', 'href').catch(() => 'no hay'), '| nueva pestaña:', await p.getAttribute('#irRubrica', 'target').catch(() => '-'));
     await p.selectOption('[data-x="EnviableARubrica"]', ''); await p.fill('#buscar', 'RE-7'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(300);
     if (process.env.CAPTURA_RUBRICA) await (await p.$('#detalle .barra-ficha')).screenshot({ path: process.env.CAPTURA_RUBRICA + '-ir.png' });
@@ -636,6 +638,19 @@ for (const n of [0, 40]) {
   console.log('referencia: «N.º referencia» RE-1 → candidatos', cands.join(','));
   if (!cands.includes('RE-3') || cands.some(c => /^RE-1\d/.test(c))) console.log('Error: N.º referencia');
   await p.fill('#buscar', ''); await p.waitForTimeout(300); }
+// 19/11/2026: «🔎 En todo MENSADEF»: busca con el buscador de MENSADEF en todas las células (cualquier fecha), en una ventana
+{ const filas0 = await p.$$eval('#lista tbody tr[data-i]', l => l.length);
+  await p.fill('#buscar', 'antiguo'); await p.waitForTimeout(300); const n0 = buscadosRef.length;
+  await p.click('#buscarTodo'); await p.waitForSelector('#busRes [data-bus]', { timeout: 20000 }).catch(() => 0);
+  const res = await p.$$eval('#busRes [data-bus]', l => l.map(t => t.textContent)), consultas = buscadosRef.length - n0;
+  if (res.length) { await p.click('#busRes [data-bus] >> nth=0'); await p.waitForTimeout(400); }
+  const abierto = /Mensaje antiguo referenciado/.test(await p.textContent('#refModal').catch(() => '')), volver = !!(await p.$('#refVolver'));
+  if (volver) { await p.click('#refVolver'); await p.waitForTimeout(300); }
+  const otraVez = await p.$$eval('#busRes [data-bus]', l => l.length).catch(() => 0);
+  await p.keyboard.press('Escape'); await p.waitForTimeout(300); const cerrada = !(await p.$('#refModal'));
+  await p.fill('#buscar', ''); await p.waitForTimeout(300); const filas1 = await p.$$eval('#lista tbody tr[data-i]', l => l.length);
+  console.log('buscar en todo: consultas', consultas, '| resultados', res.length, '«' + (res[0] || '').slice(0, 60) + '» | abre el mensaje:', abierto, '| ← resultados:', otraVez, '| Esc cierra:', cerrada, '| la lista no cambia:', filas1 === filas0);
+  if (!consultas || res.length !== 1 || !abierto || otraVez !== 1 || !cerrada || filas1 !== filas0) console.log('Error: buscar en todo MENSADEF'); }
 // 18/11/2026: «🖨 Imprimir / PDF» con el formato del oficio de MENSADEF (cabecera, USO OFICIAL, firma, registros, OFICIO)
 { await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
   const [w] = await Promise.all([ctx.waitForEvent('page'), p.click('#imprimirMsg')]); await w.waitForLoadState();

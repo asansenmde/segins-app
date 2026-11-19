@@ -458,6 +458,7 @@
     <div class="pildoras" id="pildoras"></div>
     <div class="fila">
       <label>Buscar<input type="search" id="buscar" placeholder="Asunto, autoridad, referencia, expediente…"></label>
+      <button type="button" id="buscarTodo" title="Busca lo escrito en todo MENSADEF (todas tus células, entrada y salida, de cualquier fecha) sin cargar más días">🔎 En todo MENSADEF</button>
       <label>Tipo<select id="fTipo"></select></label>
       <label>Estado<select id="fEstado"></select></label>
       <label>Canal<select id="fCanal"></select></label>
@@ -533,7 +534,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-18 · 11';
+  var VERSION = '2026-11-19 · 2';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1688,7 +1689,7 @@
   }
   // Ventana del mensaje referenciado (18/11/2026): datos, texto y anexos de solo lectura, con Imprimir/PDF y «Abrir en
   // MENSADEF». No toca la lista ni la ficha abierta; «Cerrar», Esc o pulsar fuera la quitan.
-  function verReferenciado(x) {
+  function verReferenciado(x, volver) {
     var viejo = $('refModal'); if (viejo) viejo.parentNode.removeChild(viejo);
     var d = document.createElement('div'); d.id = 'refModal';
     d.style.cssText = 'position:fixed;inset:0;background:rgba(10,20,35,.55);z-index:9000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 12px';
@@ -1698,7 +1699,7 @@
     d.innerHTML = '<div class="card" style="max-width:900px;width:100%;margin:0;box-shadow:0 12px 40px rgba(0,0,0,.35)">' +
       '<div style="display:flex;gap:8px;align-items:center;border-bottom:2px solid #12315a;padding-bottom:8px;margin-bottom:10px"><b style="color:#12315a">🔗 Mensaje referenciado</b>' +
       '<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><button type="button" id="refImprimir">🖨 Imprimir / PDF</button>' + (x._api ? '<button type="button" id="refMensadef">Abrir en MENSADEF</button>' : '') +
-      '<button type="button" class="prim" id="refCerrar">✕ Cerrar y volver</button></span></div>' +
+      (volver ? '<button type="button" id="refVolver">← Resultados</button>' : '') + '<button type="button" class="prim" id="refCerrar">✕ Cerrar y volver</button></span></div>' +
       '<h2 style="margin:0 0 8px;font-size:1.1rem">' + esc(x._asunto || x.Title || '(sin asunto)') + '</h2>' +
       '<dl class="ficha-campos">' + filas.map(function (r) { return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>'; }).join('') + '</dl>' +
       '<div id="refAnexos" class="small muted" style="margin:8px 0">📎 Cargando el texto y los anexos…</div>' +
@@ -1709,6 +1710,7 @@
     document.addEventListener('keydown', tecla, true);
     d.addEventListener('click', function (e) { if (e.target === d) cerrar(); });
     $('refCerrar').addEventListener('click', cerrar);
+    if (volver) $('refVolver').addEventListener('click', function () { cerrar(); volver(); });
     $('refImprimir').addEventListener('click', function () { imprimirMensaje(x); });
     if ($('refMensadef')) $('refMensadef').addEventListener('click', function () { localizarEnMensadef(x); });
     if (!x._api || !apiCtx) { $('refAnexos').textContent = ''; return; }
@@ -1722,6 +1724,47 @@
       Array.prototype.forEach.call($('refAnexos').querySelectorAll('[data-refanexo]'), function (b) { b.addEventListener('click', function () { usarAnexo(x, Number(b.getAttribute('data-refanexo')), b.getAttribute('data-modo'), b); }); });
       if (!$('refTexto').textContent) $('refTexto').textContent = '(sin texto)';
     }, function () { if ($('refAnexos')) $('refAnexos').textContent = 'No se pudieron leer el texto y los anexos: ábrelo en MENSADEF.'; });
+  }
+  // 🔎 Buscar en todo MENSADEF (19/11/2026): lo escrito en «Buscar» va al buscador de MENSADEF (criterioBusqueda) en todas las
+  // células, entrada y salida, de cualquier fecha, sin cargar más días. Resultados en una ventana encima; pulsar uno lo abre en
+  // la ventana del mensaje (con «← Resultados»). No toca la lista. Hasta 50 por bandeja (se avisa si alguna llega a 50).
+  function buscarEnTodo() {
+    var q = $('buscar').value.trim();
+    if (q.length < 3) { alert('Escribe en «Buscar» al menos 3 letras o números y pulsa otra vez.'); $('buscar').focus(); return; }
+    if (!modoApi || !apiCtx) { alert('La búsqueda en todo MENSADEF necesita las bandejas de MENSADEF cargadas.'); return; }
+    var viejo = $('refModal'); if (viejo) viejo.parentNode.removeChild(viejo);
+    var d = document.createElement('div'); d.id = 'refModal';
+    d.style.cssText = 'position:fixed;inset:0;background:rgba(10,20,35,.55);z-index:9000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 12px';
+    d.innerHTML = '<div class="card" style="max-width:900px;width:100%;margin:0;box-shadow:0 12px 40px rgba(0,0,0,.35)"><div style="display:flex;gap:8px;align-items:center;border-bottom:2px solid #12315a;padding-bottom:8px;margin-bottom:10px">' +
+      '<b style="color:#12315a">🔎 «' + esc(q) + '» en todo MENSADEF</b><button type="button" class="prim" id="busCerrar" style="margin-left:auto">✕ Cerrar y volver</button></div><div id="busRes">Buscando en tus células…</div></div>';
+    document.body.appendChild(d);
+    var cerrar = function () { if (d.parentNode) d.parentNode.removeChild(d); document.removeEventListener('keydown', tecla, true); };
+    var tecla = function (e) { if (e.key === 'Escape' && $('busRes')) { e.stopPropagation(); cerrar(); } };
+    document.addEventListener('keydown', tecla, true);
+    d.addEventListener('click', function (e) { if (e.target === d) cerrar(); });
+    $('busCerrar').addEventListener('click', cerrar);
+    var tareas = []; celulasElegidas().forEach(function (c) { [1, 2].forEach(function (es) { tareas.push({ c: c, es: es }); }); });
+    var res = [], vistos = {}, llenas = 0, fallos = 0, hechas = 0;
+    var una = function (t) {
+      return pedirApi('buzon/ObtenerBuzonCelula', { idCelula: t.c.id, emailUsuario: apiCtx.email, urlColeccionSitio: apiCtx.url, indicePagina: 1, tamanoPagina: 50, tipoES: t.es, criterioBusqueda: q, soloPendientes: false }).then(function (r) {
+        var els = (r && (r.ListaElementos || r.listaElementos)) || primerArray(r) || [];
+        if (els.length >= 50) llenas++;
+        els.map(function (e) { return deApi(e, t.c, t.es); }).forEach(function (x) { var k = claveMensaje(x); if (!vistos[k]) { vistos[k] = 1; res.push(x); } });
+      }, function () { fallos++; }).then(function () { hechas++; if ($('busRes') && hechas < tareas.length) $('busRes').textContent = 'Buscando… ' + hechas + ' de ' + tareas.length + ' bandejas'; });
+    };
+    var cola = tareas.slice(), trabajador = function () { var t = cola.shift(); if (!t) return Promise.resolve(); return una(t).then(trabajador); };
+    var pintar = function () {
+      var el = $('busRes'); if (!el) return;
+      res.sort(function (a, b) { var fa = fechaDe(a), fb = fechaDe(b); return (fb ? fb.getTime() : 0) - (fa ? fa.getTime() : 0); });
+      el.innerHTML = (res.length ? '<p class="muted">' + res.length + ' mensaje' + (res.length === 1 ? '' : 's') + (llenas ? ' · alguna bandeja ha llegado a 50: puede haber más, afina la búsqueda' : '') + (fallos ? ' · ' + fallos + ' bandejas no respondieron' : '') + '</p>' +
+        '<table><thead><tr><th>Fecha</th><th>Referencia</th><th>Asunto</th><th>Célula</th></tr></thead><tbody>' + res.slice(0, 200).map(function (x, i) {
+          return '<tr data-bus="' + i + '" style="cursor:pointer"><td class="nowrap">' + esc(verFecha(fechaDe(x))) + '</td><td>' + esc(x.MensajeNum_referencia || '') + '</td><td>' + esc(x._asunto || x.Title || '') + '</td><td>' + esc(sitioDe(x) || '') + '</td></tr>'; }).join('') + '</tbody></table>'
+        : '<p>MENSADEF no encuentra nada con «' + esc(q) + '» en tus células.</p><p class="muted">Su buscador busca sobre todo por referencia y asunto: prueba con otra palabra o con el número de registro.</p>');
+      Array.prototype.forEach.call(el.querySelectorAll('[data-bus]'), function (tr) { tr.addEventListener('click', function () {
+        var x = res[Number(tr.getAttribute('data-bus'))]; cerrar(); verReferenciado(x, function () { document.body.appendChild(d); document.addEventListener('keydown', tecla, true); });
+      }); });
+    };
+    Promise.all([trabajador(), trabajador(), trabajador(), trabajador(), trabajador(), trabajador()]).then(pintar);
   }
   // 🖨 Imprimir / PDF (18/11/2026): el mensaje con formato de oficio en una ventana nueva y la ventana de imprimir del
   // navegador («Guardar como PDF»). Con los destinatarios y anexos si ya se han leído (al abrir la ficha).
@@ -2063,6 +2106,7 @@
   $('fAgrupar').addEventListener('change', function () { guardar('agrupar', $('fAgrupar').value); if ($('fAgrupar').value !== 'no' && orden.campo !== 'fecha') { orden = { campo: 'fecha', desc: true }; ordenar(); } pintarTabla(); });
   $('fVistos').addEventListener('change', function () { guardar('ocultarVistos', $('fVistos').checked); });
   ['fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad', 'fSitio', 'fAdjuntos', 'fBorrador', 'fVistos', 'fPasado'].forEach(function (id) { $(id).addEventListener('change', function () { mostrar = 300; filtrar(); }); });
+  $('buscarTodo').addEventListener('click', function () { buscarEnTodo(); });
   var espera; $('buscar').addEventListener('input', function () { clearTimeout(espera); espera = setTimeout(function () { mostrar = 300; filtrar(); }, 200); });
   $('limpiar').addEventListener('click', function () { ['buscar', 'fTipo', 'fEstado', 'fCanal', 'fOrgano', 'fAutoridad', 'fSitio', 'fPasado'].forEach(function (id) { $(id).value = ''; }); $('fAdjuntos').checked = false; fx = {}; kpiSel = ''; pintarTodo(); });
 
@@ -2566,6 +2610,9 @@
     var t = String((m && m._asunto) || '').replace(/^\s*((re|rv|fw|fwd|sdo|ref)\s*[:.]\s*)+/i, '').replace(/["'<>%&#]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
     return 'https://portafirmas.mdef.es/ePortafirmas/Firmantes.do?operacion=ListaPendientes' + (t ? '&titulo=' + encodeURIComponent(t) : '');
   }
+  // 19/11/2026: la pestaña del Portafirmas se llama «SENDEROFIRMA_<asunto>»: el nombre de una ventana se conserva aunque
+  // haya que identificarse, y el favorito «Firmar con SENDERO» lo lee para localizar la petición
+  function pestanaFirma(m) { return 'SENDEROFIRMA_' + encodeURIComponent(String((m && m._asunto) || '').trim().slice(0, 150)); }
   // 13/11/2026: «Ir a Rúbrica · firmar» solo cuando ya está pendiente de firma (pasado a rúbrica); antes, «Pasar a rúbrica»
   function enFirma(m) { var r = m._rubrica; return !!(r && (r.enviado || /pendiente\s*(de\s*)?firma|firma\s+pendiente|en\s+firma|en\s+r[uú]brica|portafirmas/i.test(r.estado || ''))); }
   function conRubrica(m) { var r = m._rubrica; return !!(RUBRICA && m._api && r && (puedeRubrica(m) || r.enviado || /firma|r[uú]brica|portafirmas|validaci/i.test(r.estado || ''))); }
@@ -2573,7 +2620,7 @@
   function botonRubrica(m) {
     return (puedeRubrica(m) ? '<button type="button" class="gr gr-rub" id="aRubrica" title="Envía el mensaje al portafirmas (rúbrica) en MENSADEF">' + HTML_PASAR + '</button>' : '') +
       // 13/11/2026: «Ir a Rúbrica» siempre (acceso al portafirmas para firmar); «Pasar a rúbrica» solo cuando procede
-      (RUBRICA && m._api && !puedeRubrica(m) && enFirma(m) ? '<a href="' + esc(urlRubrica(m)) + '" target="_blank" rel="noopener" id="irRubrica" class="gr-a"><button type="button" class="gr gr-rub" title="Abre en otra pestaña tu lista de documentos para firmar del Portafirmas, filtrada por el asunto de este mensaje"><span class="i">✍</span><span>Ir a Rúbrica<small>firmarlo en el portafirmas</small></span></button></a>' : '');
+      (RUBRICA && m._api && !puedeRubrica(m) && enFirma(m) ? '<a href="' + esc(urlRubrica(m)) + '" target="' + esc(pestanaFirma(m)) + '" id="irRubrica" class="gr-a"><button type="button" class="gr gr-rub" title="Abre el Portafirmas con este mensaje localizado; allí pulsa el favorito «Firmar con SENDERO»"><span class="i">✍</span><span>Firmar en Rúbrica<small>se abre localizado en el portafirmas</small></span></button></a>' : '');
   }
   function pasarARubrica(m) {
     if (!apiCtx || !m.MensajeId) return Promise.reject(new Error('este mensaje no viene del servicio de MENSADEF'));

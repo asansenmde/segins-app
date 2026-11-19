@@ -194,6 +194,18 @@ EXPLORAR_PF = ('explorar-portafirmas.js', 'marcador-explorar-portafirmas.html', 
 
 generar_acceso()
 
+FIRMAR_PF = ('firmar-portafirmas.js', 'marcador-firmar-portafirmas.html', 'Firmar con SENDERO', 'Firmar con SENDERO (Portafirmas)',
+             'Un <b>favorito</b> para <b>portafirmas.mdef.es</b> que localiza la petición del mensaje que elegiste en SENDERO («✍ Firmar en '
+             'Rúbrica»), la deja como la única marcada y te ofrece abrir el documento y firmarlo. La lectura («He leído el documento») y '
+             'la firma en AutoFirma (certificado y PIN) las haces tú.',
+             ['En SENDERO, abre el mensaje pendiente de firma y pulsa <b>✍ Firmar en Rúbrica</b>: se abre el Portafirmas.',
+              'Identifícate si te lo pide y entra como <b>Firmante</b>.',
+              'Pulsa el favorito <b>Firmar con SENDERO</b>: marca la petición y sale un recuadro abajo a la derecha.',
+              'Pulsa <b>📄 Abrir el documento</b>, léelo y pulsa <b>He leído el documento</b> en el visor.',
+              'Pulsa <b>✍ Firmar</b> y, en AutoFirma, elige tu certificado y pon el PIN.'])
+
+generar(*FIRMAR_PF)
+
 if '--pruebas' in sys.argv:
     generar(*ESCUCHAR)
     generar(*EXPLORAR_PF)

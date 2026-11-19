@@ -16,4 +16,9 @@ for v in "X=1" "VERBOSE=1" "PROTEGIDA=1" "PROTEGIDA=1 VERBOSE=1" "LIMITADO=1" "L
   echo "== acceso.mjs $v: $r"
   echo "$salida" | grep -E "Error|preparación:|tras aprobar|bloqueo →" | cut -c1-110 | sed 's/^/   /'
 done
+# Favorito «Firmar con SENDERO» con un Portafirmas simulado
+salida=$(node firmar.mjs 2>&1)
+if echo "$salida" | grep -q "errores: \[\]" && ! echo "$salida" | grep -q "Error"; then r=bien; else r=MAL; fallos=$((fallos+1)); fi
+echo "== firmar.mjs: $r"
+echo "$salida" | grep -E "^firmar:" | cut -c1-110 | sed 's/^/   /'
 [ $fallos -eq 0 ] && echo "TODO BIEN" || { echo "$fallos PASADAS CON FALLOS"; exit 1; }

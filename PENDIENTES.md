@@ -278,4 +278,6 @@ autoría.
       petición localizada (como «Ir a Rúbrica») + favorito nuevo «Firmar con SENDERO» en portafirmas.mdef.es que la busca, la abre
       (el Portafirmas exige abrirla), la marca y pulsa Firmar; AutoFirma pide certificado y PIN (siempre el usuario).
       PENDIENTE DEL USUARIO: escucha con «Explorar Portafirmas» de una firma COMPLETA (abrir, marcar, Firmar y firmar de verdad).
+    19/11/2026: SENDERO 2026-11-19 · 2: «Buscar en todo MENSADEF» y «Firmar en Rúbrica» + favorito «Firmar con SENDERO» (hechos).
+      PENDIENTE DEL USUARIO: probarlos de verdad (qué campos busca MENSADEF; que el favorito localice la petición y firme).
 

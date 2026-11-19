@@ -547,4 +547,11 @@ con el formato *verbose* de SharePoint 2013.
   ámbito (`/SMDMDMensajesDocumentos_…/<id>`): ahora se le pone el ámbito y se abre la vista de la biblioteca en esa carpeta
   (`/ambito/X/SMDMDMensajesDocumentos_…/Forms/AllItems.aspx?RootFolder=…`). El de MENSADEF se llama «Abrir la célula en
   MENSADEF (busca la referencia …)», porque aún no se sabe la dirección de un mensaje concreto.
+- **2026-11-19 · 2:** **«🔎 En todo MENSADEF»** junto a «Buscar»: lo escrito va al buscador de MENSADEF (`criterioBusqueda`) en
+  todas las células, entrada y salida, de cualquier fecha; resultados en una ventana encima (hasta 50 por bandeja, con aviso),
+  pulsar uno lo abre en la ventana del mensaje con «← Resultados»; no toca la lista. **«✍ Firmar en Rúbrica»** (antes «Ir a
+  Rúbrica») abre el Portafirmas en una pestaña llamada `SENDEROFIRMA_<asunto>` y el favorito nuevo **«Firmar con SENDERO»**
+  (`firmar-portafirmas.js`, `marcador-firmar-portafirmas.html`) localiza la petición, la deja como única marcada, ofrece «📄 Abrir
+  el documento» (el usuario lo lee y pulsa «He leído») y «✍ Firmar» (botón Firmar del Portafirmas → AutoFirma, certificado y PIN
+  del usuario). No se salta la lectura. Pruebas: `pruebas/firmar.mjs` (Portafirmas simulado) en `todas.sh`.
 
