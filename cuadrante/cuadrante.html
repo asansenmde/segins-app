@@ -6454,7 +6454,7 @@ var Cipher = {
   };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-19 · 9';
+  var VERSION = '2026-11-20 · 1';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuadrante de servicios · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -7024,15 +7024,15 @@ var Cipher = {
     var cerrado = e.publicado && !e.propuesta && !e.editando, editandoPub = e.publicado && !e.propuesta && e.editando;
     if (cerrado) {
       var confC = conflictos(e);
-      return nav + '<div class="acciones">' + selectorVista() + '<button class="prim" data-editarmes="1" title="Abre el mes publicado para modificarlo; al guardar se avisa a todos con el cuadrante como queda">✏️ Editar cuadrante publicado</button><button data-imprimir="1">🖨 Imprimir</button></div>' +
-        '<div class="nota small">🔒 Cuadrante publicado: está cerrado. Para modificarlo, pulsa «Editar cuadrante publicado»; al guardar, todos los del mes reciben el cuadrante actualizado con los cambios marcados.</div>' +
-        panelRotacion() + (confC ? '<div class="card conflictos"><h3 style="margin-top:0">⚠ Revisar</h3>' + confC + '</div>' : '') + cuerpoMes(false) + leyenda();
+      return nav + '<div class="acciones">' + selectorVista() + '<button class="prim" data-editarmes="1" title="Abre el mes publicado para modificarlo (guardar no envía correos)">✏️ Editar cuadrante publicado</button><button data-imprimir="1">🖨 Imprimir</button></div>' +
+        '<div class="nota small">🔒 Cuadrante publicado: está cerrado. Para modificarlo, pulsa «Editar cuadrante publicado». Guardar no envía correos: los cambios quedan en «✉ Avisos» y tú decides si avisar a los implicados o a todos.</div>' +
+        panelAvisos(ym) + panelRotacion() + (confC ? '<div class="card conflictos"><h3 style="margin-top:0">⚠ Revisar</h3>' + confC + '</div>' : '') + cuerpoMes(false) + leyenda();
     }
-    var acc = editandoPub ? '<div class="acciones"><button class="prim" data-guardarmes="0"' + (hayCambios() ? '' : ' disabled') + '>💾 Guardar cambios y avisar a todos</button>' +
+    var acc = editandoPub ? '<div class="acciones"><button class="prim" data-guardarmes="0"' + (hayCambios() ? '' : ' disabled') + '>💾 Guardar cambios</button>' +
       '<button data-cancelaredicion="1">✕ Cancelar la edición</button><button data-imprimir="1">🖨 Imprimir</button></div>' +
-      '<div class="aviso small">✏️ Estás editando un cuadrante publicado. Cambia lo necesario (con su motivo) y pulsa «Guardar cambios y avisar a todos»: se envía a todos los del mes el cuadrante como queda.</div>' : '<div class="acciones">' +
+      '<div class="aviso small">✏️ Estás editando un cuadrante publicado. Cambia lo necesario (con su motivo) y pulsa «Guardar cambios». No se envía ningún correo: después, en «✉ Avisos», eliges avisar a los implicados o enviar el cuadrante a todos.</div>' : '<div class="acciones">' +
       '<button data-proponer="1" title="Vuelve a calcular el mes con la rotación, los festivos y las ausencias aprobadas">↻ ' + (e.guardado ? 'Proponer de nuevo' : 'Proponer el mes') + '</button>' +
-      '<button class="prim" data-guardarmes="0"' + (hayCambios() || e.propuesta ? '' : ' disabled') + '>💾 ' + (e.publicado && !e.propuesta ? 'Guardar cambios y avisar' : 'Guardar borrador') + '</button>' +
+      '<button class="prim" data-guardarmes="0"' + (hayCambios() || e.propuesta ? '' : ' disabled') + '>💾 ' + (e.publicado && !e.propuesta ? 'Guardar cambios' : 'Guardar borrador') + '</button>' +
       (!e.publicado || e.propuesta ? '<button class="verde" data-guardarmes="1">📢 Publicar ' + (prov ? 'el definitivo' : '') + ' y avisar a cada uno</button>' : '') +
       '<button data-imprimir="1">🖨 Imprimir</button></div>' +
       (!e.publicado && !e.propuesta && e.guardado ? (prov ? avisoProv.replace('Revisa tus servicios: si necesitas', 'Los componentes lo ven y, si necesitan') + '<div class="acciones"><button data-provisional="1">✉ Volver a avisar del provisional</button><button data-retirarprov="1">Retirar el provisional</button></div>' :
@@ -7466,16 +7466,64 @@ var Cipher = {
     }).then(function () {
       prepararMes(ym); render();
       if (publicar && !eraPublicado) return estadoMes(ym, 'PUBLICADO').then(function () { return avisarPublicacion(ym); });
-      if (eraPublicado && cambios.length) return avisarCambios(cambios, motivo);
+      if (eraPublicado && cambios.length) return apuntarPendientes(ym, cambios, motivo).then(function () { return { cls: 'okmsg', html: '✓ Cambios guardados (' + cambios.length + '). No se ha enviado ningún correo: cuando quieras, avisa desde «✉ Avisos» a los implicados o a todos.' }; });
       return { html: '✓ ' + (estado === 'PUBLICADO' ? 'Cambios guardados' : 'Borrador guardado') + ' (' + ops.length + ' operaciones).', cls: 'okmsg' };
     }).then(function (r) { resultado = r; render(); toast('Guardado'); })
       .catch(function (err) { boton.disabled = false; resultado = { cls: 'error', html: 'No se pudo guardar todo: ' + esc(err.message || err) + '. Pulsa Actualizar y revisa el mes.' }; render(); });
   }
+  function setMes(ym, patch) {
+    var m = mesesEstado[ym], base = {};
+    if (m) Object.keys(m).forEach(function (k) { if (k !== 'id') base[k] = m[k]; });
+    var v = JSON.stringify(Object.assign(base, patch));
+    return (m ? cambiarItem('ajustes', m.id, { Valor: v }) : crearItem('ajustes', { Title: 'MES ' + ym, Valor: v })).then(leerAjustesReglas);
+  }
   function estadoMes(ym, estado, extra) {
     if (!info.ajustes) return Promise.resolve();
-    var m = mesesEstado[ym], v = JSON.stringify(Object.assign({ estado: estado, por: yo.Title, fecha: new Date().toISOString() }, extra || {}));
-    if (!m && estado !== 'PROVISIONAL') return Promise.resolve();
-    return (m ? cambiarItem('ajustes', m.id, { Valor: v }) : crearItem('ajustes', { Title: 'MES ' + ym, Valor: v })).then(leerAjustesReglas);
+    if (!mesesEstado[ym] && estado !== 'PROVISIONAL') return Promise.resolve();
+    return setMes(ym, Object.assign({ estado: estado, por: yo.Title, fecha: new Date().toISOString() }, extra || {}));
+  }
+  // ---------- Cambios de un mes publicado pendientes de avisar ----------
+  // «Guardar cambios» ya no envía correos: los cambios quedan apuntados (en «CUADRANTE AJUSTES», elemento del mes) y el
+  // gestor decide cuándo y a quién avisar: a los implicados o a todos con el cuadrante actualizado.
+  var pendMem = {};
+  var pendientesMes = function (ym) { var m = mesesEstado[ym]; return (m && m.pend) || pendMem[ym] || []; };
+  function apuntarPendientes(ym, cambios, motivo) {
+    var nuevos = cambios.map(function (x) { return { q: x.q, inicio: x.f.inicio, fin: x.f.fin, tipo: x.f.tipo, antes: x.antes ? x.antes.id : null, ahora: x.ahora ? x.ahora.id : null, motivo: x.motivo || motivo || '', por: yo.Title, cuando: new Date().toISOString() }; });
+    var l = pendientesMes(ym).concat(nuevos);
+    if (!info.ajustes) { pendMem[ym] = l; return Promise.resolve(); }
+    return setMes(ym, { pend: l });
+  }
+  function vaciarPendientes(ym) { pendMem[ym] = []; return info.ajustes && mesesEstado[ym] ? setMes(ym, { pend: [] }) : Promise.resolve(); }
+  var aCambiosAviso = function (l) { return l.map(function (p) { return { f: { inicio: p.inicio, fin: p.fin, tipo: p.tipo }, q: p.q, antes: compPorId(p.antes), ahora: compPorId(p.ahora), motivo: p.motivo }; }); };
+  function panelAvisos(ym) {
+    var l = pendientesMes(ym);
+    return '<div class="card avisos"><h3 style="margin-top:0">✉ Avisos ' + (l.length ? '<span class="badge eSin">' + l.length + ' cambio' + (l.length === 1 ? '' : 's') + ' sin avisar</span>' : '<span class="small muted">· no hay cambios sin avisar</span>') + '</h3>' +
+      (l.length ? '<ul class="lconf">' + l.map(function (p) {
+        var a = compPorId(p.antes), b = compPorId(p.ahora);
+        return '<li><b>' + esc(rotulo(p)) + '</b> · ' + esc(papelDe(p.q)) + ': ' + nombreCon(a) + ' → ' + nombreCon(b) + (p.motivo ? ' <span class="small muted">(' + esc(p.motivo) + ')</span>' : '') + '</li>';
+      }).join('') + '</ul>' : '') +
+      '<div class="acciones"><button class="prim" data-avisarimplicados="1"' + (l.length ? '' : ' disabled') + ' title="Solo a quien tenía y a quien hace ahora cada servicio cambiado (con copia a los gestores)">✉ Avisar a los implicados</button>' +
+      '<button data-avisartodos="1" title="A todos los del mes y a los gestores: el cuadrante como queda, con los cambios marcados">✉ Enviar el cuadrante actualizado a todos</button></div>' +
+      (!info.ajustes ? '<p class="small muted">Sin la lista «' + esc(LISTAS.ajustes) + '», los cambios sin avisar solo se recuerdan mientras no cierres la página.</p>' : '') + '</div>';
+  }
+  function avisarImplicados(boton) {
+    var ym = edicion.ym, l = pendientesMes(ym); if (!l.length) return;
+    var cs = aCambiosAviso(l), dest = [];
+    cs.forEach(function (x) { [x.antes, x.ahora].forEach(function (c) { if (c && c.persona) dest.push(destDe(c.persona)); }); });
+    dest = limpia(dest);
+    var filas = cs.map(function (x) { return ['CAMBIO · ' + rotulo(x.f), papelDe(x.q) + ': ' + (x.antes ? x.antes.nombre : '—') + ' → ' + (x.ahora ? x.ahora.nombre : 'sin asignar') + (x.motivo ? ' · ' + x.motivo : '')]; }).concat([['Avisado por', yo.Title]]);
+    boton.disabled = true;
+    conGestores(correoDe('CAMBIOS EN EL CUADRANTE DE SERVICIOS DE ' + mesTxt(ym).toUpperCase() + ' QUE LE AFECTAN:', filas, 'CAMBIOS EN EL CUADRANTE DE SERVICIOS · ' + mesTxt(ym).toUpperCase(), dest, enlacePagina() + '?mes=' + ym))
+      .then(function (m) { if (!m.to.length) { m.to = m.cc; m.cc = []; } return enviarCorreo(m); })
+      .then(function (r) { return (correoBien(r) ? vaciarPendientes(ym) : Promise.resolve()).then(function () { resultado = { cls: correoBien(r) ? 'okmsg' : 'aviso', html: (correoBien(r) ? '✓ Avisados los implicados (' + dest.length + ') y, en copia, los gestores.' : 'No salió el aviso: los cambios siguen pendientes.') + msgCorreo(r) }; render(); }); })
+      .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
+  }
+  function avisarTodos(boton) {
+    var ym = edicion.ym, l = pendientesMes(ym);
+    if (!window.confirm('Se envía el cuadrante de ' + mesTxt(ym) + ' a todos los del mes y a los gestores' + (l.length ? ', con ' + l.length + ' cambio' + (l.length === 1 ? '' : 's') + ' marcado' + (l.length === 1 ? '' : 's') : '') + '. ¿Seguir?')) return;
+    boton.disabled = true;
+    avisarCambios(aCambiosAviso(l), '').then(function (r) { return (/^✓/.test(r.html) ? vaciarPendientes(ym) : Promise.resolve()).then(function () { resultado = r; render(); }); })
+      .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
   }
   function enviarProvisional(boton) {
     var ym = edicion.ym, prev = provisional(ym), hasta = $('#provHasta') ? $('#provHasta').value : (prev && prev.hasta) || '';
@@ -7543,10 +7591,10 @@ var Cipher = {
       if (vistos[t.inicio]) return; vistos[t.inicio] = 1;
       filas.push([rotulo(t) + ' · ' + (TIPOS_TURNO[t.tipo] || t.tipo), 'Jefe: ' + nombre('OFICIALES', t.inicio) + '\nAuxiliar: ' + nombre('SUBOFICIALES', t.inicio)]);
     });
-    filas.push(['Modificado por', yo.Title]);
-    return enviarCorreo(correoDe('SE HA MODIFICADO EL CUADRANTE DE SERVICIOS DE ' + mesTxt(ym).toUpperCase() + '. ARRIBA, LOS CAMBIOS; DEBAJO, EL CUADRANTE COMO QUEDA.', filas,
-      'CUADRANTE DE SERVICIOS ACTUALIZADO · ' + mesTxt(ym).toUpperCase(), dest, enlacePagina() + '?mes=' + ym)).then(function (r) {
-      return { cls: correoBien(r) ? 'okmsg' : 'aviso', html: '✓ Cambios guardados (' + cambios.length + ') y cuadrante actualizado enviado a ' + dest.length + ' persona' + (dest.length === 1 ? '' : 's') + '.' + msgCorreo(r) };
+    filas.push([cambios.length ? 'Modificado por' : 'Enviado por', yo.Title]);
+    return enviarCorreo(correoDe(cambios.length ? 'SE HA MODIFICADO EL CUADRANTE DE SERVICIOS DE ' + mesTxt(ym).toUpperCase() + '. ARRIBA, LOS CAMBIOS; DEBAJO, EL CUADRANTE COMO QUEDA.' : 'CUADRANTE DE SERVICIOS DE ' + mesTxt(ym).toUpperCase() + ' COMO ESTÁ AHORA:', filas,
+      'CUADRANTE DE SERVICIOS ' + (cambios.length ? 'ACTUALIZADO' : '') + ' · ' + mesTxt(ym).toUpperCase(), dest, enlacePagina() + '?mes=' + ym)).then(function (r) {
+      return { cls: correoBien(r) ? 'okmsg' : 'aviso', html: (correoBien(r) ? '✓' : '✕') + ' Cuadrante ' + (cambios.length ? 'actualizado (' + cambios.length + ' cambio' + (cambios.length === 1 ? '' : 's') + ' marcado' + (cambios.length === 1 ? '' : 's') + ')' : '') + ' enviado a ' + dest.length + ' persona' + (dest.length === 1 ? '' : 's') + '.' + msgCorreo(r) };
     });
   }
 
@@ -7689,7 +7737,7 @@ var Cipher = {
       '<p class="small muted">Los avisos van a la CUENTA de cada persona (Colabora no acepta las direcciones). «Gestores» = los del grupo «' + esc(GRUPOS.gestores) + '» y, siempre, el administrador (' + esc(ACCESO.avisarCorreos.join(', ')) + ').</p>' +
       '<table class="t small"><tr><th>Cuándo</th><th>A quién</th></tr>' + [
         ['Se publica un mes', 'A cada componente, sus servicios del mes. A los gestores, copia del cuadrante completo.'],
-        ['Se modifica un mes publicado', 'A todos los del mes, a quien deja de tener un servicio y a los gestores: el cuadrante como queda, con los cambios marcados.'],
+        ['Se modifica un mes publicado', 'Nadie al guardar. Desde «✉ Avisos» el gestor elige: a los implicados en los cambios (con copia a los gestores) o a todos los del mes y a los gestores, con el cuadrante como queda.'],
         ['Alguien pide un cambio de servicio', 'Al compañero (para aceptarlo y firmarlo) y a los gestores (para que estén atentos).'],
         ['El compañero acepta y firma', 'A los gestores, para que lo validen.'],
         ['Se valida, se rechaza o se anula un cambio', 'A los dos interesados y, en copia, a los gestores.'],
@@ -8437,6 +8485,8 @@ var Cipher = {
       prepararMes(edicion.ym, true); render(); return;
     }
     if ((b = accionCon(el, 'data-provisional'))) { enviarProvisional(b); return; }
+    if ((b = accionCon(el, 'data-avisarimplicados'))) { avisarImplicados(b); return; }
+    if ((b = accionCon(el, 'data-avisartodos'))) { avisarTodos(b); return; }
     if ((b = accionCon(el, 'data-retirarprov'))) { retirarProvisional(b); return; }
     if ((b = accionCon(el, 'data-guardarmes'))) { guardarMes(b.dataset.guardarmes === '1', b); return; }
     if (el.closest('[data-imprimir]')) { if (pref.vistaMes === 'tabla') imprimirRejilla(); else imprimirMes(); return; }

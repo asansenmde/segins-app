@@ -9,7 +9,7 @@
 | `colabora/cuadrante.html` | **Copia cifrada que se sube a Colabora** (`cd cuadrante/proteger && node proteger.mjs`). |
 | `pruebas/simulacion.mjs` | Prueba completa contra un SharePoint simulado, en formato ligero y *verbose*. Con `CUAD_HTML=cuadrante/colabora/cuadrante.html` prueba la copia cifrada y con `PROXY=1`, el filtro de la red. |
 
-## Puesta en marcha (versión 2026-11-19 · 9)
+## Puesta en marcha (versión 2026-11-20 · 1)
 
 1. Subir `colabora/cuadrante.html` a una biblioteca del sitio JSUIGE (por ejemplo `…/JSUIGE/aplicaciones/`) y abrirla con
    la cuenta que tiene Control total.
@@ -123,6 +123,19 @@ correo a la cuenta y copia cifrada entera.
 - **Control total en JSUIGE:** el usuario. Desde Ajustes crea las listas y el grupo `CUADRANTE_GESTORES`, y aprueba
   las solicitudes de acceso.
 
+## Guardar y avisar, por separado (20/11/2026)
+
+Al editar un mes publicado, «💾 Guardar cambios» ya no envía correos, para no saturar a nadie. Los cambios quedan
+apuntados como «sin avisar» (en «CUADRANTE AJUSTES», elemento del mes). En el mes publicado, el recuadro «✉ Avisos»
+los lista y el gestor elige:
+- **«Avisar a los implicados»:** solo a quien tenía y a quien hace ahora cada servicio cambiado, con copia a los
+  gestores;
+- **«Enviar el cuadrante actualizado a todos»:** a todos los del mes y a los gestores, con los cambios marcados. Sirve
+  también para reenviar el cuadrante aunque no haya cambios.
+
+Al enviar, los pendientes se vacían. Los cambios de servicio pedidos por los componentes siguen avisando solos a los
+interesados y a los gestores.
+
 ## Cuadrante provisional antes de publicar (19/11/2026)
 
 Para que nadie se lleve una sorpresa, el gestor puede enviar el borrador guardado **como provisional**, con un plazo
@@ -145,7 +158,7 @@ entrar). Antes, el administrador que no estaba en el grupo no recibía nada.
 | Cuándo | A quién |
 |---|---|
 | Se publica un mes | A cada componente, sus servicios. A los gestores, copia del cuadrante completo. |
-| Se modifica un mes publicado | A todos los del mes, a quien pierde un servicio y a los gestores: el cuadrante como queda. |
+| Se modifica un mes publicado | Nadie al guardar. Desde «✉ Avisos»: a los implicados (copia a los gestores) o a todos con el cuadrante actualizado. |
 | Alguien pide un cambio | Al compañero y a los gestores. |
 | El compañero acepta y firma | A los gestores. |
 | Se valida, se rechaza o se anula un cambio | A los dos interesados y, en copia, a los gestores. |

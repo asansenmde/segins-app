@@ -279,7 +279,12 @@ async function prueba(verbose) {
     await p.fill('#motivoCambio', 'Vacaciones aprobadas'); correos.length = 0;
     await p.click('[data-guardarmes="0"]'); await p.waitForTimeout(2500);
     const cambiado = LT.items.find(x => x.Id === LT.items.find(y => y.Componente !== id[12] && y.Inicio === misTurnos[0].Inicio && y.Cuadrante === 'OFICIALES')?.Id);
-    comprueba(tag + 'guarda el cambio con historial y avisa a los dos afectados', !!cambiado && /Cambio: OFICIAL NUMERO 2 → /.test(cambiado.Historial) && /Sustituye a OFICIAL NUMERO 2/.test(cambiado.Historial) && cambiado.Asignacion === 'MANUAL' && correos.some(c => /CUADRANTE DE SERVICIOS ACTUALIZADO/.test(c.asunto) && c.to.includes('i:0#.w|et\\of2') && c.to.length >= 12 && /\(CAMBIADO\)/.test(c.cuerpo) && /CAMBIO · /.test(c.cuerpo)), JSON.stringify(correos.map(c => [c.asunto, c.to])));
+    comprueba(tag + 'guardar el cambio: historial, «a mano» y SIN correos', !!cambiado && /Cambio: OFICIAL NUMERO 2 → /.test(cambiado.Historial) && /Sustituye a OFICIAL NUMERO 2/.test(cambiado.Historial) && cambiado.Asignacion === 'MANUAL' && correos.length === 0 && /No se ha enviado ningún correo/.test(await texto(p)), JSON.stringify(correos.map(c => [c.asunto, c.to])));
+    comprueba(tag + '«Avisos» enseña el cambio sin avisar', /1 cambio sin avisar/.test(await texto(p)) && /OFICIAL NUMERO 2 → /.test(await p.textContent('.card.avisos')));
+    const nuevoQuien = LC.items.find(c => c.Id === cambiado.Componente).PersonaId;
+    await p.click('[data-avisarimplicados]'); await p.waitForTimeout(1200);
+    comprueba(tag + '«Avisar a los implicados»: solo a los dos (y copia a los gestores); luego no queda nada pendiente', correos.length === 1 && correos[0].to.includes('i:0#.w|et\\of2') && correos[0].to.includes(quien(nuevoQuien).Name) && correos[0].to.includes('i:0#.w|et\\gestora') && correos[0].to.length <= 4 &&
+      /no hay cambios sin avisar/.test(await texto(p)), JSON.stringify(correos.map(c => [c.asunto, c.to])));
   }
   // Publicado = cerrado: hay que pulsar «Editar cuadrante publicado»
   comprueba(tag + 'el mes publicado queda cerrado (sin desplegables) con «Editar cuadrante publicado»', !(await p.$('table.cuad select')) && !!(await p.$('[data-editarmes]')) && /Cuadrante publicado: está cerrado/.test(await texto(p)));
@@ -290,7 +295,10 @@ async function prueba(verbose) {
   comprueba(tag + 'el imprevisto queda «a mano» con su motivo, que se puede cambiar', /a mano/.test(await p.textContent('table.cuad tbody tr:first-child')) && /Imprevisto: /.test(await p.inputValue('[data-motivo="0|SUBOFICIALES"]')));
   await p.fill('[data-motivo="0|SUBOFICIALES"]', 'Enfermedad repentina'); await p.press('[data-motivo="0|SUBOFICIALES"]', 'Tab'); await p.waitForTimeout(200); correos.length = 0;
   await p.click('[data-guardarmes="0"]'); await p.waitForTimeout(2000);
-  comprueba(tag + 'imprevisto: pone al siguiente disponible y avisa a los dos', correos.some(c => /CUADRANTE DE SERVICIOS ACTUALIZADO/.test(c.asunto) && /Enfermedad repentina/.test(c.cuerpo)) && !(await p.$('table.cuad select')), JSON.stringify(correos.map(c => c.asunto)));
+  comprueba(tag + 'imprevisto guardado sin correos y el mes vuelve a cerrarse', correos.length === 0 && !(await p.$('table.cuad select')) && /1 cambio sin avisar/.test(await texto(p)));
+  await p.click('[data-avisartodos]'); await p.waitForTimeout(1500);
+  comprueba(tag + '«Enviar el cuadrante actualizado a todos»: a todos, con el cambio marcado y su motivo', correos.some(c => /CUADRANTE DE SERVICIOS ACTUALIZADO/.test(c.asunto) && /Enfermedad repentina/.test(c.cuerpo) && /\(CAMBIADO\)/.test(c.cuerpo) && c.to.length >= 12) &&
+    /no hay cambios sin avisar/.test(await texto(p)), JSON.stringify(correos.map(c => [c.asunto, c.to.length])));
   // Vista anual
   await tab(p, 'anio');
   while (!/Año 2027/.test(await texto(p))) { await p.click('[data-anio="1"]'); await p.waitForTimeout(150); }
