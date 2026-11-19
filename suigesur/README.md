@@ -74,6 +74,24 @@ verificación. Unidades y obligaciones se desactivan, no se borran.
   generan nada y lo que ya existe no se duplica. Se puede desmarcar cualquier obligación antes de generar.
 - **Asignar** sigue disponible para casos sueltos (una obligación, unidades y periodos a mano, NLT editable).
 
+## Corregir y deshacer
+
+Todo lo que se quita va a la **Papelera de reciclaje** del sitio (`recycle()`), se comprueba releyendo la lista y se
+puede restaurar desde allí.
+
+- **Deshacer** el último lote creado (asignación o generación de plazos): botón tras crearlo y aviso en Entregas.
+- **Entregas → Corregir asignaciones**: (1) registros de unidades que, según «¿Quién debe entregarla?», no deben
+  entregar esa obligación (papelera o «No aplicable»; los recibidos no se tocan); (2) quitar los registros de una
+  obligación, unidad o periodo; (3) empezar de cero: todas las entregas a la papelera, escribiendo BORRAR.
+- **Entregas**: seleccionar todos los registros del filtro y enviarlos a la papelera.
+- **Unidades**: aviso y filtro de posibles duplicados (mismo nombre o siglas), filtro por fecha de alta, selección y
+  papelera en bloque de las que no tienen entregas ni eventos (las demás se desactivan). Unidades y obligaciones sin
+  registros también se pueden enviar a la papelera desde su ficha.
+- Un formulario no se puede enviar dos veces mientras guarda. Si un alta se crea pero no supera la comprobación, la
+  lista se relee para que aparezca y no se vuelva a crear.
+- Ya no se ofrece la relación de unidades de la versión anterior (creaba duplicados con nombres distintos) y el
+  catálogo NLT inicial solo se ofrece con la lista vacía.
+
 ## Cambios a lo largo de los años
 
 Todo es editable desde la aplicación: obligaciones nuevas, cambio de día o meses de NLT, de periodicidad o de quién la

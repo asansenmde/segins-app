@@ -23,7 +23,7 @@ function servidor(modo) {
       items: [{ Id: 1, Title: null, NombreUnidad: 'UNIDAD DE PRUEBA UNO', Siglas: 'UPU', Ambito: 'UCO', Contacto: '', Activa: true }, { Id: 2, Title: null, NombreUnidad: 'UNIDAD DE PRUEBA DOS', Siglas: 'UPD', Ambito: 'BAE', Contacto: '', Activa: null }] },
     NLT_MAESTRO: { campos: SIS().concat([F('NombreObligacion', 'NombreObligacion', 'Text'), F('Periodicidad', 'Periodicidad', 'Text'), F('DiaNLT', 'DiaNLT', 'Number'), F('Meses', 'Meses', 'Text'),
       F('Categoria', 'Categoria', 'Text'), F('Ambito', 'Ambito', 'Text'), F('Notas', 'Notas', 'Note', { RichText: false }), F('Activa', 'Activa', 'Boolean')]),
-      items: [{ Id: 1, NombreObligacion: 'Obligación mensual de prueba', Periodicidad: 'Mensual', DiaNLT: 5, Meses: '', Categoria: 'Prueba', Activa: true }] },
+      items: [] },
     CONTROL_ENTREGAS: { campos: SIS().concat([F('Unidad', 'Unidad', 'Text'), F('SiglasUnidad', 'SiglasUnidad', 'Text'), F('Obligacion', 'Obligacion', 'Text'), F('ObligacionID', 'ObligacionID', 'Number'),
       F('Periodo', 'Periodo', 'Text'), F('FechaNLT', 'FechaNLT', 'DateTime'), F('FechaRecepcion', 'FechaRecepcion', 'DateTime'), F('Estado', 'Estado', 'Text'), F('Observaciones', 'Observaciones', 'Note'), F('LinkDocumento', 'LinkDocumento', 'Text')]),
       items: [{ Id: 1, Title: null, Unidad: 'UNIDAD DE PRUEBA UNO', SiglasUnidad: 'UPU', Obligacion: 'Obligación mensual de prueba', ObligacionID: 1, Periodo: '2026-01', FechaNLT: '2026-01-04T23:00:00Z', FechaRecepcion: '2026-01-10T23:00:00Z', Estado: 'Recibida' },
@@ -183,7 +183,9 @@ async function escenarioLigero(b) {
   await p.click('#fdlg button[type=submit]'); await esperar(p, 4000);
   ok((await p.textContent('#dlgMsg')).includes('26 creados'), 'catálogo inicial: ' + (await p.textContent('#dlgMsg')).slice(0, 60));
   await p.click('#fdlg [data-cerrar]');
-  ok(S.listas.NLT_MAESTRO.items.length === 27, 'NLT_MAESTRO tiene 27 obligaciones en el servidor');
+  ok(S.listas.NLT_MAESTRO.items.length === 26, 'NLT_MAESTRO tiene las 26 obligaciones en el servidor');
+  await pestana(p, 'ajustes');
+  ok(!(await p.$('[data-acc=semillaOblig]')) && !(await p.$('[data-acc=semillaUco]')), 'con el catálogo cargado ya no se ofrece cargarlo otra vez ni la relación de unidades');
   // Asignación selectiva: M-05 VSA a dos unidades
   await pestana(p, 'obligaciones');
   await p.fill('[data-f=oq]', 'VSA'); await esperar(p, 200);
@@ -312,6 +314,44 @@ async function escenarioLigero(b) {
   ok(!(await p.isHidden('#bajaNA')) && (await p.textContent('#bajaNA')).includes('12'), 'ofrece marcar sus 12 entregas futuras como no aplicables');
   await p.click('#fdlg button[type=submit]'); await esperar(p, 3000);
   ok(itO('M-01').Activa === false && S.listas.CONTROL_ENTREGAS.items.filter(i => i.ObligacionID === itO('M-01').Id && /^2027/.test(i.Periodo)).every(i => i.Estado === 'No aplicable'), 'obligación desactivada y sus entregas futuras «No aplicable»; el histórico se conserva');
+  // Corregir: VSA deja de corresponder a la unidad 3 → sus registros pendientes van a la papelera
+  await pestana(p, 'obligaciones');
+  await p.click('tr[data-oblig="' + itO('M-05').Id + '"] td:nth-child(2)'); await esperar(p);
+  await p.uncheck('[data-obu="3"]'); await p.click('#fdlg button[type=submit]'); await esperar(p, 800);
+  const vsa3 = () => S.listas.CONTROL_ENTREGAS.items.filter(i => i.ObligacionID === itO('M-05').Id && i.UnidadID === 3 && !/Recibid|Validad/.test(i.Estado)).length;
+  ok(vsa3() === 13, 'la unidad 3 tiene 13 registros VSA sin recibir (enero 2026 y los 12 de 2027) que ya no le corresponden');
+  await pestana(p, 'entregas'); await p.click('[data-acc=corregir]'); await esperar(p);
+  ok((await p.textContent('#corA')).includes('13'), 'Corregir asignaciones los detecta');
+  await p.screenshot({ path: new URL('corregir.png', import.meta.url).pathname });
+  await p.click('[data-cor=nc-papelera]'); await esperar(p, 2500);
+  ok(vsa3() === 0 && S.listas.CONTROL_ENTREGAS.items.some(i => i.ObligacionID === itO('M-05').Id && i.UnidadID === 3 && i.Estado === 'Recibido') && (await p.textContent('#dlgMsg')).includes('13 registros enviados a la papelera'), 'enviados a la papelera y comprobado: ' + (await p.textContent('#dlgMsg')).slice(0, 80));
+  // Quitar registros concretos: obligación + unidad
+  await p.selectOption('[name=cOb]', 'o' + itO('A-01').Id); await p.selectOption('[name=cUni]', 'u1'); await esperar(p, 200);
+  ok((await p.textContent('#corB')).includes('1 registros'), 'selección concreta: ' + await p.textContent('#corB'));
+  await p.click('[data-cor=sel-papelera]'); await esperar(p, 1200);
+  ok(!S.listas.CONTROL_ENTREGAS.items.some(i => i.ObligacionID === itO('A-01').Id && i.UnidadID === 1), 'quitado el registro concreto');
+  await p.click('#fdlg [data-cerrar]');
+  // Deshacer el último lote generado
+  await p.click('[data-acc=generar]'); await esperar(p);
+  await p.fill('[name=ganio]', '2028'); await p.selectOption('[name=gdesde]', '1'); await p.selectOption('[name=ghasta]', '1'); await esperar(p, 300);
+  await p.click('#genCrear'); await esperar(p, 1500);
+  const n28 = () => S.listas.CONTROL_ENTREGAS.items.filter(i => /^2028/.test(i.Periodo)).length;
+  ok(n28() === 2, 'generado enero 2028 (VSA para sus 2 unidades)');
+  await p.click('#dlgMsg [data-acc=deshacerLote]'); await esperar(p, 1500);
+  ok(n28() === 0, 'deshacer: el lote vuelve a la papelera');
+  await p.click('#fdlg [data-cerrar]').catch(() => {}); await p.keyboard.press('Escape');
+  // Doble clic en Guardar no duplica
+  await pestana(p, 'unidades'); await p.click('[data-acc=nuevaUnidad]'); await p.fill('[name=nombre]', 'UNIDAD SEIS');
+  await p.dblclick('#fdlg button[type=submit]'); await esperar(p, 1200);
+  ok(S.listas.UCO_SUIGESUR.items.filter(i => i.Title === 'UNIDAD SEIS').length === 1, 'doble clic en guardar crea una sola unidad');
+  // Unidades duplicadas (como las cargadas dos veces): se detectan y la sobrante va a la papelera
+  S.listas.UCO_SUIGESUR.items.push({ Id: 99, Title: null, NombreUnidad: 'Unidad Cinco', Activa: true, Created: '2026-11-19T10:00:00Z', Modified: '2026-11-19T10:00:00Z', Author: { Title: 'X' }, Editor: { Title: 'X' } });
+  await p.click('#recargar'); await esperar(p, 1200);
+  ok((await p.textContent('#vista')).includes('unidades con nombre o siglas repetidos'), 'avisa de unidades repetidas');
+  await p.check('[data-f=udup]'); await esperar(p, 300);
+  await p.check('[data-selu="99"]'); await esperar(p, 200); await p.screenshot({ path: new URL('duplicados.png', import.meta.url).pathname }); await p.click('[data-acc=papeleraU]'); await esperar(p, 1200);
+  ok(!S.listas.UCO_SUIGESUR.items.some(i => i.Id === 99) && S.listas.UCO_SUIGESUR.items.some(i => i.Siglas === 'U5'), 'duplicado enviado a la papelera; la original se conserva');
+  await p.click('#fdlg [data-cerrar]'); await p.uncheck('[data-f=udup]'); await esperar(p, 200);
   // Inicio, análisis e informes
   await pestana(p, 'inicio'); await p.selectOption('[data-f=anio]', ''); await esperar(p, 300);
   await p.screenshot({ path: new URL('inicio.png', import.meta.url).pathname, fullPage: true });
@@ -326,8 +366,14 @@ async function escenarioLigero(b) {
   ok((await p.textContent('#informeDoc')).includes('Cumplimiento por unidad'), 'informe de seguimiento generado');
   const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-inf=csv]')]);
   ok(dl.suggestedFilename().endsWith('.csv'), 'CSV descargado: ' + dl.suggestedFilename());
+  // Empezar de cero: todas las entregas a la papelera (escribiendo BORRAR)
+  await pestana(p, 'entregas'); await p.click('[data-acc=corregir]'); await esperar(p);
+  ok(await p.isDisabled('[data-cor=todo]'), 'el botón de empezar de cero está bloqueado hasta escribir BORRAR');
+  await p.fill('[name=cConf]', 'borrar'); await p.click('[data-cor=todo]'); await esperar(p, 6000);
+  ok(S.listas.CONTROL_ENTREGAS.items.length === 0 && S.listas.UCO_SUIGESUR.items.length > 0 && S.listas.NLT_MAESTRO.items.length > 0, 'empezar de cero: entregas vacías; unidades y catálogo intactos');
+  await p.click('#fdlg [data-cerrar]');
   await pestana(p, 'ajustes');
-  ok((await p.textContent('#res')).includes('Verificación correcta'), 'el registro de operaciones muestra las verificaciones');
+  ok((await p.textContent('#res')).includes('Verificar papelera'), 'el registro de operaciones muestra las verificaciones');
   ok(errs.length === 0, 'sin errores de JavaScript ' + (errs.length ? errs.join(' | ') : ''));
   await p.close();
 }

@@ -202,7 +202,7 @@
   try { Object.assign(pref, JSON.parse(localStorage.getItem(CLAVE)) || {}); } catch (e) { /* sin memoria local */ }
   const guardarPref = () => { try { localStorage.setItem(CLAVE, JSON.stringify(pref)); } catch (e) { /* sin memoria local */ } };
   const F = Object.assign({ anio: String(new Date().getFullYear()), per: '', uni: '', obl: '', cat: '', tipo: '', sit: '', q: '', est: '',
-    oq: '', oper: '', ocat: '', oact: 'activas', uq: '', uamb: '', uact: 'activas', eq: '', esit: 'abiertos', etipo: '', euni: '',
+    oq: '', oper: '', ocat: '', oact: 'activas', uq: '', uamb: '', uact: 'activas', ualta: '', udup: false, eq: '', esit: 'abiertos', etipo: '', euni: '',
     adesde: '', ahasta: '', gran: 'mensual' }, pref.f || {});
   const guardarF = () => { pref.f = F; guardarPref(); };
 
@@ -674,9 +674,34 @@
       return { id: id, item: item };
     } catch (e) {
       marcarEscritura(false, (e.tipo === 'verificacion' ? 'Sin verificar' : 'Error de escritura') + ' en ' + n + (e.status && e.tipo !== 'verificacion' ? ' (HTTP ' + e.status + ')' : ''));
+      if (!obj && id != null) {
+        // El registro SÍ se ha creado: se vuelve a leer la lista para que aparezca y no se cree otro al repetir
+        e.message += '\nATENCIÓN: el registro se ha creado igualmente (ID ' + id + ') y ya aparece en la lista. No lo vuelvas a crear: ábrelo y corrígelo, o envíalo a la papelera.';
+        e.creadoId = id;
+        await recargarLista(n).catch(() => {});
+      } else if (e.tipo !== 'config') await recargarLista(n).catch(() => {});
       throw e;
     }
   }
+  // Envía varios elementos a la papelera de reciclaje (recuperables desde la papelera del sitio) y comprueba releyendo la lista
+  async function reciclarLote(n, objs, prog) {
+    let ok = 0; const errs = [];
+    for (let i = 0; i < objs.length; i++) {
+      if (prog) prog(i + 1, objs.length);
+      try { await enviar('Enviar a la papelera', n, urlL(n) + '/items(' + objs[i].id + ')/recycle()', null, null, 'ID ' + objs[i].id); ok++; }
+      catch (e) { if (e.status === 404) { ok++; continue; } errs.push(e); if (e.status === 403 || e.status === 401) break; }
+    }
+    await recargarLista(n);
+    const siguen = objs.filter(o => L[n].items.some(x => x.id === o.id));
+    registrar('Verificar papelera', n, 'GET', urlL(n) + '/items', 200, !siguen.length, (objs.length - siguen.length) + ' quitados de la lista · ' + siguen.length + ' siguen en ella');
+    marcarEscritura(!siguen.length, (objs.length - siguen.length) + ' enviados a la papelera' + (siguen.length ? ' · ' + siguen.length + ' siguen' : '') + ' · ' + hora());
+    return { quitados: objs.length - siguen.length, siguen: siguen, errs: errs };
+  }
+  const htmlPapelera = (r, que) => '<div class="' + (r.siguen.length ? 'aviso' : 'bien') + '">' + r.quitados + ' ' + que + ' enviados a la papelera de reciclaje y comprobado que ya no están en la lista' +
+    (r.siguen.length ? '; ' + r.siguen.length + ' siguen en ella' : '') + '. Se pueden restaurar desde la Papelera de reciclaje del sitio.<\/div>' + (r.errs.length ? htmlError(r.errs[0], r.errs.length + ' con error') : '');
+  // Último lote creado (asignación o generación), para poder deshacerlo
+  let ultimoLote = null;
+  const botonDeshacer = () => ultimoLote && ultimoLote.ids.length ? '<button type="button" data-acc="deshacerLote">↶ Deshacer: enviar a la papelera los ' + ultimoLote.ids.length + ' registros recién creados<\/button>' : '';
   async function reciclar(n, obj, op) {
     marcarEscritura(null, 'Enviando a la papelera…');
     try {
@@ -910,8 +935,8 @@
       .sort((a, b) => (a.nlt || '9').localeCompare(b.nlt || '9') || porNombre(a.uEtq, b.uEtq));
   }
   VISTAS.entregas = {
-    barra: () => '<div class="barra"><h2>Control de entregas<\/h2><div class="acc"><button class="prim" data-acc="generar">Generar plazos de un periodo…<\/button><button data-acc="asignar">＋ Asignar obligación a unidades<\/button><button data-acc="csvEntregas">Exportar CSV<\/button><\/div><\/div>' +
-      avisoListas(['CONTROL_ENTREGAS']) +
+    barra: () => '<div class="barra"><h2>Control de entregas<\/h2><div class="acc"><button class="prim" data-acc="generar">Generar plazos de un periodo…<\/button><button data-acc="asignar">＋ Asignar obligación a unidades<\/button><button data-acc="corregir">Corregir asignaciones…<\/button><button data-acc="csvEntregas">Exportar CSV<\/button><\/div><\/div>' +
+      avisoListas(['CONTROL_ENTREGAS']) + (ultimoLote ? '<div class="info">Último lote creado a las ' + ultimoLote.hora + ' (' + esc(ultimoLote.txt) + '): ' + ultimoLote.ids.length + ' registros. ' + botonDeshacer() + '<\/div>' : '') +
       barraFiltrosComun('<div><label class="lbl">Situación<\/label><select data-f="sit">' + opciones(SITS, F.sit) + '<\/select><\/div>' +
         '<div><label class="lbl">Estado registrado<\/label><select data-f="est">' + opciones(ESTADOS_E, F.est, 'Todos') + '<\/select><\/div>' +
         '<div class="q"><label class="lbl">Buscar<\/label><input data-f="q" type="search" value="' + esc(F.q) + '" placeholder="Unidad, obligación, periodo, referencia…"><\/div>'),
@@ -924,13 +949,13 @@
         td((e.s.k === 'pendiente' || e.s.k === 'vencida' ? '<button class="peq" data-acc="recibir" data-id="' + e.id + '" title="Registrar recepción con fecha de hoy">Recibido hoy<\/button> ' : '') +
           (e.s.recibida && !e.s.validada ? '<button class="peq" data-acc="validar" data-id="' + e.id + '" title="Marcar como validado hoy">Validar<\/button>' : '')) + '<\/tr>');
       return '<p class="small muted">' + es.length + ' registros · ' + m.vencidas + ' vencidos sin remitir · ' + m.recibidas + ' recibidos (' + m.fuera + ' fuera de plazo) · ' + m.validadas + ' validados · puntualidad ' + pctTxt(m.puntualidad) + '<\/p>' +
-        (SEL.size ? '<div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b>' + SEL.size + ' seleccionadas<\/b>' +
+        (SEL.size ? '<div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;position:sticky;top:52px;z-index:3"><b>' + SEL.size + ' seleccionadas<\/b>' +
           '<label class="check">Fecha <input type="date" id="loteFecha" value="' + hoy() + '" style="width:auto"><\/label>' +
-          '<button data-acc="loteRecibir">Registrar recepción<\/button><button data-acc="loteValidar">Validar<\/button><button data-acc="loteNA">No aplicable<\/button><button data-acc="loteQuitar">Quitar selección<\/button><span id="loteRes" class="small"><\/span><\/div>' : '') +
+          '<button data-acc="loteRecibir">Registrar recepción<\/button><button data-acc="loteValidar">Validar<\/button><button data-acc="loteNA">No aplicable<\/button><button class="peligro" data-acc="lotePapelera">Enviar a la papelera<\/button><button data-acc="loteQuitar">Quitar selección<\/button><span id="loteRes" class="small"><\/span><\/div>' : '') +
         tabla(['', 'NLT', 'Unidad', 'Obligación', 'Periodo', 'Recepción', 'Situación', 'Acciones'], filas,
           { vacio: E().length ? 'Ningún registro con estos filtros' : 'Todavía no hay obligaciones asignadas. Usa «Asignar obligación a unidades».' }) +
         (es.length > limiteFilas ? '<p><button data-acc="masFilas">Mostrar más (' + (es.length - limiteFilas) + ' restantes)<\/button><\/p>' : '') +
-        (es.length ? '<p class="small"><label class="check"><input type="checkbox" data-acc="selTodas"' + (es.slice(0, limiteFilas).every(e => SEL.has(e.id)) ? ' checked' : '') + '> Seleccionar las ' + Math.min(es.length, limiteFilas) + ' visibles<\/label><\/p>' : '');
+        (es.length ? '<p class="small"><label class="check"><input type="checkbox" data-acc="selTodas"' + (es.every(e => SEL.has(e.id)) ? ' checked' : '') + '> Seleccionar los ' + es.length + ' registros de este filtro<\/label><\/p>' : '');
     }
   };
 
@@ -978,21 +1003,47 @@
   const htmlNA = r => !r ? '' : (r.ok ? '<div class="bien">' + r.ok + ' entregas pendientes marcadas como «No aplicable».<\/div>' : '') + (r.errs.length ? htmlError(r.errs[0], r.errs.length + ' entregas no se han podido marcar') : '');
 
   // ---------- Unidades ----------
+  // Posibles duplicados: mismo nombre o siglas una vez quitados acentos, mayúsculas y signos
+  function duplicadosU() {
+    const m = new Map();
+    U().forEach(u => unicos([norm(u.nombre), norm(u.siglas)]).forEach(k => { if (!k) return; if (!m.has(k)) m.set(k, new Set()); m.get(k).add(u); }));
+    const dup = new Set(); m.forEach(g => { if (g.size > 1) g.forEach(u => dup.add(u)); });
+    return dup;
+  }
+  const registrosDeU = u => E().filter(e => e.u === u).length + EV().filter(v => v.u === u).length;
+  const SELU = new Set();
+  function unidadesFiltradas() {
+    const q = norm(F.uq), dup = F.udup ? duplicadosU() : null;
+    return U().filter(u => (!q || norm([u.nombre, u.siglas, u.contacto, u.ambito].join(' ')).indexOf(q) >= 0) && (!F.uamb || u.ambito === F.uamb) &&
+      (F.uact === 'activas' ? u.activa : F.uact === 'inactivas' ? !u.activa : true) && (!F.ualta || fechaSP(u.creado) === F.ualta) && (!dup || dup.has(u)))
+      .sort((a, b) => dup ? porNombre(norm(a.nombre), norm(b.nombre)) || a.id - b.id : porNombre(a.siglas || a.nombre, b.siglas || b.nombre));
+  }
   VISTAS.unidades = {
-    barra: () => '<div class="barra"><h2>Catálogo de unidades<\/h2><div class="acc"><button class="prim" data-acc="nuevaUnidad">＋ Nueva unidad<\/button><\/div><\/div>' + avisoListas(['UCO_SUIGESUR']) +
-      '<div class="filtros"><div class="q"><label class="lbl">Buscar<\/label><input data-f="uq" type="search" value="' + esc(F.uq) + '" placeholder="Nombre, siglas, contacto…"><\/div>' +
-      '<div><label class="lbl">Ámbito<\/label><select data-f="uamb">' + opciones(unicos(U().map(u => u.ambito)).sort(porNombre), F.uamb, 'Todos') + '<\/select><\/div>' +
-      '<div><label class="lbl">Estado<\/label><select data-f="uact">' + opciones([['activas', 'Activas'], ['inactivas', 'Inactivas'], ['', 'Todas']], F.uact) + '<\/select><\/div><\/div>',
+    barra: () => {
+      const altas = {}; U().forEach(u => { const f = fechaSP(u.creado); if (f) altas[f] = (altas[f] || 0) + 1; });
+      const nDup = duplicadosU().size;
+      return '<div class="barra"><h2>Catálogo de unidades<\/h2><div class="acc"><button class="prim" data-acc="nuevaUnidad">＋ Nueva unidad<\/button><\/div><\/div>' + avisoListas(['UCO_SUIGESUR']) +
+        (nDup ? '<div class="aviso">Hay <b>' + nDup + '<\/b> unidades con nombre o siglas repetidos. Marca «Solo posibles duplicados» para revisarlas y envía a la papelera las que sobren.<\/div>' : '') +
+        '<div class="filtros"><div class="q"><label class="lbl">Buscar<\/label><input data-f="uq" type="search" value="' + esc(F.uq) + '" placeholder="Nombre, siglas, contacto…"><\/div>' +
+        '<div><label class="lbl">Ámbito<\/label><select data-f="uamb">' + opciones(unicos(U().map(u => u.ambito)).sort(porNombre), F.uamb, 'Todos') + '<\/select><\/div>' +
+        '<div><label class="lbl">Estado<\/label><select data-f="uact">' + opciones([['activas', 'Activas'], ['inactivas', 'Inactivas'], ['', 'Todas']], F.uact) + '<\/select><\/div>' +
+        '<div><label class="lbl">Fecha de alta<\/label><select data-f="ualta">' + opciones(Object.keys(altas).sort().reverse().map(f => [f, fCorta(f) + ' (' + altas[f] + ')']), F.ualta, 'Todas') + '<\/select><\/div>' +
+        '<div><label class="lbl">&nbsp;<\/label><label class="check"><input type="checkbox" data-f="udup"' + (F.udup ? ' checked' : '') + '> Solo posibles duplicados (' + nDup + ')<\/label><\/div><\/div>';
+    },
     res: () => {
-      const q = norm(F.uq);
-      const us = U().filter(u => (!q || norm([u.nombre, u.siglas, u.contacto, u.ambito].join(' ')).indexOf(q) >= 0) && (!F.uamb || u.ambito === F.uamb) &&
-        (F.uact === 'activas' ? u.activa : F.uact === 'inactivas' ? !u.activa : true)).sort((a, b) => porNombre(a.siglas || a.nombre, b.siglas || b.nombre));
+      const us = unidadesFiltradas();
+      Array.from(SELU).forEach(id => { if (!us.some(u => u.id === id)) SELU.delete(id); });
       return '<p class="small muted">' + us.length + ' de ' + U().length + ' unidades<\/p>' +
-        tabla(['Siglas', 'Unidad', 'Ámbito', 'Contacto', '#Asignadas', '#Vencidas', 'Puntualidad', 'Estado', 'ID'], us.map(u => {
+        (SELU.size ? '<div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;position:sticky;top:52px;z-index:3"><b>' + SELU.size + ' seleccionadas<\/b>' +
+          '<button class="peligro" data-acc="papeleraU">Enviar a la papelera<\/button><button data-acc="desactivarU">Desactivar<\/button><button data-acc="quitarSelU">Quitar selección<\/button>' +
+          '<span class="small muted">Solo se envían a la papelera las que no tienen entregas ni eventos; las demás se desactivan para conservar su histórico.<\/span><span id="loteResU" class="small"><\/span><\/div>' : '') +
+        tabla(['', 'Siglas', 'Unidad', 'Ámbito', 'Contacto', '#Asignadas', '#Vencidas', 'Puntualidad', 'Estado', 'Alta', 'ID'], us.map(u => {
           const m = metricas(E().filter(e => e.u === u));
-          return '<tr class="clic" data-unidad="' + u.id + '">' + td('<b>' + esc(u.siglas) + '<\/b>') + td(esc(u.nombre)) + td(esc(u.ambito)) + td(esc(u.contacto)) + td(m.asignadas, 1) + td(m.vencidas || '', 1) + td(celPct(m.puntualidad)) +
-            td(u.activa ? '<span class="badge ok">Activa<\/span>' : '<span class="badge none">Inactiva<\/span>') + td('<span class="small muted">' + u.id + '<\/span>', 1) + '<\/tr>';
-        }), { vacio: U().length ? 'Ninguna unidad con estos filtros' : 'No hay unidades. Da de alta una a mano para comprobar la escritura antes de cargar el catálogo completo.' });
+          return '<tr class="clic' + (SELU.has(u.id) ? ' sel' : '') + '" data-unidad="' + u.id + '"><td><input type="checkbox" data-selu="' + u.id + '"' + (SELU.has(u.id) ? ' checked' : '') + ' aria-label="Seleccionar"><\/td>' +
+            td('<b>' + esc(u.siglas) + '<\/b>') + td(esc(u.nombre)) + td(esc(u.ambito)) + td(esc(u.contacto)) + td(m.asignadas, 1) + td(m.vencidas || '', 1) + td(celPct(m.puntualidad)) +
+            td(u.activa ? '<span class="badge ok">Activa<\/span>' : '<span class="badge none">Inactiva<\/span>') + td('<span class="small muted">' + fCorta(fechaSP(u.creado)) + '<\/span>') + td('<span class="small muted">' + u.id + '<\/span>', 1) + '<\/tr>';
+        }), { vacio: U().length ? 'Ninguna unidad con estos filtros' : 'No hay unidades. Da de alta la primera con «＋ Nueva unidad».' }) +
+        (us.length ? '<p class="small"><label class="check"><input type="checkbox" data-acc="selTodasU"' + (us.every(u => SELU.has(u.id)) ? ' checked' : '') + '> Seleccionar las ' + us.length + ' unidades de este filtro<\/label><\/p>' : '');
     }
   };
 
@@ -1214,10 +1265,10 @@
         (pend.length ? '<p><button class="prim" data-acc="preparar"' + (preparando ? ' disabled' : '') + '>Completar las listas ahora<\/button> <span class="small muted">crea lo que falta y lo comprueba; no borra nada<\/span><\/p>' : '') +
         '<details style="margin-top:10px"><summary class="small" style="cursor:pointer">Detalle técnico de columnas (solo para diagnóstico)<\/summary>' +
         '<p class="small muted">Las columnas se reconocen por nombre interno o visible, incluidas las de la versión anterior. No es necesario cambiar nada aquí.<\/p>' + LISTAS.map(estructuraLista).join('') + '<\/details><\/div>';
-      h += '<div class="card"><h3>Catálogos iniciales<\/h3><p class="small">Carga controlada: verás la relación y elegirás qué se crea. Solo se proponen los elementos que no existen (por nombre). ' +
-        '<b>Antes de cargar las unidades, da de alta una a mano y comprueba que la verificación es correcta.<\/b><\/p>' +
-        '<div class="acc" style="display:flex;gap:6px;flex-wrap:wrap"><button data-acc="semillaOblig"' + (L.NLT_MAESTRO.info ? '' : ' disabled') + '>Catálogo NLT inicial (' + SEMILLA_OBLIG.length + ' obligaciones)…<\/button>' +
-        '<button data-acc="semillaUco"' + (L.UCO_SUIGESUR.info ? '' : ' disabled') + '>Unidades SUIGESUR (' + SEMILLA_UCO.length + ')…<\/button><\/div><\/div>';
+      if (L.NLT_MAESTRO.info && !O().length) h += '<div class="card"><h3>Catálogo NLT inicial<\/h3><p class="small">El catálogo de obligaciones está vacío. Puedes cargar las ' + SEMILLA_OBLIG.length + ' obligaciones de referencia (verás la relación y elegirás cuáles).<\/p>' +
+        '<button data-acc="semillaOblig">Catálogo NLT inicial…<\/button><\/div>';
+      h += '<div class="card"><h3>Corregir y limpiar<\/h3><p class="small">Unidades repetidas: pestaña Unidades → «Solo posibles duplicados». Registros que no corresponden, deshacer asignaciones o empezar de cero: Entregas → «Corregir asignaciones». ' +
+        'Todo lo que se quita va a la Papelera de reciclaje del sitio y se puede restaurar.<\/p><button data-acc="corregir">Corregir asignaciones…<\/button><\/div>';
       h += '<div class="card"><h3>Registro de operaciones<span class="small muted">últimas ' + Math.min(REG.length, 60) + ' de esta sesión<\/span><\/h3>' +
         tabla(['Hora', 'Operación', 'Lista', 'Método', '#HTTP', 'Resultado', 'Endpoint / detalle'], REG.slice(0, 60).map(r => '<tr>' + td(r.hora.toLocaleTimeString('es-ES')) + td(esc(r.op)) + td(esc(r.lista)) + td(esc(r.metodo)) + td(r.status || '—', 1) +
           td(r.ok ? '<span class="badge ok">correcto<\/span>' : '<span class="badge bad">error<\/span>') + td('<span class="small">' + esc(r.url) + (r.msg ? '<br><b>' + esc(r.msg) + '<\/b>' : '') + '<\/span>') + '<\/tr>')) + '<\/div>';
@@ -1336,7 +1387,7 @@
   // ================= Diálogos =================
   const dlg = $('#dlg');
   function abrirDlg(titulo, cuerpo, pie) {
-    alEnviar = null; dlg.oninput = null; dlg.onchange = null;
+    alEnviar = null; dlg.oninput = null; dlg.onchange = null; dlg.onclick = null;
     dlg.innerHTML = '<form method="dialog" id="fdlg" novalidate><div class="dh"><h2>' + esc(titulo) + '<\/h2><button type="button" data-cerrar title="Cerrar">✕<\/button><\/div><div class="db">' + cuerpo + '<div id="dlgMsg"><\/div><\/div>' +
       '<div class="df">' + (pie || '') + '<\/div><\/form>';
     if (!dlg.open) dlg.showModal();
@@ -1386,7 +1437,7 @@
         '<p class="small muted">Se guarda en cada obligación («¿Quién debe entregarla?»). Sirve para generar los plazos de cada periodo solo para quien corresponde.<\/p>'
         : '<p class="small muted">No hay obligaciones periódicas activas en el catálogo.<\/p>') +
       avisoFaltan('UCO_SUIGESUR', ['siglas', 'ambito', 'contacto', 'activa', 'obs']) + metaElem(u),
-      pieGuardar(u ? 'Guardar cambios' : 'Dar de alta', linkSP('UCO_SUIGESUR', u)));
+      pieGuardar(u ? 'Guardar cambios' : 'Dar de alta', linkSP('UCO_SUIGESUR', u) + (u ? (registrosDeU(u) ? '<span class="small muted">Tiene ' + registrosDeU(u) + ' registros: para retirarla, desactívala<\/span>' : '<button type="button" class="peligro" data-acc="papeleraUnidad" data-id="' + u.id + '">Enviar a la papelera…<\/button>') : '')));
     dlg.onchange = ev => { if (ev.target.name === 'activa' && $('#bajaNA')) $('#bajaNA').hidden = ev.target.checked || !pendientesFuturas(e => e.u === u).length; };
     alEnviar = () => {
       const d = { nombre: vf('nombre'), siglas: vf('siglas'), ambito: vf('ambito'), contacto: vf('contacto'), activa: vf('activa'), obs: vf('obs') };
@@ -1396,7 +1447,7 @@
       const dup = U().find(x => x !== u && (norm(x.nombre) === norm(d.nombre) || (d.siglas && norm(x.siglas) === norm(d.siglas))));
       if (dup) return msg('<div class="error">Ya existe la unidad «' + esc(dup.nombre) + '» (ID ' + dup.id + ') con ese nombre o siglas.<\/div>');
       if (!(L.UCO_SUIGESUR.map.activa || []).length) delete d.activa;
-      ejecutar(async () => {
+      return ejecutar(async () => {
         const r = await guardar('UCO_SUIGESUR', u, d, u ? 'Modificar unidad' : 'Alta de unidad');
         // Obligaciones que entrega: se actualiza la lista de unidades obligadas de cada obligación que cambie
         const errs = []; let cambios = 0;
@@ -1441,7 +1492,7 @@
       U().filter(u => u.activa || hab.indexOf(u) >= 0).sort((a, b) => porNombre(a.siglas || a.nombre, b.siglas || b.nombre)).map(u => '<label><input type="checkbox" data-obu="' + u.id + '"' + (!esTodas(o) && hab.indexOf(u) >= 0 ? ' checked' : '') + '> <span><b>' + esc(u.siglas || '') + '<\/b> ' + esc(u.siglas ? '– ' + u.nombre : u.nombre) + (u.activa ? '' : ' <span class="chip">inactiva<\/span>') + '<\/span><\/label>').join('') +
       '<\/div><p class="small muted" id="obUnisN"><\/p><\/div>' +
       avisoFaltan('NLT_MAESTRO', ['codigo', 'periodicidad', 'dia', 'meses', 'regla', 'plazo', 'categoria', 'ambito', 'activa', 'descripcion', 'obs', 'habituales']) + metaElem(o),
-      pieGuardar(o ? 'Guardar cambios' : 'Crear obligación', linkSP('NLT_MAESTRO', o)));
+      pieGuardar(o ? 'Guardar cambios' : 'Crear obligación', linkSP('NLT_MAESTRO', o) + (o ? (E().some(e => e.ob === o) || EV().some(v => v.ob === o) ? '<span class="small muted">Tiene registros: para retirarla, desactívala<\/span>' : '<button type="button" class="peligro" data-acc="papeleraOblig" data-id="' + o.id + '">Enviar a la papelera…<\/button>') : '')));
     const prev = () => { const t = { periodicidad: vf('periodicidad'), dia: Number(vf('dia')) || null, meses: vf('meses'), regla: vf('regla'), plazo: Number(vf('plazo')) || null }; const p = plazosDe(t, new Date().getFullYear());
       $('#reglaPrev').textContent = 'NLT resultante: ' + reglaTxt(t) + (p.length ? ' · ' + p.length + ' plazos al año (' + p.map(x => x.periodo).join(', ') + ')' : ''); };
     const contar = () => { const n = $$('[data-obu]:checked', dlg).length; $('#obUnisN').textContent = n + (n === 1 ? ' unidad marcada' : ' unidades marcadas'); };
@@ -1471,7 +1522,7 @@
       const igualLista = modo === 'lista' && modo0 === 'lista' && ids.length === hab.length && hab.every(u => ids.indexOf(u.id) >= 0);
       if (modo !== modo0 || (modo === 'lista' && !igualLista)) d.habituales = modo === 'todas' ? 'TODAS' : modo === 'lista' ? ids.join(';') : '';
       const baja = o && o.activa && d.activa === false && vf('bajaNA');
-      ejecutar(async () => {
+      return ejecutar(async () => {
         const r = await guardar('NLT_MAESTRO', o, d, o ? 'Modificar obligación' : 'Alta de obligación');
         const na = baja ? await marcarNA(pendientesFuturas(e => e.ob && e.ob.id === r.id)) : null;
         render();
@@ -1552,11 +1603,12 @@
       const x = lote[i];
       $('#asProg').textContent = 'Creando y verificando ' + (i + 1) + ' de ' + lote.length + '…';
       try {
-        await guardar('CONTROL_ENTREGAS', null, datosEntrega(x.u, ob, x.p), 'Asignar obligación');
-        ok.push(x);
+        const g = await guardar('CONTROL_ENTREGAS', null, datosEntrega(x.u, ob, x.p), 'Asignar obligación');
+        ok.push(Object.assign({ id: g.id }, x));
       } catch (e) {
         err.push({ x: x, e: e });
-        if (e.tipo === 'config' || e.status === 403 || e.status === 401) break;   // el resto fallaría igual
+        if (e.creadoId) ok.push(Object.assign({ id: e.creadoId }, x));
+        if (e.tipo === 'config' || e.status === 403 || e.status === 401 || e.creadoId) break;   // el resto fallaría igual
       }
     }
     let habMsg = '';
@@ -1566,8 +1618,9 @@
     }
     $('#asProg').textContent = '';
     ocupado(false);
+    if (ok.length) ultimoLote = { ids: ok.map(x => x.id), txt: ob.nombre, hora: hora() };
     render();
-    msg((ok.length ? '<div class="bien">✔ ' + ok.length + ' registros creados y verificados en SharePoint.<\/div>' : '') +
+    msg((ok.length ? '<div class="bien">✔ ' + ok.length + ' registros creados y verificados en SharePoint. ' + botonDeshacer() + '<\/div>' : '') +
       (err.length ? htmlError(err[0].e, err.length + ' registro(s) no creados (' + err.map(z => (z.x.u.siglas || z.x.u.nombre) + ' ' + z.x.p.periodo).slice(0, 8).join(', ') + ')') : '') +
       (lote.length - ok.length - err.length > 0 ? '<div class="aviso">Se detuvo el proceso: ' + (lote.length - ok.length - err.length) + ' registros no se intentaron.<\/div>' : '') + habMsg);
     pintarAsig();
@@ -1610,15 +1663,74 @@
       if (!lote.length) return;
       if (lote.length > 60 && !confirm('Se van a crear ' + lote.length + ' registros en CONTROL_ENTREGAS. ¿Continuar?')) return;
       msg(''); ocupado(true, 'Generando…');
-      let ok = 0; const errs = [];
+      let ok = 0; const errs = [], ids = [];
       for (let i = 0; i < lote.length; i++) {
         $('#genProg').textContent = 'Creando y verificando ' + (i + 1) + ' de ' + lote.length + '…';
-        try { await guardar('CONTROL_ENTREGAS', null, datosEntrega(lote[i].u, lote[i].o, lote[i].p), 'Generar plazos'); ok++; }
-        catch (e) { errs.push(e); if (e.tipo === 'config' || e.status === 403 || e.status === 401) break; }
+        try { ids.push((await guardar('CONTROL_ENTREGAS', null, datosEntrega(lote[i].u, lote[i].o, lote[i].p), 'Generar plazos')).id); ok++; }
+        catch (e) { errs.push(e); if (e.creadoId) ids.push(e.creadoId); if (e.tipo === 'config' || e.status === 403 || e.status === 401 || e.creadoId) break; }
       }
+      if (ids.length) ultimoLote = { ids: ids, txt: 'Generación de plazos', hora: hora() };
       $('#genProg').textContent = ''; ocupado(false); render(); pintar();
-      msg((ok ? '<div class="bien">✔ ' + ok + ' registros creados y verificados en SharePoint.<\/div>' : '') + (errs.length ? htmlError(errs[0], errs.length + ' registros no creados') : '') +
+      msg((ok ? '<div class="bien">✔ ' + ok + ' registros creados y verificados en SharePoint. ' + botonDeshacer() + '<\/div>' : '') + (errs.length ? htmlError(errs[0], errs.length + ' registros no creados') : '') +
         (lote.length - ok - errs.length > 0 ? '<div class="aviso">Se detuvo el proceso: ' + (lote.length - ok - errs.length) + ' registros no se intentaron.<\/div>' : ''));
+    };
+  }
+
+  // ---------- Corregir asignaciones ----------
+  // 1) registros de unidades que no deben entregar esa obligación; 2) quitar los registros de una obligación, unidad o periodo; 3) empezar de cero
+  function dlgCorregir() {
+    if (!exigirLista('CONTROL_ENTREGAS')) return;
+    const noCorresponden = () => E().filter(e => e.ob && e.u && !esTodas(e.ob) && unidadesHabituales(e.ob).length && unidadesHabituales(e.ob).indexOf(e.u) < 0 && !e.s.recibida);
+    const sinDefinir = () => unicos(E().filter(e => e.ob && !esTodas(e.ob) && !unidadesHabituales(e.ob).length).map(e => e.ob.nombre));
+    const periodosDe = oK => unicos(E().filter(e => !oK || e.oK === oK).map(e => e.periodo)).sort().reverse();
+    abrirDlg('Corregir asignaciones',
+      '<p class="small muted">Todo lo que se quita va a la <b>Papelera de reciclaje<\/b> del sitio y se puede restaurar desde allí. Los registros ya recibidos o validados se conservan salvo que marques lo contrario.<\/p>' +
+      '<div class="card"><h3>1. Registros que no corresponden<\/h3><div id="corA"><\/div><\/div>' +
+      '<div class="card"><h3>2. Quitar registros concretos<\/h3><div class="grid">' +
+      campo('Obligación', sel('cOb', opcOblig(), '', 'Todas')) + campo('Unidad', sel('cUni', opcUnidades(), '', 'Todas')) + campo('Periodo', '<select name="cPer"><\/select>') + '<\/div>' +
+      '<label class="check"><input type="checkbox" name="cRec"> Incluir también los ya recibidos o validados<\/label><div id="corB"><\/div><\/div>' +
+      '<div class="card"><h3>3. Empezar de cero<\/h3><p class="small">Envía a la papelera <b>todos<\/b> los registros de CONTROL_ENTREGAS (<span id="corN"><\/span>). El catálogo de obligaciones y las unidades no se tocan. Escribe <b>BORRAR<\/b> para habilitar el botón.<\/p>' +
+      '<div style="display:flex;gap:6px"><input name="cConf" placeholder="BORRAR" style="max-width:160px"><button type="button" class="peligro" data-cor="todo" disabled>Enviar todo a la papelera<\/button><\/div><\/div>' +
+      '<div id="corProg" class="small"><\/div>',
+      '<button type="button" data-cerrar>Cerrar<\/button>');
+    const pintarA = () => {
+      const nc = noCorresponden(), g = agrupar(nc, e => e.oK, e => e.oNom).sort((a, b) => b.es.length - a.es.length), sd = sinDefinir();
+      $('#corN').textContent = E().length;
+      $('#corA').innerHTML = '<p class="small">Unidades con registros de una obligación que, según «¿Quién debe entregarla?», no les corresponde. Solo se revisan las obligaciones que tienen definidas sus unidades; los ya recibidos no se tocan.<\/p>' +
+        (sd.length ? '<div class="aviso small">Sin definir quién las entrega (no se revisan): ' + esc(sd.join(' · ')) + '. Defínelo en Obligaciones.<\/div>' : '') +
+        tabla(['Obligación', '#Registros que no corresponden', 'Unidades'], g.map(x => '<tr>' + td(esc(x.nombre)) + td(x.es.length, 1) + td('<span class="small">' + esc(unicos(x.es.map(e => e.uEtq)).join(', ')) + '<\/span>') + '<\/tr>'), { vacio: 'Ninguno: todos los registros corresponden a sus unidades' }) +
+        (nc.length ? '<p><button type="button" class="peligro" data-cor="nc-papelera">Enviar a la papelera los ' + nc.length + '<\/button> <button type="button" data-cor="nc-na">Marcar los ' + nc.length + ' como «No aplicable»<\/button><\/p>' : '');
+    };
+    const seleccionB = () => { const oK = vf('cOb'), uK = vf('cUni'), per = vf('cPer'), rec = vf('cRec');
+      return E().filter(e => (!oK || e.oK === oK) && (!uK || e.uK === uK) && (!per || e.periodo === per) && (rec || !e.s.recibida)); };
+    const pintarB = (cambioOb) => {
+      if (cambioOb) $('[name=cPer]', dlg).innerHTML = opciones(periodosDe(vf('cOb')), '', 'Todos');
+      const es = seleccionB(), todos = !vf('cOb') && !vf('cUni') && !vf('cPer');
+      $('#corB').innerHTML = '<p class="small">' + es.length + ' registros con esta selección' + (todos ? ' (elige al menos obligación, unidad o periodo)' : '') + '.<\/p>' +
+        (es.length && !todos ? '<button type="button" class="peligro" data-cor="sel-papelera">Enviar a la papelera los ' + es.length + '<\/button>' : '');
+    };
+    pintarA(); pintarB(true);
+    dlg.onchange = ev => { if (['cOb', 'cUni', 'cPer', 'cRec'].indexOf(ev.target.name) >= 0) pintarB(ev.target.name === 'cOb'); };
+    dlg.oninput = ev => { if (ev.target.name === 'cConf') $('[data-cor=todo]', dlg).disabled = ev.target.value.trim().toUpperCase() !== 'BORRAR'; };
+    dlg.onclick = async ev => {
+      const b = ev.target.closest('[data-cor]'); if (!b || b.disabled) return;
+      const k = b.dataset.cor;
+      const es = k.indexOf('nc-') === 0 ? noCorresponden() : k === 'sel-papelera' ? seleccionB() : E().slice();
+      if (!es.length) return;
+      const que = k === 'nc-na' ? '¿Marcar como «No aplicable» ' + es.length + ' registros' : '¿Enviar a la papelera ' + es.length + ' registros';
+      if (!confirm(que + '?' + (k === 'todo' ? '\n\nSe quitarán TODOS los registros de entregas. Se pueden restaurar desde la Papelera de reciclaje del sitio.' : ''))) return;
+      $$('[data-cor], .df button', dlg).forEach(x => { x.disabled = true; });
+      const prog = (i, t) => { $('#corProg').textContent = 'Procesando ' + i + ' de ' + t + '…'; };
+      let html;
+      if (k === 'nc-na') {
+        let ok = 0; const errs = [];
+        for (let i = 0; i < es.length; i++) { prog(i + 1, es.length); try { await accionRapida(es[i], 'na'); ok++; } catch (er) { errs.push(er); if (er.status === 403 || er.tipo === 'config') break; } }
+        html = '<div class="bien">' + ok + ' registros marcados como «No aplicable».<\/div>' + (errs.length ? htmlError(errs[0], errs.length + ' con error') : '');
+      } else html = htmlPapelera(await reciclarLote('CONTROL_ENTREGAS', es, prog), 'registros');
+      $('#corProg').textContent = '';
+      $$('[data-cor], .df button', dlg).forEach(x => { x.disabled = false; });
+      $('[data-cor=todo]', dlg).disabled = true; $('[name=cConf]', dlg).value = '';
+      render(); pintarA(); pintarB(true); msg(html);
     };
   }
 
@@ -1656,7 +1768,7 @@
         if (uu && oo && E().some(x => x !== e && x.u === uu && x.ob === oo && norm(x.periodo) === norm(d.periodo))) return msg('<div class="error">Ya existe otro registro de esa unidad, obligación y periodo.<\/div>');
         d.titulo = ((uu ? uu.siglas || uu.nombre : e.uEtq) + ' · ' + (oo ? oo.nombre : e.oNom) + ' · ' + d.periodo).slice(0, 255);
       }
-      ejecutar(async () => {
+      return ejecutar(async () => {
         const r = await guardar('CONTROL_ENTREGAS', e, d, 'Modificar entrega');
         dlg.close(); render(); aviso(r.sinCambios ? 'Sin cambios' : 'Entrega guardada y verificada (ID ' + r.id + ')');
       });
@@ -1725,7 +1837,7 @@
       if (d.limite && d.limite < d.activacion) return msg('<div class="error">La fecha límite es anterior a la activación.<\/div>');
       if ((d.estado === 'Finalizado' || d.estado === 'Cancelado') && !d.cierre) return msg('<div class="error">Indica la fecha de cierre.<\/div>');
       if (d.cierre && d.estado !== 'Finalizado' && d.estado !== 'Cancelado') return msg('<div class="error">Hay fecha de cierre: el estado debe ser «Finalizado» o «Cancelado».<\/div>');
-      ejecutar(async () => {
+      return ejecutar(async () => {
         const r = await guardar('SEGUIMIENTO_EVENTOS', v, d, v ? 'Modificar evento' : 'Alta de evento');
         dlg.close(); render(); aviso(r.sinCambios ? 'Sin cambios' : 'Evento guardado y verificado (ID ' + r.id + ')');
       });
@@ -1753,23 +1865,9 @@
     ['E-05', 'Plan de Protección de locales ZAR', 'Por evento', null, '', 'Seguridad', 'Revisión según Oficio 07/11/23'],
     ['E-06', 'Solicitudes de acreditación de sistemas CIS', 'Por evento', null, '', 'CIS', 'Iniciar y controlar seis meses antes de la caducidad']
   ].map(x => ({ codigo: x[0], nombre: x[1], periodicidad: x[2], dia: x[3], meses: x[4], categoria: x[5], regla: x[6], plazo: x[7] == null ? null : x[7], activa: true }));
-  // Relación de la versión anterior (ChatGPT). Sin siglas: no se inventan; se completan al editar cada unidad.
-  const SEMILLA_UCO = ['JEFATURA SUIGE 2', 'UAPOSUR', 'USAC BUENAVISTA', 'USAC BUENAVISTA (LOS BARRIOS)', 'USAC CAMARINAL (TARIFA)', 'USAC CAMPOSOTO', 'USAC CERVANTES (GRANADA)', 'USAC MONTEJAQUE',
-    'USAC SANTA BARBARA', 'USAC TENTEGORRA', 'USAC TORREBLANCA (SEVILLA)', 'USAC VIGIL DE QUIÑONES', 'USBAD TTE RUIZ', 'USBAD TTE FLOMESTA', 'USBA EL COPERO', 'USBA MENACHO', 'USBA MURIANO', 'USBA SOTOMAYOR',
-    'ACUARTELAMIENTO LA BORBOLLA', 'ACUARTELAMIENTO TORREBLANCA', 'ACUARTELAMIENTO EL PICACHO', 'ACUARTELAMIENTO ESPAÑA', 'ACUARTELAMIENTO CHARCO REDONDO', 'ACUARTELAMIENTO BUJEO', 'ACUARTELAMIENTO CERVANTES',
-    'ACUARTELAMIENTO ADALIDES', 'ACUARTELAMIENTO CAMPOSOTO', 'ACUARTELAMIENTO TENTEGORRA', 'ACUARTELAMIENTO LOS ARCOS', 'ACUARTELAMIENTO SANTA ANA', 'ACUARTELAMIENTO EL VACAR',
-    'ACUARTELAMIENTO DEL MANDO DE ADIESTRAMIENTO Y DOCTRINA', 'ACUARTELAMIENTO MONTEJAQUE', 'ACUARTELAMIENTO SANTA BÁRBARA', 'ACUARTELAMIENTO CORTIJO DE BUENAVISTA', 'ACUARTELAMIENTO SAN MIGUEL',
-    'ACUARTELAMIENTO VIGIL DE QUIÑONES', 'ACUARTELAMIENTO SAN FERNANDO EL HIGUERÓN', 'BASE DISCONTINUA TENIENTE RUIZ', 'BASE DISCONTINUA TENIENTE FLOMESTA', 'BASE EL COPERO', 'BASE CERRO MURIANO',
-    'BASE ÁLVAREZ DE SOTOMAYOR', 'BASE GENERAL MENACHO', 'CAMPO DE MANIOBRAS Y TIRO CERRO MURIANO', 'CAMPO DE MANIOBRAS Y TIRO ÁLVAREZ DE SOTOMAYOR', 'CENTRO DEPORTIVO SOCIOCULTURAL MILITAR MELILLA',
-    'ESTABLECIMIENTO PARQUE DE ARTILLERÍA DE CARTAGENA', 'RESIDENCIA LOGÍSTICA MILITAR DE ALMERÍA', 'RESIDENCIA LOGÍSTICA MILITAR DE BADAJOZ', 'RESIDENCIA LOGÍSTICA MILITAR DE CARTAGENA',
-    'RESIDENCIA LOGÍSTICA MILITAR DE CÓRDOBA', 'RESIDENCIA LOGÍSTICA MILITAR DE GRANADA', 'RESIDENCIA LOGÍSTICA MILITAR DE SEVILLA', 'RESIDENCIA MILITAR DE ACCIÓN SOCIAL DE DESCANSO FERNANDO PRIMO DE RIVERA',
-    'RESIDENCIA MILITAR DE ACCIÓN SOCIAL DE DESCANSO LA CORTADURA', 'RESIDENCIA MILITAR DE ACCIÓN SOCIAL DE DESCANSO CASTAÑÓN DE MENA', 'RESIDENCIA MILITAR DE ACCIÓN SOCIAL DE DESCANSO ARCHENA',
-    'RESIDENCIA MILITAR DE ACCIÓN SOCIAL DE DESCANSO FUERTE SANTIAGO', 'RESIDENCIA MILITAR DE ACCIÓN SOCIAL DE ESTUDIANTES SAN HERMENEGILDO', 'RESIDENCIA MILITAR DE ACCIÓN SOCIAL DE ESTUDIANTES VIRGEN PAZ',
-    'CENTRO DEPORTIVO MILITAR HISPALIS', 'CENTRO DEPORTIVO MILITAR SANCHA BRAVA', 'CENTRO DEPORTIVO MILITAR LOS MONDRAGONES', 'CENTRO DEPORTIVO SOCIOCULTURAL MILITAR CEUTA',
-    'RESIDENCIA LOGÍSTICA MILITAR DE MELILLA', 'RESIDENCIA LOGÍSTICA MILITAR GENERAL GALERA', 'RESIDENCIA LOGÍSTICA MILITAR VIRGEN DE ÁFRICA'].map(n => ({ nombre: n, activa: true }));
   function dlgSemilla(n) {
     if (!exigirLista(n)) return;
-    const esO = n === 'NLT_MAESTRO', sem = esO ? SEMILLA_OBLIG : SEMILLA_UCO, actuales = esO ? O() : U();
+    const esO = true, sem = SEMILLA_OBLIG, actuales = O();
     const existe = s => actuales.find(x => norm(x.nombre) === norm(s.nombre) || (esO && s.codigo && norm(x.codigo) === norm(s.codigo)) || (!esO && norm(x.siglas) === norm(s.nombre)));
     const filas = sem.map((s, i) => { const ex = existe(s); return '<label style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid var(--line)"><input type="checkbox" data-sem="' + i + '"' + (ex ? ' disabled' : ' checked') + '> <span>' +
       (esO ? '<b>' + esc(s.codigo) + '<\/b> ' : '') + esc(s.nombre) + (esO ? ' <span class="small muted">· ' + esc(s.periodicidad) + ' · ' + esc(reglaTxt(s)) + '<\/span>' : '') + (ex ? ' <span class="badge none">ya existe (ID ' + ex.id + ')<\/span>' : '') + '<\/span><\/label>'; });
@@ -1862,7 +1960,9 @@
       pintarAsig(); return;
     }
     if (el.matches('[data-sel]')) { const id = Number(el.dataset.sel); if (el.checked) SEL.add(id); else SEL.delete(id); renderRes(); return; }
-    if (el.matches('[data-acc=selTodas]')) { entregasFiltradas().slice(0, limiteFilas).forEach(e => { if (el.checked) SEL.add(e.id); else SEL.delete(e.id); }); renderRes(); return; }
+    if (el.matches('[data-acc=selTodas]')) { entregasFiltradas().forEach(e => { if (el.checked) SEL.add(e.id); else SEL.delete(e.id); }); renderRes(); return; }
+    if (el.matches('[data-selu]')) { const id = Number(el.dataset.selu); if (el.checked) SELU.add(id); else SELU.delete(id); renderRes(); return; }
+    if (el.matches('[data-acc=selTodasU]')) { unidadesFiltradas().forEach(u => { if (el.checked) SELU.add(u.id); else SELU.delete(u.id); }); renderRes(); return; }
     const acc = el.closest('[data-acc]');
     if (acc) {
       ev.preventDefault();
@@ -1894,6 +1994,42 @@
         case 'loteValidar': return lote('validar');
         case 'loteNA': return lote('na');
         case 'loteQuitar': SEL.clear(); return renderRes();
+        case 'quitarSelU': SELU.clear(); return renderRes();
+        case 'corregir': return dlgCorregir();
+        case 'lotePapelera': {
+          const es = E().filter(e => SEL.has(e.id)), rec = es.filter(e => e.s.recibida).length;
+          if (!es.length || !confirm('¿Enviar a la papelera de reciclaje ' + es.length + ' registros de entregas?' + (rec ? '\n\nATENCIÓN: ' + rec + ' ya están recibidos o validados y se perdería su histórico.' : '') + '\n\nSe pueden restaurar desde la Papelera de reciclaje del sitio.')) return;
+          acc.disabled = true;
+          return reciclarLote('CONTROL_ENTREGAS', es, (i, t) => { const r = $('#loteRes'); if (r) r.textContent = 'Enviando ' + i + ' de ' + t + '…'; })
+            .then(r => { SEL.clear(); render(); abrirDlg('Resultado', htmlPapelera(r, 'registros'), '<button type="button" data-cerrar>Cerrar<\/button>'); });
+        }
+        case 'deshacerLote': {
+          if (!ultimoLote) return;
+          const es = E().filter(e => ultimoLote.ids.indexOf(e.id) >= 0);
+          if (!confirm('¿Deshacer el último lote? Se enviarán a la papelera los ' + es.length + ' registros creados a las ' + ultimoLote.hora + '.')) return;
+          acc.disabled = true; acc.textContent = 'Deshaciendo…';
+          return reciclarLote('CONTROL_ENTREGAS', es).then(r => { ultimoLote = null; render(); abrirDlg('Lote deshecho', htmlPapelera(r, 'registros'), '<button type="button" data-cerrar>Cerrar<\/button>'); });
+        }
+        case 'papeleraU': case 'desactivarU': {
+          const us = U().filter(u => SELU.has(u.id)), libres = us.filter(u => !registrosDeU(u)), conReg = us.filter(u => registrosDeU(u));
+          if (a === 'papeleraU') {
+            if (!libres.length) { alert('Las unidades seleccionadas tienen entregas o eventos: desactívalas en lugar de enviarlas a la papelera.'); return; }
+            if (!confirm('¿Enviar a la papelera ' + libres.length + ' unidades sin registros?' + (conReg.length ? '\n\n' + conReg.length + ' tienen entregas o eventos y no se tocan (desactívalas si sobran).' : '') + '\n\nSe pueden restaurar desde la Papelera de reciclaje del sitio.')) return;
+            acc.disabled = true;
+            return reciclarLote('UCO_SUIGESUR', libres, (i, t) => { const r = $('#loteResU'); if (r) r.textContent = 'Enviando ' + i + ' de ' + t + '…'; })
+              .then(r => { SELU.clear(); render(); abrirDlg('Resultado', htmlPapelera(r, 'unidades') + (conReg.length ? '<div class="aviso">' + conReg.length + ' unidades con registros no se han tocado.<\/div>' : ''), '<button type="button" data-cerrar>Cerrar<\/button>'); });
+          }
+          const act = us.filter(u => u.activa);
+          if (!act.length || !confirm('¿Desactivar ' + act.length + ' unidades? Conservan su histórico y dejan de aparecer al asignar.')) return;
+          acc.disabled = true;
+          return (async () => { let ok = 0; const errs = []; for (const u of act) { try { await guardar('UCO_SUIGESUR', u, { activa: false }, 'Desactivar unidad'); ok++; } catch (er) { errs.push(er); if (er.status === 403 || er.tipo === 'config') break; } }
+            SELU.clear(); render(); if (errs.length) abrirDlg('Resultado', '<div class="bien">' + ok + ' desactivadas.<\/div>' + htmlError(errs[0], errs.length + ' con error'), '<button type="button" data-cerrar>Cerrar<\/button>'); else aviso(ok + ' unidades desactivadas'); })();
+        }
+        case 'papeleraUnidad': case 'papeleraOblig': {
+          const esU = a === 'papeleraUnidad', o = esU ? uPorId.get(id) : oPorId.get(id);
+          if (!o || !confirm('¿Enviar a la papelera ' + (esU ? 'la unidad' : 'la obligación') + ' «' + o.nombre + '» (ID ' + o.id + ')?\n\nSe puede restaurar desde la Papelera de reciclaje del sitio.')) return;
+          return ejecutar(async () => { await reciclar(esU ? 'UCO_SUIGESUR' : 'NLT_MAESTRO', o, esU ? 'Enviar unidad a la papelera' : 'Enviar obligación a la papelera'); dlg.close(); render(); aviso((esU ? 'Unidad' : 'Obligación') + ' enviada a la papelera (verificado)'); });
+        }
         case 'masFilas': limiteFilas += 300; return renderRes();
         case 'csvEntregas': return descargar('CONTROL_ENTREGAS_' + hoy() + '.csv', csvFilas(CAB_CSV_E, entregasFiltradas().map(filaCsvE)), 'text/csv;charset=utf-8');
         case 'csvEventos': return descargar('SEGUIMIENTO_EVENTOS_' + hoy() + '.csv', csvFilas(['ID', 'Tipo', 'Evento', 'Unidad', 'Obligación', 'Activación', 'Límite', 'Estado', 'Vencido', 'Cierre', 'Responsable', 'Observaciones'],
@@ -1904,7 +2040,6 @@
           acc.disabled = true; acc.textContent = 'Preparando…';
           return prepararEstructura().then(() => { preparacionVista = true; render(); }).catch(er => { render(); abrirDlg('No se han podido preparar las listas', htmlError(er), '<button type="button" data-cerrar>Cerrar<\/button>'); });
         case 'semillaOblig': return dlgSemilla('NLT_MAESTRO');
-        case 'semillaUco': return dlgSemilla('UCO_SUIGESUR');
         case 'copiarDiag': {
           const t = ['CENTRO DE CONTROL NLT SUIGESUR · diagnóstico ' + new Date().toLocaleString('es-ES'), 'Sitio: ' + (web ? web.url : '—'), 'Formato: ' + (verbose ? 'verbose' : 'nometadata'), errorGeneral ? 'Error general: ' + errorGeneral.message : '']
             .concat(LISTAS.map(n => n + ': ' + L[n].estado + ' · ' + L[n].items.length + ' elementos · permisos ' + JSON.stringify(L[n].perm) + ' · columnas: ' + DEF[n].campos.map(c => c.k + '=' + ((L[n].map[c.k] || []).join('+') || 'FALTA')).join(', ') +
@@ -1931,7 +2066,7 @@
   document.addEventListener('change', ev => {
     const el = ev.target;
     if (el.dataset.f !== undefined && el.type !== 'search') {
-      F[el.dataset.f] = el.value; if (el.dataset.f === 'anio' && !el.value) F.per = '';
+      F[el.dataset.f] = el.type === 'checkbox' ? el.checked : el.value; if (el.dataset.f === 'anio' && !el.value) F.per = '';
       guardarF(); limiteFilas = 300;
       if (el.dataset.f === 'anio' || pref.vista === 'analisis') render(); else renderRes();
       return;
@@ -1965,8 +2100,14 @@
       if (el.dataset.plper !== undefined) { const p = AS.plazos[Number(el.dataset.plper)]; p.periodo = el.value.trim(); if (p.periodo && p.nlt) p.on = true; resumenAsig(); const c = $('[data-pl="' + el.dataset.plper + '"]'); if (c) c.checked = p.on; return; }
     }
   });
-  dlg.addEventListener('submit', ev => { ev.preventDefault(); if (alEnviar) alEnviar(); });
-  dlg.addEventListener('close', () => { AS = null; alEnviar = null; dlg.oninput = null; dlg.onchange = null; });
+  let enviando = false;
+  dlg.addEventListener('submit', async ev => {
+    ev.preventDefault();
+    if (!alEnviar || enviando) return;   // evita dobles altas por doble clic o Intro repetido
+    enviando = true;
+    try { await alEnviar(); } finally { enviando = false; }
+  });
+  dlg.addEventListener('close', () => { AS = null; alEnviar = null; dlg.oninput = null; dlg.onchange = null; dlg.onclick = null; });
 
   render();
   cargar();
