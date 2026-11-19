@@ -906,7 +906,7 @@
       .sort((a, b) => (a.nlt || '9').localeCompare(b.nlt || '9') || porNombre(a.uEtq, b.uEtq));
   }
   VISTAS.entregas = {
-    barra: () => '<div class="barra"><h2>Control de entregas<\/h2><div class="acc"><button class="prim" data-acc="asignar">＋ Asignar obligación a unidades<\/button><button data-acc="csvEntregas">Exportar CSV<\/button><\/div><\/div>' +
+    barra: () => '<div class="barra"><h2>Control de entregas<\/h2><div class="acc"><button class="prim" data-acc="generar">Generar plazos de un periodo…<\/button><button data-acc="asignar">＋ Asignar obligación a unidades<\/button><button data-acc="csvEntregas">Exportar CSV<\/button><\/div><\/div>' +
       avisoListas(['CONTROL_ENTREGAS']) +
       barraFiltrosComun('<div><label class="lbl">Situación<\/label><select data-f="sit">' + opciones(SITS, F.sit) + '<\/select><\/div>' +
         '<div><label class="lbl">Estado registrado<\/label><select data-f="est">' + opciones(ESTADOS_E, F.est, 'Todos') + '<\/select><\/div>' +
@@ -933,7 +933,7 @@
   // ---------- Obligaciones (catálogo) ----------
   VISTAS.obligaciones = {
     barra: () => '<div class="barra"><h2>Catálogo de obligaciones<\/h2><div class="acc"><button class="prim" data-acc="nuevaOblig">＋ Nueva obligación<\/button><\/div><\/div>' +
-      '<div class="info small">El <b>catálogo<\/b> define qué se remite y con qué NLT. No crea entregas: las obligaciones de cada unidad se crean con «Asignar», solo para las unidades que elijas.<\/div>' +
+      '<div class="info small">El <b>catálogo<\/b> define qué se remite, con qué NLT y <b>quién debe entregarlo<\/b> (todas las unidades o solo algunas). Todo se puede cambiar cuando haga falta: añadir obligaciones, desactivar las que ya no se hacen o cambiar plazos; los registros ya creados conservan su NLT. Los registros de cada periodo se crean en Entregas con «Generar plazos» o «Asignar».<\/div>' +
       avisoListas(['NLT_MAESTRO']) +
       '<div class="filtros"><div class="q"><label class="lbl">Buscar<\/label><input data-f="oq" type="search" value="' + esc(F.oq) + '" placeholder="Nombre, código, categoría…"><\/div>' +
       '<div><label class="lbl">Periodicidad<\/label><select data-f="oper">' + opciones(unicos(PERIODICIDADES.concat(O().map(o => o.periodicidad))), F.oper, 'Todas') + '<\/select><\/div>' +
@@ -944,19 +944,34 @@
       const os = O().filter(o => (!q || norm([o.nombre, o.codigo, o.categoria, o.ambito, o.descripcion].join(' ')).indexOf(q) >= 0) && (!F.oper || o.periodicidad === F.oper) && (!F.ocat || o.categoria === F.ocat) &&
         (F.oact === 'activas' ? o.activa : F.oact === 'inactivas' ? !o.activa : true))
         .sort((a, b) => PERIODICIDADES.indexOf(a.periodicidad) - PERIODICIDADES.indexOf(b.periodicidad) || porNombre(a.codigo || a.nombre, b.codigo || b.nombre));
-      return tabla(['Código', 'Obligación', 'Periodicidad', 'NLT', 'Categoría', 'Ámbito', '#Habituales', '#Asignadas', 'Estado', ''], os.map(o => {
-        const n = E().filter(e => e.ob === o).length, hab = unidadesHabituales(o).length;
+      return tabla(['Código', 'Obligación', 'Periodicidad', 'NLT', 'Categoría', 'Ámbito', 'Quién la entrega', '#Asignadas', 'Estado', ''], os.map(o => {
+        const n = E().filter(e => e.ob === o).length, hab = esTodas(o) ? '' : unidadesHabituales(o).map(u => u.siglas || u.nombre).join(', ');
         return '<tr class="clic" data-oblig="' + o.id + '">' + td(esc(o.codigo)) + td('<b>' + esc(o.nombre) + '<\/b>' + (o.descripcion ? '<div class="small muted">' + esc(o.descripcion.slice(0, 140)) + '<\/div>' : '')) +
-          td(esc(o.periodicidad) + ' <span class="chip">' + tipoOb(o) + '<\/span>') + td(esc(reglaTxt(o))) + td(esc(o.categoria)) + td(esc(o.ambito)) + td(hab || '—', 1) + td(n, 1) +
+          td(esc(o.periodicidad) + ' <span class="chip">' + tipoOb(o) + '<\/span>') + td(esc(reglaTxt(o))) + td(esc(o.categoria)) + td(esc(o.ambito)) + td('<span title="' + esc(hab) + '"' + (quienTxt(o) === 'Sin definir' && esPeriodica(o) ? ' class="badge warn"' : '') + '>' + esc(quienTxt(o)) + '<\/span>' + (hab && hab.length < 60 ? '<div class="small muted">' + esc(hab) + '<\/div>' : '')) + td(n, 1) +
           td(o.activa ? '<span class="badge ok">Activa<\/span>' : '<span class="badge none">Inactiva<\/span>') +
           td(o.activa && o.periodicidad !== 'Por evento' ? '<button class="peq" data-acc="asignar" data-id="' + o.id + '">Asignar<\/button>' : o.activa ? '<button class="peq" data-acc="nuevoEvento" data-id="' + o.id + '">Evento<\/button>' : '') + '<\/tr>';
       }), { vacio: O().length ? 'Ninguna obligación con estos filtros' : 'El catálogo está vacío. Crea una obligación o carga el catálogo inicial desde Ajustes.' });
     }
   };
+  // Quién debe entregar cada obligación (columna UnidadesHabituales): vacío = sin definir, «TODAS» = todas las unidades activas,
+  // o la lista de ID de las unidades obligadas. Se puede cambiar en cualquier momento; no altera los registros ya creados.
+  const esTodas = o => /^\s*todas\s*$/i.test(String((o && o.habituales) || ''));
   function unidadesHabituales(o) {
+    if (esTodas(o)) return U().filter(u => u.activa);
     const toks = String(o.habituales || '').split(/[;,\n]+/).map(t => t.trim()).filter(Boolean);
     return U().filter(u => toks.some(t => (/^\d+$/.test(t) && Number(t) === u.id) || norm(t) === norm(u.siglas) || norm(t) === norm(u.nombre)));
   }
+  const quienTxt = o => { if (esTodas(o)) return 'Todas las unidades'; const n = unidadesHabituales(o).length; return n ? n + (n === 1 ? ' unidad' : ' unidades') : 'Sin definir'; };
+  const datosEntrega = (u, ob, p) => ({ titulo: ((u.siglas || u.nombre) + ' · ' + ob.nombre + ' · ' + p.periodo).slice(0, 255), unidad: u.nombre, siglas: u.siglas, unidadId: u.id,
+    obligacion: ob.nombre, obligacionId: ob.id, periodo: p.periodo, nlt: p.nlt, estado: 'Pendiente' });
+  // Entregas pendientes que aún no han vencido (al dar de baja una obligación o una unidad se pueden marcar «No aplicable»)
+  const pendientesFuturas = f => E().filter(e => e.s.k === 'pendiente' && f(e));
+  async function marcarNA(es) {
+    let ok = 0; const errs = [];
+    for (const e of es) { try { await accionRapida(e, 'na'); ok++; } catch (er) { errs.push(er); if (er.status === 403 || er.tipo === 'config') break; } }
+    return { ok: ok, errs: errs };
+  }
+  const htmlNA = r => !r ? '' : (r.ok ? '<div class="bien">' + r.ok + ' entregas pendientes marcadas como «No aplicable».<\/div>' : '') + (r.errs.length ? htmlError(r.errs[0], r.errs.length + ' entregas no se han podido marcar') : '');
 
   // ---------- Unidades ----------
   VISTAS.unidades = {
@@ -1350,22 +1365,46 @@
   // ---------- Unidad ----------
   function dlgUnidad(u) {
     if (!exigirLista('UCO_SUIGESUR')) return;
+    const obsU = O().filter(o => o.activa && o.periodicidad !== 'Por evento').sort((a, b) => porNombre(a.codigo || a.nombre, b.codigo || b.nombre));
     abrirDlg(u ? 'Unidad · ' + (u.siglas || u.nombre) : 'Nueva unidad',
       '<div class="grid">' + campo('Nombre de la unidad', inp('nombre', u && u.nombre, 'maxlength="255" required'), 1) + campo('Siglas', inp('siglas', u && u.siglas, 'maxlength="255"')) +
       campo('Ámbito', inp('ambito', u && u.ambito, 'list="lAmb" maxlength="255"') + '<datalist id="lAmb">' + unicos(['UCO', 'BAE'].concat(U().map(x => x.ambito))).map(x => '<option value="' + esc(x) + '">').join('') + '<\/datalist>') +
       campo('Contacto', inp('contacto', u && u.contacto, 'maxlength="255"')) + '<\/div>' +
       '<label class="check"><input type="checkbox" name="activa"' + (!u || u.activa ? ' checked' : '') + '> Activa (aparece al asignar obligaciones)<\/label>' +
-      campo('Observaciones', txa('obs', u && u.obs)) + avisoFaltan('UCO_SUIGESUR', ['siglas', 'ambito', 'contacto', 'activa', 'obs']) + metaElem(u),
+      (u && u.activa ? '<label class="check" id="bajaNA" hidden><input type="checkbox" name="bajaNA" checked> Al desactivarla, marcar como «No aplicable» sus ' + pendientesFuturas(e => e.u === u).length + ' entregas pendientes que aún no han vencido<\/label>' : '') +
+      campo('Observaciones', txa('obs', u && u.obs)) +
+      '<label class="lbl">Obligaciones que debe entregar esta unidad<\/label>' + (obsU.length ?
+        '<div class="lista-u">' + obsU.map(o => { const t = esTodas(o), m = t || (u && unidadesHabituales(o).indexOf(u) >= 0);
+          return '<label><input type="checkbox" data-uob="' + o.id + '"' + (m ? ' checked' : '') + (t ? ' disabled' : '') + '> <span>' + esc((o.codigo ? o.codigo + ' · ' : '') + o.nombre) + (t ? ' <span class="chip">todas las unidades<\/span>' : '') + '<\/span><\/label>'; }).join('') + '<\/div>' +
+        '<p class="small muted">Se guarda en cada obligación («¿Quién debe entregarla?»). Sirve para generar los plazos de cada periodo solo para quien corresponde.<\/p>'
+        : '<p class="small muted">No hay obligaciones periódicas activas en el catálogo.<\/p>') +
+      avisoFaltan('UCO_SUIGESUR', ['siglas', 'ambito', 'contacto', 'activa', 'obs']) + metaElem(u),
       pieGuardar(u ? 'Guardar cambios' : 'Dar de alta', linkSP('UCO_SUIGESUR', u)));
+    dlg.onchange = ev => { if (ev.target.name === 'activa' && $('#bajaNA')) $('#bajaNA').hidden = ev.target.checked || !pendientesFuturas(e => e.u === u).length; };
     alEnviar = () => {
       const d = { nombre: vf('nombre'), siglas: vf('siglas'), ambito: vf('ambito'), contacto: vf('contacto'), activa: vf('activa'), obs: vf('obs') };
+      const marcadas = new Set($$('[data-uob]:checked:not(:disabled)', dlg).map(c => Number(c.dataset.uob)));
+      const baja = u && u.activa && !d.activa && vf('bajaNA');
       if (!d.nombre) return msg('<div class="error">El nombre de la unidad es obligatorio.<\/div>');
       const dup = U().find(x => x !== u && (norm(x.nombre) === norm(d.nombre) || (d.siglas && norm(x.siglas) === norm(d.siglas))));
       if (dup) return msg('<div class="error">Ya existe la unidad «' + esc(dup.nombre) + '» (ID ' + dup.id + ') con ese nombre o siglas.<\/div>');
       if (!(L.UCO_SUIGESUR.map.activa || []).length) delete d.activa;
       ejecutar(async () => {
         const r = await guardar('UCO_SUIGESUR', u, d, u ? 'Modificar unidad' : 'Alta de unidad');
-        dlg.close(); render(); aviso(r.sinCambios ? 'Sin cambios' : (u ? 'Unidad modificada' : 'Unidad creada') + ' y verificada en SharePoint (ID ' + r.id + ')');
+        // Obligaciones que entrega: se actualiza la lista de unidades obligadas de cada obligación que cambie
+        const errs = []; let cambios = 0;
+        for (const o0 of obsU.filter(o => !esTodas(o))) {
+          const o = oPorId.get(o0.id); if (!o) continue;
+          const ids = unidadesHabituales(o).map(x => x.id), tenia = ids.indexOf(r.id) >= 0, quiere = marcadas.has(o.id);
+          if (tenia === quiere) continue;
+          try { await guardar('NLT_MAESTRO', o, { habituales: (quiere ? ids.concat([r.id]) : ids.filter(x => x !== r.id)).join(';') }, 'Unidades obligadas de «' + o.nombre + '»'); cambios++; }
+          catch (er) { errs.push(er); if (er.status === 403 || er.tipo === 'config') break; }
+        }
+        const na = baja ? await marcarNA(pendientesFuturas(e => e.u && e.u.id === r.id)) : null;
+        render();
+        const txt = (r.sinCambios ? 'Unidad sin cambios' : (u ? 'Unidad modificada' : 'Unidad creada') + ' y verificada (ID ' + r.id + ')') + (cambios ? ' · ' + cambios + ' obligaciones actualizadas' : '');
+        if (errs.length || (na && na.errs.length)) { msg('<div class="bien">' + esc(txt) + '<\/div>' + (errs.length ? htmlError(errs[0], 'No se han podido actualizar ' + errs.length + ' obligaciones') : '') + htmlNA(na)); return; }
+        dlg.close(); aviso(txt + (na && na.ok ? ' · ' + na.ok + ' entregas marcadas «No aplicable»' : ''));
       });
     };
   }
@@ -1374,6 +1413,7 @@
   function dlgObligacion(o) {
     if (!exigirLista('NLT_MAESTRO')) return;
     const hab = o ? unidadesHabituales(o) : [];
+    const modo0 = esTodas(o) ? 'todas' : hab.length ? 'lista' : 'sin';
     abrirDlg(o ? 'Obligación · ' + o.nombre : 'Nueva obligación',
       campo('Nombre de la obligación', inp('nombre', o && o.nombre, 'maxlength="255" required'), 1) +
       '<div class="grid">' + campo('Código', inp('codigo', o && o.codigo, 'maxlength="255" placeholder="Ej.: M-01"')) +
@@ -1387,13 +1427,28 @@
       '<p class="small muted" id="reglaPrev"><\/p>' +
       campo('Descripción', txa('descripcion', o && o.descripcion)) + campo('Observaciones', txa('obs', o && o.obs)) +
       '<label class="check"><input type="checkbox" name="activa"' + (!o || o.activa ? ' checked' : '') + '> Activa<\/label>' +
-      (hab.length ? '<p class="small">Unidades habituales: ' + esc(hab.map(u => u.siglas || u.nombre).join(', ')) + ' <span class="muted">(se cambian desde «Asignar»)<\/span><\/p>' : '') +
-      avisoFaltan('NLT_MAESTRO', ['codigo', 'periodicidad', 'dia', 'meses', 'regla', 'plazo', 'categoria', 'ambito', 'activa', 'descripcion', 'obs']) + metaElem(o),
+      (o && o.activa ? '<label class="check" id="bajaNA" hidden><input type="checkbox" name="bajaNA" checked> Al desactivarla, marcar como «No aplicable» sus ' + pendientesFuturas(e => e.ob === o).length + ' entregas pendientes que aún no han vencido<\/label>' : '') +
+      '<label class="lbl">¿Quién debe entregarla?<\/label><div>' +
+      [['sin', 'Sin definir (se elige al asignar)'], ['todas', 'Todas las unidades activas'], ['lista', 'Solo las unidades marcadas']].map(x => '<label class="check"><input type="radio" name="quien" value="' + x[0] + '"' + (modo0 === x[0] ? ' checked' : '') + '> ' + x[1] + '<\/label>').join('') + '<\/div>' +
+      '<div id="obUnis"' + (modo0 === 'lista' ? '' : ' hidden') + '><input name="obq" type="search" placeholder="Filtrar unidades…" style="margin:4px 0 6px"><div class="lista-u">' +
+      U().filter(u => u.activa || hab.indexOf(u) >= 0).sort((a, b) => porNombre(a.siglas || a.nombre, b.siglas || b.nombre)).map(u => '<label><input type="checkbox" data-obu="' + u.id + '"' + (!esTodas(o) && hab.indexOf(u) >= 0 ? ' checked' : '') + '> <span><b>' + esc(u.siglas || '') + '<\/b> ' + esc(u.siglas ? '– ' + u.nombre : u.nombre) + (u.activa ? '' : ' <span class="chip">inactiva<\/span>') + '<\/span><\/label>').join('') +
+      '<\/div><p class="small muted" id="obUnisN"><\/p><\/div>' +
+      avisoFaltan('NLT_MAESTRO', ['codigo', 'periodicidad', 'dia', 'meses', 'regla', 'plazo', 'categoria', 'ambito', 'activa', 'descripcion', 'obs', 'habituales']) + metaElem(o),
       pieGuardar(o ? 'Guardar cambios' : 'Crear obligación', linkSP('NLT_MAESTRO', o)));
     const prev = () => { const t = { periodicidad: vf('periodicidad'), dia: Number(vf('dia')) || null, meses: vf('meses'), regla: vf('regla'), plazo: Number(vf('plazo')) || null }; const p = plazosDe(t, new Date().getFullYear());
       $('#reglaPrev').textContent = 'NLT resultante: ' + reglaTxt(t) + (p.length ? ' · ' + p.length + ' plazos al año (' + p.map(x => x.periodo).join(', ') + ')' : ''); };
-    dlg.oninput = prev; prev();
+    const contar = () => { const n = $$('[data-obu]:checked', dlg).length; $('#obUnisN').textContent = n + (n === 1 ? ' unidad marcada' : ' unidades marcadas'); };
+    dlg.oninput = ev => { prev(); if (ev.target.name === 'obq') { const q = norm(ev.target.value); $$('#obUnis .lista-u label', dlg).forEach(l => { l.hidden = !!q && norm(l.textContent).indexOf(q) < 0; }); } };
+    dlg.onchange = ev => {
+      if (ev.target.name === 'quien') $('#obUnis').hidden = ev.target.value !== 'lista';
+      if (ev.target.name === 'activa' && $('#bajaNA')) $('#bajaNA').hidden = ev.target.checked || !pendientesFuturas(e => e.ob === o).length;
+      contar();
+    };
+    prev(); contar();
     alEnviar = () => {
+      const modo = (dlg.querySelector('[name=quien]:checked') || {}).value || 'sin';
+      const ids = $$('[data-obu]:checked', dlg).map(c => Number(c.dataset.obu));
+      if (modo === 'lista' && !ids.length) return msg('<div class="error">Marca al menos una unidad o elige otra opción en «¿Quién debe entregarla?».<\/div>');
       const d = { nombre: vf('nombre'), codigo: vf('codigo'), periodicidad: vf('periodicidad'), dia: vf('dia') === '' ? null : Number(vf('dia')), meses: parseMeses(vf('meses')).join(','), regla: vf('regla'),
         plazo: vf('plazo') === '' ? null : Number(vf('plazo')), categoria: vf('categoria'), ambito: vf('ambito'), descripcion: vf('descripcion'), obs: vf('obs'), activa: vf('activa') };
       if (!d.nombre) return msg('<div class="error">El nombre es obligatorio.<\/div>');
@@ -1405,9 +1460,16 @@
       const dup = O().find(x => x !== o && norm(x.nombre) === norm(d.nombre));
       if (dup) return msg('<div class="error">Ya existe la obligación «' + esc(dup.nombre) + '» (ID ' + dup.id + ').<\/div>');
       if (!(L.NLT_MAESTRO.map.activa || []).length) delete d.activa;
+      // Solo se escribe «quién la entrega» si ha cambiado
+      const igualLista = modo === 'lista' && modo0 === 'lista' && ids.length === hab.length && hab.every(u => ids.indexOf(u.id) >= 0);
+      if (modo !== modo0 || (modo === 'lista' && !igualLista)) d.habituales = modo === 'todas' ? 'TODAS' : modo === 'lista' ? ids.join(';') : '';
+      const baja = o && o.activa && d.activa === false && vf('bajaNA');
       ejecutar(async () => {
         const r = await guardar('NLT_MAESTRO', o, d, o ? 'Modificar obligación' : 'Alta de obligación');
-        dlg.close(); render(); aviso(r.sinCambios ? 'Sin cambios' : 'Obligación guardada y verificada (ID ' + r.id + ')');
+        const na = baja ? await marcarNA(pendientesFuturas(e => e.ob && e.ob.id === r.id)) : null;
+        render();
+        if (na && na.errs.length) { msg('<div class="bien">Obligación guardada y verificada (ID ' + r.id + ').<\/div>' + htmlNA(na)); return; }
+        dlg.close(); aviso((r.sinCambios ? 'Sin cambios' : 'Obligación guardada y verificada (ID ' + r.id + ')') + (na && na.ok ? ' · ' + na.ok + ' entregas marcadas «No aplicable»' : ''));
       });
     };
   }
@@ -1432,8 +1494,8 @@
       '<p class="small" id="asRegla"><\/p>' +
       '<label class="lbl">2. Periodos y NLT (confirma o corrige la fecha)<\/label><div id="asPlazos"><\/div>' +
       '<label class="lbl">3. Unidades<\/label><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><input name="asq" type="search" placeholder="Filtrar unidades…" style="flex:1;min-width:160px">' +
-      '<button type="button" data-as="hab">Habituales<\/button><button type="button" data-as="todas">Marcar visibles<\/button><button type="button" data-as="ninguna">Ninguna<\/button><\/div><div id="asUnis" class="lista-u"><\/div>' +
-      '<label class="check"><input type="checkbox" name="recordar"> Guardar esta selección como unidades habituales de la obligación<\/label>' +
+      '<button type="button" data-as="hab">Las obligadas<\/button><button type="button" data-as="todas">Marcar visibles<\/button><button type="button" data-as="ninguna">Ninguna<\/button><\/div><div id="asUnis" class="lista-u"><\/div>' +
+      '<label class="check"><input type="checkbox" name="recordar"> Guardar esta selección como unidades obligadas a entregarla<\/label>' +
       '<div id="asResumen" class="info"><\/div><div id="asProg" class="small"><\/div>' + avisoFaltan('CONTROL_ENTREGAS', ['unidadId', 'obligacionId', 'siglas']),
       '<button type="button" data-cerrar>Cancelar<\/button><button type="submit" class="prim" id="asCrear">Crear registros<\/button>');
     pintarAsig();
@@ -1459,7 +1521,7 @@
     const q = norm(AS.q);
     const us = U().filter(u => u.activa).sort((a, b) => porNombre(a.siglas || a.nombre, b.siglas || b.nombre));
     const hab = new Set(unidadesHabituales(AS.ob).map(u => u.id));
-    $('#asUnis').innerHTML = us.map(u => '<label' + (q && norm(u.siglas + ' ' + u.nombre + ' ' + u.ambito).indexOf(q) < 0 ? ' hidden' : '') + '><input type="checkbox" data-asu="' + u.id + '"' + (AS.unis.has(u.id) ? ' checked' : '') + '> <span><b>' + esc(u.siglas || '') + '<\/b> ' + esc(u.siglas ? '– ' + u.nombre : u.nombre) + (hab.has(u.id) ? ' <span class="chip">habitual<\/span>' : '') + '<\/span><\/label>').join('');
+    $('#asUnis').innerHTML = us.map(u => '<label' + (q && norm(u.siglas + ' ' + u.nombre + ' ' + u.ambito).indexOf(q) < 0 ? ' hidden' : '') + '><input type="checkbox" data-asu="' + u.id + '"' + (AS.unis.has(u.id) ? ' checked' : '') + '> <span><b>' + esc(u.siglas || '') + '<\/b> ' + esc(u.siglas ? '– ' + u.nombre : u.nombre) + (hab.has(u.id) ? ' <span class="chip">obligada<\/span>' : '') + '<\/span><\/label>').join('');
     resumenAsig();
   }
   function resumenAsig() {
@@ -1483,8 +1545,7 @@
       const x = lote[i];
       $('#asProg').textContent = 'Creando y verificando ' + (i + 1) + ' de ' + lote.length + '…';
       try {
-        await guardar('CONTROL_ENTREGAS', null, { titulo: ((x.u.siglas || x.u.nombre) + ' · ' + ob.nombre + ' · ' + x.p.periodo).slice(0, 255), unidad: x.u.nombre, siglas: x.u.siglas, unidadId: x.u.id,
-          obligacion: ob.nombre, obligacionId: ob.id, periodo: x.p.periodo, nlt: x.p.nlt, estado: 'Pendiente' }, 'Asignar obligación');
+        await guardar('CONTROL_ENTREGAS', null, datosEntrega(x.u, ob, x.p), 'Asignar obligación');
         ok.push(x);
       } catch (e) {
         err.push({ x: x, e: e });
@@ -1493,8 +1554,8 @@
     }
     let habMsg = '';
     if (recordar) {
-      try { await guardar('NLT_MAESTRO', ob, { habituales: Array.from(AS.unis).join(';') }, 'Guardar unidades habituales'); habMsg = '<div class="bien">Unidades habituales guardadas en la obligación.<\/div>'; }
-      catch (e) { habMsg = htmlError(e, 'No se han guardado las unidades habituales'); }
+      try { await guardar('NLT_MAESTRO', ob, { habituales: Array.from(AS.unis).join(';') }, 'Guardar unidades habituales'); habMsg = '<div class="bien">Unidades obligadas guardadas en la obligación.<\/div>'; }
+      catch (e) { habMsg = htmlError(e, 'No se han guardado las unidades obligadas'); }
     }
     $('#asProg').textContent = '';
     ocupado(false);
@@ -1503,6 +1564,55 @@
       (err.length ? htmlError(err[0].e, err.length + ' registro(s) no creados (' + err.map(z => (z.x.u.siglas || z.x.u.nombre) + ' ' + z.x.p.periodo).slice(0, 8).join(', ') + ')') : '') +
       (lote.length - ok.length - err.length > 0 ? '<div class="aviso">Se detuvo el proceso: ' + (lote.length - ok.length - err.length) + ' registros no se intentaron.<\/div>' : '') + habMsg);
     pintarAsig();
+  }
+
+  // ---------- Generar los plazos de un periodo (solo para las unidades obligadas de cada obligación) ----------
+  function dlgGenerar() {
+    if (!exigirLista('CONTROL_ENTREGAS')) return;
+    const y = new Date().getFullYear(), m = new Date().getMonth() + 1, fuera = new Set();
+    abrirDlg('Generar plazos de un periodo',
+      '<p class="small muted">Crea los registros de seguimiento de las obligaciones periódicas activas <b>solo para las unidades que deben entregarlas<\/b> (se define en cada obligación o unidad). ' +
+      'Las obligaciones «sin definir» no generan nada. Lo que ya existe no se duplica. Sirve para cualquier año (2027, 2028…).<\/p>' +
+      '<div class="grid">' + campo('Año', '<input name="ganio" type="number" min="2000" max="2100" value="' + y + '">') + campo('Desde', sel('gdesde', MESL.map((x, i) => [i + 1, x]), m)) + campo('Hasta', sel('ghasta', MESL.map((x, i) => [i + 1, x]), m)) + '<\/div>' +
+      '<div id="genTabla" style="margin-top:10px"><\/div><div id="genProg" class="small"><\/div>',
+      '<button type="button" data-cerrar>Cancelar<\/button><button type="submit" class="prim" id="genCrear">Generar<\/button>');
+    let G = [];
+    const pintar = () => {
+      const anio = Number(vf('ganio')), d = Number(vf('gdesde')), h = Number(vf('ghasta')), ex = existentes();
+      G = O().filter(o => o.activa && esPeriodica(o)).map(o => {
+        const us = unidadesHabituales(o).filter(u => u.activa);
+        const ps = plazosDe(o, anio).filter(p => { const mm = +p.nlt.slice(5, 7); return mm >= d && mm <= h; });
+        const nuevos = []; let dup = 0;
+        us.forEach(u => ps.forEach(p => { if (ex.has(claveDup(u.id, o.id, p.periodo))) dup++; else nuevos.push({ u: u, p: p }); }));
+        return { o: o, us: us, ps: ps, nuevos: nuevos, dup: dup, on: us.length > 0 && !fuera.has(o.id) };
+      }).filter(g => g.ps.length);
+      const total = G.filter(g => g.on).reduce((a, g) => a + g.nuevos.length, 0);
+      $('#genTabla').innerHTML = (d > h ? '<div class="error">El mes «Desde» es posterior a «Hasta».<\/div>' : '') +
+        tabla(['', 'Obligación', 'Quién la entrega', 'Periodos', '#Nuevos', '#Ya existen'], G.map(g => '<tr>' +
+          td('<input type="checkbox" data-gen="' + g.o.id + '"' + (g.on ? ' checked' : '') + (g.us.length ? '' : ' disabled') + '>') + td(esc((g.o.codigo ? g.o.codigo + ' · ' : '') + g.o.nombre)) +
+          td(g.us.length ? esc(quienTxt(g.o)) + (esTodas(g.o) ? '' : '<div class="small muted">' + esc(g.us.map(u => u.siglas || u.nombre).join(', ')) + '<\/div>') : '<span class="badge warn">Sin definir: no se genera<\/span>') +
+          td(esc(g.ps.map(p => p.periodo + ' (' + fCorta(p.nlt) + ')').join(', '))) + td(g.nuevos.length, 1) + td(g.dup || '', 1) + '<\/tr>'), { vacio: 'Ninguna obligación periódica tiene plazos en esos meses' }) +
+        '<div class="info">Se crearán <b>' + total + '<\/b> registros.<\/div>';
+      const b = $('#genCrear'); b.textContent = 'Generar ' + total + ' registros'; b.disabled = !total || d > h;
+    };
+    dlg.onchange = ev => { const c = ev.target.dataset.gen; if (c) { if (ev.target.checked) fuera.delete(Number(c)); else fuera.add(Number(c)); } pintar(); };
+    dlg.oninput = ev => { if (ev.target.name === 'ganio') pintar(); };
+    pintar();
+    alEnviar = async () => {
+      const lote = [].concat.apply([], G.filter(g => g.on).map(g => g.nuevos.map(x => ({ o: g.o, u: x.u, p: x.p }))));
+      if (!lote.length) return;
+      if (lote.length > 60 && !confirm('Se van a crear ' + lote.length + ' registros en CONTROL_ENTREGAS. ¿Continuar?')) return;
+      msg(''); ocupado(true, 'Generando…');
+      let ok = 0; const errs = [];
+      for (let i = 0; i < lote.length; i++) {
+        $('#genProg').textContent = 'Creando y verificando ' + (i + 1) + ' de ' + lote.length + '…';
+        try { await guardar('CONTROL_ENTREGAS', null, datosEntrega(lote[i].u, lote[i].o, lote[i].p), 'Generar plazos'); ok++; }
+        catch (e) { errs.push(e); if (e.tipo === 'config' || e.status === 403 || e.status === 401) break; }
+      }
+      $('#genProg').textContent = ''; ocupado(false); render(); pintar();
+      msg((ok ? '<div class="bien">✔ ' + ok + ' registros creados y verificados en SharePoint.<\/div>' : '') + (errs.length ? htmlError(errs[0], errs.length + ' registros no creados') : '') +
+        (lote.length - ok - errs.length > 0 ? '<div class="aviso">Se detuvo el proceso: ' + (lote.length - ok - errs.length) + ' registros no se intentaron.<\/div>' : ''));
+    };
   }
 
   // ---------- Entrega ----------
@@ -1753,6 +1863,7 @@
       const e = E().find(x => x.id === id);
       switch (a) {
         case 'asignar': return dlgAsignar(id || null);
+        case 'generar': return dlgGenerar();
         case 'nuevoEvento': return dlgEvento(null, id || null);
         case 'nuevaUnidad': return dlgUnidad(null);
         case 'nuevaOblig': return dlgObligacion(null);

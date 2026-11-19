@@ -197,7 +197,7 @@ async function escenarioLigero(b) {
   await p.screenshot({ path: new URL('asignar.png', import.meta.url).pathname });
   await p.click('#asCrear'); await esperar(p, 2500);
   const ra = await p.textContent('#dlgMsg');
-  ok(ra.includes('4 registros creados y verificados') && ra.includes('habituales guardadas'), 'asignación: ' + ra.slice(0, 90));
+  ok(ra.includes('4 registros creados y verificados') && ra.includes('obligadas guardadas'), 'asignación: ' + ra.slice(0, 90));
   ok((await p.textContent('#asResumen')).includes('se crearán 0') && (await p.textContent('#asResumen')).includes('ya existen'), 'repetir la asignación no duplica');
   await p.click('#fdlg [data-cerrar]');
   const ce = S.listas.CONTROL_ENTREGAS.items.filter(i => i.ObligacionID === idVsa);
@@ -255,6 +255,44 @@ async function escenarioLigero(b) {
   const m403 = await p.textContent('#dlgMsg');
   ok(m403.includes('Sin permiso') && m403.includes('HTTP: 403') && m403.includes('UCO_SUIGESUR'), '403 con operación, lista y código: ' + m403.slice(0, 80));
   S.denegar = false; await p.click('#fdlg [data-cerrar]');
+  // Quién entrega cada obligación: VSA solo por unas unidades, otra definida desde la unidad, otra para todas
+  const itO = cod => S.listas.NLT_MAESTRO.items.find(i => i.Codigo === cod);
+  await pestana(p, 'obligaciones'); await p.fill('[data-f=oq]', ''); await esperar(p, 200);
+  await p.click('tr[data-oblig="' + itO('M-05').Id + '"] td:nth-child(2)'); await esperar(p);
+  await p.check('[name=quien][value=lista]');
+  await p.uncheck('[data-obu="3"]'); await p.check('[data-obu="1"]'); await p.check('[data-obu="2"]'); await p.check('[data-obu="3"]');
+  ok((await p.textContent('#obUnisN')).includes('3 unidades'), 'VSA: 3 unidades marcadas');
+  await p.click('#fdlg button[type=submit]'); await esperar(p, 800);
+  ok(itO('M-05').UnidadesHabituales.split(';').sort().join(';') === '1;2;3', 'VSA guardada con sus 3 unidades obligadas: ' + itO('M-05').UnidadesHabituales);
+  ok((await p.innerText('tr[data-oblig="' + itO('M-05').Id + '"]')).includes('3 unidades'), 'el catálogo muestra quién la entrega');
+  await p.click('tr[data-oblig="' + itO('A-01').Id + '"] td:nth-child(2)'); await esperar(p);
+  await p.check('[name=quien][value=todas]'); await p.click('#fdlg button[type=submit]'); await esperar(p, 800);
+  ok(itO('A-01').UnidadesHabituales === 'TODAS', 'Informe anual UCO: todas las unidades');
+  await pestana(p, 'unidades');
+  await p.click('tr[data-unidad="2"] td:nth-child(2)'); await esperar(p);
+  ok(await p.isDisabled('[data-uob="' + itO('A-01').Id + '"]') && await p.isChecked('[data-uob="' + itO('M-05').Id + '"]'), 'la ficha de la unidad muestra sus obligaciones');
+  await p.check('[data-uob="' + itO('M-01').Id + '"]'); await p.click('#fdlg button[type=submit]'); await esperar(p, 800);
+  ok(itO('M-01').UnidadesHabituales === '2', 'obligación definida desde la ficha de la unidad: ' + itO('M-01').UnidadesHabituales);
+  // Generar todo 2027 solo para quien corresponde
+  const activas = S.listas.UCO_SUIGESUR.items.filter(i => i.Activa !== false).length;
+  await pestana(p, 'entregas'); await p.click('[data-acc=generar]'); await esperar(p);
+  await p.fill('[name=ganio]', '2027'); await p.selectOption('[name=gdesde]', '1'); await p.selectOption('[name=ghasta]', '12'); await esperar(p, 300);
+  const gt = await p.textContent('#genTabla');
+  const esperado = 3 * 12 + 1 * 12 + activas;
+  ok(gt.includes('Sin definir: no se genera') && gt.includes('Se crearán ' + esperado + ' registros'), 'previsión 2027: ' + esperado + ' registros (VSA 3×12, M-01 1×12, anual ' + activas + ')');
+  await p.click('#genCrear'); await esperar(p, 8000);
+  ok((await p.textContent('#dlgMsg')).includes(esperado + ' registros creados y verificados'), 'generación 2027: ' + (await p.textContent('#dlgMsg')).slice(0, 60));
+  const e27 = S.listas.CONTROL_ENTREGAS.items.filter(i => /^2027/.test(i.Periodo));
+  ok(e27.filter(i => i.ObligacionID === itO('M-05').Id).length === 36 && e27.every(i => i.ObligacionID !== itO('M-06').Id), 'solo las unidades obligadas reciben VSA; las obligaciones sin definir no generan nada');
+  ok((await p.textContent('#genTabla')).includes('Se crearán 0 registros'), 'volver a generar no duplica');
+  await p.click('#fdlg [data-cerrar]');
+  // Una obligación que deja de hacerse: se desactiva y sus entregas futuras pasan a «No aplicable»
+  await pestana(p, 'obligaciones');
+  await p.click('tr[data-oblig="' + itO('M-01').Id + '"] td:nth-child(2)'); await esperar(p);
+  await p.uncheck('#fdlg [name=activa]');
+  ok(!(await p.isHidden('#bajaNA')) && (await p.textContent('#bajaNA')).includes('12'), 'ofrece marcar sus 12 entregas futuras como no aplicables');
+  await p.click('#fdlg button[type=submit]'); await esperar(p, 3000);
+  ok(itO('M-01').Activa === false && S.listas.CONTROL_ENTREGAS.items.filter(i => i.ObligacionID === itO('M-01').Id && /^2027/.test(i.Periodo)).every(i => i.Estado === 'No aplicable'), 'obligación desactivada y sus entregas futuras «No aplicable»; el histórico se conserva');
   // Inicio, análisis e informes
   await pestana(p, 'inicio'); await p.selectOption('[data-f=anio]', ''); await esperar(p, 300);
   await p.screenshot({ path: new URL('inicio.png', import.meta.url).pathname, fullPage: true });

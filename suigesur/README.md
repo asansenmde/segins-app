@@ -64,6 +64,23 @@ verificación. Unidades y obligaciones se desactivan, no se borran.
 - Incumplimiento = vencida sin remitir o recibida fuera de plazo. Reincidencia = misma unidad y obligación con 2 o
   más incumplimientos.
 
+## Quién entrega cada obligación y generación de plazos
+
+- Cada obligación tiene «¿Quién debe entregarla?»: *sin definir*, *todas las unidades activas* o *solo las marcadas*
+  (p. ej. el estadillo VSA, solo tres unidades). Se guarda en `UnidadesHabituales` (`TODAS` o lista de ID).
+- También se define desde la ficha de cada unidad («Obligaciones que debe entregar esta unidad»).
+- **Entregas → Generar plazos de un periodo**: para un año y unos meses (2027, 2028…) crea los registros de todas las
+  obligaciones periódicas activas **solo para sus unidades obligadas**, con la NLT del catálogo. Las «sin definir» no
+  generan nada y lo que ya existe no se duplica. Se puede desmarcar cualquier obligación antes de generar.
+- **Asignar** sigue disponible para casos sueltos (una obligación, unidades y periodos a mano, NLT editable).
+
+## Cambios a lo largo de los años
+
+Todo es editable desde la aplicación: obligaciones nuevas, cambio de día o meses de NLT, de periodicidad o de quién la
+entrega, unidades nuevas. Lo que deja de hacerse se **desactiva** (no se borra, para conservar el histórico) y, si
+se quiere, sus entregas pendientes que aún no han vencido pasan a «No aplicable». Cada registro guarda su propia NLT,
+así que cambiar una regla solo afecta a los plazos que se generen después; los años anteriores no se alteran.
+
 ## Asignación selectiva
 
 El catálogo no genera nada por sí solo. «Asignar obligación» crea un registro por cada **unidad marcada** y cada
