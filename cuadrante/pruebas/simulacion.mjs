@@ -15,7 +15,8 @@ const comprueba = (txt, ok, extra) => { console.log((ok ? '✔ ' : '✘ ') + txt
 const persona = (Id, Title, c) => ({ Id, Title, EMail: c + '@et.mde.es', Name: 'i:0#.w|et\\' + c });
 const GENTE = [persona(7, 'ADMINISTRADOR DEL CUADRANTE', 'asansen'), persona(8, 'GESTORA DEL CUADRANTE', 'gestora'),
   ...[1, 2, 3, 4, 5, 6].map(i => persona(10 + i, 'OFICIAL NUMERO ' + i, 'of' + i)), ...[1, 2, 3, 4, 5, 6].map(i => persona(20 + i, 'SUBOFICIAL NUMERO ' + i, 'sub' + i)),
-  persona(40, 'PERSONA SIN ACCESO', 'nuevo'), persona(41, 'COMPONENTE DESDE EL FORMULARIO', 'alta')];
+  persona(40, 'PERSONA SIN ACCESO', 'nuevo'), persona(41, 'COMPONENTE DESDE EL FORMULARIO', 'alta'), persona(51, 'OFICIAL NUMERO 1', 'of1viejo')];
+const SIN_BUZON = ['i:0#.w|et\\of1viejo'];
 const quien = id => GENTE.find(p => p.Id === Number(id)) || null;
 
 // ---------- Estado del Colabora simulado ----------
@@ -54,6 +55,7 @@ async function abrir(id, esAdmin, verbose, url) {
       if (resto === 'contextinfo') return J({ GetContextWebInformation: { FormDigestValue: 'D', FormDigestTimeoutSeconds: 1800 } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = c.properties, dest = [pr.To, pr.CC, pr.BCC].flatMap(x => x ? x.results : []);
+        if (dest.some(x => SIN_BUZON.includes(x))) return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } }) });
         if (dest.some(x => /@/.test(x)) && process.env.VER_RECHAZOS) console.log('RECHAZO', pr.Subject, JSON.stringify(dest));
         if (dest.some(x => /@/.test(x))) return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } }) });
         correos.push({ to: dest, asunto: pr.Subject, cuerpo: pr.Body }); return J({});
@@ -462,6 +464,18 @@ async function prueba(verbose) {
   correos.length = 0; await p.click('[data-accaprobar]'); await p.waitForTimeout(1500);
   comprueba(tag + 'aprobada: al grupo de usuarios, alta en el cuadrante y correo a su cuenta', grupos.CUADRANTE_USUARIOS.includes(40) && LC.items.some(c => c.PersonaId === 40 && c.Cuadrante === 'SUBOFICIALES' && c.Empleo === 'BRIGADA') &&
     sol.EstadoSolicitud === 'APROBADA' && correos.some(c => /ACCESO CONCEDIDO/.test(c.asunto) && c.to.includes('i:0#.w|et\\nuevo')));
+  // Cuenta enlazada de cada componente, «✉ Probar» y cambiar la cuenta (caso de una cuenta antigua sin buzón)
+  await tab(p, 'componentes');
+  comprueba(tag + 'Componentes enseña la cuenta enlazada de cada uno', /of1@et\.mde\.es/.test(await p.$eval('[data-compeditar="' + id[11] + '"]', b => b.closest('tr').textContent)));
+  correos.length = 0; await p.click('[data-compprobar="' + id[11] + '"]'); await p.waitForTimeout(1000);
+  comprueba(tag + '«✉ Probar» envía la prueba a su cuenta', correos.some(c => /^PRUEBA · CUADRANTE DE SERVICIOS · OFICIAL NUMERO 1$/.test(c.asunto) && c.to.includes('i:0#.w|et\\of1')) && /Colabora ha aceptado la prueba/.test(await texto(p)));
+  const c11 = LC.items.find(c => c.Id === id[11]); c11.PersonaId = 51;   // enlazado a la cuenta antigua
+  await p.click('#recargar'); await p.waitForTimeout(1500); await tab(p, 'componentes');
+  correos.length = 0; await p.click('[data-compprobar="' + id[11] + '"]'); await p.waitForTimeout(1500);
+  comprueba(tag + 'con una cuenta sin buzón, lo detecta y lo envía a otra cuenta suya con el mismo nombre', correos.some(c => c.to.includes('i:0#.w|et\\of1')) && /Se envió a otra cuenta suya/.test(await texto(p)), (await texto(p)).slice(0, 300));
+  await tab(p, 'componentes'); await p.click('[data-compeditar="' + id[11] + '"]'); await p.waitForTimeout(300);
+  await p.fill('#fComp [name=cuenta]', 'of1@et.mde.es'); await p.click('[data-compguardar]'); await p.waitForTimeout(900);
+  comprueba(tag + 'en «Editar» se cambia la cuenta enlazada por la buena', c11.PersonaId === 11 && c11.Title === 'OFICIAL NUMERO 1');
   // Quitar componentes: sin servicios se borra; con servicios, baja desde hoy
   await tab(p, 'componentes');
   const nuevo40 = LC.items.find(c => c.PersonaId === 40);

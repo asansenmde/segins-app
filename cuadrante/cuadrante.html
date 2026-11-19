@@ -6454,7 +6454,7 @@ var Cipher = {
   };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-19 · 6';
+  var VERSION = '2026-11-19 · 7';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuadrante de servicios · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -6861,7 +6861,8 @@ var Cipher = {
       texto: 'USO OFICIAL\n\n' + intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\n' + (enlace || enlacePagina()) };
   };
   // Destinatario de una persona: su CUENTA (Colabora rechaza las direcciones de correo; 17/11/2026)
-  var destDe = function (p) { return p ? (p.Login || p.Email || '') : ''; };
+  var quienCuenta = {};   // cuenta → { Id, Title, Email } (si Colabora rechaza la cuenta, se prueba otra de la misma persona)
+  var destDe = function (p) { if (p && p.Login) quienCuenta[String(p.Login).toLowerCase()] = { Id: p.Id, Title: p.Title, Email: p.Email }; return p ? (p.Login || p.Email || '') : ''; };
   var limpia = function (l) { var v = {}; return l.filter(function (x) { x = String(x || '').trim(); var k = x.toLowerCase(); if (!x || v[k]) return false; v[k] = 1; return true; }); };
   // Gestores: integrantes del grupo (el grupo se crea con «quién puede ver los miembros: todos»)
   var gestoresCache = null;
@@ -6920,7 +6921,7 @@ var Cipher = {
   }
   var cuentasSitio = null;
   function otrasDirecciones(malo) {
-    var q = quienEs[String(malo).toLowerCase()], nombre = q && q.Title;
+    var q = quienEs[String(malo).toLowerCase()] || quienCuenta[String(malo).toLowerCase()], nombre = q && q.Title;
     if (!nombre || palabrasNombre(nombre).length < 2) return Promise.resolve([]);
     var base = cuentasSitio ? Promise.resolve(cuentasSitio) : api(web + '/_api/web/siteusers?$select=Id,Title,Email,PrincipalType&$filter=PrincipalType eq 1&$top=5000')
       .then(function (d) { cuentasSitio = lista(d.value); return cuentasSitio; }, function () { return []; });
@@ -7202,17 +7203,19 @@ var Cipher = {
     CUADRANTES.forEach(function (qq) {
       var l = ordenados(qq[0]);
       h += '<div class="sec"><span>' + esc(qq[0]) + ' · ' + esc(qq[1]) + '</span><span>' + l.filter(function (c) { return activo(c, hoy(), hoy()); }).length + ' de alta</span></div>' +
-        '<div class="card tablacont"><table class="t"><tr><th>Orden</th><th>Empleo</th><th>Nombre</th><th>Escalafón</th><th>Antigüedad</th><th>Teléfono</th><th>Negociado / destino</th><th>Alta</th><th>Baja</th><th></th></tr>' +
+        '<div class="card tablacont"><table class="t"><tr><th>Orden</th><th>Empleo</th><th>Nombre</th><th>Cuenta (avisos)</th><th>Escalafón</th><th>Antigüedad</th><th>Teléfono</th><th>Negociado / destino</th><th>Alta</th><th>Baja</th><th></th></tr>' +
         (l.map(function (c, i) {
-          return '<tr class="' + (activo(c, hoy(), hoy()) ? '' : 'debaja') + '"><td>' + (i + 1) + '</td><td>' + esc(c.empleo) + '</td><td><b>' + esc(c.nombre) + '</b>' + (c.persona ? '' : ' <span class="small txt-bad">sin cuenta</span>') + '</td><td>' + esc(c.escalafon == null ? '' : c.escalafon) + '</td>' +
-            '<td>' + esc(fCorta(c.antig)) + '</td><td>' + esc(c.tel) + '</td><td>' + esc(c.neg) + '</td><td>' + esc(fCorta(c.alta)) + '</td><td>' + esc(fCorta(c.baja)) + '</td><td style="white-space:nowrap"><button class="chico" data-compeditar="' + c.id + '">Editar</button> ' + (activo(c, hoy(), hoy()) || !turnos.some(function (t) { return t.comp === c.id; }) ? '<button class="chico peligro" data-compquitar="' + c.id + '">Quitar</button>' : '') + '</td></tr>';
-        }).join('') || '<tr><td colspan="10" class="muted">Nadie aún.</td></tr>') + '</table></div>';
+          return '<tr class="' + (activo(c, hoy(), hoy()) ? '' : 'debaja') + '"><td>' + (i + 1) + '</td><td>' + esc(c.empleo) + '</td><td><b>' + esc(c.nombre) + '</b></td><td class="small">' + (c.persona ? esc(c.persona.Email || '—') + '<br><span class="muted">' + esc(String(c.persona.Login || '').replace(/^i:0#\.w\|/, '')) + '</span>' : '<span class="txt-bad">sin cuenta: no recibe avisos</span>') + '</td><td>' + esc(c.escalafon == null ? '' : c.escalafon) + '</td>' +
+            '<td>' + esc(fCorta(c.antig)) + '</td><td>' + esc(c.tel) + '</td><td>' + esc(c.neg) + '</td><td>' + esc(fCorta(c.alta)) + '</td><td>' + esc(fCorta(c.baja)) + '</td><td style="white-space:nowrap">' + (c.persona ? '<button class="chico" data-compprobar="' + c.id + '" title="Envía un correo de prueba a su cuenta y dice si Colabora lo acepta">✉ Probar</button> ' : '') + '<button class="chico" data-compeditar="' + c.id + '">Editar</button> ' + (activo(c, hoy(), hoy()) || !turnos.some(function (t) { return t.comp === c.id; }) ? '<button class="chico peligro" data-compquitar="' + c.id + '">Quitar</button>' : '') + '</td></tr>';
+        }).join('') || '<tr><td colspan="11" class="muted">Nadie aún.</td></tr>') + '</table></div>';
     });
     return h + '<p class="small muted">El orden sale solo: empleo, fecha de antigüedad en el empleo y nº de escalafón. Para que alguien deje de entrar en la rotación, pon su fecha de baja (no se borra: queda en el histórico).</p>';
   }
   function formComp(c) {
     var q = c ? c.cuadrante : 'OFICIALES';
     return '<div class="card" id="fComp" data-id="' + (c ? c.id : '') + '"><h3 style="margin-top:0">' + (c ? 'Editar a ' + esc(c.nombre) : 'Alta de un componente') + '</h3>' +
+      (c ? '<label class="lbl">Cuenta enlazada (para los avisos y para ver sus servicios)</label><div class="small">' + (c.persona ? esc((c.persona.Email || '') + ' · ' + String(c.persona.Login || '').replace(/^i:0#\.w\|/, '')) : '<span class="txt-bad">sin cuenta</span>') + '</div>' +
+        '<input name="cuenta" placeholder="Para cambiarla: correo o usuario de su cuenta buena (si no, déjalo vacío)">' : '') +
       (c ? '' : '<label class="lbl req">Correo o usuario de la persona</label><input name="cuenta" placeholder="nombre@et.mde.es o et\\usuario"><p class="small muted" style="margin:2px 0">Se busca en Colabora para enlazar su cuenta (para los avisos y para que vea sus servicios).</p>') +
       '<div class="grid"><div><label class="lbl req">Cuadrante</label><select name="cuadrante">' + CUADRANTES.map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === q ? ' selected' : '') + '>' + esc(x[0] + ' · ' + x[1]) + '</option>'; }).join('') + '</select></div>' +
       '<div><label class="lbl req">Empleo</label><select name="empleo"><option value="">Seleccionar…</option>' + EMPLEOS.slice(1).map(function (x) { return '<option' + (c && sinTildes(c.empleo).toUpperCase() === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></div>' +
@@ -7242,6 +7245,16 @@ var Cipher = {
     papelera('comp', id).then(leerComps).then(function () { compEdit = null; prepararMes(edicion.ym, edicion.propuesta); render(); toast(c.nombre + ' quitado del cuadrante'); })
       .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
   }
+  function probarComp(id, boton) {
+    var c = compPorId(id); boton.disabled = true; toast('Enviando la prueba a ' + c.nombre + '…');
+    enviarCorreo(correoDe('CORREO DE PRUEBA DEL CUADRANTE DE SERVICIOS PARA ' + c.nombre.toUpperCase() + '. SI LO RECIBE, LE LLEGARÁN LOS AVISOS.', [['Enviado por', yo.Title], ['Fecha', fHora(new Date())], ['Cuenta', destDe(c.persona)]],
+      'PRUEBA · CUADRANTE DE SERVICIOS · ' + c.nombre.toUpperCase(), [destDe(c.persona)])).then(function (r) {
+      boton.disabled = false;
+      resultado = { cls: correoBien(r) && !(r.desvios && r.desvios.length) ? 'okmsg' : 'aviso', html: (correoBien(r) ? '✓ Colabora ha aceptado la prueba para ' + esc(c.nombre) + ' (' + esc(destDe(c.persona)) + '). Pregúntale si le ha llegado: si no, su cuenta enlazada no tiene buzón y hay que cambiarla en «Editar».' :
+        '✕ Colabora no acepta la cuenta de ' + esc(c.nombre) + ' (' + esc(destDe(c.persona)) + '): cámbiala en «Editar» por su cuenta buena.') + (r.desvios && r.desvios.length ? ' Se envió a otra cuenta suya: ' + esc(r.desvios.join('; ')) + ' (conviene enlazar esa en «Editar»).' : '') + msgCorreo(Object.assign({}, r, { mailto: '' })) };
+      render(); window.scrollTo(0, 0);
+    });
+  }
   function guardarComp(boton) {
     var f = $('#fComp'), v = function (n) { var el = f.querySelector('[name="' + n + '"]'); return el ? el.value.trim() : ''; }, id = Number(f.dataset.id) || null;
     var err = function (m) { $('#compErr').innerHTML = '<div class="error">' + esc(m) + '</div>'; };
@@ -7252,12 +7265,12 @@ var Cipher = {
     boton.disabled = true;
     var cuerpo = { Cuadrante: v('cuadrante'), Empleo: v('empleo'), Escalafon: v('escalafon') === '' ? null : Number(v('escalafon')), Antiguedad: aSP(v('antig')), Telefono: v('tel'), Negociado: v('neg'),
       FechaAlta: aSP(v('alta')), FechaBaja: aSP(v('baja')), Observaciones: v('obs') };
-    var paso = id ? Promise.resolve(null) : enviarSP(web + '/_api/web/ensureuser', { logonName: v('cuenta') }, 'No tienes permiso para buscar personas en el sitio')
+    var paso = id && !v('cuenta') ? Promise.resolve(null) : enviarSP(web + '/_api/web/ensureuser', { logonName: v('cuenta') }, 'No tienes permiso para buscar personas en el sitio')
       .catch(function (e) { throw new Error('No se encontró a «' + v('cuenta') + '» en Colabora (' + (e.message || e) + ')'); });
     paso.then(function (u) {
       if (u) {
-        if (comps.some(function (c) { return c.persona && c.persona.Id === u.Id; })) throw new Error((u.Title || 'Esa persona') + ' ya está dada de alta en el cuadrante.');
-        cuerpo.PersonaId = u.Id; cuerpo.Title = v('nombre') || u.Title || v('cuenta');
+        if (comps.some(function (c) { return c.persona && c.persona.Id === u.Id && c.id !== id; })) throw new Error((u.Title || 'Esa persona') + ' ya está dada de alta en el cuadrante.');
+        cuerpo.PersonaId = u.Id; cuerpo.Title = v('nombre') || (id ? compPorId(id).nombre : u.Title || v('cuenta'));
       } else cuerpo.Title = v('nombre') || compPorId(id).nombre;
       return id ? cambiarItem('comp', id, cuerpo) : crearItem('comp', cuerpo);
     }).then(function () { compEdit = null; return leerComps(); }).then(function () { if (!edicion.guardado || edicion.propuesta) prepararMes(edicion.ym, edicion.propuesta); render(); toast('Componente guardado'); })
@@ -8407,6 +8420,7 @@ var Cipher = {
     if ((b = accionCon(el, 'data-compeditar'))) { compEdit = Number(b.dataset.compeditar); render(); window.scrollTo(0, 0); return; }
     if (el.closest('[data-compcancelar]')) { compEdit = null; render(); return; }
     if ((b = accionCon(el, 'data-compquitar'))) { quitarComp(Number(b.dataset.compquitar), b); return; }
+    if ((b = accionCon(el, 'data-compprobar'))) { probarComp(Number(b.dataset.compprobar), b); return; }
     if ((b = accionCon(el, 'data-compguardar'))) { guardarComp(b); return; }
     if ((b = accionCon(el, 'data-festanadir'))) {
       var fe = $('#fFecha').value; if (!fe) return toast('Elige la fecha');

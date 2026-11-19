@@ -9,7 +9,7 @@
 | `colabora/cuadrante.html` | **Copia cifrada que se sube a Colabora** (`cd cuadrante/proteger && node proteger.mjs`). |
 | `pruebas/simulacion.mjs` | Prueba completa contra un SharePoint simulado, en formato ligero y *verbose*. Con `CUAD_HTML=cuadrante/colabora/cuadrante.html` prueba la copia cifrada y con `PROXY=1`, el filtro de la red. |
 
-## Puesta en marcha (versión 2026-11-19 · 6)
+## Puesta en marcha (versión 2026-11-19 · 7)
 
 1. Subir `colabora/cuadrante.html` a una biblioteca del sitio JSUIGE (por ejemplo `…/JSUIGE/aplicaciones/`) y abrirla con
    la cuenta que tiene Control total.
@@ -138,6 +138,12 @@ entrar). Antes, el administrador que no estaba en el grupo no recibía nada.
 | Se comunica una ausencia | A los gestores. |
 | Se aprueba o deniega una ausencia | Al interesado. |
 | Solicitud de acceso | Al administrador; la respuesta, al solicitante. |
+
+**Cuentas antiguas (19/11/2026).** Si un componente está enlazado a una cuenta antigua o sin buzón, el correo no le llega.
+- En «Componentes», la columna «Cuenta (avisos)» enseña la cuenta enlazada de cada uno.
+- «✉ Probar» le envía un correo de prueba y dice si Colabora lo acepta.
+- En «Editar» se cambia la cuenta por la buena.
+- Si Colabora rechaza la cuenta, la página prueba con otra cuenta de la misma persona (mismo nombre) y lo dice.
 
 Quien no es componente no recibe «sus servicios», pero si es gestor (o administrador) recibe la copia. En Ajustes están
 esta tabla, «Enviarme un correo de prueba» y «Probar el aviso a los gestores» (dice a quién ha ido).
