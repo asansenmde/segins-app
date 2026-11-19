@@ -6454,7 +6454,7 @@ var Cipher = {
   };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-19 · 7';
+  var VERSION = '2026-11-19 · 8';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuadrante de servicios · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -7097,7 +7097,7 @@ var Cipher = {
             var cambiado = x.item && x.compId !== x.orig;
             var cel = editable ? '<select data-celda="' + i + '|' + qq[0] + '" class="' + (cambiado ? 'cambiado' : '') + '"><option value="">— sin asignar —</option>' +
               ordenados(qq[0]).map(function (y, n) { return [y, n]; }).filter(function (p) { return activo(p[0], f.inicio, f.fin) || p[0].id === x.compId; }).map(function (p) { var y = p[0]; return '<option value="' + y.id + '"' + (y.id === x.compId ? ' selected' : '') + '>' + (p[1] + 1) + 'º · ' + esc([y.empleo, y.nombre].join(' ')) + '</option>'; }).join('') + '</select>'
-              : nombreCon(c) + (c && c.tel ? ' <span class="small muted">☎ ' + esc(c.tel) + '</span>' : '');
+              : nombreCon(c) + (c && c.tel ? ' <span class="small muted">☎ ' + esc(c.tel) + '</span>' : '') + (miComp && c && c.id === miComp.id && x.item && !porQueNoCambio(x.item) ? ' <button class="chico" data-cambiopedir="' + x.item.id + '">🔁 Pedir cambio</button>' : '');
             if (editable && x.compId) cel = '<div class="celda">' + cel + '<button class="chico" data-imprevisto="' + i + '|' + qq[0] + '" title="Imprevisto: no puede hacer el servicio. Propone al siguiente disponible">⚡</button></div>';
             var asg = x.compId && !porRotacion(x.asig) ? '<div class="asg"><span class="badge a' + x.asig + '">' + { MANUAL: '✋ a mano', DEUDA: '💳 servicio debido', CAMBIO: '🔁 cambio de servicio' }[x.asig] + '</span>' +
               (editable ? ' <input class="motivoc" data-motivo="' + i + '|' + qq[0] + '" value="' + esc(x.motivo || '') + '" placeholder="Motivo (p. ej. debía servicio por el cambio del día 3)">' +
@@ -7133,7 +7133,7 @@ var Cipher = {
       return '<tr class="' + (t.fin < hoy() ? 'pasado' : '') + '"><td><b>' + esc(rotulo(t)) + '</b>' + (t.estado !== 'PUBLICADO' ? ' <span class="badge eBor" title="El mes aún no está publicado: solo lo ven los gestores">sin publicar</span>' : '') +
         (t.asig && t.asig !== 'ROTACION' && t.motivoAsig ? '<div class="small muted">' + esc(t.motivoAsig) + '</div>' : '') + '</td><td>' + badgeTipo(t.tipo) + '</td><td>' + esc(papelDe(t.cuadrante)) + '</td><td>' + avs.map(function (a) { return '<div class="small ' + (a[0] === 'rojo' ? 'txt-bad' : 'txt-warn') + '">⚠ ' + esc(a[1]) + '</div>'; }).join('') +
         (ct ? '<div class="small">🔁 Cambio nº ' + ct.id + ' en trámite (' + esc(ct.estado.toLowerCase()) + ')</div>' : '') + '</td><td>' +
-        (hayCambiosLista() && !ct && t.inicio > hoy() && t.estado === 'PUBLICADO' ? '<button class="chico' + (avs.some(function (a) { return a[0] === 'ambar'; }) ? ' prim' : '') + '" data-cambiopedir="' + t.id + '">🔁 Pedir cambio</button>' : '') + '</td></tr>';
+        botonCambio(t, avs.some(function (a) { return a[0] === 'ambar'; })) + '</td></tr>';
     }).join('') + '</table></div>' : '<div class="card aviso">' + porQueSinServicios() + '</div>');
     if (cambioForm && miComp) h = h.replace('<div class="sec"><span>Mis servicios (este mes', formCambio() + '<div class="sec"><span>Mis servicios (este mes');
     var misCambios = miComp ? cambios.filter(function (c) { return c.solComp === miComp.id || c.compComp === miComp.id; }).sort(function (a, b) { return (abiertoCambio(b) - abiertoCambio(a)) || b.id - a.id; }) : [];
@@ -7143,6 +7143,20 @@ var Cipher = {
     if (miComp || esGestor) h += formAusencia(false);
     h += '<div class="sec"><span>Mis ausencias comunicadas</span><span>' + misAus.length + '</span></div>' + (misAus.length ? misAus.map(function (a) { return fichaAus(a, false); }).join('') : '<div class="card vacio">Ninguna.</div>');
     return h;
+  }
+  // «🔁 Pedir cambio» de un servicio, o por qué no se puede (en vez de no enseñar nada)
+  function porQueNoCambio(t) {
+    if (!hayCambiosLista()) return esAdmin ? 'Falta la lista «' + LISTAS.cambios + '»: créala en Ajustes («Crear las listas que faltan») y pulsa «Dar los permisos».' : 'Los cambios de servicio aún no están activados: avisa al administrador (falta la lista de cambios).';
+    if (t.estado !== 'PUBLICADO') return 'El mes aún no está publicado: el cambio se pide cuando se publique.';
+    if (t.fin < hoy()) return 'Este servicio ya ha pasado.';
+    var ct = cambioDeTurno(t.id); if (ct) return 'Ya hay un cambio en trámite (nº ' + ct.id + ').';
+    if (!miComp || t.comp !== miComp.id) return 'Solo puede pedirlo quien tiene el servicio.';
+    return '';
+  }
+  function botonCambio(t, destacado) {
+    var no = porQueNoCambio(t);
+    if (no) return /trámite/.test(no) ? '' : '<div class="small muted" data-nocambio="' + t.id + '">🔁 ' + esc(no) + '</div>';
+    return '<button class="chico' + (destacado ? ' prim' : '') + '" data-cambiopedir="' + t.id + '">🔁 Pedir cambio</button>';
   }
   // Por qué «Mis servicios» sale vacío: lo explica en vez de dejarlo en blanco
   function porQueSinServicios() {
@@ -7963,7 +7977,7 @@ var Cipher = {
     var tA = turnoPorId(cambioForm.turno); if (!tA) return '';
     var compas = ordenados(tA.cuadrante).filter(function (c) { return c.id !== miComp.id && activo(c, tA.inicio, tA.fin) && c.persona; });
     var sel = compPorId(cambioForm.comp), tipo = cambioForm.tipo || 'PERMUTA';
-    var suyos = sel ? turnos.filter(function (t) { return t.comp === sel.id && t.estado === 'PUBLICADO' && t.inicio > hoy() && t.cuadrante === tA.cuadrante && clase(t.tipo) === clase(tA.tipo) && !cambioDeTurno(t.id); })
+    var suyos = sel ? turnos.filter(function (t) { return t.comp === sel.id && t.estado === 'PUBLICADO' && t.fin >= hoy() && t.cuadrante === tA.cuadrante && clase(t.tipo) === clase(tA.tipo) && !cambioDeTurno(t.id); })
       .sort(function (a, b) { return a.inicio.localeCompare(b.inicio); }) : [];
     var avisoComp = sel ? ausDe(sel, tA.inicio, tA.fin, ['APROBADA', 'PENDIENTE']) : [];
     return '<div class="card turno" id="fCambio"><h3 style="margin-top:0">🔁 Pedir un cambio de mi servicio ' + esc(txtTurno(tA)) + '</h3>' +
@@ -8398,7 +8412,7 @@ var Cipher = {
       if (!window.confirm(nombreCon(compPorId(xi.compId)).replace(/<[^>]+>/g, '') + ' no puede hacer el servicio ' + rotulo(fi) + '. ¿Lo hace ' + si.nombre + ' (siguiente disponible)? Puedes elegir a otro en la lista.')) return;
       var ni = compPorId(xi.compId); asignarCelda(Number(pi[0]), pi[1], si.id, 'MANUAL', 'Imprevisto: ' + (ni ? ni.nombre : '—') + ' no puede hacer el servicio'); render(); toast('Cambio preparado: revisa el motivo y guarda'); return;
     }
-    if ((b = accionCon(el, 'data-cambiopedir'))) { cambioForm = { turno: Number(b.dataset.cambiopedir), tipo: 'PERMUTA' }; resultado = null; render(); window.scrollTo(0, 0); return; }
+    if ((b = accionCon(el, 'data-cambiopedir'))) { cambioForm = { turno: Number(b.dataset.cambiopedir), tipo: 'PERMUTA' }; resultado = null; pref.vista = 'mios'; guardarPref(); render(); window.scrollTo(0, 0); return; }
     if (el.closest('[data-cambiocancelar]')) { cambioForm = null; render(); return; }
     if ((b = accionCon(el, 'data-rotacion'))) { var pr = b.dataset.rotacion.split('|'), xr = edicion.filas[Number(pr[0])].q[pr[1]]; xr.asig = 'ROTACION'; xr.motivo = ''; xr.deuda = null; edicion.filas = proponer(edicion.ym, fijosDe(edicion.ym)); render(); return; }
     if ((b = accionCon(el, 'data-deudaasignar'))) { asignarDeuda(Number(b.dataset.deudaasignar)); return; }

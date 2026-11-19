@@ -241,6 +241,12 @@ async function prueba(verbose) {
     await imp.close();
   }
   await p.click('[data-vmes="turnos"]'); await p.waitForTimeout(200);
+  comprueba(tag + 'en el cuadrante del mes, sus turnos llevan «Pedir cambio»', (await p.$$('table.cuad tr.mio [data-cambiopedir]')).length >= 1);
+  // sin la lista de cambios, «Mis servicios» dice por qué no puede pedir el cambio
+  const listaCambios = listas['CUADRANTE CAMBIOS']; listas['CUADRANTE CAMBIOS'] = undefined;
+  await p.reload(); await p.waitForTimeout(1500); await tab(p, 'mios');
+  comprueba(tag + 'sin la lista de cambios explica que no están activados (en vez de no enseñar nada)', /Los cambios de servicio aún no están activados/.test(await texto(p)) && !(await p.$('[data-cambiopedir]')));
+  listas['CUADRANTE CAMBIOS'] = listaCambios; await p.reload(); await p.waitForTimeout(1500);
   await tab(p, 'mios');
   t = await texto(p);
   comprueba(tag + '«Mis servicios» lista sus servicios publicados', /Mis servicios \(este mes y los siguientes\)/.test(t) && /Jue 7 ene/.test(t), t.slice(0, 300));

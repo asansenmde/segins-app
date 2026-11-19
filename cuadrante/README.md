@@ -9,7 +9,7 @@
 | `colabora/cuadrante.html` | **Copia cifrada que se sube a Colabora** (`cd cuadrante/proteger && node proteger.mjs`). |
 | `pruebas/simulacion.mjs` | Prueba completa contra un SharePoint simulado, en formato ligero y *verbose*. Con `CUAD_HTML=cuadrante/colabora/cuadrante.html` prueba la copia cifrada y con `PROXY=1`, el filtro de la red. |
 
-## Puesta en marcha (versión 2026-11-19 · 7)
+## Puesta en marcha (versión 2026-11-19 · 8)
 
 1. Subir `colabora/cuadrante.html` a una biblioteca del sitio JSUIGE (por ejemplo `…/JSUIGE/aplicaciones/`) y abrirla con
    la cuenta que tiene Control total.
@@ -241,6 +241,15 @@ mismo tipo de servicio, y el gestor la asigna desde «Servicios debidos pendient
 - mientras está en trámite: «🔁 Cambio nº N en trámite (pendiente del compañero / del gestor) con …»;
 - una vez validado: la etiqueta «cambio de servicio» y «Cambio nº N (cesión): lo hace X en lugar de Y». También sale en
   el cuadrante impreso.
+
+**«🔁 Pedir cambio» siempre a la vista (19/11/2026).**
+- El botón sale en «Mis servicios» y en tus turnos del cuadrante del mes.
+- Se puede pedir hasta el mismo día del servicio.
+- Si no se puede pedir, en su lugar se dice por qué:
+  - falta la lista de cambios (al administrador le dice que la cree en Ajustes);
+  - el mes no está publicado;
+  - el servicio ya ha pasado;
+  - ya hay un cambio en trámite.
 
 Antes de firmar se comprueba que el cuadrante sigue igual que cuando se pidió. Los adjuntos son
 `CAMBIO-<n>-1-solicitante.pdf`, `-2-companero.pdf` y `-3-validado.pdf`, cada uno con una firma más. La librería
