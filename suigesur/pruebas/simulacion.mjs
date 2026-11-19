@@ -132,14 +132,26 @@ async function escenarioLigero(b) {
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   p.on('dialog', d => d.accept());
   await enrutar(p, S);
-  await p.goto(PAGINA); await esperar(p, 1200);
-  ok((await p.textContent('#estado')).includes('revisar estructura'), 'conecta y avisa de estructura incompleta: ' + await p.textContent('#estado'));
-  // Ajustes: estructura
+  await p.goto(PAGINA); await esperar(p, 2500);
+  // Preparación automática al conectar: crea la lista que falta y las columnas que faltan, sin duplicar las de la versión anterior
+  ok((await p.textContent('#estado')).includes('lectura correcta'), 'conecta y prepara las listas sola: ' + await p.textContent('#estado'));
+  ok((await p.textContent('#vista')).includes('preparadas automáticamente'), 'Inicio informa de la preparación');
+  ok(!!S.listas.SEGUIMIENTO_EVENTOS && S.listas.SEGUIMIENTO_EVENTOS.campos.some(c => c.InternalName === 'FechaLimite'), 'lista SEGUIMIENTO_EVENTOS creada con sus columnas');
+  const nombres = n => S.listas[n].campos.map(c => c.InternalName);
+  ok(['Codigo', 'ReglaNLT', 'PlazoDias', 'UnidadesHabituales'].every(c => nombres('NLT_MAESTRO').includes(c)) && !nombres('NLT_MAESTRO').includes('Observaciones'), 'NLT_MAESTRO: añade las que faltan y reutiliza «Notas» como observaciones');
+  ok(['UnidadID', 'FechaValidacion', 'Responsable'].every(c => nombres('CONTROL_ENTREGAS').includes(c)) && !nombres('CONTROL_ENTREGAS').includes('Referencia'), 'CONTROL_ENTREGAS: añade las que faltan y reutiliza «LinkDocumento»');
+  ok(!nombres('UCO_SUIGESUR').includes('Title0') && nombres('UCO_SUIGESUR').filter(c => c === 'NombreUnidad').length === 1, 'UCO_SUIGESUR: sin columnas duplicadas');
+  const xml = S.posts.find(x => x.ruta.endsWith('addfieldasxml'));
+  ok(xml.cuerpo.parameters.__metadata.type === 'SP.XmlSchemaFieldCreationInformation' && xml.cuerpo.parameters.Options === 24, 'addfieldasxml con tipo y AddFieldInternalNameHint');
+  ok(S.listas.UCO_SUIGESUR.items.length === 2 && S.listas.CONTROL_ENTREGAS.items.length === 2, 'los datos existentes no se tocan');
   await pestana(p, 'ajustes');
   const aj = await p.textContent('#vista');
-  ok(aj.includes('SEGUIMIENTO_EVENTOS') && aj.includes('no existe'), 'detecta que SEGUIMIENTO_EVENTOS no existe');
-  ok(aj.includes('NombreUnidad'), 'reconoce la columna NombreUnidad de la versión anterior');
+  ok((aj.match(/Lista y columnas correctas/g) || []).length === 4, 'Ajustes: las 4 listas correctas');
+  ok(aj.includes('NombreUnidad'), 'el detalle técnico reconoce NombreUnidad de la versión anterior');
   await p.screenshot({ path: new URL('ajustes.png', import.meta.url).pathname, fullPage: true });
+  const nCrear = S.posts.filter(x => x.ruta.endsWith('addfieldasxml') || x.ruta === 'web/lists').length;
+  await p.reload(); await esperar(p, 1500);
+  ok(S.posts.filter(x => x.ruta.endsWith('addfieldasxml') || x.ruta === 'web/lists').length === nCrear && !(await p.textContent('#vista')).includes('preparadas automáticamente'), 'al volver a abrir no crea nada más');
   // Unidades: lectura (Title vacío → NombreUnidad)
   await pestana(p, 'unidades');
   ok((await p.textContent('#res')).includes('UNIDAD DE PRUEBA UNO'), 'lee unidades existentes con Title vacío');
@@ -164,28 +176,8 @@ async function escenarioLigero(b) {
   ok(m1.includes('NO verificada') && m1.includes('Contacto'), 'detecta escritura no persistida: ' + m1.split('\n')[0].slice(0, 120));
   ok((await p.textContent('#escritura')).includes('Sin verificar'), 'cabecera: ' + await p.textContent('#escritura'));
   S.ignorar = null; await p.click('#fdlg [data-cerrar]');
-  // Columnas que faltan: alta de obligación con código → error de configuración sin escribir
-  await pestana(p, 'obligaciones');
-  await p.click('[data-acc=nuevaOblig]'); await p.fill('[name=nombre]', 'Obligación con código'); await p.fill('[name=codigo]', 'X-1'); await p.fill('[name=dia]', '5');
-  const nPosts = S.posts.length;
-  await p.click('#fdlg button[type=submit]'); await esperar(p);
-  ok((await p.textContent('#dlgMsg')).includes('no existen las columnas') && S.posts.length === nPosts, 'columna inexistente: error de configuración y no se envía nada');
-  await p.click('#fdlg [data-cerrar]');
-  // Crear columnas que faltan en las tres listas y la lista de eventos
-  await pestana(p, 'ajustes');
-  for (const n of ['NLT_MAESTRO', 'UCO_SUIGESUR', 'CONTROL_ENTREGAS']) {
-    await p.click('[data-acc=crearCampos][data-lista=' + n + ']'); await p.click('#fdlg button[type=submit]'); await esperar(p, 1200);
-    const t = await p.textContent('#dlgMsg');
-    ok(t.includes('Resultado verificado') && !t.includes('✖'), n + ': columnas creadas y verificadas (' + (t.match(/✔/g) || []).length + ')');
-    await p.click('#fdlg [data-cerrar]');
-  }
-  const xml = S.posts.find(x => x.ruta.endsWith('addfieldasxml'));
-  ok(xml.cuerpo.parameters.__metadata.type === 'SP.XmlSchemaFieldCreationInformation' && xml.cuerpo.parameters.Options === 24, 'addfieldasxml con tipo y AddFieldInternalNameHint');
-  await p.click('[data-acc=crearLista][data-lista=SEGUIMIENTO_EVENTOS]'); await p.click('#fdlg button[type=submit]'); await esperar(p, 1500);
-  ok((await p.textContent('#dlgMsg')).includes('Resultado verificado'), 'lista SEGUIMIENTO_EVENTOS creada y verificada');
-  await p.click('#fdlg [data-cerrar]');
-  ok((await p.textContent('#estado')).includes('lectura correcta'), 'estado tras completar estructura: ' + await p.textContent('#estado'));
   // Catálogo inicial
+  await pestana(p, 'ajustes');
   await p.click('[data-acc=semillaOblig]'); await esperar(p);
   await p.click('#fdlg button[type=submit]'); await esperar(p, 4000);
   ok((await p.textContent('#dlgMsg')).includes('26 creados'), 'catálogo inicial: ' + (await p.textContent('#dlgMsg')).slice(0, 60));
@@ -283,6 +275,27 @@ async function escenarioLigero(b) {
   await p.close();
 }
 
+async function escenarioSinPermisoDeGestion(b) {
+  console.log('\n== Usuario sin permiso para crear listas ni columnas ==');
+  const S = servidor('ligero'); S.sinGestion = true;
+  const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await enrutar(p, S);
+  await p.goto(PAGINA); await esperar(p, 1500);
+  ok(!S.posts.some(x => x.ruta.endsWith('addfieldasxml') || x.ruta === 'web/lists'), 'no intenta crear nada sin permiso');
+  const v = await p.textContent('#vista');
+  ok(v.includes('no tiene permiso') && v.includes('SEGUIMIENTO_EVENTOS'), 'explica qué falta y quién puede prepararlo');
+  ok((await p.textContent('#estado')).includes('revisar estructura'), 'estado: ' + await p.textContent('#estado'));
+  // Alta con una columna inexistente: error de configuración y no se envía nada
+  await pestana(p, 'obligaciones');
+  await p.click('[data-acc=nuevaOblig]'); await p.fill('[name=nombre]', 'Obligación con código'); await p.fill('[name=codigo]', 'X-1'); await p.fill('[name=dia]', '5');
+  const nPosts = S.posts.length;
+  await p.click('#fdlg button[type=submit]'); await esperar(p);
+  ok((await p.textContent('#dlgMsg')).includes('no existen las columnas') && S.posts.length === nPosts, 'columna inexistente: error de configuración y no se envía nada');
+  ok(errs.length === 0, 'sin errores de JavaScript ' + errs.join(' | '));
+  await p.close();
+}
+
 async function escenarioVerbose(b) {
   console.log('\n== SharePoint 2013 (solo verbose) ==');
   const S = servidor('verbose');
@@ -339,6 +352,7 @@ async function escenarioServidorQueInyecta(b) {
 const b = await chromium.launch();
 await escenarioServidorQueInyecta(b);
 await escenarioLigero(b);
+await escenarioSinPermisoDeGestion(b);
 await escenarioVerbose(b);
 await escenarioFueraDeSharePoint(b);
 await b.close();

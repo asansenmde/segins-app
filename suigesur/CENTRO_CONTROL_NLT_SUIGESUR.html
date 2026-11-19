@@ -88,7 +88,7 @@
   .pills a.on { background: var(--brand); color: #fff; }
   .aviso { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
   .error { background: var(--bad-bg); color: var(--bad); border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-weight: 600; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .error small { display: block; font-weight: 400; margin-top: 4px; }
+  .error small, .bien small, .aviso small { display: block; font-weight: 400; margin-top: 4px; }
   .bien { background: var(--ok-bg); color: var(--ok); border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-weight: 600; }
   .info { background: var(--info-bg); color: var(--info); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
   dialog { width: min(820px, calc(100vw - 16px)); max-height: calc(100vh - 16px); border: 0; border-radius: 14px; padding: 0; }
@@ -536,6 +536,8 @@
       permWeb = await api('Permisos del sitio', '', web.url + '/_api/web/EffectiveBasePermissions').then(permisos).catch(() => null);
       await Promise.all(LISTAS.map(cargarLista));
       enriquecer();
+      // La aplicación prepara sola las listas y columnas que le faltan (una vez por sesión; solo añade)
+      if (!preparadoSesion && pendienteEstructura().length) await prepararEstructura();
       cargadoEn = new Date();
     } catch (e) {
       errorGeneral = e; web = pref.sitio ? null : web;
@@ -825,13 +827,18 @@
 
   // ================= Vistas =================
   function sinConexion() {
-    if (cargando && !cargadoEn) return '<p class="muted">Conectando con SharePoint…<\/p>';
+    if (cargando && !cargadoEn) return '<p class="muted">' + (preparando ? 'Preparando las listas de SharePoint (solo se añade lo que falta)…' : 'Conectando con SharePoint…') + '<\/p>';
     if (errorGeneral) return htmlError(errorGeneral, 'No hay conexión con SharePoint') + '<p class="muted">No se muestran datos: la aplicación solo trabaja con los registros reales de SharePoint. Revisa <a href="#" data-ir="ajustes">Ajustes<\/a>.<\/p>';
     return '';
   }
+  let preparacionVista = false;
   function avisoListas(ns) {
-    const mal = ns.filter(n => L[n].estado !== 'ok');
-    return mal.length ? '<div class="aviso">' + mal.map(n => '<b>' + n + '<\/b>: ' + esc(L[n].estado) + (L[n].error ? ' — ' + esc(L[n].error.message) : '')).join('<br>') + '<br><a href="#" data-ir="ajustes">Revisar en Ajustes → Estructura<\/a><\/div>' : '';
+    let h = '';
+    if (preparacion && !preparacionVista) { h += htmlPreparacion(true); preparacionVista = true; }
+    else if (preparacion && (preparacion.errores.length || preparacion.sinPermiso.length)) h += htmlPreparacion(true).replace(/<div class="bien">[\s\S]*?<\/div>/, '');
+    const mal = ns.filter(n => L[n].estado !== 'ok' && L[n].estado !== 'no existe');
+    if (mal.length) h += '<div class="aviso">' + mal.map(n => '<b>' + n + '<\/b>: ' + esc(L[n].estado) + (L[n].error ? ' — ' + esc(L[n].error.message) : '')).join('<br>') + '<br><a href="#" data-ir="ajustes">Ver el detalle en Ajustes<\/a><\/div>';
+    return h;
   }
 
   // ---------- Inicio ----------
@@ -1177,8 +1184,17 @@
         '<div><label class="lbl">Permisos en el sitio<\/label><div>' + (pw ? (pw.gestionar ? '✔ Puede crear listas y columnas' : '✖ No puede crear listas ni columnas') : '—') + '<\/div><\/div><\/div>' +
         '<label class="lbl">Sitio de SharePoint (vacío = detectar a partir de esta página; el de SUIGESUR es …/et/SUIGESUR/JSUIGE, sin «/aplicaciones»)<\/label>' +
         '<div style="display:flex;gap:6px"><input id="aSitio" value="' + esc(pref.sitio) + '" placeholder="' + esc(location.origin) + '/et/SUIGESUR/JSUIGE"><button data-acc="reconectar">Conectar<\/button><\/div><\/div>';
-      h += '<div class="card"><h3>Estructura de las listas<span class="small muted">las columnas se localizan por nombre interno o por nombre visible<\/span><\/h3>' +
-        '<p class="small muted">Si una columna existe con otro nombre, asígnala en el desplegable. «Crear» solo añade lo que falta: nunca borra ni renombra listas, columnas ni datos.<\/p>' + LISTAS.map(estructuraLista).join('') + '<\/div>';
+      const pend = pendienteEstructura();
+      h += '<div class="card"><h3>Listas de SharePoint<span class="small muted">la aplicación las prepara sola al conectar<\/span><\/h3>' + htmlPreparacion(false) +
+        tabla(['Lista', 'Uso', 'Situación', '#Elementos'], LISTAS.map(n => {
+          const S = L[n], f = faltanCampos(n);
+          const sit = S.estado === 'ok' && !f.length ? '<span class="badge ok">✔ Lista y columnas correctas<\/span>' : S.estado === 'ok' ? '<span class="badge warn">Faltan ' + f.length + ' columnas<\/span>'
+            : S.estado === 'no existe' ? '<span class="badge warn">No existe<\/span>' : '<span class="badge bad">' + esc(S.estado) + '<\/span>';
+          return '<tr>' + td('<b>' + n + '<\/b>') + td(esc(DEF[n].titulo)) + td(sit) + td(S.info ? S.items.length : '—', 1) + '<\/tr>';
+        })) +
+        (pend.length ? '<p><button class="prim" data-acc="preparar"' + (preparando ? ' disabled' : '') + '>Completar las listas ahora<\/button> <span class="small muted">crea lo que falta y lo comprueba; no borra nada<\/span><\/p>' : '') +
+        '<details style="margin-top:10px"><summary class="small" style="cursor:pointer">Detalle técnico de columnas (solo para diagnóstico)<\/summary>' +
+        '<p class="small muted">Las columnas se reconocen por nombre interno o visible, incluidas las de la versión anterior. No es necesario cambiar nada aquí.<\/p>' + LISTAS.map(estructuraLista).join('') + '<\/details><\/div>';
       h += '<div class="card"><h3>Catálogos iniciales<\/h3><p class="small">Carga controlada: verás la relación y elegirás qué se crea. Solo se proponen los elementos que no existen (por nombre). ' +
         '<b>Antes de cargar las unidades, da de alta una a mano y comprueba que la verificación es correcta.<\/b><\/p>' +
         '<div class="acc" style="display:flex;gap:6px;flex-wrap:wrap"><button data-acc="semillaOblig"' + (L.NLT_MAESTRO.info ? '' : ' disabled') + '>Catálogo NLT inicial (' + SEMILLA_OBLIG.length + ' obligaciones)…<\/button>' +
@@ -1198,12 +1214,8 @@
     else h += '<span class="badge ' + (S.estado === 'no existe' ? 'warn' : 'bad') + '">' + esc(S.estado) + '<\/span>';
     if (p) h += ' · permisos: ' + [['ver', 'leer'], ['anadir', 'añadir'], ['editar', 'modificar'], ['borrar', 'eliminar'], ['gestionar', 'crear columnas']].map(x => (p[x[0]] ? '✔ ' : '✖ ') + x[1]).join(' · ');
     if (S.error) h += htmlError(S.error);
-    if (S.estado === 'no existe') {
-      h += '<p><button data-acc="crearLista" data-lista="' + n + '"' + (permWeb && !permWeb.gestionar ? ' disabled title="Sin permiso para crear listas"' : '') + '>Crear la lista ' + n + ' con sus columnas…<\/button><\/p><\/div>';
-      return h;
-    }
+    if (S.estado === 'no existe') return h + '<\/div>';
     if (!S.info) return h + '<\/div>';
-    const faltan = d.campos.filter(c => !(S.map[c.k] || []).length && (pref.mapa[n] || {})[c.k] !== '-');
     const opcCampos = S.campos.filter(c => !c.ReadOnlyField).sort((a, b) => porNombre(a.Title, b.Title)).map(c => [c.InternalName, c.Title + ' · ' + c.InternalName + ' (' + c.TypeAsString + ')']);
     h += '<div class="tw"><table class="t" style="margin-top:6px"><thead><tr><th>Dato de la app<\/th><th>Nombre interno previsto<\/th><th>Tipo previsto<\/th><th>Columna en SharePoint<\/th><th>Asignar<\/th><\/tr><\/thead><tbody>' +
       d.campos.map(c => {
@@ -1213,7 +1225,6 @@
         return '<tr>' + td(esc(c.d) + (c.req ? ' <span class="small muted">(obligatoria)<\/span>' : '')) + td('<code>' + esc(c.in) + '<\/code>') + td(esc(c.t)) + td(est) +
           td('<select data-mapa="' + n + '|' + c.k + '" style="min-width:160px">' + opciones([['', 'Automático'], ['-', '— No usar —']].concat(opcCampos), (pref.mapa[n] || {})[c.k] || '') + '<\/select>') + '<\/tr>';
       }).join('') + '<\/tbody><\/table><\/div>';
-    if (faltan.length) h += '<p><button data-acc="crearCampos" data-lista="' + n + '"' + (p && !p.gestionar ? ' disabled title="Sin permiso para crear columnas"' : '') + '>Crear las ' + faltan.length + ' columnas que faltan…<\/button> <span class="small muted">' + esc(faltan.map(c => c.in).join(', ')) + '<\/span><\/p>';
     return h + '<\/div>';
   }
 
@@ -1231,7 +1242,7 @@
     }
   }
   async function crearCampos(n, informe) {
-    const faltan = DEF[n].campos.filter(c => c.in !== 'Title' && !(L[n].map[c.k] || []).length && (pref.mapa[n] || {})[c.k] !== '-');
+    const faltan = faltanCampos(n);
     for (const c of faltan) {
       informe('Creando ' + n + '.' + c.in + '…');
       try {
@@ -1253,6 +1264,51 @@
       await enviar('Renombrar columna Title', n, urlL(n) + "/fields/getbyinternalnameortitle('Title')", { __metadata: { type: 'SP.Field' }, Title: DEF[n].campos[0].d }, { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }, 'título visible').catch(() => {});
     }
     return crearCampos(n, informe);
+  }
+
+  // ================= Preparación automática de la estructura =================
+  // Al conectar, la aplicación crea lo que le falte: listas y columnas. Solo añade; nunca borra, renombra ni cambia datos.
+  // Las columnas que ya existen con otro nombre (versión anterior) se reconocen y no se duplican.
+  let preparacion = null, preparando = false, preparadoSesion = false;
+  const faltanCampos = n => L[n].info ? DEF[n].campos.filter(c => c.in !== 'Title' && !(L[n].map[c.k] || []).length && !(L[n].incompatibles || {})[c.k] && (pref.mapa[n] || {})[c.k] !== '-') : [];
+  const pendienteEstructura = () => LISTAS.filter(n => L[n].estado === 'no existe' || faltanCampos(n).length);
+  async function prepararEstructura() {
+    const ns = pendienteEstructura();
+    if (!ns.length || preparando) return null;
+    preparando = true; preparadoSesion = true; pintarEstado(); render();
+    const r = { hora: hora(), listas: [], columnas: [], errores: [], sinPermiso: [] };
+    const anotar = (n, res) => res.forEach(l => { if (l[0] === '✔') r.columnas.push(n + ': ' + l.slice(2)); else r.errores.push(n + ': ' + l.slice(2)); });
+    const errCol = n => (t, er) => { if (er) r.errores.push(n + ': ' + er.replace(/^✖ /, '')); };
+    for (const n of ns) {
+      try {
+        if (L[n].estado === 'no existe') {
+          if (permWeb && !permWeb.gestionar) { r.sinPermiso.push('crear la lista ' + n); continue; }
+          anotar(n, await crearLista(n, errCol(n)));
+          r.listas.push(n);
+        } else {
+          const f = faltanCampos(n);
+          if (L[n].perm && !L[n].perm.gestionar) { r.sinPermiso.push('añadir a ' + n + ' las columnas ' + f.map(c => c.in).join(', ')); continue; }
+          anotar(n, await crearCampos(n, errCol(n)));
+        }
+      } catch (e) { r.errores.push(n + ': ' + e.message + (e.status ? ' (HTTP ' + e.status + ')' : '')); }
+    }
+    r.errores = unicos(r.errores);
+    preparacion = r; preparando = false;
+    registrar('Preparar estructura', '', '—', '', 0, !r.errores.length, r.listas.length + ' listas y ' + r.columnas.length + ' columnas creadas' + (r.errores.length ? ' · ' + r.errores.length + ' errores' : '') + (r.sinPermiso.length ? ' · sin permiso para: ' + r.sinPermiso.join('; ') : ''));
+    enriquecer(); pintarEstado();
+    return r;
+  }
+  function htmlPreparacion(compacto) {
+    const r = preparacion;
+    let h = '';
+    if (r && (r.listas.length || r.columnas.length)) {
+      h += '<div class="bien">Listas de SharePoint preparadas automáticamente (' + r.hora + ')' + (r.listas.length ? ': creadas las listas ' + esc(r.listas.join(', ')) : '') +
+        (r.columnas.length ? (r.listas.length ? ' y ' : ': ') + r.columnas.length + ' columnas añadidas y comprobadas' : '') + '. No se ha borrado ni modificado ningún dato.' +
+        (compacto ? '' : '<small>' + esc(r.columnas.join(' · ')) + '<\/small>') + '<\/div>';
+    }
+    if (r && r.errores.length) h += '<div class="error">No se ha podido completar la preparación de las listas:<small>' + r.errores.map(esc).join('<br>') + '<\/small><\/div>';
+    if (r && r.sinPermiso.length) h += '<div class="aviso">Faltan elementos en las listas y tu usuario no tiene permiso para crearlos (permiso «Administrar listas»). Basta con que el propietario del sitio abra esta página una vez: se prepararán solas.<small>Pendiente: ' + esc(r.sinPermiso.join('; ')) + '<\/small><\/div>';
+    return h;
   }
 
   // ================= Diálogos =================
@@ -1622,28 +1678,12 @@
       $$('[data-sem]', dlg).forEach(c => { const s = sem[Number(c.dataset.sem)]; if (existe(s)) { c.checked = false; c.disabled = true; } });
     };
   }
-  function dlgEstructura(n, crearL) {
-    const S = L[n];
-    const faltan = crearL ? DEF[n].campos.filter(c => c.in !== 'Title') : DEF[n].campos.filter(c => c.in !== 'Title' && !(S.map[c.k] || []).length && (pref.mapa[n] || {})[c.k] !== '-');
-    abrirDlg(crearL ? 'Crear la lista ' + n : 'Crear columnas en ' + n,
-      '<p>Se va a ' + (crearL ? 'crear la lista personalizada <b>' + n + '<\/b> en <code>' + esc(web.url) + '<\/code> y añadirle' : 'añadir a la lista <b>' + n + '<\/b>') + ' estas columnas:<\/p>' +
-      tabla(['Nombre interno', 'Nombre visible', 'Tipo'], faltan.map(c => '<tr>' + td('<code>' + c.in + '<\/code>') + td(esc(c.d)) + td(esc(c.t === 'Choice' ? 'Elección (admite otros valores): ' + c.choices.join(', ') : c.t === 'DateTime' ? 'Fecha (solo fecha)' : c.t === 'Note' ? 'Texto multilínea (sin formato)' : c.t === 'Boolean' ? 'Sí/No (Sí por defecto)' : c.t === 'Number' ? 'Número' : 'Texto (255)')) + '<\/tr>')) +
-      '<p class="small muted">No se borra ni se renombra nada existente' + (crearL ? '' : '') + '. Las columnas se añaden a la vista predeterminada. Al terminar se vuelve a leer la lista para comprobar que cada columna existe y con qué nombre interno.<\/p><div id="estProg" class="small"><\/div>',
-      '<button type="button" data-cerrar>Cancelar<\/button><button type="submit" class="prim">' + (crearL ? 'Crear lista y columnas' : 'Crear ' + faltan.length + ' columnas') + '<\/button>');
-    alEnviar = () => ejecutar(async () => {
-      const prog = (t, er) => { if (t) $('#estProg').textContent = t; if (er) $('#estProg').insertAdjacentHTML('beforeend', '<div class="error">' + esc(er) + '<\/div>'); };
-      const res = crearL ? await crearLista(n, prog) : await crearCampos(n, prog);
-      render();
-      msg('<div class="' + (res.every(r => r[0] === '✔') ? 'bien' : 'aviso') + '">Resultado verificado:<br>' + res.map(esc).join('<br>') + '<\/div>');
-      $('#fdlg button[type=submit]').hidden = true;
-    });
-  }
-
   // ================= Pintado general =================
   function pintarEstado() {
     const el = $('#estado');
     let txt, cls;
-    if (cargando) { txt = 'Leyendo SharePoint…'; cls = ''; }
+    if (preparando) { txt = 'Preparando las listas de SharePoint…'; cls = 'warn'; }
+    else if (cargando) { txt = 'Leyendo SharePoint…'; cls = ''; }
     else if (errorGeneral) { txt = errorGeneral.tipo === 'permiso' ? 'Sin permisos' : errorGeneral.tipo === 'config' ? 'Error de configuración' : 'Error de conexión'; cls = 'bad'; }
     else {
       const mal = LISTAS.filter(n => L[n].estado !== 'ok');
@@ -1742,8 +1782,9 @@
           EV().map(v => [v.id, v.tipo, v.titulo, v.uEtq, v.ob ? v.ob.nombre : '', fCorta(v.activacion), fCorta(v.limite), v.estadoN, v.vencido ? 'Sí' : '', fCorta(v.cierre), v.responsable, v.obs])), 'text/csv;charset=utf-8');
         case 'csvAnalisis': { const r = ultimoAnalisis || analisis(); return descargar('Analisis_' + pref.sub + '_' + hoy() + '.csv', csvFilas(r.cabs, r.filas), 'text/csv;charset=utf-8'); }
         case 'reconectar': pref.sitio = $('#aSitio').value.trim().replace(/\/+$/, ''); guardarPref(); web = null; yo = null; digest = null; return cargar();
-        case 'crearLista': return dlgEstructura(acc.dataset.lista, true);
-        case 'crearCampos': return dlgEstructura(acc.dataset.lista, false);
+        case 'preparar':
+          acc.disabled = true; acc.textContent = 'Preparando…';
+          return prepararEstructura().then(() => { preparacionVista = true; render(); }).catch(er => { render(); abrirDlg('No se han podido preparar las listas', htmlError(er), '<button type="button" data-cerrar>Cerrar<\/button>'); });
         case 'semillaOblig': return dlgSemilla('NLT_MAESTRO');
         case 'semillaUco': return dlgSemilla('UCO_SUIGESUR');
         case 'copiarDiag': {

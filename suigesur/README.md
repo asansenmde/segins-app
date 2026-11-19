@@ -18,8 +18,11 @@ navegador recuerda únicamente la pestaña, los filtros y la asignación de colu
    sustituyendo el archivo anterior («Reemplazar» / «Conservar ambos» no: reemplazar). Las listas no se tocan.
 2. Ábrelo desde la biblioteca en Edge o Chrome. El sitio (`/et/SUIGESUR/JSUIGE`) se detecta solo a partir de la
    ruta de la página; en *Ajustes* se puede fijar a mano.
-3. En *Ajustes → Estructura* revisa cada lista: qué columnas se han reconocido, cuáles faltan y tus permisos.
-   «Crear las N columnas que faltan» y «Crear la lista» solo **añaden**; nunca borran ni renombran.
+3. **Las listas se preparan solas.** Al conectar, la aplicación comprueba las cuatro listas y crea la que falte y las
+   columnas que falten, las vuelve a leer para comprobarlas e informa en *Inicio* y *Ajustes*. Solo **añade**: nunca
+   borra ni renombra listas, columnas ni datos, y reconoce las columnas de la versión anterior para no duplicarlas.
+   Se hace una vez por sesión; si el usuario no tiene permiso «Administrar listas», la página lo indica y basta con que
+   el propietario del sitio la abra una vez. El detalle de columnas está plegado en *Ajustes* solo para diagnóstico.
 4. Da de alta **una unidad a mano** y comprueba que la cabecera muestra «✔ Verificado en UCO_SUIGESUR · ID n».
    Solo entonces carga el catálogo NLT inicial y, si procede, la relación de unidades (*Ajustes → Catálogos iniciales*,
    con selección previa).
