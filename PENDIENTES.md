@@ -263,4 +263,7 @@ autoría.
       PENDIENTE: que el PSIT (sesión [PUNTOS], texto para-PUNTOS-quitar.md) y META acepten `#quitar=`.
     18/11/2026: SENDERO 2026-11-18 · 2: «Imprimir / PDF» y «Su referencia» pulsable. PENDIENTE DEL USUARIO: pasar «Escuchar
       MENSADEF» pulsando en un mensaje los botones «PDF» y «Enviar correo» de MENSADEF (para el PDF original y su envío).
+    19/11/2026: SENDERO (2026-11-18 · 11 con el arreglo de documentos): el enlace de MENSADEF del correo, el PSIT y META lleva a
+      la célula, no al mensaje. El usuario lo deja así. PENDIENTE (opcional): si da la forma de la dirección de un mensaje abierto
+      en MENSADEF (lo que va tras «#/», sin datos), poner el enlace directo.
 
