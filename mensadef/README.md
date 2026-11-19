@@ -554,4 +554,7 @@ con el formato *verbose* de SharePoint 2013.
   (`firmar-portafirmas.js`, `marcador-firmar-portafirmas.html`) localiza la petición, la deja como única marcada, ofrece «📄 Abrir
   el documento» (el usuario lo lee y pulsa «He leído») y «✍ Firmar» (botón Firmar del Portafirmas → AutoFirma, certificado y PIN
   del usuario). No se salta la lectura. Pruebas: `pruebas/firmar.mjs` (Portafirmas simulado) en `todas.sh`.
+- **2026-11-19 · 3:** si MENSADEF rechaza una escritura (p. ej. «Pasar a rúbrica» con HTTP 500), se enseña **el motivo que da**
+  (MensajeInformativo, Message, ExceptionMessage…) y, en rúbrica, que se pruebe desde MENSADEF. El paso a rúbrica no había
+  cambiado; el 500 lo da MENSADEF.
 

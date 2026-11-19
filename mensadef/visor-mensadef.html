@@ -534,7 +534,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-19 · 2';
+  var VERSION = '2026-11-19 · 3';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -2388,7 +2388,7 @@
       if (!b.dataset.seguro) { b.dataset.seguro = '1'; b.textContent = '¿Pasar a rúbrica? Pulsa otra vez'; b.classList.add('seguro'); avisoBandera(m, 'Se enviará al portafirmas de MENSADEF con tu usuario.', false); return; }
       b.disabled = true; b.textContent = 'Enviando a rúbrica…';
       pasarARubrica(m).then(function (info) { pintarTabla(); if (abierto === m) { abrir(m); avisoBandera(m, '✓ Pasado a rúbrica en MENSADEF' + (info ? ': ' + info : ''), false); } },
-        function (e) { b.disabled = false; delete b.dataset.seguro; b.classList.remove('seguro'); b.innerHTML = HTML_PASAR; avisoBandera(m, 'No se pudo pasar a rúbrica: ' + (e.message || e), true); });
+        function (e) { b.disabled = false; delete b.dataset.seguro; b.classList.remove('seguro'); b.innerHTML = HTML_PASAR; avisoBandera(m, 'No se pudo pasar a rúbrica: ' + (e.message || e) + '. Prueba a pasarlo desde MENSADEF («Abrir en MENSADEF»): si allí te deja, avísame.', true); });
     });
     if ($('selBandera')) $('selBandera').addEventListener('change', function () {
       var sel = this, id = sel.value; sel.disabled = true;
@@ -2576,7 +2576,12 @@
       return fetch(url, op).then(function (r) {
         x.estado = r.status;
         if (r.status === 406 && !otra) return pedirClave(apiCtx.email, apiCtx.url).then(function () { return intento(true); });
-        if (!r.ok) throw new Error('MENSADEF ha contestado HTTP ' + r.status + (r.status === 403 || r.status === 401 ? ' (sin permiso para ' + que + ')' : ''));
+        // 19/11/2026: si MENSADEF explica el error (MensajeInformativo, Message, ExceptionMessage…), se enseña el motivo
+        if (!r.ok) return r.text().catch(function () { return ''; }).then(function (t) {
+          var mot = ''; try { var j = JSON.parse(t); mot = j && (j.MensajeInformativo || j.mensajeInformativo || j.ExceptionMessage || j.Message || j.message || (j.error && (j.error.message || j.error))) || ''; } catch (e) { mot = /<|^\s*$/.test(t) ? '' : t; }
+          mot = String(mot || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+          throw new Error('MENSADEF ha contestado HTTP ' + r.status + (r.status === 403 || r.status === 401 ? ' (sin permiso para ' + que + ')' : '') + (mot ? ': «' + mot + '»' : ' (sin explicar el motivo)'));
+        });
         return r.text().then(function (t) { try { return t ? JSON.parse(t) : true; } catch (e) { return true; } }, function () { return true; });
       });
     };
