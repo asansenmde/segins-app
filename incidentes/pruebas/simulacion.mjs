@@ -18,7 +18,7 @@ let biblioOculta = false;
 let buzonMal = [], enviados = [], correoDenegado = false, listaDesc = '', soloCuentas = false;
 let reciclados = [];
 // Responsables de los avisos: null = falta la lista; gruposOcultos = quien tramita no puede ver los integrantes de los grupos
-let respLista = null, gruposOcultos = false;
+let respLista = null, gruposOcultos = false, sinDirectorio = false;   // sinDirectorio: como una unidad, no puede buscar cuentas
 const NOMBRE_DE = { 'sur1@et.mde.es': 'SUR UNO', 'sur2@et.mde.es': 'SUR DOS', 'nor1@et.mde.es': 'NOR UNO', 'can1@et.mde.es': 'CAN UNO', 'diacu1@et.mde.es': 'DIACU UNO', 'ige1@et.mde.es': 'IGE UNO', 'admin1@et.mde.es': 'ADMIN UNO' };
 const CUENTAS_NUEVAS = [{ Id: 301, Title: 'Uno, Ige', Email: 'ige1b@et.mde.es' }];   // otra cuenta (con buzón) de IGE UNO
 let expandRoto = false, faltaCampo = null, items, misGrupos = [], admin = false, sinSubstringof = false, ultimoFiltro = '', lecturaMinima = '';
@@ -108,6 +108,7 @@ async function prueba(verbose, escenario) {
     if (verbose && req.method() === 'GET' && (req.headers()['accept'] || '').includes('nometadata')) return r.fulfill({ status: 415, body: '' });
     const J = x => r.fulfill({ json: verbose ? { d: Array.isArray(x.value) ? { results: x.value, __next: x['odata.nextLink'] } : x } : x });
     const resto = u.split('/_api/')[1];
+    if (sinDirectorio && /^web\/(siteusers|getuserbyid|ensureuser)/.test(resto)) return r.fulfill({ status: 403, json: { error: { message: { value: 'Acceso denegado.' } } } });
     if (req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
       if (resto.startsWith("web/lists(guid'lib1')")) { biblioOculta = JSON.parse(req.postData()).Hidden; return r.fulfill({ status: 204, body: '' }); }
@@ -192,7 +193,8 @@ async function prueba(verbose, escenario) {
     if (resto.startsWith("web/lists/getbytitle('INCIDENTES RESPONSABLES')")) {
       if (!respLista) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
       if (!resto.includes('/items')) return J({ Id: 'rl', ListItemEntityTypeFullName: 'SP.Data.INCIDENTES_x0020_RESPONSABLESListItem' });
-      return J({ value: respLista.map(x => ({ ...x, Responsables: verbose ? { results: x.Responsables } : x.Responsables })) });
+      const conCuenta = l => l.map(u2 => /Responsables%2FName|Responsables\/Name/.test(u) ? { ...u2, Name: 'i:0#.w|et\\resp' + u2.Id } : u2);
+      return J({ value: respLista.map(x => ({ ...x, Responsables: verbose ? { results: conCuenta(x.Responsables) } : conCuenta(x.Responsables) })) });
     }
     const g = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users/);
     if (g && gruposOcultos && MIEMBROS[g[1]]) return r.fulfill({ status: 403, json: { error: { message: { value: 'Acceso denegado.' } } } });
@@ -340,6 +342,12 @@ async function prueba(verbose, escenario) {
     console.log(tag, '| fila SUIGESUR:', (await p.$eval('[data-respeditar="SUIGESUR"]', b => b.closest('tr').innerText)).replace(/\s+/g, ' '));
     gruposOcultos = true; posts.length = 0; await p.click('[data-respprobar="SUIGESUR"]'); await p.waitForTimeout(900);
     { const m = correos().pop(); console.log(tag, '| probar SUIGESUR (grupos ocultos):', m && m.To.results.join(','), '|', (await p.textContent('#respPrueba')).replace(/\s+/g, ' ').slice(0, 90)); }
+    // 20/11/2026: como una unidad (ni grupos ni directorio) y con Colabora rechazando direcciones: va a la cuenta del responsable
+    posts.length = 0; sinDirectorio = true; soloCuentas = true; globalThis.__rechazados = 0;
+    await p.reload(); await p.waitForTimeout(900); await p.click('#tabs a[data-v=ajustes]'); await p.waitForTimeout(600);
+    await p.click('[data-respprobar="SUIGESUR"]'); await p.waitForTimeout(1200);
+    { const m = correos().filter(x => /PRUEBA · AVISOS/.test(x.Subject)); console.log(tag, '| como una unidad, el aviso a SUIGESUR llega a:', JSON.stringify(m.map(x => x.To.results)), '| ¿a la cuenta del responsable?', m.some(x => x.To.results.includes('i:0#.w|et\\resp61'))); }
+    sinDirectorio = false; soloCuentas = false;
     posts.length = 0; await p.click('[data-respprobar="SUIGENOR"]'); await p.waitForTimeout(700);
     console.log(tag, '| probar SUIGENOR sin responsable:', (await p.textContent('#respPrueba')).replace(/\s+/g, ' ').slice(0, 80), '| correos:', correos().length);
     gruposOcultos = false;

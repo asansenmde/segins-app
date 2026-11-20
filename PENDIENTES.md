@@ -31,6 +31,9 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
      (de todas las aplicaciones) y en «Accesos» cada solicitud dice si su aviso salió o por qué no. Subirla y mirar en
      «Accesos › Preparación» si sale «✔ guardada» y, en la próxima solicitud, qué dice «✉ Aviso por correo». Después,
      llevar lo mismo a Pérdidas, VSA, META, Permisos y Cuadrante.
+   - **Incidentes 2026-11-20 · 2:** el aviso de un parte nuevo va a la CUENTA de los responsables de su SUIGE (leída de
+     la lista de responsables). Comprobar en Ajustes que cada SUIGE tiene al menos una persona en «Responsables» (no
+     solo «Otras direcciones») y mirar en el historial del próximo parte a quién llegó.
 11. **Cuadrante de servicios, versión 2026-11-20 · 2 (guardar, publicar y avisar por separado: ningún botón de guardar o publicar manda correos, provisional antes de publicar, reglas configurables, servicios debidos, cesión con devolución, mes publicado cerrado, vista en tabla, quitar componentes y correos revisados):** subir `cuadrante/colabora/cuadrante.html` a JSUIGE y seguir la
    «Puesta en marcha» de `cuadrante/README.md` (listas, grupos, gestores, permisos, componentes, festivos de 2027 y
    publicar enero). Revisar las reglas en Ajustes y registrar en «Cambios» los servicios que se deben de antes. Probar un cambio de servicio real con AutoFirma y TEMD (las tres firmas). Comprobar los correos con «Probar el aviso a los gestores», con «✉ Probar» de cada componente (en «Componentes»; si a alguien no le llega, cambiarle la cuenta en «Editar») y publicando un mes de prueba. Pendiente: traer los

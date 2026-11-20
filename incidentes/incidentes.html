@@ -227,7 +227,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-20 · 1';
+  var VERSION = '2026-11-20 · 2';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -844,11 +844,14 @@
   function cargarResponsables() {
     return api(urlResp() + '?$select=Id,ListItemEntityTypeFullName').then(function (l) {
       respInfo = l;
-      return todas(urlResp() + '/items?$top=500&$select=Id,Title,Correos,Responsables/Id,Responsables/Title,Responsables/EMail&$expand=Responsables');
+      // 20/11/2026: también la CUENTA de cada responsable (Responsables/Name), para que el aviso vaya a su cuenta aunque
+      // quien tramita (una unidad) no pueda buscarla en el directorio. Si el servidor no la da, se lee como antes.
+      var sel = '/items?$top=500&$select=Id,Title,Correos,Responsables/Id,Responsables/Title,Responsables/EMail';
+      return todas(urlResp() + sel + ',Responsables/Name&$expand=Responsables').catch(function () { return todas(urlResp() + sel + '&$expand=Responsables'); });
     }).then(function (l) {
       respError = '';
       respFilas = l.map(function (x) {
-        return { id: x.Id, esc: String(x.Title || '').trim().toUpperCase(), personas: lista(x.Responsables).map(function (u) { return { Id: u.Id, Title: u.Title, Email: u.EMail || '' }; }),
+        return { id: x.Id, esc: String(x.Title || '').trim().toUpperCase(), personas: lista(x.Responsables).map(function (u) { guardarCuenta(u.EMail, u.Name); apuntarPersona({ Id: u.Id, Title: u.Title, Email: u.EMail }); return { Id: u.Id, Title: u.Title, Email: u.EMail || '' }; }),
           correos: String(x.Correos || '').split(/[;,\s]+/).filter(function (c) { return /@/.test(c); }) };
       });
     }).catch(function (e) { if (e && e.status === 404) respInfo = null; else respError = (e && e.message) || String(e); respFilas = []; });
@@ -929,8 +932,8 @@
   function correosDeGrupos(nombres, sinVer) {
     return Promise.all(nombres.map(function (n) {
       if (cacheGrupos[n]) return Promise.resolve(cacheGrupos[n]);
-      return todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(n.replace(/'/g, "''")) + "')/users?$select=Id,Title,Email")
-        .then(function (l) { var c = l.map(function (u) { apuntarPersona(u); return u.Email; }).filter(Boolean); if (c.length) cacheGrupos[n] = c; return c; }).catch(function () { return []; })
+      return todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(n.replace(/'/g, "''")) + "')/users?$select=Id,Title,Email,LoginName")
+        .then(function (l) { var c = l.map(function (u) { apuntarPersona(u); guardarCuenta(u.Email, u.LoginName); return u.Email; }).filter(Boolean); if (c.length) cacheGrupos[n] = c; return c; }).catch(function () { return []; })
         .then(function (c) { if (!c.length && sinVer && sinVer.indexOf(n) < 0) sinVer.push(n); return c; });
     })).then(function (rs) { return [].concat.apply([], rs); });
   }
@@ -986,6 +989,8 @@
   // pero acepta las CUENTAS de usuario (et\\usuario): comprobado por el usuario con el diagnóstico del correo. Antes de enviar,
   // cada dirección se cambia por la cuenta de esa persona; si no se encuentra, se deja la dirección (y el envío robusto sigue).
   var cuentaCache = {};
+  // Cuenta ya conocida de una dirección (de la lista de responsables o de un grupo): no hace falta buscarla
+  var guardarCuenta = function (correo, login) { if (correo && login && /\|/.test(String(login))) cuentaCache[String(correo).toLowerCase()] = login; };
   function aCuentas(l) {
     return Promise.all((l || []).map(function (x) {
       if (!/@/.test(String(x))) return x;

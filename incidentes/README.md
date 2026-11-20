@@ -260,3 +260,15 @@ siempre se lo deja (no tiene acceso todavía), y las pendientes solo se leían a
 - **Preparación** dice si tu cuenta está guardada para el aviso y, si no, por qué (por ejemplo, si tu correo en Colabora
   no es la dirección fija del aviso).
 
+## Aviso de un incidente nuevo a la SUIGE (20/11/2026, versión 2026-11-20 · 2)
+
+Cuando la unidad pulsa «Informar a SUIGE», el aviso sale desde la cuenta de la unidad hacia los integrantes del grupo
+`SEGURIDAD_<SUIGE>` (si la unidad puede verlos, casi nunca) **y los responsables de esa SUIGE** puestos en
+Ajustes › «Responsables de los avisos por escalón» (lista «INCIDENTES RESPONSABLES»). El resultado queda en el historial
+del parte («Observaciones del expediente»).
+- Antes la página tenía que buscar la cuenta de cada responsable en el directorio, y una unidad no suele poder: el
+  correo se quedaba en su dirección y Colabora la rechaza. Ahora la cuenta se lee de la propia lista de responsables
+  (y de los grupos, cuando se ven), así que el aviso va a la cuenta aunque tramite una unidad.
+- Las «Otras direcciones» de esa tabla no tienen cuenta: Colabora puede rechazarlas. Mejor poner a las personas en
+  «Responsables».
+
