@@ -244,3 +244,19 @@ nivel de permiso sin «Eliminar elementos». Prueba: escenario «adjuntos y elim
 - **Copia cifrada entera** (13/11/2026): vuelve la ofuscación fuerte por defecto (`LIGERO=1` para el compactado), con todos
   los textos cifrados, también los nombres de campo y las expresiones regulares (se pasan a texto antes de ofuscar). Probada
   con la simulación completa normal y con `PROXY=1` (filtro de la red).
+
+## Solicitudes de acceso que no avisan (20/11/2026, versión 2026-11-20 · 1)
+
+El administrador no se enteraba de las solicitudes: el aviso lo envía quien solicita, desde su cuenta, y Colabora no
+siempre se lo deja (no tiene acceso todavía), y las pendientes solo se leían al abrir «Accesos». Ahora:
+- **Al abrir la página**, quien tiene Control total ve arriba un recuadro naranja «👥 Solicitudes de acceso pendientes»
+  con las de esta aplicación (botón «Revisarlas en Accesos») y cuántas hay en las demás (VSA, PÉRDIDAS…), leídas de la
+  lista común. Ya no depende del correo.
+- **Constancia del aviso:** quien solicita apunta en su solicitud (columna «Aviso por correo», `AvisoCorreo`, que la
+  página crea sola al entrar el administrador) si el correo salió, a quién, o por qué no. En «Accesos» cada solicitud
+  pendiente lo enseña: «✉ Aviso por correo: enviado a …» o, en rojo, «NO salió desde su cuenta: motivo».
+- **Una vía más para el correo:** si no encuentra la cuenta del administrador ni en la lista ni en el directorio, prueba
+  la que sale de la dirección fija (`asansen@et.mde.es` → `i:0#.w|et\asansen` y `et\asansen`).
+- **Preparación** dice si tu cuenta está guardada para el aviso y, si no, por qué (por ejemplo, si tu correo en Colabora
+  no es la dirección fija del aviso).
+

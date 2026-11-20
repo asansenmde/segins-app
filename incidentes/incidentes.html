@@ -227,7 +227,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-17 · 2';
+  var VERSION = '2026-11-20 · 1';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Incidentes de seguridad en instalaciones · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -402,7 +402,7 @@
         if (!esAdmin) pref.correo = true;
       }, function (e) { listaInfo = null; errLista = e; })
     ]).then(function () {
-      if (esAdmin) guardarCuentaAviso();   // deja su cuenta para los avisos de solicitudes de acceso
+      if (esAdmin) { guardarCuentaAviso(); revisarPendientesAcceso(); }   // deja su cuenta para los avisos y mira si hay solicitudes pendientes
       misSuiges = []; esDiacu = false; esIge = false;
       misGrupos.forEach(function (gr) {
         var x = String(gr).trim(), m = x.match(ROLES.suige);
@@ -789,7 +789,7 @@
         '<small>' + (SUB_VISTA[v[0]] || '') + '</small>' + (cuenta[v[0]] ? '<i>' + cuenta[v[0]] + '</i>' : '') + '</a>';
     }).join('');
     if (!cargadoEn) return;
-    $('#vista').innerHTML = (resultadoTramite ? '<div class="' + resultadoTramite.cls + ' resultado">' + resultadoTramite.html + ' <a href="#" data-quitarres="1" class="small">ocultar</a></div>' : '') + ({ panel: vistaPanel, pendientes: vistaPendientes, consulta: vistaConsulta, estadisticas: vistaEstadisticas, informe: vistaInforme, accesos: vistaAccesos, ajustes: vistaAjustes }[pref.vista] || vistaPanel)();
+    $('#vista').innerHTML = (pref.vista !== 'accesos' ? avisoPendientes() : '') + (resultadoTramite ? '<div class="' + resultadoTramite.cls + ' resultado">' + resultadoTramite.html + ' <a href="#" data-quitarres="1" class="small">ocultar</a></div>' : '') + ({ panel: vistaPanel, pendientes: vistaPendientes, consulta: vistaConsulta, estadisticas: vistaEstadisticas, informe: vistaInforme, accesos: vistaAccesos, ajustes: vistaAjustes }[pref.vista] || vistaPanel)();
     // Responsables de los avisos (Ajustes): buscador de personas de la fila que se edita
     if ($('#respPersonas')) { var fr = filaResp(respEdit); respCampo = campoPersonas($('#respPersonas'), fr ? fr.personas : []); if (!usuariosSitio) cargarUsuarios(); }
   }
@@ -1046,10 +1046,18 @@
               }, Promise.resolve(false)).then(function (hecho) { if (!hecho) rech.push(d); });
             });
           };
+          // A la dirección fija del administrador se le prueba además la cuenta que sale de ella (asansen@et.mde.es → et\asansen)
+          var deducidas = function () {
+            var k = String(d).toLowerCase(), m = k.match(/^([^@]+)@([^.]+)\./);
+            if (!m || (ACCESO.avisarCorreos || []).map(function (x) { return String(x).toLowerCase(); }).indexOf(k) < 0) return porNombre();
+            return ['i:0#.w|' + m[2] + '\\' + m[1], m[2] + '\\' + m[1]].reduce(function (q, a) {
+              return q.then(function (hecho) { return hecho || enviarUnoDirecto([a], [], [], c).then(function () { aceptados++; llegaron.push(d + ' (por la cuenta ' + a + ')'); return true; }, function () { return false; }); });
+            }, Promise.resolve(false)).then(function (hecho) { if (!hecho) return porNombre(); });
+          };
           return enviarUno([d], [], [], c).then(function () { aceptados++; llegaron.push(d); }, function () {
             return loginDe(d).then(function (lg) {
-              if (!lg) return porNombre();
-              return enviarUno([lg], [], [], c).then(function () { aceptados++; llegaron.push(d + ' (por su cuenta)'); }, porNombre);
+              if (!lg) return deducidas();
+              return enviarUno([lg], [], [], c).then(function () { aceptados++; llegaron.push(d + ' (por su cuenta)'); }, deducidas);
             });
           });
         });
@@ -1899,7 +1907,7 @@
   var aSol = function (x) {
     return { id: x.Id, nombre: x.Title || (x.Solicitante && x.Solicitante.Title) || '', sol: persona(x.Solicitante), correo: x.Correo || (x.Solicitante && x.Solicitante.EMail) || '', empleo: x.Empleo || '',
       mando: x.MandoSegundo || '', unidad: x.Unidad || '', tel: x.Telefono || '', papel: x.Papel || '', motivo: x.Motivo || '', estado: String(x.EstadoSolicitud || 'PENDIENTE').toUpperCase(),
-      grupo: x.GrupoAsignado || '', resolucion: x.Resolucion || '', resuelto: x.ResueltoPor && x.ResueltoPor.Title || '', fechaRes: x.FechaResolucion, creado: x.Created, modificado: x.Modified };
+      grupo: x.GrupoAsignado || '', resolucion: x.Resolucion || '', resuelto: x.ResueltoPor && x.ResueltoPor.Title || '', fechaRes: x.FechaResolucion, creado: x.Created, modificado: x.Modified, aviso: x.AvisoCorreo || '' };
   };
   // Mis solicitudes (con «leer solo sus elementos» en la lista, cada uno ve solo las suyas)
   function misSolicitudes() {
@@ -1978,11 +1986,15 @@
     boton.disabled = true;
     var c = { Title: yo.Title, SolicitanteId: yo.Id, Correo: yo.Email, Empleo: q('empleo').value, MandoSegundo: mando || 'Otro', Unidad: unidad, Telefono: q('tel').value.trim(),
       Papel: q('papel').value, Motivo: q('motivo').value.trim(), Aplicacion: ACCESO.app, EstadoSolicitud: 'PENDIENTE' };
+    var l0 = {};
     api(urlAcc() + '?$select=ListItemEntityTypeFullName').then(function (l) {
+      l0 = l;
       return enviarSP(urlAcc() + '/items', Object.assign({ __metadata: { type: l.ListItemEntityTypeFullName } }, c), 'No tienes permiso para escribir en la lista de solicitudes de acceso');
     }).then(function (n) {
       var s = aSol(Object.assign({ Id: n && (n.Id || n.ID), Created: new Date().toISOString() }, c));
-      return correoAcceso('nueva', s).then(enviarCorreo).catch(function (e) { return { ok: false, n: 0, motivo: e.message || String(e), rechazados: [] }; }).then(function (r) {
+      return correoAcceso('nueva', s).then(enviarCorreo).catch(function (e) { return { ok: false, n: 0, motivo: e.message || String(e), rechazados: [], desvios: [], llegaron: [] }; }).then(function (r) {
+        // Queda apuntado en la solicitud (columna «AvisoCorreo», si existe) para que el administrador sepa si salió y por qué no
+        if (s.id) enviarSP(urlAcc() + '/items(' + s.id + ')', { __metadata: { type: l0.ListItemEntityTypeFullName }, AvisoCorreo: fHora(new Date()) + ' · ' + textoAviso(r) }, 'sin permiso', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }).catch(function () {});
         // Se dice si el aviso a los responsables ha salido (la solicitud queda guardada igualmente)
         var bien = r.ok && !(r.rechazados && r.rechazados.length);
         msgSolAcc = bien ? '<div class="okmsg" style="margin-top:8px">✓ Se ha avisado por correo al administrador de los accesos.</div>' :
@@ -2097,7 +2109,7 @@
     ]).then(function () {
       if (!accInfo) { accSols = []; accAbierta = null; accFaltan = []; return; }
       guardarCuentaAviso();
-      return leerColumnas().then(leerApertura).then(function () { if (accFaltan.length) { accSols = []; return; } return todas(urlAcc() + '/items?$top=500&$select=' + SEL_ACC.join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent("Aplicacion eq '" + ACCESO.app + "'"))
+      return leerColumnas().then(asegurarColAviso).then(leerApertura).then(function () { if (accFaltan.length) { accSols = []; return; } return todas(urlAcc() + '/items?$top=500&$select=' + SEL_ACC.concat(accHayAviso ? ['AvisoCorreo'] : []).join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent("Aplicacion eq '" + ACCESO.app + "'"))
         .then(function (l) { accSols = l.map(aSol).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); }); }); });
     }).then(function () {
       return leerEscritura();
@@ -2112,7 +2124,34 @@
     if (p[1] === 'suige') { var su = normSuige(s.mando) || normSuige(s.unidad); return su ? GRUPO_CORREO.suige(su)[0] : ''; }
     return p[1] === 'ige' ? 'SEGURIDAD_IGE' : ACCESO.grupoBae;
   };
-  var nPendAcc = function () { return accSols ? accSols.filter(function (s) { return s.estado === 'PENDIENTE'; }).length : 0; };
+  var nPendAcc = function () { return accSols ? accSols.filter(function (s) { return s.estado === 'PENDIENTE'; }).length : (pendTodas && pendTodas[ACCESO.app]) || 0; };
+  // 20/11/2026: el administrador se entera de las solicitudes pendientes al abrir la página, aunque no le llegue el
+  // correo y no entre en «Accesos». Se leen las de TODAS las aplicaciones de la lista común (él ve todas).
+  var pendTodas = null;
+  function revisarPendientesAcceso() {
+    return todas(urlAcc() + '/items?$top=500&$select=Id,Aplicacion,EstadoSolicitud&$filter=' + encodeURIComponent("EstadoSolicitud eq 'PENDIENTE'")).then(function (l) {
+      var o = {}; l.forEach(function (x) { if (String(x.EstadoSolicitud || 'PENDIENTE').toUpperCase() !== 'PENDIENTE') return; var a = String(x.Aplicacion || '¿?'); o[a] = (o[a] || 0) + 1; });
+      pendTodas = o; render();
+    }, function () { pendTodas = null; }).then(asegurarColAviso);
+  }
+  function avisoPendientes() {
+    if (!esAdmin || !pendTodas) return '';
+    var aqui = nPendAcc(), otras = Object.keys(pendTodas).filter(function (a) { return a !== ACCESO.app; }).sort();
+    if (!aqui && !otras.length) return '';
+    return '<div class="card pendacc" style="border:2px solid #e67e22;background:#fff7ec;color:#5a3a00">👥 <b>Solicitudes de acceso pendientes</b>: ' +
+      (aqui ? '<b>' + aqui + '</b> en esta aplicación <a href="#" data-iraccesos="1" class="btn">Revisarlas en «Accesos»</a>' : 'ninguna en esta aplicación') +
+      (otras.length ? '<div class="small" style="margin-top:4px">En otras aplicaciones (revísalas en cada una): ' + otras.map(function (a) { return esc(a) + ' (' + pendTodas[a] + ')'; }).join(', ') + '.</div>' : '') + '</div>';
+  }
+  // Columna «AvisoCorreo» de la lista común: quien solicita apunta ahí si su aviso salió o por qué no (diagnóstico)
+  var accHayAviso = false;
+  var CAMPO_AVISO = '<Field Type="Note" Name="AvisoCorreo" StaticName="AvisoCorreo" DisplayName="Aviso por correo" NumLines="3" RichText="FALSE" />';
+  function asegurarColAviso() {
+    return todas(urlAcc() + '/fields?$select=InternalName&$top=500').then(function (l) {
+      accHayAviso = l.some(function (x) { return x.InternalName === 'AvisoCorreo'; });
+      if (accHayAviso || !esAdmin) return;
+      return enviarSP(urlAcc() + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: CAMPO_AVISO, Options: 8 } }, 'sin permiso').then(function () { accHayAviso = true; });
+    }).catch(function () {});
+  }
   function vistaAccesos() {
     if (!esAdmin) return '<div class="card vacio">Solo para quien tiene «Control total» en la lista.</div>';
     if (!accEstado) { cargarAccesos(); return '<div class="card"><p class="muted">Cargando solicitudes…</p></div>'; }
@@ -2129,7 +2168,8 @@
         '✕ Falta el grupo «' + esc(ACCESO.grupoBae) + '» para las unidades que notifican incidentes. <button class="prim" data-acccreargrupo="1">Crear el grupo</button>') + '</p>' +
       (accInfo ? '<p class="small">📋 ' + (accInfo.RootFolder && accInfo.RootFolder.ServerRelativeUrl ? '<a href="' + esc(location.origin + accInfo.RootFolder.ServerRelativeUrl) + '" target="_blank" rel="noopener">Abrir la lista «' + esc(ACCESO.lista) + '»</a> · ' : '') +
         '<a href="' + esc(web + '/_layouts/15/SubNew.aspx?List=' + encodeURIComponent('{' + String(accInfo.Id).replace(/[{}]/g, '') + '}') + '&Source=' + encodeURIComponent(location.href)) + '" target="_blank" rel="noopener">🔔 Avisarme por correo de cada solicitud nueva (alerta de SharePoint)</a>' +
-        '<br><span class="muted">El aviso de la página va a tu CUENTA, que queda guardada en la descripción de la lista' + (cuentasAviso(accInfo.Description)[String(yo.Email || '').toLowerCase()] ? ' (✔ guardada)' : '') + '. Si Colabora no deja enviarlo a quien solicita, a esa persona le sale un botón para avisarte desde Outlook.</span></p>' : '') +
+        '<br><span class="muted">El aviso de la página va a tu CUENTA, que queda guardada en la descripción de la lista' + (cuentasAviso(accInfo.Description)[String(yo.Email || '').toLowerCase()] ? ' (✔ guardada)' : (ACCESO.avisarCorreos || []).map(function (x) { return String(x).toLowerCase(); }).indexOf(String(yo.Email || '').toLowerCase()) < 0 ?
+          ' <b class="txt-bad">(✕ no se guarda: tu correo en Colabora es «' + esc(yo.Email || 'ninguno') + '» y el aviso está puesto para «' + esc((ACCESO.avisarCorreos || []).join(', ')) + '»)</b>' : ' <b class="txt-bad">(✕ aún sin guardar: vuelve a entrar)</b>') + '. Si Colabora no deja enviarlo a quien solicita, a esa persona le sale un botón para avisarte desde Outlook.</span></p>' : '') +
       lineaEscritura() +
       '<p class="small">✉ Cada solicitud nueva se avisa por correo a <b>' + esc((ACCESO.avisarCorreos || []).concat(ACCESO.avisar).join(', ') || 'los propietarios del sitio') + '</b>. ' +
         '<button data-accprueba="1">Probar el aviso</button></p><div id="accPrueba"></div>' +
@@ -2142,7 +2182,9 @@
     var ficha = function (s) {
       return '<b>' + esc(s.nombre) + '</b>' + (s.empleo ? ' · ' + esc(s.empleo) : '') + '<div class="small">' + esc([s.unidad, s.mando].filter(Boolean).join(' · ')) + '</div>' +
         '<div class="small muted">' + esc([s.correo, s.tel].filter(Boolean).join(' · ')) + ' · solicitado el ' + esc(fHora(s.creado)) + '</div>' +
-        '<div class="small">Papel: <b>' + esc(s.papel) + '</b>' + (s.motivo ? ' · ' + esc(s.motivo) : '') + '</div>';
+        '<div class="small">Papel: <b>' + esc(s.papel) + '</b>' + (s.motivo ? ' · ' + esc(s.motivo) : '') + '</div>' +
+        (s.estado === 'PENDIENTE' ? '<div class="small">' + (!s.aviso ? '<span class="muted">✉ Aviso por correo: sin constancia (solicitud anterior al 20/11/2026).</span>' :
+          /^enviado/.test(s.aviso) ? '<span style="color:#1e7e34">✉ Aviso por correo: ' + esc(s.aviso) + '</span>' : '<span class="txt-bad">✉ El aviso por correo NO salió desde su cuenta: ' + esc(s.aviso) + '</span>') + '</div>' : '');
     };
     var lPend = pend.map(function (s) {
       var sug = grupoSugerido(s);
@@ -2360,6 +2402,7 @@
     var edp = el.closest('[data-editar]');
     if (edp) { var tp = items.find(function (x) { return x.id === Number(edp.dataset.editar); }); if (tp) { if (FORM_PROPIO) formulario(tp); else window.open(urlFormulario('editar', tp.id), '_blank'); } return; }
     if (el.closest('[data-quitarres]')) { e.preventDefault(); resultadoTramite = null; render(); return; }
+    if (el.closest('[data-iraccesos]')) { e.preventDefault(); pref.vista = 'accesos'; accEstado = ''; render(); return; }
     if (el.closest('[data-cerrar]')) { $('#dlg').close(); dlgId = null; return; }
     if (el.closest('[data-respcrear]')) { crearListaResp(el.closest('[data-respcrear]')); return; }
     if (el.closest('[data-respeditar]')) { respEdit = el.closest('[data-respeditar]').dataset.respeditar; render(); return; }

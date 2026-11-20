@@ -27,6 +27,10 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
    2026-11-17 · 3, y **abrir cada una una vez con la cuenta del administrador** (deja su cuenta guardada en la descripción
    de la lista de solicitudes; en Accesos sale «✔ guardada»). Probar con alguien sin acceso: le debe llegar el aviso o
    salirle «Falta un paso» con el botón de Outlook.
+   - **Incidentes 2026-11-20 · 1 (20/11/2026):** al entrar con Control total sale el recuadro de solicitudes pendientes
+     (de todas las aplicaciones) y en «Accesos» cada solicitud dice si su aviso salió o por qué no. Subirla y mirar en
+     «Accesos › Preparación» si sale «✔ guardada» y, en la próxima solicitud, qué dice «✉ Aviso por correo». Después,
+     llevar lo mismo a Pérdidas, VSA, META, Permisos y Cuadrante.
 11. **Cuadrante de servicios, versión 2026-11-20 · 2 (guardar, publicar y avisar por separado: ningún botón de guardar o publicar manda correos, provisional antes de publicar, reglas configurables, servicios debidos, cesión con devolución, mes publicado cerrado, vista en tabla, quitar componentes y correos revisados):** subir `cuadrante/colabora/cuadrante.html` a JSUIGE y seguir la
    «Puesta en marcha» de `cuadrante/README.md` (listas, grupos, gestores, permisos, componentes, festivos de 2027 y
    publicar enero). Revisar las reglas en Ajustes y registrar en «Cambios» los servicios que se deben de antes. Probar un cambio de servicio real con AutoFirma y TEMD (las tres firmas). Comprobar los correos con «Probar el aviso a los gestores», con «✉ Probar» de cada componente (en «Componentes»; si a alguien no le llega, cambiarle la cuenta en «Editar») y publicando un mes de prueba. Pendiente: traer los

@@ -79,7 +79,7 @@ async function prueba(verbose, escenario) {
   nuevoStore();
   biblioOculta = false;
   sols = [{ Id: 1, Title: 'JEFE UNIDAD B', Solicitante: P[62], Correo: P[62].EMail, Empleo: 'CAPITAN', MandoSegundo: 'SUIGENOR', Unidad: 'BASE NORTE', Telefono: '600', Papel: 'Unidad: notificar incidentes de seguridad', Motivo: 'Jefe de seguridad', Aplicacion: 'INCIDENTES', EstadoSolicitud: 'PENDIENTE', Created: d(-1), Modified: d(-1) },
-    { Id: 3, Title: 'JEFE UNIDAD A', Solicitante: P[61], Correo: P[61].EMail, Empleo: 'TENIENTE', MandoSegundo: 'SUIGESUR', Unidad: 'ACUARTELAMIENTO X', Telefono: '601', Papel: 'Unidad: notificar incidentes de seguridad', Motivo: 'Curiosidad', Aplicacion: 'INCIDENTES', EstadoSolicitud: 'PENDIENTE', Created: d(-2), Modified: d(-2) },
+    { Id: 3, Title: 'JEFE UNIDAD A', Solicitante: P[61], Correo: P[61].EMail, Empleo: 'TENIENTE', MandoSegundo: 'SUIGESUR', Unidad: 'ACUARTELAMIENTO X', Telefono: '601', Papel: 'Unidad: notificar incidentes de seguridad', Motivo: 'Curiosidad', Aplicacion: 'INCIDENTES', EstadoSolicitud: 'PENDIENTE', AvisoCorreo: '19/11/2026 10:00 · NO ENVIADO (Acceso denegado)', Created: d(-2), Modified: d(-2) },
     { Id: 2, Title: 'OTRO', Solicitante: P[61], Correo: P[61].EMail, Papel: 'x', Aplicacion: 'VSA', EstadoSolicitud: 'PENDIENTE', Created: d(-1), Modified: d(-1) }];
   unidades = [{ Id: 61, Title: P[61].Title, Email: P[61].EMail, LoginName: 'i:0#.w|et\\jefea' }]; anadidos = [];
   if (escenario === 'sin acceso' || escenario === 'solo información') items = items.filter(x => !(x.Author && x.Author.Id === YO.Id) && !(x.ResponsableDeLaInformacion && x.ResponsableDeLaInformacion.Id === YO.Id));
@@ -347,7 +347,10 @@ async function prueba(verbose, escenario) {
     console.log(tag, '| errores:', errs); await b.close(); return;
   }
   if (escenario === 'accesos') {
-    await p.click('#tabs a[data-v=accesos]'); await p.waitForTimeout(800);
+    // 20/11/2026: al entrar, el administrador ve las solicitudes pendientes (de esta y de las otras aplicaciones)
+    console.log(tag, '| recuadro de pendientes al entrar:', (await p.textContent('#vista .pendacc').catch(() => 'NO SALE')).replace(/\s+/g, ' ').slice(0, 200));
+    await p.click('[data-iraccesos]'); await p.waitForTimeout(800);
+    console.log(tag, '| en Accesos, constancia del aviso:', (await p.$$eval('[data-sol]', n => n.map(x => (x.textContent.match(/✉[^]*?(?=Dar acceso)/) || ['?'])[0].trim().slice(0, 140)).join(' / '))));
     console.log(tag, '| enlaces de la lista:', await p.$$eval('#vista a[href*="SubNew.aspx"], #vista a[href*="/Lists/"]', n => n.map(x => x.textContent.slice(0, 40) + ' → ' + x.getAttribute('href').replace(/^https:\/\/colabora\.mdef\.es/, '').slice(0, 90)).join(' · ')));
     console.log(tag, '| pestaña:', await p.textContent('#tabs a[data-v=accesos]'), '| pendientes (solo INCIDENTES):', await p.$$eval('[data-sol]', n => n.length), '| grupo propuesto:', await p.$eval('.accGrupo', s => s.value));
     posts.length = 0; await p.click('[data-accprueba]'); await p.waitForTimeout(800);
@@ -625,6 +628,7 @@ misGrupos = []; buzonMal = ['admin1@et.mde.es', 'asansen@et.mde.es', 'i:0#.w|et\
 YO.EMail = 'asansen@et.mde.es'; misGrupos = TODOS; admin = true; listaDesc = 'Lista común'; await prueba(false, 'solo información'); YO.EMail = 'usuario@et.mde.es'; admin = false;
 console.log('aviso directo | descripción guardada:', JSON.stringify(listaDesc));
 misGrupos = []; soloCuentas = true; await prueba(true, 'sin acceso'); correoDenegado = true; await prueba(false, 'sin acceso'); correoDenegado = false; soloCuentas = false; listaDesc = '';
+console.log('constancia del aviso en las solicitudes:', JSON.stringify(sols.filter(x => x.AvisoCorreo).map(x => x.Id + ': ' + x.AvisoCorreo.slice(18, 140))));
 misGrupos = TODOS; admin = true; await prueba(false, 'portal'); await prueba(false, 'accesos'); await prueba(true, 'accesos'); admin = false;
 misGrupos = TODOS; admin = true; await prueba(false, 'enlace'); await prueba(false, 'ciclo'); await prueba(true, 'ciclo');
 misGrupos = ['INCIDENTES_UNIDADES']; admin = false; soloLectura = true; await prueba(false, 'unidad sin permiso'); await prueba(true, 'unidad sin permiso'); soloLectura = false;
