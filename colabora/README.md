@@ -348,3 +348,8 @@ Los datos no salen del servidor: la página no carga nada de internet ni envía 
 
 Funciona con JSON ligero y, si el servidor no lo admite, con el formato *verbose* de SharePoint 2013.
 Requiere Edge o Chrome (no modo Internet Explorer).
+
+## Sin formulario de Colabora (23/11/2026, versión 2026-11-23 · 1)
+
+Quitados «Prefiero el formulario de Colabora» (alta y modificación) y «Ver en Colabora» de la ficha, en el Gestor
+común, META y la copia de pruebas (petición del usuario): todo se hace en la página.

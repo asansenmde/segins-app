@@ -301,7 +301,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-17 · 3';
+  var VERSION = '2026-11-23 · 1';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -2656,7 +2656,7 @@
         : 'Se creará en la lista compartida de Colabora, igual que si lo dieras de alta allí: los avisos o flujos automáticos de la lista se ejecutarán como siempre.') + '</p>' +
       '<div class="error" id="nError" hidden></div>' +
       '<div class="acciones"><button type="button" data-cerrar>Cancelar</button><button type="button" class="btn prim" id="nCrear">' + (t ? 'Guardar cambios' : PROPIO ? 'Crear tarea' : 'Crear en Colabora') + '</button></div>' +
-      (base ? '<p class="small"><a target="_top" href="' + esc(base + (t ? '/EditForm.aspx?ID=' + t.id + '&' : '/NewForm.aspx?') + 'Source=' + encodeURIComponent(enlacePagina())) + '">Prefiero el formulario de Colabora</a></p>' : '') + '</div>';
+      '</div>';   // 23/11/2026: sin «Prefiero el formulario de Colabora» (petición del usuario)
     dlg.showModal(); dlg.scrollTop = 0;
     var porId = function (id) { return t && t.usuarios.find(function (u) { return u.Id === id; }); };
     var implicados = t ? t.implicadosIds.map(porId).filter(Boolean) : [];
@@ -3107,7 +3107,7 @@
         '<span class="sep"></span><button type="button" class="btn rojo" data-eliminar="' + t.id + '">🗑 Eliminar</button><span id="estMsg" class="small"></span></div>' +
       '<div class="acciones"><button type="button" class="btn prim" data-modificar="' + t.id + '">✎ Modificar</button>' +
         (t.correoResp.length && t.clase !== 'hecha' ? '<a class="btn" href="' + esc(correoTarea(t)) + '">✉ Recordar por correo</a>' : '') +
-        (base ? '<a class="btn" target="_top" href="' + esc(base + '/DispForm.aspx?ID=' + t.id + '&Source=' + volver) + '">Ver en Colabora</a>' : '') + '</div>' +
+        '</div>' +
       (t.clase !== 'hecha' && destinatarios(t).para.length ? '<div id="correoAsig" style="margin-top:10px"><button type="button" data-asignar="' + t.id + '">✉ Enviar aviso de asignación</button></div>' : '<div id="correoAsig"></div>') + '</div><div class="ficha-com">') +
       '<h3 style="margin:0 0 6px">Comentarios <span class="small muted">(' + esc(NOMBRE_CAMPO[campoComentarios()]) + ')</span></h3>' +
       '<textarea id="comTxt" rows="6" placeholder="Escribe un comentario…" ' + AREA + '></textarea>' +

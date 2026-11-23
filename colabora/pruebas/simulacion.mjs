@@ -356,7 +356,11 @@ async function prueba() {
   // El enlace de los correos abre la ficha del asunto en la página (y la ficha ya no enlaza al formulario de SharePoint)
   await p.goto('https://colabora.mdef.es' + WEB + '/seguridad/Documentos%20compartidos/tareas-nlt-colabora.html?id=5'); await p.waitForTimeout(1800);
   console.log('abrir con ?id=5:', await p.evaluate(() => document.querySelector('#dlg').open), '|', await p.textContent('#dlg h2').catch(() => ''), '| URL limpia:', !p.url().includes('?id='),
-    '| «Ver en Colabora» en la ficha (se mantiene):', await p.$$eval('#dlg a[href*="Form.aspx"]', n => n.length));
+    '| enlaces al formulario de Colabora en la ficha (deben ser 0):', await p.$$eval('#dlg a[href*="Form.aspx"]', n => n.length));
+  if (await p.$$eval('#dlg a[href*="Form.aspx"]', n => n.length)) console.log('HAY FALLOS: la ficha aún enlaza al formulario de Colabora');
+  // 23/11/2026: ni «Prefiero el formulario de Colabora» en alta/modificación
+  await p.click('#dlg [data-modificar]').catch(() => {}); await p.waitForTimeout(600);
+  { const n = await p.$$eval('#dlg a', a => a.filter(x => /formulario de Colabora/i.test(x.textContent) || /NewForm|EditForm|DispForm/i.test(x.href)).length); console.log('«Prefiero el formulario de Colabora» al modificar:', n); if (n) console.log('HAY FALLOS: queda el enlace al formulario'); }
   // Incoherencias heredadas: la situación la manda el estado y se avisa con ⚠
   await p.click('#dlg [data-cerrar]').catch(() => {});
   await p.selectOption('#fquien', 'todos'); await p.fill('#fq', 'exp 3'); await p.waitForTimeout(500);
