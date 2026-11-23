@@ -170,6 +170,7 @@
   .sugs button:hover { background: var(--surface-2); }
   .elegido { font-weight: 600; margin-top: 4px; }
   @media (max-width: 600px) { .kpis { grid-template-columns: repeat(2, 1fr); } .dia { min-height: 54px; } }
+  ul.adjs { list-style: none; padding: 0; margin: 4px 0; } ul.adjs li { padding: 4px 0; border-bottom: 1px solid var(--line, #ddd); } ul.adjs a { text-decoration: none; font-weight: 600; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -215,7 +216,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-11-17 · 1';
+  var VERSION = '2026-11-23 · 1';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
   // Copia de pruebas («node proteger.mjs --pruebas» genera permisos-pruebas.html con PRUEBAS = true): trabaja sobre
@@ -928,7 +929,7 @@
       '<label class="lbl">Sitio</label><input id="aSitio" value="' + esc(pref.sitio) + '">' +
       '<label class="lbl">Lista</label><input id="aLista" value="' + esc(pref.lista) + '">' +
       '<p class="small muted">Usuario: ' + esc(yo ? yo.Title : '—') + '<br>' + esc(alcanceTxt()) + (misGrupos.length ? '<br>Tus grupos: ' + esc(misGrupos.join(', ')) : '') + '</p>' +
-      '<label class="check"><input type="checkbox" id="aCorreo"' + (pref.correo ? ' checked' : '') + '> Enviar los avisos por correo al tramitar (como el formulario de Colabora)</label></div>' +
+      '<label class="check"><input type="checkbox" id="aCorreo"' + (pref.correo ? ' checked' : '') + '> Enviar los avisos por correo al tramitar</label></div>' +
       '<div class="card"><h3 style="margin-top:0">👤 Sustituciones de jefes de unidad</h3><div id="jefPrep">' + htmlPrepJef() + '</div></div>' +
       '<div class="card"><h3 style="margin-top:0">✉ Correo de prueba</h3><p class="small muted">Comprueba si Colabora acepta y entrega los avisos a unas direcciones (separadas por «;»). Si alguna no la acepta, lo dice.</p>' +
       '<input id="aPruebaA" value="' + esc(yo && yo.Email ? yo.Email : '') + '"><div class="acciones"><button data-pruebacorreo="1">Enviar correo de prueba</button></div><div id="aPrueba"></div></div>' +
@@ -1853,7 +1854,43 @@
   }
 
   // ---------- Correo (lo envía el propio Colabora; si no puede, se prepara en Outlook) ----------
-  var enlaceFormulario = function (t) { return listaInfo && listaInfo.RootFolder ? location.origin + listaInfo.RootFolder.ServerRelativeUrl + '/Item/displayifs.aspx?ID=' + t.id : ''; };
+  // 23/11/2026: sin enlaces a los formularios de la lista (petición del usuario). Los documentos se adjuntan y se abren aquí.
+  function leerAdjuntos(id) {
+    return todas(urlLista() + '/items(' + id + ')/AttachmentFiles?$select=FileName,ServerRelativeUrl').then(function (l) {
+      return l.map(function (f) { return { nombre: f.FileName || '', url: location.origin + encodeURI(f.ServerRelativeUrl || '') }; }).filter(function (f) { return f.nombre; });
+    });
+  }
+  // Sube los archivos a la solicitud (AttachmentFiles). Devuelve los nombres que no se pudieron subir.
+  function subirAdjuntos(id, archivos) {
+    var fallos = [];
+    return (archivos || []).reduce(function (p, f) {
+      return p.then(function () {
+        return Promise.all([obtenerDigest(), f.arrayBuffer()]).then(function (r) {
+          return fetch(urlLista() + '/items(' + id + ")/AttachmentFiles/add(FileName='" + encodeURIComponent(f.name.replace(/'/g, "''")) + "')",
+            { method: 'POST', credentials: 'same-origin', body: r[1], headers: { Accept: 'application/json;odata=verbose', 'X-RequestDigest': r[0] } });
+        }).then(function (res) { if (!res.ok) fallos.push(f.name); }, function () { fallos.push(f.name); });
+      });
+    }, Promise.resolve()).then(function () { return fallos; });
+  }
+  var iconoAdj = function (n) { var e = String(n).split('.').pop().toLowerCase(); return /^(jpe?g|png|gif|bmp|heic|webp)$/.test(e) ? '🖼️' : e === 'pdf' ? '📕' : /^(docx?|odt|rtf)$/.test(e) ? '📝' : /^(xlsx?|ods|csv)$/.test(e) ? '📊' : /^(msg|eml)$/.test(e) ? '✉️' : '📎'; };
+  // Recuadro de documentos de la ficha: lista y «Añadir documentos»
+  function pintarAdjuntos(id) {
+    var el = $('#detAdj'); if (!el) return;
+    leerAdjuntos(id).then(function (l) {
+      el = $('#detAdj'); if (!el) return;
+      el.innerHTML = (l.length ? '<ul class="adjs">' + l.map(function (f) { return '<li><a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + iconoAdj(f.nombre) + ' ' + esc(f.nombre) + '</a></li>'; }).join('') + '</ul>' : '<p class="small muted">Sin documentos adjuntos.</p>') +
+        '<div class="small" style="margin-top:6px"><input type="file" id="adjMas" multiple> <button type="button" data-adjsubir="' + id + '">📎 Adjuntar</button> <span id="adjMsg"></span></div>';
+    }, function () { el.innerHTML = '<p class="small muted">No se pudieron leer los documentos adjuntos.</p>'; });
+  }
+  function adjuntarEnFicha(boton) {
+    var id = Number(boton.dataset.adjsubir), archivos = Array.prototype.slice.call(($('#adjMas') || {}).files || []), m = $('#adjMsg');
+    if (!archivos.length) { m.textContent = 'Elige antes uno o varios archivos.'; return; }
+    boton.disabled = true; m.textContent = 'Subiendo…';
+    subirAdjuntos(id, archivos).then(function (fallos) {
+      pintarAdjuntos(id);
+      toast(fallos.length ? 'No se pudieron subir: ' + fallos.join(', ') + ' (¿sin permiso para modificar esta solicitud?)' : 'Documentos adjuntados: ' + archivos.length);
+    });
+  }
   var enlacePagina = function () { return location.origin + location.pathname; };
   var carpetaPagina = location.origin + location.pathname.replace(/[^/]*$/, '');
   var IMG = { minisdef: carpetaPagina + 'permisos-minisdef.png', uso: carpetaPagina + 'permisos-uso-oficial.png' };
@@ -2125,11 +2162,12 @@
       '<div class="campo"><b>Asunto</b><div>' + esc(t.asunto) + '</div></div>' +
       c.filter(function (x) { return x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       '<div id="detMas"><p class="muted small">Cargando observaciones…</p></div>' +
-      '<div class="acciones"><button data-fichaimp="' + t.id + '">🖨 Imprimir ficha / PDF</button>' +
-      (enlaceFormulario(t) ? '<a class="btn" href="' + esc(enlaceFormulario(t)) + '" target="_blank" rel="noopener">Abrir en el formulario de Colabora</a>' : '') + '</div>' +
+      '<div class="campo"><b>Documentos adjuntos</b><div id="detAdj"><p class="muted small">Cargando…</p></div></div>' +
+      '<div class="acciones"><button data-fichaimp="' + t.id + '">🖨 Imprimir ficha / PDF</button></div>' +
       '</div><div id="detAcc">' + panelAcciones(t) + '</div>' + panelAdmin(t) + '</div></div>';
     dlg.showModal(); dlg.scrollTop = 0;
     prepararAcciones(t);
+    pintarAdjuntos(t.id);
     leerElemento(t.id, (interviene ? ['NIF'] : []).concat(['Observaciones', 'Observaci_x00f3_nesAprobador', 'ObservacionesAutorizador', 'ObservacionesDelRegistro', 'RegistroDeBorrador', 'Attachments'])).then(function (x) {
       var d = x.datos;
       if (!interviene) delete d.NIF;
@@ -2139,7 +2177,7 @@
         ['Historial', texto(d.RegistroDeBorrador).split(' / ').map(function (s) { return s.trim(); }).filter(Boolean).join('\n')]];
       var el = $('#detMas'); if (!el) return;
       el.innerHTML = m.filter(function (y) { return y[1]; }).map(function (y) { return '<div class="campo"><b>' + esc(y[0]) + '</b><div>' + esc(y[1]) + '</div></div>'; }).join('') +
-        (d.Attachments ? '<div class="campo"><b>Datos adjuntos</b><div class="muted small">Tiene adjuntos: ábrelos en el formulario de Colabora.</div></div>' : '');
+        '';
     }).catch(function () { var el = $('#detMas'); if (el) el.innerHTML = ''; });
   }
   // ---------- Eliminar una solicitud (solo el administrador del sitio: no se pinta para nadie más) ----------
@@ -2261,7 +2299,7 @@
       if (a === 'aprobar') {
         persona_ = pAut && pAut.valor();
         exige(persona_, 'Antes de solicitar AUTORIZACIÓN debe elegir al AUTORIZADOR.');
-        exige(persona_.Email, 'Esa persona no tiene correo en Colabora: no podría recibir el aviso. Elige otra o tramítala en el formulario de Colabora.');
+        exige(persona_.Email, 'Esa persona no tiene correo en Colabora: no podría recibir el aviso. Elige otra persona.');
         Object.assign(c, { AutorizadorDelPermisoId: persona_.Id, AutorizadorTexto: persona_.Title, CorreoDeAUTORIZADOR: persona_.Email, Estado: E.AP, EstadoDeAprobacion: 'APROBADO',
           FechaDeAprobacion: new Date().toISOString(), AprobadorTexto: (t.apr && t.apr.Title) || yo.Title, Observaci_x00f3_nesAprobador: ob('oAprob') || null, ValidacionEstado: E.AP, mensajeAPROBADOR: '' });
         Object.assign(nuevo, { aut: persona_, autTexto: persona_.Title, correoAut: persona_.Email, aprTexto: c.AprobadorTexto, estado: E.AP });
@@ -2369,7 +2407,8 @@
       '<div class="panel jefpanel" style="margin-top:12px"><label class="check" style="display:flex"><input type="checkbox" id="nJefe"' + (t && esJefe(t) ? ' checked' : '') + '> <span><b>Soy jefe de unidad y comunico quién me sustituye</b>' +
         '<br><span class="small muted">Para cada tramo de tu ausencia indica el tipo de sustitución (mando accidental, encargado de despacho o más caracterizado de los presentes), la persona, su teléfono y su correo. Deben cubrir todos los días del permiso y ningún sustituto puede estar de permiso esas fechas. Se avisará a cada uno cuando se autorice y saldrá en «Mandos sustitutos».</span></span></label>' +
         '<div id="nIntCaja"' + (t && esJefe(t) ? '' : ' hidden') + '><div id="nInt"></div><button type="button" id="nIntMas">＋ Añadir otro sustituto</button></div></div>' +
-      '<p class="small muted">Para adjuntar documentos, guarda la solicitud y añádelos desde el formulario de Colabora.</p>' +
+      '<label class="lbl">Documentos adjuntos (opcional)</label><input type="file" id="nAdj" multiple>' +
+      (t ? '<p class="small muted">Los que elijas se añaden a los que ya tiene la solicitud.</p>' : '') +
       '<div id="nError"></div>' +
       '<div class="acciones"><button type="button" data-cerrar>Cancelar</button><button type="button" id="nBorrador">💾 Guardar borrador</button><button type="button" class="prim" id="nEnviar">📨 Enviar</button></div></div>';
     dlg.showModal(); dlg.scrollTop = 0;
@@ -2448,6 +2487,7 @@
       if (enviar && directo) Object.assign(c, { EstadoDeAprobacion: 'APROBADO', FechaDeAprobacion: new Date().toISOString() });
       var anotar = enviar ? anotacion(sol.Title, rep ? rep.Title : '', estado) : null;
       boton.disabled = true;
+      var fallosAdj = [], nAdj = 0;
       var hecho = t ? guardarCambios(t, c, anotar).then(function () { return t.id; }) :
         enviarSP(urlLista() + '/items', Object.assign({ __metadata: tipoEntidad(), RegistroDeBorrador: anotar ? esc(anotar) : null }, c), 'No tienes permiso para crear solicitudes en esta lista')
           .then(function (n) { return n && n.Id; });
@@ -2458,6 +2498,10 @@
         var pInt = !id ? Promise.resolve() : jefe && rsInt.length ? guardarSustituciones(id, rsInt, enviar ? 'PREVISTA' : 'BORRADOR', ctxInt) : sustDe(id).length ? marcarSustituciones(id, 'ANULADA') : Promise.resolve();
         return pInt.then(function () { return id; }, function (e) { aviso('La sustitución no se pudo guardar: ' + (e.message || e)); return id; });
       }).then(function (id) {
+        // Documentos adjuntos elegidos en el formulario
+        var archivos = Array.prototype.slice.call(($('#nAdj') || {}).files || []);
+        return (id && archivos.length ? subirAdjuntos(id, archivos) : Promise.resolve([])).then(function (f) { fallosAdj = f; nAdj = archivos.length; return id; });
+      }).then(function (id) {
         var nuevo = { id: id, asunto: asunto, nombre: sol.Title, rep: rep, tipo: v('tipo'), cupo: v('cupo'), ini: v('ini'), fin: v('fin'), festivos: v('festivos'),
           unidad: unidades.find(function (u) { return String(u.Id) === v('unidad'); }) || null, dependencia: v('dependencia'), estado: estado,
           sol: sol, apr: !directo ? apr : null, aut: directo ? aut : null,
@@ -2466,7 +2510,7 @@
         return (cr ? ampliarPara(cr, directo ? aut : apr, directo ? nuevo.correoAut : nuevo.correoApr).then(enviarCorreo) : Promise.resolve(null)).then(function (r) {
           return anotarAviso(id, r).then(cargar).then(function () {
             var txt = enviar ? '✓ Solicitud enviada a ' + (directo ? 'autorización' : 'aprobación') + '.' : '✓ Borrador guardado.';
-            var m = '<div class="' + claseCorreo(r) + '">' + txt + msgCorreo(r) + '</div>';
+            var m = '<div class="' + claseCorreo(r) + '">' + txt + (fallosAdj.length ? ' <b>No se pudieron adjuntar:</b> ' + esc(fallosAdj.join(', ')) + '.' : nAdj ? ' Documentos adjuntados: ' + nAdj + '.' : '') + msgCorreo(r) + '</div>';
             pref.vista = 'mias'; guardarPref(); render();
             if (id) abrir(id, m); else $('#dlg').close();
           });
@@ -2604,6 +2648,7 @@
     if (rc) { var trc = items.find(function (x) { return x.id === Number(rc.dataset.recordar); }); if (trc) recordar(trc, rc); return; }
     if (el.closest('[data-csv]')) { csv(); return; }
     if (el.closest('[data-relimp]')) { imprimirRelacion(); return; }
+    if (el.closest('[data-adjsubir]')) { adjuntarEnFicha(el.closest('[data-adjsubir]')); return; }
     var fi = el.closest('[data-fichaimp]');
     if (fi) { var tf = items.find(function (x) { return x.id === Number(fi.dataset.fichaimp); }); if (tf) imprimirFicha(tf); return; }
     var pv = el.closest('[data-pv]');

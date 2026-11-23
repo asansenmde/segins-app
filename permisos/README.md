@@ -222,3 +222,10 @@ al menos «Lectura restringida». Los errores de carga dicen qué recurso falló
 
 Con «Lectura restringida» en el sitio no se puede expandir ninguna columna relacionada (personas ni unidad): los usuarios
 leen por los campos de texto y `UNIDADES`, sin aviso; el aviso con el diagnóstico por columna solo lo ve el administrador.
+
+## Documentos adjuntos en la página (23/11/2026, versión 2026-11-23 · 1)
+
+Ya no hay enlaces al formulario de Colabora (petición del usuario). Los documentos se adjuntan en la propia página:
+- en el formulario de la solicitud, «Documentos adjuntos (opcional)»: se suben al guardar el borrador o al enviar;
+- en la ficha, «Documentos adjuntos» lista los que tiene (se abren en otra pestaña) y «📎 Adjuntar» añade más.
+Si Colabora no deja subir alguno (sin permiso para modificar esa solicitud), la página dice cuál.

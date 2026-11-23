@@ -20,6 +20,7 @@ let sinExpand = false, pets = [], asigs = [], grupoReg = [], anadidosReg = [], s
 let sustYo = false, ints = [], intLista = true, grupoMando = [{ Id: 90, Title: 'EL GENERAL' }], mando = false, intCampos = null;
 const tramo = (id, sol, uni, tit, aIni, aFin, inter, des, has, tel, est, orden, tipo = 'Mando accidental') => ({ TipoSustitucion: tipo, Id: id, Title: uni, NumSolicitud: sol, UnidadNum: 1, Titular: tit.Title, TitularUid: tit.Id, AusenciaDesde: aIni, AusenciaHasta: aFin,
   Sustituto: inter.Title, SustitutoUid: inter.Id, Desde: des, Hasta: has, Telefono: tel, Correo: inter.EMail, Orden: orden, EstadoSustitucion: est });
+let adjSim = {};   // 23/11/2026: documentos adjuntos por solicitud (AttachmentFiles)
 let ajeno = false, soloMios = false;   // ni autorizo ni soy jefe con sustitutos: no debo ver «Mandos sustitutos»
 let cuentaVieja = false;   // solicitud que nombra al autorizador con una cuenta antigua cuya dirección Colabora no acepta
 let buzonMal = [], enviados = [], cuentasPedidas = [];   // direcciones que Colabora rechaza en SendEmail («destinatario válido») y las que sí acepta
@@ -70,6 +71,7 @@ async function prueba(verbose, soloAlcance) {
     if (req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
+      { const ad = resto.match(/items\((\d+)\)\/AttachmentFiles\/add\(FileName='([^']+)'\)/); if (ad) { (adjSim[ad[1]] ||= []).push(decodeURIComponent(ad[2])); return r.fulfill({ json: { d: { FileName: ad[2] } } }); } }
       if (process.env.SOLO_CUENTAS && /SP\.Utilities\.Utility\.SendEmail/.test(resto)) { const pr0 = JSON.parse(req.postData()).properties, d0 = [pr0.To, pr0.CC, pr0.BCC].flatMap(x => x ? x.results : []); if (d0.some(x => /@/.test(x))) { globalThis.__rechazados = (globalThis.__rechazados || 0) + 1; if (process.env.VER_RECHAZOS) console.log('RECHAZO', JSON.stringify(d0)); return r.fulfill({ status: 400, json: { error: { message: { value: 'No se puede enviar el correo electrónico. Asegúrese de que tenga un destinatario válido.' } } } }); } globalThis.__aceptados = (globalThis.__aceptados || 0) + 1; }
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = JSON.parse(req.postData()).properties, dest = [pr.To, pr.CC, pr.BCC].flatMap(x => x ? x.results : []);
@@ -141,6 +143,7 @@ async function prueba(verbose, soloAlcance) {
     if (resto.includes('/fields')) return J({ value: [{ InternalName: 'Estado', Choices: ['0-Borrador de Solicitante', '1-Pendiente de Aprobar', '2-Aprobado', '3-Autorizado', '4-Registrado SIPERDEF', '5-Rechazado'] },
       { InternalName: 'TipoDePermiso', Choices: ['Vacaciones (Art.5)', 'Permiso por asuntos particulares (Art.6.a)', 'Permiso para compensar un servicio.'] }, { InternalName: 'CupoDeA_x00f1_o', Choices: ['2025', '2026'] },
       { InternalName: 'Dependencia', Choices: ['JEFATURA', 'SEGURIDAD'] }] });
+    { const af = resto.match(/items\((\d+)\)\/AttachmentFiles/); if (af) return J({ value: (adjSim[af[1]] || []).map(n => ({ FileName: n, ServerRelativeUrl: '/et/Lists/Permisos/Attachments/' + af[1] + '/' + n })) }); }
     const mi = resto.match(/items\((\d+)\)/);
     if (mi) { const it = items.find(x => x.Id === +mi[1]); return r.fulfill({ json: { d: { __metadata: { etag: '"' + it.Modified + '"' }, ...it } } }); }
     if (sinExpand && resto.includes('siteuserinfolist')) return r.fulfill({ status: 404, json: { error: { message: { value: 'List does not exist' } } } });
@@ -585,8 +588,15 @@ async function prueba(verbose, soloAlcance) {
   await p.selectOption('#fSol [name=empleo]', 'Comandante'); await p.selectOption('#fSol [name=unidad]', '1');
   posts.length = 0; await p.click('#fSol #nBorrador'); await p.waitForTimeout(300);
   console.log(tag, 'solape al guardar:', await p.textContent('#nError'), '| sin guardar:', !posts.some(x => x.ruta.endsWith('/items')));
-  await p.click('#fSol #nBorrador'); await p.waitForTimeout(1200);
+  await p.setInputFiles('#nAdj', [{ name: 'justificante.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4') }]);
+  await p.click('#fSol #nBorrador'); await p.waitForTimeout(1500);
   console.log(tag, 'segundo clic guarda:', posts.some(x => x.ruta.endsWith('/items')), '| errores:', errs);
+  // 23/11/2026: adjuntos en la página (sin formulario de Colabora)
+  console.log(tag, 'adjunto desde el formulario:', JSON.stringify(adjSim), '| mensaje:', (await p.textContent('#dlg .db').catch(() => '')).replace(/\s+/g, ' ').match(/Documentos adjuntados: \d+/)?.[0], '| en la ficha:', await p.$$eval('#detAdj a', a => a.map(x => x.textContent.trim()).join(',')).catch(() => '?'));
+  await p.setInputFiles('#adjMas', [{ name: 'otro documento.docx', mimeType: 'application/octet-stream', buffer: Buffer.from('x') }]);
+  await p.click('[data-adjsubir]'); await p.waitForTimeout(1200);
+  console.log(tag, 'adjunto desde la ficha:', await p.$$eval('#detAdj a', a => a.map(x => x.textContent.trim()).join(',')), '| ¿queda algún enlace al formulario de Colabora?', await p.evaluate(() => /formulario de Colabora/i.test(document.body.innerText) || [...document.querySelectorAll('a[href]')].some(x => /displayifs|NewForm|EditForm|DispForm/i.test(x.href))));
+  adjSim = {};
   await p.click('#dlg [data-cerrar]');
   await b.close();
 }
