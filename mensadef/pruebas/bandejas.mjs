@@ -554,6 +554,7 @@ await p.evaluate(() => { document.addEventListener('click', e => { const a = e.t
   // Con una dirección rechazada se reintenta uno a uno (cada uno recibe el suyo): llegan el de «Para», el de CC y la copia propia
   const llegan = para.concat(cc);
   if (!/#correo=/.test(url) || !llegan.includes('jefe.negociado@pruebas.invalid') || llegan.includes('malo@pruebas.invalid') || !llegan.includes('otra@pruebas.invalid') || !llegan.includes(estC.usuario.Email.toLowerCase()) ||
+    !enviados.some(c => /^Copia · /.test(c.asunto) && c.to.includes(estC.usuario.Email.toLowerCase()) && /Tu copia\. Enviado a: [^<]*jefe\.negociado/.test(c.cuerpo)) || !/Tu copia te ha llegado/.test(fin) ||
     faltan.length || /<b>urgente/.test(cu) || /<b>A<\/b>/.test(cu) || !/✔ Correo enviado/.test(fin) || !/Correo enviado por Colabora a \d+ destinatario/.test(aviso)) console.log('Error: correo por Colabora');
   if (await p.$('#enviarPdf')) console.log('Error: sigue el botón «Enviar con el PDF»');
   await w.close(); await p.bringToFront(); }

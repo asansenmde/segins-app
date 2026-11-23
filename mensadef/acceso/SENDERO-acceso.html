@@ -59,7 +59,7 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-23 · 1';
+  var VERSION = '2026-11-23 · 2';
   // Solo se contesta a SENDERO, que funciona en MENSADEF (el favorito escribe su página sobre la de MENSADEF)
   var ORIGEN_SENDERO = 'https://mensadef.mdef.es';
   var L_AUT = 'SENDERO Autorizados', L_SOL = 'SENDERO Solicitudes', GRUPO = 'SENDERO Administradores';
@@ -562,16 +562,30 @@
     vista();
     $('cEnviar').addEventListener('click', function () {
       var b = this, nota = $('cNota').value.trim(), to = para.valor(), copia = cc.valor();
-      if ($('cCopia').checked && yo && esCorreo(yo.email)) copia.push({ Title: yo.nombre, Email: yo.email });
+      // 23/11/2026: la copia propia en CC no le llegaba al usuario: va en un correo aparte, a su nombre, con el envío robusto
+      // (si su dirección no tiene buzón en Colabora, por su cuenta) y diciendo a quién se ha enviado
+      var miCopia = $('cCopia').checked && yo && esCorreo(yo.email);
+      copia = copia.filter(function (u) { return !yo || norm(u.Email) !== norm(yo.email); });
       var nombres = {}; to.concat(copia).forEach(function (u) { if (u.Title) nombres[norm(u.Email)] = u.Title; });
+      var asunto = $('cAsunto').value.trim() || d.asunto;
       b.disabled = true; $('cMsg').textContent = 'Enviando…';
-      enviarCorreo({ to: to.map(function (u) { return u.Email; }), cc: copia.map(function (u) { return u.Email; }), asunto: $('cAsunto').value.trim() || d.asunto,
+      enviarCorreo({ to: to.map(function (u) { return u.Email; }), cc: copia.map(function (u) { return u.Email; }), asunto: asunto,
         html: correoHtml(d, quien, nota), texto: correoTexto(d, quien, nota), nombres: nombres }).then(function (r) {
+        if (!miCopia || !r.ok) return { r: r, c: null };
+        var F = 'font-family:Segoe UI,Arial,Helvetica,sans-serif;';
+        var cab = '<div style="' + F + 'font-size:13px;background:#dcf0e0;color:#1e6b2e;border:1px solid #b9dcc0;border-radius:6px;padding:8px 12px;margin:8px">Tu copia. Enviado a: ' + esc(r.llegaron.join(', ')) + '</div>';
+        var nb = {}; nb[norm(yo.email)] = yo.nombre;
+        return enviarCorreo({ to: [yo.email], asunto: 'Copia · ' + asunto, html: cab + correoHtml(d, quien, nota), texto: 'Tu copia. Enviado a: ' + r.llegaron.join(', ') + '\n\n' + correoTexto(d, quien, nota), nombres: nb })
+          .then(function (c) { return { r: r, c: c }; }, function (e) { return { r: r, c: { ok: false, motivo: e.message || String(e) } }; });
+      }).then(function (x) {
+        var r = x.r, c = x.c;
         try { destino && destino.postMessage({ tipo: 'sendero-correo-enviado', n: datos.n, ok: r.ok, enviados: r.n, rechazados: r.rechazados.length, motivo: r.motivo }, ORIGEN_SENDERO); } catch (e) { /* SENDERO cerrado */ }
         var rc = r.rechazados.length ? '<p class="mal">Colabora no acepta estas direcciones y a ellas NO les ha llegado: ' + esc(r.rechazados.join(', ')) + '.</p>' : '';
         var dv = r.desvios.length ? '<p class="muted">Enviado a otra cuenta de la misma persona: ' + esc(r.desvios.join('; ')) + '.</p>' : '';
         $('app').innerHTML = '<div class="card"><h2>' + (r.ok ? '<span class="bien">✔ Correo enviado</span>' : '<span class="mal">✕ No se ha enviado</span>') + '</h2>' +
           (r.ok ? '<p>Ha llegado a: ' + esc(r.llegaron.join(', ')) + '.</p>' : '<p>' + esc(r.motivo) + '</p>') + dv + rc +
+          (c ? (c.ok ? '<p class="bien">✔ Tu copia te ha llegado' + (c.llegaron && c.llegaron.length ? ' (' + esc(c.llegaron.join(', ')) + ')' : '') + '. Mira también «Correo no deseado» si no la ves.</p>' :
+            '<p class="mal">✕ Tu copia no te ha llegado: Colabora no acepta tu dirección (' + esc(yo.email) + '). ' + esc(c.motivo || '') + '</p>') : '') +
           (!r.ok || rc ? '<p><a href="' + esc(r.mailto) + '"><button type="button">✉ Preparar el correo en Outlook (solo texto)</button></a></p>' : '') +
           '<p><button type="button" id="cCerrar" class="prim">Cerrar</button></p></div>';
         $('cCerrar').addEventListener('click', function () { window.close(); });
