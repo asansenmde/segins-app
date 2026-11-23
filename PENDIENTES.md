@@ -59,3 +59,7 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
 - **Gestor de Tareas / META 2026-11-13 · 2:** (la sesión de SENDERO siguió desde mi 2026-11-10 · 2) quién ve cada
   expediente, Punto de Situación, departamentos de MENSADEF. Batería `colabora/pruebas/todas.sh`.
 - **Tareas NLT 16:** tareas desde correos, aspecto como META, «➜ Pasar a META» y quitarla al crearla allí.
+- **23/11/2026 · subir a Colabora:** Cuadrante 2026-11-23 · 2 (tabla arriba al asignar; ausencias que no se pierden ni
+  duplican con «HTTP 503»), Incidentes 2026-11-23 · 1, Pérdidas 2026-11-23 · 1, VSA 2026-11-23 · 1 y Permisos 2026-11-23 · 2
+  (en todas, los correos llevan solo el botón, sin la dirección escrita debajo). Si el 503 de las ausencias se repite,
+  decir si pasa siempre o a veces y si se adjuntaba un documento.

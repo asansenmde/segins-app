@@ -6457,7 +6457,7 @@ var Cipher = {
   };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-23 · 1';
+  var VERSION = '2026-11-23 · 2';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cuadrante de servicios · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -6567,7 +6567,9 @@ var Cipher = {
         if (!r.ok) {
           var m = j && ((j.error && j.error.message && (j.error.message.value || j.error.message)) || (j['odata.error'] && j['odata.error'].message && j['odata.error'].message.value));
           var denegado = r.status === 403 || r.status === 401 || /acceso denegado|access denied|unauthorizedaccess/i.test(String(m || ''));
-          var e = new Error(denegado ? sinPermiso : (m || 'HTTP ' + r.status)); e.status = r.status;
+          // 502/503/504 sin explicación: no lo dice SharePoint, sino el servidor ocupado o algo en la red que corta la petición
+          var corte = !m && [502, 503, 504].indexOf(r.status) >= 0 ? 'Colabora no ha respondido (HTTP ' + r.status + ': servidor ocupado o la red ha cortado la petición). Espera un momento y vuelve a intentarlo.' : '';
+          var e = new Error(denegado ? sinPermiso : (m || corte || 'HTTP ' + r.status)); e.status = r.status;
           throw e;
         }
         return j && (j.d || j);
@@ -6862,7 +6864,7 @@ var Cipher = {
       '<tr><td><table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:13px">' +
       filas.map(function (x) { return '<tr><td width="38%" style="border:1px solid #c5d0dd;background:#e8eef6;color:' + azul + ';font-weight:bold">' + esc(x[0]) + '</td><td style="border:1px solid #c5d0dd">' + esc(x[1]).replace(/\n/g, '<br>') + '</td></tr>'; }).join('') +
       '</table></td></tr>' +
-      '<tr><td style="padding:12px 0"><a href="' + esc(enlace) + '" style="background:' + azul + ';color:#fff;padding:8px 14px;text-decoration:none;font-weight:bold;display:inline-block">' + esc(boton || 'Abrir el cuadrante') + '</a><div style="font-size:11px;color:#555;padding-top:6px">' + esc(enlace) + '</div></td></tr>' +
+      '<tr><td style="padding:12px 0"><a href="' + esc(enlace) + '" style="background:' + azul + ';color:#fff;padding:8px 14px;text-decoration:none;font-weight:bold;display:inline-block">' + esc(boton || 'Abrir el cuadrante') + '</a></td></tr>' +
       '<tr><td style="border-top:4px solid ' + oro + ';padding-top:6px;font-size:11px;color:#555" align="center">Aviso generado por la aplicación Cuadrante de servicios (JSUIGE). No reenvíe este correo fuera de la organización.<br><br>' + uso + '</td></tr></table>';
   }
   var correoDe = function (intro, filas, asunto, to, enlace) {
@@ -7651,6 +7653,32 @@ var Cipher = {
       });
     }, Promise.resolve()).then(function () { return fallos; });
   }
+  // 23/11/2026: «No se pudo guardar: HTTP 503» al registrar una ausencia. Un 502/503/504 (o la conexión cortada) puede llegar
+  // aunque Colabora SÍ haya guardado. Se espera un poco, se mira si la ausencia está (mía, de los últimos 10 minutos, mismo
+  // tipo, persona y fecha) y, si no, se repite una vez. Así no se pierde ni se duplica.
+  function crearAusenciaSegura(cuerpo) {
+    var transitorio = function (e) { return !e || !e.status || [502, 503, 504].indexOf(e.status) >= 0; };
+    var espera = function (ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); };
+    var buscar = function () {
+      var desde = new Date(Date.now() - 10 * 60000).toISOString();
+      return api(urlL('aus') + '/items?$top=20&$orderby=Id desc&$select=Id,TipoAusencia,Desde,PersonaId&$filter=' + encodeURIComponent('(AuthorId eq ' + yo.Id + ") and (Created ge datetime'" + desde + "')")).then(function (r) {
+        var x = lista(r.value !== undefined ? r.value : r).find(function (it) {
+          return it.TipoAusencia === cuerpo.TipoAusencia && fechaSP(it.Desde) === fechaSP(cuerpo.Desde) && Number(it.PersonaId) === Number(cuerpo.PersonaId);
+        });
+        return x ? { Id: x.Id } : null;
+      }, function () { return null; });
+    };
+    return crearItem('aus', cuerpo).catch(function (e) {
+      if (!transitorio(e)) throw e;
+      return espera(2500).then(buscar).then(function (x) {
+        if (x) return x;
+        return crearItem('aus', cuerpo).catch(function (e2) {
+          if (!transitorio(e2)) throw e2;
+          return espera(2500).then(buscar).then(function (y) { if (y) return y; throw e2; });
+        });
+      });
+    });
+  }
   function guardarAusencia(boton) {
     var f = $('#fAus'), v = function (n) { var el = f.querySelector('[name="' + n + '"]'); return el ? el.value.trim() : ''; }, paraOtro = boton.dataset.ausguardar === '1';
     var err = function (m) { $('#ausErr').innerHTML = '<div class="error">' + esc(m) + '</div>'; };
@@ -7665,7 +7693,7 @@ var Cipher = {
       Observaciones: a.obs, EstadoAusencia: a.estado, Origen: paraOtro ? 'Registrada por el gestor ' + yo.Title : 'Comunicada por el interesado' };
     if (paraOtro) { cuerpo.ResueltoPorId = yo.Id; cuerpo.FechaResolucion = aSP(hoy()); }
     var nuevo = null;
-    crearItem('aus', cuerpo).then(function (n) { nuevo = n && (n.Id || n.ID); return archivos.length && nuevo ? subirAdjuntos(nuevo, archivos) : []; }).then(function (fallos) {
+    crearAusenciaSegura(cuerpo).then(function (n) { nuevo = n && (n.Id || n.ID); return archivos.length && nuevo ? subirAdjuntos(nuevo, archivos) : []; }).then(function (fallos) {
       a.id = nuevo;
       var serv = c ? turnos.filter(function (t) { return t.comp === c.id && visible(t) && solapa(a, t.inicio, t.fin); }) : [];
       var corta = !salta(a);

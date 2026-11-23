@@ -340,3 +340,10 @@ de las otras aplicaciones de la lista común), aunque no le llegue el correo; en
 por correo salió o por qué no (columna «Aviso por correo», que la página crea sola); si no encuentra la cuenta del
 administrador, prueba la que sale de su dirección (`et\asansen`); y «Preparación» dice si su cuenta está guardada y por qué no.
 
+## «HTTP 503» al registrar una ausencia (23/11/2026, versión 2026-11-23 · 2)
+
+Un 502/503/504 sin explicación no lo da SharePoint, sino el servidor ocupado o algo en la red que corta la petición, y
+puede llegar aunque Colabora sí haya guardado. Ahora la página espera, mira si la ausencia ya está (tuya, de los últimos
+10 minutos, mismo tipo, persona y fecha) y, si no, la repite una vez: no se pierde ni se duplica. Si aun así falla, el
+mensaje lo explica en lugar de «HTTP 503». Los correos ya no llevan la dirección escrita debajo del botón.
+

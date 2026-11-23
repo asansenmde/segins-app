@@ -216,7 +216,7 @@
   };
 
   // ---------- Preferencias (solo en este navegador) ----------
-  var VERSION = '2026-11-23 · 1';
+  var VERSION = '2026-11-23 · 2';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   try { document.getElementById('verPie').textContent = 'versión ' + VERSION; console.info('Solicitud de permisos · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin pie */ }
   // Copia de pruebas («node proteger.mjs --pruebas» genera permisos-pruebas.html con PRUEBAS = true): trabaja sobre
@@ -1911,7 +1911,7 @@
       '<tr><td><table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:13px">' +
       filas.map(function (x) { return '<tr><td width="32%" style="border:1px solid #c5d0dd;background:#e8eef6;color:' + azul + ';font-weight:bold">' + esc(x[0]) + '</td><td style="border:1px solid #c5d0dd">' + esc(x[1]).replace(/\n/g, '<br>') + '</td></tr>'; }).join('') +
       '</table></td></tr>' +
-      (enlace ? '<tr><td style="padding:12px 0"><a href="' + esc(enlace) + '" style="background:' + azul + ';color:#fff;padding:8px 14px;text-decoration:none;font-weight:bold;display:inline-block">Abrir la solicitud</a><div style="font-size:11px;color:#555;padding-top:6px">' + esc(enlace) + '</div></td></tr>' : '') +
+      (enlace ? '<tr><td style="padding:12px 0"><a href="' + esc(enlace) + '" style="background:' + azul + ';color:#fff;padding:8px 14px;text-decoration:none;font-weight:bold;display:inline-block">Abrir la solicitud</a></td></tr>' : '') +
       '<tr><td style="border-top:4px solid ' + oro + ';padding-top:6px;font-size:11px;color:#555" align="center">Aviso generado por la aplicación de Solicitud de Permisos de SUIGESUR (Colabora).<br><br>' + uso + '</td></tr></table>';
   }
   // Enlace del correo: esta misma página, abriendo directamente la solicitud (?id=N)

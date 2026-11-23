@@ -77,6 +77,12 @@ async function abrir(id, esAdmin, verbose, url) {
         const mi = resto.match(/items\((\d+)\)$/);
         delete c.__metadata;
         if (mi) { const it = L.items.find(x => x.Id === +mi[1]); Object.assign(it, c, { Modified: new Date().toISOString() }); return r.fulfill({ status: 204, body: '' }); }
+        // 23/11/2026: «HTTP 503» al crear una ausencia (corte de la red o servidor ocupado), habiéndola guardado o no
+        if (/\/items$/.test(resto) && lm[1].toUpperCase() === 'CUADRANTE AUSENCIAS' && globalThis.__corte503) {
+          const modo = globalThis.__corte503; globalThis.__corte503 = null;
+          if (modo === 'guardada') { const it = { Id: ++L.n, ...c, AuthorId: yoId, Created: new Date().toISOString(), Modified: new Date().toISOString() }; L.items.push(it); }
+          return r.fulfill({ status: 503, contentType: 'text/html', body: '<html><body>Service Unavailable</body></html>' });
+        }
         if (/\/items$/.test(resto)) { const it = { Id: ++L.n, ...c, Created: new Date().toISOString(), Modified: new Date().toISOString() }; L.items.push(it); return J(it, 201); }
         if (/getbytitle\('[^']+'\)$/.test(resto)) { Object.assign(L.info, c); return r.fulfill({ status: 204, body: '' }); }
       }
@@ -276,6 +282,15 @@ async function prueba(verbose) {
   comprueba(tag + 'avisa a los gestores (a su cuenta, por el grupo)', correos.some(c => /AUSENCIA DE OFICIAL NUMERO 2/.test(c.asunto) && c.to.includes('i:0#.w|et\\gestora')), JSON.stringify(correos.map(c => c.to)));
   t = await texto(p);
   comprueba(tag + 'le dice que coincide con su servicio y que el gestor buscará sustituto', misTurnos.length ? /el gestor buscará sustituto/.test(t) : true, t.slice(0, 300));
+  // 23/11/2026: HTTP 503 al registrar una ausencia → no se pierde ni se duplica
+  for (const modo of ['guardada', 'no guardada']) {
+    const antes = LA.items.length; globalThis.__corte503 = modo;
+    await p.selectOption('#fAus [name=tipo]', 'ASUNTOS PROPIOS'); await p.fill('#fAus [name=desde]', modo === 'guardada' ? '2027-03-02' : '2027-03-04'); await p.fill('#fAus [name=hasta]', modo === 'guardada' ? '2027-03-02' : '2027-03-04');
+    await p.click('[data-ausguardar="0"]'); await p.waitForTimeout(4500);
+    const nuevas = LA.items.slice(antes).filter(x => x.TipoAusencia === 'ASUNTOS PROPIOS');
+    comprueba(tag + 'HTTP 503 al registrar una ausencia (' + modo + ' en Colabora): queda una sola y se dice que está comunicada', nuevas.length === 1 && /Ausencia comunicada al gestor/.test(await texto(p)) && !/No se pudo guardar/.test(await texto(p)), nuevas.length + ' · ' + (await texto(p)).slice(0, 200));
+  }
+  LA.items = LA.items.filter(x => !(x.TipoAusencia === 'ASUNTOS PROPIOS' && /^2027-03/.test(x.Desde || '')));   // no estorban al resto de la prueba
   if (process.env.FOTOS && !verbose) { await tab(p, 'mes'); await p.setViewportSize({ width: 1300, height: 900 }); await p.screenshot({ path: process.env.FOTOS + '/mes-componente.png' }); await tab(p, 'mios'); await p.screenshot({ path: process.env.FOTOS + '/mios.png', fullPage: true }); }
   // un mes sin publicar
   await tab(p, 'mes'); await p.click('[data-mes="1"]'); await p.waitForTimeout(300);
