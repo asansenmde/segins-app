@@ -184,7 +184,7 @@ autoría.
 
 16. **Puntos de Situación de SUIGESUR** (`puntos-situacion/`, `[PUNTOS]`). **Se lleva solo en la sesión «[PUNTOS] Puntos
     de Situación», rama `claude/modest-fermat-9zf46n`** (acordado con el usuario el 14/11/2026; las demás sesiones no lo tocan).
-    - **Versión vigente: 2026-11-17 · 3** (descartar propuestas de META; modelo común de Colabora)
+    - **Versión vigente: 2026-11-23 · 1** (aviso de punto nuevo también a la coordinación y a quien no tiene correo; historial visible)
       `puntos-situacion-pruebas.html` para pruebas). Lo que hace, sus listas y su historial de versiones: `puntos-situacion/README.md`.
     - Confirmadas por el usuario hasta la · 5; la · 6 (informe completo en PDF para todos los negociados) entregada.
     - Enlace con META y el Gestor común (asuntos «⭐ Tratar con el General»): lo llevan META y el Gestor desde su sesión
@@ -219,6 +219,9 @@ autoría.
       subir la copia, entrar en Accesos › Preparación (lista común, abrirla a todos, alerta «🔔 Avisarme») y probar el aviso.
     - 17/11/2026: **2026-11-17 · 3**: propuestas de META plegadas y «✕ Descartar» / «↺ Recuperar» (no se toca META).
       Pendiente del usuario: subir la copia y pulsar «Comprobar la instalación» en Ajustes (crea la columna de descartadas).
+    - 23/11/2026: **2026-11-23 · 1**: al usuario no le llegó el aviso de un punto nuevo. La coordinación va ahora en copia
+      del aviso de apertura y de cambio, los miembros sin correo lo reciben en su cuenta e «Historial del punto» visible en
+      Seguimiento. Pendiente: que suba la copia y mire en el historial del punto de hoy a quién se envió (o el motivo).
     - **Para cuando se lleve a otro ámbito** (aparcado por el usuario el 16/11/2026; «hay que pensar que evolucionará»):
       el reparto de células está escrito en el código solo para SUIGESUR (`REPARTO_CELULAS`). La célula llega sola desde
       SENDERO (título del subsitio de MENSADEF) y la página ya aprende las nuevas al preguntar. Mejora pensada: en Ajustes,

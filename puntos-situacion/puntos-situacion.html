@@ -158,7 +158,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-17 · 3';
+  var VERSION = '2026-11-23 · 1';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -598,6 +598,8 @@
       var sig = siguientePeriodico();
       if (sig) h += '<div class="card fila"><span class="crece small">El último punto se repite cada <b>' + sig.dias + ' día' + (sig.dias === 1 ? '' : 's') + '</b>. Siguiente: <b>' + esc(fLarga(sig.fecha)) + '</b></span><button data-siguiente>＋ Crear el siguiente punto</button></div>';
     }
+    if (coordino() && p.historial) h += '<details class="card small" style="margin-top:12px"><summary style="cursor:pointer"><b>Historial del punto</b> <span class="muted">· creación, cambios y a quién se envió cada aviso</span></summary>' +
+      '<div class="texto" style="font-size:.85rem">' + esc(p.historial) + '</div></details>';
     h += '<h2 class="sec">Últimos puntos</h2>' + puntos.slice(0, 5).map(filaPunto).join('');
     return h;
   }
@@ -1752,17 +1754,34 @@
     }, function (e) { if (boton) boton.disabled = false; if (er) { er.textContent = e.message; er.hidden = false; } else alert(e.message); });
   }
   // Correo a los miembros de unos negociados (apertura o recordatorio), con el envío robusto
+  // Cuenta de inicio de sesión de una persona del sitio por su Id (para quien no tiene correo en Colabora)
+  var cuentaPorId = function (id) { return api(web + '/_api/web/getuserbyid(' + Number(id) + ')?$select=LoginName').then(function (u) { return u && u.LoginName; }, function () { return null; }); };
   function enviarAviso(p, lst, motivo) {
+    var sinCorreo = [];
+    lst.forEach(function (n) { n.miembros.forEach(function (m) { if (!m.Email && sinCorreo.indexOf(m.Id) < 0) sinCorreo.push(m.Id); }); });
+    if (motivo !== 'recordatorio') negs.filter(function (n) { return n.coordina; }).forEach(function (n) { n.miembros.forEach(function (m) { if (!m.Email && sinCorreo.indexOf(m.Id) < 0) sinCorreo.push(m.Id); }); });
+    // 23/11/2026: quien no tiene correo en la lista de usuarios del sitio se quedaba fuera sin decir nada; ahora va a su cuenta
+    return Promise.all(sinCorreo.map(cuentaPorId)).then(function (lgs) { return enviarAvisoA(p, lst, motivo, lgs.filter(Boolean)); });
+  }
+  function enviarAvisoA(p, lst, motivo, cuentasSinCorreo) {
     var to = [], cuentas = {}, nombres = {};
     lst.forEach(function (n) { n.miembros.forEach(function (m) { if (m.Email && to.map(function (x) { return x.toLowerCase(); }).indexOf(m.Email.toLowerCase()) < 0) { to.push(m.Email); cuentas[m.Email.toLowerCase()] = m.Id; nombres[m.Email.toLowerCase()] = m.Title; } }); });
-    if (!to.length) return Promise.resolve({ ok: false, n: 0, motivo: 'los negociados no tienen miembros con correo', rechazados: [], mailto: '' });
-    var rec = motivo === 'recordatorio', cambio = motivo === 'cambio';
+    (cuentasSinCorreo || []).forEach(function (lg) { if (to.indexOf(lg) < 0) to.push(lg); });
+    var rec = motivo === 'recordatorio', cambio = motivo === 'cambio', cc = [];
+    // 23/11/2026: la coordinación (también la fila «Coordinación (control total)», que no está en el informe ni se convoca)
+    // va siempre en copia de los avisos de apertura y de cambio: antes quien coordinaba no recibía el de un punto nuevo
+    if (!rec) negs.filter(function (n) { return n.coordina; }).forEach(function (n) { n.miembros.forEach(function (m) {
+      var k = String(m.Email || '').toLowerCase();
+      if (k && to.concat(cc).map(function (x) { return x.toLowerCase(); }).indexOf(k) < 0) { cc.push(m.Email); cuentas[k] = m.Id; nombres[k] = m.Title; }
+    }); });
+    if (!to.length && !cc.length) return Promise.resolve({ ok: false, n: 0, motivo: 'los negociados no tienen miembros con correo', rechazados: [], mailto: '' });
+    if (!to.length) { to = cc; cc = []; }
     var intro = rec ? 'RECORDATORIO: TU NEGOCIADO AÚN NO HA APORTADO SU INFORMACIÓN AL PUNTO DE SITUACIÓN. SE BLOQUEA EL ' + fFH(p.cierre).toUpperCase() + '.'
       : cambio ? 'SE HAN MODIFICADO LOS DATOS DEL PUNTO DE SITUACIÓN. REVISA LAS NUEVAS FECHAS.'
       : 'SE HA ABIERTO UN NUEVO PUNTO DE SITUACIÓN. CADA NEGOCIADO DEBE APORTAR SU INFORMACIÓN ANTES DEL BLOQUEO.';
     var filas = [['Punto de situación', p.ref + ' · ' + fLarga(p.fecha)], ['Aportaciones desde', fFH(p.apertura || p.creado)], ['Bloqueo automático', fFH(p.cierre)],
       [rec ? 'Negociados pendientes' : 'Negociados convocados', lst.map(function (n) { return n.titulo; }).join(', ')], ['Aviso enviado por', yo.Title]];
-    var c = { to: to, cc: [], bcc: [], cuentas: cuentas, nombres: nombres, asunto: (rec ? 'RECORDATORIO · ' : cambio ? 'CAMBIO · ' : '') + p.ref + ' · Punto de situación del ' + fCorta(p.fecha) + ' · aportaciones hasta el ' + fFH(p.cierre),
+    var c = { to: to, cc: cc, bcc: [], cuentas: cuentas, nombres: nombres, asunto: (rec ? 'RECORDATORIO · ' : cambio ? 'CAMBIO · ' : '') + p.ref + ' · Punto de situación del ' + fCorta(p.fecha) + ' · aportaciones hasta el ' + fFH(p.cierre),
       html: htmlCorreo(intro, filas, enlacePunto(p)), texto: 'USO OFICIAL\n\n' + intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\nAbrir: ' + enlacePunto(p) };
     return enviarCorreo(c).then(function (r) {
       var txt = (rec ? 'recordatorio' : cambio ? 'aviso del cambio' : 'aviso de apertura') + ' por correo: ' + (r.ok ? 'enviado a ' + (r.llegaron || []).join(', ') : 'NO ENVIADO (' + (r.motivo || '') + ')') + (r.rechazados.length ? '; Colabora no aceptó: ' + r.rechazados.join(', ') : '');

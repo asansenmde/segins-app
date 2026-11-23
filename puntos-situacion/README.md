@@ -18,6 +18,17 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-23 · 1: a quien coordina le llega el aviso del punto nuevo
+
+Caso del usuario: se lanzó un punto y no le llegó el aviso. Causas encontradas y corregidas:
+- El aviso de apertura (y el de cambio) iba solo a los miembros de los negociados convocados: la fila «Coordinación
+  (control total)» no se convoca ni sale en el informe, y quien solo estaba allí no lo recibía. Ahora **la coordinación va
+  siempre en copia** de esos avisos (el recordatorio sigue yendo solo a los negociados pendientes).
+- Los miembros **sin correo** en la lista de usuarios del sitio se quedaban fuera sin decirlo. Ahora se les envía a su
+  **cuenta** (`getuserbyid` → `LoginName`).
+- En *Seguimiento*, la coordinación ve plegado el **«Historial del punto»**: creación, cambios y a quién se envió cada aviso
+  (o «NO ENVIADO» con el motivo), para saber qué pasó.
+
 ## Versión 2026-11-17 · 3: descartar propuestas de META
 
 Pedido por el usuario: no quería ver muchas propuestas de META que no le interesan, sin borrarlas en META.

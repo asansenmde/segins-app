@@ -99,7 +99,7 @@ await ctx.route(ORIGEN + '/**', async r0 => {
     const pr = JSON.parse(req.postData()).properties, dest = [pr.To, pr.CC, pr.BCC].flatMap(x => x ? x.results : []);
     if (SOLO_CUENTAS && dest.some(x => /@/.test(x))) { rechazosCorreo.push(dest.filter(x => /@/.test(x))); return json({ error: { message: { value: 'Asegúrese de que tenga un destinatario válido' } } }, 400); }
     if (dest.map(comoCorreo).some(x => buzonMal.includes(x))) return json({ error: { message: { value: 'No se puede enviar: asegúrese de que tenga un destinatario válido' } } }, 400);
-    correos.push({ to: dest.map(comoCorreo), cuentas: dest, asunto: pr.Subject, cuerpo: pr.Body }); return json({ d: {} });
+    correos.push({ to: dest.map(comoCorreo), cc: (pr.CC ? pr.CC.results : []).map(comoCorreo), cuentas: dest, asunto: pr.Subject, cuerpo: pr.Body }); return json({ d: {} });
   }
   if (resto === 'web/lists' && m === 'POST') { const c = JSON.parse(req.postData()); if (L(c.Title)) return json({ error: { message: { value: 'existe' } } }, 500); nuevaLista(c.Title); return json({ d: { Title: c.Title } }, 201); }
   const ml = resto.match(/^web\/lists\/getbytitle\('([^']*)'\)(.*)$/);
@@ -196,10 +196,13 @@ await p.click('[data-crearpunto]');
 await p.waitForFunction(() => /Punto creado|No se pudo/.test(document.querySelector('#dlg').textContent), null, { timeout: 15000 });
 const pt1 = LP('Puntos').items[0];
 comprueba('punto creado: ' + pt1.Referencia + ' · ' + pt1.Title + ' · ' + pt1.Convocados, /^PS-\d{4}-001$/.test(pt1.Referencia) && pt1.EstadoPunto === 'Abierto' && pt1.Convocados.split('; ').length === 6 && pt1.Repetir === 7);
-comprueba('aviso de apertura a los miembros: ' + (correos[0] && correos[0].to.join(', ')), correos.length === 1 && ['luis@et.mde.es', 'ana@et.mde.es', 'maria@et.mde.es', 'admin@et.mde.es'].every(x => correos[0].to.includes(x)) === false && ['luis@et.mde.es', 'ana@et.mde.es', 'maria@et.mde.es'].every(x => correos[0].to.includes(x)));
+comprueba('aviso de apertura a los miembros y, en copia, a la coordinación: para ' + (correos[0] && correos[0].to.join(', ')) + ' · copia ' + (correos[0] && correos[0].cc.join(', ')),
+  correos.length === 1 && ['luis@et.mde.es', 'ana@et.mde.es', 'maria@et.mde.es'].every(x => correos[0].to.includes(x)) && correos[0].cc.includes('admin@et.mde.es') && !correos[0].cc.includes('ana@et.mde.es'));
 comprueba('asunto del aviso: ' + correos[0].asunto, /PS-\d{4}-001/.test(correos[0].asunto) && /punto=1/.test(correos[0].cuerpo));
 comprueba('historial del punto: ' + LP('Puntos').items[0].Historial.split('\n')[0].slice(0, 90), /aviso de apertura por correo: enviado/.test(LP('Puntos').items[0].Historial));
 await p.click('#dlg [data-cerrar]');
+await ir(7);
+comprueba('«Historial del punto» en Seguimiento con el envío del aviso', !!(await p.$('summary:has-text("Historial del punto")')) && /aviso de apertura por correo: enviado/.test(await txt('#vista')));
 comprueba('seguimiento: 0 de 6 y 6 pendientes', /0 de 6 negociados/.test(await txt('#vista')) && (await p.$$('.neg.r')).length === 6);
 await foto('03-seguimiento');
 // Propuestas sin negociado: PROCOR elige dónde incluirlas (no se quedan en el limbo)
@@ -690,6 +693,20 @@ if (SOLO_CUENTAS) comprueba('SOLO_CUENTAS: todos los avisos salen a cuentas, nin
   // Un miembro no puede descartar propuestas de otro negociado ni las de coordinación
   await ir(8); await p.click('nav.tabs a[data-v=seguimiento]'); await p.waitForTimeout(300);
   comprueba('un miembro no ve las propuestas de coordinación', !(await p.$('[data-descartarmeta="41"]')));
+}
+// 15. Miembro sin correo en el sitio: el aviso le llega a su CUENTA (antes se quedaba fuera sin decir nada)
+{ USUARIOS[14] = { Id: 14, Title: 'JUAN SIN CORREO FICTICIO', Email: '', LoginName: 'i:0#.w|et\\juan' };
+  const prl = negsC.find(x => x.Title === 'PRL'); prl.MiembrosId = (prl.MiembrosId || []).concat([14]);
+  const ptA = LP('Puntos').items.find(x => new Date(x.Cierre) > Date.now() && x.EstadoPunto !== 'Contenido borrado');
+  await ir(9); await p.click('nav.tabs a[data-v=seguimiento]');
+  await p.selectOption('#selPunto', String(ptA.Id)); await p.waitForTimeout(300);
+  await p.click('[data-modificarpunto]'); await p.waitForSelector('[data-guardarpunto]');
+  await p.fill('#npRec', '5'); await p.check('#npAvisar');
+  const nC = correos.length;
+  await p.click('[data-guardarpunto]'); await p.waitForFunction(() => /Punto modificado/.test(document.querySelector('#dlg').textContent), null, { timeout: 15000 });
+  const c = correos[nC];
+  comprueba('miembro sin correo: el aviso va a su cuenta (' + (c && c.cuentas.filter(x => !/@/.test(x)).join(', ')) + ')', !!c && c.cuentas.includes('i:0#.w|et\\juan'));
+  await p.click('#dlg [data-cerrar]');
 }
 comprueba('errores de página: ' + JSON.stringify(errs), !errs.length);
 await b.close();
