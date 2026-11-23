@@ -534,7 +534,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-23 · 3';
+  var VERSION = '2026-11-23 · 4';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1815,24 +1815,9 @@
       setTimeout(function () { try { w.focus(); w.print(); } catch (e) { /* el usuario pulsa el botón */ } }, 400);
     });
   }
-  // ✉ Enviar con el PDF (18/11/2026): el navegador no puede adjuntar archivos a un correo de Outlook. Se descarga el PDF (el
-  // primer anexo .pdf, que suele ser el oficio original firmado; si no hay, el oficio de SENDERO para «Guardar como PDF») y se
-  // abre el correo preparado: solo queda arrastrar el PDF al correo.
-  function enviarConPdf(m, boton) {
-    var txt = boton.textContent; boton.disabled = true; boton.textContent = 'Preparando…';
-    var listo = m._api && apiCtx ? cuerpoCompleto(m).then(function (j) { if (j && j.AnexosDigitales && !m._anexos) m._anexos = j.AnexosDigitales.filter(Boolean); }, function () {}) : Promise.resolve();
-    listo.then(function () {
-      var i = (m._anexos || []).findIndex(function (a) { return /\.pdf$/i.test(a.Nombre || a.Titulo || '') && urlAnexo(a); });
-      if (i >= 0) usarAnexo(m, i, 'bajar', { disabled: false, textContent: '' }); else imprimirMensaje(m);
-      boton.disabled = false; boton.textContent = txt;
-      var aviso = i >= 0 ? 'Se ha descargado el PDF original («' + ((m._anexos[i].Nombre || m._anexos[i].Titulo)) + '»)' : 'En la ventana del oficio elige «Guardar como PDF»';
-      setTimeout(function () { correoConDocs(m, aviso + ' y arrástralo al correo que se ha abierto en Outlook.'); }, 800);
-    });
-  }
-  // ✉ Correo (09/11/2026; rehecho el 23/11/2026): abre Outlook con el correo ya relleno: datos del mensaje, enlace a MENSADEF,
-  // cada documento con su enlace directo (el mismo con que SENDERO los abre; el enlace a la carpeta no lo localizaba Colabora)
-  // y el texto. Falta saber la dirección de un mensaje abierto en MENSADEF: hasta entonces se abre su célula y se dice qué
-  // referencia buscar.
+  // ✉ Correo (09/11/2026; rehecho el 23/11/2026): un correo de Outlook listo para enviar, con formato, el texto completo, los datos
+  // del mensaje, el enlace a MENSADEF y los documentos adjuntos (ver «El correo como archivo de Outlook» más abajo). Falta saber
+  // la dirección de un mensaje abierto en MENSADEF: hasta entonces «Abrir en MENSADEF» lleva a su célula y dice qué buscar.
   var PRIORIDADES = { Z: 'Flash', O: 'Inmediato', P: 'Prioridad', R: 'Rutina' };
   function datosCorreo(m) {
     var x = m._x || {}, j = m._cuerpoCompleto || {}, f = fechaDe(m);
@@ -1858,51 +1843,140 @@
       docs: docs, fisicos: fisicos, enlace: m._enlace || ''
     };
   }
-  // El correo se abre directamente en Outlook, ya relleno (el usuario no quiere copiar y pegar, 23/11/2026). Un correo
-  // abierto así solo admite texto sin formato y ~2.000 caracteres: se ordena por importancia (cabecera, enlaces de MENSADEF
-  // y de cada documento, datos y texto) y, si no cabe, se recorta primero el texto, luego los destinatarios, luego los
-  // datos secundarios (registros, bandera, estado) y por último los documentos que no quepan (se dice cuántos faltan). Cada enlace va solo en su línea para que Outlook lo haga pulsable.
-  var LARGO_CORREO = 1900;
-  function abrirCorreo(m, nota) {
-    var d = datosCorreo(m);
-    var asunto = 'MENSADEF' + (d.ref ? ' · ' + d.ref : '') + ' · ' + d.asunto;
-    var url = function (t) { return 'mailto:?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(t); };
-    var dato = function (k) { var r = d.datos.filter(function (x) { return x[0] === k; })[0]; return r ? r[1] : ''; };
-    var dest = dato('Destinatarios').split('; ').filter(Boolean);
-    var texto0 = d.texto, corto = false, nDest = dest.length, nDocs = d.docs.length, breve = false;
-    var armar = function () {
-      var l = ['MENSAJE DE MENSADEF' + (d.bandeja ? ' (' + d.bandeja.toLowerCase() + ')' : '') + (d.ref ? ' · N.º ref. ' + d.ref : ''), '==============================',
-        'ASUNTO: ' + d.asunto, ''];
-      [['Fecha', dato('Fecha')], ['Remitente', dato('Remitente')], ['Firma', dato('Firma')], ['Su referencia', dato('Su referencia')], ['N.º de expediente', dato('N.º de expediente')],
-        ['Registro de salida', breve ? '' : dato('Registro de salida')], ['Registro de entrada', breve ? '' : dato('Registro de entrada')], ['Prioridad', d.prio], ['Bandera', breve ? '' : d.bandera], ['Célula', d.celula], ['Estado', breve ? '' : d.estado],
-        ['Destinatarios', !dest.length ? '' : nDest ? dest.slice(0, nDest).join('; ') + (nDest < dest.length ? ' y ' + (dest.length - nDest) + ' más' : '') : dest.length + ' (ver en MENSADEF)'],
-        ['Copia', nDest === dest.length ? dato('Copia') : '']]
-        .forEach(function (r) { if (r[1]) l.push(r[0] + ': ' + r[1]); });
-      if (d.enlace) l.push('', '► ABRIR EN MENSADEF' + (d.ref ? ' (en la célula ' + d.celula + ', busca la referencia ' + d.ref + ')' : '') + ':', d.enlace);
-      if (d.docs.length) {
-        l.push('', '► DOCUMENTOS (' + d.docs.length + '), pulsa el enlace para abrirlo:');
-        d.docs.slice(0, nDocs).forEach(function (x, i) { l.push((i + 1) + '. ' + x.titulo + (x.nombre || x.detalle ? ' (' + [x.nombre, x.detalle].filter(Boolean).join(' · ') + ')' : ''), x.url || '(sin enlace)'); });
-        if (nDocs < d.docs.length) l.push('   … y ' + (d.docs.length - nDocs) + ' más: ábrelos en MENSADEF');
-      }
-      if (d.fisicos.length) l.push('', 'Anexos en papel: ' + d.fisicos.join('; '));
-      l.push('', '► TEXTO DEL MENSAJE', texto0 ? texto0 + (corto ? '… (sigue en MENSADEF)' : '') : '(sin texto)', '', '--', 'Enviado con SENDERO · © 2026 Cte. Alfredo Sánchez Sender');
-      return l.join('\n');
-    };
-    var t = armar();
-    while (url(t).length > LARGO_CORREO && texto0.length > 80) { texto0 = texto0.slice(0, Math.max(80, texto0.length - 150)); corto = true; t = armar(); }
-    while (url(t).length > LARGO_CORREO && nDest > 0) { nDest = nDest > 3 ? 3 : nDest - 1; t = armar(); }
-    if (url(t).length > LARGO_CORREO) { breve = true; t = armar(); }   // sin registros, bandera ni estado (están en MENSADEF)
-    while (url(t).length > LARGO_CORREO && nDocs > 0) { nDocs--; t = armar(); }
-    var el = document.createElement('a'); el.href = url(t); el.style.display = 'none'; document.body.appendChild(el); el.click(); setTimeout(function () { el.remove(); }, 1000);
-    if (nota && $('colabora')) $('colabora').insertAdjacentHTML('afterbegin', '<p class="small" style="background:#fff3c4;border:1px solid #c9a84c;border-radius:8px;padding:6px 10px">✉ ' + esc(nota) + '</p>');
+  function correoHtml(d) {
+    var F = 'font-family:Segoe UI,Arial,Helvetica,sans-serif;';
+    var chip = function (t, fondo, color) { return t ? '<span style="' + F + 'display:inline-block;font-size:12px;font-weight:bold;padding:3px 9px;margin:0 6px 6px 0;border-radius:10px;background:' + fondo + ';color:' + color + '">' + esc(t) + '</span>' : ''; };
+    var boton = function (url, t) { return '<table role="presentation" cellpadding="0" cellspacing="0" style="display:inline-table;margin:0 8px 8px 0"><tr><td bgcolor="#12315a" style="background:#12315a;border-radius:6px;padding:9px 16px"><a href="' + esc(url) + '" style="' + F + 'color:#ffffff;font-size:14px;font-weight:bold;text-decoration:none">' + esc(t) + '</a></td></tr></table>'; };
+    var titulo = function (t) { return '<tr><td style="' + F + 'padding:18px 24px 6px;font-size:13px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:#12315a;border-bottom:2px solid #c9a227">' + esc(t) + '</td></tr>'; };
+    var h = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef1f6"><tr><td align="center" style="padding:16px 8px">' +
+      '<table role="presentation" width="680" cellpadding="0" cellspacing="0" style="width:680px;max-width:100%;background:#ffffff;border:1px solid #d3dce8">' +
+      // Cabecera
+      '<tr><td bgcolor="#12315a" style="background:#12315a;padding:14px 24px;border-bottom:4px solid #c9a227"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' +
+        '<td style="' + F + 'color:#ffffff;font-size:18px;font-weight:bold">✉ MENSADEF' + (d.bandeja ? ' <span style="font-size:13px;font-weight:normal;color:#e6d9a8">· Mensaje de ' + esc(d.bandeja.toLowerCase()) + '</span>' : '') + '</td>' +
+        '<td align="right" style="' + F + 'color:#e6d9a8;font-size:13px;font-weight:bold">' + (d.ref ? 'N.º ref. ' + esc(d.ref) : '') + '</td></tr></table></td></tr>' +
+      // Asunto y etiquetas
+      '<tr><td style="' + F + 'padding:20px 24px 4px;font-size:21px;font-weight:bold;color:#12315a;line-height:1.3">' + esc(d.asunto) + '</td></tr>' +
+      '<tr><td style="padding:8px 24px 4px">' + chip(d.prio ? 'Prioridad ' + d.prio : '', d.urgente ? '#fbdcda' : '#e2ecf9', d.urgente ? '#a3201b' : '#1d4f91') +
+        chip(d.firma ? '✍ Firmado' : '', '#dcf0e0', '#1e6b2e') + chip(d.bandera ? '⚑ ' + d.bandera : '', '#fff1cc', '#7a5200') + chip(d.celula ? 'Célula ' + d.celula : '', '#eef1f6', '#33415a') +
+        chip(d.docs.length ? '📎 ' + d.docs.length + ' documento' + (d.docs.length === 1 ? '' : 's') : '', '#eef1f6', '#33415a') + '</td></tr>' +
+      // Accesos
+      '<tr><td style="padding:6px 24px 2px">' + (d.enlace ? boton(d.enlace, 'Abrir en MENSADEF') : '') + '' + '</td></tr>' +
+      (d.enlace && d.ref ? '<tr><td style="' + F + 'padding:0 24px 6px;font-size:12px;color:#5a6676">«Abrir en MENSADEF» lleva a la célula ' + esc(d.celula) + ': busca allí la referencia <b>' + esc(d.ref) + '</b>.</td></tr>' : '') +
+      // Datos
+      titulo('Datos del mensaje') +
+      '<tr><td style="padding:8px 24px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">' + d.datos.map(function (r, i) {
+        return '<tr><td valign="top" style="' + F + 'width:150px;padding:6px 10px 6px 0;font-size:13px;color:#5a6676;border-bottom:1px solid #eef1f6' + (i ? '' : '') + '">' + esc(r[0]) + '</td>' +
+          '<td valign="top" style="' + F + 'padding:6px 0;font-size:14px;color:#1c2a3a;border-bottom:1px solid #eef1f6">' + esc(r[1]) + '</td></tr>';
+      }).join('') + '</table></td></tr>' +
+      // Documentos
+      (d.docs.length ? titulo('Documentos (' + d.docs.length + ')') + '<tr><td style="' + F + 'padding:8px 24px 0;font-size:13px;color:#5a6676">' + esc(d.docs.filter(function (x) { return x.adjunto; }).length === d.docs.length ? (d.docs.length === 1 ? 'Va adjunto a este correo.' : 'Van adjuntos a este correo.') : d.docs.filter(function (x) { return x.adjunto; }).length ? 'Los marcados «Adjunto» van en este correo; los demás pasan del tamaño que admite el correo y se abren con su enlace.' : 'Se abren con su enlace (no caben como adjuntos en el correo).') + '</td></tr>' + '<tr><td style="padding:6px 24px">' + d.docs.map(function (x) {
+        return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;border:1px solid #d3dce8;border-radius:6px"><tr>' +
+          '<td width="38" valign="top" style="' + F + 'padding:10px 0 10px 12px;font-size:20px">' + x.icono + '</td>' +
+          '<td style="' + F + 'padding:10px 12px;font-size:14px">' + (x.url ? '<a href="' + esc(x.url) + '" style="color:#1d4f91;font-weight:bold;text-decoration:underline">' + esc(x.titulo) + '</a>' : '<b>' + esc(x.titulo) + '</b>') +
+          (x.adjunto ? ' <span style="font-size:11px;font-weight:bold;color:#1e6b2e;background:#dcf0e0;border-radius:8px;padding:1px 7px">📎 Adjunto</span>' : '') + (x.nombre || x.detalle ? '<br><span style="font-size:12px;color:#5a6676">' + esc([x.nombre, x.detalle].filter(Boolean).join(' · ')) + '</span>' : '') + '</td></tr></table>';
+      }).join('') + '</td></tr>' : '') +
+      (d.fisicos.length ? titulo('Anexos en papel (' + d.fisicos.length + ')') + '<tr><td style="' + F + 'padding:8px 24px;font-size:14px">' + d.fisicos.map(function (t) { return '• ' + esc(t); }).join('<br>') + '</td></tr>' : '') +
+      // Texto
+      titulo('Texto del mensaje') +
+      '<tr><td style="padding:10px 24px 6px"><div style="' + F + 'font-size:14px;line-height:1.55;color:#1c2a3a;border-left:4px solid #c9a227;background:#f8f9fb;padding:12px 14px">' +
+        (d.texto ? esc(d.texto).replace(/\r?\n/g, '<br>') : '<i>(sin texto)</i>') + '</div></td></tr>' +
+      // Pie
+      '<tr><td style="' + F + 'padding:16px 24px;font-size:12px;color:#5a6676;line-height:1.5">Los enlaces abren MENSADEF con la sesión de quien los pulsa: solo funcionan para quien tenga acceso a este mensaje en MENSADEF. El original está en MENSADEF.</td></tr>' +
+      '<tr><td bgcolor="#12315a" style="' + F + 'background:#12315a;padding:8px 24px;font-size:11px;color:#e6d9a8">Enviado con SENDERO · © 2026 Cte. Alfredo Sánchez Sender</td></tr>' +
+      '</table></td></tr></table>';
+    return h;
   }
-  // Antes de abrir el correo se leen el texto completo y los anexos si aún no están (ficha recién abierta)
-  function correoConDocs(m, nota) {
+  // Texto sin formato (la otra versión del cuerpo, para quien lea el correo sin formato)
+  function correoTexto(d) {
+    return ['MENSAJE DE MENSADEF' + (d.ref ? ' · N.º ref. ' + d.ref : ''), d.asunto, '────────────────────────']
+      .concat(d.datos.map(function (r) { return r[0] + ': ' + r[1]; }), d.prio ? ['Prioridad: ' + d.prio] : [], d.bandera ? ['Bandera: ' + d.bandera] : [])
+      .concat(d.enlace ? ['', 'Abrir en MENSADEF' + (d.ref ? ' (busca la referencia ' + d.ref + ')' : '') + ': ' + d.enlace] : [])
+      .concat(d.docs.length ? ['', 'Documentos (' + d.docs.length + '):'].concat(d.docs.map(function (x) { return '• ' + x.titulo + (x.nombre ? ' (' + x.nombre + ')' : '') + (x.adjunto ? ' [adjunto]' : '') + (x.url ? ': ' + x.url : ''); })) : [])
+      .concat(d.fisicos.length ? ['', 'Anexos en papel: ' + d.fisicos.join('; ')] : [])
+      .concat(['', 'Texto del mensaje:', d.texto || '(sin texto)', '', 'Enviado con SENDERO · © 2026 Cte. Alfredo Sánchez Sender']).join('\n');
+  }
+  // ---------- El correo como archivo de Outlook (.eml), 23/11/2026 ----------
+  // Un enlace «mailto» solo admite texto y ~2.000 caracteres y no adjunta nada. Así que SENDERO prepara el correo entero como
+  // archivo de correo (MIME) con «X-Unsent: 1»: al abrirlo, Outlook (el de escritorio) lo enseña como correo nuevo, listo para
+  // poner destinatarios y enviar, con formato, el texto completo y los documentos del mensaje ADJUNTOS. Si los documentos pasan
+  // de LIMITE_ADJUNTOS, los que no caben van con su enlace. No sale nada del equipo: el archivo se crea en el navegador.
+  var LIMITE_ADJUNTOS = 10 * 1024 * 1024;
+  var b64 = function (bytes) {   // bytes: Uint8Array → base64 en líneas de 76
+    var s = '', i, trozo = 0x8000;
+    for (i = 0; i < bytes.length; i += trozo) s += String.fromCharCode.apply(null, bytes.subarray(i, i + trozo));
+    return btoa(s).replace(/.{76}/g, '$&\r\n');
+  };
+  var utf8 = function (t) { return new TextEncoder().encode(t); };
+  // Cabecera con letras fuera del ASCII (RFC 2047): trozos cortos en base64, en varias líneas
+  var cabecera = function (t) {
+    t = String(t || ''); if (/^[\x20-\x7e]*$/.test(t)) return t;
+    var partes = [], cur = '';
+    Array.from(t).forEach(function (c) { if (utf8(cur + c).length > 40) { partes.push(cur); cur = ''; } cur += c; });
+    if (cur) partes.push(cur);
+    return partes.map(function (p) { return '=?UTF-8?B?' + btoa(String.fromCharCode.apply(null, utf8(p))) + '?='; }).join('\r\n ');
+  };
+  var TIPOS = { pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', ppt: 'application/vnd.ms-powerpoint', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    odt: 'application/vnd.oasis.opendocument.text', ods: 'application/vnd.oasis.opendocument.spreadsheet', rtf: 'application/rtf', txt: 'text/plain', csv: 'text/csv', zip: 'application/zip',
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', tif: 'image/tiff', tiff: 'image/tiff', xml: 'application/xml', msg: 'application/vnd.ms-outlook', eml: 'message/rfc822' };
+  var tipoMime = function (nombre) { var e = (/\.([a-z0-9]+)$/i.exec(nombre || '') || [])[1]; return TIPOS[(e || '').toLowerCase()] || 'application/octet-stream'; };
+  function crearEml(asunto, html, plano, adjuntos) {
+    var r = function () { return Math.random().toString(36).slice(2); };
+    var bMix = '----=_SENDERO_' + r() + r(), bAlt = '----=_SENDERO_alt_' + r() + r();
+    var l = ['X-Unsent: 1', 'MIME-Version: 1.0', 'Subject: ' + cabecera(asunto), 'X-Mailer: SENDERO',
+      'Content-Type: multipart/mixed; boundary="' + bMix + '"', '', 'Este correo tiene varias partes.', '',
+      '--' + bMix, 'Content-Type: multipart/alternative; boundary="' + bAlt + '"', '',
+      '--' + bAlt, 'Content-Type: text/plain; charset="utf-8"', 'Content-Transfer-Encoding: base64', '', b64(utf8(plano)), '',
+      '--' + bAlt, 'Content-Type: text/html; charset="utf-8"', 'Content-Transfer-Encoding: base64', '',
+      b64(utf8('<!doctype html><html lang="es"><head><meta charset="utf-8"></head><body style="margin:0">' + html + '</body></html>')), '', '--' + bAlt + '--', ''];
+    adjuntos.forEach(function (a) {
+      var nom = cabecera(a.nombre).replace(/"/g, '');
+      l.push('--' + bMix, 'Content-Type: ' + tipoMime(a.nombre) + '; name="' + nom + '"', 'Content-Transfer-Encoding: base64',
+        'Content-Disposition: attachment; filename="' + nom + '"', '', b64(a.bytes), '');
+    });
+    l.push('--' + bMix + '--', '');
+    return l.join('\r\n');
+  }
+  // ✉ Correo: lee el texto y los anexos si faltan, descarga los documentos (con la sesión de MENSADEF), arma el .eml y lo baja
+  function correoConDocs(m, boton) {
+    var txt = boton ? boton.textContent : '', poner = function (t) { if (boton) boton.textContent = t; };
+    if (boton) boton.disabled = true; poner('Preparando…');
     var listo = m._api && apiCtx && !(m._anexos && m._cuerpoCompleto) ? cuerpoCompleto(m).then(function (j) {
       if (j && j.AnexosDigitales && !m._anexos) m._anexos = j.AnexosDigitales.filter(Boolean);
       if (j && j.Cuerpo && !m._cuerpo) m._cuerpo = texto(String(j.Cuerpo));
     }, function () {}) : Promise.resolve();
-    listo.then(function () { abrirCorreo(m, nota); });
+    var fallos = [];
+    listo.then(function () {
+      var d = datosCorreo(m), total = 0, hechos = 0;
+      if (d.docs.length) poner('Descargando documentos 0/' + d.docs.length + '…');
+      // De uno en uno, en orden: así se adjuntan primero los primeros (el oficio suele ser el primero) hasta el límite
+      return d.docs.reduce(function (p, x) {
+        return p.then(function () {
+          if (!x.url) return;
+          return fetch(x.url, { credentials: 'include' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); }).then(function (buf) {
+            if (total + buf.byteLength <= LIMITE_ADJUNTOS) { total += buf.byteLength; x.adjunto = true; x.bytes = new Uint8Array(buf); }
+          }, function (e) { fallos.push(x.nombre || x.titulo); }).then(function () { hechos++; poner('Descargando documentos ' + hechos + '/' + d.docs.length + '…'); });
+        });
+      }, Promise.resolve()).then(function () { return d; });
+    }).then(function (d) {
+      var asunto = 'MENSADEF' + (d.ref ? ' · ' + d.ref : '') + ' · ' + d.asunto;
+      var adj = d.docs.filter(function (x) { return x.adjunto; }).map(function (x) { return { nombre: x.nombre || x.titulo, bytes: x.bytes }; });
+      var eml = crearEml(asunto, correoHtml(d), correoTexto(d), adj);
+      var nombre = ('MENSADEF ' + (d.ref ? d.ref + ' ' : '') + d.asunto).replace(/[\\/:*?"<>|\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90) + '.eml';
+      var el = document.createElement('a'); el.href = URL.createObjectURL(new Blob([eml], { type: 'message/rfc822' })); el.download = nombre;
+      document.body.appendChild(el); el.click(); setTimeout(function () { URL.revokeObjectURL(el.href); el.remove(); }, 4000);
+      var noCaben = d.docs.filter(function (x) { return x.url && !x.adjunto && fallos.indexOf(x.nombre || x.titulo) < 0; }).length;
+      avisoCorreo('Se ha descargado el correo «' + nombre + '». Ábrelo: Outlook lo enseña como correo nuevo, listo para poner a quién va y enviar' +
+        (adj.length ? ', con ' + adj.length + ' documento' + (adj.length === 1 ? '' : 's') + ' adjunto' + (adj.length === 1 ? '' : 's') : '') + '.' +
+        (noCaben ? ' ' + noCaben + ' documento' + (noCaben === 1 ? ' no cabía' : 's no cabían') + ' en el correo: va' + (noCaben === 1 ? '' : 'n') + ' con su enlace.' : '') +
+        (fallos.length ? ' No se pudo descargar: ' + fallos.join(', ') + ' (va con su enlace).' : '') +
+        ' Consejo: en la descarga de Edge, «⋯» › «Abrir siempre los archivos de este tipo», y se abrirá solo.');
+    }).catch(function (e) { alert('No se pudo preparar el correo: ' + (e.message || e)); }).then(function () { if (boton) { boton.disabled = false; boton.textContent = txt; } });
+  }
+  function avisoCorreo(t) {
+    var c = $('colabora'); if (!c) return;
+    var v = $('avisoCorreo'); if (v) v.parentNode.removeChild(v);
+    c.insertAdjacentHTML('afterbegin', '<p id="avisoCorreo" class="small" style="background:#fff3c4;border:1px solid #c9a84c;border-radius:8px;padding:6px 10px">✉ ' + esc(t) + '</p>');
   }
   function usarAnexo(m, i, modo, boton) {
     var a = (m._anexos || [])[i]; if (!a) return;
@@ -2388,9 +2462,8 @@
       (m._api && m._x && m._x.__es !== 'Salida' ? '<button type="button" class="gr gr-resp" id="aResponder" title="Abre en MENSADEF la pantalla para responder a este mensaje"><span class="i">↩</span><span>Responder<small>en MENSADEF</small></span></button>' : '') +
       (PUNTO ? '<button type="button" class="gr gr-psit" id="aPunto" disabled title="' + (PSIT_DIRECTO ? 'Lo pasa directamente al Punto de Situación (PSIT), que detecta la célula' : 'Lo pasa al Punto de Situación (PSIT) a través de META, que detecta la célula') + '"><span class="i">★</span><span>Al PSIT<small>punto de situación</small></span></button>' : '') + botonRubrica(m) + '</div>' +
       '<div class="utiles"><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + botonLeido(m) + '<span class="sepu"></span>' +
-      '<button type="button" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje, el enlace a MENSADEF y el de cada documento">✉ Correo</button>' +
+      '<button type="button" id="porCorreo" title="Prepara un correo de Outlook listo para enviar: texto completo, datos, enlace a MENSADEF y los documentos adjuntos">✉ Correo</button>' +
       '<button type="button" id="imprimirMsg" title="Imprime el mensaje con formato de oficio; en la ventana de imprimir elige «Guardar como PDF»">🖨 Imprimir / PDF</button>' +
-      '<button type="button" id="enviarPdf" title="Descarga el PDF (el original si viene como anexo; si no, el oficio para guardarlo en PDF) y abre el correo de Outlook preparado">✉ Enviar con el PDF</button>' +
       '<button type="button" id="copiarTarea" title="Copia asunto, referencia, fecha y autoridad para pegarlos en un gestor">📋 Copiar</button>' + (selectorBandera(m) ? '<span class="sepu"></span>' + selectorBandera(m) : '') + '</div></div></div><div id="colabora"></div>' +
       (m._api ? '<div class="cab-msg">' + (m._x.__es ? '<span class="tag st-azul">' + (m._x.__es === 'Entrada' ? '📥 ' : m._x.__es === 'Salida' ? '📤 ' : '') + esc(m._x.__es) + '</span>' : '') +
         (m.MensajeTipo_es ? '<span class="tag t-tipo">' + esc(m.MensajeTipo_es) + '</span>' : '') + (m.MensajeEstado ? '<span class="tag ' + claseEstado(m.MensajeEstado) + '">' + esc(m.MensajeEstado) + '</span>' : '') +
@@ -2436,9 +2509,8 @@
         function (e) { sel.disabled = false; sel.value = m._bandera ? m._idBandera : ''; avisoBandera(m, 'No se pudo cambiar la bandera: ' + (e.message || e), true); });
     });
     $('verDet').addEventListener('click', function () { cambiarVisto(m, !vistos[claveMensaje(m)]); });
-    $('porCorreo').addEventListener('click', function () { correoConDocs(m); });
+    $('porCorreo').addEventListener('click', function () { correoConDocs(m, this); });
     $('imprimirMsg').addEventListener('click', function () { imprimirMensaje(m); });
-    $('enviarPdf').addEventListener('click', function () { enviarConPdf(m, this); });
     Array.prototype.forEach.call($('detalle').querySelectorAll('.irRef'), function (a) { a.addEventListener('click', function (e) { e.preventDefault(); irAReferencia(m, a.getAttribute('data-ref'), !!a.getAttribute('data-su'), a.getAttribute('data-msg')); }); });
     $('aColabora').addEventListener('click', function () { pasarAColabora(m, disp); });
     // 15/11/2026 (tarde): vuelve a pasar por META, que detecta la célula y lo lleva al PSIT, hasta que el PSIT acepte el paso

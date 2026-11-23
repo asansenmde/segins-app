@@ -287,8 +287,9 @@ autoría.
       (y pedir a un administrador de otra organización que la abra y pruebe el suyo) y pasar «📋 Copiar el resultado».
       Pendiente de decidir: a) ¿todos los sitios en colabora.mdef.es?, b) META y PSIT de una organización en sitios distintos,
       c) ¿solo el usuario nombra administradores?, d) quién hace cada fase.
-    23/11/2026: SENDERO 2026-11-23 · 3: «✉ Correo» abre Outlook con el correo ya relleno (el usuario no quiere copiar y pegar;
-      la · 2 con diseño y Ctrl+V queda descartada): cabecera, datos, «ABRIR EN MENSADEF», cada documento con su enlace directo en
-      su línea (la carpeta no la localizaba Colabora) y el texto, recortado si no cabe (~1.900 caracteres de un correo abierto
-      así). PENDIENTE DEL USUARIO: probar que los enlaces de los documentos abren y, para que «Abrir en MENSADEF» lleve al mensaje,
-      decir la forma de la dirección de un mensaje abierto en MENSADEF (lo que va tras «#/», cambiando números por X).
+    23/11/2026: SENDERO 2026-11-23 · 4: «✉ Correo» descarga el correo como archivo de Outlook (.eml, «X-Unsent: 1»): al abrirlo,
+      Outlook de escritorio lo enseña como correo nuevo listo para enviar, con formato, texto completo, datos, «Abrir en MENSADEF»
+      y los documentos ADJUNTOS (hasta 10 MB; los que no caben, con su enlace). Quitado «✉ Enviar con el PDF» (el correo ya lleva
+      los documentos). PENDIENTE DEL USUARIO: probarlo en su Outlook (que se abra como correo nuevo y no como recibido; que lleve
+      los adjuntos) y decir el límite de tamaño de correo si no es 10 MB. Para que «Abrir en MENSADEF» lleve al mensaje: la forma
+      de la dirección de un mensaje abierto en MENSADEF (lo que va tras «#/», cambiando números por X).
