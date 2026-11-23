@@ -207,6 +207,20 @@ async function prueba(verbose) {
   comprueba(tag + 'SUB3 con vacaciones cortas no salta: queda puesto y se avisa de que debe hacer un cambio', /SUBOFICIAL NUMERO 3/.test(fila('Lun 11 – Mar 12 ene')[3]) && /debe hacer un cambio de servicio/.test(t), fila('Lun 11 – Mar 12 ene')[3]);
   comprueba(tag + 'asuntos propios no saltan: SUB4 sigue el 13-14 con aviso de cambio', /SUBOFICIAL NUMERO 4/.test(fila('Mié 13 – Jue 14 ene')[3]) && /Asuntos propios \(1 días laborables\): no salta/.test(t), fila('Mié 13 – Jue 14 ene')[3]);
   comprueba(tag + 'un permiso de más de 5 días laborables salta: SUB5 no tiene turnos del 18 al 26', !filas.some(f => f[0] >= 'Lun 18' && /SUBOFICIAL NUMERO 5/.test(f[3]) && ['Lun 18 – Mar 19 ene', 'Mié 20 – Jue 21 ene', 'Vie 22 – Dom 24 ene', 'Lun 25 – Mar 26 ene'].includes(f[0])) && /Salta SUBOFICIAL NUMERO 5 \(permiso\)/.test(t));
+  // 23/11/2026: al asignar, arriba la tabla del mes (se marca según se asigna) y debajo la lista por turnos
+  comprueba(tag + 'al asignar, arriba la tabla del mes y debajo la lista por turnos', !!(await p.$('table.rejilla')) && await p.evaluate(() => !!(document.querySelector('table.rejilla').compareDocumentPosition(document.querySelector('table.cuad')) & Node.DOCUMENT_POSITION_FOLLOWING)) && /todo asignado/.test(t));
+  const s0 = await p.$eval('table.cuad select', s => s.value);
+  // (en una propuesta, dejar un turno vacío lo vuelve a rellenar la rotación; se prueba cambiando de persona)
+  if (process.env.FOTOS && !verbose) { await p.setViewportSize({ width: 1300, height: 1000 }); await p.screenshot({ path: process.env.FOTOS + '/mes-asignar.png', fullPage: false }); }
+  const otraP = await p.$eval('table.cuad select', s => { const o = [...s.options].find(x => x.value && x.value !== s.value); return { v: o.value, n: o.text.replace(/^\d+º · /, '') }; });
+  await p.selectOption('table.cuad select >> nth=0', otraP.v); await p.waitForTimeout(300);
+  const marca = await p.$$eval('table.rejilla tr', (trs, n) => { const tr = trs.find(r => r.cells[0] && r.cells[0].textContent.includes(n)); return tr ? tr.cells[1].textContent.trim() : '?'; }, otraP.n);
+  comprueba(tag + 'al cambiar a la persona de un turno, la tabla de arriba lo marca al momento (X* = a mano)', marca === 'X*', otraP.n + ' → ' + marca);
+  await p.click('table.rejilla th[data-irturno="0"]'); await p.waitForTimeout(400);
+  comprueba(tag + 'pulsar un día de la tabla lleva a su turno', await p.evaluate(() => document.activeElement && document.activeElement.matches('#turno-0 select')));
+  await p.selectOption('table.cuad select >> nth=0', s0); await p.waitForTimeout(300);
+  await p.click('[data-rotacion="0|OFICIALES"]'); await p.waitForTimeout(300);   // vuelve a la rotación (no queda «a mano»)
+  comprueba(tag + 'y al volver a asignarlo desaparece la marca', /todo asignado/.test(await texto(p)) && !(await p.$('table.rejilla tr.faltan')));
   correos.length = 0; await p.click('[data-guardarmes="1"]'); await p.waitForTimeout(4000);
   const LT = listas['CUADRANTE TURNOS'];
   t = await texto(p);
@@ -504,7 +518,11 @@ async function prueba(verbose) {
 
   // 7. El administrador la aprueba como suboficial: entra en el grupo y queda de alta en el cuadrante
   ({ b, p, errs } = await abrir(7, true, verbose));
-  await p.waitForTimeout(600); await tab(p, 'accesos'); await p.waitForTimeout(500);
+  await p.waitForTimeout(600);
+  // 23/11/2026: al entrar ve las solicitudes pendientes, y en Accesos si el aviso salió
+  comprueba(tag + 'al entrar, el administrador ve el recuadro de solicitudes pendientes', /Solicitudes de acceso pendientes: 1 en esta aplicación/.test((await p.textContent('#vista .pendacc').catch(() => '')).replace(/\s+/g, ' ')), (await p.textContent('#vista .pendacc').catch(() => 'NO SALE')).slice(0, 200));
+  await p.click('[data-iraccesos]'); await p.waitForTimeout(800);
+  comprueba(tag + 'Accesos: la solicitud dice que su aviso salió', /✉ Aviso por correo: .*enviado a/.test(await p.$eval('[data-sol]', x => x.textContent)), await p.$eval('[data-sol]', x => x.textContent.slice(0, 400)));
   comprueba(tag + 'Accesos: la solicitud pendiente sugiere suboficiales', await p.$eval('[data-sol] .accPapel', s => s.value) === 'SUBOFICIALES');
   correos.length = 0; await p.click('[data-accaprobar]'); await p.waitForTimeout(1500);
   comprueba(tag + 'aprobada: al grupo de usuarios, alta en el cuadrante y correo a su cuenta', grupos.CUADRANTE_USUARIOS.includes(40) && LC.items.some(c => c.PersonaId === 40 && c.Cuadrante === 'SUBOFICIALES' && c.Empleo === 'BRIGADA') &&

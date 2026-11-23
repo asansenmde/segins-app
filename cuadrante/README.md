@@ -322,3 +322,21 @@ Acceso: lista común «SOLICITUDES ACCESO APLICACIONES» con aviso directo al ad
 de alta en CUADRANTE COMPONENTES. Gestionar: el grupo `CUADRANTE_GESTORES`. Ajustes y Accesos: solo con Control total.
 
 Pendiente de confirmar: ver la conversación del 18/11/2026 y `PENDIENTES.md`.
+
+## Asignar el mes viendo la tabla (23/11/2026, versión 2026-11-23 · 1)
+
+Al preparar o editar un mes, el gestor ve primero **«📊 Cómo va quedando»**: la tabla del mes (componentes × turnos),
+la misma que «En tabla», que se actualiza al momento con cada cambio de la lista de abajo.
+- X = servicio; X* = a mano, por servicio debido o por cambio; en **naranja**, lo cambiado; en **rojo**, los días sin
+  asignar (y una fila «⚠ Sin asignar»). Cuenta arriba cuántos faltan o «todo asignado».
+- Pulsar un día de la tabla lleva a su turno en la lista y lo deja listo para cambiarlo.
+- Debajo, **«✏️ Asignar por turnos»**: la lista de siempre para cambiar a la persona, poner el motivo, el imprevisto (⚡)…
+- «Orden de la rotación» y «Servicios debidos» pasan al final y plegados, para que no estorben.
+
+## Solicitudes de acceso (23/11/2026)
+
+Como en Incidentes: al entrar, el administrador ve arriba el recuadro de **solicitudes de acceso pendientes** (de esta y
+de las otras aplicaciones de la lista común), aunque no le llegue el correo; en «Accesos» cada solicitud dice si su aviso
+por correo salió o por qué no (columna «Aviso por correo», que la página crea sola); si no encuentra la cuenta del
+administrador, prueba la que sale de su dirección (`et\asansen`); y «Preparación» dice si su cuenta está guardada y por qué no.
+
