@@ -10,6 +10,8 @@ Documentación de SENDERO, versión **2026-11-19 · 5**.
 | Manual técnico | `SENDERO-manual-tecnico.docx` / `.pdf` | Informática y CIS |
 | Presentación | `SENDERO-presentacion.pptx` | Mando |
 
+- **Esquemas** (estilo Visio, en `capturas/esquema-*.svg|png`): en el manual de usuario, entrar, trabajar un mensaje,
+  META/PSIT y rúbrica y firma; en el técnico, arquitectura, secuencia de arranque, control de acceso y publicación.
 - Las capturas (`capturas/`) salen del **MENSADEF simulado** de `../pruebas/` (datos inventados, sin mensajes ni personas reales).
 - **Cifras de rendimiento**: solo la del simulado (0,1 s para 136 mensajes, sin red, no representativa). Las reales están
   marcadas **[MEDIR EN REAL]** en el manual técnico (capítulo 8) y en la lámina 6 de la presentación. Para medir: abrir
@@ -21,6 +23,7 @@ Los documentos se generan con los scripts de `fuentes/` (no se editan a mano los
 
 ```sh
 cd mensadef/manuales/fuentes
+python3 esquemas.py && node render-esquemas.mjs      # esquemas SVG → PNG
 node manual-usuario.js && node manual-tecnico.js && node presentacion.js
 python3 convertir.py ../SENDERO-manual-de-usuario.docx ../SENDERO-manual-tecnico.docx   # índice y PDF
 ```

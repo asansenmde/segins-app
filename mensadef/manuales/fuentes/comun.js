@@ -49,6 +49,11 @@ function imagen(archivo, anchoCm, pie) {
   return out;
 }
 
+// Esquema a página completa (empieza en página nueva)
+function esquema(archivo, pie, anchoCm = 16.5) {
+  return [new d.Paragraph({ pageBreakBefore: true, keepNext: true, spacing: { after: 0 }, children: [] }), ...imagen(archivo, anchoCm, pie)];
+}
+
 const borde = { style: d.BorderStyle.SINGLE, size: 4, color: 'C8CFD8' };
 const bordes = { top: borde, bottom: borde, left: borde, right: borde };
 function tabla(cabecera, filas, anchos) {
@@ -141,4 +146,4 @@ async function guardar(doc, archivo) {
   console.log('escrito', archivo);
 }
 
-module.exports = { d, p, h1, h1s, h2, h3, vi, pasos, imagen, tabla, recuadro, hueco, portada, documento, guardar, ANCHO };
+module.exports = { d, p, h1, h1s, h2, h3, vi, pasos, imagen, esquema, tabla, recuadro, hueco, portada, documento, guardar, ANCHO };

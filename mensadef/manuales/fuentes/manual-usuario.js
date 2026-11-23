@@ -1,7 +1,7 @@
 // Manual de usuario de SENDERO → ../SENDERO-manual-de-usuario.docx
 // © 2026 Cte. Alfredo Sánchez Sender. Todos los derechos reservados.
 const path = require('path');
-const { p, h1, h2, h3, vi, pasos, imagen, tabla, recuadro, hueco, portada, documento, guardar } = require('./comun');
+const { p, h1, h2, h3, vi, pasos, imagen, esquema, tabla, recuadro, hueco, portada, documento, guardar } = require('./comun');
 
 const VERSION = '2026-11-19 · 5';
 const cuerpo = [
@@ -70,6 +70,8 @@ const cuerpo = [
   p('Consejo: para hacerlo en un solo clic, pon la portada de MENSADEF como **página de inicio** de Edge. Al abrir el navegador solo tendrás que pulsar SENDERO.'),
   h2('Desde una célula'),
   p('Si ya estás dentro de la bandeja de una célula de MENSADEF, pulsar SENDERO abre el visor con esa célula. Para volver a MENSADEF normal, **recarga la página (F5)**.'),
+  p('El **esquema 1** resume todo el proceso de entrada, con las comprobaciones de acceso y de sesión y qué hacer en cada caso.'),
+  ...esquema('esquema-u1-entrar.png', 'Esquema 1. Entrar en SENDERO: favorito, autorización, versión y sesión en el ámbito.', 15.5),
 
   h1('5. La pantalla principal'),
   ...imagen('p1.png', 16.5, 'Figura 4. Pantalla principal: cabecera, tarjetas, filtros y lista de mensajes.'),
@@ -157,6 +159,8 @@ const cuerpo = [
   h2('Banderas'),
   p('El desplegable **⚑ Bandera** muestra la bandera puesta y las del catálogo de MENSADEF. Al elegir una se guarda en MENSADEF y se ve al momento en la ficha y en la lista. **Quitar bandera** la quita.'),
 
+  p('El **esquema 2** muestra qué se puede hacer desde la ficha y en qué sistema queda hecho cada cosa.'),
+  ...esquema('esquema-u2-mensaje.png', 'Esquema 2. Trabajar un mensaje desde la ficha: qué hace SENDERO y dónde queda hecho.', 15.5),
   h1('9. Comentarios'),
   p('Al final de la ficha, después del texto, está la caja **💬 Añadir comentario en MENSADEF**.'),
   ...imagen('comentario.png', 8, 'Figura 8. Caja para comentar el mensaje en MENSADEF.'),
@@ -191,6 +195,7 @@ const cuerpo = [
   ]),
   p('Las marcas las ven todos: SENDERO reconoce lo que pasó otra persona por el comentario que dejó en MENSADEF. Si se vuelve a pasar, vuelve la marca.'),
 
+  ...esquema('esquema-u3-meta.png', 'Esquema 3. Pasar un mensaje a META o al PSIT, confirmar y quitarlo.'),
   h1('11. Imprimir, PDF y correo'),
   h2('🖨 Imprimir / PDF del oficio'),
   ...pasos([
@@ -250,6 +255,7 @@ const cuerpo = [
   ...imagen('firmar.png', 15, 'Figura 13. Panel «Firmar con SENDERO» sobre el Portafirmas (simulado).'),
   p('Si el Portafirmas dice que no has leído el documento, ábrelo y pulsa «He leído» antes de firmar.'),
 
+  ...esquema('esquema-u4-firma.png', 'Esquema 4. Rúbrica y firma: de «Pasar a rúbrica» a AutoFirma.', 14.5),
   h1('14. Informes y exportar'),
   p('**📄 Informe** prepara un informe con lo que ves en la lista (con los filtros puestos).'),
   vi('**Encabezado**: título, unidad, «a la atención de» y marca (p. ej. USO OFICIAL). Se recuerda.'),

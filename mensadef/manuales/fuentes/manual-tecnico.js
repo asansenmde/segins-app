@@ -1,7 +1,7 @@
 // Manual técnico de SENDERO → ../SENDERO-manual-tecnico.docx
 // © 2026 Cte. Alfredo Sánchez Sender. Todos los derechos reservados.
 const path = require('path');
-const { p, h1, h2, h3, vi, pasos, imagen, tabla, recuadro, hueco, portada, documento, guardar } = require('./comun');
+const { p, h1, h2, h3, vi, pasos, imagen, esquema, tabla, recuadro, hueco, portada, documento, guardar } = require('./comun');
 
 const VERSION = '2026-11-19 · 5';
 const MEDIR = 'F5E1E1', ROJO = 'B23A3A';
@@ -35,6 +35,7 @@ const cuerpo = [
     ['MENSADEF y `mensadefapi`', '`mensadef.mdef.es` / `mensadefapi.mdef.es`', 'Origen de los datos (bandejas, cuerpo, anexos, etiquetas).'],
     ['META y PSIT', 'Páginas de Colabora de cada organización', 'Destinos de «Tarea en META» y «Al PSIT» mediante `#importar=` y `#quitar=`.'],
   ], [2300, 2900, 4438]),
+  ...esquema('esquema-t1-arquitectura.png', 'Esquema 1. Arquitectura: puesto del usuario, MENSADEF, su API, Colabora y Portafirmas, con los protocolos de cada conexión.'),
   h2('Por qué un favorito'),
   p('MENSADEF descarga los archivos `.html`/`.aspx` subidos en vez de ejecutarlos, así que no se puede publicar una página dentro de MENSADEF. Un favorito `javascript:` se ejecuta sobre la página abierta, **en el mismo origen** (`mensadef.mdef.es`), y por eso puede llamar a la API de MENSADEF con la sesión del usuario (`credentials: \'include\'`) sin servidores intermedios ni cambios en MENSADEF. Un favorito solo se ejecuta cuando el usuario lo pulsa; no puede arrancar solo.'),
   h2('Secuencia de arranque'),
@@ -47,6 +48,7 @@ const cuerpo = [
     '**Células** (`ambito/UsuarioCelulas`) y **bandejas** (`buzon/ObtenerBuzonCelula`) del periodo «Al abrir», con carga progresiva (capítulo 8).',
   ]),
 
+  ...esquema('esquema-t2-arranque.png', 'Esquema 2. Diagrama de secuencia del arranque y de la apertura de un mensaje.'),
   h1('3. Control de acceso'),
   ...imagen('acceso-solicitudes.png', 15, 'Figura 1. Página de acceso en Colabora (simulada): pestañas de gestión.'),
   h2('Comprobación desde SENDERO'),
@@ -55,6 +57,7 @@ const cuerpo = [
   vi('Si el marco no responde (p. ej. por `X-Frame-Options` o cookies de terceros), SENDERO pide un clic en **«🔐 Comprobar en Colabora»**, que abre una ventana pequeña (`senderoAcceso`) con la misma consulta. Si en un equipo solo contesta la ventana, se recuerda 7 días para ofrecer el botón al momento.'),
   vi('Comprobación **estricta en cada apertura** (fase inicial acordada): sin respuesta de Colabora no se entra con lo recordado. Si se retira la autorización, el bloqueo es inmediato.'),
   vi('Sin autorización: pantalla con «✉ Solicitar acceso» (abre `URL_ACCESO#solicitar=…` con el ámbito) y «⟳ Volver a comprobar».'),
+  ...esquema('esquema-t3-acceso.png', 'Esquema 3. Árbol de decisión del control de acceso (orden real de las comprobaciones).', 15.5),
   h2('Reglas'),
   tabla(['Tipo (columna `Tipo`)', 'Efecto'], [
     ['Ámbito (activo)', 'Autoriza a todos los usuarios de ese ámbito de MENSADEF. Lleva `Responsables`, `UrlMeta` y `UrlPsit`.'],
@@ -203,6 +206,8 @@ const cuerpo = [
     'En la página de acceso, pestaña **«Versión vigente»**: anotar la versión con su dirección de instalación y sus novedades; elegir la **caducidad**; marcar **«Obligatoria»** si las anteriores no deben usarse.',
     '«✉ Avisar por correo» a los autorizados. Quien entra por su ámbito sin alta personal verá la franja de versión nueva al abrir SENDERO.',
   ]),
+  ...esquema('esquema-t4-publicar.png', 'Esquema 4. Ciclo de publicación de una versión nueva.', 15.5),
+  hueco(),
   recuadro('Cambio de la página de acceso de sitio', 'Si se mueve `SENDERO-acceso.html` a otra biblioteca, hay que cambiar `URL_ACCESO` en `generar-marcador.py`, regenerar y repartir una versión nueva: los favoritos ya repartidos seguirán preguntando a la dirección antigua.'),
 
   h1('11. Seguridad, privacidad y limitaciones'),
