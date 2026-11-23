@@ -13,6 +13,7 @@
 | `[VSA]` | `vsa/` | Cuestionario de calidad VSA: la BAE valora la empresa de seguridad (Colabora, sitio JIGE) |
 | `[PERDIDAS]` | `perdidas/` | Pérdida de documentación: notificación, revisión SUIGE y seguimiento IGE (Colabora, sitio JIGE) |
 | `[PUNTOS]` | `puntos-situacion/` | Puntos de Situación de SUIGESUR: aportaciones de los negociados, bloqueo e informe Word (Colabora) |
+| `[ORGANIZACIONES]` | `organizaciones/` | META y PSIT para todo el ET: una sola publicación en SUIGESUR y los datos en el sitio de cada organización (Colabora) |
 
 Para el desarrollo, las piezas reutilizables y las pruebas están en `SHAREPOINT.md`. Cómo se conectan MENSADEF,
 Outlook y Tareas Colabora (pasar mensajes y correos a tareas del grupo): `SINCRONIZACION.md`.

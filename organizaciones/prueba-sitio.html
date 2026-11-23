@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="es">
+<head>
+<!--
+  [ORGANIZACIONES] Prueba de sitio (fase 0 de META y PSIT para varias organizaciones), versión 2026-11-23 · 1.
+  © 2026 Cte. Alfredo Sánchez Sender. Todos los derechos reservados.
+  Se sube a Colabora en /et/SUIGESUR/JSUIGE/aplicaciones/ (la biblioteca donde estarán META y el PSIT) y comprueba, con la
+  cuenta de quien la abre, si desde allí se puede trabajar con las listas de otro sitio de Colabora: si se llega, con qué
+  formato responde, qué permisos tiene esa cuenta, si se podría instalar (crear listas y cerrarlas) y cuánto tarda.
+  SOLO LEE: peticiones GET y la petición de la clave de escritura (POST /_api/contextinfo, que no cambia nada). No crea,
+  no modifica, no borra y no envía correos. No lee el contenido de ninguna lista ni el nombre de la persona.
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="author" content="Cte. Alfredo Sánchez Sender">
+<title>Prueba de sitio · META y PSIT</title>
+<style>
+  :root { --bg: #f3f4f7; --card: #fff; --text: #1c2a3a; --muted: #5a6676; --line: #d6dbe3; --navy: #12315a; --oro: #c9a227;
+    --ok: #1e6b2e; --okbg: #dcf0e0; --av: #7a5200; --avbg: #fff1cc; --mal: #a3201b; --malbg: #fbdcda; --info: #1d4f91; --infobg: #e2ecf9; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--navy); color: #fff; border-bottom: 4px solid var(--oro); }
+  header div { max-width: 900px; margin: 0 auto; padding: 14px 16px; }
+  header h1 { margin: 0; font-size: 1.25rem; }
+  header p { margin: 2px 0 0; font-size: .85rem; opacity: .85; }
+  main { max-width: 900px; margin: 0 auto; padding: 16px 16px 40px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 12px 0; }
+  .card h2 { margin: 0 0 8px; font-size: 1.05rem; color: var(--navy); }
+  .muted { color: var(--muted); font-size: .88rem; }
+  textarea { width: 100%; min-height: 90px; font: 14px/1.4 ui-monospace, Consolas, monospace; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+  button { font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+  button.prim { background: var(--navy); color: #fff; border-color: var(--navy); }
+  button:disabled { opacity: .6; cursor: default; }
+  .acciones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  td { padding: 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.k { width: 34%; font-weight: 600; }
+  td.e { width: 32px; text-align: center; }
+  .veredicto { padding: 10px 12px; border-radius: 10px; font-weight: 700; margin: 6px 0 10px; }
+  .ok { background: var(--okbg); color: var(--ok); }
+  .aviso { background: var(--avbg); color: var(--av); }
+  .mal { background: var(--malbg); color: var(--mal); }
+  .info { background: var(--infobg); color: var(--info); }
+  code { background: #eef1f6; padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  .sitio h2 code { font-size: .9rem; }
+  pre { white-space: pre-wrap; background: #eef1f6; padding: 10px; border-radius: 8px; font-size: .8rem; }
+  footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 10px 16px 24px; }
+  @media print { footer, .acciones, #entrada { display: none; } }
+</style>
+</head>
+<body>
+<header><div><h1>Prueba de sitio · META y PSIT</h1><p>¿Pueden META y el Punto de Situación, publicados en SUIGESUR, trabajar con las listas de este sitio?</p></div></header>
+<main>
+  <noscript><div class="card mal">❌ Colabora no ejecuta el código de esta página.</div></noscript>
+  <div class="card mal" id="sinjs">❌ Si ves este mensaje, la página no ha arrancado: Colabora no ejecuta su código o se ha abierto en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>
+
+  <div id="app" hidden>
+    <div class="card info">Esta página <b>solo lee</b>, y lo hace con tu cuenta. No crea, no modifica ni borra nada, no envía correos, no lee el contenido de ninguna lista y no guarda tu nombre.</div>
+
+    <div class="card" id="aqui"><h2>Dónde está esta página</h2><p class="muted">Comprobando…</p></div>
+
+    <div class="card" id="entrada">
+      <h2>Sitios que quieres probar</h2>
+      <p class="muted">Abre en otra pestaña el sitio de Colabora de la otra organización (su página de inicio o cualquier lista). Copia la dirección de la barra del navegador y pégala aquí. Puedes poner varios, uno por línea.</p>
+      <textarea id="sitios" placeholder="https://colabora.mdef.es/et/…/SitePages/Inicio.aspx"></textarea>
+      <p class="muted">Si al probar te sale una ventana de <b>usuario y contraseña</b>, pulsa <b>Cancelar</b>: quiere decir que tu cuenta no tiene acceso a ese sitio, y la prueba lo anotará así.</p>
+      <div class="acciones"><button class="prim" id="probar">🔎 Probar</button><button id="copiar" disabled>📋 Copiar el resultado</button></div>
+    </div>
+
+    <div id="resultados"></div>
+
+    <div class="card" id="copiaBox" hidden><h2>Resultado para copiar</h2><p class="muted">Solo lleva estructura: direcciones de los sitios, sí/no y tiempos. Ningún nombre de persona ni contenido.</p><pre id="copiaTxt"></pre></div>
+  </div>
+</main>
+<footer>© 2026 Cte. Alfredo Sánchez Sender · Prueba de sitio · <span id="verPie"></span></footer>
+
+<script>
+(function () {
+  'use strict';
+  if (document.documentMode || !window.fetch || !window.Promise) return;   // modo IE: se queda el aviso de «sinjs»
+  var VERSION = '2026-11-23 · 1';
+  // Sitio y biblioteca donde se publicarán META y el PSIT para todo el ET
+  var CENTRAL = '/et/SUIGESUR/JSUIGE';
+  // Listas que crearán META y el PSIT en el sitio de cada organización (solo se mira si ya existen)
+  var LISTAS_META = ['Gestor de Tareas MENSADEF', 'META MIEMBROS', 'META SOLICITUDES', 'META CONFIGURACIÓN'];
+  var LISTAS_PSIT = ['PS Puntos', 'PS Negociados', 'PS Aportaciones', 'PS Solicitudes'];
+  var CLAVE = 'organizaciones.pruebaSitio';
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  $('#sinjs').hidden = true; $('#app').hidden = false; $('#verPie').textContent = 'versión ' + VERSION;
+
+  // ---------- Peticiones (con tiempo, estado y formato) ----------
+  // Primero formato ligero (nometadata); si el servidor responde 400/406/415, verbose (SharePoint 2013).
+  var ahora = function () { return window.performance && performance.now ? performance.now() : Date.now(); };
+  function pedir(url, metodo) {
+    var t0 = ahora();
+    var una = function (accept) {
+      return fetch(url, { method: metodo || 'GET', credentials: 'same-origin', headers: { Accept: accept } }).then(function (r) {
+        var sp = r.headers.get('MicrosoftSharePointTeamServices') || '';
+        if (!r.ok) { var e = new Error('HTTP ' + r.status); e.status = r.status; e.ms = Math.round(ahora() - t0); throw e; }
+        return r.json().then(function (d) { return { d: d, sp: sp }; });
+      });
+    };
+    return una('application/json;odata=nometadata').then(function (x) { x.formato = 'ligero'; return x; }, function (e) {
+      if ([400, 406, 415].indexOf(e.status) < 0) throw e;
+      return una('application/json;odata=verbose').then(function (x) { x.d = x.d.d || x.d; x.formato = 'verbose'; return x; });
+    }).then(function (x) { x.ms = Math.round(ahora() - t0); return x; }, function (e) { if (e.ms == null) e.ms = Math.round(ahora() - t0); throw e; });
+  }
+  var filas = function (d) { return !d ? [] : Array.isArray(d.value) ? d.value : Array.isArray(d.results) ? d.results : []; };
+  // Todas las páginas de una colección (odata.nextLink / __next)
+  function todas(url) {
+    var acc = [], ms = 0;
+    var sig = function (u) {
+      return pedir(u).then(function (x) {
+        ms += x.ms; acc = acc.concat(filas(x.d));
+        var n = x.d['odata.nextLink'] || x.d.__next;
+        return n && acc.length < 5000 ? sig(n) : { filas: acc, ms: ms };
+      });
+    };
+    return sig(url);
+  }
+
+  // Permisos (SPBasePermissions): Low y High llegan como texto
+  var PERM = {
+    ver: [0, 0x1, 'Ver elementos'], anadir: [0, 0x2, 'Añadir elementos'], editar: [0, 0x4, 'Editar elementos'], borrar: [0, 0x8, 'Eliminar elementos'],
+    listas: [0, 0x800, 'Administrar listas (crear listas y columnas)'], grupos: [0, 0x1000000, 'Crear grupos'],
+    permisos: [0, 0x2000000, 'Administrar permisos (permisos propios de las listas)'], usuarios: [0, 0x8000000, 'Ver la información de usuarios'],
+    sitio: [0, 0x40000000, 'Administrar el sitio'], api: [1, 0x20, 'Usar las API remotas (REST)'], enumerar: [1, 0x40000000, 'Ver los permisos']
+  };
+  var tiene = function (ebp, k) {
+    if (!ebp) return null;
+    var p = PERM[k], v = Number(p[0] ? ebp.High : ebp.Low) || 0;
+    return (v & p[1]) !== 0;
+  };
+
+  // Ruta del sitio a partir de lo que se pega (quita página, lista, _layouts, Forms, consulta…)
+  function rutaDe(texto) {
+    var u;
+    try { u = new URL(String(texto).trim(), location.origin); } catch (e) { return null; }
+    var p = decodeURIComponent(u.pathname).replace(/\/+$/, '');
+    p = p.replace(/\/(_layouts|_api|_vti_bin)(\/.*)?$/i, '').replace(/\/(SitePages|Pages|Paginas|Páginas|Lists|Listas)(\/.*)?$/i, '')
+      .replace(/\/Forms\/[^/]*$/i, '').replace(/\/[^/]+\.(aspx|html?)$/i, '');
+    return { host: u.host, origen: u.origin, ruta: p || '/' };
+  }
+
+  // Busca el sitio subiendo por la ruta. Para en cuanto el servidor dice «sin acceso» (401/403): subir más llevaría a otro sitio.
+  function sitioDe(ruta) {
+    var partes = ruta.split('/').filter(Boolean), cands = [];
+    for (var i = partes.length; i >= 0; i--) cands.push('/' + partes.slice(0, i).join('/'));
+    var ms = 0;
+    var probar = function (n) {
+      if (n >= cands.length) { var e = new Error('no encontrado'); e.status = 404; e.ms = ms; return Promise.reject(e); }
+      var base = cands[n] === '/' ? '' : cands[n];
+      return pedir(base + '/_api/web?$select=Title,Url,ServerRelativeUrl,Language,EffectiveBasePermissions').then(function (x) {
+        ms += x.ms; x.ms = ms; x.ruta = x.d.ServerRelativeUrl || base || '/'; x.subido = n > 0; return x;
+      }, function (e) {
+        ms += e.ms || 0;
+        if (e.status === 401 || e.status === 403) { e.ruta = base || '/'; e.ms = ms; throw e; }
+        return probar(n + 1);
+      });
+    };
+    return probar(0);
+  }
+
+  var ICO = { ok: '✅', aviso: '⚠️', mal: '❌', info: 'ℹ️' };
+  var SINO = function (b) { return b == null ? '¿?' : b ? 'sí' : 'no'; };
+
+  // ---------- Esta página ----------
+  var aqui = null;
+  function comprobarAqui() {
+    var rp = rutaDe(location.href);
+    return sitioDe(rp.ruta).then(function (x) {
+      return pedir((x.ruta === '/' ? '' : x.ruta) + '/_api/site?$select=Url,ServerRelativeUrl').then(function (s) { x.coleccion = s.d.ServerRelativeUrl; return x; }, function () { return x; });
+    }).then(function (x) {
+      aqui = x;
+      var central = x.ruta.toLowerCase() === CENTRAL.toLowerCase();
+      var carpeta = decodeURIComponent(location.pathname).replace(/\/[^/]*$/, '');
+      $('#aqui').innerHTML = '<h2>Dónde está esta página</h2><table>' +
+        fila(central ? 'ok' : 'aviso', 'Sitio', '<code>' + esc(x.ruta) + '</code>' + (central ? ' (el de SUIGESUR, donde irán META y el PSIT)' : ' — la prueba buena es con la página subida a <code>' + esc(CENTRAL) + '/aplicaciones</code>')) +
+        fila('info', 'Carpeta', '<code>' + esc(carpeta) + '</code>') +
+        fila('info', 'Servidor', '<code>' + esc(location.host) + '</code>') +
+        fila('info', 'Colección de sitios', x.coleccion ? '<code>' + esc(x.coleccion) + '</code>' : 'no la dice') +
+        fila('info', 'SharePoint', esc(versionSP(x.sp)) + ' · formato ' + esc(x.formato)) + '</table>';
+    }, function (e) {
+      $('#aqui').innerHTML = '<h2>Dónde está esta página</h2><div class="veredicto mal">No encuentro el sitio de esta página (' + esc(e.message) + '). ¿Está subida a una biblioteca de Colabora?</div>';
+    });
+  }
+  function versionSP(h) {
+    if (!h) return 'versión no indicada';
+    var m = /^(\d+)\./.exec(h), v = m ? Number(m[1]) : 0;
+    return h + (v === 15 ? ' (SharePoint 2013)' : v === 16 ? ' (SharePoint 2016 o posterior)' : v === 14 ? ' (SharePoint 2010)' : '');
+  }
+  var fila = function (estado, k, v) { return '<tr><td class="e">' + ICO[estado] + '</td><td class="k">' + esc(k) + '</td><td>' + v + '</td></tr>'; };
+
+  // ---------- Probar un sitio ----------
+  function probarSitio(texto) {
+    var r = { entrada: texto, filas: [], txt: [], veredicto: null };
+    var add = function (estado, k, html, plano) { r.filas.push(fila(estado, k, html)); r.txt.push('  ' + ICO[estado] + ' ' + k + ': ' + (plano != null ? plano : html.replace(/<[^>]+>/g, ''))); };
+    var rp = rutaDe(texto);
+    if (!rp) { r.veredicto = ['mal', 'No es una dirección válida.']; return Promise.resolve(r); }
+    r.ruta = rp.ruta;
+    if (rp.host.toLowerCase() !== location.host.toLowerCase()) {
+      add('mal', 'Mismo servidor', 'no: está en <code>' + esc(rp.host) + '</code> y esta página en <code>' + esc(location.host) + '</code>');
+      r.veredicto = ['mal', 'Otro servidor: META y el PSIT publicados en SUIGESUR no pueden trabajar con este sitio (el navegador no deja leer otro servidor desde una página).'];
+      return Promise.resolve(r);
+    }
+    add('ok', 'Mismo servidor', 'sí (<code>' + esc(rp.host) + '</code>)');
+    var base, t0 = ahora(), ms = { sitio: 0 }, permOK = null, instalar = null, usar = null, clave = null;
+    return sitioDe(rp.ruta).then(function (x) {
+      base = x.ruta === '/' ? '' : x.ruta; r.ruta = x.ruta; ms.sitio = x.ms;
+      add('ok', 'Se llega al sitio', '<code>' + esc(x.ruta) + '</code>' + (x.d.Title ? ' («' + esc(x.d.Title) + '»)' : '') +
+        (x.subido ? ' <span class="muted">(la dirección pegada es de algo que está dentro de este sitio; comprueba que es el que querías)</span>' : '') + ' · ' + x.ms + ' ms');
+      add('info', 'SharePoint', esc(versionSP(x.sp)) + ' · formato ' + esc(x.formato));
+      var ebp = x.d.EffectiveBasePermissions;
+      if (!ebp) add('aviso', 'Tus permisos', 'el servidor no los ha dado');
+      else {
+        var lst = ['ver', 'anadir', 'editar', 'borrar', 'listas', 'permisos', 'grupos', 'sitio', 'api'].map(function (k) { return PERM[k][2] + ': ' + SINO(tiene(ebp, k)); });
+        usar = tiene(ebp, 'ver') && tiene(ebp, 'anadir') && tiene(ebp, 'editar');
+        instalar = tiene(ebp, 'listas') && tiene(ebp, 'permisos');
+        permOK = tiene(ebp, 'ver');
+        add(permOK ? 'ok' : 'aviso', 'Tus permisos en el sitio', lst.map(esc).join('<br>'), lst.join(' · '));
+        add(instalar ? 'ok' : tiene(ebp, 'listas') ? 'aviso' : 'info', 'Podrías instalar aquí',
+          instalar ? 'sí: crear las listas y dejarlas con permisos propios' : tiene(ebp, 'listas') ? 'a medias: puedes crear listas pero no cerrarlas (falta «Administrar permisos»)' : 'no con tu cuenta: tendría que hacerlo quien tenga «Control total» o «Diseño» del sitio');
+      }
+      return Promise.all([
+        pedir(base + '/_api/site?$select=Url,ServerRelativeUrl').then(function (s) { return s; }, function (e) { return { error: e }; }),
+        pedir(base + '/_api/web/currentuser?$select=Id,IsSiteAdmin').then(function (s) { return s; }, function (e) { return { error: e }; }),
+        pedir(base + '/_api/contextinfo', 'POST').then(function (s) { return s; }, function (e) { return { error: e }; }),
+        todas(base + '/_api/web/lists?$select=Title,Hidden,ItemCount').then(function (s) { return s; }, function (e) { return { error: e }; }),
+        todas(base + '/_api/web/roledefinitions?$select=Name,Hidden').then(function (s) { return s; }, function (e) { return { error: e }; })
+      ]);
+    }).then(function (v) {
+      var site = v[0], yo = v[1], ctx = v[2], listas = v[3], roles = v[4];
+      // Colección de sitios
+      if (site.error) add('aviso', 'Colección de sitios', 'no la dice (' + esc(site.error.message) + ')');
+      else {
+        var col = site.d.ServerRelativeUrl, misma = aqui && aqui.coleccion && aqui.coleccion.toLowerCase() === String(col).toLowerCase();
+        add('info', 'Colección de sitios', '<code>' + esc(col) + '</code>' + (aqui && aqui.coleccion ? (misma ? ' (la misma que la de esta página)' : ' (otra distinta de la de esta página: es normal, la clave de escritura se pide a este sitio)') : '') + ' · ' + site.ms + ' ms');
+      }
+      // Usuario (solo sí/no, sin nombre)
+      if (yo.error) add('aviso', 'Tu cuenta figura en el sitio', 'no se puede saber (' + esc(yo.error.message) + ')');
+      else add('info', 'Tu cuenta figura en el sitio', 'sí' + (yo.d.IsSiteAdmin ? ' · eres administrador de la colección' : '') + ' · ' + yo.ms + ' ms');
+      // Clave de escritura
+      clave = !ctx.error && !!(ctx.d.FormDigestValue || (ctx.d.GetContextWebInformation && ctx.d.GetContextWebInformation.FormDigestValue));
+      add(clave ? 'ok' : 'mal', 'Clave de escritura (FormDigest)', clave ? 'sí: desde SUIGESUR se podría escribir en este sitio con tus permisos · ' + ctx.ms + ' ms' : 'no (' + esc(ctx.error ? ctx.error.message : 'respuesta sin clave') + ')');
+      // Listas
+      if (listas.error) add('aviso', 'Listas del sitio', 'no se pueden leer (' + esc(listas.error.message) + ')');
+      else {
+        var tit = listas.filas.map(function (l) { return String(l.Title).toLowerCase(); });
+        var vis = listas.filas.filter(function (l) { return !l.Hidden; }).length;
+        var est = function (arr) { var hay = arr.filter(function (n) { return tit.indexOf(n.toLowerCase()) >= 0; }); return hay.length ? 'ya existen: ' + hay.join(', ') : 'ninguna todavía'; };
+        add('info', 'Listas del sitio', vis + ' visibles · ' + listas.ms + ' ms');
+        add('info', 'Listas de META', esc(est(LISTAS_META)));
+        add('info', 'Listas del PSIT', esc(est(LISTAS_PSIT)));
+      }
+      // Niveles de permiso
+      if (roles.error) add('info', 'Niveles de permiso', 'no se ven con tu cuenta (' + esc(roles.error.message) + ')');
+      else {
+        var nom = roles.filas.filter(function (x) { return !x.Hidden; }).map(function (x) { return x.Name; });
+        var lr = nom.some(function (n) { return /lectura restringida|restricted read/i.test(n); }), mt = nom.some(function (n) { return /^META$/i.test(n); });
+        add('info', 'Niveles de permiso', esc(nom.join(', ')) + '<br><span class="muted">«Lectura restringida»: ' + SINO(lr) + ' · nivel «META»: ' + SINO(mt) + '</span>',
+          nom.join(', ') + ' (Lectura restringida: ' + SINO(lr) + ', META: ' + SINO(mt) + ')');
+      }
+      var total = Math.round(ahora() - t0);
+      add('info', 'Tiempo total de la prueba', total + ' ms (buscar el sitio ' + ms.sitio + ' ms; el resto en paralelo)');
+      if (permOK && clave) r.veredicto = ['ok', 'Se puede: META y el PSIT publicados en SUIGESUR podrán trabajar con este sitio' + (usar ? '' : ' (tu cuenta solo lee; para usarlo, su administrador te daría permiso para añadir y editar)') + (instalar ? '. Con tu cuenta se podría instalar.' : '. Instalar lo tendría que hacer quien administre ese sitio.')];
+      else if (permOK) r.veredicto = ['aviso', 'Se lee el sitio, pero no se ha conseguido la clave de escritura: no se podría escribir desde SUIGESUR. Pásame el resultado.'];
+      else r.veredicto = ['aviso', 'Se llega al sitio, pero tu cuenta no puede ver sus elementos. Hay que probar con alguien que trabaje en ese sitio.'];
+      return r;
+    }, function (e) {
+      if (e.status === 401 || e.status === 403) {
+        add('mal', 'Se llega al sitio', 'sin acceso con tu cuenta (HTTP ' + e.status + ') en <code>' + esc(e.ruta) + '</code>');
+        r.veredicto = ['aviso', 'Tu cuenta no tiene acceso a ese sitio. No es un fallo de la idea: hay que pedir a alguien de esa organización que abra esta misma página y pruebe su sitio.'];
+      } else {
+        add('mal', 'Se llega al sitio', 'no encuentro ningún sitio en esa dirección (' + esc(e.message) + ')');
+        r.veredicto = ['mal', 'No encuentro el sitio. Revisa la dirección.'];
+      }
+      return r;
+    });
+  }
+
+  function pintar(lista) {
+    $('#resultados').innerHTML = lista.map(function (r) {
+      return '<div class="card sitio"><h2>' + (r.ruta ? '<code>' + esc(r.ruta) + '</code>' : esc(r.entrada)) + '</h2>' +
+        (r.veredicto ? '<div class="veredicto ' + r.veredicto[0] + '">' + ICO[r.veredicto[0]] + ' ' + esc(r.veredicto[1]) + '</div>' : '') +
+        '<table>' + r.filas.join('') + '</table></div>';
+    }).join('');
+    var t = ['PRUEBA DE SITIO ' + VERSION + ' · ' + new Date().toLocaleString('es-ES'),
+      'Página en: ' + (aqui ? aqui.ruta : '¿?') + ' · servidor ' + location.host + ' · ' + (aqui ? versionSP(aqui.sp) + ' · formato ' + aqui.formato : '') + (aqui && aqui.coleccion ? ' · colección ' + aqui.coleccion : '')];
+    lista.forEach(function (r) {
+      t.push('', 'SITIO: ' + (r.ruta || r.entrada));
+      if (r.veredicto) t.push('  → ' + r.veredicto[1]);
+      t = t.concat(r.txt);
+    });
+    $('#copiaTxt').textContent = t.join('\n'); $('#copiaBox').hidden = false; $('#copiar').disabled = false;
+  }
+
+  try { $('#sitios').value = localStorage.getItem(CLAVE) || ''; } catch (e) { /* sin memoria local */ }
+  $('#probar').onclick = function () {
+    var lineas = $('#sitios').value.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+    try { localStorage.setItem(CLAVE, lineas.join('\n')); } catch (e) { /* sin memoria local */ }
+    if (!lineas.length) { $('#resultados').innerHTML = '<div class="card aviso">Pega al menos la dirección de un sitio.</div>'; return; }
+    var b = $('#probar'); b.disabled = true; b.textContent = 'Probando…';
+    $('#resultados').innerHTML = '<div class="card muted">Probando ' + lineas.length + ' sitio' + (lineas.length === 1 ? '' : 's') + '…</div>';
+    var hechos = [];
+    // De uno en uno: si sale la ventana de usuario y contraseña, que sea de un solo sitio cada vez
+    lineas.reduce(function (p, l) { return p.then(function () { return probarSitio(l).then(function (r) { hechos.push(r); pintar(hechos); }); }); }, Promise.resolve())
+      .then(function () { b.disabled = false; b.textContent = '🔎 Probar'; });
+  };
+  $('#copiar').onclick = function () {
+    var txt = $('#copiaTxt').textContent, b = $('#copiar');
+    var hecho = function () { b.textContent = '✔ Copiado'; setTimeout(function () { b.textContent = '📋 Copiar el resultado'; }, 1800); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(hecho, manual); else manual();
+    function manual() { var r = document.createRange(); r.selectNodeContents($('#copiaTxt')); var s = getSelection(); s.removeAllRanges(); s.addRange(r); try { document.execCommand('copy'); hecho(); } catch (e) { b.textContent = 'Selecciona y copia'; } }
+  };
+  comprobarAqui();
+})();
+</script>
+</body>
+</html>

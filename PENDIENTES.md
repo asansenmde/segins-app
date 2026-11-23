@@ -281,3 +281,9 @@ autoría.
     19/11/2026: SENDERO 2026-11-19 · 2: «Buscar en todo MENSADEF» y «Firmar en Rúbrica» + favorito «Firmar con SENDERO» (hechos).
       PENDIENTE DEL USUARIO: probarlos de verdad (qué campos busca MENSADEF; que el favorito localice la petición y firme).
 
+    23/11/2026: **[ORGANIZACIONES] META y PSIT para todo el ET** (`organizaciones/README.md`): código solo en SUIGESUR, datos en el
+      sitio de cada organización, administradores nombrados por el usuario. Fase 0 hecha: `organizaciones/prueba-sitio.html`
+      (solo lee). PENDIENTE DEL USUARIO: subirla a `/et/SUIGESUR/JSUIGE/aplicaciones`, probar sitios de otras organizaciones
+      (y pedir a un administrador de otra organización que la abra y pruebe el suyo) y pasar «📋 Copiar el resultado».
+      Pendiente de decidir: a) ¿todos los sitios en colabora.mdef.es?, b) META y PSIT de una organización en sitios distintos,
+      c) ¿solo el usuario nombra administradores?, d) quién hace cada fase.

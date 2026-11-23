@@ -14,6 +14,7 @@ entre ellos (salvo la librería de Word de SEGINS, que Tareas NLT carga desde `.
 | `[VSA]` | `vsa/` | Cuestionario de calidad VSA (lista «CUESTIONARIO DE CALIDAD VSA», mismo sitio que Incidentes) | Se sube a Colabora y se abre allí |
 | `[PERDIDAS]` | `perdidas/` | Pérdida de documentación (lista «PERDIDA DOCUMENTACION», mismo sitio que Incidentes) | Se sube a Colabora y se abre allí |
 | `[PUNTOS]` | `puntos-situacion/` | Puntos de Situación de SUIGESUR (listas «PS …», sitio `/et/SUIGESUR/JSUIGE`) | Se sube a Colabora y se abre allí |
+| `[ORGANIZACIONES]` | `organizaciones/` | META y PSIT para varias organizaciones del ET: código publicado en SUIGESUR, datos en el sitio de cada organización (fase 0: `prueba-sitio.html`) | Se sube a `/et/SUIGESUR/JSUIGE/aplicaciones` y se abre allí |
 
 La integración MENSADEF + Outlook → Tareas Colabora (grupo de trabajo) está descrita en **`SINCRONIZACION.md`**:
 el centro es la lista de Colabora; los datos oficiales no van a Tareas NLT (claude.ai).
@@ -27,7 +28,7 @@ etiqueta añadida a esta tabla y a `PROYECTOS.md`.
   queda claro a qué proyecto se refiere, pregunta antes de cambiar nada.
 - Un cambio en un proyecto no arrastra cambios en otro. Si algo se reutiliza (p. ej. `fechas.js`), se copia.
 - El usuario escribe en español; responde, comenta el código y escribe los commits en español.
-- Commits con prefijo de proyecto: `NLT: …`, `Colabora: …`, `MENSADEF: …`, `SEGINS: …`, `PERMISOS: …`, `INCIDENTES: …`, `VSA: …`, `PERDIDAS: …`, `PUNTOS: …`.
+- Commits con prefijo de proyecto: `NLT: …`, `Colabora: …`, `MENSADEF: …`, `SEGINS: …`, `PERMISOS: …`, `INCIDENTES: …`, `VSA: …`, `PERDIDAS: …`, `PUNTOS: …`, `ORGANIZACIONES: …`.
 
 ## Páginas para SharePoint (COLABORA, MENSADEF y las nuevas)
 
