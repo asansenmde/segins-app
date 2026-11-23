@@ -534,7 +534,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-23 · 1';
+  var VERSION = '2026-11-23 · 2';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1824,50 +1824,150 @@
     listo.then(function () {
       var i = (m._anexos || []).findIndex(function (a) { return /\.pdf$/i.test(a.Nombre || a.Titulo || '') && urlAnexo(a); });
       if (i >= 0) usarAnexo(m, i, 'bajar', { disabled: false, textContent: '' }); else imprimirMensaje(m);
-      setTimeout(function () { correoMensaje(m); }, 800);
       boton.disabled = false; boton.textContent = txt;
       var aviso = i >= 0 ? 'Se ha descargado el PDF original («' + ((m._anexos[i].Nombre || m._anexos[i].Titulo)) + '»)' : 'En la ventana del oficio elige «Guardar como PDF»';
-      if ($('colabora')) $('colabora').insertAdjacentHTML('afterbegin', '<p class="small" style="background:#fff3c4;border:1px solid #c9a84c;border-radius:8px;padding:6px 10px">✉ ' + esc(aviso) + ' y arrástralo al correo que se ha abierto en Outlook.</p>');
+      setTimeout(function () { correoConDocs(m, aviso + ': cuando hayas pegado el correo en Outlook, arrastra el PDF al correo.'); }, 800);
     });
   }
-  // ✉ Enviar por correo (09/11/2026): correo de Outlook (mailto) con lo relevante del mensaje y los enlaces a MENSADEF
-  // y a la carpeta de sus documentos. Sin adjuntos: se ven desde el enlace. No toca MENSADEF.
-  // 23/11/2026: los documentos van en el correo con el enlace directo de cada uno (el mismo con que SENDERO los abre). El
-  // enlace a la carpeta (biblioteca «SMDMDMensajesDocumentos_…» con Forms/AllItems.aspx?RootFolder=…) no lo localizaba Colabora.
-  function docsCorreo(m) {
-    return (m._anexos || []).map(function (a) { var u = urlAnexo(a); return u ? '• ' + (a.Titulo || a.Nombre || 'Documento') + (a.Nombre && a.Titulo && a.Nombre !== a.Titulo ? ' (' + a.Nombre + ')' : '') + ': ' + u : ''; }).filter(Boolean);
+  // ✉ Correo (09/11/2026; rediseñado el 23/11/2026 a petición del usuario). Un mailto solo admite texto plano y ~2.000
+  // caracteres, así que el correo se prepara con diseño (HTML pensado para Outlook: tablas y estilos en línea) y se enseña
+  // en una ventana; «Copiar y abrir Outlook» lo copia (con formato) y abre un correo nuevo con el asunto puesto: se pega
+  // con Ctrl+V. Lleva todos los datos del mensaje, el texto completo, sus documentos con el enlace directo de cada uno (el
+  // mismo con que SENDERO los abre; el enlace a la carpeta no lo localizaba Colabora) y el acceso a MENSADEF.
+  // Falta saber la dirección de un mensaje abierto en MENSADEF: hasta entonces, «Abrir en MENSADEF» lleva a su célula y
+  // dice qué referencia buscar.
+  var PRIORIDADES = { Z: 'Flash', O: 'Inmediato', P: 'Prioridad', R: 'Rutina' };
+  function datosCorreo(m) {
+    var x = m._x || {}, j = m._cuerpoCompleto || {}, f = fechaDe(m);
+    var nombres = function (l) { return (l || []).map(function (d) { return d && (d.Nombre || d.nombre); }).filter(Boolean); };
+    var dest = nombres(j.Destinatarios), copia = nombres(j.DestinatariosCopia);
+    if (!dest.length && x.Destinatarios) dest = [String(x.Destinatarios)];
+    var prio = String(x.CodigoPrioridad || '').trim();
+    var reg = function (n, fe) { var d = fe ? new Date(fe) : null; return n ? n + (d && !isNaN(d) ? ' · ' + verFecha(d) : '') : ''; };
+    var docs = (m._anexos || []).map(function (a) {
+      return { titulo: a.Titulo || a.Nombre || 'Documento', nombre: a.Nombre && a.Nombre !== a.Titulo ? a.Nombre : '', url: urlAnexo(a),
+        detalle: [a.TipoDocumento, a.TamanoMB ? a.TamanoMB + ' MB' : '', a.Firma].filter(Boolean).join(' · '), icono: iconoAnexo(a.Nombre || a.Titulo) };
+    });
+    var fisicos = (j.AnexosFisicos || []).map(function (a) { return a && (a.Titulo || a.Nombre || a.Descripcion); }).filter(Boolean);
+    return {
+      asunto: m._asunto || m.Title || '(sin asunto)', ref: String(m.MensajeNum_referencia || '').trim(), bandeja: x.__es || '',
+      prio: prio ? prio + (PRIORIDADES[prio.toUpperCase()] ? ' · ' + PRIORIDADES[prio.toUpperCase()] : '') : '', urgente: /^[ZO]$/i.test(prio),
+      firma: String(CLAVES.firma(m) || '').trim(), bandera: m._bandera && m._bandera.nombre || '', celula: sitioDe(m) || '', estado: m.MensajeEstado || '',
+      datos: [['Fecha', f ? verFecha(f) : ''], ['Bandeja', x.__es || ''], ['Remitente', autoridad(m) || m.MensajeNombre_Autoridad || ''], ['Firma', CLAVES.firma(m) || ''],
+        ['N.º de referencia', m.MensajeNum_referencia], ['Su referencia', m.MensajeSu_referencia], ['N.º de expediente', m.MensajeNum_expediente],
+        ['Registro de salida', reg(x.NumeroRegistroSalida, x.FechaRegistroSalida)], ['Registro de entrada', reg(x.NumeroRegistroEntrada, x.FechaRegistroEntrada)],
+        ['Célula', sitioDe(m)], ['Estado', m.MensajeEstado], ['Destinatarios', dest.join('; ')], ['Copia', copia.join('; ')]].filter(function (r) { return r[1]; }),
+      texto: String(m._cuerpo || (j.Cuerpo ? texto(String(j.Cuerpo)) : '') || m._cuerpoApi || '').trim(),
+      docs: docs, fisicos: fisicos, enlace: m._enlace || ''
+    };
   }
-  // Antes de preparar el correo se leen los anexos si aún no están (ficha recién abierta)
-  function correoConDocs(m) {
-    var listo = m._api && apiCtx && !m._anexos ? cuerpoCompleto(m).then(function (j) { if (j && j.AnexosDigitales && !m._anexos) m._anexos = j.AnexosDigitales.filter(Boolean); }, function () {}) : Promise.resolve();
-    listo.then(function () { correoMensaje(m); });
+  function correoHtml(d) {
+    var F = 'font-family:Segoe UI,Arial,Helvetica,sans-serif;';
+    var chip = function (t, fondo, color) { return t ? '<span style="' + F + 'display:inline-block;font-size:12px;font-weight:bold;padding:3px 9px;margin:0 6px 6px 0;border-radius:10px;background:' + fondo + ';color:' + color + '">' + esc(t) + '</span>' : ''; };
+    var boton = function (url, t) { return '<table role="presentation" cellpadding="0" cellspacing="0" style="display:inline-table;margin:0 8px 8px 0"><tr><td bgcolor="#12315a" style="background:#12315a;border-radius:6px;padding:9px 16px"><a href="' + esc(url) + '" style="' + F + 'color:#ffffff;font-size:14px;font-weight:bold;text-decoration:none">' + esc(t) + '</a></td></tr></table>'; };
+    var titulo = function (t) { return '<tr><td style="' + F + 'padding:18px 24px 6px;font-size:13px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:#12315a;border-bottom:2px solid #c9a227">' + esc(t) + '</td></tr>'; };
+    var h = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef1f6"><tr><td align="center" style="padding:16px 8px">' +
+      '<table role="presentation" width="680" cellpadding="0" cellspacing="0" style="width:680px;max-width:100%;background:#ffffff;border:1px solid #d3dce8">' +
+      // Cabecera
+      '<tr><td bgcolor="#12315a" style="background:#12315a;padding:14px 24px;border-bottom:4px solid #c9a227"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' +
+        '<td style="' + F + 'color:#ffffff;font-size:18px;font-weight:bold">✉ MENSADEF' + (d.bandeja ? ' <span style="font-size:13px;font-weight:normal;color:#e6d9a8">· Mensaje de ' + esc(d.bandeja.toLowerCase()) + '</span>' : '') + '</td>' +
+        '<td align="right" style="' + F + 'color:#e6d9a8;font-size:13px;font-weight:bold">' + (d.ref ? 'N.º ref. ' + esc(d.ref) : '') + '</td></tr></table></td></tr>' +
+      // Asunto y etiquetas
+      '<tr><td style="' + F + 'padding:20px 24px 4px;font-size:21px;font-weight:bold;color:#12315a;line-height:1.3">' + esc(d.asunto) + '</td></tr>' +
+      '<tr><td style="padding:8px 24px 4px">' + chip(d.prio ? 'Prioridad ' + d.prio : '', d.urgente ? '#fbdcda' : '#e2ecf9', d.urgente ? '#a3201b' : '#1d4f91') +
+        chip(d.firma ? '✍ Firmado' : '', '#dcf0e0', '#1e6b2e') + chip(d.bandera ? '⚑ ' + d.bandera : '', '#fff1cc', '#7a5200') + chip(d.celula ? 'Célula ' + d.celula : '', '#eef1f6', '#33415a') +
+        chip(d.docs.length ? '📎 ' + d.docs.length + ' documento' + (d.docs.length === 1 ? '' : 's') : '', '#eef1f6', '#33415a') + '</td></tr>' +
+      // Accesos
+      '<tr><td style="padding:6px 24px 2px">' + (d.enlace ? boton(d.enlace, 'Abrir en MENSADEF') : '') + (d.docs[0] && d.docs[0].url ? boton(d.docs[0].url, d.docs.length === 1 ? 'Abrir el documento' : 'Abrir el primer documento') : '') + '</td></tr>' +
+      (d.enlace && d.ref ? '<tr><td style="' + F + 'padding:0 24px 6px;font-size:12px;color:#5a6676">«Abrir en MENSADEF» lleva a la célula ' + esc(d.celula) + ': busca allí la referencia <b>' + esc(d.ref) + '</b>.</td></tr>' : '') +
+      // Datos
+      titulo('Datos del mensaje') +
+      '<tr><td style="padding:8px 24px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">' + d.datos.map(function (r, i) {
+        return '<tr><td valign="top" style="' + F + 'width:150px;padding:6px 10px 6px 0;font-size:13px;color:#5a6676;border-bottom:1px solid #eef1f6' + (i ? '' : '') + '">' + esc(r[0]) + '</td>' +
+          '<td valign="top" style="' + F + 'padding:6px 0;font-size:14px;color:#1c2a3a;border-bottom:1px solid #eef1f6">' + esc(r[1]) + '</td></tr>';
+      }).join('') + '</table></td></tr>' +
+      // Documentos
+      (d.docs.length ? titulo('Documentos (' + d.docs.length + ')') + '<tr><td style="padding:6px 24px">' + d.docs.map(function (x) {
+        return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;border:1px solid #d3dce8;border-radius:6px"><tr>' +
+          '<td width="38" valign="top" style="' + F + 'padding:10px 0 10px 12px;font-size:20px">' + x.icono + '</td>' +
+          '<td style="' + F + 'padding:10px 12px;font-size:14px">' + (x.url ? '<a href="' + esc(x.url) + '" style="color:#1d4f91;font-weight:bold;text-decoration:underline">' + esc(x.titulo) + '</a>' : '<b>' + esc(x.titulo) + '</b>') +
+          (x.nombre || x.detalle ? '<br><span style="font-size:12px;color:#5a6676">' + esc([x.nombre, x.detalle].filter(Boolean).join(' · ')) + '</span>' : '') + '</td></tr></table>';
+      }).join('') + '</td></tr>' : '') +
+      (d.fisicos.length ? titulo('Anexos en papel (' + d.fisicos.length + ')') + '<tr><td style="' + F + 'padding:8px 24px;font-size:14px">' + d.fisicos.map(function (t) { return '• ' + esc(t); }).join('<br>') + '</td></tr>' : '') +
+      // Texto
+      titulo('Texto del mensaje') +
+      '<tr><td style="padding:10px 24px 6px"><div style="' + F + 'font-size:14px;line-height:1.55;color:#1c2a3a;border-left:4px solid #c9a227;background:#f8f9fb;padding:12px 14px">' +
+        (d.texto ? esc(d.texto).replace(/\r?\n/g, '<br>') : '<i>(sin texto)</i>') + '</div></td></tr>' +
+      // Pie
+      '<tr><td style="' + F + 'padding:16px 24px;font-size:12px;color:#5a6676;line-height:1.5">Los enlaces abren MENSADEF con la sesión de quien los pulsa: solo funcionan para quien tenga acceso a este mensaje en MENSADEF. El original está en MENSADEF.</td></tr>' +
+      '<tr><td bgcolor="#12315a" style="' + F + 'background:#12315a;padding:8px 24px;font-size:11px;color:#e6d9a8">Enviado con SENDERO · © 2026 Cte. Alfredo Sánchez Sender</td></tr>' +
+      '</table></td></tr></table>';
+    return h;
   }
-  function correoMensaje(m) {
-    var x = m._x || {}, j = m._cuerpoCompleto, docs = docsCorreo(m);
-    var dest = j ? (j.Destinatarios || []).map(function (d) { return d && d.Nombre; }).filter(Boolean) : [];
-    var anexos = (m._anexos || []).map(function (a) { return a.Titulo || a.Nombre; }).filter(Boolean);
-    var linea = function (k, v) { return v ? k + ': ' + v : ''; };
-    var cuerpo = String(m._cuerpo || m._cuerpoApi || '').trim();
-    var partes = ['MENSAJE DE MENSADEF', '────────────────────────',
-      linea('Asunto', m._asunto), linea('Fecha', verFecha(fechaDe(m))), linea('Autoridad', m.MensajeNombre_Autoridad), linea('N.º de referencia', m.MensajeNum_referencia),
-      linea('Firma', x.Firma), linea('Prioridad', x.CodigoPrioridad), linea('Bandera', m._bandera && m._bandera.nombre), linea('Célula', sitioDe(m)),
-      linea('Destinatarios', dest.length ? dest.slice(0, 5).join('; ') + (dest.length > 5 ? ' y ' + (dest.length - 5) + ' más' : '') : x.Destinatarios),
-      linea('Anexos', anexos.length ? anexos.length + ' (' + anexos.join('; ') + ')' : ''), '────────────────────────'].filter(Boolean);
-    // 19/11/2026: el enlace de MENSADEF es el de la célula (falta saber la dirección de un mensaje concreto): se dice así
-    var pie = ['', m._enlace ? 'Abrir la célula en MENSADEF' + (m.MensajeNum_referencia ? ' (busca la referencia ' + m.MensajeNum_referencia + ')' : '') + ': ' + m._enlace : '', '', 'Enviado con SENDERO · © 2026 Cte. Alfredo Sánchez Sender'].filter(function (l, i, a) { return l || a[i - 1]; });
-    var asunto = 'MENSADEF' + (m.MensajeNum_referencia ? ' · ' + m.MensajeNum_referencia : '') + ' · ' + (m._asunto || '');
-    var hacer = function (t) { return 'mailto:?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(t); };
-    // Documentos: se ponen todos los que quepan (el correo preparado tiene un límite de largo); los que no, se dice cuántos faltan
-    var bloqueDocs = function (n) { return !docs.length ? [] : ['', 'Documentos del mensaje (se abren con la sesión de MENSADEF):'].concat(docs.slice(0, n), n < docs.length ? ['  … y ' + (docs.length - n) + ' más: ábrelos en MENSADEF'] : []); };
-    var nDocs = docs.length, texto0 = cuerpo ? cuerpo : '', corto = false;
-    var armar = function () { return partes.concat(texto0 ? ['', texto0 + (corto ? '… (sigue en MENSADEF)' : '')] : [], bloqueDocs(nDocs), pie).join('\n'); };
-    var t = armar();
-    while (hacer(t).length > 1900 && texto0.length > 50) { texto0 = texto0.slice(0, Math.max(50, texto0.length - 200)); corto = true; t = armar(); }
-    // Si aún no cabe, los destinatarios se quedan en su número (los documentos importan más) y, al final, se quitan documentos
-    var iDest = partes.findIndex(function (l) { return /^Destinatarios: /.test(l); });
-    if (hacer(t).length > 1900 && iDest >= 0 && dest.length) { partes[iDest] = 'Destinatarios: ' + dest.length + ' (ver en MENSADEF)'; t = armar(); }
-    while (hacer(t).length > 1900 && nDocs > 0) { nDocs--; t = armar(); }
-    var el = document.createElement('a'); el.href = hacer(t); el.style.display = 'none'; document.body.appendChild(el); el.click(); setTimeout(function () { el.remove(); }, 1000);
+  // Texto plano (por si el programa de correo no acepta el formato al pegar)
+  function correoTexto(d) {
+    return ['MENSAJE DE MENSADEF' + (d.ref ? ' · N.º ref. ' + d.ref : ''), d.asunto, '────────────────────────']
+      .concat(d.datos.map(function (r) { return r[0] + ': ' + r[1]; }), d.prio ? ['Prioridad: ' + d.prio] : [], d.bandera ? ['Bandera: ' + d.bandera] : [])
+      .concat(d.enlace ? ['', 'Abrir en MENSADEF' + (d.ref ? ' (busca la referencia ' + d.ref + ')' : '') + ': ' + d.enlace] : [])
+      .concat(d.docs.length ? ['', 'Documentos (' + d.docs.length + '):'].concat(d.docs.map(function (x) { return '• ' + x.titulo + (x.nombre ? ' (' + x.nombre + ')' : '') + (x.url ? ': ' + x.url : ''); })) : [])
+      .concat(d.fisicos.length ? ['', 'Anexos en papel: ' + d.fisicos.join('; ')] : [])
+      .concat(['', 'Texto del mensaje:', d.texto || '(sin texto)', '', 'Enviado con SENDERO · © 2026 Cte. Alfredo Sánchez Sender']).join('\n');
+  }
+  // Copia con formato: ClipboardItem (Edge y Chrome) y, si no deja, selección + «copiar» (también lleva el formato)
+  function copiarConFormato(html, plano) {
+    var porSeleccion = function () {
+      var c = document.createElement('div'); c.contentEditable = 'true'; c.style.cssText = 'position:fixed;left:-10000px;top:0;width:700px'; c.innerHTML = html; document.body.appendChild(c);
+      var r = document.createRange(); r.selectNodeContents(c); var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      var ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      s.removeAllRanges(); c.parentNode.removeChild(c); return ok;
+    };
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      return navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([plano], { type: 'text/plain' }) })])
+        .then(function () { return true; }, function () { return porSeleccion(); });
+    }
+    return Promise.resolve(porSeleccion());
+  }
+  function ventanaCorreo(m, nota) {
+    var d = datosCorreo(m), html = correoHtml(d), plano = correoTexto(d);
+    var asunto = 'MENSADEF' + (d.ref ? ' · ' + d.ref : '') + ' · ' + d.asunto;
+    var viejo = $('correoModal'); if (viejo) viejo.parentNode.removeChild(viejo);
+    var v = document.createElement('div'); v.id = 'correoModal';
+    v.style.cssText = 'position:fixed;inset:0;background:rgba(10,20,35,.55);z-index:9000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px';
+    v.innerHTML = '<div class="card" style="max-width:760px;width:100%;margin:0;box-shadow:0 12px 40px rgba(0,0,0,.35)">' +
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:2px solid #12315a;padding-bottom:8px;margin-bottom:10px"><b style="color:#12315a">✉ Correo preparado</b>' +
+      '<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="prim" id="correoCopiar">📋 Copiar y abrir Outlook</button><button type="button" id="correoSoloCopiar">Solo copiar</button><button type="button" id="correoCerrar">✕ Cerrar</button></span></div>' +
+      (nota ? '<p class="small" style="background:#fff3c4;border:1px solid #c9a84c;border-radius:8px;padding:6px 10px;margin:0 0 8px">📎 ' + esc(nota) + '</p>' : '') +
+      '<ol class="small" style="margin:0 0 8px;padding-left:20px"><li>Pulsa <b>«Copiar y abrir Outlook»</b>: se abre un correo nuevo con el asunto puesto.</li><li>Pon el cursor en el cuerpo del correo y pulsa <b>Ctrl+V</b>: se pega tal como lo ves aquí, con los enlaces.</li><li>Elige a quién se lo mandas y envíalo.</li></ol>' +
+      '<p id="correoEstado" class="small" style="margin:0 0 8px;font-weight:600;color:#1e6b2e"></p>' +
+      '<div id="correoVista" style="border:1px solid #d3dce8;border-radius:8px;max-height:62vh;overflow:auto"><iframe title="Vista previa del correo" style="display:block;width:100%;height:600px;border:0"></iframe></div></div>';
+    document.body.appendChild(v);
+    // Vista previa en un marco: así los estilos de SENDERO no la cambian y se ve como quedará en el correo
+    var fr = v.querySelector('#correoVista iframe');
+    fr.onload = function () { try { fr.style.height = (fr.contentDocument.documentElement.scrollHeight + 4) + 'px'; } catch (e) { /* se queda con su alto */ } };
+    fr.srcdoc = '<!doctype html><html lang="es"><head><meta charset="utf-8"><base target="_blank"></head><body style="margin:0;background:#eef1f6">' + html + '</body></html>';
+    var cerrar = function () { if (v.parentNode) v.parentNode.removeChild(v); document.removeEventListener('keydown', tecla, true); };
+    var tecla = function (e) { if (e.key === 'Escape') { e.stopPropagation(); cerrar(); } };
+    document.addEventListener('keydown', tecla, true);
+    v.addEventListener('click', function (e) { if (e.target === v) cerrar(); });
+    $('correoCerrar').addEventListener('click', cerrar);
+    var copiar = function (abrir) {
+      copiarConFormato(html, plano).then(function (ok) {
+        $('correoEstado').style.color = ok ? '#1e6b2e' : '#a3201b';
+        $('correoEstado').textContent = ok ? '✔ Copiado. ' + (abrir ? 'En el correo nuevo de Outlook pulsa Ctrl+V en el cuerpo.' : 'Pégalo con Ctrl+V en el cuerpo de un correo.') :
+          '✕ El navegador no ha dejado copiar. Selecciona el correo de abajo con el ratón, cópialo (Ctrl+C) y pégalo en Outlook.';
+        if (abrir) { var el = document.createElement('a'); el.href = 'mailto:?subject=' + encodeURIComponent(asunto); el.style.display = 'none'; document.body.appendChild(el); el.click(); setTimeout(function () { el.remove(); }, 1000); }
+      });
+    };
+    $('correoCopiar').addEventListener('click', function () { copiar(true); });
+    $('correoSoloCopiar').addEventListener('click', function () { copiar(false); });
+  }
+  // Antes de preparar el correo se leen el texto completo y los anexos si aún no están (ficha recién abierta)
+  function correoConDocs(m, nota) {
+    var listo = m._api && apiCtx && !(m._anexos && m._cuerpoCompleto) ? cuerpoCompleto(m).then(function (j) {
+      if (j && j.AnexosDigitales && !m._anexos) m._anexos = j.AnexosDigitales.filter(Boolean);
+      if (j && j.Cuerpo && !m._cuerpo) m._cuerpo = texto(String(j.Cuerpo));
+    }, function () {}) : Promise.resolve();
+    listo.then(function () { ventanaCorreo(m, nota); });
   }
   function usarAnexo(m, i, modo, boton) {
     var a = (m._anexos || [])[i]; if (!a) return;
@@ -2353,7 +2453,7 @@
       (m._api && m._x && m._x.__es !== 'Salida' ? '<button type="button" class="gr gr-resp" id="aResponder" title="Abre en MENSADEF la pantalla para responder a este mensaje"><span class="i">↩</span><span>Responder<small>en MENSADEF</small></span></button>' : '') +
       (PUNTO ? '<button type="button" class="gr gr-psit" id="aPunto" disabled title="' + (PSIT_DIRECTO ? 'Lo pasa directamente al Punto de Situación (PSIT), que detecta la célula' : 'Lo pasa al Punto de Situación (PSIT) a través de META, que detecta la célula') + '"><span class="i">★</span><span>Al PSIT<small>punto de situación</small></span></button>' : '') + botonRubrica(m) + '</div>' +
       '<div class="utiles"><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + botonLeido(m) + '<span class="sepu"></span>' +
-      '<button type="button" id="porCorreo" title="Abre un correo de Outlook con los datos del mensaje y el enlace a MENSADEF">✉ Correo</button>' +
+      '<button type="button" id="porCorreo" title="Prepara un correo con diseño: datos del mensaje, texto, documentos y acceso a MENSADEF; se copia y se pega en Outlook">✉ Correo</button>' +
       '<button type="button" id="imprimirMsg" title="Imprime el mensaje con formato de oficio; en la ventana de imprimir elige «Guardar como PDF»">🖨 Imprimir / PDF</button>' +
       '<button type="button" id="enviarPdf" title="Descarga el PDF (el original si viene como anexo; si no, el oficio para guardarlo en PDF) y abre el correo de Outlook preparado">✉ Enviar con el PDF</button>' +
       '<button type="button" id="copiarTarea" title="Copia asunto, referencia, fecha y autoridad para pegarlos en un gestor">📋 Copiar</button>' + (selectorBandera(m) ? '<span class="sepu"></span>' + selectorBandera(m) : '') + '</div></div></div><div id="colabora"></div>' +
