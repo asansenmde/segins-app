@@ -287,9 +287,8 @@ autoría.
       (y pedir a un administrador de otra organización que la abra y pruebe el suyo) y pasar «📋 Copiar el resultado».
       Pendiente de decidir: a) ¿todos los sitios en colabora.mdef.es?, b) META y PSIT de una organización en sitios distintos,
       c) ¿solo el usuario nombra administradores?, d) quién hace cada fase.
-    23/11/2026: SENDERO 2026-11-23 · 2: **correo con diseño** («✉ Correo» y «✉ Enviar con el PDF»): ventana con la vista previa,
-      «Copiar y abrir Outlook» (se pega con Ctrl+V): cabecera MENSADEF con la referencia, asunto, etiquetas (prioridad, firma,
-      bandera, célula, documentos), botones «Abrir en MENSADEF» y «Abrir el documento», todos los datos, cada documento con su
-      enlace directo (la carpeta no la localizaba Colabora) y el texto completo. PENDIENTE DEL USUARIO: probarlo en Outlook (que
-      se pegue con formato y que los enlaces de los documentos abran) y, para que «Abrir en MENSADEF» lleve al mensaje y no a la
-      célula, decir la forma de la dirección de un mensaje abierto en MENSADEF (lo que va tras «#/», cambiando los números por X).
+    23/11/2026: SENDERO 2026-11-23 · 3: «✉ Correo» abre Outlook con el correo ya relleno (el usuario no quiere copiar y pegar;
+      la · 2 con diseño y Ctrl+V queda descartada): cabecera, datos, «ABRIR EN MENSADEF», cada documento con su enlace directo en
+      su línea (la carpeta no la localizaba Colabora) y el texto, recortado si no cabe (~1.900 caracteres de un correo abierto
+      así). PENDIENTE DEL USUARIO: probar que los enlaces de los documentos abren y, para que «Abrir en MENSADEF» lleve al mensaje,
+      decir la forma de la dirección de un mensaje abierto en MENSADEF (lo que va tras «#/», cambiando números por X).

@@ -527,22 +527,16 @@ if (process.env.PRESENTA) {
 }
 // Correo (mailto) con la información del mensaje, botón naranja
 await p.evaluate(() => { document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href^="mailto:"]'); if (a) { window.__mailto = a.href; e.preventDefault(); } }, true); });
-await p.click('#porCorreo'); await p.waitForSelector('#correoModal', { timeout: 8000 });
-await p.waitForFunction(() => { const f = document.querySelector('#correoVista iframe'); return f && f.contentDocument && /DATOS DEL MENSAJE/i.test(f.contentDocument.body.innerText); }, null, { timeout: 8000 }).catch(() => 0);
-// 23/11/2026: correo con diseño. Ventana con la vista previa; «Copiar y abrir Outlook» copia con formato y abre el correo con el asunto
-{ const vista = await (p.$eval('#correoVista iframe', f => { const e = f.contentDocument.body; return { texto: e.innerText, html: e.innerHTML, enlaces: [...e.querySelectorAll('a')].map(a => [a.textContent.trim(), a.getAttribute('href')]) }; }));
-  if (process.env.VERCORREO) console.log(vista.texto);
-  if (process.env.CAPTURA_CORREO) { const sd = await p.$eval('#correoVista iframe', f => f.srcdoc); const cp = await ctx.newPage(); await cp.setViewportSize({ width: 760, height: 600 }); await cp.setContent(sd); await cp.screenshot({ path: process.env.CAPTURA_CORREO, fullPage: true }); await cp.close(); }
-  await p.click('#correoCopiar'); await p.waitForTimeout(400);
-  const mt = await p.evaluate(() => window.__mailto || ''), estado = await p.textContent('#correoEstado');
-  const subj = decodeURIComponent((mt.split('subject=')[1] || '').split('&')[0]);
-  const docs = [...new Set(vista.enlaces.map(x => x[1]))].map(u => [0, u]).filter(x => /SMDMDMensajesDocumentos_20261105\/[^/]+\/(informe%20anexo\.pdf|datos\.7z\.cif)$/.test(x[1]));
-  const celula = vista.enlaces.some(x => x[0] === 'Abrir en MENSADEF' && /#\/celula\//.test(x[1]));
-  const datos = ['DATOS DEL MENSAJE', 'TEXTO DEL MENSAJE', 'DOCUMENTOS (2)', 'N.º de referencia', 'Destinatarios', 'Texto del mensaje 7', 'Prioridad R · Rutina', 'busca allí la referencia RE-7'].filter(t => !vista.texto.toUpperCase().includes(t.toUpperCase()));
-  console.log('correo:', subj, '| ventana con vista previa | enlaces a documentos:', docs.length, '| abrir en MENSADEF:', celula, '| falta:', JSON.stringify(datos),
-    '| sin la carpeta:', !/Forms\/AllItems/.test(vista.html), '| escapado:', !/<b>A<\/b>/.test(vista.html) && /&lt;b&gt;/.test(vista.html), '| copiado:', /Copiado/.test(estado), '| botón naranja:', await p.$eval('#porCorreo', b => b.classList.contains('naranja')));
-  if (!/^MENSADEF · RE-7 · /.test(subj) || /&body=/.test(mt) || docs.length !== 2 || !celula || datos.length || /Forms\/AllItems/.test(vista.html) || /<b>A<\/b>/.test(vista.html) || !/Copiado/.test(estado)) console.log('Error: correo con diseño');
-  await p.keyboard.press('Escape'); if (await p.$('#correoModal')) console.log('Error: el correo no se cierra con Esc'); }
+await p.click('#porCorreo'); await p.waitForFunction(() => window.__mailto, null, { timeout: 8000 }).catch(() => 0);
+// 23/11/2026: Outlook se abre con el correo ya relleno (sin copiar y pegar): datos, enlace a MENSADEF y cada documento con su enlace
+{ const mt = await p.evaluate(() => window.__mailto || ''); const body = decodeURIComponent((mt.split('&body=')[1] || '')); const subj = decodeURIComponent((mt.split('subject=')[1] || '').split('&')[0]);
+  if (process.env.VERCORREO) console.log(body);
+  const lineas = body.split('\n'), docs = lineas.filter(l => /^https:\/\/mensadef\.mdef\.es\/ambito\/2SUIGE\/SMDMDMensajesDocumentos_20261105\/[^/\s]+\/(informe%20anexo\.pdf|datos\.7z\.cif)$/.test(l));
+  const celula = lineas.some(l => /^https:\/\/mensadef\.mdef\.es\/.*#\/celula\//.test(l));
+  const falta = ['ASUNTO: Mensaje 7', 'Fecha: ', 'Remitente: ', 'Su referencia: SREF-7', 'Prioridad: R · Rutina', 'busca la referencia RE-7', 'DOCUMENTOS (2)', 'TEXTO DEL MENSAJE', 'Texto del mensaje 7'].filter(t => !body.includes(t));
+  console.log('correo:', subj, '| documentos con enlace en su línea:', docs.length, '| abrir en MENSADEF:', celula, '| falta:', JSON.stringify(falta), '| sin la carpeta:', !/Forms\/AllItems/.test(body), '| largo:', mt.length, '| botón naranja:', await p.$eval('#porCorreo', b => b.classList.contains('naranja')));
+  if (!/^MENSADEF · RE-7 · /.test(subj) || docs.length !== 2 || !celula || falta.length || /Forms\/AllItems/.test(body) || mt.length > 1900) console.log('Error: correo');
+}
 // Visto: con «Ocultar vistos» desaparece al momento y el botón se pone verde
 await p.fill('#buscar', ''); await p.waitForTimeout(300); await p.check('#fVistos'); await p.waitForTimeout(200);
 { const n0 = await p.$$eval('#lista tr[data-i]', x => x.length); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(500);
@@ -680,12 +674,9 @@ for (const n of [0, 40]) {
 { await p.click('#lista tbody tr[data-i] >> nth=1'); await p.waitForTimeout(1200);
   await p.evaluate(() => { window.__mailto = ''; const o = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { if (/^mailto:/.test(this.href)) { window.__mailto = this.href; return; } return o.call(this); }; });
   const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 15000 }).catch(() => null), p.click('#enviarPdf')]); await p.waitForTimeout(1200);
-  await p.waitForSelector('#correoModal', { timeout: 8000 }).catch(() => 0);
-  const aviso = await p.textContent('#correoModal').catch(() => '');
-  await p.click('#correoCopiar').catch(() => 0); await p.waitForTimeout(300); const mail = await p.evaluate(() => window.__mailto);
-  console.log('enviar con PDF: descarga', dl ? dl.suggestedFilename() : 'ninguna', '| correo preparado:', /^mailto:/.test(mail), '| aviso en la ventana del correo:', /arrastra el PDF al correo/.test(aviso));
-  if (!dl || !/\.pdf$/i.test(dl.suggestedFilename()) || !/^mailto:/.test(mail) || !/arrastra el PDF al correo/.test(aviso)) console.log('Error: enviar con el PDF');
-  await p.keyboard.press('Escape'); }
+  const mail = await p.evaluate(() => window.__mailto), aviso = await p.textContent('#colabora').catch(() => '');
+  console.log('enviar con PDF: descarga', dl ? dl.suggestedFilename() : 'ninguna', '| correo preparado:', /^mailto:/.test(mail), '| aviso:', /arrástralo al correo/.test(aviso));
+  if (!dl || !/\.pdf$/i.test(dl.suggestedFilename()) || !/^mailto:/.test(mail) || !/arrástralo al correo/.test(aviso)) console.log('Error: enviar con el PDF'); }
 // «Responder» (13/11/2026): abre el mensaje en MENSADEF y pulsa su «Responder» (no «Responder a todos»)
 { await p.fill('#buscar', 'RE-0'); await p.waitForTimeout(400);
   await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(200);
