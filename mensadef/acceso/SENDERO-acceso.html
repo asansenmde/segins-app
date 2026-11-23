@@ -59,7 +59,7 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-18 · 1';
+  var VERSION = '2026-11-23 · 1';
   // Solo se contesta a SENDERO, que funciona en MENSADEF (el favorito escribe su página sobre la de MENSADEF)
   var ORIGEN_SENDERO = 'https://mensadef.mdef.es';
   var L_AUT = 'SENDERO Autorizados', L_SOL = 'SENDERO Solicitudes', GRUPO = 'SENDERO Administradores';
@@ -182,6 +182,7 @@
   function enviarUno(to, c) {
     var pr = { __metadata: { type: 'SP.Utilities.EmailProperties' }, To: { results: to }, Subject: c.asunto, Body: c.html };
     if (c.bcc && c.bcc.length && !c.uno) pr.BCC = { results: c.bcc };
+    if (c.cc && c.cc.length && !c.uno) pr.CC = { results: c.cc };
     return enviarSP(web + '/_api/SP.Utilities.Utility.SendEmail', { properties: pr }, 'Colabora no te deja enviar correos desde la página');
   }
   // Cuenta de inicio de sesión de una dirección (si el buzón no figura en el perfil, Colabora acepta la cuenta)
@@ -211,9 +212,10 @@
     c.to = c.to.filter(function (x, i) { return esCorreo(x) && c.to.map(norm).indexOf(norm(x)) === i; });
     // Copia oculta (avisos a muchos): si Colabora rechaza alguna dirección, se reintenta una a una (cada uno solo ve la suya)
     c.bcc = (c.bcc || []).filter(function (x, i, l) { return esCorreo(x) && l.map(norm).indexOf(norm(x)) === i && c.to.map(norm).indexOf(norm(x)) < 0; });
+    c.cc = (c.cc || []).filter(function (x, i, l) { return esCorreo(x) && l.map(norm).indexOf(norm(x)) === i && c.to.map(norm).indexOf(norm(x)) < 0; });
     var res = function (ok, n, motivo, rech, llegaron, desvios) { return { ok: ok, n: n, motivo: motivo || '', rechazados: rech || [], llegaron: llegaron || [], desvios: desvios || [], mailto: mailtoDe(c) }; };
     if (!c.to.length) return Promise.resolve(res(false, 0, 'sin direcciones de correo'));
-    var todos = c.to.concat(c.bcc);
+    var todos = c.to.concat(c.cc, c.bcc);
     return enviarUno(c.to, c).then(function () { return res(true, todos.length, '', [], todos.slice()); }, function (e) {
       var m = e.message || String(e);
       if (!DEST_MAL.test(m)) return res(false, 0, m);
@@ -353,7 +355,7 @@
   }
 
   // ---------- Arranque según cómo se abre ----------
-  var m = /^#(comprobar|solicitar)=(.*)$/.exec(location.hash || ''), modo = m ? m[1] : 'pagina', datos = {};
+  var m = /^#(comprobar|solicitar|correo)=(.*)$/.exec(location.hash || ''), modo = m ? m[1] : 'pagina', datos = {};
   if (m) { try { datos = JSON.parse(decodeURIComponent(m[2])) || {}; } catch (e) { datos = {}; } }
   var destino = window.parent !== window ? window.parent : window.opener;
   if (document.documentMode) { $('app').innerHTML = '<div class="card mal">Ábrelo en Microsoft Edge o Chrome (no en modo Internet Explorer).</div>'; return; }
@@ -361,6 +363,7 @@
   buscarWeb().then(function () {
     if (modo === 'comprobar') return modoComprobar();
     if (modo === 'solicitar') return leerYo().then(function () { return pintarSolicitud(datos.a || '', datos.v || ''); });
+    if (modo === 'correo') return leerYo().then(modoCorreo);
     return modoPagina();
   }).catch(function (e) {
     if (modo === 'comprobar') return responder({ ok: false, error: e.message || String(e), status: e.status || 0 });
@@ -391,6 +394,189 @@
       }
       return responder(r);
     }, function (e) { responder({ ok: false, error: e.status === 404 ? 'Falta preparar el control de acceso en Colabora' : (e.message || String(e)), status: e.status || 0 }); });
+  }
+
+  // ---------- ✉ Enviar un mensaje de MENSADEF por correo (#correo=, 23/11/2026) ----------
+  // SENDERO abre esta página en una ventana y le pasa los datos del mensaje (solo se aceptan de mensadef.mdef.es). Aquí se
+  // eligen los destinatarios, se ve el correo tal cual y lo envía Colabora (envío robusto), con formato, el texto completo,
+  // los datos, el enlace a MENSADEF y el de cada documento. El correo se arma aquí con todo escapado; los enlaces solo se
+  // aceptan si son de MENSADEF.
+  var enlaceMensadef = function (u) { return /^https:\/\/mensadef\.mdef\.es\/\S+$/i.test(String(u || '')) ? String(u) : ''; };
+  var icono = function (n) { var e = ((/\.([a-z0-9]+)$/i.exec(n || '') || [])[1] || '').toLowerCase();
+    return e === 'pdf' ? '📕' : /^docx?$|^odt$|^rtf$/.test(e) ? '📘' : /^xlsx?$|^ods$|^csv$/.test(e) ? '📗' : /^pptx?$/.test(e) ? '📙' : /^(jpe?g|png|gif|tiff?)$/.test(e) ? '🖼' : e === 'cif' ? '🔒' : /^(zip|7z|rar)$/.test(e) ? '🗜' : '📄'; };
+  // Lo que llega de SENDERO, limpio: solo textos y enlaces de MENSADEF
+  function limpiarCorreo(x) {
+    var t = function (v) { return String(v == null ? '' : v).slice(0, 2000); };
+    x = x || {};
+    return { asunto: t(x.asunto) || '(sin asunto)', ref: t(x.ref), bandeja: t(x.bandeja), prio: t(x.prio), urgente: !!x.urgente, firma: t(x.firma), bandera: t(x.bandera), celula: t(x.celula),
+      datos: (Array.isArray(x.datos) ? x.datos : []).slice(0, 30).map(function (r) { return [t(r && r[0]), t(r && r[1])]; }).filter(function (r) { return r[0] && r[1]; }),
+      texto: String(x.texto == null ? '' : x.texto).slice(0, 200000),
+      docs: (Array.isArray(x.docs) ? x.docs : []).slice(0, 60).map(function (d) { d = d || {}; return { titulo: t(d.titulo) || 'Documento', nombre: t(d.nombre), detalle: t(d.detalle), url: enlaceMensadef(d.url), icono: icono(d.nombre || d.titulo) }; }),
+      fisicos: (Array.isArray(x.fisicos) ? x.fisicos : []).slice(0, 30).map(t).filter(Boolean), enlace: enlaceMensadef(x.enlace) };
+  }
+  // Correo con diseño para Outlook: tablas y estilos en línea
+  function correoHtml(d, quien, nota) {
+    var F = 'font-family:Segoe UI,Arial,Helvetica,sans-serif;';
+    var chip = function (t, fondo, color) { return t ? '<span style="' + F + 'display:inline-block;font-size:12px;font-weight:bold;padding:3px 9px;margin:0 6px 6px 0;border-radius:10px;background:' + fondo + ';color:' + color + '">' + esc(t) + '</span>' : ''; };
+    var boton = function (url, t) { return '<table role="presentation" cellpadding="0" cellspacing="0" style="display:inline-table;margin:0 8px 8px 0"><tr><td bgcolor="#12315a" style="background:#12315a;border-radius:6px;padding:9px 16px"><a href="' + esc(url) + '" style="' + F + 'color:#ffffff;font-size:14px;font-weight:bold;text-decoration:none">' + esc(t) + '</a></td></tr></table>'; };
+    var titulo = function (t) { return '<tr><td style="' + F + 'padding:18px 24px 6px;font-size:13px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:#12315a;border-bottom:2px solid #c9a227">' + esc(t) + '</td></tr>'; };
+    return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef1f6"><tr><td align="center" style="padding:16px 8px">' +
+      '<table role="presentation" width="680" cellpadding="0" cellspacing="0" style="width:680px;max-width:100%;background:#ffffff;border:1px solid #d3dce8">' +
+      '<tr><td bgcolor="#12315a" style="background:#12315a;padding:14px 24px;border-bottom:4px solid #c9a227"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' +
+        '<td style="' + F + 'color:#ffffff;font-size:18px;font-weight:bold">✉ MENSADEF' + (d.bandeja ? ' <span style="font-size:13px;font-weight:normal;color:#e6d9a8">· Mensaje de ' + esc(d.bandeja.toLowerCase()) + '</span>' : '') + '</td>' +
+        '<td align="right" style="' + F + 'color:#e6d9a8;font-size:13px;font-weight:bold">' + (d.ref ? 'N.º ref. ' + esc(d.ref) : '') + '</td></tr></table></td></tr>' +
+      (quien ? '<tr><td style="' + F + 'padding:14px 24px 0;font-size:13px;color:#5a6676"><b style="color:#1c2a3a">' + esc(quien) + '</b> te envía este mensaje de MENSADEF.</td></tr>' : '') +
+      (nota ? '<tr><td style="padding:10px 24px 0"><div style="' + F + 'font-size:14px;line-height:1.5;color:#1c2a3a;background:#fff8dc;border:1px solid #e6d9a8;border-radius:6px;padding:10px 12px">' + esc(nota).replace(/\r?\n/g, '<br>') + '</div></td></tr>' : '') +
+      '<tr><td style="' + F + 'padding:16px 24px 4px;font-size:21px;font-weight:bold;color:#12315a;line-height:1.3">' + esc(d.asunto) + '</td></tr>' +
+      '<tr><td style="padding:8px 24px 4px">' + chip(d.prio ? 'Prioridad ' + d.prio : '', d.urgente ? '#fbdcda' : '#e2ecf9', d.urgente ? '#a3201b' : '#1d4f91') +
+        chip(d.firma ? '✍ Firmado' : '', '#dcf0e0', '#1e6b2e') + chip(d.bandera ? '⚑ ' + d.bandera : '', '#fff1cc', '#7a5200') + chip(d.celula ? 'Célula ' + d.celula : '', '#eef1f6', '#33415a') +
+        chip(d.docs.length ? '📎 ' + d.docs.length + ' documento' + (d.docs.length === 1 ? '' : 's') : '', '#eef1f6', '#33415a') + '</td></tr>' +
+      (d.enlace ? '<tr><td style="padding:6px 24px 2px">' + boton(d.enlace, 'Abrir en MENSADEF') + '</td></tr>' +
+        (d.ref ? '<tr><td style="' + F + 'padding:0 24px 6px;font-size:12px;color:#5a6676">«Abrir en MENSADEF» lleva a la célula ' + esc(d.celula) + ': busca allí la referencia <b>' + esc(d.ref) + '</b>.</td></tr>' : '') : '') +
+      titulo('Datos del mensaje') +
+      '<tr><td style="padding:8px 24px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">' + d.datos.map(function (r) {
+        return '<tr><td valign="top" style="' + F + 'width:150px;padding:6px 10px 6px 0;font-size:13px;color:#5a6676;border-bottom:1px solid #eef1f6">' + esc(r[0]) + '</td>' +
+          '<td valign="top" style="' + F + 'padding:6px 0;font-size:14px;color:#1c2a3a;border-bottom:1px solid #eef1f6">' + esc(r[1]) + '</td></tr>';
+      }).join('') + '</table></td></tr>' +
+      (d.docs.length ? titulo('Documentos (' + d.docs.length + ')') + '<tr><td style="' + F + 'padding:8px 24px 0;font-size:13px;color:#5a6676">Pulsa el nombre para abrirlo en MENSADEF.</td></tr><tr><td style="padding:6px 24px">' + d.docs.map(function (x) {
+        return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;border:1px solid #d3dce8;border-radius:6px"><tr>' +
+          '<td width="38" valign="top" style="' + F + 'padding:10px 0 10px 12px;font-size:20px">' + x.icono + '</td>' +
+          '<td style="' + F + 'padding:10px 12px;font-size:14px">' + (x.url ? '<a href="' + esc(x.url) + '" style="color:#1d4f91;font-weight:bold;text-decoration:underline">' + esc(x.titulo) + '</a>' : '<b>' + esc(x.titulo) + '</b>') +
+          (x.nombre || x.detalle ? '<br><span style="font-size:12px;color:#5a6676">' + esc([x.nombre, x.detalle].filter(Boolean).join(' · ')) + '</span>' : '') + '</td></tr></table>';
+      }).join('') + '</td></tr>' : '') +
+      (d.fisicos.length ? titulo('Anexos en papel (' + d.fisicos.length + ')') + '<tr><td style="' + F + 'padding:8px 24px;font-size:14px">' + d.fisicos.map(function (t) { return '• ' + esc(t); }).join('<br>') + '</td></tr>' : '') +
+      titulo('Texto del mensaje') +
+      '<tr><td style="padding:10px 24px 6px"><div style="' + F + 'font-size:14px;line-height:1.55;color:#1c2a3a;border-left:4px solid #c9a227;background:#f8f9fb;padding:12px 14px">' +
+        (d.texto ? esc(d.texto).replace(/\r?\n/g, '<br>') : '<i>(sin texto)</i>') + '</div></td></tr>' +
+      '<tr><td style="' + F + 'padding:16px 24px;font-size:12px;color:#5a6676;line-height:1.5">Los enlaces abren MENSADEF con la sesión de quien los pulsa: solo funcionan para quien tenga acceso a este mensaje en MENSADEF. El original está en MENSADEF.</td></tr>' +
+      '<tr><td bgcolor="#12315a" style="' + F + 'background:#12315a;padding:8px 24px;font-size:11px;color:#e6d9a8">Enviado con SENDERO · © 2026 Cte. Alfredo Sánchez Sender</td></tr>' +
+      '</table></td></tr></table>';
+  }
+  // Texto sin formato (para el «Preparar en Outlook» si Colabora no deja enviar)
+  function correoTexto(d, quien, nota) {
+    return (quien ? [quien + ' te envía este mensaje de MENSADEF.', ''] : []).concat(nota ? [nota, ''] : [])
+      .concat(['MENSAJE DE MENSADEF' + (d.ref ? ' · N.º ref. ' + d.ref : ''), d.asunto, ''], d.datos.map(function (r) { return r[0] + ': ' + r[1]; }))
+      .concat(d.enlace ? ['', 'Abrir en MENSADEF' + (d.ref ? ' (busca la referencia ' + d.ref + ')' : '') + ':', d.enlace] : [])
+      .concat(d.docs.length ? ['', 'Documentos:'].concat(d.docs.map(function (x) { return '• ' + x.titulo + (x.url ? ': ' + x.url : ''); })) : [])
+      .concat(['', d.texto || '(sin texto)']).join('\n');
+  }
+  // Personas: usuarios del sitio (al escribir) y, desde 3 letras, el directorio
+  var usuariosSitio = null;
+  function cargarUsuarios() {
+    if (usuariosSitio) return Promise.resolve(usuariosSitio);
+    return api(web + '/_api/web/siteusers?$select=Id,Title,Email,PrincipalType&$filter=PrincipalType eq 1&$top=5000')
+      .then(function (d) { usuariosSitio = lista(d.value).filter(function (u) { return esCorreo(u.Email); }).map(function (u) { return { Title: u.Title, Email: u.Email }; }); }, function () { usuariosSitio = []; })
+      .then(function () { return usuariosSitio; });
+  }
+  function buscarDirectorio(q) {
+    return enviarSP(web + '/_api/SP.UI.ApplicationPages.ClientPeoplePickerWebServiceInterface.clientPeoplePickerSearchUser', { queryParams: {
+      __metadata: { type: 'SP.UI.ApplicationPages.ClientPeoplePickerQueryParameters' }, QueryString: q, MaximumEntitySuggestions: 15,
+      AllowEmailAddresses: false, AllowMultipleEntities: false, AllUrlZones: false, ForceClaims: false, PrincipalSource: 15, PrincipalType: 1 } }, 'Sin permiso para buscar en el directorio')
+      .then(function (d) {
+        var v = d && (d.ClientPeoplePickerSearchUser !== undefined ? d.ClientPeoplePickerSearchUser : d.value);
+        var arr = typeof v === 'string' ? JSON.parse(v) : (v || []);
+        return arr.filter(function (e) { return e && e.Key && (!e.EntityType || e.EntityType === 'User'); })
+          .map(function (e) { return { Title: e.DisplayText || e.Key, Email: (e.EntityData && e.EntityData.Email) || '' }; }).filter(function (u) { return esCorreo(u.Email); });
+      }, function () { return []; });
+  }
+  // Campo de destinatarios: escribe y elige (o escribe una dirección completa y pulsa Intro)
+  function campoDestinatarios(cont, alCambiar) {
+    var elegidos = [], turno = 0, espera = null;
+    cont.innerHTML = '<div class="dest-chips"></div><input placeholder="Escribe nombre o apellido (3 letras) y elige, o una dirección de correo e Intro" autocomplete="off" style="width:100%"><div class="sugs" hidden></div>';
+    var chips = cont.querySelector('.dest-chips'), input = cont.querySelector('input'), caja = cont.querySelector('.sugs');
+    var pintarChips = function () {
+      chips.innerHTML = elegidos.map(function (u, i) { return '<span class="chip amb" style="margin:0 6px 6px 0">' + esc(u.Title || u.Email) + (u.Title ? ' <span class="muted">' + esc(u.Email) + '</span>' : '') + ' <a href="#" data-quitar="' + i + '" title="Quitar">✕</a></span>'; }).join('');
+      Array.prototype.forEach.call(chips.querySelectorAll('[data-quitar]'), function (a) { a.onclick = function (e) { e.preventDefault(); elegidos.splice(Number(a.getAttribute('data-quitar')), 1); pintarChips(); alCambiar(); }; });
+    };
+    var anadir = function (u) { if (u && esCorreo(u.Email) && !elegidos.some(function (x) { return norm(x.Email) === norm(u.Email); })) elegidos.push(u); input.value = ''; caja.hidden = true; pintarChips(); alCambiar(); input.focus(); };
+    var pintar = function (l, buscando) {
+      caja.lista = l;
+      caja.innerHTML = l.map(function (u, i) { return '<button type="button" data-sug="' + i + '" style="display:block;width:100%;text-align:left;margin:2px 0;font-weight:600">' + esc(u.Title) + ' <span class="muted">' + esc(u.Email) + '</span></button>'; }).join('') + (buscando ? '<div class="muted">Buscando en el directorio…</div>' : '');
+      caja.hidden = !l.length && !buscando;
+      Array.prototype.forEach.call(caja.querySelectorAll('[data-sug]'), function (b) { b.onclick = function () { anadir(caja.lista[Number(b.getAttribute('data-sug'))]); }; });
+    };
+    input.addEventListener('input', function () {
+      var q = input.value.trim(), id = ++turno; clearTimeout(espera);
+      if (q.length < 2 || esCorreo(q)) return pintar([]);
+      var qn = sinTildes(q);
+      cargarUsuarios().then(function (us) {
+        if (id !== turno) return;
+        var loc = us.filter(function (u) { return sinTildes(u.Title + ' ' + u.Email).indexOf(qn) >= 0; }).slice(0, 10);
+        pintar(loc, q.length >= 3);
+        if (q.length < 3) return;
+        espera = setTimeout(function () {
+          buscarDirectorio(q).then(function (dir) {
+            if (id !== turno) return;
+            var todo = loc.concat(dir.filter(function (u) { return !loc.some(function (x) { return norm(x.Email) === norm(u.Email); }); }));
+            pintar(todo.slice(0, 15), false);
+          });
+        }, 350);
+      });
+    });
+    input.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return; e.preventDefault();
+      var q = input.value.trim();
+      if (esCorreo(q)) anadir({ Title: '', Email: q }); else if (caja.lista && caja.lista.length) anadir(caja.lista[0]);
+    });
+    return { valor: function () { return elegidos.slice(); } };
+  }
+  function modoCorreo() {
+    $('app').innerHTML = '<div class="card">Preparando el correo…</div>';
+    document.title = 'SENDERO · Enviar por correo';
+    return evaluar(datos.a).then(function (st) {
+      if (!st.ok) { $('app').innerHTML = '<div class="card"><h2 class="mal">No puedes enviar correos desde SENDERO</h2><p>Tu cuenta no está autorizada para SENDERO.</p></div>'; return; }
+      var recibido = null, intentos = 0;
+      var oir = function (e) {
+        if (e.origin !== ORIGEN_SENDERO || !e.data || e.data.tipo !== 'sendero-correo-datos' || e.data.n !== datos.n || recibido) return;
+        recibido = limpiarCorreo(e.data.datos); window.removeEventListener('message', oir); pintarCorreo(recibido);
+      };
+      window.addEventListener('message', oir);
+      // Se piden los datos a SENDERO (varias veces por si aún no estaba escuchando)
+      var pedir = function () {
+        if (recibido) return;
+        if (!destino || intentos++ > 30) { if (!recibido) $('app').innerHTML = '<div class="card"><h2 class="mal">No llegan los datos del mensaje</h2><p>Cierra esta ventana y vuelve a pulsar «✉ Correo» en SENDERO.</p></div>'; return; }
+        try { destino.postMessage({ tipo: 'sendero-correo-listo', n: datos.n }, ORIGEN_SENDERO); } catch (e) { /* SENDERO cerrado */ }
+        setTimeout(pedir, 1000);
+      };
+      pedir();
+    });
+  }
+  function pintarCorreo(d) {
+    var quien = yo ? (yo.nombre || yo.email) + (yo.nombre && yo.email ? ' (' + yo.email + ')' : '') : '';
+    $('app').innerHTML = '<div class="card"><h2>✉ Enviar por correo: ' + esc(d.asunto) + '</h2>' +
+      '<div style="margin-bottom:8px"><b>Para</b><div id="cPara"></div></div>' +
+      '<div style="margin-bottom:8px"><b>CC</b> <span class="muted">(opcional)</span><div id="cCc"></div></div>' +
+      '<label style="display:flex;flex-direction:row;align-items:center;gap:6px;color:#1c2a3a;font-size:.9rem"><input type="checkbox" id="cCopia" checked> Enviarme una copia (' + esc(yo && yo.email || '') + ')</label>' +
+      '<label style="display:flex;width:100%">Asunto<input id="cAsunto" style="width:100%" value="' + esc('MENSADEF' + (d.ref ? ' · ' + d.ref : '') + ' · ' + d.asunto) + '"></label>' +
+      '<label style="display:flex;width:100%">Comentario para los destinatarios (opcional)<textarea id="cNota" placeholder="Por ejemplo: para tu conocimiento / para que prepares la respuesta"></textarea></label>' +
+      '<p><button type="button" class="prim grande" id="cEnviar" disabled>✉ Enviar</button> <span id="cMsg" class="muted">Elige al menos un destinatario.</span></p>' +
+      '<p class="muted">Lo envía Colabora con su dirección de correo; en el correo figura que lo mandas tú. Los documentos van con su enlace (desde Colabora no se pueden adjuntar).</p></div>' +
+      '<div class="card"><h2>Así se verá</h2><iframe id="cVista" title="Vista previa del correo" style="display:block;width:100%;height:700px;border:1px solid #d3dce8;border-radius:8px"></iframe></div>';
+    var listo = function () { var n = para.valor().length; $('cEnviar').disabled = !n; $('cMsg').textContent = n ? 'Para ' + n + ' destinatario' + (n === 1 ? '' : 's') + '.' : 'Elige al menos un destinatario.'; };
+    var para = campoDestinatarios($('cPara'), listo), cc = campoDestinatarios($('cCc'), function () {});
+    var vista = function () {
+      var fr = $('cVista'); fr.onload = function () { try { fr.style.height = (fr.contentDocument.documentElement.scrollHeight + 4) + 'px'; } catch (e) { /* alto fijo */ } };
+      fr.srcdoc = '<!doctype html><html lang="es"><head><meta charset="utf-8"><base target="_blank"></head><body style="margin:0">' + correoHtml(d, quien, $('cNota').value.trim()) + '</body></html>';
+    };
+    var t; $('cNota').addEventListener('input', function () { clearTimeout(t); t = setTimeout(vista, 400); });
+    vista();
+    $('cEnviar').addEventListener('click', function () {
+      var b = this, nota = $('cNota').value.trim(), to = para.valor(), copia = cc.valor();
+      if ($('cCopia').checked && yo && esCorreo(yo.email)) copia.push({ Title: yo.nombre, Email: yo.email });
+      var nombres = {}; to.concat(copia).forEach(function (u) { if (u.Title) nombres[norm(u.Email)] = u.Title; });
+      b.disabled = true; $('cMsg').textContent = 'Enviando…';
+      enviarCorreo({ to: to.map(function (u) { return u.Email; }), cc: copia.map(function (u) { return u.Email; }), asunto: $('cAsunto').value.trim() || d.asunto,
+        html: correoHtml(d, quien, nota), texto: correoTexto(d, quien, nota), nombres: nombres }).then(function (r) {
+        try { destino && destino.postMessage({ tipo: 'sendero-correo-enviado', n: datos.n, ok: r.ok, enviados: r.n, rechazados: r.rechazados.length, motivo: r.motivo }, ORIGEN_SENDERO); } catch (e) { /* SENDERO cerrado */ }
+        var rc = r.rechazados.length ? '<p class="mal">Colabora no acepta estas direcciones y a ellas NO les ha llegado: ' + esc(r.rechazados.join(', ')) + '.</p>' : '';
+        var dv = r.desvios.length ? '<p class="muted">Enviado a otra cuenta de la misma persona: ' + esc(r.desvios.join('; ')) + '.</p>' : '';
+        $('app').innerHTML = '<div class="card"><h2>' + (r.ok ? '<span class="bien">✔ Correo enviado</span>' : '<span class="mal">✕ No se ha enviado</span>') + '</h2>' +
+          (r.ok ? '<p>Ha llegado a: ' + esc(r.llegaron.join(', ')) + '.</p>' : '<p>' + esc(r.motivo) + '</p>') + dv + rc +
+          (!r.ok || rc ? '<p><a href="' + esc(r.mailto) + '"><button type="button">✉ Preparar el correo en Outlook (solo texto)</button></a></p>' : '') +
+          '<p><button type="button" id="cCerrar" class="prim">Cerrar</button></p></div>';
+        $('cCerrar').addEventListener('click', function () { window.close(); });
+      });
+    });
   }
 
   // ---------- Solicitar acceso ----------

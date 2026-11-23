@@ -52,3 +52,8 @@ Página que decide **quién puede usar SENDERO**. Se sube a Colabora, sitio `/et
   en Outlook») y se anota en la columna `Avisos` de la solicitud. «Correo de prueba» en «Preparación». La alerta de Colabora
   (enlace 🔔) sigue disponible como respaldo.
 - Pruebas: `node ../pruebas/acceso.mjs` (`VERBOSE=1`, `PROTEGIDA=1`); también en `sh ../pruebas/todas.sh`.
+- **2026-11-23 · 1**: **«✉ Correo» de SENDERO** (`#correo=`): SENDERO abre esta página en una ventana y le pasa los datos del
+  mensaje por postMessage (solo se aceptan de `https://mensadef.mdef.es` y solo enlaces de MENSADEF). Aquí se eligen Para y CC
+  (usuarios del sitio y directorio, o una dirección e Intro), «Enviarme una copia», asunto y comentario; se ve el correo y lo
+  envía Colabora con el envío robusto (ahora también con CC). El correo se arma aquí, con todo escapado. Solo para cuentas
+  autorizadas en SENDERO. Al terminar, avisa a SENDERO de a cuántos llegó.

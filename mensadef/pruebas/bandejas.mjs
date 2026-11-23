@@ -527,22 +527,36 @@ if (process.env.PRESENTA) {
 }
 // Correo (mailto) con la información del mensaje, botón naranja
 await p.evaluate(() => { document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href^="mailto:"]'); if (a) { window.__mailto = a.href; e.preventDefault(); } }, true); });
-// 23/11/2026: «✉ Correo» descarga el correo como archivo de Outlook (.eml, «X-Unsent: 1»): formato, texto completo y documentos ADJUNTOS
-{ const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 15000 }).catch(() => null), p.click('#porCorreo')]);
-  const eml = dl ? require('fs').readFileSync(await dl.path(), 'utf8') : '';
-  const lin = eml.split('\r\n'), mime = require('child_process').execSync('python3 -c "import email,sys,json;m=email.message_from_string(sys.stdin.read());from email.header import decode_header,make_header;' +
-    'p=[(x.get_content_type(),x.get_filename(),len(x.get_payload(decode=True) or b\'\'),(x.get_payload(decode=True) or b\'\')[:40].decode(\'latin1\') if not x.is_multipart() else \'\') for x in m.walk()];' +
-    'h=[x.get_payload(decode=True).decode() for x in m.walk() if x.get_content_type()==\'text/html\'];t=[x.get_payload(decode=True).decode() for x in m.walk() if x.get_content_type()==\'text/plain\'];' +
-    'print(json.dumps({\'asunto\':str(make_header(decode_header(m[\'Subject\']))),\'unsent\':m[\'X-Unsent\'],\'partes\':p,\'html\':h[0] if h else \'\',\'texto\':t[0] if t else \'\'}))"', { input: eml }).toString();
-  const r = JSON.parse(mime), adj = r.partes.filter(x => x[1]);
-  if (process.env.VERCORREO) { console.log(r.texto); require('fs').writeFileSync(process.env.VERCORREO + '.html', r.html); }
-  const faltan = ['DATOS DEL MENSAJE', 'TEXTO DEL MENSAJE', 'Documentos (2)', 'Van adjuntos a este correo', 'Abrir en MENSADEF', 'Texto del mensaje 7', 'Prioridad R · Rutina', 'busca allí la referencia', '📎 Adjunto'].filter(t => !r.html.toUpperCase().includes(t.toUpperCase()));
+// 23/11/2026: «✉ Correo» lo envía Colabora: ventana de la página de acceso (#correo=), destinatarios del directorio, vista previa y
+// envío robusto (una dirección sin buzón no tumba el envío). Con formato, texto completo, datos y enlaces de MENSADEF.
+{ estC.directorio = [{ Title: 'JEFE NEGOCIADO PRUEBAS', Email: 'jefe.negociado@pruebas.invalid' }, { Title: 'OTRA PERSONA PRUEBAS', Email: 'otra@pruebas.invalid' }];
+  estC.buzonMal = ['malo@pruebas.invalid']; const antes = estC.correos.length;
+  await simularColabora(ctx, estC, new URL('../acceso/subir/SENDERO-acceso.html', import.meta.url).pathname);   // más arriba se tapó Colabora con «ok»
+  const [w] = await Promise.all([ctx.waitForEvent('page', { timeout: 10000 }), p.click('#porCorreo')]);
+  w.on('pageerror', e => errs.push('correo: ' + e.message));
+  await w.waitForSelector('#cPara input', { timeout: 15000 }).catch(async () => console.log('ventana del correo:', (await w.content()).slice(0, 300)));
+  const url = w.url(), vistaTxt = await (async () => { await w.waitForFunction(() => { const f = document.getElementById('cVista'); return f && f.contentDocument && /DATOS DEL MENSAJE/i.test(f.contentDocument.body.innerText); }, null, { timeout: 8000 }).catch(() => 0);
+    return w.$eval('#cVista', f => f.contentDocument.body.innerText); })();
+  await w.fill('#cPara input', 'negociado'); await w.waitForSelector('#cPara [data-sug]', { timeout: 5000 }).catch(() => 0); await w.click('#cPara [data-sug] >> nth=0').catch(() => 0);
+  await w.fill('#cPara input', 'malo@pruebas.invalid'); await w.press('#cPara input', 'Enter');
+  await w.fill('#cCc input', 'otra'); await w.waitForSelector('#cCc [data-sug]', { timeout: 5000 }).catch(() => 0); await w.click('#cCc [data-sug] >> nth=0').catch(() => 0);
+  await w.fill('#cNota', 'Para tu conocimiento <b>urgente</b>'); await w.waitForTimeout(600);
+  const listo = await w.textContent('#cMsg');
+  if (process.env.CAPTURA_CORREO) { await w.setViewportSize({ width: 1000, height: 900 }); await w.waitForTimeout(500); await w.screenshot({ path: process.env.CAPTURA_CORREO, fullPage: true }); }
+  await w.click('#cEnviar'); await w.waitForSelector('#cCerrar', { timeout: 15000 }).catch(() => 0);
+  const fin = await w.textContent('#app'); await p.waitForTimeout(500);
+  const enviados = estC.correos.slice(antes), cu = enviados.map(c => c.cuerpo).join(''), para = enviados.flatMap(c => c.to), cc = enviados.flatMap(c => c.cc || []);
   const aviso = await p.textContent('#avisoCorreo').catch(() => '');
-  console.log('correo (.eml):', dl && dl.suggestedFilename(), '| asunto:', r.asunto, '| sin enviar (borrador):', r.unsent === '1', '| adjuntos:', JSON.stringify(adj.map(x => [x[0], x[1], x[2]])),
-    '| falta en el cuerpo:', JSON.stringify(faltan), '| escapado:', !/<b>A<\/b>/.test(r.html) && /&lt;b&gt;/.test(r.html), '| aviso:', /Outlook lo enseña como correo nuevo/.test(aviso) && /2 documentos adjuntos/.test(aviso));
-  if (!dl || !/\.eml$/.test(dl.suggestedFilename()) || !/^MENSADEF · RE-7 · Mensaje 7/.test(r.asunto) || r.unsent !== '1' || adj.length !== 2 || adj[0][1] !== 'informe anexo.pdf' || adj[0][0] !== 'application/pdf' || !/^%PDF-1\.4 simulado/.test(adj[0][3]) || adj[1][1] !== 'datos.7z.cif' ||
-    faltan.length || /<b>A<\/b>/.test(r.html) || !/Texto del mensaje 7/.test(r.texto) || !/Outlook lo enseña/.test(aviso)) console.log('Error: correo de Outlook');
-  if (await p.$('#enviarPdf')) console.log('Error: sigue el botón «Enviar con el PDF»'); }
+  const faltan = ['DATOS DEL MENSAJE', 'TEXTO DEL MENSAJE', 'Documentos (2)', 'Abrir en MENSADEF', 'Texto del mensaje 7', 'Prioridad R · Rutina', 'te envía este mensaje de MENSADEF', 'informe%20anexo.pdf', 'datos.7z.cif', '#/celula/']
+    .filter(t => !cu.toUpperCase().includes(t.toUpperCase()));
+  console.log('correo por Colabora: ventana', /SENDERO-acceso\.html#correo=/.test(url), '| vista previa:', /DATOS DEL MENSAJE/i.test(vistaTxt), '|', listo.trim(), '| envíos:', enviados.length, '| para:', JSON.stringify(para), '| cc:', JSON.stringify(cc),
+    '| falta en el correo:', JSON.stringify(faltan), '| nota escapada:', /Para tu conocimiento &lt;b&gt;urgente/.test(cu), '| no llegó a malo:', /malo@pruebas\.invalid/.test(fin) && /NO les ha llegado/.test(fin), '| aviso en SENDERO:', aviso.trim().slice(0, 90));
+  // Con una dirección rechazada se reintenta uno a uno (cada uno recibe el suyo): llegan el de «Para», el de CC y la copia propia
+  const llegan = para.concat(cc);
+  if (!/#correo=/.test(url) || !llegan.includes('jefe.negociado@pruebas.invalid') || llegan.includes('malo@pruebas.invalid') || !llegan.includes('otra@pruebas.invalid') || !llegan.includes(estC.usuario.Email.toLowerCase()) ||
+    faltan.length || /<b>urgente/.test(cu) || /<b>A<\/b>/.test(cu) || !/✔ Correo enviado/.test(fin) || !/Correo enviado por Colabora a \d+ destinatario/.test(aviso)) console.log('Error: correo por Colabora');
+  if (await p.$('#enviarPdf')) console.log('Error: sigue el botón «Enviar con el PDF»');
+  await w.close(); await p.bringToFront(); }
 // Visto: con «Ocultar vistos» desaparece al momento y el botón se pone verde
 await p.fill('#buscar', ''); await p.waitForTimeout(300); await p.check('#fVistos'); await p.waitForTimeout(200);
 { const n0 = await p.$$eval('#lista tr[data-i]', x => x.length); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(500);

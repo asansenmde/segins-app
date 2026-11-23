@@ -46,9 +46,15 @@ export async function simularColabora(ctx, est, archivo) {
     if (api === 'web/roleassignments') return J(sitio());
     // Correo: como el real, rechaza el envío ENTERO si una dirección no tiene buzón
     if (api === 'SP.Utilities.Utility.SendEmail') {
-      const pr = cuerpo().properties || {}, to = (pr.To && pr.To.results) || [], bcc = (pr.BCC && pr.BCC.results) || [];
-      if (to.concat(bcc).some(d => est.buzonMal.includes(String(d).toLowerCase()))) return J('Asegúrese de que tenga un destinatario válido.', 500);
-      est.correos.push({ to, bcc, asunto: pr.Subject, cuerpo: pr.Body }); return J({ SendEmail: null });
+      const pr = cuerpo().properties || {}, to = (pr.To && pr.To.results) || [], bcc = (pr.BCC && pr.BCC.results) || [], cc = (pr.CC && pr.CC.results) || [];
+      if (to.concat(bcc, cc).some(d => est.buzonMal.includes(String(d).toLowerCase()))) return J('Asegúrese de que tenga un destinatario válido.', 500);
+      est.correos.push({ to, bcc, cc, asunto: pr.Subject, cuerpo: pr.Body }); return J({ SendEmail: null });
+    }
+    // Directorio (buscador de personas): devuelve un JSON en texto, como el real
+    if (api === 'SP.UI.ApplicationPages.ClientPeoplePickerWebServiceInterface.clientPeoplePickerSearchUser') {
+      const q = String(((cuerpo().queryParams || {}).QueryString) || '').toLowerCase();
+      const dir = (est.directorio || []).filter(u => u.Title.toLowerCase().includes(q)).map(u => ({ Key: 'i:0#.w|et\\' + u.Email.split('@')[0], DisplayText: u.Title, EntityType: 'User', EntityData: { Email: u.Email } }));
+      return J({ ClientPeoplePickerSearchUser: JSON.stringify(dir) });
     }
     if (api === 'web/siteusers') { const f = /Email eq '([^']*)'/.exec(q.$filter || ''); return J(est.siteusers.filter(u => !f || u.Email.toLowerCase() === f[1].toLowerCase())); }
     let m;

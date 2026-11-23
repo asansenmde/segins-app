@@ -287,9 +287,10 @@ autoría.
       (y pedir a un administrador de otra organización que la abra y pruebe el suyo) y pasar «📋 Copiar el resultado».
       Pendiente de decidir: a) ¿todos los sitios en colabora.mdef.es?, b) META y PSIT de una organización en sitios distintos,
       c) ¿solo el usuario nombra administradores?, d) quién hace cada fase.
-    23/11/2026: SENDERO 2026-11-23 · 4: «✉ Correo» descarga el correo como archivo de Outlook (.eml, «X-Unsent: 1»): al abrirlo,
-      Outlook de escritorio lo enseña como correo nuevo listo para enviar, con formato, texto completo, datos, «Abrir en MENSADEF»
-      y los documentos ADJUNTOS (hasta 10 MB; los que no caben, con su enlace). Quitado «✉ Enviar con el PDF» (el correo ya lleva
-      los documentos). PENDIENTE DEL USUARIO: probarlo en su Outlook (que se abra como correo nuevo y no como recibido; que lleve
-      los adjuntos) y decir el límite de tamaño de correo si no es 10 MB. Para que «Abrir en MENSADEF» lleve al mensaje: la forma
-      de la dirección de un mensaje abierto en MENSADEF (lo que va tras «#/», cambiando números por X).
+    23/11/2026: SENDERO 2026-11-23 · 5 + SENDERO-acceso 2026-11-23 · 1: «✉ Correo» lo envía Colabora (opción elegida por el usuario;
+      el .eml de la · 4 lo bloquea la seguridad y «mailto» se queda corto): ventana de SENDERO-acceso (#correo=) con Para y CC
+      (usuarios del sitio y directorio, o dirección e Intro), «Enviarme una copia», asunto, comentario, vista previa y envío
+      robusto; correo con formato, «X te envía este mensaje», datos, texto completo, «Abrir en MENSADEF» y enlace de cada
+      documento (sin adjuntos: desde el servidor no se puede). Quitado «✉ Enviar con el PDF». PENDIENTE DEL USUARIO: subir
+      SENDERO-acceso.html (acceso/subir) y SENDERO, y probar que Colabora le deja enviar (con «Leer» en JSUIGE) y que llega.
+      Para que «Abrir en MENSADEF» lleve al mensaje: la forma de la dirección de un mensaje abierto (lo que va tras «#/»).
