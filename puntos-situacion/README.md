@@ -18,6 +18,13 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-23 · 2: «Comprobar los avisos»
+
+En *Ajustes*, **«📬 Comprobar los avisos»** repasa a todos los miembros de los negociados (también los de coordinación) y,
+**sin enviar ningún correo**, dice de cada persona si le llegarían los avisos: «✔ Le llega» (cuenta en el sitio y correo),
+«⚠ Va a su cuenta, sin correo en Colabora» (depende de que esa cuenta tenga buzón) o «✕ No le llega: su cuenta no está en el
+sitio». Avisa también de los negociados sin miembros y explica cómo arreglarlo (quitar y volver a añadir con el buscador).
+
 ## Versión 2026-11-23 · 1: a quien coordina le llega el aviso del punto nuevo
 
 Caso del usuario: se lanzó un punto y no le llegó el aviso. Causas encontradas y corregidas:

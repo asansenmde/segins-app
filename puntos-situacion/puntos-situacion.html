@@ -158,7 +158,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-23 · 1';
+  var VERSION = '2026-11-23 · 2';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -796,11 +796,42 @@
         '<div class="card fila"><input id="nuevoNeg" class="crece" placeholder="Nombre de un negociado nuevo"><button data-crearneg>＋ Añadir negociado</button></div>' +
         '<h2 class="sec">Instalación</h2><div class="card"><p class="small">Comprueba que las listas y columnas están completas (crea solo lo que falte), el historial de versiones y la validación que bloquea los cambios después del cierre.</p>' +
         '<button data-comprobar>Comprobar la instalación</button><div class="log" id="logInst"></div></div>' +
+        '<h2 class="sec">📬 Comprobar los avisos</h2><div class="card"><p class="small">Repasa a todos los miembros de los negociados (también los de coordinación) y dice a quién le llegarían los avisos del punto de situación y a quién no. <b>No envía ningún correo.</b></p>' +
+        '<div class="acciones"><button class="prim" data-compavisos>Comprobar los avisos</button></div><div id="compAvisos"></div></div>' +
         '<h2 class="sec">✉ Correo de prueba</h2><div class="card"><p class="small muted">Comprueba si Colabora acepta y entrega los avisos a unas direcciones (separadas por «;»).</p><input id="aPruebaA" value="' + esc(yo.Email || '') + '"><div class="acciones"><button data-pruebacorreo>Enviar correo de prueba</button></div><div id="aPrueba"></div></div>';
     }
     return h + '<div class="card small"><b>Privacidad.</b> Esta página funciona dentro de Colabora con tu sesión y tus permisos. Los datos no salen del servidor: no carga nada de internet. ' +
       'Los correos los envía el propio Colabora. Lo que se borra va a la papelera del sitio. Versión ' + esc(VERSION) + '.</div>';
   }
+  // ---------- Comprobar los avisos (Ajustes, 23/11/2026): a quién le llegaría el correo, sin enviar nada ----------
+  // Colabora solo acepta CUENTAS como destinatario. Una persona recibe los avisos si su cuenta existe en el sitio; si además no
+  // tiene correo en Colabora, se le envía a la cuenta y depende de que esa cuenta tenga buzón (no se puede comprobar sin enviar).
+  function comprobarAvisos(boton) {
+    var el = $('#compAvisos'), per = {}, vacios = [];
+    negs.forEach(function (n) {
+      if (!n.miembros.length) vacios.push(n.titulo);
+      n.miembros.forEach(function (m) { (per[m.Id] = per[m.Id] || { id: m.Id, nombre: m.Title, correo: m.Email || '', negs: [] }).negs.push(n.titulo + (n.coordina ? ' (coordina)' : '')); });
+    });
+    var l = Object.keys(per).map(function (k) { return per[k]; }).sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
+    if (!l.length) { el.innerHTML = '<div class="aviso">No hay miembros en ningún negociado.</div>'; return; }
+    boton.disabled = true; el.innerHTML = '<p class="small muted">Comprobando ' + l.length + ' personas…</p>';
+    Promise.all(l.map(function (x) {
+      return api(web + '/_api/web/getuserbyid(' + Number(x.id) + ')?$select=LoginName,Email,Title').then(function (u) { x.cuenta = u && u.LoginName || ''; if (!x.correo && u && u.Email) x.correo = u.Email; }, function () { x.cuenta = ''; });
+    })).then(function () {
+      l.forEach(function (x) { x.estado = !x.cuenta ? 'no' : x.correo ? 'si' : 'duda'; });
+      var n = { si: 0, duda: 0, no: 0 }; l.forEach(function (x) { n[x.estado]++; });
+      var txt = { si: '<span class="badge ok">✔ Le llega</span>', duda: '<span class="badge warn">⚠ Va a su cuenta, sin correo en Colabora</span>', no: '<span class="badge bad">✕ No le llega: su cuenta no está en el sitio</span>' };
+      el.innerHTML = '<div class="' + (n.no ? 'error' : n.duda ? 'aviso' : 'okmsg') + '">' + l.length + ' personas: ' + n.si + ' reciben los avisos' + (n.duda ? ', ' + n.duda + ' sin correo en Colabora (se envía a su cuenta; si esa cuenta no tiene buzón, no les llega)' : '') +
+        (n.no ? ', <b>' + n.no + ' NO los recibirían</b>' : '') + '.</div>' +
+        (vacios.length ? '<div class="aviso small">Negociados sin miembros (nadie recibe sus avisos): ' + esc(vacios.join(', ')) + '.</div>' : '') +
+        '<table class="t"><tr><th>Persona</th><th>Negociados</th><th>Correo en Colabora</th><th>Resultado</th></tr>' + l.map(function (x) {
+          return '<tr><td>' + esc(x.nombre) + '</td><td class="small">' + esc(x.negs.join(', ')) + '</td><td class="small">' + esc(x.correo || '—') + '</td><td>' + txt[x.estado] + '</td></tr>';
+        }).join('') + '</table>' +
+        (n.no || n.duda ? '<p class="small muted">Para arreglarlo: quita a esa persona del negociado y vuelve a añadirla con el buscador (se le da de alta en el sitio con su cuenta del directorio). Si sigue sin correo, el administrador de Colabora tiene que revisar su cuenta.</p>' : '');
+      boton.disabled = false;
+    }, function (e) { boton.disabled = false; el.innerHTML = '<div class="error">' + esc(e.message || e) + '</div>'; });
+  }
+
   // ---------- Control de acceso con solicitud (modelo de incidentes/incidentes.html) ----------
   var urlAcc = function () { return urlL(ACCESO.lista); };
   var CAMPOS_ACC = [
@@ -2339,6 +2370,7 @@
     if ((b = el.closest('[data-accsuyos]'))) { soloSuyosAcc(b); return; }
     if ((b = el.closest('[data-accprueba]'))) { probarAvisoSolicitud(b); return; }
     if ((b = el.closest('[data-pruebacorreo]'))) { correoPrueba(b); return; }
+    if ((b = el.closest('[data-compavisos]'))) { comprobarAvisos(b); return; }
   });
   $('#dlg').addEventListener('close', function () { $('#dlg').classList.remove('grande'); });
   document.addEventListener('mousedown', function (e) { var b = e.target.closest('[data-fmt]'); if (b) { e.preventDefault(); aplicarFormato(b.dataset.fmt); } });

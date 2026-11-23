@@ -708,6 +708,16 @@ if (SOLO_CUENTAS) comprueba('SOLO_CUENTAS: todos los avisos salen a cuentas, nin
   comprueba('miembro sin correo: el aviso va a su cuenta (' + (c && c.cuentas.filter(x => !/@/.test(x)).join(', ')) + ')', !!c && c.cuentas.includes('i:0#.w|et\\juan'));
   await p.click('#dlg [data-cerrar]');
 }
+// 16. Ajustes › «Comprobar los avisos»: a quién le llegaría el correo, sin enviar nada
+{ const seg = negsC.find(x => x.Title === 'Seguridad'); seg.MiembrosId = (seg.MiembrosId || []).concat([77]);   // 77: cuenta que ya no está en el sitio
+  const nC = correos.length;
+  await ir(7); await p.click('nav.tabs a[data-v=ajustes]');
+  await p.click('[data-compavisos]'); await p.waitForFunction(() => /personas:/.test(document.querySelector('#compAvisos').textContent), null, { timeout: 15000 });
+  const r = await txt('#compAvisos');
+  comprueba('comprobar avisos: ' + r.slice(0, 170), /NO los recibirían/.test(r) && /sin correo en Colabora/.test(r) && /JUAN SIN CORREO FICTICIO.*Va a su cuenta/.test(r) && /Usuario 77.*No le llega/.test(r) && /LUIS PRL FICTICIO.*Le llega/.test(r));
+  comprueba('comprobar avisos no envía ningún correo', correos.length === nC);
+  seg.MiembrosId = seg.MiembrosId.filter(x => x !== 77);
+}
 comprueba('errores de página: ' + JSON.stringify(errs), !errs.length);
 await b.close();
 console.log(ok ? 'TODO BIEN' : 'HAY FALLOS');
