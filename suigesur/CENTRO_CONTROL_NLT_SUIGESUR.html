@@ -271,6 +271,10 @@
       { k: 'ambito', in: 'Ambito', alt: ['Ámbito', 'Tipo'], t: 'Text', d: 'Ámbito' },
       { k: 'activa', in: 'Activa', alt: ['Activo'], t: 'Boolean', d: 'Activa' },
       { k: 'habituales', in: 'UnidadesHabituales', alt: ['UnidadesIncluidas', 'Unidades habituales'], t: 'Note', d: 'Unidades habituales' },
+      { k: 'clasificacion', in: 'Clasificacion', alt: ['Clasificación'], t: 'Text', d: 'Clasificación' },
+      { k: 'via', in: 'ViaRemision', alt: ['Vía de remisión', 'Via'], t: 'Text', d: 'Vía de remisión' },
+      { k: 'modelo', in: 'Modelo', alt: ['Modelo / anexo', 'Anexo'], t: 'Text', d: 'Modelo / anexo' },
+      { k: 'afectadas', in: 'UnidadesAfectadas', alt: ['Unidades afectadas'], t: 'Note', d: 'Unidades afectadas (según la guía)' },
       { k: 'obs', in: 'Observaciones', alt: ['Notas'], t: 'Note', d: 'Observaciones' }] },
     UCO_SUIGESUR: { titulo: 'Catálogo de unidades', campos: [
       { k: 'nombre', in: 'Title', alt: ['NombreUnidad', 'Nombre de la unidad', 'Unidad'], t: 'Text', d: 'Unidad', multi: true, req: true },
@@ -1066,7 +1070,7 @@
 
   // ---------- Obligaciones (catálogo) ----------
   VISTAS.obligaciones = {
-    barra: () => '<div class="barra"><h2>Catálogo de obligaciones<\/h2><div class="acc"><button class="prim" data-acc="nuevaOblig">＋ Nueva obligación<\/button><\/div><\/div>' +
+    barra: () => '<div class="barra"><h2>Catálogo de obligaciones<\/h2><div class="acc"><button data-acc="semillaOblig" title="Crea las que falten y propone actualizar las que difieran; no toca las añadidas por ti">📘 Guía de tramitación 2026<\/button><button class="prim" data-acc="nuevaOblig">＋ Nueva obligación<\/button><\/div><\/div>' +
       '<div class="info small">El <b>catálogo<\/b> define qué se remite, con qué NLT y <b>quién debe entregarlo<\/b> (todas las unidades o solo algunas). Todo se puede cambiar cuando haga falta: añadir obligaciones, desactivar las que ya no se hacen o cambiar plazos; los registros ya creados conservan su NLT. Los registros de cada periodo se crean en Entregas con «Generar plazos» o «Asignar».<\/div>' +
       avisoListas(['NLT_MAESTRO']) +
       '<div class="filtros"><div class="q"><label class="lbl">Buscar<\/label><input data-f="oq" type="search" value="' + esc(F.oq) + '" placeholder="Nombre, código, categoría…"><\/div>' +
@@ -1716,6 +1720,10 @@
       campo('Plazo (días desde el evento)', inp('plazo', o && o.plazo, 'type="number" min="0"')) +
       campo('Categoría', inp('categoria', o && o.categoria, 'list="lCat" maxlength="255"') + datalist('lCat', 'categoria')) +
       campo('Ámbito', inp('ambito', o && o.ambito, 'list="lAmbO" maxlength="255"') + datalist('lAmbO', 'ambitoObl')) + '<\/div>' +
+      '<div class="grid">' + campo('Clasificación', inp('clasificacion', o && o.clasificacion, 'maxlength="255" placeholder="USO OFICIAL, CONFIDENCIAL…"')) +
+      campo('Vía de remisión', inp('via', o && o.via, 'maxlength="255" placeholder="SharePoint, MENSADEF (PTRADEC), MEFO…"')) +
+      campo('Modelo / anexo', inp('modelo', o && o.modelo, 'maxlength="255" placeholder="Anexo G-…"')) + '<\/div>' +
+      campo('Unidades afectadas (según la guía)', txa('afectadas', o && o.afectadas)) +
       campo('Regla NLT en texto (eventos, a demanda o aclaraciones)', inp('regla', o && o.regla, 'maxlength="255" placeholder="Ej.: 15 días desde publicación en BOD · ASAP"')) +
       '<p class="small muted" id="reglaPrev"><\/p>' +
       campo('Descripción', txa('descripcion', o && o.descripcion)) + campo('Observaciones', txa('obs', o && o.obs)) +
@@ -1726,7 +1734,7 @@
       '<div id="obUnis"' + (modo0 === 'lista' ? '' : ' hidden') + '><input name="obq" type="search" placeholder="Filtrar unidades…" style="margin:4px 0 6px"><div class="lista-u">' +
       U().filter(u => u.activa || hab.indexOf(u) >= 0).sort((a, b) => porNombre(a.siglas || a.nombre, b.siglas || b.nombre)).map(u => '<label><input type="checkbox" data-obu="' + u.id + '"' + (!esTodas(o) && hab.indexOf(u) >= 0 ? ' checked' : '') + '> <span><b>' + esc(u.siglas || '') + '<\/b> ' + esc(u.siglas ? '– ' + u.nombre : u.nombre) + (u.activa ? '' : ' <span class="chip">inactiva<\/span>') + '<\/span><\/label>').join('') +
       '<\/div><p class="small muted" id="obUnisN"><\/p><\/div>' +
-      avisoFaltan('NLT_MAESTRO', ['codigo', 'periodicidad', 'dia', 'meses', 'regla', 'plazo', 'categoria', 'ambito', 'activa', 'descripcion', 'obs', 'habituales']) + metaElem(o),
+      avisoFaltan('NLT_MAESTRO', ['codigo', 'periodicidad', 'dia', 'meses', 'regla', 'plazo', 'categoria', 'ambito', 'activa', 'descripcion', 'obs', 'habituales', 'clasificacion', 'via', 'modelo', 'afectadas']) + metaElem(o),
       pieGuardar(o ? 'Guardar cambios' : 'Crear obligación', linkSP('NLT_MAESTRO', o) + (o ? (E().some(e => e.ob === o) || EV().some(v => v.ob === o) ? '<span class="small muted">Tiene registros: para retirarla, desactívala<\/span>' : '<button type="button" class="peligro" data-acc="papeleraOblig" data-id="' + o.id + '">Enviar a la papelera…<\/button>') : '')));
     const prev = () => { const t = { periodicidad: vf('periodicidad'), dia: Number(vf('dia')) || null, meses: vf('meses'), regla: vf('regla'), plazo: Number(vf('plazo')) || null }; const p = plazosDe(t, new Date().getFullYear());
       $('#reglaPrev').textContent = 'NLT resultante: ' + reglaTxt(t) + (p.length ? ' · ' + p.length + ' plazos al año (' + p.map(x => x.periodo).join(', ') + ')' : ''); };
@@ -1743,7 +1751,8 @@
       const ids = $$('[data-obu]:checked', dlg).map(c => Number(c.dataset.obu));
       if (modo === 'lista' && !ids.length) return msg('<div class="error">Marca al menos una unidad o elige otra opción en «¿Quién debe entregarla?».<\/div>');
       const d = { nombre: vf('nombre'), codigo: vf('codigo'), periodicidad: vf('periodicidad'), dia: vf('dia') === '' ? null : Number(vf('dia')), meses: parseMeses(vf('meses')).join(','), regla: vf('regla'),
-        plazo: vf('plazo') === '' ? null : Number(vf('plazo')), categoria: vf('categoria'), ambito: vf('ambito'), descripcion: vf('descripcion'), obs: vf('obs'), activa: vf('activa') };
+        plazo: vf('plazo') === '' ? null : Number(vf('plazo')), categoria: vf('categoria'), ambito: vf('ambito'), descripcion: vf('descripcion'), obs: vf('obs'), activa: vf('activa'),
+        clasificacion: vf('clasificacion'), via: vf('via'), modelo: vf('modelo'), afectadas: vf('afectadas') };
       if (!d.nombre) return msg('<div class="error">El nombre es obligatorio.<\/div>');
       if (vf('meses') && !d.meses) return msg('<div class="error">No se entienden los meses. Escribe números (1,3,7) o abreviaturas (ENE, MAR, JUL).<\/div>');
       if (esPeriodica(d)) {
@@ -2080,52 +2089,101 @@
   }
 
   // ---------- Carga de catálogos iniciales (controlada) ----------
+  // Guía de tramitación de documentación de seguridad en SUIGESUR 2026 (4.1 periódica y 4.2 puntual). Se ofrece en
+  // Obligaciones › «Guía de tramitación 2026»: crea las que falten y propone actualizar las que ya existen; las que ha añadido
+  // el usuario (p. ej. la NOP de intrusiones) no se tocan.
+  // [código, nombre, periodicidad, día, meses, categoría, regla, plazo, clasificación, vía, modelo, unidades afectadas]
+  const UBA = 'USBAD/USBA/USAC', VSA_U = 'Museo Militar de Sevilla, Acuartelamiento El Picacho y Base General Javier Varela (BLET)';
   const SEMILLA_OBLIG = [
-    ['M-01', 'Actualización NT 08/22. Disco mensual', 'Mensual', 5, '', 'Seguridad', ''], ['M-02', 'Estado de operatividad de EQUICIN de Especialidad', 'Mensual', 5, '', 'Cinológica', ''],
-    ['M-03', 'Informe Núcleos Cinológicos de Guardia y Centinela — GYC', 'Mensual', 5, '', 'Cinológica', ''], ['M-04', 'Estadillo de mantenimiento MESEINS', 'Mensual', 5, '', 'MESEINS', ''],
-    ['M-05', 'Vigilantes de Seguridad. Cuestionario de seguimiento VSA', 'Mensual', 5, '', 'VSA', ''], ['M-06', 'Vigilantes de Seguridad. Información descubiertos VSA/VS', 'Mensual', 5, '', 'VSA', ''],
-    ['P-01', 'HPS TROPA CECONSEG', 'Varias veces al año', 5, '1,3,7,9,11', 'HPS', ''], ['P-02', 'Inventario CRIPTO', 'Varias veces al año', 20, '1,5,9', 'CRIPTO', ''],
-    ['D-01', 'Informe del Plan de Actividades de Seguridad de Instalaciones — BAE', 'A demanda', null, '', 'Plan de actividades', 'A demanda'],
-    ['D-02', 'Informe del Plan de Actividades de Seguridad — UCO', 'A demanda', null, '', 'Plan de actividades', 'A demanda'],
-    ['S-01', 'Cuadro semestral de resultados de analíticas, nuevo modelo', 'Semestral', 10, '6,12', 'Drogas', ''], ['S-02', 'Informe MESEINS', 'Semestral', 10, '6,12', 'MESEINS', ''],
-    ['A-01', 'Informe Anual de Seguridad de UCO', 'Anual', 1, '12', 'Seguridad', ''], ['A-02', 'Informe Anual de Seguridad de Instalaciones — BAE', 'Anual', 1, '11', 'Seguridad', ''],
-    ['A-03', 'Memoria anual de drogas', 'Anual', 10, '12', 'Drogas', ''], ['A-04', 'Encuestas anuales de drogas', 'Anual', 10, '11', 'Drogas', ''],
-    ['A-05', 'Informe Autoevaluación de Seguridad de Instalaciones y actualización Datos Básicos de Seguridad BAE', 'Anual', 30, '9', 'Seguridad', ''],
-    ['A-06', 'Propuesta de actividades de seguridad valoradas', 'Anual', 7, '3', 'Plan de actividades', ''],
-    ['A-07', 'SEGINFOINS, SEGINFOPER, SEGINFODOC y LOPD', 'Anual', 10, '12', 'Seguridad de la información', ''],
-    ['A-08', 'CODRESPOS — Documentación Seguridad Ordenador Aislado', 'Anual', 31, '3', 'Seguridad de la información', 'Primer trimestre (NLT propuesta 31 MAR; confirmar)'],
-    ['E-01', 'Informe de personal por cambio de destino', 'Por evento', null, '', 'Personal', '15 días desde publicación en BOD', 15],
-    ['E-02', 'Partes de novedades', 'Por evento', null, '', 'Novedades', 'ASAP', 0], ['E-03', 'Informe de incidentes', 'Por evento', null, '', 'Incidentes', 'ASAP', 0],
-    ['E-04', 'Autoevaluación de Seguridad de Unidad', 'Por evento', null, '', 'Seguridad', 'Tras relevo de mando o evaluación integral'],
-    ['E-05', 'Plan de Protección de locales ZAR', 'Por evento', null, '', 'Seguridad', 'Revisión según Oficio 07/11/23'],
-    ['E-06', 'Solicitudes de acreditación de sistemas CIS', 'Por evento', null, '', 'CIS', 'Iniciar y controlar seis meses antes de la caducidad']
-  ].map(x => ({ codigo: x[0], nombre: x[1], periodicidad: x[2], dia: x[3], meses: x[4], categoria: x[5], regla: x[6], plazo: x[7] == null ? null : x[7], activa: true }));
+    ['M-01', 'Actualización NT 08/22. Disco mensual', 'Mensual', 5, '', 'Seguridad', 'Datos del mes anterior: entrada en SUIGESUR NLT día 05 del mes siguiente (se carga en su mes)', null,
+      'RESERVADO (con novedad) / USO OFICIAL (sin novedad)', 'MEFO (con novedad) / SharePoint (sin novedad)', '', UBA],
+    ['M-02', 'Estado de operatividad de EQUICIN de especialidad DDE', 'Mensual', 5, '', 'Cinológica', 'Datos del mes anterior, NLT día 05. Anexos B y C escaneados en un PDF por perro (UCO-PERRO); en formación, solo anexo C', null,
+      'CONFIDENCIAL', 'MENSADEF (PTRADEC)', 'Anexo G-2 (contiene anexos B y C)', 'USAC Cervantes / USAC Camposoto'],
+    ['M-03', 'Informe núcleos cinológicos de guardia y centinela (GyC)', 'Mensual', 5, '', 'Cinológica', 'Datos del mes anterior, NLT día 05', null,
+      'USO OFICIAL', 'Plataforma SharePoint (si no hay acceso, MENSADEF)', 'Anexo G-7 (Anexo A-1 EQUICIN de GyC) si no hay acceso a SharePoint', 'Acuartelamiento Charco Redondo'],
+    ['M-04', 'Estadillo de mantenimiento MESEINS', 'Mensual', 5, '', 'MESEINS', 'Datos del mes anterior, NLT día 05. Novedades extraordinarias si afectan notablemente a los medios', null,
+      'USO OFICIAL', 'SharePoint (sin novedad) / MENSADEF (PTRADEC) si compromete la seguridad de la BAE', 'Modelo de la plataforma o Anexo G-18', 'BAE con sistema MESEINS'],
+    ['M-05', 'Vigilantes de Seguridad. Cuestionario de seguimiento VSA', 'Mensual', 5, '', 'VSA', 'Datos del mes anterior, NLT día 05. Firmado por el responsable de Seguridad de la BAE y el coordinador de zona de la empresa', null,
+      'USO OFICIAL', 'MENSADEF (hasta que se informatice el proceso)', 'Modelo de la plataforma o Anexo G-19', VSA_U],
+    ['M-06', 'Vigilantes de Seguridad. Información descubiertos VSA/VS', 'Mensual', 2, '', 'VSA', 'NLT día 02 del mes siguiente: hechos, día y arco horario, total de horas y medidas adoptadas', null,
+      'USO OFICIAL', 'MENSADEF (hasta que se informatice el proceso)', '', VSA_U],
+    ['P-01', 'Estadillo HPS CECONSEG', 'Varias veces al año', 5, '1,3,5,7,11', 'HPS', 'Bimensual: NLT 05 de enero, marzo, mayo, julio y noviembre. Extraordinario si cambia más del 15 % de los operadores', null,
+      'USO OFICIAL', 'SharePoint (sin novedad)', 'Modelo de la plataforma o Anexo G-17', 'BAE con CECONSEG'],
+    ['P-02', 'Inventario CRIPTO', 'Varias veces al año', 20, '1,5,9', 'CRIPTO', 'Cuatrimestral: NLT 20 de enero, mayo y septiembre. En enero, también altas y bajas del personal de custodia (Anexo G-03b)', null,
+      'CONFIDENCIAL', 'MENSADEF (PTRADEC)', 'Anexo G-03a ACE-21 (y G-03b en enero si hay cambios de custodia)', UBA],
+    ['S-01', 'Cuadro semestral de resultados de analíticas (nuevo modelo)', 'Semestral', 10, '6,12', 'Drogas', 'NLT 10 de junio y 10 de diciembre. En el 2.º semestre, relación nominal de quien no ha hecho analítica y causas', null,
+      'DIFUSIÓN LIMITADA', 'MENSADEF (PTRADEC)', 'Anexo G-6 (nuevo modelo, un solo Excel)', UBA + ' (incluirán RLM y SPRL de la BAE); RLM de instalaciones independientes'],
+    ['S-02', 'Informe MESEINS', 'Semestral', 10, '6,12', 'MESEINS', 'NLT 10 de junio y 10 de diciembre', null, 'CONFIDENCIAL', 'MENSADEF (PTRADEC)', 'Anexo G-8', 'BAE con sistema MESEINS'],
+    ['A-05', 'Informe de autoevaluación de seguridad de instalaciones y cuestionario de autoevaluación', 'Anual', 30, '9', 'Seguridad', 'NLT 30 de septiembre (IT 07/23). Del cuestionario, solo el apartado SegINST', null,
+      'Cuestionario CONFIDENCIAL / Informe RESERVADO', 'PTRADEC / MEFO', 'Anexos G-13a (cuestionario) y G-13b (informe) · IT 07/23 MOD A', 'BAE con Plan de Seguridad'],
+    ['A-01', 'Informe anual de seguridad de unidad y cuestionario de autoevaluación', 'Anual', 1, '12', 'Seguridad', 'Entrada NLT 01 de diciembre. Apartados sin comentarios: «Nada que reseñar»', null,
+      'CONFIDENCIAL', 'PTRADEC', 'Anexo G-09a y cuestionario completo (G-10b si hay matrículas reservadas o inhibidores)', UBA],
+    ['A-02', 'Informe anual de seguridad de instalaciones y cuestionario de autoevaluación', 'Anual', 1, '11', 'Seguridad', 'NLT 01 de noviembre. Del cuestionario, solo el apartado SegINST', null,
+      'Informe: la del Plan de Seguridad de la BAE / Cuestionario CONFIDENCIAL', 'MENSADEF (PTRADEC) / MEFO', 'Anexo G-09b y cuestionario de autoevaluación', 'BAE con Plan de Seguridad'],
+    ['A-03', 'Memoria anual de drogas', 'Anual', 10, '12', 'Drogas', 'NLT 10 de diciembre (incluye seguimiento del protocolo tras el 1.er positivo y test de alcoholemia)', null,
+      'DIFUSIÓN LIMITADA', 'MENSADEF (PTRADEC)', 'Anexo G-11 (PGPDFAS III)', UBA],
+    ['A-04', 'Encuestas anuales de drogas', 'Anual', 31, '1', 'Drogas', 'Encuesta en octubre (cuadros de mando años pares; tropa años impares). NLT 31 de enero: fecha de realización y personal por empleo y sexo', null,
+      'USO OFICIAL', 'MENSADEF', 'Según SIMENDEF a la UCO designada', UBA + ' (solo las UCO designadas)'],
+    ['A-06', 'Propuesta de actividades de seguridad valoradas (EQUICIN, vigilancia de destacamentos…)', 'Anual', 7, '3', 'Plan de actividades', 'NLT 07 de marzo, para el año siguiente, con memoria justificativa', null,
+      '', 'MENSADEF', '', 'BAE y ' + UBA],
+    ['A-07', 'Informes anuales de SEGINFO: SEGINFOINS, SEGINFOPER, SEGINFODOC y LOPD', 'A demanda', null, '', 'Seguridad de la información', 'Cuando sean solicitados (fechas y modelo según IGE)', null,
+      'Según la información contenida', 'MENSADEF (PTRADEC, en su caso)', 'Según se solicite', UBA],
+    ['A-08', 'CODRESPOS. Documentación de seguridad de ordenador aislado', 'Anual', 31, '3', 'Seguridad de la información', 'Primer trimestre de cada año: directamente a SUBCEMA con copia a SUIGESUR', null,
+      'CONFIDENCIAL', 'MENSADEF (PTRADEC)', 'NT 04/11 SEGINFOSIT', ''],
+    ['E-01', 'Informe de personal por cambio de destino (disco mochila)', 'Por evento', null, '', 'Personal', 'NLT 15 días desde la publicación en BOD del nuevo destino, a la nueva unidad (solo si tiene anotaciones)', 15,
+      'RESERVADO', 'MEFO preferentemente', '', UBA],
+    ['E-02', 'Partes de novedades (NG 04/21 / NOP 03/24 de IGE)', 'Por evento', null, '', 'Novedades', 'ASAP', 0, 'Según contenido', 'Según clasificación', '', 'BAE'],
+    ['E-03', 'Informe posterior al incidente', 'Por evento', null, '', 'Incidentes', 'ASAP', 0, 'Según contenido', 'Según la clasificación', 'Parte o informe del afectado o de la unidad', 'BAE'],
+    ['E-04', 'Relevo de mando / evaluación integral de seguridad', 'Por evento', null, '', 'Seguridad', 'Tras el relevo de mando o una evaluación integral de seguridad (IT 22/08)', null,
+      'RESERVADO (informe final CONFIDENCIAL)', 'MENSADEF (PTRADEC)', 'Según IT 22/08', UBA],
+    ['E-05', 'Plan de protección de locales ZAR', 'Por evento', null, '', 'Seguridad', '6 meses antes de caducar el certificado ZAR (Oficio 2SUIGE S-23-016310 de 10/11/2023)', null,
+      'CONFIDENCIAL', 'Formulario FASE directamente a SINTSEG', 'Formulario de acreditación de seguridad (FASE)', UBA],
+    ['E-06', 'Solicitudes de acreditación de sistemas CIS', 'Por evento', null, '', 'CIS', 'Para procesar información CONFIDENCIAL o superior (NT 04/11 SEGINFOSIT)', null, '', '', 'NT 04/11 Anexo II ap. 6, Anexo III y CCN-STIC-201', ''],
+    ['E-07', 'Cesión de imágenes', 'Por evento', null, '', 'Seguridad', 'ASAP, informando a las FCSE para que lo soliciten a la SES (ses.gce@interior.es)', 0, 'USO OFICIAL', 'MENSADEF', '', 'BAE']
+  ].map(x => ({ codigo: x[0], nombre: x[1], periodicidad: x[2], dia: x[3], meses: x[4], categoria: x[5], regla: x[6], plazo: x[7] == null ? null : x[7], activa: true,
+    clasificacion: x[8], via: x[9], modelo: x[10], afectadas: x[11] }));
+  const CAMPOS_GUIA = [['periodicidad', 'Periodicidad'], ['dia', 'Día NLT'], ['meses', 'Meses'], ['regla', 'Regla'], ['plazo', 'Plazo'], ['categoria', 'Categoría'],
+    ['clasificacion', 'Clasificación'], ['via', 'Vía'], ['modelo', 'Modelo'], ['afectadas', 'Unidades afectadas']];
   function dlgSemilla(n) {
     if (!exigirLista(n)) return;
-    const esO = true, sem = SEMILLA_OBLIG, actuales = O();
-    const existe = s => actuales.find(x => norm(x.nombre) === norm(s.nombre) || (esO && s.codigo && norm(x.codigo) === norm(s.codigo)) || (!esO && norm(x.siglas) === norm(s.nombre)));
-    const filas = sem.map((s, i) => { const ex = existe(s); return '<label style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid var(--line)"><input type="checkbox" data-sem="' + i + '"' + (ex ? ' disabled' : ' checked') + '> <span>' +
-      (esO ? '<b>' + esc(s.codigo) + '<\/b> ' : '') + esc(s.nombre) + (esO ? ' <span class="small muted">· ' + esc(s.periodicidad) + ' · ' + esc(reglaTxt(s)) + '<\/span>' : '') + (ex ? ' <span class="badge none">ya existe (ID ' + ex.id + ')<\/span>' : '') + '<\/span><\/label>'; });
-    const nuevos = sem.filter(s => !existe(s)).length;
-    abrirDlg(esO ? 'Catálogo NLT inicial' : 'Unidades SUIGESUR',
-      '<p class="small">' + nuevos + ' de ' + sem.length + ' no existen en ' + n + '. Desmarca lo que no quieras crear. Cada elemento se crea y se verifica por separado; si uno falla, el proceso se detiene.<\/p>' +
-      (!esO ? '<div class="aviso small">Esta relación procede de la versión anterior y <b>no lleva siglas<\/b> (no se inventan). Revísala antes: unidades y establecimientos pueden estar repetidos con nombres distintos.<\/div>' : '') +
-      '<div style="max-height:50vh;overflow:auto">' + filas.join('') + '<\/div><div id="semProg" class="small"><\/div>',
-      '<button type="button" data-cerrar>Cancelar<\/button><button type="submit" class="prim">Crear las marcadas<\/button>');
+    const sem = SEMILLA_OBLIG, actuales = O();
+    const existe = s => actuales.find(x => (s.codigo && norm(x.codigo) === norm(s.codigo)) || norm(x.nombre) === norm(s.nombre));
+    const igual = (a, b) => String(a == null ? '' : a).trim() === String(b == null ? '' : b).trim();
+    const difs = (s, x) => CAMPOS_GUIA.filter(c => (L[n].map[c[0]] || []).length && !igual(x[c[0]], s[c[0]]) && !vacio(s[c[0]]));
+    const filas = sem.map((s, i) => {
+      const ex = existe(s), d = ex ? difs(s, ex) : [];
+      const tit = '<b>' + esc(s.codigo) + '<\/b> ' + esc(s.nombre) + ' <span class="small muted">· ' + esc(s.periodicidad) + ' · ' + esc(reglaTxt(s)) + (s.clasificacion ? ' · ' + esc(s.clasificacion) : '') + '<\/span>';
+      if (!ex) return '<label style="display:flex;gap:6px;padding:4px 0;border-bottom:1px solid var(--line)"><input type="checkbox" data-sem="' + i + '" checked> <span>' + tit + ' <span class="badge info">nueva<\/span><\/span><\/label>';
+      if (!d.length) return '<div style="padding:4px 0;border-bottom:1px solid var(--line)" class="small">✔ ' + tit + ' <span class="badge ok">al día (ID ' + ex.id + ')<\/span><\/div>';
+      return '<label style="display:flex;gap:6px;padding:4px 0;border-bottom:1px solid var(--line)"><input type="checkbox" data-semact="' + i + '" checked> <span>' + tit + ' <span class="badge warn">actualizar ID ' + ex.id + '<\/span>' +
+        '<span class="small" style="display:block">' + d.map(c => esc(c[1]) + ': «' + esc(ex[c[0]] == null ? '' : ex[c[0]]) + '» → «' + esc(s[c[0]]) + '»').join(' · ') + '<\/span><\/span><\/label>';
+    });
+    const propias = actuales.filter(x => !sem.some(s => (s.codigo && norm(x.codigo) === norm(s.codigo)) || norm(x.nombre) === norm(s.nombre)));
+    const nNuevas = sem.filter(s => !existe(s)).length, nAct = sem.filter(s => existe(s) && difs(s, existe(s)).length).length;
+    abrirDlg('Guía de tramitación de SUIGESUR 2026',
+      '<p class="small">' + sem.length + ' obligaciones en la guía: <b>' + nNuevas + ' nuevas<\/b> y <b>' + nAct + ' con datos distintos<\/b> en tu catálogo. Desmarca lo que no quieras. Cada cambio se guarda y se verifica por separado.<\/p>' +
+      (propias.length ? '<div class="info small">Se conservan sin tocar las ' + propias.length + ' obligaciones que no están en la guía (las añadidas durante el año): ' + esc(propias.map(x => (x.codigo ? x.codigo + ' ' : '') + x.nombre).join(' · ')) + '.<\/div>' : '') +
+      '<div style="max-height:52vh;overflow:auto">' + filas.join('') + '<\/div><div id="semProg" class="small"><\/div>',
+      '<button type="button" data-cerrar>Cancelar<\/button><button type="submit" class="prim">Aplicar lo marcado<\/button>');
     alEnviar = async () => {
-      const elegidos = $$('[data-sem]:checked', dlg).map(c => sem[Number(c.dataset.sem)]);
-      if (!elegidos.length) return msg('<div class="error">No hay nada marcado.<\/div>');
-      if (!confirm('Se crearán ' + elegidos.length + ' elementos en ' + n + '. ¿Continuar?')) return;
-      ocupado(true, 'Creando…'); let ok = 0, er = null;
-      for (const s of elegidos) {
-        $('#semProg').textContent = 'Creando y verificando ' + (ok + 1) + ' de ' + elegidos.length + ': ' + s.nombre;
-        const d = Object.assign({}, s);
-        Object.keys(d).forEach(k => { if (!(L[n].map[k] || []).length && vacio(d[k])) delete d[k]; if (k === 'activa' && !(L[n].map.activa || []).length) delete d[k]; });
-        try { await guardar(n, null, d, esO ? 'Alta de obligación (catálogo inicial)' : 'Alta de unidad (catálogo inicial)'); ok++; } catch (e) { er = e; break; }
+      const nuevas = $$('[data-sem]:checked', dlg).map(c => sem[Number(c.dataset.sem)]), acts = $$('[data-semact]:checked', dlg).map(c => sem[Number(c.dataset.semact)]);
+      if (!nuevas.length && !acts.length) return msg('<div class="error">No hay nada marcado.<\/div>');
+      if (!confirm('Se crearán ' + nuevas.length + ' obligaciones y se actualizarán ' + acts.length + '. ¿Continuar?')) return;
+      ocupado(true, 'Aplicando…'); let ok = 0, er = null; const total = nuevas.length + acts.length;
+      const limpiar = d => { Object.keys(d).forEach(k => { if (!(L[n].map[k] || []).length) delete d[k]; }); return d; };
+      for (const s of nuevas) {
+        $('#semProg').textContent = 'Creando y verificando ' + (ok + 1) + ' de ' + total + ': ' + s.nombre;
+        const d = limpiar(Object.assign({}, s)); Object.keys(d).forEach(k => { if (vacio(d[k])) delete d[k]; });
+        try { await guardar(n, null, d, 'Alta de obligación (Guía 2026)'); ok++; } catch (e) { er = e; break; }
+      }
+      if (!er) for (const s of acts) {
+        const ex = existe(s); $('#semProg').textContent = 'Actualizando y verificando ' + (ok + 1) + ' de ' + total + ': ' + s.nombre;
+        const d = {}; difs(s, ex).forEach(c => { d[c[0]] = s[c[0]]; });
+        try { await guardar(n, ex, limpiar(d), 'Actualizar obligación (Guía 2026)'); ok++; } catch (e) { er = e; break; }
       }
       $('#semProg').textContent = ''; ocupado(false); render();
-      msg('<div class="bien">' + ok + ' creados y verificados.<\/div>' + (er ? htmlError(er, 'Detenido') : ''));
-      $$('[data-sem]', dlg).forEach(c => { const s = sem[Number(c.dataset.sem)]; if (existe(s)) { c.checked = false; c.disabled = true; } });
+      msg('<div class="bien">' + ok + ' de ' + total + ' cambios guardados y verificados.<\/div>' + (er ? htmlError(er, 'Detenido') : ''));
+      $$('[data-sem], [data-semact]', dlg).forEach(c => { c.checked = false; c.disabled = true; });
     };
   }
   // ================= Pintado general =================
@@ -2152,7 +2210,7 @@
     el.hidden = false; el.textContent = t; el.className = 'estado ok';
     clearTimeout(avisoT); avisoT = setTimeout(() => { if (ultimaEscritura) marcarEscritura(ultimaEscritura.ok, ultimaEscritura.txt); else el.hidden = true; }, 4000);
   }
-  const VERSION = '2026-11-24 · 2';
+  const VERSION = '2026-11-24 · 3';
   const PESTANAS = [['inicio', '🏠', 'Inicio', 'Lo urgente y la situación'], ['entregas', '📥', 'Entregas', 'Plazos y recepción'], ['obligaciones', '📋', 'Obligaciones', 'Catálogo NLT'],
     ['unidades', '🏢', 'Unidades', 'Quién entrega qué'], ['eventos', '📌', 'Eventos', 'Seguimiento'], ['analisis', '📊', 'Análisis', 'Cumplimiento y tendencias'],
     ['informes', '🖨️', 'Informes', 'Imprimir / PDF / Word'], ['ajustes', '⚙️', 'Ajustes', 'Listas y diagnóstico']];

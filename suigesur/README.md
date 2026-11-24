@@ -138,3 +138,15 @@ Para ampliar categorías, tipos de evento, etc. sin tocar el código: **Ajustes 
   aplicación lo añade a la columna antes de guardar (en cualquier formulario, no solo desde Ajustes).
 - Los **estados** de entregas y eventos son fijos: con ellos se calculan puntualidad, remisión y cumplimiento.
 
+## Catálogo según la Guía de tramitación de SUIGESUR 2026 (24/11/2026, versión 2026-11-24 · 3)
+
+- **Obligaciones › «📘 Guía de tramitación 2026»** compara el catálogo con las 25 obligaciones de la guía (4.1 periódica:
+  mensual, bimensual, cuatrimestral, semestral y anual; 4.2 puntual): crea las que faltan y propone actualizar, campo a
+  campo, las que difieren (día y meses NLT, regla, clasificación, vía, modelo, unidades afectadas). **No toca** las
+  obligaciones que no están en la guía (las añadidas durante el año, como la NOP de intrusiones): se listan como «se conservan».
+- El catálogo tiene cuatro columnas nuevas (se crean solas): `Clasificacion`, `ViaRemision`, `Modelo` y `UnidadesAfectadas`,
+  editables en la ficha de cada obligación.
+- Bimensual (HPS CECONSEG: enero, marzo, mayo, julio y noviembre) y cuatrimestral (CRIPTO: enero, mayo y septiembre) se
+  guardan como «Varias veces al año» con sus meses; los «A demanda» (SEGINFO) y «Por evento» (disco mochila, ZAR, CIS,
+  cesión de imágenes…) con su regla en texto.
+

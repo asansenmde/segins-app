@@ -187,13 +187,23 @@ async function escenarioLigero(b) {
   S.ignorar = null; await p.click('#fdlg [data-cerrar]');
   // Catálogo inicial
   await pestana(p, 'ajustes');
+  const antesGuia = S.listas.NLT_MAESTRO.items.length;
   await p.click('[data-acc=semillaOblig]'); await esperar(p);
+  const nGuia = (await p.$$('#fdlg [data-sem]')).length;
   await p.click('#fdlg button[type=submit]'); await esperar(p, 4000);
-  ok((await p.textContent('#dlgMsg')).includes('26 creados'), 'catálogo inicial: ' + (await p.textContent('#dlgMsg')).slice(0, 60));
+  ok(nGuia === 25 && (await p.textContent('#dlgMsg')).includes('25 de 25 cambios'), 'Guía 2026: crea sus 25 obligaciones: ' + (await p.textContent('#dlgMsg')).slice(0, 60));
   await p.click('#fdlg [data-cerrar]');
-  ok(S.listas.NLT_MAESTRO.items.length === 26, 'NLT_MAESTRO tiene las 26 obligaciones en el servidor');
+  ok(S.listas.NLT_MAESTRO.items.length === antesGuia + 25, 'NLT_MAESTRO tiene las 25 de la guía más las que ya había');
+  ok(S.listas.NLT_MAESTRO.items.some(x => x.Codigo === 'P-02' && x.Clasificacion === 'CONFIDENCIAL' && /PTRADEC/.test(x.ViaRemision) && /G-03a/.test(x.Modelo)), 'con clasificación, vía y modelo (columnas creadas solas)');
   await pestana(p, 'ajustes');
-  ok(!(await p.$('[data-acc=semillaOblig]')) && !(await p.$('[data-acc=semillaUco]')), 'con el catálogo cargado ya no se ofrece cargarlo otra vez ni la relación de unidades');
+  ok(!(await p.$('[data-acc=semillaUco]')), 'no se ofrece la relación de unidades antigua');
+  // Volver a pasar la guía: todo al día; si una cambió (día NLT), propone actualizarla y no toca las propias
+  S.listas.NLT_MAESTRO.items.find(x => x.Codigo === 'M-06').DiaNLT = 5; await p.click('#recargar'); await esperar(p, 1500);
+  await pestana(p, 'obligaciones'); await p.click('[data-acc=semillaOblig]'); await esperar(p);
+  ok((await p.$$('#fdlg [data-sem]')).length === 0 && (await p.$$('#fdlg [data-semact]')).length === 1 && /Día NLT: «5» → «2»/.test(await p.textContent('#fdlg')), 'la guía propone actualizar solo lo que difiere (M-06: día 5 → 2)');
+  await p.click('#fdlg button[type=submit]'); await esperar(p, 2500);
+  ok(S.listas.NLT_MAESTRO.items.find(x => x.Codigo === 'M-06').DiaNLT === 2, 'actualizada y verificada');
+  await p.click('#fdlg [data-cerrar]');
   // Asignación selectiva: M-05 VSA a dos unidades
   await pestana(p, 'obligaciones');
   await p.fill('[data-f=oq]', 'VSA'); await esperar(p, 200);
@@ -257,7 +267,7 @@ async function escenarioLigero(b) {
   const lim = await p.inputValue('[name=limite]');
   ok(!!lim, 'fecha límite calculada con el plazo de la obligación: ' + lim);
   await p.click('#fdlg button[type=submit]'); await esperar(p, 800);
-  ok(S.listas.SEGUIMIENTO_EVENTOS.items.length === 1 && S.listas.SEGUIMIENTO_EVENTOS.items[0].Title === 'Informe de personal por cambio de destino', 'evento creado y verificado');
+  ok(S.listas.SEGUIMIENTO_EVENTOS.items.length === 1 && S.listas.SEGUIMIENTO_EVENTOS.items[0].Title === 'Informe de personal por cambio de destino (disco mochila)', 'evento creado y verificado');
   await p.click('[data-acc=cerrarEvento]'); await esperar(p, 800);
   ok(S.listas.SEGUIMIENTO_EVENTOS.items[0].Estado === 'Finalizado' && S.listas.SEGUIMIENTO_EVENTOS.items[0].FechaCierre, 'evento finalizado con fecha de cierre');
   // Sin permiso

@@ -63,7 +63,12 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
   duplican con «HTTP 503»), Incidentes 2026-11-23 · 1, Pérdidas 2026-11-23 · 1, VSA 2026-11-23 · 1 y Permisos 2026-11-23 · 2
   (en todas, los correos llevan solo el botón, sin la dirección escrita debajo). Si el 503 de las ausencias se repite,
   decir si pasa siempre o a veces y si se adjuntaba un documento.
-- **24/11/2026 · Centro de Control NLT (SUIGESUR) 2026-11-24 · 2** (con valores de los desplegables en Ajustes; crea sola la lista NLT_CONFIGURACION): subir `suigesur/colabora/CENTRO_CONTROL_NLT_SUIGESUR.html`
+- **24/11/2026 · Centro de Control NLT (SUIGESUR) 2026-11-24 · 3** (valores de los desplegables en Ajustes, lista NLT_CONFIGURACION; catálogo según la Guía 2026 con «📘 Guía de tramitación 2026» en Obligaciones): subir `suigesur/colabora/CENTRO_CONTROL_NLT_SUIGESUR.html`
   a `/et/SUIGESUR/JSUIGE/aplicaciones` (sustituye al anterior) y probar «Informes › 🖨 Imprimir / PDF». Pendiente de decidir:
   ponerle el control de acceso con solicitud y los avisos por correo del modelo común (aún no los tiene).
+- **24/11/2026 · Nuevo proyecto CECONSEG** (formulario InfoPath «ceconseg.xsn», operadores CECONSEG y HPS), decidido con el
+  usuario: sitio de IGE `/et/jige/colaborativo`, unidades por la cadena M1N › M2N › M3N como Incidentes, circuito
+  Unidad → SUIGE → DIACU → IGE igual que Incidentes (valoración en cada paso, plazo de DIACU), trimestral + extraordinario,
+  control de las unidades obligadas que se marquen en Ajustes, acceso con la solicitud común (grupo CECONSEG_UNIDADES) y sin
+  importar el histórico de «Operadores CSEG». Pendiente de construir.
 
