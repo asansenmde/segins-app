@@ -300,3 +300,10 @@ autoría.
       anota además un comentario en MENSADEF y la ficha lo enseña. PENDIENTE DEL USUARIO: pasar «Escuchar MENSADEF» abriendo un
       mensaje sin importancia y distribuyéndolo de verdad a una célula (para saber la llamada de MENSADEF y la dirección de un
       mensaje abierto) y pegar lo que copia.
+    24/11/2026: escucha de una distribución (favorito Escuchar v6): GET ambito/DatosEstaticosDistribucionInternaEntrada (tipos de
+      motivo básico/avanzado, visibilidad, FavoritosDelUsuario con IdCelula/Nombre, célula de referencia) y POST
+      mensajeDistribucionInternaEntrada/Crear (IdMensaje, IdCelula, AsistenteAvanzado, IdTipoVisibilidad, IdUsuarioRemitente,
+      CelulasSeleccionadas, UsuariosSeleccionados, DestinatariosEliminados, Comentario, FechaTope, Enviar, IdBuzonCelulaSaliente,
+      BuzonPersonal). Al abrir un mensaje la dirección sigue en «#/celula/…»: MENSADEF no tiene dirección propia por mensaje.
+      Hecho Escuchar v8 (forma completa de lo enviado). PENDIENTE DEL USUARIO: instalar «Escuchar MENSADEF» v8 y repetir la
+      distribución (buscando una célula que no esté en favoritos) para saber cómo van las células y el motivo.

@@ -44,6 +44,10 @@ await p.evaluate(async () => {
   await fetch('/ambito/2SUIGE/_api/$batch', { method: 'POST', body: "--b\r\nGET https://mensadef.mdef.es/ambito/2SUIGE/_api/web/lists/getbytitle('Bandeja%20SETEC')/items?$filter=Asunto eq 'SECRETO 7' HTTP/1.1\r\n--b--" });
   await new Promise(res => { const x = new XMLHttpRequest(); x.open('GET', '/ambito/2SUIGE/_vti_bin/SMDMD/Mensajes.svc/Bandeja?celula=SECRETO8'); x.onloadend = res; x.send(); });
   await fetch('/ambito/2SUIGE/SiteAssets/app.js');
+  // v8: envío con listas de objetos (como distribuir a varias células): forma completa, sin textos
+  await fetch('https://mensadefapi.mdef.es/api/mensajeDistribucionInternaEntrada/Crear?emailUsuario=persona@et.mde.es', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ IdMensaje: '8d714e44-b2b5-41a8-9780-2228204861b5', AsistenteAvanzado: false, IdTipoVisibilidad: 1, Comentario: 'SECRETO comentario', FechaTope: null,
+      CelulasSeleccionadas: [{ IdCelula: 'aa714e44-b2b5-41a8-9780-2228204861b5', Nombre: 'SECRETO CELULA', IdTipoMotivo: 2, Responsables: [{ Id: 5, Nombre: 'SECRETO PERSONA' }] }], UsuariosSeleccionados: [] }) }).catch(() => 0);
   sessionStorage.setItem('tokenMensadef', 'eyJhbGciOiJSUzI1NiJ9.SECRETO14.firma');
   await fetch('https://mensadefapi.mdef.es/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1', { headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiJ9.SECRETO14.firma', Accept: 'application/json, text/plain, */*', 'X-Clave': 'SECRETO15-larguisimo' } });
   await fetch('https://mensadefapi.mdef.es/api/buzon/ObtenerBuzonCelula?idCelula=8d714e44-b2b5-41a8-9780-2228204861b5&emailUsuario=persona@et.mde.es&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE&indicePagina=0&tamanoPagina=50&tipoES=E&criterioBusqueda=SECRETO&soloPendientes=false',

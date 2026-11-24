@@ -49,6 +49,8 @@ que cambie una página** (y el usuario tiene que volver a arrastrar el favorito)
   sustituye la página**. Anota las consultas que hace la aplicación de MENSADEF (fetch, XMLHttpRequest, `$batch`, búsqueda)
   mientras el usuario abre su célula y su bandeja, y resume su estructura: ruta, nombres de parámetros, campos y
   propiedades, nº de elementos. Nunca guarda valores. Prueba: `node pruebas/escuchar.mjs`.
+  v8 (24/11/2026): de lo que se ENVÍA da la forma completa (objetos dentro de listas, hasta 4 niveles), con sí/no y números
+  de 1 o 2 cifras; los textos nunca. Para «Distribuir» desde SENDERO (`mensajeDistribucionInternaEntrada/Crear`).
   (28/10/2026: las listas diarias `SMDMDMensajes_AAAAMMDD` del ámbito solo devuelven borradores con las columnas habituales
   vacías; hay que averiguar de dónde saca la aplicación los mensajes de cada célula.)
   **Hallazgo (28/10/2026):** la bandeja de cada célula la sirve un servicio propio, **`mensadefapi.mdef.es`**:

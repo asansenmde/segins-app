@@ -6,7 +6,7 @@
 (function () {
   'use strict';
   if (window.__escuchaMensadef) { window.__escuchaMensadef(); return; }
-  var VERSION = 7; // se ve en el recuadro y en el resumen, para saber qué favorito se ha pulsado
+  var VERSION = 8; // se ve en el recuadro y en el resumen, para saber qué favorito se ha pulsado
   var reg = [], indice = {};
   try { performance.setResourceTimingBufferSize(5000); } catch (e) { /* sin registro de recursos */ }
 
@@ -93,6 +93,23 @@
     var partes = []; String(txt).split(/\r?\n/).forEach(function (l) { if (/^\s*\{/.test(l)) { try { var r = resumirJson(JSON.parse(l)); if (r) partes.push(r); } catch (e) { /* trozo */ } } });
     return partes.length ? 'lote: ' + partes.join(' | ') : '';
   }
+  // v8 (24/11/2026): lo que se ENVÍA, con su forma completa (objetos dentro de listas, hasta 4 niveles) para poder repetir la
+  // llamada (p. ej. distribuir a varias células). De los valores solo se enseñan sí/no y números de 1 o 2 cifras (modos y
+  // tipos); los textos, nunca: «texto», «id» o «fecha».
+  function valorEnvio(v) {
+    if (typeof v === 'boolean') return String(v);
+    if (typeof v === 'number') return /^\d{1,2}$/.test(String(v)) ? String(v) : 'número';
+    return tipoDe(v);
+  }
+  function describirEnvio(o, nivel) {
+    if (Array.isArray(o)) {
+      if (!o.length) return '[0]';
+      var x = o[0];
+      return '[' + o.length + ']' + (x && typeof x === 'object' ? (nivel < 4 ? describirEnvio(x, nivel + 1) : '{…}') : ' de ' + valorEnvio(x));
+    }
+    if (o && typeof o === 'object') return '{' + camposDe(o).map(function (k) { return k + ':' + (o[k] && typeof o[k] === 'object' ? (nivel < 4 ? describirEnvio(o[k], nivel + 1) : '{…}') : valorEnvio(o[k])); }).join(', ') + '}';
+    return valorEnvio(o);
+  }
   function resumirCuerpo(b) {
     if (!b || typeof b !== 'string') return '';
     var dentro = [];
@@ -104,7 +121,7 @@
         var sp = q.SelectProperties && (q.SelectProperties.results || q.SelectProperties);
         return 'búsqueda: texto ' + propiedades(q.Querytext || q.QueryText || '') + (q.QueryTemplate ? '; plantilla ' + propiedades(q.QueryTemplate) : '') + (sp ? '; pide: ' + [].concat(sp).join(', ') : '');
       }
-      return 'cuerpo; campos: ' + camposDe(q).join(', ');
+      return 'cuerpo ' + describirEnvio(q, 0);
     } catch (e) { return 'cuerpo de ' + b.length + ' caracteres'; }
   }
  // Lo que ya había consultado la aplicación antes de pulsar el favorito (p. ej. la lista de células al entrar)
