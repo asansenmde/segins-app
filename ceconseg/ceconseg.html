@@ -228,7 +228,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-25 · 5';
+  var VERSION = '2026-11-25 · 6';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Operadores CECONSEG · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -1444,13 +1444,18 @@
     var nrm = function (x) { return sinTildes(x).trim().toUpperCase(); };
     var ige = A.m1.find(function (x) { return nrm(x.Title) === 'IGE'; }) || A.m1.find(function (x) { return /\bIGE\b/.test(nrm(x.Title)); });
     if (ige && String(ini[0]) !== String(ige.Id)) ini = [ige.Id, ini[1], ini[2]];
-    var hijos2 = function (id) { return A.m2.filter(function (x) { return x.ID_M1NId === undefined || Number(x.ID_M1NId) === Number(id); }); };
-    var hijos3 = function (id) { return A.m3.filter(function (x) { return x.M2NId === undefined || Number(x.M2NId) === Number(id); }); };
+    // Solo las unidades obligadas (Ajustes) y los mandos que tienen alguna; si no se ha marcado ninguna, todas.
+    // Un parte ya existente de una unidad que dejó de estar obligada conserva la suya.
+    var oblig = (unidadesOblig || []).filter(function (u) { return u.activa; }).map(function (u) { return Number(u.m3); });
+    var vale3 = function (x) { return !oblig.length || oblig.indexOf(Number(x.Id)) >= 0 || String(x.Id) === String(ini[2]); };
+    var hijos3 = function (id) { return A.m3.filter(function (x) { return (x.M2NId === undefined || Number(x.M2NId) === Number(id)) && vale3(x); }); };
+    var hijos2 = function (id) { return A.m2.filter(function (x) { return (x.ID_M1NId === undefined || Number(x.ID_M1NId) === Number(id)) && (!oblig.length || String(x.Id) === String(ini[1]) || hijos3(x.Id).length); }); };
     var llenar = function (s, l, v) { s.innerHTML = opsHtml(l.map(function (x) { return [String(x.Id), x.Title]; }), v == null ? '' : String(v)); s.disabled = !l.length; };
     var nombre = function (l, id) { var x = l.find(function (y) { return String(y.Id) === String(id); }); return x ? x.Title : ''; };
     var pintarCadena = function () {
       var c = [nombre(A.m1, sM1.value), nombre(A.m2, sM2.value), nombre(A.m3, sM3.value)], s = normSuige(c[1]);
-      $('#fCadena').innerHTML = esc(c.filter(Boolean).join(' - ') || 'Elige la cadena de mando') + (c[1] ? ' · <span class="badge ' + (s ? 'rol' : 'f6') + '">' + (s ? 'Se enviará a ' + esc(s) : 'Este mando de 2.º nivel no tiene SUIGE asignada') + '</span>' : '');
+      $('#fCadena').innerHTML = esc(c.filter(Boolean).join(' - ') || 'Elige la cadena de mando') + (c[1] ? ' · <span class="badge ' + (s ? 'rol' : 'f6') + '">' + (s ? 'Se enviará a ' + esc(s) : 'Este mando de 2.º nivel no tiene SUIGE asignada') + '</span>' : '') +
+        (oblig.length ? '<br><span class="small muted">Solo salen las ' + oblig.length + ' unidades obligadas a enviar el parte (se marcan en Ajustes). Si falta la tuya, avisa al administrador.</span>' : '');
     };
     llenar(sM1, ige ? [ige] : A.m1, ini[0]); if (ige) { sM1.value = String(ige.Id); sM1.disabled = true; }
     llenar(sM2, sM1.value ? hijos2(sM1.value) : [], ini[1]); llenar(sM3, sM2.value ? hijos3(sM2.value) : [], ini[2]);

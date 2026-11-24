@@ -79,5 +79,6 @@ Estados: `BORRADOR` · `DEVUELTO A LA UNIDAD` · `REMITIDO A SUIGE` · `REMITIDO
 - **Ficha**: datos, «Situación para el analista» (huecos: cuántos operadores sin HPS y por qué, certificados, compromisos,
   HPS que caducan, si sirven sin HPS) con la justificación de la unidad, pasos del circuito, valoraciones, historial, adjuntos,
   acciones de cada papel e impresión. Las tarjetas marcan «⚠ Sirven sin HPS» o «⚠ n a revisar», y los avisos por correo lo incluyen.
+- En el formulario, la cadena de mando solo ofrece las unidades obligadas (y sus mandos) si hay alguna marcada en Ajustes.
 - El formulario no deja enviar si el desglose no cuadra o falta la justificación (solo pide la que hace falta), ni un segundo
   parte ordinario de la misma unidad y periodo.

@@ -310,6 +310,12 @@ async function actualizacion() {
   ok(['NOMBRE1N', 'MANDO3N', 'NUMEROOPERADORES', 'ESTADO'].every(n => (LP.vista || []).includes(n)) && (LU.vista || []).includes('NOMBRE2N'), tag + 'las columnas se ponen en la vista de la lista (se ven al abrirla en SharePoint)', JSON.stringify([LP.vista, LU.vista]));
   await p.evaluate(() => document.querySelectorAll('#oblCaja details').forEach(d => { d.open = true; })); await p.check('[data-obl="1"]'); await p.click('[data-oblguardar]'); await p.waitForTimeout(1500);
   ok(LU.items.length === 1 && LU.items[0].NOMBRE2N === 'SUIGESUR', tag + 'después guarda las unidades obligadas', JSON.stringify(LU.items));
+  // Con solo ACUARTELAMIENTO X obligada, el formulario solo ofrece esa unidad (y su mando)
+  await p.evaluate(() => location.reload()); await p.waitForTimeout(2500); await p.click('#nuevo'); await p.waitForTimeout(1200);
+  const o2 = await p.$$eval('[name=m2] option', o => o.map(x => x.textContent).filter(x => !/Seleccionar/.test(x)));
+  await p.selectOption('[name=m2]', '1'); await p.waitForTimeout(200);
+  const o3 = await p.$$eval('[name=m3] option', o => o.map(x => x.textContent).filter(x => !/Seleccionar/.test(x)));
+  ok(o2.join() === 'SUIGESUR' && o3.join() === 'ACUARTELAMIENTO X' && /Solo salen las 1 unidades obligadas/.test(await p.textContent('#fCadena')), tag + 'el formulario solo ofrece las unidades obligadas', o2 + ' / ' + o3);
   ok(errs.length === 0, tag + 'sin errores de página', errs.join(' | '));
   await c.close(); await b.close();
 }
