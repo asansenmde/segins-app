@@ -294,3 +294,9 @@ autoría.
       documento (sin adjuntos: desde el servidor no se puede). Quitado «✉ Enviar con el PDF». PENDIENTE DEL USUARIO: subir
       SENDERO-acceso.html (acceso/subir) y SENDERO, y probar que Colabora le deja enviar (con «Leer» en JSUIGE) y que llega.
       Para que «Abrir en MENSADEF» lleve al mensaje: la forma de la dirección de un mensaje abierto (lo que va tras «#/»).
+    24/11/2026: SENDERO 2026-11-23 · 5 subido y marcado Obligatoria por el usuario (con SENDERO-acceso 2026-11-23 · 2).
+      ACORDADO, próxima versión: «↪ Distribuir» a una o varias células desde la ficha, con motivo obligatorio y QUIÉN LO DECRETA
+      (el usuario quiere que quede siempre): el motivo que se manda a MENSADEF lleva «Decretado por <nombre> el <fecha>», se
+      anota además un comentario en MENSADEF y la ficha lo enseña. PENDIENTE DEL USUARIO: pasar «Escuchar MENSADEF» abriendo un
+      mensaje sin importancia y distribuyéndolo de verdad a una célula (para saber la llamada de MENSADEF y la dirección de un
+      mensaje abierto) y pegar lo que copia.
