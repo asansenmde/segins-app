@@ -17,7 +17,8 @@ const GENTE = {
   20: { Id: 20, Title: 'NEGOCIADO SUR', EMail: 'sur1@et.mde.es', Name: 'i:0#.w|et\\sur1' },
   21: { Id: 21, Title: 'NEGOCIADO NORTE', EMail: 'nor1@et.mde.es', Name: 'i:0#.w|et\\nor1' },
   30: { Id: 30, Title: 'ANALISTA IGE', EMail: 'ige1@et.mde.es', Name: 'i:0#.w|et\\ige1' },
-  40: { Id: 40, Title: 'SIN ACCESO', EMail: 'nadie@et.mde.es', Name: 'i:0#.w|et\\nadie' }
+  40: { Id: 40, Title: 'SIN ACCESO', EMail: 'nadie@et.mde.es', Name: 'i:0#.w|et\\nadie' },
+  22: { Id: 22, Title: 'RESPONSABLE INCIDENTES SUR', EMail: 'rsur@et.mde.es', Name: 'i:0#.w|et\\rsur' }
 };
 const GRUPOS = { SEGURIDAD_SUIGESUR: [20], SEGURIDAD_SUIGENOR: [21], SEGURIDAD_IGE: [30], CECONSEG_UNIDADES: [10, 11] };
 const quien = id => GENTE[id] || { Id: id, Title: 'USUARIO ' + id, EMail: 'u' + id + '@et.mde.es', Name: 'i:0#.w|et\\u' + id };
@@ -33,6 +34,8 @@ function servidor() {
     M1N: nuevaLista('M1N', [], [{ Id: 1, Title: 'IGE' }, { Id: 2, Title: 'MCANA' }]),
     M2N: nuevaLista('M2N', ['ID_M1NId'], [{ Id: 1, Title: 'SUIGESUR', ID_M1NId: 1 }, { Id: 2, Title: 'SUIGENOR', ID_M1NId: 1 }, { Id: 3, Title: 'OFICINA X', ID_M1NId: 1 }]),
     M3N: nuevaLista('M3N', ['M1NId', 'M2NId'], [{ Id: 1, Title: 'ACUARTELAMIENTO X', M1NId: 1, M2NId: 1 }, { Id: 2, Title: 'BASE SUR DOS', M1NId: 1, M2NId: 1 }, { Id: 3, Title: 'BASE NORTE', M1NId: 1, M2NId: 2 }]),
+    // Responsables de Incidentes (mismo sitio): CECONSEG los usa si no tiene los suyos
+    'INCIDENTES RESPONSABLES': nuevaLista('INCIDENTES RESPONSABLES', ['Responsables', 'Correos'], [{ Id: 1, Title: 'SUIGESUR', ResponsablesId: { results: [22] }, Correos: '' }]),
     'SOLICITUDES ACCESO APLICACIONES': nuevaLista('SOLICITUDES ACCESO APLICACIONES', ['Solicitante', 'Correo', 'Empleo', 'MandoSegundo', 'Unidad', 'Telefono', 'Papel', 'Motivo', 'Aplicacion', 'EstadoSolicitud', 'GrupoAsignado', 'Resolucion', 'ResueltoPor', 'FechaResolucion'])
   };
 }
@@ -52,6 +55,7 @@ function cumple(it, f) {
 function expandir(it) {
   const o = { ...it };
   ['Author', 'Editor', 'ResponsableDeLaInformacion', 'Solicitante', 'ResueltoPor'].forEach(k => { if (it[k + 'Id']) o[k] = persona(it[k + 'Id']); });
+  if (it.ResponsablesId) o.Responsables = (it.ResponsablesId.results || it.ResponsablesId).map(id => ({ ...persona(id), Name: quien(id).Name }));
   return o;
 }
 
@@ -182,6 +186,7 @@ async function escenario(verbose) {
   ok(p1 && p1.ESTADO === 'REMITIDO A SUIGE' && p1.SUIGES === 'SUIGESUR' && p1.MN3 === 'ACUARTELAMIENTO X' && p1.NUMEROOPERADORES === 20 && p1.TIPODETRAMITE === 'TRIMESTRAL' && p1.SIRVENSINHPS === 'SI' && /trámite/.test(p1.MOTIVOSHPS) && /^2027-01-31/.test(p1.FECHAPREVISTAHPS) && p1.MOTIVOSCOMP === '', tag + 'parte enviado: REMITIDO A SUIGE (SUIGESUR) con sus datos y la justificación', JSON.stringify(p1));
   ok(correos.some(m => /Prestan servicio operadores SIN HPS/.test(m.cuerpo)), tag + 'el aviso a la SUIGE lleva lo que hay que revisar');
   ok(correos.some(m => /PARTE DE OPERADORES CECONSEG/.test(m.asunto) && m.to.includes('i:0#.w|et\\sur1')), tag + 'aviso a la SUIGE, a su CUENTA', JSON.stringify(correos.map(m => m.to)));
+  ok(correos.some(m => /PARTE DE OPERADORES CECONSEG/.test(m.asunto) && m.to.includes('i:0#.w|et\\rsur')), tag + 'sin responsables propios, el aviso llega también al responsable de la SUIGE en Incidentes', JSON.stringify(correos.map(m => m.to)));
   // Segundo trimestral de la misma unidad y trimestre: no deja
   await p.evaluate(() => { const d = document.querySelector('#dlg'); if (d.open) d.close(); }); await p.waitForTimeout(300); await p.click('#nuevo'); await p.waitForTimeout(1200);
   await p.selectOption('[name=m2]', '1'); await p.waitForTimeout(100); await p.selectOption('[name=m3]', '1'); await p.fill('[name=NUMEROOPERADORES]', '5');

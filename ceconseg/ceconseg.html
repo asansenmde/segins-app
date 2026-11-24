@@ -228,7 +228,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-25 · 3';
+  var VERSION = '2026-11-25 · 4';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Operadores CECONSEG · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -890,27 +890,40 @@
   // tiene además sus responsables fijos, en la lista «CECONSEG RESPONSABLES» (Title = escalón, Responsables = personas,
   // Correos = otras direcciones), que lee todo el mundo y solo el administrador cambia desde Ajustes.
   var RESP_LISTA = 'CECONSEG RESPONSABLES';
+  // 25/11/2026 (petición del usuario): si un escalón no tiene responsables en CECONSEG, se usan los de Incidentes (mismo sitio)
+  var RESP_INC = 'INCIDENTES RESPONSABLES', respInc = [];
   var ESCALONES = [['SUIGESUR', 'SUIGE Sur'], ['SUIGENOR', 'SUIGE Norte'], ['SUIGECAN', 'SUIGE Canarias'], ['SUIGEPIR', 'SUIGE Pirenaica'], ['SECOORCEN', 'Secretaría de Coordinación Centro'],
     ['DIIN', 'DIIN'], ['DIAPER', 'DIAPER'], ['JEFATURA DE IGE', 'Jefatura de IGE'], ['DIACU', 'DIACU (valora tras la SUIGE)'], ['IGE', 'IGE (valoración final; y partes sin SUIGE)']];
   var urlResp = function () { return web + "/_api/web/lists/getbytitle('" + encodeURIComponent(RESP_LISTA) + "')"; };
   var respInfo = null, respFilas = [], respError = '', respEdit = '', respCampo = null;
   var grupoEsc = function (e) { return e === 'DIACU' ? GRUPO_CORREO.diacu : e === 'IGE' ? GRUPO_CORREO.ige : GRUPO_CORREO.suige(e); };
-  function cargarResponsables() {
-    return api(urlResp() + '?$select=Id,ListItemEntityTypeFullName').then(function (l) {
-      respInfo = l;
-      // 20/11/2026: también la CUENTA de cada responsable (Responsables/Name), para que el aviso vaya a su cuenta aunque
-      // quien tramita (una unidad) no pueda buscarla en el directorio. Si el servidor no la da, se lee como antes.
-      var sel = '/items?$top=500&$select=Id,Title,Correos,Responsables/Id,Responsables/Title,Responsables/EMail';
-      return todas(urlResp() + sel + ',Responsables/Name&$expand=Responsables').catch(function () { return todas(urlResp() + sel + '&$expand=Responsables'); });
-    }).then(function (l) {
-      respError = '';
-      respFilas = l.map(function (x) {
+  // 20/11/2026: también la CUENTA de cada responsable (Responsables/Name), para que el aviso vaya a su cuenta aunque
+  // quien tramita (una unidad) no pueda buscarla en el directorio. Si el servidor no la da, se lee como antes.
+  function leerFilasResp(url) {
+    var sel = '/items?$top=500&$select=Id,Title,Correos,Responsables/Id,Responsables/Title,Responsables/EMail';
+    return todas(url + sel + ',Responsables/Name&$expand=Responsables').catch(function () { return todas(url + sel + '&$expand=Responsables'); }).then(function (l) {
+      return l.map(function (x) {
         return { id: x.Id, esc: String(x.Title || '').trim().toUpperCase(), personas: lista(x.Responsables).map(function (u) { guardarCuenta(u.EMail, u.Name); apuntarPersona({ Id: u.Id, Title: u.Title, Email: u.EMail }); return { Id: u.Id, Title: u.Title, Email: u.EMail || '' }; }),
           correos: String(x.Correos || '').split(/[;,\s]+/).filter(function (c) { return /@/.test(c); }) };
       });
-    }).catch(function (e) { if (e && e.status === 404) respInfo = null; else respError = (e && e.message) || String(e); respFilas = []; });
+    });
   }
-  var filaResp = function (e) { e = String(e || '').toUpperCase(); return respFilas.find(function (f) { return f.esc === e; }); };
+  function cargarResponsables() {
+    var urlInc = web + "/_api/web/lists/getbytitle('" + encodeURIComponent(RESP_INC) + "')";
+    var inc = leerFilasResp(urlInc).then(function (f) { respInc = f; }, function () { respInc = []; });
+    var propia = api(urlResp() + '?$select=Id,ListItemEntityTypeFullName').then(function (l) { respInfo = l; return leerFilasResp(urlResp()); })
+      .then(function (f) { respError = ''; respFilas = f; })
+      .catch(function (e) { if (e && e.status === 404) respInfo = null; else respError = (e && e.message) || String(e); respFilas = []; });
+    return Promise.all([inc, propia]);
+  }
+  var conGente = function (f) { return f && (f.personas.length || f.correos.length); };
+  var filaPropia = function (e) { e = String(e || '').toUpperCase(); return respFilas.find(function (f) { return f.esc === e; }); };
+  // La de CECONSEG si tiene a alguien; si no, la de Incidentes (marcada «heredada»)
+  var filaResp = function (e) {
+    var p = filaPropia(e); if (conGente(p)) return p;
+    e = String(e || '').toUpperCase(); var i = respInc.find(function (f) { return f.esc === e; });
+    return conGente(i) ? Object.assign({}, i, { heredada: true }) : p;
+  };
   var correosResp = function (e) { var f = filaResp(e); return f ? f.personas.map(function (u) { return u.Email; }).concat(f.correos).filter(Boolean) : []; };
   // Destino de un aviso: { g: grupos, e: escalón } → integrantes visibles del grupo + responsables del escalón
   function correosDestino(d, sinVer) {
@@ -926,8 +939,10 @@
     var cab = '<div class="card"><h3 style="margin-top:0">✉ Responsables de los avisos por escalón</h3>' +
       '<p class="small">Cada aviso llega a los integrantes del grupo del escalón (SEGURIDAD_…) <b>y además a sus responsables</b>. Pon al menos uno por SUIGE: ' +
       'los integrantes de un grupo solo se leen si quien tramita puede verlos, y las unidades que notifican no suelen poder (por eso no llegaban los partes a la SUIGE).</p>';
+    cab += '<p class="small">Si un escalón no tiene responsables aquí, se usan los de <b>Incidentes</b> («' + esc(RESP_INC) + '», ' + (respInc.length ? respInc.filter(conGente).length + ' escalones con responsables' : 'no encontrada o vacía') + '), marcados «de Incidentes». ' +
+      'Si en CECONSEG lo lleva otra persona, ponla aquí y manda la de CECONSEG.</p>';
     if (!respInfo) return cab + (respError ? '<div class="error">No se pudo leer la lista «' + esc(RESP_LISTA) + '»: ' + esc(respError) + '</div>' :
-      '<p class="small">✕ Falta la lista «' + esc(RESP_LISTA) + '». Mientras no exista, los avisos solo llegan a quien se pueda leer de los grupos.</p>' +
+      '<p class="small">✕ Falta la lista «' + esc(RESP_LISTA) + '». Mientras no exista, los avisos llegan a los grupos y a los responsables de Incidentes. Créala solo si alguna SUIGE tiene responsables distintos para CECONSEG.</p>' +
       '<div class="acciones"><button class="prim" data-respcrear="1">Crear la lista</button></div><div id="respMsg"></div>') + '</div>';
     var escs = ESCALONES.slice();
     items.forEach(function (t) { if (t.suige && !escs.some(function (x) { return x[0] === t.suige; })) escs.splice(escs.length - 2, 0, [t.suige, t.suige]); });
@@ -938,7 +953,7 @@
         '<label class="lbl">Otras direcciones (separadas por «;»)</label><input id="respCorreos" value="' + esc(f ? f.correos.join('; ') : '') + '">' +
         '<div class="acciones"><button class="prim" data-respguardar="' + esc(x[0]) + '">Guardar</button><button data-respcancelar="1">Cancelar</button></div><div id="respMsg"></div></td></tr>';
       return '<tr><td><b>' + esc(x[0]) + '</b><br><span class="small muted">' + esc(x[1]) + '</span></td><td class="small">' + esc(grupoEsc(x[0]).join(', ')) + '</td>' +
-        '<td>' + (gente.length ? esc(gente.join(', ')) : '<span class="txt-bad small">Sin responsable</span>') + '</td>' +
+        '<td>' + (gente.length ? esc(gente.join(', ')) + (f.heredada ? ' <span class="badge f0" title="No hay responsables propios en CECONSEG: se usan los de Incidentes">de Incidentes</span>' : '') : '<span class="txt-bad small">Sin responsable</span>') + '</td>' +
         '<td style="white-space:nowrap"><button data-respeditar="' + esc(x[0]) + '">✎</button> <button data-respprobar="' + esc(x[0]) + '" title="Enviar un aviso de prueba a quien lo recibiría">✉ Probar</button></td></tr>';
     }).join('');
     return cab + '<table class="t"><tr><th>Escalón</th><th>Grupo</th><th>Responsables</th><th></th></tr>' + filas + '</table><div id="respPrueba"></div>' +
@@ -955,7 +970,7 @@
       .catch(function (e) { boton.disabled = false; msg('<div class="error">No se pudo crear: ' + esc(e.message || e) + '</div>'); });
   }
   function guardarResp(boton) {
-    var e = boton.dataset.respguardar, f = filaResp(e), msg = function (t) { var el = $('#respMsg'); if (el) el.innerHTML = t; };
+    var e = boton.dataset.respguardar, f = filaPropia(e), msg = function (t) { var el = $('#respMsg'); if (el) el.innerHTML = t; };
     var gente = respCampo ? respCampo.valor() : [], correos = $('#respCorreos').value.split(/[;,\s]+/).filter(function (c) { return /@/.test(c); });
     var malos = $('#respCorreos').value.split(/[;,\s]+/).filter(function (c) { return c && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c); });
     if (malos.length) return msg('<div class="error">Revisa estas direcciones: ' + esc(malos.join(', ')) + '</div>');

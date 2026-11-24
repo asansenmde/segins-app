@@ -37,7 +37,7 @@ previstas, si prestan servicio operadores sin HPS y medidas adoptadas). Lo valor
 2. La primera vez sale **«Preparar la aplicación»**: crea la lista **CECONSEG OPERADORES** con sus 40 columnas (si se preparó
    con la versión 1, sale «A la lista le faltan 9 columnas · Crearlas ahora»).
 3. En **Ajustes**: elige la periodicidad del parte (trimestral si no se toca); crea la lista **CECONSEG UNIDADES** y marca las unidades obligadas (de M3N, agrupadas por mando de
-   2.º nivel); crea la lista de responsables (**CECONSEG RESPONSABLES**) y pon al menos uno por SUIGE.
+   2.º nivel); los responsables de cada SUIGE salen de Incidentes; crea **CECONSEG RESPONSABLES** solo si en alguna SUIGE lo lleva otra persona.
 4. En **Accesos**: crea el grupo `CECONSEG_UNIDADES`, «Permitir que cualquiera solicite acceso» y da a la lista de partes
    el permiso para guardar a las unidades (como en Incidentes).
 5. «Enviarme un correo de prueba» y, en la tabla de responsables, «✉ Probar».
@@ -53,7 +53,9 @@ previstas, si prestan servicio operadores sin HPS y medidas adoptadas). Lo valor
   `ObservacionesDelExpediente` (historial, con el resultado de cada correo) y `ModificadoPorTEXTO`. La periodicidad se guarda en la
   descripción de esta lista (línea «Configuración CECONSEG: {…}»).
 - `CECONSEG UNIDADES`: `Title` (unidad), `M3N`, `M2N`, `MN2`, `SUIGES`, `Activa`.
-- `CECONSEG RESPONSABLES`: responsables de los avisos por escalón (como en Incidentes).
+- `CECONSEG RESPONSABLES`: responsables de los avisos por escalón (como en Incidentes). **Si un escalón no tiene responsables
+  aquí, se usan los de `INCIDENTES RESPONSABLES`** (mismo sitio; en Ajustes salen marcados «de Incidentes»). Los grupos
+  `SEGURIDAD_SUIGE…` y `SEGURIDAD_IGE` son los mismos que en Incidentes.
 - Se leen `M1N`, `M2N` y `M3N` del sitio (las de Incidentes) y la lista común de solicitudes.
 
 Estados: `BORRADOR` · `DEVUELTO A LA UNIDAD` · `REMITIDO A SUIGE` · `REMITIDO A DIACU` · `REMITIDO A IGE` · `CERRADO`.
