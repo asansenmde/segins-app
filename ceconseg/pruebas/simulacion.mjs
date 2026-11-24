@@ -166,11 +166,21 @@ async function escenario(verbose) {
   const vals = { NUMEROOPERADORES: '20', OPERADORESTROPA: '15', HPSSINCURSAR: '2', HPSENTRAMITE: '3', HPSEJECUTADA: '14', CERTSINCURSAR: '1', CERTEJECUTADO: '19', COMPROMISOCONF: '20' };
   for (const k in vals) await p.fill('[name=' + k + ']', vals[k]);
   if (!verbose) { await p.setViewportSize({ width: 1100, height: 1300 }); await p.screenshot({ path: new URL('formulario.png', import.meta.url).pathname, fullPage: false }); }
-  ok(/no suman el número de operadores/.test(await p.textContent('#fSuma')), tag + 'avisa si las HPS no suman los operadores (19 de 20)');
+  ok(/tienen que sumar el nº de operadores/.test(await p.textContent('#fSuma')), tag + 'avisa si las HPS no suman los operadores (19 de 20)');
+  ok(await p.isVisible('#jHps') && await p.isVisible('#jHpsF') && await p.isVisible('#jCert') && !(await p.isVisible('#jComp')), tag + 'pide justificar las HPS y los certificados que faltan (no los compromisos, que están todos)');
+  await p.click('#fEnviar'); await p.waitForTimeout(800);
+  ok(/motivos de los operadores sin HPS/.test(await p.textContent('#fError')) && /fecha prevista de los cursos/.test(await p.textContent('#fError')) && partes().length === 0, tag + 'sin justificar no deja enviar');
+  await p.selectOption('[name=SIRVENSINHPS]', 'SI'); await p.fill('[name=MOTIVOSHPS]', '2 incorporados en octubre sin solicitar; 3 en trámite desde septiembre');
+  await p.fill('[name=FECHAPREVISTAHPS]', '2027-01-31'); await p.fill('[name=MOTIVOSCERT]', 'Curso en enero'); await p.fill('[name=FECHAPREVISTACERT]', '2027-01-20');
+  ok(await p.isVisible('#jMed'), tag + 'si sirven operadores sin HPS pide las medidas');
+  await p.fill('[name=MEDIDASUNIDAD]', 'Prestan servicio acompañados de operador con HPS');
+  await p.click('#fEnviar'); await p.waitForTimeout(800);
+  ok(/tienen que sumar/.test(await p.textContent('#fError')) && partes().length === 0, tag + 'con el desglose descuadrado no deja enviar');
   await p.fill('[name=HPSEJECUTADA]', '15');
   correos.length = 0; await p.click('#fEnviar'); await p.waitForTimeout(2500);
   const p1 = partes()[0];
-  ok(p1 && p1.ESTADO === 'REMITIDO A SUIGE' && p1.SUIGES === 'SUIGESUR' && p1.MN3 === 'ACUARTELAMIENTO X' && p1.NUMEROOPERADORES === 20 && p1.TIPODETRAMITE === 'TRIMESTRAL', tag + 'parte enviado: REMITIDO A SUIGE (SUIGESUR) con sus datos', JSON.stringify(p1));
+  ok(p1 && p1.ESTADO === 'REMITIDO A SUIGE' && p1.SUIGES === 'SUIGESUR' && p1.MN3 === 'ACUARTELAMIENTO X' && p1.NUMEROOPERADORES === 20 && p1.TIPODETRAMITE === 'TRIMESTRAL' && p1.SIRVENSINHPS === 'SI' && /trámite/.test(p1.MOTIVOSHPS) && /^2027-01-31/.test(p1.FECHAPREVISTAHPS) && p1.MOTIVOSCOMP === '', tag + 'parte enviado: REMITIDO A SUIGE (SUIGESUR) con sus datos y la justificación', JSON.stringify(p1));
+  ok(correos.some(m => /Prestan servicio operadores SIN HPS/.test(m.cuerpo)), tag + 'el aviso a la SUIGE lleva lo que hay que revisar');
   ok(correos.some(m => /PARTE DE OPERADORES CECONSEG/.test(m.asunto) && m.to.includes('i:0#.w|et\\sur1')), tag + 'aviso a la SUIGE, a su CUENTA', JSON.stringify(correos.map(m => m.to)));
   // Segundo trimestral de la misma unidad y trimestre: no deja
   await p.evaluate(() => { const d = document.querySelector('#dlg'); if (d.open) d.close(); }); await p.waitForTimeout(300); await p.click('#nuevo'); await p.waitForTimeout(1200);
@@ -178,7 +188,10 @@ async function escenario(verbose) {
   await p.click('#fBorrador'); await p.waitForTimeout(800);
   ok(/Ya existe el parte trimestral de esta unidad/.test(await p.textContent('#fError')) && partes().length === 1, tag + 'no deja un segundo parte trimestral de la misma unidad y trimestre');
   // Otro de BASE SUR DOS en borrador y enviado (para devolverlo)
-  await p.selectOption('[name=m3]', '2'); await p.click('#fEnviar'); await p.waitForTimeout(2500);
+  await p.selectOption('[name=m3]', '2');
+  for (const [k, v] of [['HPSEJECUTADA', '5'], ['CERTEJECUTADO', '5'], ['COMPROMISOCONF', '5']]) await p.fill('[name=' + k + ']', v);
+  ok(await p.isHidden('#fJust'), tag + 'todo completo: no pide justificación');
+  await p.click('#fEnviar'); await p.waitForTimeout(2500);
   ok(partes().length === 2 && partes()[1].ESTADO === 'REMITIDO A SUIGE', tag + 'segundo parte (otra unidad) enviado');
   ok(errs.length === 0, tag + 'sin errores de página (unidad)', errs.join(' | '));
   await c.close();
@@ -187,7 +200,10 @@ async function escenario(verbose) {
   ({ b: c, p, errs } = await abrir(b, 20, { verbose }));
   await tab(p, 'pendientes');
   ok((await p.$$('.inc')).length === 2, tag + 'la SUIGE ve los 2 partes pendientes de valorar');
+  ok(/Sirven sin HPS/.test(await p.textContent('.inc[data-id="1"]')), tag + 'la tarjeta avisa de que sirven operadores sin HPS');
   await p.click('.inc[data-id="1"]'); await p.waitForTimeout(800);
+  const fi = await p.textContent('#dlg');
+  ok(/Situación para el analista/.test(fi) && /5 de 20 operadores sin HPS concedida \(2 sin solicitar, 3 en trámite\)/.test(fi) && /acompañados/.test(fi) && /31\/01\/2027/.test(fi), tag + 'la ficha resume los huecos y la justificación para el analista');
   await p.selectOption('#vSuige', 'BIEN'); await p.fill('#oSuige', 'Correcto'); correos.length = 0;
   await p.click('[data-acc=suigeDiacu]'); await p.waitForTimeout(2500);
   ok(partes()[0].ESTADO === 'REMITIDO A DIACU' && partes()[0].VALORACIONSUIGE === 'BIEN', tag + 'valoración SUIGE: REMITIDO A DIACU');
@@ -221,14 +237,27 @@ async function escenario(verbose) {
   await tab(p, 'estadisticas');
   await p.selectOption('#eAnio', ''); await p.waitForTimeout(300); await p.selectOption('#eTrim', ''); await p.waitForTimeout(300);
   const tot = await p.$$eval('#vista table.t tr', t => t.map(x => [...x.cells].map(c => c.textContent.trim()).join(' ')).find(x => /TOTAL/.test(x)) || '');
-  ok(/TOTAL 1 20 15 2 3 15 75 %/.test(tot), tag + 'estadísticas por SUIGE (solo partes enviados): ' + tot);
+  ok(/TOTAL 1 20 15 2 3 15 0 75 % 0 1 19 95 % 20 1/.test(tot), tag + 'estadísticas por SUIGE (solo partes enviados): ' + tot);
   const [w] = await Promise.all([c.waitForEvent('page'), p.click('[data-iimp]')]); await w.waitForLoadState(); await w.waitForTimeout(300);
   ok(/INFORME DE OPERADORES CECONSEG/.test(await w.textContent('.banda')) && (await w.$$('table.r')).length >= 2, tag + 'informe para imprimir con la cabecera oficial');
+  ok(/HUECOS Y JUSTIFICACIÓN/.test(await w.textContent('body')) && /acompañados/.test(await w.textContent('body')), tag + 'el informe trae las unidades con huecos y sus motivos');
   await w.close();
   ok(errs.length === 0, tag + 'sin errores de página (IGE)', errs.join(' | '));
   await c.close();
 
-  // 5. Sin acceso: formulario de solicitud
+  // 5. Periodicidad abierta: el administrador la pasa a SEMESTRAL
+  ({ b: c, p, errs } = await abrir(b, 1, { verbose, admin: true }));
+  await tab(p, 'ajustes'); await p.selectOption('#aPer', 'SEMESTRAL'); await p.click('[data-guardarcfg]'); await p.waitForTimeout(1500);
+  ok(/Configuración CECONSEG: \{"periodicidad":"SEMESTRAL"\}/.test(LP.info.Description || ''), tag + 'guarda la periodicidad en la descripción de la lista', LP.info.Description);
+  await p.click('#nuevo'); await p.waitForTimeout(1200);
+  const opsT = await p.$$eval('[name=tipo] option', o => o.map(x => x.value).filter(Boolean)), opsP = await p.$$eval('[name=trim] option', o => o.map(x => x.value).filter(Boolean));
+  ok(opsT.join() === 'SEMESTRAL,EXTRAORDINARIO' && opsP.join() === 'S1,S2', tag + 'el formulario ofrece semestral y los periodos S1/S2', opsT + ' / ' + opsP);
+  await p.evaluate(() => { const d = document.querySelector('#dlg'); if (d.open) d.close(); }); await p.waitForTimeout(300); await tab(p, 'control');
+  ok(/^S[12]$/.test(await p.$eval('#cTrim', s => s.value)) && /ACUARTELAMIENTO X/.test(await texto(p)), tag + 'el control de entregas va por semestres');
+  ok(errs.length === 0, tag + 'sin errores de página (periodicidad)', errs.join(' | '));
+  await c.close();
+
+  // 6. Sin acceso: formulario de solicitud
   ({ b: c, p, errs } = await abrir(b, 40, { verbose }));
   ok(/No tienes acceso/.test(await texto(p)) && !!(await p.$('[data-accsolicitar]')), tag + 'sin acceso: formulario de solicitud de acceso');
   ok(errs.length === 0, tag + 'sin errores de página (sin acceso)', errs.join(' | '));

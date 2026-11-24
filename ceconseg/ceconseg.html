@@ -228,7 +228,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-25 · 1';
+  var VERSION = '2026-11-25 · 2';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Operadores CECONSEG · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -245,12 +245,31 @@
   // circuito Unidad → SUIGE → DIACU → IGE, igual que Incidentes; trimestral y extraordinario.
   var ES = { BO: 'BORRADOR', DV: 'DEVUELTO A LA UNIDAD', RS: 'REMITIDO A SUIGE', RD: 'REMITIDO A DIACU', RI: 'REMITIDO A IGE', CE: 'CERRADO' };
   var VALORES = ['BIEN', 'REGULAR', 'MAL'];
-  var TIPOS_TRAMITE = ['TRIMESTRAL', 'EXTRAORDINARIO'];
-  var TRIMS = [['T1', '1.er trimestre (ene-mar)'], ['T2', '2.º trimestre (abr-jun)'], ['T3', '3.er trimestre (jul-sep)'], ['T4', '4.º trimestre (oct-dic)']];
+  // 25/11/2026: la periodicidad del parte ordinario se elige en Ajustes (se guarda en la descripción de la lista de partes)
+  var PERIODICIDADES = [['MENSUAL', 1, 'M'], ['BIMESTRAL', 2, 'B'], ['TRIMESTRAL', 3, 'T'], ['CUATRIMESTRAL', 4, 'C'], ['SEMESTRAL', 6, 'S'], ['ANUAL', 12, 'A']];
+  var MESC = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  var cfg = { periodicidad: 'TRIMESTRAL' };
+  var CFG_ETQ = 'Configuración CECONSEG: ';
+  var perDe = function (nombre) { return PERIODICIDADES.find(function (p) { return p[0] === nombre; }) || PERIODICIDADES[2]; };
+  // Periodos de una periodicidad: [código, texto]. Mensual: M01…M12; trimestral: T1…T4; anual: A
+  function periodosDe(nombre) {
+    var p = perDe(nombre), n = p[1], l = [];
+    for (var i = 0; i < 12 / n; i++) {
+      var cod = p[2] === 'M' ? 'M' + String(i + 1).padStart(2, '0') : p[2] === 'A' ? 'A' : p[2] + (i + 1);
+      var txt = p[2] === 'M' ? ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][i] : p[2] === 'A' ? 'Año completo' : (i + 1) + 'º ' + { B: 'bimestre', T: 'trimestre', C: 'cuatrimestre', S: 'semestre' }[p[2]] + ' (' + MESC[i * n] + '-' + MESC[i * n + n - 1] + ')';
+      l.push([cod, txt]);
+    }
+    return l;
+  }
+  var periodosCfg = function () { return periodosDe(cfg.periodicidad); };
+  var tiposTramite = function (extra) { var l = [cfg.periodicidad, 'EXTRAORDINARIO']; if (extra && l.indexOf(extra) < 0) l.unshift(extra); return l; };
+  var TODOS_PERIODOS = PERIODICIDADES.reduce(function (a, p) { return a.concat(periodosDe(p[0])); }, []);
   var MESES_TXT = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
   // Datos numéricos del parte: columna, texto y clave interna
+  // 25/11/2026: el desglose de HPS y de certificados tiene que sumar el nº de operadores; cada hueco se justifica
   var NUMS = [['NUMEROOPERADORES', 'Nº de operadores que entran de servicio', 'oper'], ['OPERADORESTROPA', 'De ellos, operadores de tropa', 'tropa'],
-    ['HPSSINCURSAR', 'HPS sin cursar', 'hpsSin'], ['HPSENTRAMITE', 'HPS en trámite', 'hpsTram'], ['HPSEJECUTADA', 'HPS ejecutada', 'hpsEje'],
+    ['HPSSINCURSAR', 'HPS sin solicitar / sin cursar', 'hpsSin'], ['HPSENTRAMITE', 'HPS en trámite', 'hpsTram'], ['HPSEJECUTADA', 'HPS concedida (en vigor)', 'hpsEje'],
+    ['HPSDENEGADA', 'HPS denegada o revocada', 'hpsDen'], ['HPSCADUCA', 'De las concedidas, caducan en 6 meses', 'hpsCad'],
     ['CERTSINCURSAR', 'Certificados de instrucción de seguridad sin cursar', 'certSin'], ['CERTEJECUTADO', 'Certificados de instrucción de seguridad ejecutados', 'certEje'],
     ['COMPROMISOCONF', 'Compromisos de confidencialidad firmados', 'comp']];
   var EMPLEOS = ['CORONEL', 'TENIENTE CORONEL', 'COMANDANTE', 'CAPITAN', 'TENIENTE', 'SUBOFICIAL MAYOR', 'SUBTENIENTE', 'BRIGADA', 'SARGENTO PRIMERO', 'SARGENTO',
@@ -281,7 +300,9 @@
     ['ANIO', 'Number', 'Año'], ['TRIMESTRE', 'Text', 'Trimestre'], ['TIPODETRAMITE', 'Text', 'Tipo de informe'], ['MESCORRESPONDIENTE', 'Text', 'Mes'],
     ['ResponsableDeLaInformacion', 'User', 'Responsable de la información'], ['ResponsableDelParte', 'Text', 'Responsable del parte']]
     .concat(NUMS.map(function (n) { return [n[0], 'Number', n[1]]; }))
-    .concat([['OBSUNIDAD', 'Note', 'Observaciones de la unidad'], ['VALORACIONSUIGE', 'Text', 'Valoración SUIGE'], ['OBSSUIGE', 'Note', 'Observaciones SUIGE'],
+    .concat([['SIRVENSINHPS', 'Text', '¿Prestan servicio operadores sin HPS?'], ['MOTIVOSHPS', 'Note', 'Motivos: operadores sin HPS concedida'], ['FECHAPREVISTAHPS', 'DateTime', 'Fecha prevista de las HPS en trámite'],
+      ['MOTIVOSCERT', 'Note', 'Motivos: certificados sin cursar'], ['FECHAPREVISTACERT', 'DateTime', 'Fecha prevista de los cursos pendientes'], ['MOTIVOSCOMP', 'Note', 'Motivos: compromisos sin firmar'],
+      ['MEDIDASUNIDAD', 'Note', 'Medidas adoptadas por la unidad'], ['OBSUNIDAD', 'Note', 'Observaciones de la unidad'], ['VALORACIONSUIGE', 'Text', 'Valoración SUIGE'], ['OBSSUIGE', 'Note', 'Observaciones SUIGE'],
       ['VALORACIONDIACU', 'Text', 'Valoración DIACU'], ['OBSDIACU', 'Note', 'Observaciones DIACU'], ['VALORACIONIGE', 'Text', 'Valoración IGE'], ['OBSIGE', 'Note', 'Observaciones IGE'],
       ['ObservacionesDelExpediente', 'Note', 'Historial del expediente'], ['ModificadoPorTEXTO', 'Text', 'Modificado por']]);
   // Unidades que deben enviar el parte cada trimestre (Ajustes)
@@ -369,7 +390,8 @@
       mandoIds: [it.MANDO1N, it.MANDO2N, it.MANDO3N].map(function (v) { return esNum(v) ? Number(v) : null; }),
       cadena: [it.MN1, it.MN2, it.MN3].map(function (v) { return String(v || '').trim(); }), suigesCampo: it.SUIGES || '',
       anio: numero(it.ANIO), trim: it.TRIMESTRE || '', tipo: it.TIPODETRAMITE || '', mes: it.MESCORRESPONDIENTE || '', respParte: it.ResponsableDelParte || '',
-      obsUnidad: it.OBSUNIDAD || '', valSuige: it.VALORACIONSUIGE || '', obsSuige: it.OBSSUIGE || '', valDiacu: it.VALORACIONDIACU || '', obsDiacu: it.OBSDIACU || '',
+      obsUnidad: it.OBSUNIDAD || '', sirvenSin: it.SIRVENSINHPS || '', motHps: it.MOTIVOSHPS || '', fPrevHps: fechaSP(it.FECHAPREVISTAHPS), motCert: it.MOTIVOSCERT || '', fPrevCert: fechaSP(it.FECHAPREVISTACERT),
+      motComp: it.MOTIVOSCOMP || '', medidas: it.MEDIDASUNIDAD || '', valSuige: it.VALORACIONSUIGE || '', obsSuige: it.OBSSUIGE || '', valDiacu: it.VALORACIONDIACU || '', obsDiacu: it.OBSDIACU || '',
       valIge: it.VALORACIONIGE || '', obsIge: it.OBSIGE || '', creado: it.Created, modificado: it.Modified, adjuntos: !!it.Attachments, regAct: '',
       resp: persona(it.ResponsableDeLaInformacion), autor: persona(it.Author), editor: it.Editor && it.Editor.Title
     };
@@ -397,7 +419,22 @@
     return s;
   }
   var expandir = function () { return PERSONAS.filter(function (p) { return !colsLista || colsLista.indexOf(p) >= 0 || p === 'Author' || p === 'Editor'; }).join(','); };
-  // Unidades obligadas a enviar el parte trimestral (lista CECONSEG UNIDADES)
+  function leerCfg(desc) {
+    var d = String(desc || ''), i = d.indexOf(CFG_ETQ);
+    if (i >= 0) try { Object.assign(cfg, JSON.parse(d.slice(i + CFG_ETQ.length).split('\n')[0])); } catch (e) { /* configuración ilegible: la de siempre */ }
+    if (!PERIODICIDADES.some(function (p) { return p[0] === cfg.periodicidad; })) cfg.periodicidad = 'TRIMESTRAL';
+  }
+  function guardarCfg(boton) {
+    var nueva = Object.assign({}, cfg, { periodicidad: $('#aPer').value });
+    boton.disabled = true;
+    api(urlLista() + '?$select=Description').then(function (l) {
+      var d = String(l.Description || ''), i = d.indexOf(CFG_ETQ), linea = CFG_ETQ + JSON.stringify(nueva);
+      var desc = i < 0 ? (d ? d + '\n' : '') + linea : d.slice(0, i) + linea + (d.indexOf('\n', i) < 0 ? '' : d.slice(d.indexOf('\n', i)));
+      return enviarSP(urlLista(), { __metadata: { type: 'SP.List' }, Description: desc }, 'No tienes permiso para cambiar la lista', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' });
+    }).then(function () { cfg = nueva; pref.ctl = {}; pref.est = {}; guardarPref(); render(); toast('Periodicidad: ' + cfg.periodicidad.toLowerCase()); })
+      .catch(function (e) { boton.disabled = false; toast('No se pudo guardar: ' + (e.message || e)); });
+  }
+  // Unidades obligadas a enviar el parte (lista CECONSEG UNIDADES)
   var urlUni = function () { return web + "/_api/web/lists/getbytitle('" + encodeURIComponent(LISTA_UNIDADES) + "')"; };
   function cargarObligadas() {
     return api(urlUni() + '?$select=Id,ListItemEntityTypeFullName').then(function (l) {
@@ -416,8 +453,8 @@
       cargarResponsables(), cargarObligadas(),
       api(web + '/_api/web/EffectiveBasePermissions').then(function (p) { webPerm = Number(p && (p.Low != null ? p.Low : p.EffectiveBasePermissions && p.EffectiveBasePermissions.Low)) || 0; }, function () { webPerm = 0; }),
       api(web + '/_api/web/currentuser/groups?$select=Id,Title').then(function (d) { misGrupos = lista(d.value).map(function (x) { return x.Title; }); }).catch(function () { misGrupos = []; }),
-      api(urlLista() + '?$select=Id,Title,ListItemEntityTypeFullName,EffectiveBasePermissions').then(function (l) {
-        listaInfo = l;
+      api(urlLista() + '?$select=Id,Title,Description,ListItemEntityTypeFullName,EffectiveBasePermissions').then(function (l) {
+        listaInfo = l; leerCfg(l.Description);
         var low = Number(l.EffectiveBasePermissions && l.EffectiveBasePermissions.Low) || 0;
         esGestor = (low & 0x800) !== 0; esAdmin = (low & 0x2000000) !== 0;
         if (l.EffectiveBasePermissions) { puedeAlta = (low & 0x2) !== 0; puedeEditar = (low & 0x4) !== 0; }
@@ -557,10 +594,15 @@
   var badgeFase = function (t) { return '<span class="badge f' + (fase(t) === 0 && t.estado === ES.DV ? 6 : [0, 1, 2, 3, 5][fase(t)]) + '" title="Estado en la lista: ' + esc(t.estadoRaw || '—') + '">' + esc(faseTxt(t)) + '</span>'; };
   var colVal = { BIEN: 'f5', REGULAR: 'f1', MAL: 'f6' };
   var badgeVal = function (v, quien) { return v ? '<span class="badge ' + (colVal[v] || 'f0') + '">' + esc(quien + ': ' + v) + '</span>' : ''; };
-  var trimTxt = function (k) { return (TRIMS.find(function (x) { return x[0] === k; }) || [k, k])[1]; };
-  // Fecha de referencia del trimestre (para «actual» y orden)
-  var trimActual = function () { var d = new Date(); return { anio: d.getFullYear(), trim: 'T' + (Math.floor(d.getMonth() / 3) + 1) }; };
-  var trimAnterior = function () { var d = new Date(); d.setMonth(d.getMonth() - 3); return { anio: d.getFullYear(), trim: 'T' + (Math.floor(d.getMonth() / 3) + 1) }; };
+  var trimTxt = function (k) { return (TODOS_PERIODOS.find(function (x) { return x[0] === k; }) || [k, k])[1]; };
+  // Periodo en curso según la periodicidad de Ajustes
+  var trimActual = function () { var p = perDe(cfg.periodicidad), d = new Date(); return { anio: d.getFullYear(), trim: periodosCfg()[Math.floor(d.getMonth() / p[1])][0] }; };
+  // Último periodo ya terminado según la periodicidad de Ajustes
+  var trimAnterior = function () {
+    var p = perDe(cfg.periodicidad), d = new Date(), idx = Math.floor(d.getMonth() / p[1]) - 1, anio = d.getFullYear();
+    if (idx < 0) { idx = 12 / p[1] - 1; anio--; }
+    return { anio: anio, trim: periodosCfg()[idx][0] };
+  };
   function marcaEspera(t) {
     var n = diasDesde(t.modificado || t.creado);
     return '<span class="badge espera' + (n > 7 ? ' tarde' : '') + '" title="Días en la fase actual">⏳ ' + (n ? n + ' día' + (n === 1 ? '' : 's') : 'hoy') + '</span>';
@@ -577,7 +619,17 @@
       return '<span class="paso ' + p[2] + '"><b>' + (p[2] === 'hecho' ? '✔ ' : p[2] === 'ahora' ? '⏳ ' : p[2] === 'salto' ? '— ' : '') + esc(p[0]) + '</b><small>' + esc(p[1]) + '</small></span>';
     }).join('<i>›</i>') + '</div>';
   }
-  var pctHps = function (t) { var tot = (t.hpsSin || 0) + (t.hpsTram || 0) + (t.hpsEje || 0); return tot ? Math.round((t.hpsEje || 0) * 100 / tot) : null; };
+  var pctHps = function (t) { var tot = t.oper || ((t.hpsSin || 0) + (t.hpsTram || 0) + (t.hpsEje || 0) + (t.hpsDen || 0)); return tot ? Math.round((t.hpsEje || 0) * 100 / tot) : null; };
+  // Huecos del parte para el analista: operadores sin HPS, certificados y compromisos pendientes
+  function brechas(t) {
+    var l = [], op = t.oper || 0, sinHps = op - (t.hpsEje || 0);
+    if (op && sinHps > 0) l.push(['hps', sinHps + ' de ' + op + ' operadores sin HPS concedida (' + [[t.hpsSin, 'sin solicitar'], [t.hpsTram, 'en trámite'], [t.hpsDen, 'denegada o revocada']].filter(function (x) { return x[0]; }).map(function (x) { return x[0] + ' ' + x[1]; }).join(', ') + ')']);
+    if (t.hpsCad) l.push(['cad', t.hpsCad + ' HPS caducan en los próximos 6 meses']);
+    if (t.certSin) l.push(['cert', t.certSin + ' certificados de instrucción de seguridad sin cursar']);
+    if (op && t.comp != null && t.comp < op) l.push(['comp', (op - t.comp) + ' operadores sin compromiso de confidencialidad firmado']);
+    if (t.sirvenSin === 'SI') l.push(['sirven', 'Prestan servicio operadores SIN HPS concedida']);
+    return l;
+  }
 
   // ---------- Vistas ----------
   function tarjeta(t, extra) {
@@ -585,6 +637,7 @@
     return '<div class="card inc' + (t.estado === ES.DV ? ' alta' : '') + '" data-id="' + t.id + '"><div class="tit">Nº ' + t.id + ' · ' + esc(t.unidad || 'Unidad sin indicar') + ' · ' + esc(t.tipo === 'EXTRAORDINARIO' ? 'Extraordinario' + (t.mes ? ' ' + t.mes.toLowerCase() : '') : trimTxt(t.trim)) + ' ' + esc(t.anio || '') + '</div><div class="meta">' +
       badgeFase(t) + (t.suige ? '<span class="badge rol">' + esc(t.suige) + '</span>' : '') +
       (t.oper != null ? '<span>👥 ' + t.oper + ' operadores</span>' : '') + (p != null ? '<span title="HPS ejecutadas sobre el total">🪪 HPS ' + p + ' %</span>' : '') +
+      (t.sirvenSin === 'SI' ? '<span class="badge f6">⚠ Sirven sin HPS</span>' : brechas(t).length && fase(t) > 0 ? '<span class="badge f1" title="' + esc(brechas(t).map(function (b) { return b[1]; }).join(' · ')) + '">⚠ ' + brechas(t).length + ' a revisar</span>' : '') +
       badgeVal(t.valSuige, 'SUIGE') + badgeVal(t.valIge, 'IGE') + (t.adjuntos ? '<span title="Tiene adjuntos">📎</span>' : '') + (extra || '') + '</div></div>';
   }
   function misPapeles() {
@@ -655,8 +708,8 @@
       '<div><label class="lbl">Fase</label>' + sel('fFase', [['abiertos', 'En tramitación']].concat(FASES.map(function (x, i) { return [String(i), x]; })), f.fase, 'Todas') + '</div>' +
       '<div><label class="lbl">SUIGE</label>' + sel('fSuige', SUIGES, f.suige, 'Todas') + '</div>' +
       '<div><label class="lbl">Año</label>' + sel('fAnio', valoresDe('anio'), f.anio, 'Todos') + '</div>' +
-      '<div><label class="lbl">Trimestre</label>' + sel('fTrim', TRIMS, f.trim, 'Todos') + '</div>' +
-      '<div><label class="lbl">Tipo</label>' + sel('fTipo', TIPOS_TRAMITE, f.tipo, 'Todos') + '</div></div>' +
+      '<div><label class="lbl">Periodo</label>' + sel('fTrim', TODOS_PERIODOS.filter(function (x) { return items.some(function (t) { return t.trim === x[0]; }); }), f.trim, 'Todos') + '</div>' +
+      '<div><label class="lbl">Tipo</label>' + sel('fTipo', valoresDe('tipo'), f.tipo, 'Todos') + '</div></div>' +
       '<div class="acciones"><button data-limpiar="1">Quitar filtros</button><button data-csv="1">⬇ CSV (Excel)</button><button data-relimp="1">🖨 Imprimir relación</button></div></div>';
   }
   function vistaConsulta() {
@@ -664,12 +717,12 @@
     return filtrosHtml() + '<div class="sec"><span>Partes</span><span>' + ts.length + '</span></div>' + (ts.slice(0, 200).map(function (t) { return tarjeta(t); }).join('') || '<div class="card vacio">Ningún parte con estos filtros.</div>') +
       (ts.length > 200 ? '<p class="muted small">Se muestran los 200 más recientes. Afina los filtros o descarga el CSV.</p>' : '');
   }
-  // Control trimestral: unidades obligadas y si han enviado el parte
+  // Control de entregas: unidades obligadas y si han enviado el parte
   function vistaControl() {
     var ta = trimAnterior(), anio = Number(pref.ctl.anio) || ta.anio, trim = pref.ctl.trim || ta.trim;
     var anios = []; for (var y = new Date().getFullYear() + 1; y >= 2026; y--) anios.push(String(y));
-    var cab = '<div class="card"><h3 style="margin-top:0">🗓️ Control trimestral</h3><p class="small muted">Unidades obligadas (se marcan en Ajustes) y su parte TRIMESTRAL del periodo. «✉ Recordar» escribe a quien envió partes de esa unidad y, en copia, a su SUIGE.</p>' +
-      '<div class="grid"><div><label class="lbl">Año</label>' + sel('cAnio', anios, String(anio), '—') + '</div><div><label class="lbl">Trimestre</label>' + sel('cTrim', TRIMS, trim, '—') + '</div></div></div>';
+    var cab = '<div class="card"><h3 style="margin-top:0">🗓️ Control de entregas</h3><p class="small muted">Unidades obligadas (se marcan en Ajustes) y su parte ordinario (' + esc(cfg.periodicidad.toLowerCase()) + ') del periodo. «✉ Recordar» escribe a quien envió partes de esa unidad y, en copia, a su SUIGE.</p>' +
+      '<div class="grid"><div><label class="lbl">Año</label>' + sel('cAnio', anios, String(anio), '—') + '</div><div><label class="lbl">Periodo</label>' + sel('cTrim', periodosCfg(), trim, '—') + '</div></div></div>';
     if (!unidadesOblig) return cab + '<div class="card vacio">Aún no se han marcado las unidades obligadas. ' + (esAdmin ? 'Hazlo en <a href="#" data-ir="ajustes">Ajustes</a>.' : 'Avisa al administrador.') + '</div>';
     var ls = controlTrimestre(anio, trim);
     if (!ls.length) return cab + '<div class="card vacio">No hay unidades obligadas que te correspondan.</div>';
@@ -704,24 +757,25 @@
     ts.forEach(function (t) { var k = t.suige || '(sin SUIGE)'; (g[k] = g[k] || []).push(t); });
     var fila = function (nom, l) {
       var hps = suma(l, 'hpsSin') + suma(l, 'hpsTram') + suma(l, 'hpsEje'), cert = suma(l, 'certSin') + suma(l, 'certEje');
-      return [nom, l.length, suma(l, 'oper'), suma(l, 'tropa'), suma(l, 'hpsSin'), suma(l, 'hpsTram'), suma(l, 'hpsEje'), pctTxt(suma(l, 'hpsEje'), hps), suma(l, 'certSin'), suma(l, 'certEje'), pctTxt(suma(l, 'certEje'), cert), suma(l, 'comp')];
+      return [nom, l.length, suma(l, 'oper'), suma(l, 'tropa'), suma(l, 'hpsSin'), suma(l, 'hpsTram'), suma(l, 'hpsEje'), suma(l, 'hpsDen'), pctTxt(suma(l, 'hpsEje'), suma(l, 'oper') || hps), suma(l, 'hpsCad'), suma(l, 'certSin'), suma(l, 'certEje'), pctTxt(suma(l, 'certEje'), suma(l, 'oper') || cert), suma(l, 'comp'),
+        l.filter(function (t) { return t.sirvenSin === 'SI'; }).length];
     };
     return Object.keys(g).sort().map(function (k) { return fila(k, g[k]); }).concat(ts.length ? [fila('TOTAL', ts)] : []);
   }
-  var CAB_STATS = ['SUIGE', 'Unidades', 'Operadores', 'De tropa', 'HPS sin cursar', 'HPS en trámite', 'HPS ejecutada', '% HPS ejecutada', 'Cert. sin cursar', 'Cert. ejecutados', '% cert.', 'Compromisos'];
+  var CAB_STATS = ['SUIGE', 'Unidades', 'Operadores', 'De tropa', 'HPS sin solicitar', 'HPS en trámite', 'HPS concedida', 'HPS denegada', '% HPS concedida', 'Caducan ≤ 6 meses', 'Cert. sin cursar', 'Cert. ejecutados', '% cert.', 'Compromisos', 'Unidades con operadores sin HPS de servicio'];
   function vistaEstadisticas() {
     var ta = trimAnterior(), anio = pref.est.anio === undefined ? String(ta.anio) : pref.est.anio, trim = pref.est.trim === undefined ? ta.trim : pref.est.trim;
     var ts = partesPeriodo(anio ? Number(anio) : null, trim || null);
     var anios = valoresDe('anio').map(String);
-    var hps = [['Sin cursar', suma(ts, 'hpsSin')], ['En trámite', suma(ts, 'hpsTram')], ['Ejecutada', suma(ts, 'hpsEje')]], th = hps.reduce(function (s, x) { return s + x[1]; }, 0);
+    var hps = [['Sin solicitar', suma(ts, 'hpsSin')], ['En trámite', suma(ts, 'hpsTram')], ['Concedida', suma(ts, 'hpsEje')]], th = hps.reduce(function (s, x) { return s + x[1]; }, 0);
     var val = function (k) { var m = {}; ts.forEach(function (t) { if (t[k]) m[t[k]] = (m[t[k]] || 0) + 1; }); return VALORES.map(function (v) { return [v, m[v] || 0]; }); };
     var colV = function (v) { return v === 'BIEN' ? '#2e7d32' : v === 'REGULAR' ? '#d98c1a' : '#b71c1c'; };
     return '<div class="card"><h3 style="margin-top:0">📊 Estadísticas</h3><p class="small muted">Se cuenta el último parte enviado de cada unidad en el periodo (los borradores no cuentan).</p><div class="grid">' +
-      '<div><label class="lbl">Año</label>' + sel('eAnio', anios, anio, 'Todos') + '</div><div><label class="lbl">Trimestre</label>' + sel('eTrim', TRIMS, trim, 'Todos') + '</div></div>' +
+      '<div><label class="lbl">Año</label>' + sel('eAnio', anios, anio, 'Todos') + '</div><div><label class="lbl">Periodo</label>' + sel('eTrim', periodosCfg(), trim, 'Todos') + '</div></div>' +
       '<div class="acciones"><button class="prim" data-iimp="1">🖨 Informe para imprimir / PDF</button><button data-icsv="1">⬇ CSV (Excel)</button></div></div>' +
       '<div class="card"><h3>Por SUIGE</h3><div style="overflow-x:auto"><table class="t"><tr>' + CAB_STATS.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr>' +
-      (statsSuige(ts).map(function (f) { return '<tr' + (f[0] === 'TOTAL' ? ' style="font-weight:bold"' : '') + '>' + f.map(function (c) { return '<td>' + esc(c) + '</td>'; }).join('') + '</tr>'; }).join('') || '<tr><td colspan="12" class="muted">Sin partes en el periodo.</td></tr>') + '</table></div></div>' +
-      '<div class="estadis">' + barras('Situación de las HPS', hps, th, true, function (k) { return k === 'Ejecutada' ? '#2e7d32' : k === 'En trámite' ? '#d98c1a' : '#b71c1c'; }) +
+      (statsSuige(ts).map(function (f) { return '<tr' + (f[0] === 'TOTAL' ? ' style="font-weight:bold"' : '') + '>' + f.map(function (c) { return '<td>' + esc(c) + '</td>'; }).join('') + '</tr>'; }).join('') || '<tr><td colspan="15" class="muted">Sin partes en el periodo.</td></tr>') + '</table></div></div>' +
+      '<div class="estadis">' + barras('Situación de las HPS', hps.concat([['Denegada o revocada', suma(ts, 'hpsDen')]]), th + suma(ts, 'hpsDen'), true, function (k) { return k === 'Concedida' ? '#2e7d32' : k === 'En trámite' ? '#d98c1a' : '#b71c1c'; }) +
       barras('Valoración de las SUIGE', val('valSuige'), ts.length, true, colV) + barras('Valoración de IGE', val('valIge'), ts.length, true, colV) +
       barras('Partes por fase (todos los del periodo)', FASES.map(function (x, i) { return [x.split(':')[0], items.filter(function (t) { return fase(t) === i && (!anio || String(t.anio) === anio) && (!trim || t.trim === trim); }).length]; }), 0, true) + '</div>';
   }
@@ -729,11 +783,13 @@
     var prep = '<div class="card"><h3 style="margin-top:0">Preparación <span class="small muted">· versión ' + esc(VERSION) + '</span></h3>' +
       '<p class="small">' + (faltanCols.length ? '✕ A la lista «' + esc(pref.lista) + '» le faltan ' + faltanCols.length + ' columnas: ' + esc(faltanCols.map(function (c) { return c[0]; }).join(', ')) + '. <button class="prim" data-preparar="1">Crearlas</button>' : '✔ Lista «' + esc(pref.lista) + '» con todas sus columnas.') + '</p>' +
       '<p class="small">' + (infoUni ? '✔ Lista «' + LISTA_UNIDADES + '» de unidades obligadas.' : '✕ Falta la lista «' + LISTA_UNIDADES + '» para marcar las unidades obligadas. <button class="prim" data-crearuni="1">Crearla</button>') + '</p>' +
+      '<p class="small">🗓️ Periodicidad del parte ordinario: <select id="aPer" style="width:auto">' + PERIODICIDADES.map(function (p) { return '<option' + (p[0] === cfg.periodicidad ? ' selected' : '') + '>' + p[0] + '</option>'; }).join('') + '</select> ' +
+        '<button data-guardarcfg="1">Guardar</button> <span class="muted">(los partes ya enviados conservan la suya; se puede cambiar cuando haga falta)</span></p>' +
       '<p class="small">✉ <label class="check" style="display:inline"><input type="checkbox" id="aCorreo"' + (pref.correo ? ' checked' : '') + '> Enviar los avisos por correo al tramitar</label> <button data-correoprueba="1">Enviarme un correo de prueba</button></p>' +
       '<div class="grid"><div><label class="lbl">Sitio</label><input id="aSitio" value="' + esc(pref.sitio) + '"></div><div><label class="lbl">Lista de partes</label><input id="aLista" value="' + esc(pref.lista) + '"></div></div><div id="ajMsg"></div></div>';
     var obl = '';
     if (infoUni) {
-      obl = '<div class="card"><h3 style="margin-top:0">Unidades obligadas a enviar el parte trimestral</h3><p class="small muted">Marca las unidades (de M3N) que tienen operadores CECONSEG. Son las que se controlan en «Control trimestral» y a las que se puede recordar el parte.</p><div id="oblCaja"><p class="muted small">Cargando las unidades…</p></div></div>';
+      obl = '<div class="card"><h3 style="margin-top:0">Unidades obligadas a enviar el parte</h3><p class="small muted">Marca las unidades (de M3N) que tienen operadores CECONSEG. Son las que se controlan en «Control de entregas» y a las que se puede recordar el parte.</p><div id="oblCaja"><p class="muted small">Cargando las unidades…</p></div></div>';
     }
     return prep + obl + '<div id="respCaja">' + vistaResponsables() + '</div>';
   }
@@ -777,7 +833,7 @@
   var SUB_VISTA = { panel: 'Panel y situación', pendientes: 'Esperan mi acción', control: 'Quién falta por enviar', consulta: 'Buscar y filtrar partes', estadisticas: 'HPS, certificados · informes',
     accesos: 'Solicitudes de acceso', ajustes: 'Configuración' };
   function render() {
-    var vistas = [['panel', 'Partes registrados'], ['pendientes', 'Pendiente de valoración'], ['control', 'Control trimestral'], ['consulta', 'Búsqueda y consulta'], ['estadisticas', 'Estadísticas e informes']]
+    var vistas = [['panel', 'Partes registrados'], ['pendientes', 'Pendiente de valoración'], ['control', 'Control de entregas'], ['consulta', 'Búsqueda y consulta'], ['estadisticas', 'Estadísticas e informes']]
       .concat(cargadoEn && esAdmin ? [['accesos', 'Accesos'], ['ajustes', 'Ajustes']] : []);
     if ((pref.vista === 'ajustes' || pref.vista === 'accesos') && (!cargadoEn || !esAdmin)) pref.vista = 'panel';
     var cuenta = { pendientes: cargadoEn ? nPend() : 0, accesos: nPendAcc() };
@@ -962,6 +1018,7 @@
       if (!to.length) { to = cc; cc = []; }
       var filas = [['Nº de parte', String(t.id)], ['Unidad', (t.cadena || []).filter(Boolean).join(' - ') || t.unidad], ['SUIGE', t.suige], ['Periodo', (t.tipo === 'EXTRAORDINARIO' ? 'Extraordinario ' + (t.mes || '').toLowerCase() : trimTxt(t.trim)) + ' ' + (t.anio || '')],
         ['Operadores que entran de servicio', t.oper == null ? '' : String(t.oper)], ['HPS sin cursar / en trámite / ejecutada', [t.hpsSin, t.hpsTram, t.hpsEje].map(function (x) { return x == null ? '—' : x; }).join(' / ')],
+        ['A revisar', brechas(t).map(function (b) { return b[1]; }).join('\n')], ['Motivos (HPS)', texto(t.motHps).slice(0, 400)], ['Medidas de la unidad', texto(t.medidas).slice(0, 400)],
         ['Situación', faseTxt(t)], ['Tramitado por', yo.Title], [tipo === 'devuelto' || tipo === 'devueltoSuige' ? 'Motivo' : 'Comentario', txt ? (txt.length > 800 ? txt.slice(0, 800) + '…' : txt) : '']].filter(function (x) { return x[1]; });
       return { to: to, cc: cc, bcc: [], sinVer: sinVer, asunto: P.asunto, html: htmlCorreo(P.intro, filas, enlaceInc(t)), texto: 'USO OFICIAL\n\n' + P.intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\nAbrir el parte: ' + enlaceInc(t) };
     });
@@ -977,7 +1034,7 @@
     correosDestino({ g: GRUPO_CORREO.suige(u.suige), e: u.suige || 'IGE' }, sinVer).then(function (cc) {
       var to = limpia(gente); cc = limpia(cc).filter(function (x) { return to.indexOf(x) < 0; });
       if (!to.length) { to = cc; cc = []; }
-      var intro = 'RECORDATORIO: FALTA EL PARTE TRIMESTRAL DE OPERADORES CECONSEG DE ' + u.nombre.toUpperCase() + ' (' + trimTxt(trim).toUpperCase() + ' DE ' + anio + ').';
+      var intro = 'RECORDATORIO: FALTA EL PARTE ' + cfg.periodicidad + ' DE OPERADORES CECONSEG DE ' + u.nombre.toUpperCase() + ' (' + trimTxt(trim).toUpperCase() + ' DE ' + anio + ').';
       var filas = [['Unidad', u.nombre], ['SUIGE', u.suige], ['Periodo', trimTxt(trim) + ' ' + anio], ['Enviado por', yo.Title]];
       return enviarCorreo({ to: to, cc: cc, bcc: [], sinVer: sinVer, asunto: 'RECORDATORIO · PARTE CECONSEG ' + trim + ' ' + anio + ' · ' + u.nombre, html: htmlCorreo(intro, filas, enlacePagina()),
         texto: 'USO OFICIAL\n\n' + intro + '\n\n' + enlacePagina() }).then(function (r) {
@@ -1318,12 +1375,22 @@
       '<div><label class="lbl req">Mando de 1.er nivel</label><select name="m1"></select></div><div><label class="lbl req">Mando de 2.º nivel</label><select name="m2"></select></div><div><label class="lbl req">Unidad</label><select name="m3"></select></div></div>' +
       '<p class="small" id="fCadena"></p>' +
       '<div class="fsec">Periodo</div><div class="grid">' +
-      '<div><label class="lbl req">Tipo de informe</label><select name="tipo">' + opsHtml(TIPOS_TRAMITE, t ? t.tipo : 'TRIMESTRAL') + '</select></div>' +
+      '<div><label class="lbl req">Tipo de informe</label><select name="tipo">' + opsHtml(tiposTramite(t && t.tipo), t ? t.tipo : cfg.periodicidad) + '</select></div>' +
       '<div><label class="lbl req">Año</label><select name="anio">' + opsHtml(anios, anioIni) + '</select></div>' +
-      '<div><label class="lbl req">Trimestre</label><select name="trim">' + opsHtml(TRIMS, trimIni) + '</select></div>' +
+      '<div><label class="lbl req">Periodo</label><select name="trim"></select></div>' +
       '<div id="cajaMes"><label class="lbl">Mes (extraordinario)</label><select name="mes">' + opsHtml(MESES_TXT, t ? t.mes : '', '—') + '</select></div></div>' +
-      '<p class="small muted">Trimestral: NLT día 05 del mes siguiente al trimestre. Extraordinario: si cambia más del 15 % de los operadores.</p>' +
-      '<div class="fsec">Operadores, HPS y certificados</div><div class="grid">' + NUMS.map(num).join('') + '</div><p class="small" id="fSuma"></p>' +
+      '<p class="small muted">Ordinario (' + esc(cfg.periodicidad.toLowerCase()) + '): NLT día 05 del mes siguiente al periodo. Extraordinario: si cambia más del 15 % de los operadores (indica el periodo al que corresponde y el mes).</p>' +
+      '<div class="fsec">Operadores</div><div class="grid">' + NUMS.slice(0, 2).map(num).join('') + '</div>' +
+      '<div class="fsec">HPS de los operadores <span class="small" style="font-weight:normal">(sin solicitar + en trámite + concedida + denegada = nº de operadores)</span></div><div class="grid">' + NUMS.slice(2, 7).map(num).join('') + '</div>' +
+      '<div class="fsec">Certificados y compromisos <span class="small" style="font-weight:normal">(sin cursar + ejecutados = nº de operadores)</span></div><div class="grid">' + NUMS.slice(7).map(num).join('') + '</div><p class="small" id="fSuma"></p>' +
+      '<div id="fJust"><div class="fsec">Justificación (obligatoria si algo no está completo)</div>' +
+      '<div id="jHps"><label class="lbl req">¿Prestan servicio operadores sin HPS concedida?</label><select name="SIRVENSINHPS">' + opsHtml(['NO', 'SI'], t ? t.sirvenSin : '') + '</select>' +
+        '<label class="lbl req">Motivos de los operadores sin HPS (por qué no se ha solicitado, en qué punto está el trámite, causa de la denegación…)</label><textarea name="MOTIVOSHPS">' + esc(t ? texto(t.motHps) : '') + '</textarea>' +
+        '<div id="jHpsF"><label class="lbl req">Fecha prevista de resolución de las HPS en trámite</label><input type="date" name="FECHAPREVISTAHPS" value="' + esc(t ? t.fPrevHps : '') + '"></div></div>' +
+      '<div id="jCert"><label class="lbl req">Motivos de los certificados sin cursar</label><textarea name="MOTIVOSCERT">' + esc(t ? texto(t.motCert) : '') + '</textarea>' +
+        '<label class="lbl req">Fecha prevista de los cursos pendientes</label><input type="date" name="FECHAPREVISTACERT" value="' + esc(t ? t.fPrevCert : '') + '"></div>' +
+      '<div id="jComp"><label class="lbl req">Motivos de los compromisos de confidencialidad sin firmar</label><textarea name="MOTIVOSCOMP">' + esc(t ? texto(t.motComp) : '') + '</textarea></div>' +
+      '<div id="jMed"><label class="lbl req">Medidas adoptadas por la unidad (puestos que cubren, sustituciones, plazos…)</label><textarea name="MEDIDASUNIDAD">' + esc(t ? texto(t.medidas) : '') + '</textarea></div></div>' +
       '<div class="fsec">Responsable y observaciones</div><label class="lbl req">Responsable de la información (quien envía el parte)</label><div id="fResp"></div>' +
       '<label class="lbl">Observaciones de la unidad</label><textarea name="OBSUNIDAD">' + esc(texto(d.OBSUNIDAD || '')) + '</textarea>' +
       '<label class="lbl">Documentos adjuntos (opcional)</label><input type="file" name="adjuntos" multiple>' +
@@ -1348,37 +1415,70 @@
     sM1.onchange = function () { llenar(sM2, sM1.value ? hijos2(sM1.value) : [], ''); llenar(sM3, [], ''); pintarCadena(); };
     sM2.onchange = function () { llenar(sM3, sM2.value ? hijos3(sM2.value) : [], ''); pintarCadena(); };
     sM3.onchange = pintarCadena; pintarCadena();
-    var verMes = function () { $('#cajaMes').hidden = val('tipo') !== 'EXTRAORDINARIO'; }; campo('tipo').onchange = verMes; verMes();
-    // Aviso si las HPS no suman el número de operadores (no impide enviar)
-    var verSuma = function () {
-      var n = function (k) { return Number(val(k)) || 0; }, op = val('NUMEROOPERADORES'), hps = n('HPSSINCURSAR') + n('HPSENTRAMITE') + n('HPSEJECUTADA');
-      $('#fSuma').innerHTML = op !== '' && hps && hps !== Number(op) ? '<span class="txt-warn">⚠ Las HPS (sin cursar + en trámite + ejecutada = ' + hps + ') no suman el número de operadores (' + Number(op) + '). Revísalo si no es intencionado.</span>' : '';
+    // El periodo depende del tipo: el de su periodicidad (o la de Ajustes si es extraordinario)
+    var llenarPeriodo = function (v) { var tp = val('tipo'), per = tp === 'EXTRAORDINARIO' ? cfg.periodicidad : tp; campo('trim').innerHTML = opsHtml(periodosDe(per), v || ''); };
+    var verMes = function () { $('#cajaMes').hidden = val('tipo') !== 'EXTRAORDINARIO'; };
+    campo('tipo').onchange = function () { llenarPeriodo(''); verMes(); };
+    llenarPeriodo(trimIni); if (!val('trim') && t && t.trim) { campo('trim').innerHTML += '<option value="' + esc(t.trim) + '" selected>' + esc(trimTxt(t.trim)) + '</option>'; } verMes();
+    // El desglose tiene que cuadrar con el nº de operadores; cada hueco pide su justificación (25/11/2026)
+    var n = function (k) { return Number(val(k)) || 0; };
+    var cuadre = function () {
+      var op = n('NUMEROOPERADORES'), hps = n('HPSSINCURSAR') + n('HPSENTRAMITE') + n('HPSEJECUTADA') + n('HPSDENEGADA'), cert = n('CERTSINCURSAR') + n('CERTEJECUTADO'), m = [];
+      if (val('NUMEROOPERADORES') === '') return m;
+      if (hps !== op) m.push('Las HPS (sin solicitar + en trámite + concedida + denegada = ' + hps + ') tienen que sumar el nº de operadores (' + op + ').');
+      if (cert !== op) m.push('Los certificados (sin cursar + ejecutados = ' + cert + ') tienen que sumar el nº de operadores (' + op + ').');
+      if (n('OPERADORESTROPA') > op) m.push('Los operadores de tropa no pueden ser más que el total.');
+      if (n('HPSCADUCA') > n('HPSEJECUTADA')) m.push('Las HPS que caducan no pueden ser más que las concedidas.');
+      if (n('COMPROMISOCONF') > op) m.push('Los compromisos no pueden ser más que los operadores.');
+      return m;
     };
-    f.oninput = verSuma; verSuma();
+    var pide = function () { var op = n('NUMEROOPERADORES'); return { hps: op - n('HPSEJECUTADA') > 0 && val('NUMEROOPERADORES') !== '', hpsF: n('HPSENTRAMITE') > 0, cert: n('CERTSINCURSAR') > 0, comp: val('NUMEROOPERADORES') !== '' && n('COMPROMISOCONF') < op, med: val('SIRVENSINHPS') === 'SI' || n('HPSDENEGADA') > 0 }; };
+    var verSuma = function () {
+      var m = cuadre(), p = pide();
+      $('#fSuma').innerHTML = m.map(function (x) { return '<span class="txt-warn">⚠ ' + esc(x) + '</span>'; }).join('<br>');
+      $('#jHps').hidden = !p.hps; $('#jHpsF').hidden = !p.hpsF; $('#jCert').hidden = !p.cert; $('#jComp').hidden = !p.comp; $('#jMed').hidden = !p.med;
+      $('#fJust').hidden = !(p.hps || p.cert || p.comp || p.med);
+    };
+    f.oninput = verSuma; f.onchange = verSuma; verSuma();
     var err = function (m) { $('#fError').innerHTML = '<div class="error">' + esc(m) + '</div>'; $('#fError').scrollIntoView({ block: 'center' }); };
     var enCurso = false, tAct = t;
     var guardarParte = function (enviar) {
       if (enCurso) return;
       var resp = pResp.valor(), mn = [nombre(A.m1, sM1.value), nombre(A.m2, sM2.value), nombre(A.m3, sM3.value)], suige = normSuige(mn[1]);
       var faltan = [];
-      if (!sM3.value) faltan.push('unidad'); if (!val('tipo')) faltan.push('tipo de informe'); if (!val('anio')) faltan.push('año'); if (!val('trim')) faltan.push('trimestre');
+      if (!sM3.value) faltan.push('unidad'); if (!val('tipo')) faltan.push('tipo de informe'); if (!val('anio')) faltan.push('año'); if (!val('trim')) faltan.push('periodo');
       if (enviar) {
         if (val('NUMEROOPERADORES') === '') faltan.push('número de operadores'); if (!resp) faltan.push('responsable de la información');
         if (val('tipo') === 'EXTRAORDINARIO' && !val('mes')) faltan.push('mes del extraordinario');
+        var p = pide();
+        if (p.hps && !val('SIRVENSINHPS')) faltan.push('si prestan servicio operadores sin HPS');
+        if (p.hps && !val('MOTIVOSHPS')) faltan.push('motivos de los operadores sin HPS');
+        if (p.hpsF && !val('FECHAPREVISTAHPS')) faltan.push('fecha prevista de las HPS en trámite');
+        if (p.cert && !val('MOTIVOSCERT')) faltan.push('motivos de los certificados sin cursar');
+        if (p.cert && !val('FECHAPREVISTACERT')) faltan.push('fecha prevista de los cursos');
+        if (p.comp && !val('MOTIVOSCOMP')) faltan.push('motivos de los compromisos sin firmar');
+        if (p.med && !val('MEDIDASUNIDAD')) faltan.push('medidas adoptadas por la unidad');
+        var mc = cuadre(); if (!faltan.length && mc.length) return err(mc.join(' '));
       }
       if (faltan.length) return err((enviar ? 'Para enviar a la SUIGE falta: ' : 'Falta: ') + faltan.join(', ') + '.');
       if (enviar && !suige) return err('El mando de 2.º nivel elegido («' + mn[1] + '») no tiene SUIGE asignada: no se sabe a quién enviarlo. Revisa la cadena de mando o avisa al administrador.');
       if (enviar && resp && !soy(resp) && !esGestor) return err('Solo puede enviarlo el responsable de la información (' + resp.Title + '). Ponte tú como responsable o pídele que lo envíe.');
-      // Un solo parte TRIMESTRAL por unidad y trimestre
-      if (val('tipo') === 'TRIMESTRAL') {
-        var dup = items.find(function (x) { return x.tipo === 'TRIMESTRAL' && x.mandoIds[2] === Number(sM3.value) && String(x.anio) === val('anio') && x.trim === val('trim') && (!tAct || x.id !== tAct.id); });
-        if (dup) return err('Ya existe el parte trimestral de esta unidad para ' + val('trim') + ' ' + val('anio') + ' (nº ' + dup.id + ', ' + faseTxt(dup).toLowerCase() + '). Ábrelo desde la lista; si hay cambios de más del 15 %, haz uno EXTRAORDINARIO.');
+      // Un solo parte ordinario por unidad y periodo
+      if (val('tipo') !== 'EXTRAORDINARIO') {
+        var dup = items.find(function (x) { return x.tipo === val('tipo') && x.mandoIds[2] === Number(sM3.value) && String(x.anio) === val('anio') && x.trim === val('trim') && (!tAct || x.id !== tAct.id); });
+        if (dup) return err('Ya existe el parte ' + val('tipo').toLowerCase() + ' de esta unidad para ' + val('trim') + ' ' + val('anio') + ' (nº ' + dup.id + ', ' + faseTxt(dup).toLowerCase() + '). Ábrelo desde la lista; si hay cambios de más del 15 %, haz uno EXTRAORDINARIO.');
       }
       var c = { Title: mn[2] + ' · ' + (val('tipo') === 'EXTRAORDINARIO' ? 'EXTRAORDINARIO ' + val('mes') : val('trim')) + ' ' + val('anio'),
         MANDO1N: Number(sM1.value) || null, MANDO2N: Number(sM2.value) || null, MANDO3N: Number(sM3.value) || null, MN1: mn[0], MN2: mn[1], MN3: mn[2], SUIGES: suige,
         ANIO: Number(val('anio')), TRIMESTRE: val('trim'), TIPODETRAMITE: val('tipo'), MESCORRESPONDIENTE: val('tipo') === 'EXTRAORDINARIO' ? val('mes') : '',
-        ResponsableDeLaInformacionId: resp ? resp.Id : null, ResponsableDelParte: resp ? resp.Title : '', OBSUNIDAD: val('OBSUNIDAD'), ESTADO: enviar ? ES.RS : (tAct && tAct.estado === ES.DV ? ES.DV : ES.BO) };
+        ResponsableDeLaInformacionId: resp ? resp.Id : null, ResponsableDelParte: resp ? resp.Title : '', OBSUNIDAD: val('OBSUNIDAD'),
+        SIRVENSINHPS: val('SIRVENSINHPS'), MOTIVOSHPS: val('MOTIVOSHPS'), MOTIVOSCERT: val('MOTIVOSCERT'), MOTIVOSCOMP: val('MOTIVOSCOMP'), MEDIDASUNIDAD: val('MEDIDASUNIDAD'),
+        FECHAPREVISTAHPS: val('FECHAPREVISTAHPS') ? val('FECHAPREVISTAHPS') + 'T12:00:00Z' : null, FECHAPREVISTACERT: val('FECHAPREVISTACERT') ? val('FECHAPREVISTACERT') + 'T12:00:00Z' : null, ESTADO: enviar ? ES.RS : (tAct && tAct.estado === ES.DV ? ES.DV : ES.BO) };
       NUMS.forEach(function (n) { c[n[0]] = val(n[0]) === '' ? null : Number(val(n[0])); });
+      // Lo que no aplica (bloque oculto) no se guarda
+      var pa = pide();
+      if (!pa.hps) { c.SIRVENSINHPS = ''; c.MOTIVOSHPS = ''; } if (!pa.hpsF) c.FECHAPREVISTAHPS = null;
+      if (!pa.cert) { c.MOTIVOSCERT = ''; c.FECHAPREVISTACERT = null; } if (!pa.comp) c.MOTIVOSCOMP = ''; if (!pa.med) c.MEDIDASUNIDAD = '';
       var archivos = Array.prototype.slice.call(campo('adjuntos').files || []);
       enCurso = true; $('#fBorrador').disabled = $('#fEnviar').disabled = true;
       $('#fError').innerHTML = '<div class="aviso">' + (enviar ? 'Enviando a la SUIGE…' : 'Guardando el borrador…') + ' No cierres ni vuelvas a pulsar.</div>';
@@ -1455,6 +1555,7 @@
       datos.filter(function (x) { return x[1]; }).map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div>' + esc(x[1]) + '</div></div>'; }).join('') +
       '<div class="sec"><span>Operadores, HPS y certificados</span>' + (p != null ? '<span>HPS ejecutadas: ' + p + ' %</span>' : '') + '</div><table class="t">' +
       nums.map(function (x) { return '<tr><td>' + esc(x[0]) + '</td><td style="text-align:right;font-weight:bold">' + esc(x[1] || '—') + '</td></tr>'; }).join('') + '</table>' +
+      fichaBrechas(t) +
       (t.obsUnidad ? '<div class="campo"><b>Observaciones de la unidad</b><div class="texto">' + aHtml(texto(t.obsUnidad)) + '</div></div>' : '') +
       '<div class="sec"><span>Documentos adjuntos</span></div><div id="detAdj"><p class="muted small">Cargando…</p></div>' +
       '<div class="acciones">' + (pBorrador(t) ? '<button class="prim" data-editar="' + t.id + '">✎ Completar / corregir y enviar</button>' : '') + '<button data-fichaimp="' + t.id + '">🖨 Imprimir ficha / PDF</button></div>' +
@@ -1468,6 +1569,14 @@
       var a = $('#detAdj'); if (!a || dlgId !== t.id) return;
       a.innerHTML = l.length ? '<ul class="adjs">' + l.map(function (f) { return '<li><a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + iconoAdj(f.nombre) + ' ' + esc(f.nombre) + '</a></li>'; }).join('') + '</ul>' : '<p class="small muted">Sin documentos adjuntos.</p>';
     }, function () { var a = $('#detAdj'); if (a) a.innerHTML = '<p class="small muted">No se pudieron leer los adjuntos.</p>'; });
+  }
+  function fichaBrechas(t) {
+    var b = brechas(t), j = [['¿Prestan servicio operadores sin HPS?', t.sirvenSin], ['Motivos: operadores sin HPS', texto(t.motHps)], ['Fecha prevista de las HPS en trámite', fCorta(t.fPrevHps)],
+      ['Motivos: certificados sin cursar', texto(t.motCert)], ['Fecha prevista de los cursos', fCorta(t.fPrevCert)], ['Motivos: compromisos sin firmar', texto(t.motComp)], ['Medidas adoptadas por la unidad', texto(t.medidas)]].filter(function (x) { return x[1]; });
+    if (!b.length && !j.length) return '<div class="okmsg small" style="margin-top:8px">✔ Sin huecos: todos los operadores con HPS concedida, certificados cursados y compromisos firmados.</div>';
+    return '<div class="sec"><span>Situación para el analista</span><span>' + b.length + ' a revisar</span></div>' +
+      (b.length ? '<div class="aviso"><ul style="margin:0;padding-left:18px">' + b.map(function (x) { return '<li' + (x[0] === 'sirven' ? ' style="color:#b71c1c;font-weight:bold"' : '') + '>' + esc(x[1]) + '</li>'; }).join('') + '</ul></div>' : '') +
+      j.map(function (x) { return '<div class="campo"><b>' + esc(x[0]) + '</b><div class="texto">' + aHtml(x[1]) + '</div></div>'; }).join('');
   }
   function valoraciones(t) {
     var v = [['SUIGE' + (t.suige ? ' (' + t.suige + ')' : ''), t.valSuige, t.obsSuige], ['DIACU', t.valDiacu, t.obsDiacu], ['IGE', t.valIge, t.obsIge]].filter(function (x) { return x[1] || x[2]; });
@@ -1599,13 +1708,18 @@
     var fl = statsSuige(ts);
     var cuerpo = '<h3>1. RESUMEN POR SUIGE</h3><table class="r"><tr>' + CAB_STATS.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr>' +
       fl.map(function (f) { return '<tr' + (f[0] === 'TOTAL' ? ' style="font-weight:bold;background:#e8eef6"' : '') + '>' + f.map(function (c) { return '<td>' + esc(c) + '</td>'; }).join('') + '</tr>'; }).join('') + '</table>' +
-      '<h3>2. RELACIÓN DE UNIDADES (último parte enviado)</h3><table class="r"><tr><th>Nº</th><th>SUIGE</th><th>Unidad</th><th>Periodo</th><th>Operadores</th><th>HPS sin cursar</th><th>En trámite</th><th>Ejecutada</th><th>% HPS</th><th>Cert. sin cursar</th><th>Cert. ejecut.</th><th>Comprom.</th><th>Val. SUIGE</th><th>Val. IGE</th><th>Situación</th></tr>' +
+      '<h3>2. RELACIÓN DE UNIDADES (último parte enviado)</h3><table class="r"><tr><th>Nº</th><th>SUIGE</th><th>Unidad</th><th>Periodo</th><th>Operadores</th><th>HPS sin solic.</th><th>En trámite</th><th>Concedida</th><th>% HPS</th><th>Cert. sin cursar</th><th>Cert. ejecut.</th><th>Comprom.</th><th>Val. SUIGE</th><th>Val. IGE</th><th>Situación</th></tr>' +
       ts.map(function (t) { var p = pctHps(t); return '<tr><td>' + t.id + '</td><td>' + esc(t.suige) + '</td><td>' + esc(t.unidad) + '</td><td>' + esc(t.tipo === 'EXTRAORDINARIO' ? 'Extr. ' + (t.mes || '') : t.trim) + ' ' + esc(t.anio || '') + '</td>' +
         [t.oper, t.hpsSin, t.hpsTram, t.hpsEje].map(function (x) { return '<td>' + esc(x == null ? '' : x) + '</td>'; }).join('') + '<td>' + (p == null ? '' : p + ' %') + '</td>' + [t.certSin, t.certEje, t.comp].map(function (x) { return '<td>' + esc(x == null ? '' : x) + '</td>'; }).join('') +
         '<td>' + esc(t.valSuige) + '</td><td>' + esc(t.valIge) + '</td><td>' + esc(faseTxt(t)) + '</td></tr>'; }).join('') + '</table>';
+    var conHuecos = ts.filter(function (t) { return brechas(t).length; });
+    cuerpo += '<h3>' + (unidadesOblig && pe.anio && pe.trim ? 3 : 3) + '. HUECOS Y JUSTIFICACIÓN DE LAS UNIDADES (' + conHuecos.length + ')</h3>' + (conHuecos.length ? '<table class="r"><tr><th>SUIGE</th><th>Unidad</th><th>A revisar</th><th>Motivos y medidas de la unidad</th><th>Previsto</th></tr>' +
+      conHuecos.map(function (t) { return '<tr><td>' + esc(t.suige) + '</td><td>' + esc(t.unidad) + '</td><td>' + brechas(t).map(function (b) { return (b[0] === 'sirven' ? '<b style="color:#b71c1c">' : '') + esc(b[1]) + (b[0] === 'sirven' ? '</b>' : ''); }).join('<br>') + '</td><td>' +
+        [['HPS', t.motHps], ['Certificados', t.motCert], ['Compromisos', t.motComp], ['Medidas', t.medidas]].filter(function (x) { return x[1]; }).map(function (x) { return '<b>' + x[0] + ':</b> ' + esc(texto(x[1])); }).join('<br>') + '</td><td>' +
+        [t.fPrevHps ? 'HPS ' + fCorta(t.fPrevHps) : '', t.fPrevCert ? 'Cursos ' + fCorta(t.fPrevCert) : ''].filter(Boolean).join('<br>') + '</td></tr>'; }).join('') + '</table>' : '<p>Ninguna unidad con huecos.</p>');
     if (unidadesOblig && pe.anio && pe.trim) {
       var ctl = controlTrimestre(Number(pe.anio), pe.trim), falt = ctl.filter(function (x) { return !x.parte || fase(x.parte) === 0; });
-      cuerpo += '<h3>3. UNIDADES OBLIGADAS SIN PARTE TRIMESTRAL ENVIADO (' + falt.length + ' de ' + ctl.length + ')</h3>' + (falt.length ? '<table class="r"><tr><th>SUIGE</th><th>Unidad</th><th>Situación</th></tr>' +
+      cuerpo += '<h3>4. UNIDADES OBLIGADAS SIN PARTE ORDINARIO ENVIADO (' + falt.length + ' de ' + ctl.length + ')</h3>' + (falt.length ? '<table class="r"><tr><th>SUIGE</th><th>Unidad</th><th>Situación</th></tr>' +
         falt.map(function (x) { return '<tr><td>' + esc(x.u.suige) + '</td><td>' + esc(x.u.nombre) + '</td><td>' + (x.parte ? esc(faseTxt(x.parte)) : 'Sin parte') + '</td></tr>'; }).join('') + '</table>' : '<p>Todas las unidades obligadas han enviado el parte.</p>');
     }
     ventanaImprimir({ titulo: 'INFORME DE OPERADORES CECONSEG', subtitulo: (pe.trim ? esc(trimTxt(pe.trim)) + ' · ' : '') + (pe.anio ? esc(pe.anio) : 'todos los años') + ' · ' + ts.length + ' unidades con parte', cuerpo: ts.length || unidadesOblig ? cuerpo : '<p>Sin partes en el periodo.</p>', nombre: 'informe-ceconseg-' + hoy(), apaisado: true });
@@ -2125,6 +2239,7 @@
     if (tab) { pref.vista = tab.dataset.v; guardarPref(); render(); return; }
     if (el.closest('#recargar')) { accEstado = ''; cargar().then(function () { if (esAdmin && cargadoEn) cargarAccesos(); }); return; }
     if (el.closest('[data-preparar]')) { prepararLista(el.closest('[data-preparar]')); return; }
+    if (el.closest('[data-guardarcfg]')) { guardarCfg(el.closest('[data-guardarcfg]')); return; }
     if (el.closest('[data-crearuni]')) { crearListaUni(el.closest('[data-crearuni]')); return; }
     if (el.closest('[data-oblguardar]')) { guardarObligadas(el.closest('[data-oblguardar]')); return; }
     if (el.closest('[data-recordaru]')) { recordarUnidad(el.closest('[data-recordaru]')); return; }
