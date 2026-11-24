@@ -68,12 +68,18 @@ async function enrutar(page, S) {
         if (!cuerpo.parameters.__metadata) return err(400, 'Invalid JSON. A token was not recognized in the JSON content.');
         const name = x.match(/Name="([^"]+)"/)[1], tipo = x.match(/Type="([^"]+)"/)[1], disp = x.match(/DisplayName="([^"]+)"/)[1];
         const interno = (cuerpo.parameters.Options & 8) ? name : disp.replace(/ /g, '_x0020_');
-        L.campos.push({ InternalName: interno, Title: disp, TypeAsString: tipo, Hidden: false, ReadOnlyField: false, RichText: false });
+        const ch = [...x.matchAll(/<CHOICE>([^<]*)<\/CHOICE>/g)].map(z => z[1]);
+        L.campos.push(Object.assign({ InternalName: interno, Title: disp, TypeAsString: tipo, Hidden: false, ReadOnlyField: false, RichText: false }, ch.length ? { Choices: ch } : {}));
         return r.fulfill({ status: 200, json: { d: { InternalName: interno } } });
       }
-      if (sub.startsWith('/fields/getbyinternalnameortitle')) { L.campos.find(c => c.InternalName === 'Title').Title = cuerpo.Title; return r.fulfill({ status: 204, body: '' }); }
+      if (sub.startsWith('/fields/getbyinternalnameortitle')) {
+        const fi = (sub.match(/getbyinternalnameortitle\('([^']+)'\)/) || [])[1], f = L.campos.find(c => c.InternalName === fi);
+        if (cuerpo.Choices) { if (!f) return err(404, 'Column does not exist.'); f.Choices = cuerpo.Choices.results; S.opcionesAnadidas = (S.opcionesAnadidas || []).concat([m[1] + '.' + fi]); return r.fulfill({ status: 204, body: '' }); }
+        L.campos.find(c => c.InternalName === 'Title').Title = cuerpo.Title; return r.fulfill({ status: 204, body: '' });
+      }
       const comprobar = c => {
         if (!c.__metadata || c.__metadata.type !== tipoEnt(m[1])) return "A type named '" + (c.__metadata && c.__metadata.type) + "' could not be resolved by the model.";
+        for (const k of Object.keys(c)) { const f = L.campos.find(z => z.InternalName === k); if (f && f.TypeAsString === 'Choice' && Array.isArray(f.Choices) && c[k] != null && f.Choices.indexOf(c[k]) < 0) return "Value '" + c[k] + "' is not a valid choice for " + k; }
         for (const k of Object.keys(c)) if (k !== '__metadata' && !L.campos.some(f => f.InternalName === k)) return "The property '" + k + "' does not exist on type '" + tipoEnt(m[1]) + "'. Make sure to only use property names that are defined by the type.";
         return '';
       };
@@ -132,7 +138,7 @@ async function escenarioLigero(b) {
   const S = servidor('ligero');
   const p = await b.newPage({ viewport: { width: 1360, height: 900 } });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
-  p.on('dialog', d => d.accept());
+  p.on('dialog', d => d.type() === 'prompt' && globalThis.__prompt ? d.accept(globalThis.__prompt) : d.accept());
   await enrutar(p, S);
   await p.goto(PAGINA); await esperar(p, 2500);
   // Preparación automática al conectar: crea la lista que falta y las columnas que faltan, sin duplicar las de la versión anterior
@@ -148,7 +154,7 @@ async function escenarioLigero(b) {
   ok(S.listas.UCO_SUIGESUR.items.length === 2 && S.listas.CONTROL_ENTREGAS.items.length === 2, 'los datos existentes no se tocan');
   await pestana(p, 'ajustes');
   const aj = await p.textContent('#vista');
-  ok((aj.match(/Lista y columnas correctas/g) || []).length === 4, 'Ajustes: las 4 listas correctas');
+  ok((aj.match(/Lista y columnas correctas/g) || []).length === 5, 'Ajustes: las 5 listas correctas (también NLT_CONFIGURACION, creada sola)');
   ok(aj.includes('NombreUnidad'), 'el detalle técnico reconoce NombreUnidad de la versión anterior');
   await p.screenshot({ path: new URL('ajustes.png', import.meta.url).pathname, fullPage: true });
   const nCrear = S.posts.filter(x => x.ruta.endsWith('fieldasxml') || x.ruta === 'web/lists').length;
@@ -379,6 +385,29 @@ async function escenarioLigero(b) {
   await win.setViewportSize({ width: 1123, height: 794 }); await win.screenshot({ path: new URL('informe.png', import.meta.url).pathname, fullPage: true }); await win.close();
   const [dw] = await Promise.all([p.waitForEvent('download'), p.click('[data-inf=word]')]);
   ok(dw.suggestedFilename().endsWith('.doc'), 'Word descargado: ' + dw.suggestedFilename());
+  // 24/11/2026: valores de los desplegables configurables en Ajustes (lista NLT_CONFIGURACION, creada sola)
+  const abrirCat = async k => { await p.evaluate(k => { const d = document.querySelector('[data-cfgdet="' + k + '"]'); if (d) d.open = true; }, k); };
+  await pestana(p, 'ajustes'); await abrirCat('tipoEvento');
+  await p.fill('#cfgNuevo-tipoEvento', 'Inspección sorpresa'); await p.click('[data-cfg=anadir][data-cat=tipoEvento]'); await esperar(p, 2500);
+  const cfgTE = S.listas.NLT_CONFIGURACION.items.filter(x => x.Catalogo === 'tipoEvento');
+  ok(cfgTE.some(x => x.Title === 'Inspección sorpresa') && cfgTE.length === 11, 'añadir un tipo de evento: se guarda con los de serie (' + cfgTE.length + ')');
+  ok((S.opcionesAnadidas || []).includes('SEGUIMIENTO_EVENTOS.TipoEvento'), 'la columna de elección TipoEvento de SharePoint se amplía sola');
+  await pestana(p, 'eventos'); await p.click('[data-acc=nuevoEvento]'); await esperar(p, 300);
+  ok((await p.$$eval('#fdlg [name=tipo] option', o => o.map(x => x.value))).includes('Inspección sorpresa'), 'el tipo nuevo sale en el formulario de eventos');
+  await p.click('#fdlg [data-cerrar]');
+  await pestana(p, 'ajustes'); await abrirCat('categoria');
+  await p.click('[data-cfg=adoptar][data-cat=categoria][data-val="Prueba"]'); await esperar(p, 1500);
+  const cPrueba = S.listas.NLT_CONFIGURACION.items.find(x => x.Catalogo === 'categoria' && x.Title === 'Prueba');
+  ok(!!cPrueba, 'una categoría en uso se incorpora a la lista con un clic');
+  globalThis.__prompt = 'Prueba renombrada'; await abrirCat('categoria');
+  await p.click('[data-cfg=renombrar][data-id="' + cPrueba.Id + '"]'); await esperar(p, 2500); globalThis.__prompt = null;
+  ok(cPrueba.Title === 'Prueba renombrada' && S.listas.NLT_MAESTRO.items.some(o => o.Categoria === 'Prueba renombrada') && !S.listas.NLT_MAESTRO.items.some(o => o.Categoria === 'Prueba'), 'renombrar una categoría la cambia también en las obligaciones');
+  await abrirCat('categoria'); await p.click('[data-cfg=desactivar][data-id="' + cPrueba.Id + '"]'); await esperar(p, 1200);
+  ok(S.listas.NLT_CONFIGURACION.items.find(x => x.Id === cPrueba.Id).Activo === false, 'desactivar un valor (se queda en los registros que ya lo usan)');
+  await abrirCat('categoria'); await p.click('[data-cfg=adoptarTodas][data-cat=categoria]'); await esperar(p, 4000);
+  { const usadas = new Set(S.listas.NLT_MAESTRO.items.map(o => o.Categoria).filter(Boolean)), enLista = new Set(S.listas.NLT_CONFIGURACION.items.filter(x => x.Catalogo === 'categoria').map(x => x.Title));
+    ok([...usadas].every(v => enLista.has(v)), 'incorporar de una vez todas las categorías en uso (' + enLista.size + ')'); }
+  await pestana(p, 'ajustes'); await abrirCat('tipoEvento'); await p.locator('#cfgValores').screenshot({ path: new URL('valores.png', import.meta.url).pathname });
   // Empezar de cero: todas las entregas a la papelera (escribiendo BORRAR)
   await pestana(p, 'entregas'); await p.click('[data-acc=corregir]'); await esperar(p);
   ok(await p.isDisabled('[data-cor=todo]'), 'el botón de empezar de cero está bloqueado hasta escribir BORRAR');
@@ -417,7 +446,7 @@ async function escenarioVerbose(b) {
   const S = servidor('verbose');
   const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
-  p.on('dialog', d => d.accept());
+  p.on('dialog', d => d.type() === 'prompt' && globalThis.__prompt ? d.accept(globalThis.__prompt) : d.accept());
   await enrutar(p, S);
   await p.goto(PAGINA); await esperar(p, 1500);
   await pestana(p, 'unidades');

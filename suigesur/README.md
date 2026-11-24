@@ -123,3 +123,18 @@ El usuario encontraba la página liosa y los informes no salían bien en PDF. Ah
 - **Copia protegida** en `colabora/` (en esta aplicación el cifrado va sin `transformObjectKeys`, que rompía el alta de
   unidades; los nombres de campo ya van cifrados igualmente).
 
+## Valores de los desplegables configurables (24/11/2026, versión 2026-11-24 · 2)
+
+Para ampliar categorías, tipos de evento, etc. sin tocar el código: **Ajustes › Valores de los desplegables**.
+- Se guardan en una **quinta lista, `NLT_CONFIGURACION`** (`Title` = valor, `Catalogo`, `Orden`, `Activo`, `Descripcion`),
+  que la aplicación crea sola como las demás.
+- Catálogos: categorías de obligación, periodicidades, ámbitos de obligación, ámbitos de unidad, tipos de evento y
+  responsables / remitentes (sugerencias). Mientras un catálogo no tiene valores propios se usan los de serie; al añadir el
+  primero se guardan también los de serie para poder ordenarlos, renombrarlos o desactivarlos.
+- **Añadir**, **subir / bajar** (orden en los desplegables), **renombrar** (cambia también los registros que lo usan, con
+  confirmación) y **desactivar** (deja de ofrecerse, pero se conserva en los registros). Los valores que ya se usan en los
+  registros y no están en la lista se incorporan con un clic.
+- **Columnas de elección de SharePoint** (Periodicidad, TipoEvento…): si se usa un valor que no está entre sus opciones, la
+  aplicación lo añade a la columna antes de guardar (en cualquier formulario, no solo desde Ajustes).
+- Los **estados** de entregas y eventos son fijos: con ellos se calculan puntualidad, remisión y cumplimiento.
+

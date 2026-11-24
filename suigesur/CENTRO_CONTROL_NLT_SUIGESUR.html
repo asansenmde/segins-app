@@ -306,7 +306,14 @@
       { k: 'cierre', in: 'FechaCierre', alt: ['Fecha de cierre', 'FechaFinalizacion'], t: 'DateTime', d: 'Fecha de cierre' },
       { k: 'estado', in: 'Estado', t: 'Choice', d: 'Estado', choices: ESTADOS_EV, req: true },
       { k: 'responsable', in: 'Responsable', t: 'Text', d: 'Responsable' },
-      { k: 'obs', in: 'Observaciones', alt: ['AccionNotas', 'Notas'], t: 'Note', d: 'Observaciones' }] }
+      { k: 'obs', in: 'Observaciones', alt: ['AccionNotas', 'Notas'], t: 'Note', d: 'Observaciones' }] },
+    // 24/11/2026: valores de las listas desplegables (categorías, tipos de evento, periodicidades, ámbitos…), editables en Ajustes
+    NLT_CONFIGURACION: { titulo: 'Valores de los desplegables', campos: [
+      { k: 'valor', in: 'Title', t: 'Text', d: 'Valor', req: true },
+      { k: 'catalogo', in: 'Catalogo', alt: ['Catálogo'], t: 'Text', d: 'Catálogo', req: true },
+      { k: 'orden', in: 'Orden', t: 'Number', d: 'Orden' },
+      { k: 'activa', in: 'Activo', alt: ['Activa'], t: 'Boolean', d: 'Activo' },
+      { k: 'obs', in: 'Descripcion', alt: ['Descripción', 'Observaciones'], t: 'Note', d: 'Descripción' }] }
   };
   const LISTAS = Object.keys(DEF);
   const defCampo = (n, k) => DEF[n].campos.find(d => d.k === k);
@@ -319,6 +326,27 @@
   const REG = [];            // registro de operaciones (diagnóstico)
   let ultimaEscritura = null; // { ok, txt }
   const O = () => L.NLT_MAESTRO.items, U = () => L.UCO_SUIGESUR.items, E = () => L.CONTROL_ENTREGAS.items, EV = () => L.SEGUIMIENTO_EVENTOS.items;
+  const CFG = () => L.NLT_CONFIGURACION ? L.NLT_CONFIGURACION.items : [];
+  // Catálogos de valores: clave · nombre · valores por defecto · dónde se usa (lista y campo) para renombrar y para los desplegables de SharePoint
+  const CATALOGOS = [
+    { k: 'categoria', d: 'Categorías de obligación', def: () => [], usos: [['NLT_MAESTRO', 'categoria']] },
+    { k: 'periodicidad', d: 'Periodicidades', def: () => PERIODICIDADES, usos: [['NLT_MAESTRO', 'periodicidad']], fijos: ['Por evento', 'A demanda'],
+      nota: '«Por evento» y «A demanda» tienen un tratamiento propio y no se pueden quitar. Las nuevas se tratan como periódicas: su NLT sale del día y los meses de cada obligación.' },
+    { k: 'ambitoObl', d: 'Ámbitos de obligación', def: () => ['UCO', 'BAE', 'UCO y BAE'], usos: [['NLT_MAESTRO', 'ambito']] },
+    { k: 'ambitoUni', d: 'Ámbitos de unidad', def: () => ['UCO', 'BAE'], usos: [['UCO_SUIGESUR', 'ambito']] },
+    { k: 'tipoEvento', d: 'Tipos de evento', def: () => TIPOS_EV, usos: [['SEGUIMIENTO_EVENTOS', 'tipo']] },
+    { k: 'responsable', d: 'Responsables / remitentes (sugerencias)', def: () => [], usos: [['CONTROL_ENTREGAS', 'responsable'], ['SEGUIMIENTO_EVENTOS', 'responsable']] }
+  ];
+  const catDe = k => CATALOGOS.find(c => c.k === k);
+  const cfgDe = k => CFG().filter(x => x.catalogo === k).sort((a, b) => ((a.orden == null ? 999 : a.orden) - (b.orden == null ? 999 : b.orden)) || porNombre(a.valor, b.valor));
+  // Valores activos de un catálogo: los configurados en Ajustes o, si aún no hay ninguno, los de siempre; más los que ya se usan
+  function valores(k, enUso) {
+    const c = catDe(k), cf = cfgDe(k);
+    const base = cf.length ? cf.filter(x => x.activa !== false).map(x => x.valor) : c.def().slice();
+    const usados = c.usos.reduce((acc, u) => acc.concat((L[u[0]] ? L[u[0]].items : []).map(x => x[u[1]])), []);
+    return unicos(base.concat(enUso === false ? [] : usados.sort(porNombre)));
+  }
+  const datalist = (id, k) => '<datalist id="' + id + '">' + valores(k).map(x => '<option value="' + esc(x) + '">').join('') + '<\/datalist>';
   let uPorId = new Map(), oPorId = new Map();
 
   // ================= Errores y registro =================
@@ -686,6 +714,7 @@
       ints.forEach(i => { cuerpo[i] = valorSP(S.porInterno[i], v); escritos.push({ k: k, i: i, v: v }); });
     });
     if (faltan.length) throw errorSP(op, n, '', 0, 'En la lista ' + n + ' no existen las columnas ' + faltan.join(', ') + '. No se ha escrito nada. Créalas o asígnalas en Ajustes → Estructura.', 'config');
+    for (const w of escritos) await asegurarOpcion(n, w.i, w.v, op);
     if (!escritos.length) return { id: obj.id, sinCambios: true, item: obj };
     marcarEscritura(null, 'Escribiendo en ' + n + '…');
     let id;
@@ -725,6 +754,18 @@
       } else if (e.tipo !== 'config') await recargarLista(n).catch(() => {});
       throw e;
     }
+  }
+  // Columna de elección (Choice) de SharePoint: si el valor no está entre sus opciones, se añade a la columna antes de escribir
+  async function asegurarOpcion(n, i, v, op) {
+    const f = L[n].porInterno[i];
+    if (!f || (f.TypeAsString !== 'Choice' && f.TypeAsString !== 'MultiChoice') || vacio(v)) return;
+    const vs = Array.isArray(v) ? v : [v], ch = lista(f.Choices), nuevos = vs.filter(x => ch.indexOf(x) < 0);
+    if (!nuevos.length) return;
+    const todas = ch.concat(nuevos);
+    await enviar((op || 'Guardar') + ' · añadir opción', n, urlL(n) + "/fields/getbyinternalnameortitle('" + encodeURIComponent(i) + "')",
+      { __metadata: { type: f.TypeAsString === 'MultiChoice' ? 'SP.FieldMultiChoice' : 'SP.FieldChoice' }, Choices: { __metadata: { type: 'Collection(Edm.String)' }, results: todas } },
+      { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }, 'opciones de ' + i + ': + ' + nuevos.join(', '));
+    f.Choices = todas;
   }
   // Envía varios elementos a la papelera de reciclaje (recuperables desde la papelera del sitio) y comprueba releyendo la lista
   async function reciclarLote(n, objs, prog) {
@@ -1029,14 +1070,14 @@
       '<div class="info small">El <b>catálogo<\/b> define qué se remite, con qué NLT y <b>quién debe entregarlo<\/b> (todas las unidades o solo algunas). Todo se puede cambiar cuando haga falta: añadir obligaciones, desactivar las que ya no se hacen o cambiar plazos; los registros ya creados conservan su NLT. Los registros de cada periodo se crean en Entregas con «Generar plazos» o «Asignar».<\/div>' +
       avisoListas(['NLT_MAESTRO']) +
       '<div class="filtros"><div class="q"><label class="lbl">Buscar<\/label><input data-f="oq" type="search" value="' + esc(F.oq) + '" placeholder="Nombre, código, categoría…"><\/div>' +
-      '<div><label class="lbl">Periodicidad<\/label><select data-f="oper">' + opciones(unicos(PERIODICIDADES.concat(O().map(o => o.periodicidad))), F.oper, 'Todas') + '<\/select><\/div>' +
+      '<div><label class="lbl">Periodicidad<\/label><select data-f="oper">' + opciones(valores('periodicidad'), F.oper, 'Todas') + '<\/select><\/div>' +
       '<div><label class="lbl">Categoría<\/label><select data-f="ocat">' + opciones(unicos(O().map(o => o.categoria)).sort(porNombre), F.ocat, 'Todas') + '<\/select><\/div>' +
       '<div><label class="lbl">Estado<\/label><select data-f="oact">' + opciones([['activas', 'Activas'], ['inactivas', 'Inactivas'], ['', 'Todas']], F.oact) + '<\/select><\/div><\/div>',
     res: () => {
       const q = norm(F.oq);
       const os = O().filter(o => (!q || norm([o.nombre, o.codigo, o.categoria, o.ambito, o.descripcion].join(' ')).indexOf(q) >= 0) && (!F.oper || o.periodicidad === F.oper) && (!F.ocat || o.categoria === F.ocat) &&
         (F.oact === 'activas' ? o.activa : F.oact === 'inactivas' ? !o.activa : true))
-        .sort((a, b) => PERIODICIDADES.indexOf(a.periodicidad) - PERIODICIDADES.indexOf(b.periodicidad) || porNombre(a.codigo || a.nombre, b.codigo || b.nombre));
+        .sort((a, b) => valores('periodicidad').indexOf(a.periodicidad) - valores('periodicidad').indexOf(b.periodicidad) || porNombre(a.codigo || a.nombre, b.codigo || b.nombre));
       return tabla(['Código', 'Obligación', 'Periodicidad', 'NLT', 'Categoría', 'Ámbito', 'Quién la entrega', '#Asignadas', 'Estado', ''], os.map(o => {
         const n = E().filter(e => e.ob === o).length, hab = esTodas(o) ? '' : unidadesHabituales(o).map(u => u.siglas || u.nombre).join(', ');
         return '<tr class="clic" data-oblig="' + o.id + '">' + td(esc(o.codigo)) + td('<b>' + esc(o.nombre) + '<\/b>' + (o.descripcion ? '<div class="small muted">' + esc(o.descripcion.slice(0, 140)) + '<\/div>' : '')) +
@@ -1120,7 +1161,7 @@
         kpi('Próximos 7 días', ab.filter(v => v.limite && !v.vencido && diasEntre(hoy(), v.limite) <= 7).length, 'fecha límite cercana', 'warn') +
         kpi('Sin fecha límite', ab.filter(v => !v.limite).length, 'abiertos') + kpi('Cerrados ' + y, EV().filter(v => v.cerrado && (v.cierre || '').slice(0, 4) === y).length, 'finalizados o cancelados') + '<\/div>' +
         '<div class="filtros"><div><label class="lbl">Situación<\/label><select data-f="esit">' + opciones([['abiertos', 'Abiertos (pendientes)'], ['vencidos', 'Vencidos'], ['cerrados', 'Finalizados / cancelados'], ['', 'Todos']], F.esit) + '<\/select><\/div>' +
-        '<div><label class="lbl">Tipo<\/label><select data-f="etipo">' + opciones(unicos(TIPOS_EV.concat(EV().map(v => v.tipo))), F.etipo, 'Todos') + '<\/select><\/div>' +
+        '<div><label class="lbl">Tipo<\/label><select data-f="etipo">' + opciones(valores('tipoEvento'), F.etipo, 'Todos') + '<\/select><\/div>' +
         '<div><label class="lbl">Unidad<\/label><select data-f="euni">' + opciones(unicos(EV().map(v => v.uEtq)).sort(porNombre), F.euni, 'Todas') + '<\/select><\/div>' +
         '<div class="q"><label class="lbl">Buscar<\/label><input data-f="eq" type="search" value="' + esc(F.eq) + '" placeholder="Evento, responsable, observaciones…"><\/div><\/div>';
     },
@@ -1392,6 +1433,7 @@
         '<p class="small muted">Las columnas se reconocen por nombre interno o visible, incluidas las de la versión anterior. No es necesario cambiar nada aquí.<\/p>' + LISTAS.map(estructuraLista).join('') + '<\/details><\/div>';
       if (L.NLT_MAESTRO.info && !O().length) h += '<div class="card"><h3>Catálogo NLT inicial<\/h3><p class="small">El catálogo de obligaciones está vacío. Puedes cargar las ' + SEMILLA_OBLIG.length + ' obligaciones de referencia (verás la relación y elegirás cuáles).<\/p>' +
         '<button data-acc="semillaOblig">Catálogo NLT inicial…<\/button><\/div>';
+      h += tarjetaValores();
       h += '<div class="card"><h3>Corregir y limpiar<\/h3><p class="small">Unidades repetidas: pestaña Unidades → «Solo posibles duplicados». Registros que no corresponden, deshacer asignaciones o empezar de cero: Entregas → «Corregir asignaciones». ' +
         'Todo lo que se quita va a la Papelera de reciclaje del sitio y se puede restaurar.<\/p><button data-acc="corregir">Corregir asignaciones…<\/button><\/div>';
       h += '<div class="card"><h3>Registro de operaciones<span class="small muted">últimas ' + Math.min(REG.length, 60) + ' de esta sesión<\/span><\/h3>' +
@@ -1401,6 +1443,74 @@
       return h;
     }
   };
+  // Valores de los desplegables (24/11/2026): se amplían, renombran, ordenan y desactivan aquí; se guardan en NLT_CONFIGURACION
+  function tarjetaValores() {
+    const S = L.NLT_CONFIGURACION;
+    let h = '<div class="card" id="cfgValores"><h3>Valores de los desplegables<span class="small muted">categorías, periodicidades, ámbitos, tipos de evento… · lista NLT_CONFIGURACION<\/span><\/h3>';
+    if (!S || !S.info) return h + '<p class="small">Falta la lista <b>NLT_CONFIGURACION<\/b>. ' + (preparando ? 'Creándola…' : '<button class="prim" data-acc="preparar">Crearla ahora<\/button>') + '<\/p><\/div>';
+    h += '<p class="small muted">Añade los valores que necesites; aparecen al momento en los formularios y en los filtros. «Renombrar» cambia también los registros que lo usan. ' +
+      'Desactivar un valor lo quita de los formularios, pero no de los registros que ya lo tienen. Si un valor es de una columna de elección de SharePoint, la columna se amplía sola al usarlo.<\/p>';
+    h += CATALOGOS.map(c => {
+      const cf = cfgDe(c.k), usados = n => c.usos.reduce((t, u) => t + (L[u[0]] ? L[u[0]].items.filter(x => x[u[1]] === n).length : 0), 0);
+      const filas = cf.length ? cf.map((x, i) => '<tr' + (x.activa === false ? ' style="opacity:.55"' : '') + '>' + td('<b>' + esc(x.valor) + '<\/b>' + (x.activa === false ? ' <span class="badge none">desactivado<\/span>' : '')) + td(usados(x.valor), 1) +
+        td('<button class="peq" data-cfg="subir" data-id="' + x.id + '"' + (i ? '' : ' disabled') + ' title="Subir">▲<\/button> <button class="peq" data-cfg="bajar" data-id="' + x.id + '"' + (i < cf.length - 1 ? '' : ' disabled') + ' title="Bajar">▼<\/button> ' +
+          '<button class="peq" data-cfg="renombrar" data-id="' + x.id + '">Renombrar<\/button> ' + ((c.fijos || []).indexOf(x.valor) >= 0 ? '' : '<button class="peq" data-cfg="' + (x.activa === false ? 'activar' : 'desactivar') + '" data-id="' + x.id + '">' + (x.activa === false ? 'Activar' : 'Desactivar') + '<\/button>')) + '<\/tr>').join('')
+        : valores(c.k, false).map(v => '<tr>' + td(esc(v) + ' <span class="small muted">(de serie)<\/span>') + td(usados(v), 1) + td('<span class="small muted">se podrá cambiar al añadir el primero<\/span>') + '<\/tr>').join('');
+      const sinConfig = unicos(c.usos.reduce((acc, u) => acc.concat((L[u[0]] ? L[u[0]].items : []).map(x => x[u[1]])), [])).filter(v => !cf.some(x => x.valor === v) && (cf.length || valores(c.k, false).indexOf(v) < 0));
+      return '<details class="filtrar"' + (pref.cfgAbierto === c.k ? ' open' : '') + ' data-cfgdet="' + c.k + '"><summary>' + esc(c.d) + ' <span class="small muted">(' + valores(c.k, false).length + ')<\/span><\/summary>' +
+        (c.nota ? '<p class="small muted">' + esc(c.nota) + '<\/p>' : '') +
+        tabla(['Valor', '#En uso', ''], [filas].filter(Boolean), { vacio: 'Sin valores todavía' }) +
+        (sinConfig.length ? '<p class="small">En uso en los registros pero no en esta lista: ' + (sinConfig.length > 1 ? '<button class="peq prim" data-cfg="adoptarTodas" data-cat="' + c.k + '">＋ Incorporar las ' + sinConfig.length + '<\/button> ' : '') + sinConfig.map(v => '<button class="peq" data-cfg="adoptar" data-cat="' + c.k + '" data-val="' + esc(v) + '">＋ ' + esc(v) + '<\/button>').join(' ') + '<\/p>' : '') +
+        '<div style="display:flex;gap:6px;margin-top:6px"><input id="cfgNuevo-' + c.k + '" placeholder="Nuevo valor" maxlength="255"><button class="prim" style="white-space:nowrap" data-cfg="anadir" data-cat="' + c.k + '">＋ Añadir<\/button><\/div><\/details>';
+    }).join('');
+    h += '<details class="filtrar"><summary>Estados <span class="small muted">(fijos)<\/span><\/summary><p class="small">Los estados de las entregas (' + esc(ESTADOS_E.join(', ')) + ') y de los eventos (' + esc(ESTADOS_EV.join(', ')) +
+      ') no se cambian aquí: los indicadores de puntualidad, remisión y cumplimiento se calculan con ellos.<\/p><\/details>';
+    return h + '<div id="cfgMsg"><\/div><\/div>';
+  }
+  // Acciones de la tarjeta de valores
+  async function accionValor(b) {
+    const a = b.dataset.cfg, n = 'NLT_CONFIGURACION', x = CFG().find(y => y.id === Number(b.dataset.id)), msg = t => { const m = $('#cfgMsg'); if (m) m.innerHTML = t; };
+    const cat = x ? x.catalogo : b.dataset.cat, c = catDe(cat);
+    pref.cfgAbierto = cat; guardarPref();
+    // El primer valor propio de un catálogo guarda antes los de serie, para no perderlos
+    const sembrar = async () => { if (cfgDe(cat).length) return; let o = 1; for (const v of valores(cat, false)) await guardar(n, null, { valor: v, catalogo: cat, orden: o++, activa: true }, 'Guardar valor de serie'); };
+    b.disabled = true;
+    try {
+      if (a === 'adoptarTodas') {
+        await sembrar();
+        const usados = unicos(c.usos.reduce((acc, u) => acc.concat((L[u[0]] ? L[u[0]].items : []).map(y => y[u[1]])), [])).filter(v => !cfgDe(cat).some(y => y.valor === v)).sort(porNombre);
+        let o = cfgDe(cat).length;
+        for (const v of usados) { msg('<p class="small muted">Incorporando ' + (o - cfgDe(cat).length + 1) + ' de ' + usados.length + '…<\/p>'); await guardar(n, null, { valor: v, catalogo: cat, orden: ++o, activa: true }, 'Incorporar valor en uso'); }
+        aviso(usados.length + ' valores incorporados a ' + c.d.toLowerCase());
+      } else if (a === 'anadir' || a === 'adoptar') {
+        const v = a === 'adoptar' ? b.dataset.val : ($('#cfgNuevo-' + cat).value || '').trim();
+        if (!v) { msg('<div class="aviso">Escribe el valor que quieres añadir.<\/div>'); b.disabled = false; return; }
+        if (cfgDe(cat).some(y => norm(y.valor) === norm(v)) || (!cfgDe(cat).length && valores(cat, false).some(y => norm(y) === norm(v)))) { msg('<div class="aviso">«' + esc(v) + '» ya está en ' + esc(c.d.toLowerCase()) + '.<\/div>'); b.disabled = false; return; }
+        await sembrar();
+        await guardar(n, null, { valor: v, catalogo: cat, orden: cfgDe(cat).length + 1, activa: true }, 'Añadir valor');
+        for (const u of c.usos) for (const i of (L[u[0]].map[u[1]] || [])) await asegurarOpcion(u[0], i, v, 'Añadir valor');
+        aviso('«' + v + '» añadido a ' + c.d.toLowerCase());
+      } else if (a === 'subir' || a === 'bajar') {
+        const l = cfgDe(cat), i = l.indexOf(x), j = a === 'subir' ? i - 1 : i + 1;
+        if (j < 0 || j >= l.length) return;
+        const orden = l.map((y, k) => y.id).slice(); orden.splice(j, 0, orden.splice(i, 1)[0]);
+        for (let k = 0; k < orden.length; k++) { const y = l.find(z => z.id === orden[k]); if (y.orden !== k + 1) await guardar(n, y, { orden: k + 1 }, 'Ordenar valores'); }
+      } else if (a === 'activar' || a === 'desactivar') {
+        await guardar(n, x, { activa: a === 'activar' }, a === 'activar' ? 'Activar valor' : 'Desactivar valor');
+      } else if (a === 'renombrar') {
+        const nuevo = (prompt('Nuevo nombre para «' + x.valor + '»:', x.valor) || '').trim();
+        if (!nuevo || nuevo === x.valor) { b.disabled = false; return; }
+        const afect = c.usos.reduce((acc, u) => acc.concat((L[u[0]] ? L[u[0]].items : []).filter(y => y[u[1]] === x.valor).map(y => [u[0], u[1], y])), []);
+        if (afect.length && !confirm('Se cambia «' + x.valor + '» por «' + nuevo + '» en ' + afect.length + ' registro(s) que lo usan. ¿Seguir?')) { b.disabled = false; return; }
+        for (const u of c.usos) for (const i of (L[u[0]].map[u[1]] || [])) await asegurarOpcion(u[0], i, nuevo, 'Renombrar valor');
+        const viejo = x.valor;
+        await guardar(n, x, { valor: nuevo }, 'Renombrar valor');
+        let k = 0; for (const f of afect) { k++; msg('<p class="small muted">Actualizando registros… ' + k + ' de ' + afect.length + '<\/p>'); await guardar(f[0], f[2], { [f[1]]: nuevo }, 'Renombrar «' + viejo + '»'); }
+        aviso('«' + viejo + '» renombrado a «' + nuevo + '»' + (afect.length ? ' en ' + afect.length + ' registros' : ''));
+      }
+      render();
+    } catch (er) { render(); abrirDlg('No se ha guardado', htmlError(er), '<button type="button" data-cerrar>Cerrar<\/button>'); }
+  }
   function estructuraLista(n) {
     const S = L[n], d = DEF[n];
     const p = S.perm;
@@ -1551,7 +1661,7 @@
     const obsU = O().filter(o => o.activa && o.periodicidad !== 'Por evento').sort((a, b) => porNombre(a.codigo || a.nombre, b.codigo || b.nombre));
     abrirDlg(u ? 'Unidad · ' + (u.siglas || u.nombre) : 'Nueva unidad',
       '<div class="grid">' + campo('Nombre de la unidad', inp('nombre', u && u.nombre, 'maxlength="255" required'), 1) + campo('Siglas', inp('siglas', u && u.siglas, 'maxlength="255"')) +
-      campo('Ámbito', inp('ambito', u && u.ambito, 'list="lAmb" maxlength="255"') + '<datalist id="lAmb">' + unicos(['UCO', 'BAE'].concat(U().map(x => x.ambito))).map(x => '<option value="' + esc(x) + '">').join('') + '<\/datalist>') +
+      campo('Ámbito', inp('ambito', u && u.ambito, 'list="lAmb" maxlength="255"') + datalist('lAmb', 'ambitoUni')) +
       campo('Contacto', inp('contacto', u && u.contacto, 'maxlength="255"')) + '<\/div>' +
       '<label class="check"><input type="checkbox" name="activa"' + (!u || u.activa ? ' checked' : '') + '> Activa (aparece al asignar obligaciones)<\/label>' +
       (u && u.activa ? '<label class="check" id="bajaNA" hidden><input type="checkbox" name="bajaNA" checked> Al desactivarla, marcar como «No aplicable» sus ' + pendientesFuturas(e => e.u === u).length + ' entregas pendientes que aún no han vencido<\/label>' : '') +
@@ -1600,12 +1710,12 @@
     abrirDlg(o ? 'Obligación · ' + o.nombre : 'Nueva obligación',
       campo('Nombre de la obligación', inp('nombre', o && o.nombre, 'maxlength="255" required'), 1) +
       '<div class="grid">' + campo('Código', inp('codigo', o && o.codigo, 'maxlength="255" placeholder="Ej.: M-01"')) +
-      campo('Periodicidad', sel('periodicidad', unicos(PERIODICIDADES.concat(o ? [o.periodicidad] : [])), o ? o.periodicidad : 'Mensual'), 1) +
+      campo('Periodicidad', sel('periodicidad', unicos(valores('periodicidad', false).concat(o && o.periodicidad ? [o.periodicidad] : [])), o ? o.periodicidad : (valores('periodicidad', false).indexOf('Mensual') >= 0 ? 'Mensual' : valores('periodicidad', false)[0])), 1) +
       campo('Día NLT', inp('dia', o && o.dia, 'type="number" min="1" max="31"')) +
       campo('Meses NLT', inp('meses', o && o.meses, 'maxlength="255" placeholder="1,3,7 o ENE, MAR, JUL"')) +
       campo('Plazo (días desde el evento)', inp('plazo', o && o.plazo, 'type="number" min="0"')) +
-      campo('Categoría', inp('categoria', o && o.categoria, 'list="lCat" maxlength="255"') + '<datalist id="lCat">' + unicos(O().map(x => x.categoria)).map(x => '<option value="' + esc(x) + '">').join('') + '<\/datalist>') +
-      campo('Ámbito', inp('ambito', o && o.ambito, 'list="lAmbO" maxlength="255"') + '<datalist id="lAmbO"><option value="UCO"><option value="BAE"><option value="UCO y BAE"><\/datalist>') + '<\/div>' +
+      campo('Categoría', inp('categoria', o && o.categoria, 'list="lCat" maxlength="255"') + datalist('lCat', 'categoria')) +
+      campo('Ámbito', inp('ambito', o && o.ambito, 'list="lAmbO" maxlength="255"') + datalist('lAmbO', 'ambitoObl')) + '<\/div>' +
       campo('Regla NLT en texto (eventos, a demanda o aclaraciones)', inp('regla', o && o.regla, 'maxlength="255" placeholder="Ej.: 15 días desde publicación en BOD · ASAP"')) +
       '<p class="small muted" id="reglaPrev"><\/p>' +
       campo('Descripción', txa('descripcion', o && o.descripcion)) + campo('Observaciones', txa('obs', o && o.obs)) +
@@ -1669,7 +1779,7 @@
     const ob = obs.find(o => o.id === obId) || obs[0];
     AS = { ob: ob, anio: new Date().getFullYear(), q: '', unis: new Set(unidadesHabituales(ob).filter(u => u.activa).map(u => u.id)) };
     AS.plazos = plazosIniciales();
-    const grupos = PERIODICIDADES.filter(p => p !== 'Por evento').map(p => [p, obs.filter(o => o.periodicidad === p)]).concat([['Otras', obs.filter(o => PERIODICIDADES.indexOf(o.periodicidad) < 0)]]).filter(g => g[1].length);
+    const grupos = valores('periodicidad').filter(p => p !== 'Por evento').map(p => [p, obs.filter(o => o.periodicidad === p)]).concat([['Otras', obs.filter(o => valores('periodicidad').indexOf(o.periodicidad) < 0)]]).filter(g => g[1].length);
     abrirDlg('Asignar obligación a unidades',
       '<p class="small muted">Crea un registro de seguimiento por cada unidad y plazo que marques. Nada se asigna a unidades que no elijas.<\/p>' +
       '<div class="grid">' + campo('1. Obligación', '<select name="ob">' + grupos.map(g => '<optgroup label="' + esc(g[0]) + '">' + g[1].map(o => '<option value="' + o.id + '"' + (o === ob ? ' selected' : '') + '>' + esc((o.codigo ? o.codigo + ' · ' : '') + o.nombre) + '<\/option>').join('') + '<\/optgroup>').join('') + '<\/select>', 1) +
@@ -1869,7 +1979,7 @@
       campo('Obligación', sel('obligacion', os.map(o => [o.id, o.nombre]), e.ob ? e.ob.id : '', e.ob ? null : '(' + (e.obligacion || 'sin obligación') + ')'), 1) +
       campo('Periodo', inp('periodo', e.periodo, 'maxlength="255" required'), 1) + campo('Fecha NLT', inp('nlt', e.nlt, 'type="date" required'), 1) + '<\/div>' +
       '<div class="grid">' + campo('Estado', sel('estado', unicos(ESTADOS_E.concat([e.estadoN])), e.estadoN), 1) + campo('Fecha de recepción', inp('recepcion', e.recepcion, 'type="date"')) +
-      campo('Fecha de validación', inp('validacion', e.validacion, 'type="date"')) + campo('Responsable / remitente', inp('responsable', e.responsable, 'maxlength="255"')) + '<\/div>' +
+      campo('Fecha de validación', inp('validacion', e.validacion, 'type="date"')) + campo('Responsable / remitente', inp('responsable', e.responsable, 'maxlength="255" list="lResp"') + datalist('lResp', 'responsable')) + '<\/div>' +
       campo('Referencia documental', inp('referencia', e.referencia, 'maxlength="255" placeholder="N.º de registro, escrito, ruta…"')) + campo('Observaciones', txa('obs', e.obs)) +
       '<p class="small">Situación actual: ' + badgeE(e) + (e.estado && e.estado !== e.estadoN ? ' <span class="muted">(valor guardado: «' + esc(e.estado) + '»)<\/span>' : '') + '<\/p>' +
       '<p class="small muted">«Recibido» registra la llegada; solo «Validado» cuenta como cumplido. El retraso se calcula con la fecha de recepción frente a la NLT.<\/p>' +
@@ -1936,12 +2046,12 @@
     const obsEv = O().filter(o => o.activa && (o.periodicidad === 'Por evento' || o.periodicidad === 'A demanda' || (v && v.ob === o)));
     const ob0 = v ? v.ob : oPorId.get(obId);
     abrirDlg(v ? 'Evento · ' + v.titulo : 'Nuevo evento',
-      '<div class="grid">' + campo('Tipo de evento', sel('tipo', unicos(TIPOS_EV.concat(EV().map(x => x.tipo)).concat(v ? [v.tipo] : [])), v ? v.tipo : 'Novedad'), 1) +
+      '<div class="grid">' + campo('Tipo de evento', sel('tipo', unicos(valores('tipoEvento', false).concat(v && v.tipo ? [v.tipo] : [])), v ? v.tipo : (valores('tipoEvento', false).indexOf('Novedad') >= 0 ? 'Novedad' : valores('tipoEvento', false)[0])), 1) +
       campo('Unidad afectada', sel('unidad', us.map(u => [u.id, (u.siglas ? u.siglas + ' – ' : '') + u.nombre]), v && v.u ? v.u.id : '', v && !v.u && v.unidad ? '(' + v.unidad + ')' : 'General / sin unidad concreta')) + '<\/div>' +
       campo('Evento / actuación', inp('titulo', v ? v.titulo : (ob0 ? ob0.nombre : ''), 'maxlength="255" required'), 1) +
       campo('Obligación del catálogo que activa (opcional)', sel('ob', obsEv.map(o => [o.id, o.nombre + (o.regla ? ' · ' + o.regla : '')]), ob0 ? ob0.id : '', '— Ninguna —')) +
       '<div class="grid">' + campo('Fecha de activación', inp('activacion', v ? v.activacion : hoy(), 'type="date" required'), 1) + campo('Fecha límite', inp('limite', v ? v.limite : (ob0 && ob0.plazo != null ? sumarDias(hoy(), ob0.plazo) : ''), 'type="date"')) +
-      campo('Responsable', inp('responsable', v && v.responsable, 'maxlength="255"')) + campo('Estado', sel('estado', unicos(ESTADOS_EV.concat(v ? [v.estadoN] : [])), v ? v.estadoN : 'Abierto'), 1) +
+      campo('Responsable', inp('responsable', v && v.responsable, 'maxlength="255" list="lRespV"') + datalist('lRespV', 'responsable')) + campo('Estado', sel('estado', unicos(ESTADOS_EV.concat(v ? [v.estadoN] : [])), v ? v.estadoN : 'Abierto'), 1) +
       campo('Fecha de cierre', inp('cierre', v && v.cierre, 'type="date"')) + '<\/div>' +
       campo('Observaciones / acciones', txa('obs', v && v.obs)) + '<p class="small muted" id="evRegla"><\/p>' +
       avisoFaltan('SEGUIMIENTO_EVENTOS', ['tipo', 'unidad', 'unidadId', 'obligacionId', 'limite', 'cierre', 'responsable', 'obs']) + metaElem(v),
@@ -2042,7 +2152,7 @@
     el.hidden = false; el.textContent = t; el.className = 'estado ok';
     clearTimeout(avisoT); avisoT = setTimeout(() => { if (ultimaEscritura) marcarEscritura(ultimaEscritura.ok, ultimaEscritura.txt); else el.hidden = true; }, 4000);
   }
-  const VERSION = '2026-11-24 · 1';
+  const VERSION = '2026-11-24 · 2';
   const PESTANAS = [['inicio', '🏠', 'Inicio', 'Lo urgente y la situación'], ['entregas', '📥', 'Entregas', 'Plazos y recepción'], ['obligaciones', '📋', 'Obligaciones', 'Catálogo NLT'],
     ['unidades', '🏢', 'Unidades', 'Quién entrega qué'], ['eventos', '📌', 'Eventos', 'Seguimiento'], ['analisis', '📊', 'Análisis', 'Cumplimiento y tendencias'],
     ['informes', '🖨️', 'Informes', 'Imprimir / PDF / Word'], ['ajustes', '⚙️', 'Ajustes', 'Listas y diagnóstico']];
@@ -2098,6 +2208,7 @@
     if (el.matches('[data-acc=selTodas]')) { entregasFiltradas().forEach(e => { if (el.checked) SEL.add(e.id); else SEL.delete(e.id); }); renderRes(); return; }
     if (el.matches('[data-selu]')) { const id = Number(el.dataset.selu); if (el.checked) SELU.add(id); else SELU.delete(id); renderRes(); return; }
     if (el.matches('[data-acc=selTodasU]')) { unidadesFiltradas().forEach(u => { if (el.checked) SELU.add(u.id); else SELU.delete(u.id); }); renderRes(); return; }
+    const cfgB = el.closest('[data-cfg]'); if (cfgB) { ev.preventDefault(); accionValor(cfgB); return; }
     const acc = el.closest('[data-acc]');
     if (acc) {
       ev.preventDefault();
