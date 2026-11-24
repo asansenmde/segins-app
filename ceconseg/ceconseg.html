@@ -228,7 +228,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-25 · 4';
+  var VERSION = '2026-11-25 · 5';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Operadores CECONSEG · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -296,7 +296,8 @@
   };
   // Columnas que crea la página en la lista de partes (nombre interno, tipo, nombre visible)
   var COLUMNAS = [['ESTADO', 'Text', 'Estado'], ['MANDO1N', 'Number', 'Mando de 1.er nivel (nº)'], ['MANDO2N', 'Number', 'Mando de 2.º nivel (nº)'], ['MANDO3N', 'Number', 'Unidad (nº en M3N)'],
-    ['MN1', 'Text', 'Mando de 1.er nivel'], ['MN2', 'Text', 'Mando de 2.º nivel'], ['MN3', 'Text', 'Unidad'], ['SUIGES', 'Text', 'SUIGE'],
+    // OJO: nada de nombres tipo «celda de Excel» (MN1, AB12…): SharePoint los guarda como «_x004d_N1» y no se encuentran
+    ['NOMBRE1N', 'Text', 'Mando de 1.er nivel'], ['NOMBRE2N', 'Text', 'Mando de 2.º nivel'], ['NOMBRE3N', 'Text', 'Unidad'], ['SUIGES', 'Text', 'SUIGE'],
     ['ANIO', 'Number', 'Año'], ['TRIMESTRE', 'Text', 'Trimestre'], ['TIPODETRAMITE', 'Text', 'Tipo de informe'], ['MESCORRESPONDIENTE', 'Text', 'Mes'],
     ['ResponsableDeLaInformacion', 'User', 'Responsable de la información'], ['ResponsableDelParte', 'Text', 'Responsable del parte']]
     .concat(NUMS.map(function (n) { return [n[0], 'Number', n[1]]; }))
@@ -307,7 +308,7 @@
       ['ObservacionesDelExpediente', 'Note', 'Historial del expediente'], ['ModificadoPorTEXTO', 'Text', 'Modificado por']]);
   // Unidades que deben enviar el parte cada trimestre (Ajustes)
   var LISTA_UNIDADES = 'CECONSEG UNIDADES';
-  var COLUMNAS_UNI = [['M3N', 'Number', 'Unidad (nº en M3N)'], ['M2N', 'Number', 'Mando de 2.º nivel (nº)'], ['MN2', 'Text', 'Mando de 2.º nivel'], ['SUIGES', 'Text', 'SUIGE'], ['Activa', 'Boolean', 'Activa']];
+  var COLUMNAS_UNI = [['M3N', 'Number', 'Unidad (nº en M3N)'], ['M2N', 'Number', 'Mando de 2.º nivel (nº)'], ['NOMBRE2N', 'Text', 'Mando de 2.º nivel'], ['SUIGES', 'Text', 'SUIGE'], ['Activa', 'Boolean', 'Activa']];
   var xmlColumna = function (c) {
     return '<Field Type="' + c[1] + '" Name="' + c[0] + '" StaticName="' + c[0] + '" DisplayName="' + c[2] + '"' + (c[1] === 'Note' ? ' NumLines="6" RichText="FALSE"' : c[1] === 'User' ? ' UserSelectionMode="PeopleOnly"' : '') + ' />';
   };
@@ -388,7 +389,7 @@
     var t = {
       id: it.Id, titulo: it.Title || '', estado: String(it.ESTADO || '').trim().toUpperCase(), estadoRaw: it.ESTADO || '',
       mandoIds: [it.MANDO1N, it.MANDO2N, it.MANDO3N].map(function (v) { return esNum(v) ? Number(v) : null; }),
-      cadena: [it.MN1, it.MN2, it.MN3].map(function (v) { return String(v || '').trim(); }), suigesCampo: it.SUIGES || '',
+      cadena: [it.NOMBRE1N, it.NOMBRE2N, it.NOMBRE3N].map(function (v) { return String(v || '').trim(); }), suigesCampo: it.SUIGES || '',
       anio: numero(it.ANIO), trim: it.TRIMESTRE || '', tipo: it.TIPODETRAMITE || '', mes: it.MESCORRESPONDIENTE || '', respParte: it.ResponsableDelParte || '',
       obsUnidad: it.OBSUNIDAD || '', sirvenSin: it.SIRVENSINHPS || '', motHps: it.MOTIVOSHPS || '', fPrevHps: fechaSP(it.FECHAPREVISTAHPS), motCert: it.MOTIVOSCERT || '', fPrevCert: fechaSP(it.FECHAPREVISTACERT),
       motComp: it.MOTIVOSCOMP || '', medidas: it.MEDIDASUNIDAD || '', valSuige: it.VALORACIONSUIGE || '', obsSuige: it.OBSSUIGE || '', valDiacu: it.VALORACIONDIACU || '', obsDiacu: it.OBSDIACU || '',
@@ -436,13 +437,20 @@
   }
   // Unidades obligadas a enviar el parte (lista CECONSEG UNIDADES)
   var urlUni = function () { return web + "/_api/web/lists/getbytitle('" + encodeURIComponent(LISTA_UNIDADES) + "')"; };
+  var faltanUni = [], errUni = '';
   function cargarObligadas() {
+    errUni = ''; faltanUni = [];
     return api(urlUni() + '?$select=Id,ListItemEntityTypeFullName').then(function (l) {
       infoUni = l;
-      return todas(urlUni() + '/items?$top=5000&$select=Id,Title,M3N,M2N,MN2,SUIGES,Activa');
+      return todas(urlUni() + '/fields?$select=InternalName&$top=500');
+    }).then(function (f) {
+      var cols = f.map(function (x) { return x.InternalName; });
+      faltanUni = COLUMNAS_UNI.filter(function (c) { return cols.indexOf(c[0]) < 0; });
+      var sel = ['Id', 'Title'].concat(COLUMNAS_UNI.filter(function (c) { return cols.indexOf(c[0]) >= 0; }).map(function (c) { return c[0]; }));
+      return todas(urlUni() + '/items?$top=5000&$select=' + sel.join(','));
     }).then(function (l) {
-      unidadesOblig = l.map(function (x) { return { id: x.Id, nombre: x.Title || '', m3: numero(x.M3N), m2: numero(x.M2N), mn2: x.MN2 || '', suige: normSuige(x.MN2) || normSuige(x.SUIGES), activa: x.Activa !== false }; });
-    }, function () { infoUni = null; unidadesOblig = null; });
+      unidadesOblig = l.map(function (x) { return { id: x.Id, nombre: x.Title || '', m3: numero(x.M3N), m2: numero(x.M2N), mn2: x.NOMBRE2N || '', suige: normSuige(x.NOMBRE2N) || normSuige(x.SUIGES), activa: x.Activa !== false }; });
+    }, function (e) { if (!(e && e.status === 404)) errUni = (e && e.message) || String(e); if (!infoUni || e.status === 404) infoUni = null; unidadesOblig = infoUni ? [] : null; });
   }
   function cargar() {
     $('#estadoCarga').textContent = 'Cargando…';
@@ -510,8 +518,8 @@
     return todas(url + '&$filter=' + encodeURIComponent(c.join(' or '))).catch(function (e) {
       if (e.status !== 400) throw e;
       // Respaldo: solo Id, autor, responsable y SUIGE para saber cuáles me corresponden; después se piden por su número
-      return todas(urlLista() + '/items?$top=5000&$select=Id,AuthorId,ResponsableDeLaInformacionId,SUIGES,MN2').then(function (ls) {
-        var ids = ls.filter(function (x) { return x.AuthorId === yo.Id || x.ResponsableDeLaInformacionId === yo.Id || misSuiges.indexOf(normSuige(x.MN2) || normSuige(x.SUIGES)) >= 0; }).map(function (x) { return x.Id; });
+      return todas(urlLista() + '/items?$top=5000&$select=Id,AuthorId,ResponsableDeLaInformacionId,SUIGES' + (colsLista && colsLista.indexOf('NOMBRE2N') < 0 ? '' : ',NOMBRE2N')).then(function (ls) {
+        var ids = ls.filter(function (x) { return x.AuthorId === yo.Id || x.ResponsableDeLaInformacionId === yo.Id || misSuiges.indexOf(normSuige(x.NOMBRE2N) || normSuige(x.SUIGES)) >= 0; }).map(function (x) { return x.Id; });
         var trozos = []; for (var i = 0; i < ids.length; i += 40) trozos.push(ids.slice(i, i + 40));
         return Promise.all(trozos.map(function (tr) { return todas(url + '&$filter=' + encodeURIComponent(tr.map(function (id) { return '(Id eq ' + id + ')'; }).join(' or '))); }))
           .then(function (rs) { return [].concat.apply([], rs); });
@@ -531,14 +539,24 @@
   }
   function crearColumnasEn(urlL, cols) {
     return cols.reduce(function (p, c) {
-      return p.then(function () { return enviarSP(urlL + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xmlColumna(c), Options: 8 } }, 'No tienes permiso para crear columnas'); });
+      return p.then(function () { return enviarSP(urlL + '/fields/createfieldasxml', { parameters: { __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' }, SchemaXml: xmlColumna(c), Options: 24 } }, 'No tienes permiso para crear columnas'); });
     }, Promise.resolve());
+  }
+  // Que las columnas se vean al abrir la lista en SharePoint (vista predeterminada); si no se puede, no pasa nada
+  function ponerEnVista(urlL, nombres) {
+    return api(urlL + '/DefaultView/ViewFields').then(function (v) {
+      var hay = lista(v && v.Items);
+      return nombres.filter(function (n) { return hay.indexOf(n) < 0; }).reduce(function (p, n) {
+        return p.then(function () { return enviarSP(urlL + "/DefaultView/ViewFields/addviewfield('" + n + "')", {}, 'sin permiso').catch(function () {}); });
+      }, Promise.resolve());
+    }).catch(function () {});
   }
   function prepararLista(boton) {
     boton.disabled = true; var m = $('#prepMsg') || $('#ajMsg');
     if (m) m.innerHTML = '<p class="muted small">Creando…</p>';
     var crear = listaInfo ? Promise.resolve() : enviarSP(web + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: pref.lista, Description: 'Partes de operadores CECONSEG (Unidad → SUIGE → DIACU → IGE)' }, 'No tienes permiso para crear listas en el sitio');
     crear.then(function () { return leerColumnasPartes(); }).then(function () { return crearColumnasEn(urlLista(), faltanCols); })
+      .then(function () { return ponerEnVista(urlLista(), COLUMNAS.filter(function (c) { return c[1] !== 'Note' && c[0] !== 'ModificadoPorTEXTO'; }).map(function (c) { return c[0]; })); })
       .then(function () { return cargar(); }).then(function () { toast('Lista de partes preparada'); })
       .catch(function (e) { boton.disabled = false; if (m) m.innerHTML = '<div class="error">No se pudo: ' + esc(e.message || e) + '</div>'; });
   }
@@ -782,7 +800,9 @@
   function vistaAjustes() {
     var prep = '<div class="card"><h3 style="margin-top:0">Preparación <span class="small muted">· versión ' + esc(VERSION) + '</span></h3>' +
       '<p class="small">' + (faltanCols.length ? '✕ A la lista «' + esc(pref.lista) + '» le faltan ' + faltanCols.length + ' columnas: ' + esc(faltanCols.map(function (c) { return c[0]; }).join(', ')) + '. <button class="prim" data-preparar="1">Crearlas</button>' : '✔ Lista «' + esc(pref.lista) + '» con todas sus columnas.') + '</p>' +
-      '<p class="small">' + (infoUni ? '✔ Lista «' + LISTA_UNIDADES + '» de unidades obligadas.' : '✕ Falta la lista «' + LISTA_UNIDADES + '» para marcar las unidades obligadas. <button class="prim" data-crearuni="1">Crearla</button>') + '</p>' +
+      '<p class="small">' + (!infoUni ? '✕ Falta la lista «' + LISTA_UNIDADES + '» para marcar las unidades obligadas. <button class="prim" data-crearuni="1">Crearla</button>' :
+        faltanUni.length ? '✕ A la lista «' + LISTA_UNIDADES + '» le faltan ' + faltanUni.length + ' columnas: ' + esc(faltanUni.map(function (c) { return c[0]; }).join(', ')) + '. <button class="prim" data-crearuni="1">Crearlas</button>' :
+        '✔ Lista «' + LISTA_UNIDADES + '» de unidades obligadas.') + (errUni ? ' <span class="txt-bad">(' + esc(errUni) + ')</span>' : '') + '</p>' +
       '<p class="small">🗓️ Periodicidad del parte ordinario: <select id="aPer" style="width:auto">' + PERIODICIDADES.map(function (p) { return '<option' + (p[0] === cfg.periodicidad ? ' selected' : '') + '>' + p[0] + '</option>'; }).join('') + '</select> ' +
         '<button data-guardarcfg="1">Guardar</button> <span class="muted">(los partes ya enviados conservan la suya; se puede cambiar cuando haga falta)</span></p>' +
       '<p class="small">✉ <label class="check" style="display:inline"><input type="checkbox" id="aCorreo"' + (pref.correo ? ' checked' : '') + '> Enviar los avisos por correo al tramitar</label> <button data-correoprueba="1">Enviarme un correo de prueba</button></p>' +
@@ -807,11 +827,12 @@
     }).catch(function (e) { caja.innerHTML = '<div class="error">No se pudieron leer las unidades de M3N: ' + esc(e.message || e) + '</div>'; });
   }
   function guardarObligadas(boton) {
+    if (faltanUni.length) { toast('Antes crea las columnas que faltan en ' + LISTA_UNIDADES + ' (arriba, en Preparación)'); return; }
     var marc = Array.prototype.map.call(document.querySelectorAll('[data-obl]:checked'), function (c) { return { m3: Number(c.dataset.obl), m2: Number(c.dataset.m2) || null, nombre: c.dataset.nom, mn2: c.dataset.mn2 }; });
     var act = unidadesOblig || [], tipo = { __metadata: { type: infoUni.ListItemEntityTypeFullName } }, ops = [];
     marc.forEach(function (m) {
       var ex = act.find(function (u) { return u.m3 === m.m3; });
-      if (!ex) ops.push(function () { return enviarSP(urlUni() + '/items', Object.assign({}, tipo, { Title: m.nombre, M3N: m.m3, M2N: m.m2, MN2: m.mn2, SUIGES: normSuige(m.mn2), Activa: true }), 'Sin permiso para escribir en ' + LISTA_UNIDADES); });
+      if (!ex) ops.push(function () { return enviarSP(urlUni() + '/items', Object.assign({}, tipo, { Title: m.nombre, M3N: m.m3, M2N: m.m2, NOMBRE2N: m.mn2, SUIGES: normSuige(m.mn2), Activa: true }), 'Sin permiso para escribir en ' + LISTA_UNIDADES); });
       else if (!ex.activa) ops.push(function () { return enviarSP(urlUni() + '/items(' + ex.id + ')', Object.assign({}, tipo, { Activa: true }), 'Sin permiso', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }); });
     });
     act.filter(function (u) { return u.activa && !marc.some(function (m) { return m.m3 === u.m3; }); }).forEach(function (u) {
@@ -824,8 +845,14 @@
   }
   function crearListaUni(boton) {
     boton.disabled = true;
-    enviarSP(web + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: LISTA_UNIDADES, Description: 'Unidades que deben enviar el parte trimestral de operadores CECONSEG' }, 'No tienes permiso para crear listas en el sitio')
-      .then(function () { return crearColumnasEn(urlUni(), COLUMNAS_UNI); }).then(cargarObligadas).then(function () { render(); toast('Lista ' + LISTA_UNIDADES + ' creada'); })
+    // Si la lista ya existe (p. ej. creada con la versión anterior), solo se añaden las columnas que le faltan
+    var existe = api(urlUni() + '?$select=Id').then(function () { return true; }, function (e) { if (e && e.status === 404) return false; throw e; });
+    existe.then(function (si) {
+      return (si ? Promise.resolve() : enviarSP(web + '/_api/web/lists', { __metadata: { type: 'SP.List' }, BaseTemplate: 100, Title: LISTA_UNIDADES, Description: 'Unidades que deben enviar el parte de operadores CECONSEG' }, 'No tienes permiso para crear listas en el sitio'))
+        .then(function () { return si ? todas(urlUni() + '/fields?$select=InternalName&$top=500') : []; })
+        .then(function (f) { var cols = f.map(function (x) { return x.InternalName; }); return crearColumnasEn(urlUni(), COLUMNAS_UNI.filter(function (c) { return cols.indexOf(c[0]) < 0; })); })
+        .then(function () { return ponerEnVista(urlUni(), COLUMNAS_UNI.map(function (c) { return c[0]; })); });
+    }).then(cargarObligadas).then(function () { render(); toast(faltanUni.length ? 'Siguen faltando columnas en ' + LISTA_UNIDADES : 'Lista ' + LISTA_UNIDADES + ' preparada'); })
       .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
   }
   var resultadoTramite = null;
@@ -1484,7 +1511,7 @@
         if (dup) return err('Ya existe el parte ' + val('tipo').toLowerCase() + ' de esta unidad para ' + val('trim') + ' ' + val('anio') + ' (nº ' + dup.id + ', ' + faseTxt(dup).toLowerCase() + '). Ábrelo desde la lista; si hay cambios de más del 15 %, haz uno EXTRAORDINARIO.');
       }
       var c = { Title: mn[2] + ' · ' + (val('tipo') === 'EXTRAORDINARIO' ? 'EXTRAORDINARIO ' + val('mes') : val('trim')) + ' ' + val('anio'),
-        MANDO1N: Number(sM1.value) || null, MANDO2N: Number(sM2.value) || null, MANDO3N: Number(sM3.value) || null, MN1: mn[0], MN2: mn[1], MN3: mn[2], SUIGES: suige,
+        MANDO1N: Number(sM1.value) || null, MANDO2N: Number(sM2.value) || null, MANDO3N: Number(sM3.value) || null, NOMBRE1N: mn[0], NOMBRE2N: mn[1], NOMBRE3N: mn[2], SUIGES: suige,
         ANIO: Number(val('anio')), TRIMESTRE: val('trim'), TIPODETRAMITE: val('tipo'), MESCORRESPONDIENTE: val('tipo') === 'EXTRAORDINARIO' ? val('mes') : '',
         ResponsableDeLaInformacionId: resp ? resp.Id : null, ResponsableDelParte: resp ? resp.Title : '', OBSUNIDAD: val('OBSUNIDAD'),
         SIRVENSINHPS: val('SIRVENSINHPS'), MOTIVOSHPS: val('MOTIVOSHPS'), MOTIVOSCERT: val('MOTIVOSCERT'), MOTIVOSCOMP: val('MOTIVOSCOMP'), MEDIDASUNIDAD: val('MEDIDASUNIDAD'),

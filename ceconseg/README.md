@@ -34,8 +34,8 @@ previstas, si prestan servicio operadores sin HPS y medidas adoptadas). Lo valor
 ## Puesta en marcha
 
 1. Sube `colabora/ceconseg.html` a la biblioteca del sitio de IGE donde está la de Incidentes y ábrela con Control total.
-2. La primera vez sale **«Preparar la aplicación»**: crea la lista **CECONSEG OPERADORES** con sus 40 columnas (si se preparó
-   con la versión 1, sale «A la lista le faltan 9 columnas · Crearlas ahora»).
+2. La primera vez sale **«Preparar la aplicación»**: crea la lista **CECONSEG OPERADORES** con sus 40 columnas, que se ponen en la vista de la lista.
+   Si se preparó con una versión anterior, en Ajustes › Preparación sale «le faltan … columnas · Crearlas» (en las dos listas): pulsarlo.
 3. En **Ajustes**: elige la periodicidad del parte (trimestral si no se toca); crea la lista **CECONSEG UNIDADES** y marca las unidades obligadas (de M3N, agrupadas por mando de
    2.º nivel); los responsables de cada SUIGE salen de Incidentes; crea **CECONSEG RESPONSABLES** solo si en alguna SUIGE lo lleva otra persona.
 4. En **Accesos**: crea el grupo `CECONSEG_UNIDADES`, «Permitir que cualquiera solicite acceso» y da a la lista de partes
@@ -44,7 +44,7 @@ previstas, si prestan servicio operadores sin HPS y medidas adoptadas). Lo valor
 
 ## Listas
 
-- `CECONSEG OPERADORES` (la crea la página): `ESTADO`, `MANDO1N/2N/3N` (número en M1N–M3N), `MN1/MN2/MN3` (nombres), `SUIGES`,
+- `CECONSEG OPERADORES` (la crea la página): `ESTADO`, `MANDO1N/2N/3N` (número en M1N–M3N), `NOMBRE1N/NOMBRE2N/NOMBRE3N` (nombres; no se llaman MN1… porque SharePoint guarda los nombres con forma de celda de Excel como «_x004d_N1» y no se encuentran), `SUIGES`,
   `ANIO`, `TRIMESTRE` (código del periodo: M01–M12, B1–B6, T1–T4, C1–C3, S1–S2 o A), `TIPODETRAMITE` (la periodicidad o
   EXTRAORDINARIO), `MESCORRESPONDIENTE`, `ResponsableDeLaInformacion` (persona), `ResponsableDelParte`, `NUMEROOPERADORES`,
   `OPERADORESTROPA`, `HPSSINCURSAR`, `HPSENTRAMITE`, `HPSEJECUTADA`, `HPSDENEGADA`, `HPSCADUCA`, `CERTSINCURSAR`, `CERTEJECUTADO`,
@@ -52,7 +52,7 @@ previstas, si prestan servicio operadores sin HPS y medidas adoptadas). Lo valor
   `MEDIDASUNIDAD`, `OBSUNIDAD`, `VALORACIONSUIGE/DIACU/IGE`, `OBSSUIGE/DIACU/IGE`,
   `ObservacionesDelExpediente` (historial, con el resultado de cada correo) y `ModificadoPorTEXTO`. La periodicidad se guarda en la
   descripción de esta lista (línea «Configuración CECONSEG: {…}»).
-- `CECONSEG UNIDADES`: `Title` (unidad), `M3N`, `M2N`, `MN2`, `SUIGES`, `Activa`.
+- `CECONSEG UNIDADES`: solo la marca de qué unidades de **M3N** están obligadas (no es otra lista de unidades): `Title` (unidad), `M3N` (nº del elemento en M3N), `M2N`, `NOMBRE2N`, `SUIGES`, `Activa`.
 - `CECONSEG RESPONSABLES`: responsables de los avisos por escalón (como en Incidentes). **Si un escalón no tiene responsables
   aquí, se usan los de `INCIDENTES RESPONSABLES`** (mismo sitio; en Ajustes salen marcados «de Incidentes»). Los grupos
   `SEGURIDAD_SUIGE…` y `SEGURIDAD_IGE` son los mismos que en Incidentes.

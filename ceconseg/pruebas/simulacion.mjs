@@ -87,7 +87,8 @@ async function abrir(b, yoId, opc) {
       if (resto === 'web/lists') { if (!admin) return ERR(403, 'Acceso denegado.'); L[c.Title] = nuevaLista(c.Title, []); return J({ Title: c.Title }, 201); }
       if (lm) {
         if (!Lx) return NO();
-        if (/\/fields\/createfieldasxml$/.test(sub)) { if (!admin) return ERR(403, 'Acceso denegado.'); const x = c.parameters.SchemaXml; Lx.campos.push({ InternalName: x.match(/Name="([^"]+)"/)[1], TypeAsString: x.match(/Type="([^"]+)"/)[1] }); return J({}); }
+        const av = sub.match(/^\/DefaultView\/ViewFields\/addviewfield\('([^']+)'\)$/); if (av) { (Lx.vista = Lx.vista || []).push(av[1]); return J({}); }
+        if (/\/fields\/createfieldasxml$/.test(sub)) { if (!admin) return ERR(403, 'Acceso denegado.'); const x = c.parameters.SchemaXml, nm = x.match(/Name="([^"]+)"/)[1]; Lx.campos.push({ InternalName: /^[A-Za-z]{1,3}\d+$/.test(nm) ? '_x' + nm.charCodeAt(0).toString(16).padStart(4, '0') + '_' + nm.slice(1) : nm, TypeAsString: x.match(/Type="([^"]+)"/)[1] }); return J({}); }
         if (/AttachmentFiles\/add/.test(sub)) return J({});
         if (sub === '' ) { Object.assign(Lx.info, c); delete Lx.info.__metadata; return r.fulfill({ status: 204, body: '' }); }
         const mi = sub.match(/^\/items\((\d+)\)$/); delete c.__metadata;
@@ -111,6 +112,7 @@ async function abrir(b, yoId, opc) {
     const gb = resto.match(/^web\/getuserbyid\((\d+)\)/); if (gb) { const pe = quien(+gb[1]); return J({ Id: pe.Id, Title: pe.Title, Email: pe.EMail, LoginName: pe.Name }); }
     if (lm) {
       if (!Lx) return NO();
+      if (sub === '/DefaultView/ViewFields') return J({ Items: acc.includes('verbose') ? { results: Lx.vista || [] } : (Lx.vista || []) });
       if (sub.startsWith('/fields')) return J(Lx.campos.map(f => ({ InternalName: f.InternalName, Title: f.InternalName, TypeAsString: f.TypeAsString, Choices: [] })));
       if (sub.startsWith('/roleassignments')) return J([]);
       const ad = sub.match(/^\/items\((\d+)\)\/AttachmentFiles/); if (ad) return J([]);
@@ -183,7 +185,7 @@ async function escenario(verbose) {
   await p.fill('[name=HPSEJECUTADA]', '15');
   correos.length = 0; await p.click('#fEnviar'); await p.waitForTimeout(2500);
   const p1 = partes()[0];
-  ok(p1 && p1.ESTADO === 'REMITIDO A SUIGE' && p1.SUIGES === 'SUIGESUR' && p1.MN3 === 'ACUARTELAMIENTO X' && p1.NUMEROOPERADORES === 20 && p1.TIPODETRAMITE === 'TRIMESTRAL' && p1.SIRVENSINHPS === 'SI' && /trámite/.test(p1.MOTIVOSHPS) && /^2027-01-31/.test(p1.FECHAPREVISTAHPS) && p1.MOTIVOSCOMP === '', tag + 'parte enviado: REMITIDO A SUIGE (SUIGESUR) con sus datos y la justificación', JSON.stringify(p1));
+  ok(p1 && p1.ESTADO === 'REMITIDO A SUIGE' && p1.SUIGES === 'SUIGESUR' && p1.NOMBRE3N === 'ACUARTELAMIENTO X' && p1.NUMEROOPERADORES === 20 && p1.TIPODETRAMITE === 'TRIMESTRAL' && p1.SIRVENSINHPS === 'SI' && /trámite/.test(p1.MOTIVOSHPS) && /^2027-01-31/.test(p1.FECHAPREVISTAHPS) && p1.MOTIVOSCOMP === '', tag + 'parte enviado: REMITIDO A SUIGE (SUIGESUR) con sus datos y la justificación', JSON.stringify(p1));
   ok(correos.some(m => /Prestan servicio operadores SIN HPS/.test(m.cuerpo)), tag + 'el aviso a la SUIGE lleva lo que hay que revisar');
   ok(correos.some(m => /PARTE DE OPERADORES CECONSEG/.test(m.asunto) && m.to.includes('i:0#.w|et\\sur1')), tag + 'aviso a la SUIGE, a su CUENTA', JSON.stringify(correos.map(m => m.to)));
   ok(correos.some(m => /PARTE DE OPERADORES CECONSEG/.test(m.asunto) && m.to.includes('i:0#.w|et\\rsur')), tag + 'sin responsables propios, el aviso llega también al responsable de la SUIGE en Incidentes', JSON.stringify(correos.map(m => m.to)));
@@ -285,7 +287,34 @@ async function escenario(verbose) {
   await c.close();
   await b.close();
 }
+// Listas creadas con la versión anterior (MN1, MN2, MN3 guardadas por SharePoint como _x004d_N1…): «Crearlas» las arregla
+async function actualizacion() {
+  const tag = '[actualización] ';
+  console.log('\n== Listas de la versión anterior ==');
+  servidor();
+  const b = await chromium.launch();
+  let { b: c, p, errs } = await abrir(b, 1, { verbose: false, admin: true });
+  await p.click('[data-preparar]'); await p.waitForTimeout(2500); await tab(p, 'ajustes'); await p.click('[data-crearuni]'); await p.waitForTimeout(2000);
+  await c.close();
+  const LP = lista('CECONSEG OPERADORES'), LU = lista('CECONSEG UNIDADES');
+  LP.campos = LP.campos.filter(f => !/^NOMBRE\dN$/.test(f.InternalName)).concat(['_x004d_N1', '_x004d_N2', '_x004d_N3'].map(n => ({ InternalName: n, TypeAsString: 'Text' })));
+  LU.campos = LU.campos.filter(f => f.InternalName !== 'NOMBRE2N').concat([{ InternalName: '_x004d_N2', TypeAsString: 'Text' }]);
+  ({ b: c, p, errs } = await abrir(b, 1, { verbose: false, admin: true }));
+  await tab(p, 'ajustes');
+  let t = await texto(p);
+  ok(/le faltan 3 columnas: NOMBRE1N, NOMBRE2N, NOMBRE3N/.test(t) && /«CECONSEG UNIDADES» le faltan 1 columnas: NOMBRE2N/.test(t), tag + 'avisa de las columnas que faltan en las dos listas (y la de unidades se ve, no «falta la lista»)');
+  await p.click('[data-crearuni]'); await p.waitForTimeout(2000);
+  await p.evaluate(() => document.querySelector('[data-preparar]').click()); await p.waitForTimeout(2500); await tab(p, 'ajustes');
+  t = await texto(p);
+  ok(/✔ Lista «CECONSEG OPERADORES» con todas sus columnas/.test(t) && /✔ Lista «CECONSEG UNIDADES» de unidades obligadas/.test(t) && lista('CECONSEG UNIDADES') === LU, tag + '«Crearlas» deja las dos listas completas sin crear otra lista', t.slice(0, 300));
+  ok(['NOMBRE1N', 'MANDO3N', 'NUMEROOPERADORES', 'ESTADO'].every(n => (LP.vista || []).includes(n)) && (LU.vista || []).includes('NOMBRE2N'), tag + 'las columnas se ponen en la vista de la lista (se ven al abrirla en SharePoint)', JSON.stringify([LP.vista, LU.vista]));
+  await p.evaluate(() => document.querySelectorAll('#oblCaja details').forEach(d => { d.open = true; })); await p.check('[data-obl="1"]'); await p.click('[data-oblguardar]'); await p.waitForTimeout(1500);
+  ok(LU.items.length === 1 && LU.items[0].NOMBRE2N === 'SUIGESUR', tag + 'después guarda las unidades obligadas', JSON.stringify(LU.items));
+  ok(errs.length === 0, tag + 'sin errores de página', errs.join(' | '));
+  await c.close(); await b.close();
+}
 await escenario(false);
 await escenario(true);
+await actualizacion();
 console.log(fallos ? '\nHAY FALLOS (' + fallos + ')' : '\nTODO BIEN');
 process.exit(fallos ? 1 : 0);
