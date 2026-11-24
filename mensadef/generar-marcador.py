@@ -235,6 +235,13 @@ generar('visor-mensadef.html', 'marcador-visor-mensadef.html', 'SENDERO', 'SENDE
          'Pulsa un mensaje para ver su ficha (al abrirlo queda leído también en MENSADEF). Con <b>➜ Añadir tarea en META</b> se '
          'abre el Gestor de Tareas con el alta rellena, el negociado y el responsable: la primera vez te pide la dirección '
          'del Gestor y un nombre; puedes guardar varios y elegir en cada mensaje.',
+         '<b>✉ Correo</b> (en la ficha): se abre una ventana de Colabora; eliges a quién (Para y CC, buscando por nombre), '
+         'añades un comentario si quieres, ves cómo quedará y pulsas <b>Enviar</b>. Lleva el texto completo, los datos, '
+         '«Abrir en MENSADEF» y el enlace de cada documento.',
+         '<b>✍ Firmar en Rúbrica</b> (en un mensaje ya pasado a rúbrica, pendiente de firma): se abre el Portafirmas en otra '
+         'pestaña. Identifícate si te lo pide (perfil <b>Firmante</b>) y, <b>estando en el Portafirmas, pulsa este mismo '
+         'favorito SENDERO</b>: abajo a la derecha sale «Firmar con SENDERO» con la petición ya marcada. Pulsa <b>📄 Abrir el '
+         'documento</b>, léelo y pulsa «He leído el documento»; después <b>✍ Firmar</b> y, en AutoFirma, tu certificado y PIN.',
          'Para volver a MENSADEF normal, recarga la página (F5).',
          '<b>Para firmar en Rúbrica</b>: en un mensaje pendiente de firma pulsa <b>✍ Firmar en Rúbrica</b>; en el Portafirmas (identificado '
          'como Firmante) pulsa <b>este mismo favorito SENDERO</b>: marca la petición, abres el documento, pulsas «He leído» y '
