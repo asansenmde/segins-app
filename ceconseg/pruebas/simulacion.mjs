@@ -238,10 +238,26 @@ async function escenario(verbose) {
   await p.selectOption('#eAnio', ''); await p.waitForTimeout(300); await p.selectOption('#eTrim', ''); await p.waitForTimeout(300);
   const tot = await p.$$eval('#vista table.t tr', t => t.map(x => [...x.cells].map(c => c.textContent.trim()).join(' ')).find(x => /TOTAL/.test(x)) || '');
   ok(/TOTAL 1 20 15 2 3 15 0 75 % 0 1 19 95 % 20 1/.test(tot), tag + 'estadísticas por SUIGE (solo partes enviados): ' + tot);
-  const [w] = await Promise.all([c.waitForEvent('page'), p.click('[data-iimp]')]); await w.waitForLoadState(); await w.waitForTimeout(300);
-  ok(/INFORME DE OPERADORES CECONSEG/.test(await w.textContent('.banda')) && (await w.$$('table.r')).length >= 2, tag + 'informe para imprimir con la cabecera oficial');
-  ok(/HUECOS Y JUSTIFICACIÓN/.test(await w.textContent('body')) && /acompañados/.test(await w.textContent('body')), tag + 'el informe trae las unidades con huecos y sus motivos');
+  // Informe detallado (como Incidentes): desde Estadísticas con el mismo periodo
+  await p.click('[data-iest]'); await p.waitForTimeout(500);
+  ok(await p.$eval('#tabs a.on', a => a.dataset.v) === 'informe' && await p.$eval('#iAnio', s => s.value) === '' && await p.$eval('#iTrim', s => s.value) === '', tag + '«Informe detallado» abre su pestaña con el periodo de Estadísticas');
+  let inf = (await p.textContent('#vista .inf')).replace(/\s+/g, ' ');
+  ok(/Resumen general/.test(inf) && /HPS concedida\s*75 %/.test(inf) && /Unidades con operadores sin HPS de servicio\s*1/.test(inf), tag + 'resumen con indicadores (75 % HPS, 1 unidad con operadores sin HPS de servicio)', inf.slice(0, 400));
+  ok(/Comparativa por SUIGE/.test(inf) && /Situación de las HPS/.test(inf) && /Valoración de IGE/.test(inf) && /menor % de HPS concedida/.test(inf) && /Huecos y justificación/.test(inf) && /acompañados/.test(inf), tag + 'comparativa, gráficos, ranking y huecos en pantalla');
+  ok((await p.$$('#vista .inf .apil, #vista .inf .inf-barra')).length >= 5, tag + 'con gráficos de barras');
+  if (!verbose) { await p.setViewportSize({ width: 1300, height: 1500 }); await p.screenshot({ path: new URL('informe.png', import.meta.url).pathname, fullPage: false }); }
+  await p.selectOption('#iAgr', 'unidad'); await p.waitForTimeout(400); await p.check('[data-isec="detalle"]'); await p.waitForTimeout(400);
+  inf = await p.textContent('#vista .inf');
+  ok(/Comparativa por unidad/.test(inf) && /Detalle de cada parte/.test(inf), tag + 'se puede agrupar por unidad y añadir el detalle de cada parte');
+  await p.check('[data-isec="historial"]'); await p.waitForTimeout(300);
+  const [w] = await Promise.all([c.waitForEvent('page'), p.click('[data-iimp]')]); await w.waitForLoadState(); await w.waitForTimeout(500);
+  const tw = await w.textContent('body');
+  ok(/INFORME DE OPERADORES CECONSEG/.test(await w.textContent('.banda')) && /Por unidad/.test(tw), tag + 'informe para imprimir / PDF con la cabecera oficial');
+  ok(/Huecos y justificación/.test(tw) && /acompañados/.test(tw) && /Historial del expediente/.test(tw) && /INFORMADO A DIACU/.test(tw), tag + 'el informe impreso trae huecos, motivos, detalle e historial');
   await w.close();
+  const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-icsv]')]);
+  const csvTxt = require('fs').readFileSync(await dl.path(), 'utf8');
+  ok(/ACUARTELAMIENTO X/.test(csvTxt) && /% HPS concedida/.test(csvTxt) && /acompañados/.test(csvTxt), tag + 'Excel (CSV) del informe con los grupos y los partes');
   ok(errs.length === 0, tag + 'sin errores de página (IGE)', errs.join(' | '));
   await c.close();
 

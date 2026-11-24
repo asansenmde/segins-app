@@ -65,10 +65,15 @@ Estados: `BORRADOR` · `DEVUELTO A LA UNIDAD` · `REMITIDO A SUIGE` · `REMITIDO
 - **Pendiente de valoración**: por papel (mis borradores y devueltos, SUIGE, DIACU, IGE), los más antiguos primero.
 - **Control de entregas**: unidades obligadas de tu SUIGE (todas, si eres de IGE) con su parte del periodo y «✉ Recordar».
 - **Búsqueda y consulta**: busca en todos los campos, filtros, CSV e impresión de la relación.
-- **Estadísticas e informes**: por SUIGE (último parte enviado de cada unidad en el periodo): operadores, HPS (con denegadas y
-  las que caducan) y su % de concedidas sobre los operadores, certificados, compromisos, unidades con operadores sin HPS de
-  servicio y valoraciones; informe oficial para imprimir / PDF con las unidades con huecos (motivos, medidas y fechas
-  previstas) y las que faltan.
+- **Estadísticas**: por SUIGE (último parte enviado de cada unidad en el periodo): operadores, HPS (con denegadas y las que
+  caducan) y su % de concedidas sobre los operadores, certificados, compromisos, unidades con operadores sin HPS de servicio,
+  valoraciones y gráficos de barras. «📑 Informe detallado de este periodo» lleva al informe con el mismo periodo.
+- **Informe detallado** (como el de Incidentes): año, periodo, SUIGE y «Agrupar por» (SUIGE, mando de 2.º nivel, unidad,
+  periodo, año, valoración SUIGE o IGE) y apartados a elegir: resumen con indicadores, comparativa por grupo (con barra de la
+  situación de las HPS), evolución por periodos, gráficos de HPS / certificados / compromisos / valoraciones, unidades con
+  menor % de HPS concedida, huecos y justificación, obligadas sin parte, relación de unidades y detalle de cada parte (con el
+  historial si se marca). Lo que se ve es lo que se imprime: «🖨 Imprimir informe / PDF» (A4 apaisado, cabecera oficial) y
+  «📊 Excel del informe (CSV)» con los grupos y todos los partes.
 - **Ficha**: datos, «Situación para el analista» (huecos: cuántos operadores sin HPS y por qué, certificados, compromisos,
   HPS que caducan, si sirven sin HPS) con la justificación de la unidad, pasos del circuito, valoraciones, historial, adjuntos,
   acciones de cada papel e impresión. Las tarjetas marcan «⚠ Sirven sin HPS» o «⚠ n a revisar», y los avisos por correo lo incluyen.

@@ -228,7 +228,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-25 · 2';
+  var VERSION = '2026-11-25 · 3';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Operadores CECONSEG · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -431,7 +431,7 @@
       var d = String(l.Description || ''), i = d.indexOf(CFG_ETQ), linea = CFG_ETQ + JSON.stringify(nueva);
       var desc = i < 0 ? (d ? d + '\n' : '') + linea : d.slice(0, i) + linea + (d.indexOf('\n', i) < 0 ? '' : d.slice(d.indexOf('\n', i)));
       return enviarSP(urlLista(), { __metadata: { type: 'SP.List' }, Description: desc }, 'No tienes permiso para cambiar la lista', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' });
-    }).then(function () { cfg = nueva; pref.ctl = {}; pref.est = {}; guardarPref(); render(); toast('Periodicidad: ' + cfg.periodicidad.toLowerCase()); })
+    }).then(function () { cfg = nueva; pref.ctl = {}; pref.est = {}; if (pref.inf) { delete pref.inf.anio; delete pref.inf.trim; } guardarPref(); render(); toast('Periodicidad: ' + cfg.periodicidad.toLowerCase()); })
       .catch(function (e) { boton.disabled = false; toast('No se pudo guardar: ' + (e.message || e)); });
   }
   // Unidades obligadas a enviar el parte (lista CECONSEG UNIDADES)
@@ -663,7 +663,7 @@
       '<div class="mini">' +
       '<div data-ir="pendientes"><span class="ic r">⏳</span><div><b>' + nPend() + '</b><span>Esperan mi acción</span></div></div>' +
       '<div data-ir="abiertos"><span class="ic a">📂</span><div><b>' + ab.length + '</b><span>Partes en tramitación</span></div></div>' +
-      (unidadesOblig && ctl.length ? '<div data-ir="control"><span class="ic az">🗓️</span><div><b>' + (ctl.length - faltan) + ' / ' + ctl.length + '</b><span>Unidades con el parte del ' + esc(ta.trim + ' ' + ta.anio) + ' enviado</span></div></div>' : '') +
+      (unidadesOblig && ctl.length ? '<div data-ir="control"><span class="ic az">🗓️</span><div><b>' + (ctl.length - faltan) + ' / ' + ctl.length + '</b><span>Unidades con el parte del ' + esc(trimTxt(ta.trim) + ' ' + ta.anio) + ' enviado</span></div></div>' : '') +
       '<div data-ir="estadisticas"><span class="ic m">📊</span><div><b>' + items.length + '</b><span>Partes en total · ver estadísticas</span></div></div></div>' +
       '<div class="sec"><span>Circuito</span><span>Unidad › SUIGE › DIACU › IGE › cierre</span></div><div class="flujo">' +
       fases.map(function (f, k) { return (k ? '<span class="fl">›</span>' : '') + '<div class="fp ' + f[0] + '" data-ir="fase:' + f[3] + '"><i>' + f[1] + '</i><small>' + f[2] + '</small><b>' + n(function (t) { return fase(t) === f[3]; }) + '</b></div>'; }).join('') + '</div>' +
@@ -772,7 +772,7 @@
     var colV = function (v) { return v === 'BIEN' ? '#2e7d32' : v === 'REGULAR' ? '#d98c1a' : '#b71c1c'; };
     return '<div class="card"><h3 style="margin-top:0">📊 Estadísticas</h3><p class="small muted">Se cuenta el último parte enviado de cada unidad en el periodo (los borradores no cuentan).</p><div class="grid">' +
       '<div><label class="lbl">Año</label>' + sel('eAnio', anios, anio, 'Todos') + '</div><div><label class="lbl">Periodo</label>' + sel('eTrim', periodosCfg(), trim, 'Todos') + '</div></div>' +
-      '<div class="acciones"><button class="prim" data-iimp="1">🖨 Informe para imprimir / PDF</button><button data-icsv="1">⬇ CSV (Excel)</button></div></div>' +
+      '<div class="acciones"><button class="prim" data-iest="1">📑 Informe detallado de este periodo (imprimir / PDF, Excel)</button></div></div>' +
       '<div class="card"><h3>Por SUIGE</h3><div style="overflow-x:auto"><table class="t"><tr>' + CAB_STATS.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr>' +
       (statsSuige(ts).map(function (f) { return '<tr' + (f[0] === 'TOTAL' ? ' style="font-weight:bold"' : '') + '>' + f.map(function (c) { return '<td>' + esc(c) + '</td>'; }).join('') + '</tr>'; }).join('') || '<tr><td colspan="15" class="muted">Sin partes en el periodo.</td></tr>') + '</table></div></div>' +
       '<div class="estadis">' + barras('Situación de las HPS', hps.concat([['Denegada o revocada', suma(ts, 'hpsDen')]]), th + suma(ts, 'hpsDen'), true, function (k) { return k === 'Concedida' ? '#2e7d32' : k === 'En trámite' ? '#d98c1a' : '#b71c1c'; }) +
@@ -829,11 +829,11 @@
       .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
   }
   var resultadoTramite = null;
-  var ICO_VISTA = { panel: '🛡️', pendientes: '📥', control: '🗓️', consulta: '🔎', estadisticas: '📊', accesos: '👥', ajustes: '⚙️' };
-  var SUB_VISTA = { panel: 'Panel y situación', pendientes: 'Esperan mi acción', control: 'Quién falta por enviar', consulta: 'Buscar y filtrar partes', estadisticas: 'HPS, certificados · informes',
+  var ICO_VISTA = { panel: '🛡️', pendientes: '📥', control: '🗓️', consulta: '🔎', estadisticas: '📊', informe: '📑', accesos: '👥', ajustes: '⚙️' };
+  var SUB_VISTA = { panel: 'Panel y situación', pendientes: 'Esperan mi acción', control: 'Quién falta por enviar', consulta: 'Buscar y filtrar partes', estadisticas: 'HPS, certificados y valoraciones', informe: 'Gráficos · imprimir / PDF',
     accesos: 'Solicitudes de acceso', ajustes: 'Configuración' };
   function render() {
-    var vistas = [['panel', 'Partes registrados'], ['pendientes', 'Pendiente de valoración'], ['control', 'Control de entregas'], ['consulta', 'Búsqueda y consulta'], ['estadisticas', 'Estadísticas e informes']]
+    var vistas = [['panel', 'Partes registrados'], ['pendientes', 'Pendiente de valoración'], ['control', 'Control de entregas'], ['consulta', 'Búsqueda y consulta'], ['estadisticas', 'Estadísticas'], ['informe', 'Informe detallado']]
       .concat(cargadoEn && esAdmin ? [['accesos', 'Accesos'], ['ajustes', 'Ajustes']] : []);
     if ((pref.vista === 'ajustes' || pref.vista === 'accesos') && (!cargadoEn || !esAdmin)) pref.vista = 'panel';
     var cuenta = { pendientes: cargadoEn ? nPend() : 0, accesos: nPendAcc() };
@@ -843,7 +843,7 @@
     }).join('');
     if (!cargadoEn) return;
     $('#vista').innerHTML = (pref.vista !== 'accesos' ? avisoPendientes() : '') + (resultadoTramite ? '<div class="' + resultadoTramite.cls + ' resultado">' + resultadoTramite.html + ' <a href="#" data-quitarres="1" class="small">ocultar</a></div>' : '') +
-      ({ panel: vistaPanel, pendientes: vistaPendientes, control: vistaControl, consulta: vistaConsulta, estadisticas: vistaEstadisticas, accesos: vistaAccesos, ajustes: vistaAjustes }[pref.vista] || vistaPanel)();
+      ({ panel: vistaPanel, pendientes: vistaPendientes, control: vistaControl, consulta: vistaConsulta, estadisticas: vistaEstadisticas, informe: vistaInforme, accesos: vistaAccesos, ajustes: vistaAjustes }[pref.vista] || vistaPanel)();
     if ($('#respPersonas')) { var fr = filaResp(respEdit); respCampo = campoPersonas($('#respPersonas'), fr ? fr.personas : []); if (!usuariosSitio) cargarUsuarios(); }
     if ($('#oblCaja')) pintarObligadas();
   }
@@ -1701,33 +1701,175 @@
       (d.ObservacionesDelExpediente ? '<h3>HISTORIAL DEL EXPEDIENTE</h3>' + tabla([['Historial', texto(d.ObservacionesDelExpediente)]]) : '');
     ventanaImprimir({ titulo: 'PARTE DE OPERADORES CECONSEG Nº ' + t.id, subtitulo: esc(t.unidad) + ' · ' + esc(t.tipo === 'EXTRAORDINARIO' ? 'Extraordinario ' + (t.mes || '') : trimTxt(t.trim)) + ' ' + esc(t.anio || ''), cuerpo: cuerpo, nombre: 'ceconseg-' + t.id });
   }
-  // Informe: estadísticas del periodo por SUIGE + relación de unidades con su último parte
-  function periodoEst() { var ta = trimAnterior(); return { anio: pref.est.anio === undefined ? String(ta.anio) : pref.est.anio, trim: pref.est.trim === undefined ? ta.trim : pref.est.trim }; }
-  function imprimirInforme() {
-    var pe = periodoEst(), ts = partesPeriodo(pe.anio ? Number(pe.anio) : null, pe.trim || null).sort(function (a, b) { return String(a.suige).localeCompare(String(b.suige)) || String(a.unidad).localeCompare(String(b.unidad), 'es'); });
-    var fl = statsSuige(ts);
-    var cuerpo = '<h3>1. RESUMEN POR SUIGE</h3><table class="r"><tr>' + CAB_STATS.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr>' +
-      fl.map(function (f) { return '<tr' + (f[0] === 'TOTAL' ? ' style="font-weight:bold;background:#e8eef6"' : '') + '>' + f.map(function (c) { return '<td>' + esc(c) + '</td>'; }).join('') + '</tr>'; }).join('') + '</table>' +
-      '<h3>2. RELACIÓN DE UNIDADES (último parte enviado)</h3><table class="r"><tr><th>Nº</th><th>SUIGE</th><th>Unidad</th><th>Periodo</th><th>Operadores</th><th>HPS sin solic.</th><th>En trámite</th><th>Concedida</th><th>% HPS</th><th>Cert. sin cursar</th><th>Cert. ejecut.</th><th>Comprom.</th><th>Val. SUIGE</th><th>Val. IGE</th><th>Situación</th></tr>' +
-      ts.map(function (t) { var p = pctHps(t); return '<tr><td>' + t.id + '</td><td>' + esc(t.suige) + '</td><td>' + esc(t.unidad) + '</td><td>' + esc(t.tipo === 'EXTRAORDINARIO' ? 'Extr. ' + (t.mes || '') : t.trim) + ' ' + esc(t.anio || '') + '</td>' +
-        [t.oper, t.hpsSin, t.hpsTram, t.hpsEje].map(function (x) { return '<td>' + esc(x == null ? '' : x) + '</td>'; }).join('') + '<td>' + (p == null ? '' : p + ' %') + '</td>' + [t.certSin, t.certEje, t.comp].map(function (x) { return '<td>' + esc(x == null ? '' : x) + '</td>'; }).join('') +
-        '<td>' + esc(t.valSuige) + '</td><td>' + esc(t.valIge) + '</td><td>' + esc(faseTxt(t)) + '</td></tr>'; }).join('') + '</table>';
-    var conHuecos = ts.filter(function (t) { return brechas(t).length; });
-    cuerpo += '<h3>' + (unidadesOblig && pe.anio && pe.trim ? 3 : 3) + '. HUECOS Y JUSTIFICACIÓN DE LAS UNIDADES (' + conHuecos.length + ')</h3>' + (conHuecos.length ? '<table class="r"><tr><th>SUIGE</th><th>Unidad</th><th>A revisar</th><th>Motivos y medidas de la unidad</th><th>Previsto</th></tr>' +
-      conHuecos.map(function (t) { return '<tr><td>' + esc(t.suige) + '</td><td>' + esc(t.unidad) + '</td><td>' + brechas(t).map(function (b) { return (b[0] === 'sirven' ? '<b style="color:#b71c1c">' : '') + esc(b[1]) + (b[0] === 'sirven' ? '</b>' : ''); }).join('<br>') + '</td><td>' +
-        [['HPS', t.motHps], ['Certificados', t.motCert], ['Compromisos', t.motComp], ['Medidas', t.medidas]].filter(function (x) { return x[1]; }).map(function (x) { return '<b>' + x[0] + ':</b> ' + esc(texto(x[1])); }).join('<br>') + '</td><td>' +
-        [t.fPrevHps ? 'HPS ' + fCorta(t.fPrevHps) : '', t.fPrevCert ? 'Cursos ' + fCorta(t.fPrevCert) : ''].filter(Boolean).join('<br>') + '</td></tr>'; }).join('') + '</table>' : '<p>Ninguna unidad con huecos.</p>');
-    if (unidadesOblig && pe.anio && pe.trim) {
-      var ctl = controlTrimestre(Number(pe.anio), pe.trim), falt = ctl.filter(function (x) { return !x.parte || fase(x.parte) === 0; });
-      cuerpo += '<h3>4. UNIDADES OBLIGADAS SIN PARTE ORDINARIO ENVIADO (' + falt.length + ' de ' + ctl.length + ')</h3>' + (falt.length ? '<table class="r"><tr><th>SUIGE</th><th>Unidad</th><th>Situación</th></tr>' +
-        falt.map(function (x) { return '<tr><td>' + esc(x.u.suige) + '</td><td>' + esc(x.u.nombre) + '</td><td>' + (x.parte ? esc(faseTxt(x.parte)) : 'Sin parte') + '</td></tr>'; }).join('') + '</table>' : '<p>Todas las unidades obligadas han enviado el parte.</p>');
+  // ---------- Informe detallado (como el de Incidentes): agrupar, apartados, gráficos, imprimir / PDF y CSV ----------
+  // Base: el último parte ENVIADO de cada unidad en cada periodo (los borradores no cuentan).
+  var INF_DIM = [['suige', 'SUIGE'], ['mn2', 'Mando de 2.º nivel'], ['unidad', 'Unidad'], ['periodo', 'Periodo'], ['anio', 'Año'], ['valSuige', 'Valoración de la SUIGE'], ['valIge', 'Valoración de IGE'], ['', 'Sin agrupar (solo totales)']];
+  var INF_SEC = [['resumen', 'Resumen general (indicadores)', true], ['comparativa', 'Comparativa por grupo', true], ['evolucion', 'Evolución por periodos', true],
+    ['graficos', 'Gráficos: situación de HPS, certificados y valoraciones', true], ['ranking', 'Unidades con menor % de HPS concedida', true], ['huecos', 'Huecos y justificación de las unidades', true],
+    ['faltan', 'Unidades obligadas sin parte enviado', true], ['relacion', 'Relación de unidades (último parte)', true], ['detalle', 'Detalle de cada parte (datos, justificación y valoraciones)', false], ['historial', 'Historial del expediente en el detalle', false]];
+  var dimMin = function (d) { return /^[A-ZÁÉÍÓÚ]+$/.test(d) ? d : d.charAt(0).toLowerCase() + d.slice(1); };
+  var infCfg = function () {
+    var c = pref.inf || {}, ta = trimAnterior();
+    if (c.anio === undefined) c.anio = String(ta.anio);
+    if (c.trim === undefined) c.trim = ta.trim;
+    if (c.suige === undefined) c.suige = '';
+    if (c.agr === undefined) c.agr = 'suige';
+    if (!c.sec) { c.sec = {}; INF_SEC.forEach(function (s) { c.sec[s[0]] = s[2]; }); }
+    pref.inf = c; return c;
+  };
+  // Último parte enviado de cada unidad y periodo (con los filtros del informe)
+  function tsInforme(c) {
+    c = c || infCfg();
+    var ls = items.filter(function (t) { return fase(t) > 0 && (!c.anio || String(t.anio) === c.anio) && (!c.trim || t.trim === c.trim) && (!c.suige || t.suige === c.suige); });
+    var porU = {};
+    ls.forEach(function (t) { var k = (t.mandoIds[2] || sinTildes(t.unidad)) + '|' + t.anio + '|' + t.trim; if (!porU[k] || String(t.creado) > String(porU[k].creado)) porU[k] = t; });
+    return Object.keys(porU).map(function (k) { return porU[k]; }).sort(function (a, b) { return String(a.suige).localeCompare(String(b.suige)) || String(a.unidad).localeCompare(String(b.unidad), 'es') || String(a.anio + a.trim).localeCompare(String(b.anio + b.trim)); });
+  }
+  var ordenPer = function (k) { var i = TODOS_PERIODOS.findIndex(function (x) { return x[0] === k; }); return i < 0 ? 999 : i; };
+  function grupoInf(t, k) {
+    if (k === 'periodo') return [t.anio + '-' + String(ordenPer(t.trim)).padStart(3, '0'), trimTxt(t.trim) + ' ' + t.anio];
+    if (k === 'anio') return [String(t.anio), String(t.anio)];
+    if (k === 'mn2') return [t.cadena[1] || '', t.cadena[1] || '(sin mando)'];
+    var v = t[k] || '(sin dato)'; return [v, v];
+  }
+  function agruparInf(ts, k) {
+    if (!k) return [['', 'Todos', ts]];
+    var m = new Map();
+    ts.forEach(function (t) { var g = grupoInf(t, k); if (!m.has(g[1])) m.set(g[1], [g[0], g[1], []]); m.get(g[1])[2].push(t); });
+    return Array.from(m.values()).sort(function (a, b) { return String(a[0]).localeCompare(String(b[0]), 'es'); });
+  }
+  function statsInf(ls) {
+    var op = suma(ls, 'oper'), cu = function (fn) { return ls.filter(fn).length; };
+    return { n: ls.length, op: op, tropa: suma(ls, 'tropa'), hSin: suma(ls, 'hpsSin'), hTram: suma(ls, 'hpsTram'), hEje: suma(ls, 'hpsEje'), hDen: suma(ls, 'hpsDen'), hCad: suma(ls, 'hpsCad'),
+      cSin: suma(ls, 'certSin'), cEje: suma(ls, 'certEje'), comp: suma(ls, 'comp'), sirven: cu(function (t) { return t.sirvenSin === 'SI'; }), huecos: cu(function (t) { return brechas(t).length > 0; }),
+      bien: cu(function (t) { return (t.valIge || t.valSuige) === 'BIEN'; }), regular: cu(function (t) { return (t.valIge || t.valSuige) === 'REGULAR'; }), mal: cu(function (t) { return (t.valIge || t.valSuige) === 'MAL'; }) };
+  }
+  var pctN = function (a, b) { return b ? Math.round(a * 1000 / b) / 10 : null; };
+  var pctF = function (a, b) { var p = pctN(a, b); return p == null ? '—' : String(p).replace('.', ',') + ' %'; };
+  var barraInf = function (v, max, color) { return '<span class="inf-barra"><span style="width:' + (max ? Math.min(100, Math.round(v * 100 / max)) : 0) + '%;background:' + (color || '#1b3a5c') + '"></span></span>'; };
+  var colorPct = function (p) { return p == null ? '#888' : p >= 90 ? '#2e7d32' : p >= 70 ? '#d99a00' : '#b71c1c'; };
+  var ESTILO_INF = '<style>.inf h3{color:#1b3a5c;border-bottom:1px solid #b8962e;padding-bottom:2px;margin:16px 0 6px;font-size:1rem}.inf table{width:100%;border-collapse:collapse;font-size:.85em;margin-bottom:6px}' +
+    '.inf th{background:#1b3a5c;color:#fff;text-align:left;padding:4px 5px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.inf td{border:1px solid #c9d1dc;padding:3px 5px;vertical-align:top}' +
+    '.inf tr.tot td{font-weight:bold;background:#e8eef6;-webkit-print-color-adjust:exact;print-color-adjust:exact}.inf td.n{text-align:center;white-space:nowrap}.inf td.alta{background:#fde3cf;font-weight:600;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+    '.inf .kp{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:6px 0}.inf .kp div{border:1px solid #c9d1dc;border-top:4px solid #1b3a5c;border-radius:6px;padding:6px 8px;font-size:.8em;color:#444;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+    '.inf .kp div.r{border-top-color:#b71c1c}.inf .kp div.a{border-top-color:#d99a00}.inf .kp div.v{border-top-color:#2e7d32}.inf .kp div.m{border-top-color:#6a3d9a}.inf .kp b{display:block;font-size:1.5em;color:#1b3a5c}' +
+    '.inf-barra{display:inline-block;width:140px;max-width:100%;height:10px;background:#eef1f5;border-radius:3px;vertical-align:middle;margin-right:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+    '.inf-barra span{display:block;height:100%;border-radius:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.inf .apil{display:flex;height:14px;width:100%;min-width:160px;border-radius:3px;overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+    '.inf .apil span{display:block;height:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact}.inf .ley span{display:inline-block;width:10px;height:10px;margin:0 3px 0 10px;vertical-align:middle;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+    '.inf .ficha{page-break-inside:avoid;margin-bottom:12px}.inf .ficha h4{margin:12px 0 4px;color:#1b3a5c}.inf .txt{white-space:pre-wrap;border:1px solid #c9d1dc;padding:5px;font-size:.85em;margin-bottom:4px}.inf .nota{font-size:.8em;color:#555}.inf .rojo{color:#b71c1c;font-weight:bold}</style>';
+  // Barra apilada de la situación de las HPS (concedida · en trámite · sin solicitar · denegada)
+  var COL_HPS = [['hEje', 'Concedida', '#2e7d32'], ['hTram', 'En trámite', '#d99a00'], ['hSin', 'Sin solicitar', '#e65100'], ['hDen', 'Denegada / revocada', '#b71c1c']];
+  var apilada = function (st) { var tot = st.hEje + st.hTram + st.hSin + st.hDen; return tot ? '<span class="apil">' + COL_HPS.map(function (c) { return st[c[0]] ? '<span title="' + c[1] + ': ' + st[c[0]] + '" style="width:' + (st[c[0]] * 100 / tot) + '%;background:' + c[2] + '"></span>' : ''; }).join('') + '</span>' : ''; };
+  var leyendaHps = '<p class="nota ley">' + COL_HPS.map(function (c) { return '<span style="background:' + c[2] + '"></span>' + c[1]; }).join('') + '</p>';
+  function descInf(c) { return [c.suige ? 'SUIGE ' + c.suige : 'todas las SUIGE', c.trim ? trimTxt(c.trim) : 'todos los periodos', c.anio ? c.anio : 'todos los años'].join(' · '); }
+  function informeHtml(ts, c, hist) {
+    var S = c.sec, T = statsInf(ts), dim = (INF_DIM.find(function (d) { return d[0] === c.agr; }) || ['', ''])[1];
+    var h = ESTILO_INF + '<div class="inf"><p class="nota">Criterios: último parte enviado de cada unidad en cada periodo (sin borradores) · ' + esc(descInf(c)) + ' · ' + ts.length + ' parte' + (ts.length === 1 ? '' : 's') + '. Porcentajes sobre el nº de operadores.</p>';
+    var falt = [];
+    if (unidadesOblig && c.anio && c.trim) falt = controlTrimestre(Number(c.anio), c.trim).filter(function (x) { return (!c.suige || x.u.suige === c.suige) && (!x.parte || fase(x.parte) === 0); });
+    if (!ts.length && !falt.length) return h + '<p>Ningún parte enviado con estos filtros.</p></div>';
+    var sec = 0, tit = function (s) { return '<h3>' + (++sec) + '. ' + s + '</h3>'; };
+    var pH = pctN(T.hEje, T.op);
+    if (S.resumen) h += tit('Resumen general') + '<div class="kp"><div>Unidades con parte<b>' + T.n + '</b>' + (unidadesOblig && c.anio && c.trim ? falt.length + ' obligadas sin enviar' : '') + '</div>' +
+      '<div>Operadores<b>' + T.op + '</b>' + T.tropa + ' de tropa</div><div class="' + (pH != null && pH < 90 ? (pH < 70 ? 'r' : 'a') : 'v') + '">HPS concedida<b>' + pctF(T.hEje, T.op) + '</b>' + T.hEje + ' de ' + T.op + '</div>' +
+      '<div class="a">Sin HPS concedida<b>' + (T.op - T.hEje) + '</b>' + T.hTram + ' en trámite · ' + T.hSin + ' sin solicitar</div><div class="r">HPS denegadas o revocadas<b>' + T.hDen + '</b></div>' +
+      '<div class="m">HPS que caducan en 6 meses<b>' + T.hCad + '</b></div><div class="' + (T.sirven ? 'r' : 'v') + '">Unidades con operadores sin HPS de servicio<b>' + T.sirven + '</b></div>' +
+      '<div>Certificados cursados<b>' + pctF(T.cEje, T.op) + '</b>' + T.cSin + ' sin cursar</div><div>Compromisos firmados<b>' + pctF(T.comp, T.op) + '</b>' + Math.max(0, T.op - T.comp) + ' sin firmar</div>' +
+      '<div class="a">Unidades con huecos<b>' + T.huecos + '</b>' + pctF(T.huecos, T.n) + ' de las unidades</div></div>';
+    var cab = function (pri) { return '<table><tr><th>' + esc(pri) + '</th><th>Unid.</th><th>Operad.</th><th>HPS conc.</th><th>% HPS</th><th>Situación HPS</th><th>Trámite</th><th>Sin solic.</th><th>Deneg.</th><th>Caducan</th><th>% cert.</th><th>% comprom.</th><th>Sirven sin HPS</th><th>Val. B / R / M</th></tr>'; };
+    var fila = function (nom, st, tot) {
+      var p = pctN(st.hEje, st.op);
+      return '<tr' + (tot ? ' class="tot"' : '') + '><td>' + esc(nom) + '</td><td class="n">' + st.n + '</td><td class="n">' + st.op + '</td><td class="n">' + st.hEje + '</td><td class="n' + (p != null && p < 70 ? ' alta' : '') + '">' + pctF(st.hEje, st.op) + '</td><td>' + apilada(st) + '</td>' +
+        '<td class="n">' + st.hTram + '</td><td class="n">' + st.hSin + '</td><td class="n">' + st.hDen + '</td><td class="n">' + st.hCad + '</td><td class="n">' + pctF(st.cEje, st.op) + '</td><td class="n">' + pctF(st.comp, st.op) + '</td>' +
+        '<td class="n' + (st.sirven ? ' alta' : '') + '">' + st.sirven + '</td><td class="n">' + st.bien + ' / ' + st.regular + ' / ' + st.mal + '</td></tr>';
+    };
+    if (S.comparativa && c.agr && ts.length) h += tit('Comparativa por ' + esc(dimMin(dim))) + cab(dim) + agruparInf(ts, c.agr).map(function (g) { return fila(g[1], statsInf(g[2])); }).join('') + fila('TOTAL', T, true) + '</table>' + leyendaHps;
+    if (S.evolucion) {
+      // Todos los periodos del año (o de todos los años), aunque se haya elegido uno: para ver la tendencia
+      var ev = agruparInf(tsInforme({ anio: c.anio, trim: '', suige: c.suige }), 'periodo');
+      if (ev.length > 1) h += tit('Evolución por periodos') + '<table><tr><th>Periodo</th><th>Unid.</th><th>Operad.</th><th>% HPS concedida</th><th></th><th>% cert.</th><th>% comprom.</th><th>Sirven sin HPS</th><th>Unid. con huecos</th></tr>' + ev.map(function (g) {
+        var st = statsInf(g[2]), p = pctN(st.hEje, st.op);
+        return '<tr><td>' + esc(g[1]) + '</td><td class="n">' + st.n + '</td><td class="n">' + st.op + '</td><td class="n">' + pctF(st.hEje, st.op) + '</td><td>' + barraInf(p || 0, 100, colorPct(p)) + '</td><td class="n">' + pctF(st.cEje, st.op) + '</td><td class="n">' + pctF(st.comp, st.op) + '</td><td class="n">' + st.sirven + '</td><td class="n">' + st.huecos + '</td></tr>';
+      }).join('') + '</table>';
     }
-    ventanaImprimir({ titulo: 'INFORME DE OPERADORES CECONSEG', subtitulo: (pe.trim ? esc(trimTxt(pe.trim)) + ' · ' : '') + (pe.anio ? esc(pe.anio) : 'todos los años') + ' · ' + ts.length + ' unidades con parte', cuerpo: ts.length || unidadesOblig ? cuerpo : '<p>Sin partes en el periodo.</p>', nombre: 'informe-ceconseg-' + hoy(), apaisado: true });
+    var distrib = function (titulo, pares, total, colorDe) {
+      var max = Math.max.apply(null, pares.map(function (p) { return p[1]; }).concat([1]));
+      return '<table><tr><th>' + esc(titulo) + '</th><th>Nº</th><th>%</th><th></th></tr>' + pares.map(function (p) { return '<tr><td>' + esc(p[0]) + '</td><td class="n">' + p[1] + '</td><td class="n">' + pctF(p[1], total) + '</td><td>' + barraInf(p[1], max, colorDe(p[0])) + '</td></tr>'; }).join('') + '</table>';
+    };
+    if (S.graficos && ts.length) {
+      var colV = function (v) { return v === 'BIEN' ? '#2e7d32' : v === 'REGULAR' ? '#d99a00' : v === 'MAL' ? '#b71c1c' : '#888'; };
+      var vals = function (k) { return VALORES.map(function (v) { return [v, ts.filter(function (t) { return t[k] === v; }).length]; }).concat([['(sin valorar)', ts.filter(function (t) { return !t[k]; }).length]]); };
+      h += tit('Situación de las HPS, certificados y compromisos') + distrib('HPS de los operadores', COL_HPS.map(function (x) { return [x[1], T[x[0]]]; }), T.op, function (k) { return (COL_HPS.find(function (x) { return x[1] === k; }) || [])[2]; }) +
+        distrib('Certificados y compromisos', [['Certificados cursados', T.cEje], ['Certificados sin cursar', T.cSin], ['Compromisos firmados', T.comp], ['Compromisos sin firmar', Math.max(0, T.op - T.comp)]], T.op, function (k) { return /sin/.test(k) ? '#b71c1c' : '#2e7d32'; }) +
+        tit('Valoraciones') + distrib('Valoración de la SUIGE', vals('valSuige'), T.n, colV) + distrib('Valoración de DIACU', vals('valDiacu'), T.n, colV) + distrib('Valoración de IGE', vals('valIge'), T.n, colV);
+    }
+    if (S.ranking && ts.length) {
+      var rk = ts.filter(function (t) { return t.oper; }).map(function (t) { return [t, pctN(t.hpsEje || 0, t.oper)]; }).filter(function (x) { return x[1] < 100; }).sort(function (a, b) { return a[1] - b[1]; }).slice(0, 15);
+      h += tit('Unidades con menor % de HPS concedida (' + rk.length + ')') + (rk.length ? '<table><tr><th>SUIGE</th><th>Unidad</th><th>Periodo</th><th>Operad.</th><th>HPS conc.</th><th>%</th><th></th><th>¿Sirven sin HPS?</th></tr>' + rk.map(function (x) {
+        var t = x[0]; return '<tr><td>' + esc(t.suige) + '</td><td>' + esc(t.unidad) + '</td><td>' + esc(trimTxt(t.trim) + ' ' + t.anio) + '</td><td class="n">' + t.oper + '</td><td class="n">' + (t.hpsEje || 0) + '</td><td class="n' + (x[1] < 70 ? ' alta' : '') + '">' + pctF(t.hpsEje || 0, t.oper) + '</td><td>' + barraInf(x[1], 100, colorPct(x[1])) + '</td><td' + (t.sirvenSin === 'SI' ? ' class="rojo"' : '') + '>' + esc(t.sirvenSin || '—') + '</td></tr>';
+      }).join('') + '</table>' : '<p class="nota">Todas las unidades tienen el 100 % de sus operadores con HPS concedida.</p>');
+    }
+    if (S.huecos) {
+      var conH = ts.filter(function (t) { return brechas(t).length; });
+      h += tit('Huecos y justificación de las unidades (' + conH.length + ')') + (conH.length ? '<table><tr><th>SUIGE</th><th>Unidad</th><th>A revisar</th><th>Motivos y medidas de la unidad</th><th>Previsto</th></tr>' + conH.map(function (t) {
+        return '<tr><td>' + esc(t.suige) + '</td><td>' + esc(t.unidad) + '<br><span class="nota">' + esc(trimTxt(t.trim) + ' ' + t.anio) + ' · nº ' + t.id + '</span></td><td>' + brechas(t).map(function (b) { return b[0] === 'sirven' ? '<span class="rojo">' + esc(b[1]) + '</span>' : esc(b[1]); }).join('<br>') + '</td><td>' +
+          [['HPS', t.motHps], ['Certificados', t.motCert], ['Compromisos', t.motComp], ['Medidas', t.medidas]].filter(function (x) { return x[1]; }).map(function (x) { return '<b>' + x[0] + ':</b> ' + esc(texto(x[1])); }).join('<br>') + '</td><td>' +
+          [t.fPrevHps ? 'HPS ' + fCorta(t.fPrevHps) : '', t.fPrevCert ? 'Cursos ' + fCorta(t.fPrevCert) : ''].filter(Boolean).join('<br>') + '</td></tr>';
+      }).join('') + '</table>' : '<p class="nota">Ninguna unidad con huecos.</p>');
+    }
+    if (S.faltan) h += tit('Unidades obligadas sin parte enviado' + (unidadesOblig && c.anio && c.trim ? ' (' + falt.length + ')' : '')) + (!unidadesOblig ? '<p class="nota">No se han marcado las unidades obligadas (Ajustes).</p>' : !c.anio || !c.trim ? '<p class="nota">Elige un año y un periodo para ver quién falta.</p>' :
+      falt.length ? '<table><tr><th>SUIGE</th><th>Unidad</th><th>Situación</th></tr>' + falt.map(function (x) { return '<tr><td>' + esc(x.u.suige) + '</td><td>' + esc(x.u.nombre) + '</td><td>' + (x.parte ? esc(faseTxt(x.parte)) : 'Sin parte') + '</td></tr>'; }).join('') + '</table>' : '<p class="nota">Todas las unidades obligadas han enviado el parte.</p>');
+    if (S.relacion && ts.length) h += tit('Relación de unidades (último parte enviado)') + '<table><tr><th>Nº</th><th>SUIGE</th><th>Unidad</th><th>Periodo</th><th>Operad.</th><th>Sin solic.</th><th>Trámite</th><th>Conced.</th><th>Deneg.</th><th>% HPS</th><th>Cert. sin cursar</th><th>Comprom.</th><th>Sirven sin HPS</th><th>Val. SUIGE</th><th>Val. IGE</th><th>Situación</th></tr>' +
+      ts.map(function (t) { var p = pctHps(t), n = function (x) { return '<td class="n">' + esc(x == null ? '' : x) + '</td>'; };
+        return '<tr><td>' + t.id + '</td><td>' + esc(t.suige) + '</td><td>' + esc(t.unidad) + '</td><td>' + esc(t.tipo === 'EXTRAORDINARIO' ? 'Extr. ' + (t.mes || '') + ' · ' : '') + esc(trimTxt(t.trim) + ' ' + t.anio) + '</td>' + n(t.oper) + n(t.hpsSin) + n(t.hpsTram) + n(t.hpsEje) + n(t.hpsDen) +
+          '<td class="n' + (p != null && p < 70 ? ' alta' : '') + '">' + (p == null ? '' : p + ' %') + '</td>' + n(t.certSin) + n(t.comp) + '<td' + (t.sirvenSin === 'SI' ? ' class="rojo"' : '') + '>' + esc(t.sirvenSin) + '</td><td>' + esc(t.valSuige) + '</td><td>' + esc(t.valIge) + '</td><td>' + esc(faseTxt(t)) + '</td></tr>'; }).join('') + '</table>';
+    if (S.detalle && ts.length) h += tit('Detalle de cada parte') + ts.map(function (t) {
+      var bl = function (et, v) { return v ? '<b class="nota">' + esc(et) + '</b><div class="txt">' + esc(v) + '</div>' : ''; };
+      return '<div class="ficha"><h4>Nº ' + t.id + ' · ' + esc(t.unidad) + ' · ' + esc(t.tipo === 'EXTRAORDINARIO' ? 'Extraordinario ' + (t.mes || '') : trimTxt(t.trim)) + ' ' + esc(t.anio) + '</h4>' +
+        '<p class="nota">Cadena: ' + esc(t.cadena.join(' - ') || '—') + ' · SUIGE: ' + esc(t.suige || '—') + ' · Responsable: ' + esc(t.resp && t.resp.Title || t.respParte || '—') + ' · Situación: ' + esc(faseTxt(t)) + '</p>' +
+        '<p class="nota">' + NUMS.map(function (x) { return esc(x[1]) + ': <b>' + esc(t[x[2]] == null ? '—' : t[x[2]]) + '</b>'; }).join(' · ') + '</p>' +
+        (brechas(t).length ? bl('A revisar', brechas(t).map(function (b) { return '• ' + b[1]; }).join('\n')) : '<p class="nota">Sin huecos.</p>') +
+        bl('¿Prestan servicio operadores sin HPS?', t.sirvenSin) + bl('Motivos: operadores sin HPS', texto(t.motHps) + (t.fPrevHps ? '\nPrevisto: ' + fCorta(t.fPrevHps) : '')) +
+        bl('Motivos: certificados sin cursar', texto(t.motCert) + (t.fPrevCert ? '\nPrevisto: ' + fCorta(t.fPrevCert) : '')) + bl('Motivos: compromisos sin firmar', texto(t.motComp)) + bl('Medidas adoptadas por la unidad', texto(t.medidas)) +
+        bl('Observaciones de la unidad', texto(t.obsUnidad)) + bl('Valoración de la SUIGE', [t.valSuige, texto(t.obsSuige)].filter(Boolean).join(' · ')) + bl('Valoración de DIACU', [t.valDiacu, texto(t.obsDiacu)].filter(Boolean).join(' · ')) +
+        bl('Valoración de IGE', [t.valIge, texto(t.obsIge)].filter(Boolean).join(' · ')) + (S.historial ? (hist ? bl('Historial del expediente', texto(hist[t.id] || '')) : '<p class="nota">El historial se lee al imprimir.</p>') : '') + '</div>';
+    }).join('');
+    return h + '</div>';
+  }
+  function vistaInforme() {
+    var c = infCfg(), ts = tsInforme(c), anios = valoresDe('anio').map(String);
+    return '<div class="card"><h3 style="margin-top:0">📑 Informe detallado</h3><p class="small muted">Elige el periodo, la SUIGE, cómo agrupar y qué apartados incluir. Lo que ves abajo es lo que se imprime (o se guarda en PDF desde la ventana de impresión).</p>' +
+      '<div class="grid"><div><label class="lbl">Año</label>' + sel('iAnio', anios, c.anio, 'Todos') + '</div><div><label class="lbl">Periodo</label>' + sel('iTrim', TODOS_PERIODOS.filter(function (x) { return x[0] === c.trim || periodosCfg().some(function (y) { return y[0] === x[0]; }) || items.some(function (t) { return t.trim === x[0]; }); }), c.trim, 'Todos') + '</div>' +
+      '<div><label class="lbl">SUIGE</label>' + sel('iSuige', SUIGES, c.suige, 'Todas') + '</div><div><label class="lbl">Agrupar por</label><select id="iAgr">' + INF_DIM.map(function (d) { return '<option value="' + d[0] + '"' + (c.agr === d[0] ? ' selected' : '') + '>' + esc(d[1]) + '</option>'; }).join('') + '</select></div></div>' +
+      '<div class="small" style="columns:2;margin:8px 0">' + INF_SEC.map(function (s) { return '<label class="check" style="display:block"><input type="checkbox" data-isec="' + s[0] + '"' + (c.sec[s[0]] ? ' checked' : '') + '> ' + esc(s[1]) + '</label>'; }).join('') + '</div>' +
+      '<div class="acciones"><button class="prim" data-iimp="1">🖨 Imprimir informe / PDF</button><button data-icsv="1">📊 Excel del informe (CSV)</button></div></div>' +
+      '<div class="card" style="overflow-x:auto">' + informeHtml(ts, c, null) + '</div>';
+  }
+  // Historial de los partes del informe (no se descarga con la lista)
+  function leerHistoriales(ids) {
+    var r = {}, trozos = [];
+    for (var i = 0; i < ids.length; i += 40) trozos.push(ids.slice(i, i + 40));
+    return Promise.all(trozos.map(function (tr) {
+      return todas(urlLista() + '/items?$top=500&$select=Id,ObservacionesDelExpediente&$filter=' + encodeURIComponent(tr.map(function (id) { return '(Id eq ' + id + ')'; }).join(' or ')))
+        .then(function (l) { l.forEach(function (x) { r[x.Id] = x.ObservacionesDelExpediente || ''; }); });
+    })).then(function () { return r; });
+  }
+  function imprimirInforme() {
+    var c = infCfg(), ts = tsInforme(c), dim = (INF_DIM.find(function (d) { return d[0] === c.agr; }) || ['', ''])[1];
+    var hacer = function (hist) {
+      ventanaImprimir({ titulo: 'INFORME DE OPERADORES CECONSEG', subtitulo: (c.agr ? 'Por ' + esc(dimMin(dim)) + ' · ' : '') + esc(descInf(c)) + ' · ' + ts.length + ' partes',
+        cuerpo: informeHtml(ts, c, hist), nombre: 'informe-ceconseg-' + hoy(), apaisado: true });
+    };
+    if (c.sec.detalle && c.sec.historial && ts.length) { aviso('Leyendo los historiales…'); leerHistoriales(ts.map(function (t) { return t.id; })).then(hacer, function () { aviso('No se pudieron leer los historiales'); hacer(null); }); }
+    else hacer(null);
   }
   function csvInforme() {
-    var pe = periodoEst(), ts = partesPeriodo(pe.anio ? Number(pe.anio) : null, pe.trim || null);
-    var q = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
-    var filas = [['INFORME DE OPERADORES CECONSEG', (pe.trim || '') + ' ' + (pe.anio || '')], [], CAB_STATS].concat(statsSuige(ts));
+    var c = infCfg(), ts = tsInforme(c), q = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+    var st = function (nom, l) { var s = statsInf(l); return [nom, s.n, s.op, s.tropa, s.hSin, s.hTram, s.hEje, s.hDen, pctF(s.hEje, s.op), s.hCad, s.cSin, s.cEje, pctF(s.cEje, s.op), s.comp, pctF(s.comp, s.op), s.sirven, s.huecos, s.bien, s.regular, s.mal]; };
+    var cabG = ['Grupo', 'Unidades', 'Operadores', 'De tropa', 'HPS sin solicitar', 'HPS en trámite', 'HPS concedida', 'HPS denegada', '% HPS concedida', 'Caducan en 6 meses', 'Cert. sin cursar', 'Cert. ejecutados', '% cert.', 'Compromisos', '% compromisos', 'Unid. con operadores sin HPS de servicio', 'Unid. con huecos', 'BIEN', 'REGULAR', 'MAL'];
+    var filas = [['INFORME DE OPERADORES CECONSEG', descInf(c)], [], cabG].concat(agruparInf(ts, c.agr).map(function (g) { return st(g[1], g[2]); }), [st('TOTAL', ts)], [[], []],
+      [['Nº', 'SUIGE', 'Unidad', 'Tipo', 'Periodo', 'Año'].concat(NUMS.map(function (n) { return n[1]; }), ['¿Sirven sin HPS?', 'A revisar', 'Motivos HPS', 'Fecha prevista HPS', 'Motivos certificados', 'Fecha prevista cursos', 'Motivos compromisos', 'Medidas', 'Val. SUIGE', 'Val. DIACU', 'Val. IGE', 'Situación'])])
+      .concat(ts.map(function (t) { return [t.id, t.suige, t.unidad, t.tipo, trimTxt(t.trim), t.anio].concat(NUMS.map(function (n) { return t[n[2]]; }), [t.sirvenSin, brechas(t).map(function (b) { return b[1]; }).join(' · '), texto(t.motHps), fCorta(t.fPrevHps), texto(t.motCert), fCorta(t.fPrevCert), texto(t.motComp), texto(t.medidas), t.valSuige, t.valDiacu, t.valIge, faseTxt(t)]); }));
     descargar('informe-ceconseg-' + hoy() + '.csv', '﻿' + filas.map(function (r) { return r.map(q).join(';'); }).join('\r\n'), 'text/csv;charset=utf-8');
   }
 
@@ -2273,12 +2415,13 @@
     if (ir) {
       e.preventDefault();
       var d = ir.dataset.ir;
-      if (['pendientes', 'control', 'estadisticas', 'ajustes'].indexOf(d) >= 0) pref.vista = d;
+      if (['pendientes', 'control', 'estadisticas', 'informe', 'ajustes'].indexOf(d) >= 0) pref.vista = d;
       else { pref.f = FILTRO0(); if (d.indexOf('fase:') === 0) pref.f.fase = d.slice(5); if (d === 'abiertos') pref.f.fase = 'abiertos'; pref.vista = 'consulta'; }
       guardarPref(); render(); return;
     }
     if (el.closest('[data-csv]')) { csv(); return; }
     if (el.closest('[data-iimp]')) { imprimirInforme(); return; }
+    if (el.closest('[data-iest]')) { var pe = { anio: pref.est.anio === undefined ? String(trimAnterior().anio) : pref.est.anio, trim: pref.est.trim === undefined ? trimAnterior().trim : pref.est.trim }; Object.assign(infCfg(), pe); pref.vista = 'informe'; guardarPref(); render(); return; }
     if (el.closest('[data-icsv]')) { csvInforme(); return; }
     if (el.closest('[data-relimp]')) { imprimirRelacion(); return; }
     if (el.closest('[data-limpiar]')) { pref.f = FILTRO0(); guardarPref(); render(); return; }
@@ -2297,6 +2440,9 @@
     var f = { fFase: 'fase', fSuige: 'suige', fAnio: 'anio', fTrim: 'trim', fTipo: 'tipo' }[el.id];
     if (f) { pref.f[f] = el.value; guardarPref(); render(); return; }
     if (el.id === 'cAnio' || el.id === 'cTrim') { pref.ctl[el.id === 'cAnio' ? 'anio' : 'trim'] = el.value; guardarPref(); render(); return; }
+    var fiI = { iAnio: 'anio', iTrim: 'trim', iSuige: 'suige', iAgr: 'agr' }[el.id];
+    if (fiI) { infCfg()[fiI] = el.value; guardarPref(); render(); return; }
+    if (el.dataset && el.dataset.isec) { infCfg().sec[el.dataset.isec] = el.checked; guardarPref(); render(); return; }
     if (el.id === 'eAnio' || el.id === 'eTrim') { pref.est[el.id === 'eAnio' ? 'anio' : 'trim'] = el.value; guardarPref(); render(); return; }
     if (el.id === 'aCorreo' && esAdmin) { pref.correo = el.checked; guardarPref(); return; }
     if ((el.id === 'aSitio' || el.id === 'aLista') && esAdmin) { pref.sitio = $('#aSitio').value.trim() || pref.sitio; pref.lista = $('#aLista').value.trim() || pref.lista; guardarPref(); cargadoEn = null; cargar(); }
