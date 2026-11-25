@@ -32,6 +32,7 @@ const bandeja = (cel, es, pag, tam) => {
   // fecha en «Su referencia» del mensaje 6 de SETEC SEGURIDAD (el buscador de MENSADEF no encuentra por registro)
   els.forEach(e => { if (cel === G4 && es === '2' && /0{9}100$/.test(e.IdMensaje)) e.NumeroRegistroSalida = 'RE-001-S-26-04675075';
     if (cel === G1 && es === '1' && /0{11}8$/.test(e.IdMensaje)) e.Sref = 'S/REF RE-001-S-26-07777777 de 01/10/2026';
+    if (cel === G1 && es === '1' && /0{11}9$/.test(e.IdMensaje)) e.Sref = '07777777';   // registro recortado
     if (cel === G1 && es === '1' && /0{11}6$/.test(e.IdMensaje)) e.Sref = '550/PC/OS-RE-001-S-26-04675075 de ' + new Date(hoy.getTime() - 30 * 3600e3).toLocaleDateString('es-ES'); });
   return { ListaElementos: els, ListaAgrupaciones: [], IndicePagina: pag, TamanoPagina: tam, TotalRegistros: total };
 };
@@ -688,8 +689,11 @@ for (const n of [0, 40]) {
   const a3 = await refVentana(); await cerrar();
   // 25/11/2026 (aviso del jefe): lo que da MENSADEF se enseña aunque no case exacto con la referencia (texto sin números)
   let a4 = ''; if (await p.$('#msgRef .refManual') || true) { await p.click('#detalle .irRef[data-msg="msgRef"]').catch(() => 0); await p.waitForTimeout(800);
-    if (await p.$('#msgRef .refManual')) { await p.fill('#msgRef .refManual', 'documento antiguo'); await p.click('#msgRef .refBuscar'); await p.waitForSelector('#refModal', { timeout: 15000 }).catch(() => 0); await elegir('msgRef'); a4 = await refVentana(); await cerrar(); } }
-  console.log('referencia: sin coincidencia exacta, lo que da MENSADEF →', a4);
+    if (await p.$('#msgRef .refManual')) { await p.fill('#msgRef .refManual', 'documento antiguo'); await p.click('#msgRef .refBuscar');
+      // 25/11/2026 (tarde): lo que no lleva la referencia ya no se abre solo: se dice y se ve solo si se pide («verlos»)
+      await p.waitForSelector('#msgRef .refOtros', { timeout: 15000 }).catch(() => 0); const sinAbrir = !(await p.$('#refModal'));
+      await p.click('#msgRef .refOtros').catch(() => 0); await p.waitForTimeout(300); await p.waitForSelector('#refModal', { timeout: 5000 }).catch(() => 0); await elegir('msgRef'); a4 = sinAbrir ? await refVentana() : 'se abrió solo'; await cerrar(); } }
+  console.log('referencia: sin coincidencia exacta, no se abre solo y «verlos» →', a4);
   if (a4 !== 'RS-ANTIGUO-9') console.log('Error: enseñar lo que encuentra MENSADEF');
   // 25/11/2026 (tarde): referencia con número de registro real y fecha → se recorren las bandejas (también de células no cargadas)
   let a5 = '', avance5 = ''; await p.fill('#buscar', 'RE-6'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
@@ -703,6 +707,12 @@ for (const n of [0, 40]) {
   await p.click('#detalle .irRef[data-msg="msgRef"]').catch(() => 0); await p.waitForSelector('#refModal', { timeout: 20000 }).catch(() => 0); await elegir('msgRef'); a6 = await p.textContent('#refModal').catch(() => ''); await cerrar();
   console.log('referencia: registro exacto por el buscador →', /RE-001-S-26-07777777/.test(a6) ? 'encontrado' : 'NO', '| buscó el registro solo:', buscadosRef.includes('RE-001-S-26-07777777'));
   if (!/RE-001-S-26-07777777/.test(a6) || !buscadosRef.includes('RE-001-S-26-07777777')) console.log('Error: registro por el buscador');
+  // Número recortado («07777777»): se completa como registro (RE-001-E/S-<año>-…) y el buscador lo encuentra
+  const antes7 = buscadosRef.length; let a7 = ''; await p.fill('#buscar', 'RE-9'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
+  await p.click('#detalle .irRef[data-msg="msgRef"]').catch(() => 0); await p.waitForSelector('#refModal', { timeout: 20000 }).catch(() => 0); await elegir('msgRef'); a7 = await p.textContent('#refModal').catch(() => ''); await cerrar();
+  const pedidos7 = buscadosRef.slice(antes7);
+  console.log('referencia: número recortado →', /RE-001-S-26-07777777/.test(a7) ? 'encontrado' : 'NO', '| pedido al buscador:', [...new Set(pedidos7)].join(', '));
+  if (!/RE-001-S-26-07777777/.test(a7) || !pedidos7.includes('RE-001-S-26-07777777')) console.log('Error: registro recortado');
   console.log('referencia: texto libre → ventana con', a1, '· al cerrar sigue', sigue1, '| la de otra fecha: buscó', busco.join(' y '), '· en la ventana:', antiguo, '· texto y anexos:', conTexto, '· Esc la cierra:', cerradaEsc, '· sigue', sigue2, '· no entra en la lista:', fueraLista, '| a mano RE-2 →', a3, '| listas:', listas);
   if (a1 !== 'RE-1' || sigue1 !== 'RE-3' || !antiguo || !busco.some(b => /RS-ANTIGUO-9/.test(b)) || !busco.some(b => / /.test(b)) || !conTexto || !cerradaEsc || sigue2 !== 'RE-4' || !fueraLista || !caja || a3 !== 'RE-2') console.log('Error: ir a la referencia');
   // «N.º referencia» pulsable: desde RE-1, los que lo citan en «Su referencia» (RE-3) y los que llevan el mismo número

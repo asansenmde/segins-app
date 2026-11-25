@@ -322,3 +322,7 @@ autoría.
       usuario); SENDERO lo manda así y, si no, recorre las bandejas de todas las células desde la fecha de «Su referencia» (o 30
       días; «Buscar más atrás», 120). «N.º referencia» (quién lo cita) recorre las bandejas desde la fecha del mensaje. La ventana
       del referenciado enseña los registros. PENDIENTE DEL USUARIO: probar con las referencias que fallaban.
+    25/11/2026: SENDERO 2026-11-25 · 5: «Su referencia» solo enseña los mensajes que llevan esa referencia (la · 2 enseñaba lo que
+      devolvía MENSADEF aunque no casara: error mío, el usuario lo vio); un número recortado («05332205») se completa como registro
+      (RE-001-E/S-<año>-…) para el buscador y, en las bandejas, casa por el final del número; menos consultas con texto libre.
+      PENDIENTE DEL USUARIO: probar con las referencias reales (enteras y recortadas).

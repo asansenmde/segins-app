@@ -535,7 +535,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-25 · 4';
+  var VERSION = '2026-11-25 · 5';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1632,7 +1632,9 @@
   // buscador (criterioBusqueda) en todas las células, entrada y salida; el que aparezca se añade a la lista y se abre.
   var normRef = function (v) { return String(v || '').toUpperCase().replace(/\s+/g, '').replace(/[‐-―]/g, '-'); };
   var refsDe = function (m) { var x = m._x || {}; return [m.MensajeNum_referencia, x.NumeroRegistroEntrada, x.NumeroRegistroSalida, x.Nref].map(normRef).filter(Boolean); };
-  var casaRef = function (m, r) { return refsDe(m).some(function (v) { return v === r || (r.length >= 5 && v.length >= 5 && (v.indexOf(r) >= 0 || r.indexOf(v) >= 0)); }); };
+  var casaRef = function (m, r) { var dr = String(r || '').replace(/\D/g, '');
+    return refsDe(m).some(function (v) { return v === r || (r.length >= 5 && v.length >= 5 && (v.indexOf(r) >= 0 || r.indexOf(v) >= 0)) ||
+      (dr.length >= 6 && /[A-Z]-\d{2}-\d{6,}$/.test(v) && v.replace(/\D/g, '').slice(-dr.length) === dr); }); };   // 25/11: «05332205» casa con «RE-001-E-26-05332205»
   // 18/11/2026 (tarde): «Su referencia» trae texto libre («S/Ref.: …», «escrito n.º …», fechas): se sacan los trozos que
   // parecen referencias (llevan números) y se busca cada uno en N.º referencia y registros de los demás mensajes. Si hay
   // varios, se elige de una lista; siempre queda una caja para corregir el texto a mano y volver a buscar.
@@ -1680,6 +1682,13 @@
     // buscan las respuestas a este mensaje («N.º referencia»), se recorren las bandejas de todas las células desde la fecha
     // que trae el texto («de 23/11/2026») o, si no la trae, desde hace 30 días (con «Buscar más atrás», 120).
     var regs = (String(ref || '').toUpperCase().match(/[A-Z]{1,5}-\d{1,4}-[ES]-\d{2}-\d{4,}/g) || []).filter(function (x, i, l) { return l.indexOf(x) === i; });
+    // 25/11/2026 (tarde): un registro recortado («05332205», «26-05332205», «E-26-05332205») se completa como los de MENSADEF
+    // (RE-001-E/S-<año>-<número>) para pedirlo entero al buscador; al recorrer bandejas casa también por el final del número
+    if (!regs.length && !conSu) {
+      var rc = /(?:^|[^A-Z0-9])(?:([ES])-)?(?:(\d{2})-)?(\d{6,})(?![0-9])/.exec(String(ref || '').toUpperCase());
+      if (rc) { var yy = rc[2] || String(new Date().getFullYear()).slice(-2);
+        regs = (rc[1] ? [rc[1]] : ['E', 'S']).map(function (t) { return 'RE-001-' + t + '-' + yy + '-' + rc[3]; }); }
+    }
     if (regs.length || conSu) {
       var fm = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(String(ref || '')), fRef = fm ? new Date(Number(fm[3].length === 2 ? '20' + fm[3] : fm[3]), Number(fm[2]) - 1, Number(fm[1])) : null;
       if (fRef && isNaN(fRef)) fRef = null;
@@ -1710,7 +1719,7 @@
     // la referencia (primero los que casan); (4) se ve el avance y el resultado sale aunque la ficha se haya repintado.
     var crudos = [String(ref || '').replace(/\s+/g, ' ').trim()].concat((String(ref || '').match(/[A-Za-z0-9ÁÉÍÓÚÑáéíóúñ][A-Za-z0-9ÁÉÍÓÚÑáéíóúñ\-\/\.]*[0-9][A-Za-z0-9ÁÉÍÓÚÑáéíóúñ\-\/\.]*/g) || [])
       .map(function (x) { return x.replace(/[\.\-\/]+$/, ''); }).filter(function (x) { return x.length >= 3 && !/^\d{1,2}[\/\.-]\d{1,2}([\/\.-]\d{2,4})?$/.test(x) && !/^(19|20)\d\d$/.test(x); }))
-      .filter(function (x, i, l) { return x && x.length <= 60 && l.map(normRef).indexOf(normRef(x)) === i; }).slice(0, 4);
+      .filter(function (x, i, l) { return x && x.length <= 60 && l.map(normRef).indexOf(normRef(x)) === i; }).slice(0, 2);
     var cels = (apiCtx.celulas || []).slice(0, 25);
     var idMensaje = desde && desde.MensajeId, sigue = function () { return !idMensaje || (abierto && abierto.MensajeId === idMensaje) || !!$(idMsg || 'msgRef'); };
     var hallados = [], vistos = {}, hechas = 0, total = crudos.length * cels.length * 2;
@@ -1740,11 +1749,13 @@
     porCriterio(0).then(function () {
       caja = $(idMsg || 'msgRef') || caja;
       if (!caja || !sigue()) return;
-      if (!hallados.length) return cajaBuscar('MENSADEF no encuentra ningún mensaje con «' + esc(crudos.join('», «')) + '» en tus ' + cels.length + ' células. Corrige el texto (por ejemplo, solo el número) y vuelve a buscar. ');
-      hallados.sort(function (a, b) { return (b._casaRef - a._casaRef) || ((fechaDe(b) || 0) - (fechaDe(a) || 0)); });
-      var buenos = hallados.filter(function (x) { return x._casaRef; });
-      if (buenos.length === 1) return abrirHallado(buenos[0]);
-      elegir(hallados.slice(0, 8), buenos.length ? 'en MENSADEF (los primeros coinciden con la referencia)' : 'que da MENSADEF con ese texto (ninguno coincide exacto: mira cuál es)');
+      // 25/11/2026 (tarde): solo los que casan con la referencia (con texto recortado MENSADEF devuelve mensajes que no tienen
+      // nada que ver: el usuario lo vio); los demás solo si se piden
+      var buenos = hallados.filter(function (x) { return x._casaRef; }).sort(function (a, b) { return (fechaDe(b) || 0) - (fechaDe(a) || 0); });
+      if (buenos.length) return elegir(buenos, 'con esa referencia');
+      cajaBuscar('No encuentro ningún mensaje con esa referencia en tus ' + cels.length + ' células' + (hallados.length ? ' (MENSADEF da ' + hallados.length + ' con ese texto, pero ninguno la lleva: <a href="#" class="refOtros">verlos</a>)' : '') +
+        '. Prueba con el número de registro entero (RE-…-E/S-…). ');
+      var vo = caja.querySelector('.refOtros'); if (vo) vo.addEventListener('click', function (e) { e.preventDefault(); elegir(hallados.slice(0, 8), 'que da MENSADEF con ese texto (ninguno lleva la referencia)'); });
     });
   }
   // El buscador de MENSADEF (criterioBusqueda) con cada texto, en todas las células del usuario, entrada y salida
