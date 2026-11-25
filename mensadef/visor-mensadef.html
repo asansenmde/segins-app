@@ -535,7 +535,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-25 · 7';
+  var VERSION = '2026-11-25 · 8';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1679,6 +1679,12 @@
       return conSu ? (!lim || !fx || fx >= lim) : (!fMax || !fx || fx <= fMax); };
     var nref = conSu && esDe === 'Salida' && desde._x && desde._x.Nref ? String(desde._x.Nref) : '';
     if (nref && /\d/.test(nref) && nref.replace(/\s/g, '').length >= 6) trozosRef(nref).forEach(function (t) { if (t.replace(/\D/g, '').length >= 3 && trozos.indexOf(t) < 0) trozos.push(t); });
+    // 25/11/2026: avisos claros (pedidos por el usuario): dónde y por qué se busca, y al final qué se ha encontrado o que no hay
+    var dondeTxt = !conSu ? (esDe === 'Entrada' ? 'Es un mensaje de entrada: busco su «Su referencia» en <b>nuestras salidas</b>' : esDe === 'Salida' ? 'Es un mensaje de salida: busco su «Su referencia» en <b>nuestras entradas</b>' : 'Busco su «Su referencia» en entradas y salidas') :
+      (esDe === 'Entrada' ? 'Busco <b>nuestra contestación</b> (salidas que citan este número)' : esDe === 'Salida' ? 'Busco <b>la contestación de la unidad</b> (entradas que citan nuestro registro de salida)' : 'Busco los mensajes que citan este número');
+    var queTxt = !conSu ? (otro === 'Salida' ? 'ninguna salida nuestra' : otro === 'Entrada' ? 'ninguna entrada nuestra' : 'ningún mensaje') : '';
+    var nCel = (apiCtx && apiCtx.celulas || []).length;
+    var encontrado = function (x) { var xe = (x._x && x._x.__es) || '', f = fechaDe(x); return '✔ Encontrado: ' + (xe ? xe.toLowerCase() + ' ' : '') + (sitioDe(x) ? 'de ' + esc(sitioDe(x)) + ' ' : '') + (f ? 'del ' + esc(f.toLocaleDateString('es-ES')) : ''); };
     var casa = function (x) {
       if (!enSentido(x)) return false;
       // (en la bandeja contraria nadie lleva nuestro mismo número: solo cuenta quien lo cita; sin sentido conocido, las dos cosas)
@@ -1697,12 +1703,12 @@
       // El mismo mensaje puede estar en varias células o bandejas: una sola vez
       var ids = {}; l = l.filter(function (x) { var k = x.MensajeId || claveMensaje(x); if (ids[k]) return false; ids[k] = 1; return true; });
       if (l.length === 1) return abrirHallado(l[0]);
-      cajaBuscar('<b>' + l.length + ' mensajes ' + donde + ':</b><br>' + l.slice(0, 8).map(function (x, i) {
+      cajaBuscar('<b>✔ ' + l.length + ' mensajes ' + donde + '</b> (elige uno):<br>' + l.slice(0, 8).map(function (x, i) {
         return '<a href="#" data-cand="' + i + '">' + esc((x.MensajeNum_referencia || '') + ' · ' + verFecha(fechaDe(x)) + ' · ' + String(x._asunto || '').slice(0, 60)) + '</a>'; }).join('<br>') + '<br>');
       Array.prototype.forEach.call(caja.querySelectorAll('[data-cand]'), function (a) { a.addEventListener('click', function (e) { e.preventDefault(); abrirHallado(l[Number(a.getAttribute('data-cand'))]); }); });
     };
     // 18/11/2026: el mensaje encontrado se ve en una ventana encima; al cerrarla se sigue donde se estaba (lista y ficha)
-    var abrirHallado = function (x) { verReferenciado(x); };
+    var abrirHallado = function (x) { caja = $(idMsg || 'msgRef') || caja; if (caja) msg(encontrado(x)); verReferenciado(x); };
     var ya = mensajes.filter(function (x) { return x !== desde && casa(x); });
     if (ya.length) return elegir(ya, 'cargados con esa referencia');
     if (!modoApi || !apiCtx) return cajaBuscar('No está en lo cargado. ');
@@ -1727,17 +1733,20 @@
       var tipos = otro ? tiposDir : conSu ? [1, 2] : regs.some(function (r) { return /-S-/.test(r); }) ? [2, 1] : [1, 2];
       var casaReg = conSu ? casa : function (x) { return enSentido(x) && regs.some(function (r) { return casaRef(x, normRef(r)); }); };
       var desc = conSu ? 'mensajes que citan ' + esc(ref) : 'el registro ' + esc(regs.join(', '));
-      msg('Buscando ' + desc + ' en tus bandejas desde el ' + esc(limite.toLocaleDateString('es-ES')) + '…');
+      var fechasTxt = conSu ? 'desde el ' + esc(limite.toLocaleDateString('es-ES')) : 'del ' + esc(new Date(fRef || fDesde || Date.now()).toLocaleDateString('es-ES')) + ' hacia atrás';
+      var buscando = function (como, h, t) { return '🔎 ' + dondeTxt + ' ' + fechasTxt + '… ' + como + (t ? ' (' + h + ' de ' + t + ' bandejas)' : ''); };
+      msg(buscando(''));
       // Primero el buscador de MENSADEF con el registro EXACTO y solo (así sí lo encuentra, probado por el usuario: no con trozos
       // ni con texto delante); si no, se recorren las bandejas
-      var rapido = conSu ? Promise.resolve([]) : buscarConBuscador(regs, casaReg, tipos, function (h, t) { caja = $(idMsg || 'msgRef') || caja; if (caja) msg('Buscando ' + desc + ' con el buscador de MENSADEF… ' + h + ' de ' + t + ' bandejas'); });
-      return rapido.then(function (l) { return l.length ? l : escanearBandejas(limite, tipos, casaReg, !conSu, function (h, t) { caja = $(idMsg || 'msgRef') || caja; if (caja) msg('Buscando ' + desc + ' en tus bandejas desde el ' + esc(limite.toLocaleDateString('es-ES')) + '… ' + h + ' de ' + t + ' bandejas'); }); })
+      var rapido = conSu ? Promise.resolve([]) : buscarConBuscador(regs, casaReg, tipos, function (h, t) { caja = $(idMsg || 'msgRef') || caja; if (caja) msg(buscando('con el buscador de MENSADEF', h, t)); });
+      return rapido.then(function (l) { return l.length ? l : escanearBandejas(limite, tipos, casaReg, !conSu, function (h, t) { caja = $(idMsg || 'msgRef') || caja; if (caja) msg(buscando('en tus bandejas', h, t)); }); })
         .then(function (l) {
           caja = $(idMsg || 'msgRef') || caja; if (!caja) return;
           l = l.filter(function (x) { return !desde || x.MensajeId !== desde.MensajeId; });
           if (l.length) return elegir(l, conSu ? 'que citan esta referencia' : 'con ese registro');
-          cajaBuscar('No encuentro ' + desc + ' en las bandejas de tus ' + (apiCtx.celulas || []).length + ' células desde el ' + esc(limite.toLocaleDateString('es-ES')) +
-            ' (si es de una célula a la que no perteneces, no lo puedes ver). ' + (fRef || conSu ? '' : '<button type="button" class="refAtras">Buscar más atrás (120 días)</button> '));
+          if (conSu) return msg('✕ No hay ' + (esDe === 'Entrada' ? 'contestación nuestra' : esDe === 'Salida' ? 'contestación de la unidad' : 'ningún mensaje que lo cite') + ' a este mensaje (mirado en tus ' + nCel + ' células ' + fechasTxt + ').');
+          cajaBuscar('✕ No hay ' + queTxt + ' con ' + esc(regs.join(', ')) + ' en tus ' + nCel + ' células ' + fechasTxt + '. Si es de una célula a la que no perteneces, no la puedes ver. ' +
+            (fRef ? '' : '<button type="button" class="refAtras">Buscar más atrás (120 días)</button> '));
           var bA = caja.querySelector('.refAtras');
           if (bA) bA.addEventListener('click', function () { irAReferencia['atras' + (idMsg || 'msgRef')] = 120; irAReferencia(desde, ref, conSu, idMsg); irAReferencia['atras' + (idMsg || 'msgRef')] = 0; });
         });
@@ -1752,7 +1761,7 @@
     var cels = (apiCtx.celulas || []).slice(0, 25);
     var idMensaje = desde && desde.MensajeId, sigue = function () { return !idMensaje || (abierto && abierto.MensajeId === idMensaje) || !!$(idMsg || 'msgRef'); };
     var hallados = [], vistos = {}, hechas = 0, total = crudos.length * cels.length * tiposDir.length;
-    msg('Buscando «' + esc(crudos[0]) + '» en MENSADEF…');
+    msg('🔎 ' + dondeTxt + '… con el buscador de MENSADEF');
     var porCriterio = function (k) {
       if (k >= crudos.length) return Promise.resolve();
       var cola = []; cels.forEach(function (c) { tiposDir.forEach(function (es) { cola.push({ c: c, es: es }); }); });
@@ -1765,7 +1774,7 @@
           });
         }, function () { /* esa bandeja no responde: se sigue con las demás */ }).then(function () {
           hechas++; caja = $(idMsg || 'msgRef') || caja;
-          if (caja && sigue()) msg('Buscando «' + esc(crudos[k]) + '» en MENSADEF… ' + hechas + ' de ' + total + ' bandejas');
+          if (caja && sigue()) msg('🔎 ' + dondeTxt + '… con el buscador de MENSADEF (' + hechas + ' de ' + total + ' bandejas)');
         });
       };
       var trabajador = function () { var t = cola.shift(); if (!t) return Promise.resolve(); return una(t).then(trabajador); };
@@ -1782,7 +1791,7 @@
       // nada que ver: el usuario lo vio); los demás solo si se piden
       var buenos = hallados.filter(function (x) { return x._casaRef; }).sort(function (a, b) { return (fechaDe(b) || 0) - (fechaDe(a) || 0); });
       if (buenos.length) return elegir(buenos, 'con esa referencia');
-      cajaBuscar('No encuentro ningún mensaje con esa referencia en tus ' + cels.length + ' células' + (hallados.length ? ' (MENSADEF da ' + hallados.length + ' con ese texto, pero ninguno la lleva: <a href="#" class="refOtros">verlos</a>)' : '') +
+      cajaBuscar('✕ No hay ' + (queTxt || 'ningún mensaje') + ' con esa referencia en tus ' + cels.length + ' células' + (hallados.length ? ' (MENSADEF da ' + hallados.length + ' con ese texto, pero ninguno la lleva: <a href="#" class="refOtros">verlos</a>)' : '') +
         '. Prueba con el número de registro entero (RE-…-E/S-…). ');
       var vo = caja.querySelector('.refOtros'); if (vo) vo.addEventListener('click', function (e) { e.preventDefault(); elegir(hallados.slice(0, 8), 'que da MENSADEF con ese texto (ninguno lleva la referencia)'); });
     });

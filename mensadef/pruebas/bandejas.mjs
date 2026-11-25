@@ -708,7 +708,7 @@ for (const n of [0, 40]) {
   await p.waitForSelector('#refModal', { timeout: 20000 }).catch(() => 0); await elegir('msgRef'); a5 = await p.textContent('#refModal').catch(() => ''); await cerrar();
   if (process.env.DEPURA) console.log('llamadas:', llamadas.slice(-30).join(' | '));
   console.log('referencia: registro RE-001-S-26-… →', /RE-001-S-26-04675075/.test(a5) ? 'encontrado' : 'NO', '| aviso:', avance5.slice(0, 90));
-  if (!/RE-001-S-26-04675075/.test(a5) || !/registro RE-001-S-26-04675075/.test(avance5)) console.log('Error: referencia por registro');
+  if (!/RE-001-S-26-04675075/.test(a5) || !/Es un mensaje de entrada: busco su «Su referencia» en nuestras salidas del .* hacia atrás|✔ Encontrado: salida de /.test(avance5)) console.log('Error: referencia por registro');
   // Con el registro exacto, el buscador de MENSADEF lo encuentra sin recorrer bandejas
   let a6 = ''; await p.fill('#buscar', 'RE-8'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
   await p.click('#detalle .irRef[data-msg="msgRef"]').catch(() => 0); await p.waitForSelector('#refModal', { timeout: 20000 }).catch(() => 0); await elegir('msgRef'); a6 = await p.textContent('#refModal').catch(() => ''); await cerrar();
@@ -743,6 +743,14 @@ for (const n of [0, 40]) {
   await p.click('.irRef[data-msg="msgRefN"]'); await p.waitForTimeout(1500);
   const cands = await p.$$eval('#msgRefN [data-cand]', l => l.map(x => x.textContent.split(' · ')[0])), vRE1 = await refVentana(); await cerrar();
   console.log('referencia: «N.º referencia» RE-1 (entrada) → candidatos', cands.join(','), '| ventana:', vRE1);
+  const lineaRE1 = await p.textContent('#msgRefN').catch(() => '');
+  if (!/✔ Encontrado: salida de SETEC SECRETARIA del/.test(lineaRE1)) console.log('Error: aviso de encontrado', lineaRE1);
+  // Un mensaje de entrada sin contestación: «✕ No hay contestación nuestra…»
+  await p.fill('#buscar', ''); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i]:has-text("Mensaje 5 de 8d71")').catch(() => 0); await p.waitForTimeout(800);
+  await p.click('#detalle .irRef[data-msg="msgRefN"]').catch(() => 0); await p.waitForFunction(() => /✕|✔/.test((document.getElementById('msgRefN') || {}).textContent || ''), null, { timeout: 30000 }).catch(() => 0);
+  const sinCont = await p.textContent('#msgRefN').catch(() => '');
+  console.log('referencia: sin contestación →', sinCont.slice(0, 120));
+  if (!/✕ No hay contestación nuestra a este mensaje \(mirado en tus \d+ células desde el/.test(sinCont)) console.log('Error: aviso de sin contestación');
   if (cands.length || vRE1 !== 'RE-2') console.log('Error: N.º referencia');
   await p.fill('#buscar', ''); await p.waitForTimeout(300); }
 // 19/11/2026: «🔎 En todo MENSADEF»: busca con el buscador de MENSADEF en todas las células (cualquier fecha), en una ventana

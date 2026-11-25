@@ -336,3 +336,6 @@ autoría.
       que lo citan (por el registro o por «Nuestra referencia» si parece una referencia; es texto libre); «Su referencia» → nuestras
       entradas de antes. Sin saber si es entrada o salida, en las dos. Si el mensaje no dice su tipo, el de la bandeja.
       PENDIENTE DEL USUARIO: probarlo con mensajes de entrada y de salida.
+    25/11/2026: SENDERO 2026-11-25 · 8: avisos en las referencias (pedidos por el usuario): mientras busca, dónde y por qué («Es un
+      mensaje de entrada: busco su «Su referencia» en nuestras salidas del … hacia atrás… (n de m bandejas)»); al terminar,
+      «✔ Encontrado: salida de <célula> del <fecha>», «✔ n mensajes … (elige uno)» o «✕ No hay … (mirado en tus N células …)».
