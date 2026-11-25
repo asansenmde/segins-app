@@ -392,7 +392,10 @@ validacionForzada = false; await p.click('#dlg [data-cerrar]');
 await ir(9); await p.click('nav.tabs a[data-v=seguimiento]');
 await p.click('[data-cambiarcierre]'); await p.waitForSelector('#ciNueva');
 const nueva = await p.evaluate(() => { const d = new Date(Date.now() + 5 * 3600e3); const z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + 'T' + z(d.getHours()) + ':' + z(d.getMinutes()); });
-await p.fill('#ciNueva', nueva); await p.click('[data-cierreok]'); await esperaDlgCerrado(); await p.waitForTimeout(800);
+const nCi0 = correos.length;
+await p.fill('#ciNueva', nueva); await p.click('[data-cierreok]'); await p.waitForFunction(() => /Bloqueo cambiado/.test(document.querySelector('#dlg').textContent), null, { timeout: 15000 });
+comprueba('cambiar la hora de cierre avisa por correo (a los convocados y en copia a la coordinación): ' + (correos[nCi0] && correos[nCi0].asunto), correos.length === nCi0 + 1 && /CAMBIO · PS-/.test(correos[nCi0].asunto) && correos[nCi0].cc.includes('admin@et.mde.es') && /Aviso enviado por correo/.test(await txt('#dlg')));
+await p.click('#dlg [data-cerrar]'); await p.waitForTimeout(800);
 const nCi = LP('Puntos').items[0].Cierre;
 comprueba('cierre cambiado en el punto y en las ' + LP('Aportaciones').items.filter(x => Number(x.PuntoId) !== 0).length + ' entradas', LP('Aportaciones').items.filter(x => Number(x.PuntoId) !== 0).every(x => x.CierrePunto === nCi) && new Date(nCi) - Date.now() > 4 * H);
 

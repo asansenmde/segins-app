@@ -18,6 +18,13 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-25 · 2: aviso al cambiar la hora de cierre
+
+Caso del usuario: cambió la hora de cierre y no le llegó ningún correo. «⏱ Cambiar hora de cierre» / «Reabrir» no avisaba
+a nadie (solo avisaba «✎ Modificar punto» si se marcaba la casilla). Ahora el diálogo trae **«Avisar del cambio por
+correo»** marcado por defecto: al guardar envía el aviso «CAMBIO · PS-…» a los negociados convocados y, en copia, a la
+coordinación, y dice a cuántos llegó (o por qué no). Queda en el historial del punto. «Cerrar ahora» sigue sin avisar.
+
 ## Versión 2026-11-25 · 1: ocultar la biblioteca y las listas (como CECONSEG)
 
 En *Accesos › Preparación* (solo Control total), copiado de CECONSEG (`vistaListasPropias` / `ocultarListasPropias`):
