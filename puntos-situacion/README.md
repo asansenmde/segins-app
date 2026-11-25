@@ -18,6 +18,15 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-25 · 3: aviso de cierre
+
+- **«🔒 Cerrar ahora»** envía al momento el aviso **«CERRADO · PS-…»**: el punto queda cerrado a tal hora, ya no se admiten
+  cambios, qué negociados no aportaron; a los convocados y, en copia, a la coordinación.
+- **Al terminar el plazo**: Colabora no ejecuta nada a una hora sin la página abierta, así que el aviso de cierre lo envía
+  automáticamente **la primera persona de coordinación que abre la página después del cierre**, una sola vez por punto
+  (queda en el historial como «aviso de cierre por correo» y se relee justo antes para no repetirlo). Solo puntos cerrados
+  en los últimos 7 días y todavía «Abierto». Si se cerró con «Cerrar ahora», no se repite al vencer.
+
 ## Versión 2026-11-25 · 2: aviso al cambiar la hora de cierre
 
 Caso del usuario: cambió la hora de cierre y no le llegó ningún correo. «⏱ Cambiar hora de cierre» / «Reabrir» no avisaba

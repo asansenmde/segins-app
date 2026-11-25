@@ -739,6 +739,34 @@ if (SOLO_CUENTAS) comprueba('SOLO_CUENTAS: todos los avisos salen a cuentas, nin
   comprueba('volver a mostrar la biblioteca', biblioOculta === false);
   await ir(7); comprueba('con las listas ocultas la aplicación sigue funcionando', /Seguimiento/.test(await txt('nav.tabs')) && !/No se pudieron leer/.test(await txt('#vista')));
 }
+// 18. Avisos de cierre: «Cerrar ahora» avisa al momento; al terminar el plazo, lo envía la primera persona de coordinación
+// que abre la página después del cierre, una sola vez por punto
+{ // a) Al terminar el plazo, con la página cerrada: punto vencido sin aviso
+  const LPu = LP('Puntos'), idV = LPu.sig++;
+  LPu.items.push({ Id: idV, Title: 'Punto de Situación vencido', Referencia: 'PS-2026-090', Anio: 2026, Numero: 90, FechaPunto: iso(-D), Apertura: iso(-2 * D), Cierre: iso(-H), EstadoPunto: 'Abierto',
+    Convocados: 'PRL; Seguridad', Repetir: 0, RecordarHoras: 2, Historial: 'creado\n', Created: iso(-2 * D), Modified: iso(-2 * D), _editor: 7, _autor: 7, _adj: [] });
+  const n0 = correos.length;
+  await ir(8); await p.waitForTimeout(1500);
+  comprueba('un miembro (sin coordinación) no lo envía', correos.length === n0);
+  await ir(9); await p.waitForFunction(() => true); await p.waitForTimeout(2500);
+  const cv = correos.slice(n0).find(c => /CERRADO · PS-2026-090/.test(c.asunto));
+  comprueba('al terminar el plazo, la coordinación lo envía al abrir la página: ' + (cv && cv.asunto), !!cv && cv.cc.includes('admin@et.mde.es') && /Negociados que no aportaron/.test(cv.cuerpo) && /aviso de cierre por correo: enviado/.test(LPu.items.find(x => x.Id === idV).Historial));
+  const n1 = correos.length;
+  await ir(7); await p.waitForTimeout(2500);
+  comprueba('no se repite (otra persona de coordinación abre la página)', !correos.slice(n1).some(c => /CERRADO · PS-2026-090/.test(c.asunto)));
+  // b) «Cerrar ahora»: avisa al momento
+  const ptAb = LPu.items.find(x => new Date(x.Cierre) > Date.now() && x.EstadoPunto !== 'Contenido borrado');
+  await ir(9); await p.click('nav.tabs a[data-v=seguimiento]'); await p.selectOption('#selPunto', String(ptAb.Id)); await p.waitForTimeout(300);
+  const n2 = correos.length;
+  await p.click('[data-cerrarya]'); await p.waitForFunction(() => /queda cerrado a las/.test(document.querySelector('#dlg').textContent), null, { timeout: 15000 });
+  const cc2 = correos.slice(n2).find(c => /^(\[PRUEBAS\] )?CERRADO · /.test(c.asunto));
+  comprueba('«Cerrar ahora» avisa del cierre: ' + (cc2 && cc2.asunto) + ' · ' + await txt('#dlg .db'), !!cc2 && /Aviso enviado por correo/.test(await txt('#dlg')) && /QUEDA CERRADO/.test(cc2.cuerpo));
+  await p.click('#dlg [data-cerrar]');
+  ptAb.Cierre = iso(-60e3); LP('Aportaciones').items.filter(x => x.PuntoId === ptAb.Id).forEach(x => { x.CierrePunto = ptAb.Cierre; });
+  const n3 = correos.length;
+  await ir(9); await p.waitForTimeout(2500);
+  comprueba('tras «Cerrar ahora», al vencer no se envía otro aviso de cierre', !correos.slice(n3).some(c => /CERRADO · /.test(c.asunto)));
+}
 comprueba('errores de página: ' + JSON.stringify(errs), !errs.length);
 await b.close();
 console.log(ok ? 'TODO BIEN' : 'HAY FALLOS');

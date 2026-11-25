@@ -158,7 +158,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-25 · 2';
+  var VERSION = '2026-11-25 · 3';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -393,6 +393,7 @@
       }
       pintarEstado(); render();
       if (instalada && esAdmin) cargarAccesos();   // solicitudes pendientes (número en la pestaña Accesos)
+      if (instalada && coordino()) avisosDeCierre();
       if (instalada && importado) procesarImport();
     }).catch(function (e) {
       errorCarga = e.message || String(e);
@@ -1821,10 +1822,31 @@
       '<div class="acciones"><span class="sep"></span><button data-cerrar>Cancelar</button><button class="prim" data-cierreok>Guardar</button></div></div>';
     dlg.showModal();
   }
-  function cierreOk(boton, p, fija) {
+  // Aviso de cierre al terminar el plazo (25/11/2026). Colabora no ejecuta nada a una hora sin la página abierta: lo envía
+  // la primera persona de coordinación que abre la página después del cierre, una sola vez por punto (queda en el historial
+  // como «aviso de cierre por correo», que se relee del servidor justo antes para no repetirlo). Solo puntos cerrados en los
+  // últimos 7 días y aún «Abierto» (ni entregados ni archivados).
+  var cierresAvisados = {};
+  function avisosDeCierre() {
+    var ya = /aviso de cierre por correo/;
+    var cand = puntos.filter(function (p) { return esCerrado(p) && p.cierre && p.estado === 'Abierto' && ahora() - p.cierre.getTime() < 7 * 864e5 && !ya.test(p.historial) && !cierresAvisados[p.id]; });
+    cand.reduce(function (q, p) {
+      return q.then(function () {
+        cierresAvisados[p.id] = true;
+        return leerItem('puntos', p.id, ['Historial', 'Cierre']).then(function (x) {
+          if (ya.test(x.datos.Historial || '') || !x.datos.Cierre || new Date(x.datos.Cierre).getTime() > ahora()) return;
+          return enviarAviso(p, convocados(p), 'cierre').then(function (r) {
+            aviso((r.ok ? 'Enviado el aviso de cierre de ' : 'No se pudo enviar el aviso de cierre de ') + p.ref + (r.ok ? '' : ' (' + r.motivo + ')'));
+          });
+        }).catch(function () { /* se intentará la próxima vez */ cierresAvisados[p.id] = false; });
+      });
+    }, Promise.resolve()).then(function () { if (cand.length) cargar(); });
+  }
+  // avisarCierre: «Cerrar ahora» (fija la hora) avisa de que el punto queda cerrado
+  function cierreOk(boton, p, fija, avisarCierre) {
     var n = fija || new Date($('#ciNueva').value), er = $('#ciErr');
     if (!fija && (isNaN(n) || n.getTime() <= ahora() + 60000)) { er.textContent = 'La hora tiene que ser futura (para cerrar ya, usa «Cerrar ahora»)'; er.hidden = false; return; }
-    var avisar = !fija && $('#ciAvisar') && $('#ciAvisar').checked;
+    var avisar = fija ? !!avisarCierre : $('#ciAvisar') && $('#ciAvisar').checked;
     if (boton) boton.disabled = true;
     cambiarCierre(p, n).then(function (mal) {
       if (mal.length) alert('No se pudo cambiar el cierre en algunas entradas:\n' + mal.join('\n'));
@@ -1832,6 +1854,13 @@
       return cargar().then(function () {
         var p2 = puntoPorId(p.id);
         if (!avisar || !p2) { if ($('#dlg').open) $('#dlg').close(); return; }
+        if (fija) {
+          dialogoAviso('Cerrar ' + p2.ref, '<p class="muted small">Cerrando y enviando el aviso de cierre…</p>');
+          return enviarAviso(p2, convocados(p2), 'cierre').then(function (r) {
+            $('#dlg').querySelector('.db').innerHTML = '<div class="' + claseCorreo(r) + '">✓ ' + esc(p2.ref) + ' queda cerrado a las ' + esc(fHora(n)) + '.' + msgCorreo(r) + '</div><div class="acciones"><span class="sep"></span><button data-cerrar>Cerrar</button></div>';
+            cargar();
+          });
+        }
         $('#ciMsg').innerHTML = '<p class="muted small">Enviando el aviso…</p>';
         return enviarAviso(p2, convocados(p2), 'cambio').then(function (r) {
           $('#dlg').querySelector('.db').innerHTML = '<div class="' + claseCorreo(r) + '">✓ Bloqueo cambiado al ' + esc(fFH(n)) + '.' + msgCorreo(r) + '</div><div class="acciones"><span class="sep"></span><button data-cerrar>Cerrar</button></div>';
@@ -1854,7 +1883,7 @@
     var to = [], cuentas = {}, nombres = {};
     lst.forEach(function (n) { n.miembros.forEach(function (m) { if (m.Email && to.map(function (x) { return x.toLowerCase(); }).indexOf(m.Email.toLowerCase()) < 0) { to.push(m.Email); cuentas[m.Email.toLowerCase()] = m.Id; nombres[m.Email.toLowerCase()] = m.Title; } }); });
     (cuentasSinCorreo || []).forEach(function (lg) { if (to.indexOf(lg) < 0) to.push(lg); });
-    var rec = motivo === 'recordatorio', cambio = motivo === 'cambio', cc = [];
+    var rec = motivo === 'recordatorio', cambio = motivo === 'cambio', cierre = motivo === 'cierre', cc = [];
     // 23/11/2026: la coordinación (también la fila «Coordinación (control total)», que no está en el informe ni se convoca)
     // va siempre en copia de los avisos de apertura y de cambio: antes quien coordinaba no recibía el de un punto nuevo
     if (!rec) negs.filter(function (n) { return n.coordina; }).forEach(function (n) { n.miembros.forEach(function (m) {
@@ -1865,13 +1894,15 @@
     if (!to.length) { to = cc; cc = []; }
     var intro = rec ? 'RECORDATORIO: TU NEGOCIADO AÚN NO HA APORTADO SU INFORMACIÓN AL PUNTO DE SITUACIÓN. SE BLOQUEA EL ' + fFH(p.cierre).toUpperCase() + '.'
       : cambio ? 'SE HAN MODIFICADO LOS DATOS DEL PUNTO DE SITUACIÓN. REVISA LAS NUEVAS FECHAS.'
+      : cierre ? 'EL PUNTO DE SITUACIÓN QUEDA CERRADO EL ' + fFH(p.cierre).toUpperCase() + ': YA NO SE ADMITEN CAMBIOS. PROCOR PREPARA EL INFORME.'
       : 'SE HA ABIERTO UN NUEVO PUNTO DE SITUACIÓN. CADA NEGOCIADO DEBE APORTAR SU INFORMACIÓN ANTES DEL BLOQUEO.';
     var filas = [['Punto de situación', p.ref + ' · ' + fLarga(p.fecha)], ['Aportaciones desde', fFH(p.apertura || p.creado)], ['Bloqueo automático', fFH(p.cierre)],
-      [rec ? 'Negociados pendientes' : 'Negociados convocados', lst.map(function (n) { return n.titulo; }).join(', ')], ['Aviso enviado por', yo.Title]];
-    var c = { to: to, cc: cc, bcc: [], cuentas: cuentas, nombres: nombres, asunto: (rec ? 'RECORDATORIO · ' : cambio ? 'CAMBIO · ' : '') + p.ref + ' · Punto de situación del ' + fCorta(p.fecha) + ' · aportaciones hasta el ' + fFH(p.cierre),
+      [rec ? 'Negociados pendientes' : 'Negociados convocados', lst.map(function (n) { return n.titulo; }).join(', ')]]
+      .concat(cierre ? [['Negociados que no aportaron', pendientes(p).map(function (n) { return n.titulo; }).join(', ') || 'Ninguno: han aportado todos']] : []).concat([['Aviso enviado por', yo.Title]]);
+    var c = { to: to, cc: cc, bcc: [], cuentas: cuentas, nombres: nombres, asunto: (rec ? 'RECORDATORIO · ' : cambio ? 'CAMBIO · ' : cierre ? 'CERRADO · ' : '') + p.ref + ' · Punto de situación del ' + fCorta(p.fecha) + ' · aportaciones hasta el ' + fFH(p.cierre),
       html: htmlCorreo(intro, filas, enlacePunto(p)), texto: 'USO OFICIAL\n\n' + intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\nAbrir: ' + enlacePunto(p) };
     return enviarCorreo(c).then(function (r) {
-      var txt = (rec ? 'recordatorio' : cambio ? 'aviso del cambio' : 'aviso de apertura') + ' por correo: ' + (r.ok ? 'enviado a ' + (r.llegaron || []).join(', ') : 'NO ENVIADO (' + (r.motivo || '') + ')') + (r.rechazados.length ? '; Colabora no aceptó: ' + r.rechazados.join(', ') : '');
+      var txt = (rec ? 'recordatorio' : cambio ? 'aviso del cambio' : cierre ? 'aviso de cierre' : 'aviso de apertura') + ' por correo: ' + (r.ok ? 'enviado a ' + (r.llegaron || []).join(', ') : 'NO ENVIADO (' + (r.motivo || '') + ')') + (r.rechazados.length ? '; Colabora no aceptó: ' + r.rechazados.join(', ') : '');
       var extra = rec && r.ok ? merge(U('puntos') + '/items(' + p.id + ')', { __metadata: tipo('puntos'), RecordatorioEnviado: new Date().toISOString() }, 'Sin permiso').catch(function () {}) : Promise.resolve();
       return extra.then(function () { return anotar(p, txt); }).then(function () { return r; });
     });
@@ -2350,7 +2381,7 @@
     if (el.closest('[data-recordar]')) { recordar(p); return; }
     if ((b = el.closest('[data-cerrarya]'))) {
       if (!confirm('El punto ' + p.ref + ' se bloqueará dentro de un minuto (Colabora necesita una hora futura para guardarlo). ¿Cerrar ahora?')) return;
-      cierreOk(null, p, new Date(ahora() + 70000)); return;
+      cierreOk(null, p, new Date(ahora() + 70000), true); return;
     }
     if (el.closest('[data-cambiarcierre]')) { dialogoCierre(p); return; }
     if ((b = el.closest('[data-cierreok]'))) { cierreOk(b, p); return; }
