@@ -66,7 +66,7 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
 - **24/11/2026 · Centro de Control NLT (SUIGESUR) 2026-11-24 · 3** (valores de los desplegables en Ajustes, lista NLT_CONFIGURACION; catálogo según la Guía 2026 con «📘 Guía de tramitación 2026» en Obligaciones): subir `suigesur/colabora/CENTRO_CONTROL_NLT_SUIGESUR.html`
   a `/et/SUIGESUR/JSUIGE/aplicaciones` (sustituye al anterior) y probar «Informes › 🖨 Imprimir / PDF». Pendiente de decidir:
   ponerle el control de acceso con solicitud y los avisos por correo del modelo común (aún no los tiene).
-- **25/11/2026 · CECONSEG 2026-11-25 · 6** (operadores CECONSEG elevado a IGE, con la metodología de Incidentes; periodicidad
+- **25/11/2026 · CECONSEG 2026-11-25 · 7** (operadores CECONSEG elevado a IGE, con la metodología de Incidentes; periodicidad
   elegible en Ajustes y justificación obligatoria de cada operador sin HPS, certificado sin cursar o compromiso sin firmar; informe detallado con gráficos, imprimir / PDF y Excel, como Incidentes; responsables de los avisos tomados de Incidentes si no tiene los suyos): subir
   `ceconseg/colabora/ceconseg.html` a la biblioteca del sitio de IGE y seguir la «Puesta en marcha» de `ceconseg/README.md`
   (preparar la lista, unidades obligadas, periodicidad, grupo CECONSEG_UNIDADES y permisos). Como ya se

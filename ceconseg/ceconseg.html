@@ -228,7 +228,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-25 · 6';
+  var VERSION = '2026-11-25 · 7';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Operadores CECONSEG · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -903,7 +903,7 @@
     return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:760px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#222">' +
       '<tr><td style="padding:4px 0 6px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="33%">' + minis + '</td><td width="34%" align="center">' + uso + '</td><td width="33%"></td></tr></table></td></tr>' +
       '<tr><td style="background:' + azul + ';border-bottom:4px solid ' + oro + ';padding:10px 14px;color:#fff"><div style="font-size:11px;letter-spacing:2px;color:#e6d9a8">EJÉRCITO DE TIERRA · INSPECCIÓN GENERAL DEL EJÉRCITO</div>' +
-      '<div style="font-size:18px;font-weight:bold;letter-spacing:1px">PARTE DE INCIDENTE DE SEGURIDAD EN INSTALACIONES</div></td></tr>' +
+      '<div style="font-size:18px;font-weight:bold;letter-spacing:1px">ESTADILLO DE OPERADORES CECONSEG</div></td></tr>' +
       '<tr><td style="padding:14px 0 8px;font-weight:bold">' + esc(intro) + '</td></tr>' +
       '<tr><td><table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:13px">' +
       filas.map(function (x) { return '<tr><td width="32%" style="border:1px solid #c5d0dd;background:#e8eef6;color:' + azul + ';font-weight:bold">' + esc(x[0]) + '</td><td style="border:1px solid #c5d0dd">' + esc(x[1]).replace(/\n/g, '<br>') + '</td></tr>'; }).join('') +

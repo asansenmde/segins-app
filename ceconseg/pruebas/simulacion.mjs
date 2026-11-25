@@ -187,6 +187,7 @@ async function escenario(verbose) {
   const p1 = partes()[0];
   ok(p1 && p1.ESTADO === 'REMITIDO A SUIGE' && p1.SUIGES === 'SUIGESUR' && p1.NOMBRE3N === 'ACUARTELAMIENTO X' && p1.NUMEROOPERADORES === 20 && p1.TIPODETRAMITE === 'TRIMESTRAL' && p1.SIRVENSINHPS === 'SI' && /trámite/.test(p1.MOTIVOSHPS) && /^2027-01-31/.test(p1.FECHAPREVISTAHPS) && p1.MOTIVOSCOMP === '', tag + 'parte enviado: REMITIDO A SUIGE (SUIGESUR) con sus datos y la justificación', JSON.stringify(p1));
   ok(correos.some(m => /Prestan servicio operadores SIN HPS/.test(m.cuerpo)), tag + 'el aviso a la SUIGE lleva lo que hay que revisar');
+  ok(correos.every(m => !/INCIDENTE/.test(m.cuerpo)) && correos.some(m => /ESTADILLO DE OPERADORES CECONSEG/.test(m.cuerpo)), tag + 'la cabecera del correo es la del estadillo CECONSEG (no la de Incidentes)');
   ok(correos.some(m => /PARTE DE OPERADORES CECONSEG/.test(m.asunto) && m.to.includes('i:0#.w|et\\sur1')), tag + 'aviso a la SUIGE, a su CUENTA', JSON.stringify(correos.map(m => m.to)));
   ok(correos.some(m => /PARTE DE OPERADORES CECONSEG/.test(m.asunto) && m.to.includes('i:0#.w|et\\rsur')), tag + 'sin responsables propios, el aviso llega también al responsable de la SUIGE en Incidentes', JSON.stringify(correos.map(m => m.to)));
   // Segundo trimestral de la misma unidad y trimestre: no deja
