@@ -266,7 +266,7 @@ Página `SitePages/<App>.aspx` con un **Editor de scripts** (más el código de 
   no salga en «Contenido del sitio»; si es «Documentos compartidos» avisa de que es la general y que conviene mover los
   `.html` a una biblioteca propia («Aplicaciones», solo Lectura para «Usuarios del dominio»). «Volver a mostrarla» lo
   deshace. No es seguridad: quien tenga la dirección la abre; protege la copia cifrada y los permisos de las listas.
-- **Ocultar las listas de la aplicación** (25/11/2026, en Incidentes, VSA, Pérdidas, CECONSEG y Tareas Colabora): debajo de
+- **Ocultar las listas de la aplicación** (25/11/2026, en Incidentes, VSA, Pérdidas, CECONSEG, Permisos, Cuadrante, Tareas Colabora y META): debajo de
   la biblioteca, en Accesos › Preparación (Ajustes en Tareas Colabora), cada lista propia con «Ocultar» / «Mostrar» y
   «Ocultar todas» / «Mostrar todas» (`lists(guid)` MERGE `Hidden`). Solo las quita de «Contenido del sitio»; la aplicación
   sigue funcionando y cada lista se abre con su dirección directa (enlace «abrir»). Lista común «SOLICITUDES ACCESO

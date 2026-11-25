@@ -52,6 +52,7 @@ async function abrir(id, esAdmin, verbose, url) {
     const NO = () => r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: { message: { value: 'List does not exist' } } }) });
     if (req.method() === 'POST') {
       let c = {}; try { c = JSON.parse(req.postData() || '{}'); } catch (e) { c = {}; } posts.push({ ruta: resto, cuerpo: c, cab: req.headers() });
+      { const lg = resto.match(/^web\/lists\(guid'([^']+)'\)$/); if (lg) { const Lg = Object.values(listas).find(x => x.info.Id === lg[1]); if (!Lg) return NO(); Lg.info.Hidden = c.Hidden; return r.fulfill({ status: 204, body: '' }); } }
       if (resto === 'contextinfo') return J({ GetContextWebInformation: { FormDigestValue: 'D', FormDigestTimeoutSeconds: 1800 } });
       if (resto.startsWith('SP.Utilities.Utility.SendEmail')) {
         const pr = c.properties, dest = [pr.To, pr.CC, pr.BCC].flatMap(x => x ? x.results : []);
@@ -538,6 +539,12 @@ async function prueba(verbose) {
   comprueba(tag + 'al entrar, el administrador ve el recuadro de solicitudes pendientes', /Solicitudes de acceso pendientes: 1 en esta aplicación/.test((await p.textContent('#vista .pendacc').catch(() => '')).replace(/\s+/g, ' ')), (await p.textContent('#vista .pendacc').catch(() => 'NO SALE')).slice(0, 200));
   await p.click('[data-iraccesos]'); await p.waitForTimeout(800);
   comprueba(tag + 'Accesos: la solicitud dice que su aviso salió', /✉ Aviso por correo: .*enviado a/.test(await p.$eval('[data-sol]', x => x.textContent)), await p.$eval('[data-sol]', x => x.textContent.slice(0, 400)));
+  // 25/11/2026: ocultar y volver a mostrar las listas de la aplicación
+  await p.waitForTimeout(800); const tl = () => p.evaluate(() => (document.body.innerText.match(/Listas de la aplicación[^)]*\)/) || [''])[0]);
+  const nL = Object.values(listas).length; await p.click('[data-listasprop="1|*"]'); await p.waitForTimeout(1500);
+  comprueba(tag + '«Ocultar todas» oculta las listas de la aplicación', Object.values(listas).every(x => x.info.Hidden === true) && new RegExp(nL + ' de ' + nL + ' ocultas').test(await tl()), await tl());
+  await p.click('[data-listasprop="0|*"]'); await p.waitForTimeout(1500);
+  comprueba(tag + '«Mostrar todas» las vuelve a mostrar', Object.values(listas).every(x => x.info.Hidden === false), await tl());
   comprueba(tag + 'Accesos: la solicitud pendiente sugiere suboficiales', await p.$eval('[data-sol] .accPapel', s => s.value) === 'SUBOFICIALES');
   correos.length = 0; await p.click('[data-accaprobar]'); await p.waitForTimeout(1500);
   comprueba(tag + 'aprobada: al grupo de usuarios, alta en el cuadrante y correo a su cuenta', grupos.CUADRANTE_USUARIOS.includes(40) && LC.items.some(c => c.PersonaId === 40 && c.Cuadrante === 'SUBOFICIALES' && c.Empleo === 'BRIGADA') &&
