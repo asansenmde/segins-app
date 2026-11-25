@@ -74,6 +74,8 @@ async function abrir(b, yoId, opc) {
     const NO = m => r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: { message: { value: m || 'List does not exist.' } } }) });
     const ERR = (st, m) => r.fulfill({ status: st, contentType: 'application/json', body: JSON.stringify({ error: { message: { value: m } } }) });
     const perm = { Low: String(admin ? 0x2000000 | 0x800 | 0xff : 0x7), High: '0' };
+    const lg = resto.match(/^web\/lists\(guid'([^']+)'\)$/);
+    if (lg && metodo === 'POST') { const Lg = Object.values(L).find(x => x.info.Id === lg[1]); if (!Lg) return NO(); Object.assign(Lg.info, { Hidden: JSON.parse(r.request().postData()).Hidden }); return r.fulfill({ status: 204, body: '' }); }
     const lm = resto.match(/^web\/lists\/getbytitle\('([^']+)'\)(.*)$/), Lx = lm && lista(lm[1]), sub = lm ? lm[2] : '';
     if (metodo === 'POST') {
       let c = {}; try { c = JSON.parse(req.postData() || '{}'); } catch (e) { c = {}; }
@@ -161,6 +163,13 @@ async function escenario(verbose) {
   await p.check('[data-obl="1"]'); await p.check('[data-obl="2"]'); await p.check('[data-obl="3"]');
   await p.click('[data-oblguardar]'); await p.waitForTimeout(2000);
   ok(lista('CECONSEG UNIDADES').items.length === 3 && lista('CECONSEG UNIDADES').items.find(x => x.M3N === 3).SUIGES === 'SUIGENOR', tag + 'guarda las unidades obligadas con su SUIGE');
+  // Accesos › Preparación: ocultar y volver a mostrar las listas de la aplicación
+  await tab(p, 'accesos'); await p.waitForTimeout(1500);
+  ok(/Listas de la aplicación en «Contenido del sitio» \(0 de 3 ocultas\)/.test(await texto(p)), tag + 'Accesos enseña las listas de la aplicación', (await texto(p)).match(/Listas de la aplicación[^)]*\)/));
+  await p.click('[data-listasprop="1|*"]'); await p.waitForTimeout(1500);
+  ok(['CECONSEG OPERADORES', 'CECONSEG UNIDADES', 'SOLICITUDES ACCESO APLICACIONES'].every(n => lista(n).info.Hidden === true) && /3 de 3 ocultas/.test(await texto(p)), tag + '«Ocultar todas» las oculta en «Contenido del sitio»');
+  await p.click('[data-listasprop="0|*"]'); await p.waitForTimeout(1500);
+  ok(lista('CECONSEG OPERADORES').info.Hidden === false && /0 de 3 ocultas/.test(await texto(p)), tag + '«Mostrar todas» las vuelve a mostrar');
   ok(errs.length === 0, tag + 'sin errores de página (administrador)', errs.join(' | '));
   await c.close();
 

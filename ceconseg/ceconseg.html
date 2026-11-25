@@ -228,7 +228,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-25 · 7';
+  var VERSION = '2026-11-25 · 8';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Operadores CECONSEG · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -2132,6 +2132,36 @@
     return api(web + "/_api/web/GetFileByServerRelativeUrl('" + encodeURIComponent(rutaPagina().replace(/'/g, "''")) + "')/ListItemAllFields/ParentList?$select=Id,Title,Hidden,BaseTemplate")
       .then(function (l) { accBiblio = l; }, function () { accBiblio = null; });
   }
+  // Listas propias de la aplicación: ocultarlas o mostrarlas en «Contenido del sitio», como la biblioteca (25/11/2026).
+  // Ocultar no cambia permisos ni datos: la aplicación sigue funcionando y la lista se abre con su dirección directa.
+  var listasProp;
+  function leerListasPropias() {
+    var nombres = ([pref.lista, LISTA_UNIDADES, RESP_LISTA, ACCESO.lista]).filter(function (n, i, a) { return n && a.indexOf(n) === i; });
+    return Promise.all(nombres.map(function (n) {
+      return api(web + "/_api/web/lists/getbytitle('" + encodeURIComponent(n.replace(/'/g, "''")) + "')?$select=Id,Title,Hidden,RootFolder/ServerRelativeUrl&$expand=RootFolder").then(function (l) { return l; }, function () { return null; });
+    })).then(function (r) { listasProp = r.filter(Boolean); }, function () { listasProp = []; });
+  }
+  function vistaListasPropias() {
+    if (listasProp === undefined) { leerListasPropias().then(function () { if (pref.vista === 'accesos') render(); }); return '<p class="small muted">📋 Comprobando las listas de la aplicación…</p>'; }
+    if (!listasProp.length) return '';
+    var ocultas = listasProp.filter(function (l) { return l.Hidden; }).length;
+    return '<div class="small" style="margin:6px 0"><b>📋 Listas de la aplicación en «Contenido del sitio»</b> (' + ocultas + ' de ' + listasProp.length + ' ocultas) ' +
+      (ocultas < listasProp.length ? '<button type="button" class="btn" data-listasprop="1|*">Ocultar todas</button> ' : '') + (ocultas ? '<button type="button" class="btn" data-listasprop="0|*">Mostrar todas</button>' : '') +
+      '<ul style="margin:4px 0;padding-left:18px">' + listasProp.map(function (l) {
+        var url = l.RootFolder && l.RootFolder.ServerRelativeUrl ? location.origin + l.RootFolder.ServerRelativeUrl + '/AllItems.aspx' : '';
+        return '<li>' + esc(l.Title) + (l.Title === 'SOLICITUDES ACCESO APLICACIONES' ? ' <span class="muted">(común a todas las aplicaciones)</span>' : '') + ' · ' +
+          (l.Hidden ? '<b>oculta</b> <button type="button" class="btn" data-listasprop="0|' + esc(l.Id) + '">Mostrar</button>' : 'se ve <button type="button" class="btn" data-listasprop="1|' + esc(l.Id) + '">Ocultar</button>') +
+          (url ? ' <a href="' + esc(url) + '" target="_blank" rel="noopener">abrir</a>' : '') + '</li>';
+      }).join('') + '</ul><span class="muted">Ocultarlas solo las quita de «Contenido del sitio»: la aplicación sigue funcionando igual y se abren con su dirección directa (enlace «abrir»; guárdalo en favoritos).</span></div>';
+  }
+  function ocultarListasPropias(boton) {
+    var p = boton.dataset.listasprop.split('|'), ocultar = p[0] === '1';
+    var ls = (listasProp || []).filter(function (l) { return (p[1] === '*' || String(l.Id) === p[1]) && !!l.Hidden !== ocultar; });
+    boton.disabled = true;
+    ls.reduce(function (pr, l) { return pr.then(function () { return enviarSP(web + "/_api/web/lists(guid'" + l.Id + "')", { __metadata: { type: 'SP.List' }, Hidden: ocultar }, 'No tienes permiso para cambiar la lista ' + l.Title, { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }); }); }, Promise.resolve())
+      .then(leerListasPropias).then(function () { toast(ocultar ? 'Listas ocultas en «Contenido del sitio»' : 'Listas visibles de nuevo'); render(); })
+      .catch(function (e) { toast('No se pudo: ' + (e.message || e)); return leerListasPropias().then(render); });
+  }
   function ocultarBiblioteca(boton, ocultar) {
     if (!accBiblio) return;
     if (ocultar && /^(Documentos compartidos|Documentos|Shared Documents)$/i.test(accBiblio.Title) &&
@@ -2215,7 +2245,7 @@
       '<p class="small">✉ Cada solicitud nueva se avisa por correo a <b>' + esc((ACCESO.avisarCorreos || []).concat(ACCESO.avisar).join(', ') || 'los propietarios del sitio') + '</b>. ' +
         '<button data-accprueba="1">Probar el aviso</button></p><div id="accPrueba"></div>' +
       (accBiblio ? '<p class="small">' + (accBiblio.Hidden ? '✔ La biblioteca «' + esc(accBiblio.Title) + '», donde está esta página, está oculta en «Contenido del sitio». <button data-accbiblio="0">Volver a mostrarla</button>' :
-        '📁 Esta página está en la biblioteca «' + esc(accBiblio.Title) + '», que se ve en «Contenido del sitio». <button data-accbiblio="1">Ocultar la biblioteca</button>') + '</p>' : '') +
+        '📁 Esta página está en la biblioteca «' + esc(accBiblio.Title) + '», que se ve en «Contenido del sitio». <button data-accbiblio="1">Ocultar la biblioteca</button>') + '</p>' : '') + vistaListasPropias() +
       '<p class="small muted">La comprobación de acceso la hace esta página. Para que sea también la de Colabora, quita «Usuarios del dominio» de la lista «' + esc(pref.lista) + '» y da permiso a los grupos SEGURIDAD_* y ' + esc(ACCESO.grupoBae) + '. ' +
       'La lista de solicitudes debe seguir permitiendo «Colaborar» a todos para que cualquiera pueda pedir acceso.</p></div>';
     var pend = (accSols || []).filter(function (s) { return s.estado === 'PENDIENTE'; }), res = (accSols || []).filter(function (s) { return s.estado !== 'PENDIENTE'; });
@@ -2433,6 +2463,7 @@
     if (el.closest('[data-oblguardar]')) { guardarObligadas(el.closest('[data-oblguardar]')); return; }
     if (el.closest('[data-recordaru]')) { recordarUnidad(el.closest('[data-recordaru]')); return; }
     if (el.closest('[data-accpedir]')) { pantallaAcceso(''); return; }
+    if (el.closest('[data-listasprop]')) { ocultarListasPropias(el.closest('[data-listasprop]')); return; }
     if (el.closest('[data-accbiblio]')) { ocultarBiblioteca(el.closest('[data-accbiblio]'), el.closest('[data-accbiblio]').dataset.accbiblio === '1'); return; }
     if (el.closest('[data-accprueba]')) { probarAvisoSolicitud(el.closest('[data-accprueba]')); return; }
     if (el.closest('[data-accsolicitar]')) { enviarSolicitud(el.closest('[data-accsolicitar]')); return; }
