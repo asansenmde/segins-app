@@ -330,3 +330,9 @@ autoría.
       usuario): ahora solo los que la llevan o la citan de verdad (un trozo de su «Su referencia» es ese número o lo contiene
       entero si tiene 6 cifras o más) y de la misma fecha o posterior; sin repetidos. Coincidencias más estrictas en «Su
       referencia». PENDIENTE DEL USUARIO: repetir con RE-001-E-26-05320937.
+    25/11/2026: SENDERO 2026-11-25 · 7 (lógica acordada con el usuario): las referencias se buscan en la bandeja CONTRARIA. Entrada:
+      «Su referencia» (casi siempre nuestro registro de salida) → nuestras salidas de antes; «N.º referencia» (registro de entrada)
+      → nuestras salidas de después que lo citan. Salida: «N.º referencia» = nuestro registro de salida → sus entradas de después
+      que lo citan (por el registro o por «Nuestra referencia» si parece una referencia; es texto libre); «Su referencia» → nuestras
+      entradas de antes. Sin saber si es entrada o salida, en las dos. Si el mensaje no dice su tipo, el de la bandeja.
+      PENDIENTE DEL USUARIO: probarlo con mensajes de entrada y de salida.

@@ -535,7 +535,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-25 · 6';
+  var VERSION = '2026-11-25 · 7';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1454,7 +1454,8 @@
     }
     // TipoES del mensaje (E/S) si viene; si no, el de la consulta
     var tes = String(e.TipoES || '').trim();
-    x.__es = /^e/i.test(tes) ? 'Entrada' : /^s/i.test(tes) ? 'Salida' : 'tipoES ' + es;
+    // 25/11/2026: si el mensaje no dice su tipo, el de la bandeja pedida (tipoES 1 = entrada, 2 = salida)
+    x.__es = /^e/i.test(tes) ? 'Entrada' : /^s/i.test(tes) ? 'Salida' : String(es) === '1' ? 'Entrada' : String(es) === '2' ? 'Salida' : 'tipoES ' + es;
     var kf = nombre('fecha') || campo(CLAVES_API.fecha) || campo(CLAVES_API.fecha2, function (v) { return tipoDe(v) === 'fecha'; });
     var ms = kf && /^\/Date\((-?\d+)/.exec(e[kf]);
     var fecha = kf ? (ms ? new Date(+ms[1]).toISOString() : e[kf]) : '';
@@ -1463,7 +1464,8 @@
     var val = function (cl, re, re2) { var k = nombre(cl) || campo(re, noFecha) || (re2 && campo(re2, noFecha)); return k ? comoTexto(e[k]) : ''; };
     var kadj = nombre('adjuntos') || campo(CLAVES_API.adjuntos), kc = nombre('cuerpo');
     return { _api: true, _x: x, ID: kid ? e[kid] : '', MensajeId: kid ? String(e[kid]) : '', _asunto: val('asunto', CLAVES_API.asunto), MensajeFecha: fecha, MensajeEstado: String(e.NombreEstadoUltimaDistribucionSalida || '').trim() || val('estado', CLAVES_API.estado),
-      MensajeTipo_es: val('tipo', CLAVES_API.tipo), MensajeNombre_Autoridad: val('remitente', CLAVES_API.remitente), MensajeNum_referencia: val('referencia', CLAVES_API.referencia, CLAVES_API.referencia2),
+      MensajeTipo_es: val('tipo', CLAVES_API.tipo), MensajeNombre_Autoridad: val('remitente', CLAVES_API.remitente), MensajeNum_referencia: x.__es === 'Salida' && e.NumeroRegistroSalida ? String(e.NumeroRegistroSalida) : val('referencia', CLAVES_API.referencia, CLAVES_API.referencia2),   // 25/11/2026: en las salidas, nuestro registro de salida
+     
       MensajeSu_referencia: val('suReferencia', /^sref$|su_?ref/i), MensajeNum_expediente: val('', CLAVES_API.expediente),
       _leido: typeof e.Leido === 'boolean' ? e.Leido : undefined, _bandera: bandera, _idBandera: bandera ? String(idb) : '', _idBuzon: e.IdBuzonCelula || e.idBuzonCelula || '', _rubrica: { enviable: e.EnviableARubrica, estado: [e.EstadoMensaje, e.EstadoParaUsuario, e.NombreEstadoUltimaDistribucionSalida].filter(Boolean).join(' '), personal: e.BuzonPersonal === true },
       Attachments: kadj ? siNo(e[kadj]) : false, _cuerpoApi: kc ? texto(String(e[kc])) : '',
@@ -1664,8 +1666,23 @@
     // - «Su referencia»: el mensaje lleva ese número (igual, o contenido si es largo).
     var fDesde = desde ? fechaDe(desde) : null, lim = fDesde ? new Date(fDesde.getTime() - 864e5) : null;
     var cita = function (x) { return !!x.MensajeSu_referencia && trozosRef(x.MensajeSu_referencia).some(function (t) { return trozos.some(function (r) { return t === r || (r.replace(/\D/g, '').length >= 6 && t.indexOf(r) >= 0); }); }); };
+    // 25/11/2026 (lógica acordada con el usuario): se busca en la bandeja CONTRARIA. En un mensaje de entrada, «Su referencia»
+    // es algo nuestro (casi siempre nuestro registro de salida) → nuestras salidas de antes; «N.º referencia» (nuestro registro
+    // de entrada) → nuestras salidas de después que lo citan (la contestación). En uno de salida, «Su referencia» es el mensaje
+    // de la unidad → nuestras entradas de antes; «N.º referencia» (nuestro registro de salida) → sus entradas de después que lo
+    // citan, por el registro o por lo que pusimos en «Nuestra referencia» si parece una referencia (texto libre: solo de apoyo).
+    // Si no se sabe si es de entrada o salida, en las dos.
+    var esDe = desde && desde._x ? desde._x.__es : '', otro = esDe === 'Entrada' ? 'Salida' : esDe === 'Salida' ? 'Entrada' : '';
+    var tiposDir = otro === 'Salida' ? [2] : otro === 'Entrada' ? [1] : [1, 2], fMax = fDesde ? new Date(fDesde.getTime() + 864e5) : null;
+    var enSentido = function (x) { var xe = x._x && x._x.__es, fx = fechaDe(x);
+      if (otro && xe && xe !== otro) return false;
+      return conSu ? (!lim || !fx || fx >= lim) : (!fMax || !fx || fx <= fMax); };
+    var nref = conSu && esDe === 'Salida' && desde._x && desde._x.Nref ? String(desde._x.Nref) : '';
+    if (nref && /\d/.test(nref) && nref.replace(/\s/g, '').length >= 6) trozosRef(nref).forEach(function (t) { if (t.replace(/\D/g, '').length >= 3 && trozos.indexOf(t) < 0) trozos.push(t); });
     var casa = function (x) {
-      if (conSu) { var fx = fechaDe(x); return refsDe(x).some(function (v) { return trozos.indexOf(v) >= 0; }) || (cita(x) && (!lim || !fx || fx >= lim)); }
+      if (!enSentido(x)) return false;
+      // (en la bandeja contraria nadie lleva nuestro mismo número: solo cuenta quien lo cita; sin sentido conocido, las dos cosas)
+      if (conSu) return (!otro && refsDe(x).some(function (v) { return trozos.indexOf(v) >= 0; })) || cita(x);
       return casaAlguno(x, trozos);
     };
     // Caja para corregir la referencia a mano
@@ -1707,13 +1724,13 @@
       var diasAtras = Number(irAReferencia['atras' + (idMsg || 'msgRef')] || 30);
       var limite = conSu ? (fechaDe(desde) || new Date(Date.now() - diasAtras * 864e5)) : fRef ? new Date(fRef.getTime() - 864e5) : new Date(Date.now() - diasAtras * 864e5);
       limite = new Date(limite); limite.setHours(0, 0, 0, 0);
-      var tipos = conSu ? [1, 2] : regs.some(function (r) { return /-S-/.test(r); }) ? [2, 1] : [1, 2];
-      var casaReg = conSu ? casa : function (x) { return regs.some(function (r) { return casaRef(x, normRef(r)); }); };
+      var tipos = otro ? tiposDir : conSu ? [1, 2] : regs.some(function (r) { return /-S-/.test(r); }) ? [2, 1] : [1, 2];
+      var casaReg = conSu ? casa : function (x) { return enSentido(x) && regs.some(function (r) { return casaRef(x, normRef(r)); }); };
       var desc = conSu ? 'mensajes que citan ' + esc(ref) : 'el registro ' + esc(regs.join(', '));
       msg('Buscando ' + desc + ' en tus bandejas desde el ' + esc(limite.toLocaleDateString('es-ES')) + '…');
       // Primero el buscador de MENSADEF con el registro EXACTO y solo (así sí lo encuentra, probado por el usuario: no con trozos
       // ni con texto delante); si no, se recorren las bandejas
-      var rapido = conSu ? Promise.resolve([]) : buscarConBuscador(regs, casaReg, function (h, t) { caja = $(idMsg || 'msgRef') || caja; if (caja) msg('Buscando ' + desc + ' con el buscador de MENSADEF… ' + h + ' de ' + t + ' bandejas'); });
+      var rapido = conSu ? Promise.resolve([]) : buscarConBuscador(regs, casaReg, tipos, function (h, t) { caja = $(idMsg || 'msgRef') || caja; if (caja) msg('Buscando ' + desc + ' con el buscador de MENSADEF… ' + h + ' de ' + t + ' bandejas'); });
       return rapido.then(function (l) { return l.length ? l : escanearBandejas(limite, tipos, casaReg, !conSu, function (h, t) { caja = $(idMsg || 'msgRef') || caja; if (caja) msg('Buscando ' + desc + ' en tus bandejas desde el ' + esc(limite.toLocaleDateString('es-ES')) + '… ' + h + ' de ' + t + ' bandejas'); }); })
         .then(function (l) {
           caja = $(idMsg || 'msgRef') || caja; if (!caja) return;
@@ -1734,11 +1751,11 @@
       .filter(function (x, i, l) { return x && x.length <= 60 && l.map(normRef).indexOf(normRef(x)) === i; }).slice(0, 2);
     var cels = (apiCtx.celulas || []).slice(0, 25);
     var idMensaje = desde && desde.MensajeId, sigue = function () { return !idMensaje || (abierto && abierto.MensajeId === idMensaje) || !!$(idMsg || 'msgRef'); };
-    var hallados = [], vistos = {}, hechas = 0, total = crudos.length * cels.length * 2;
+    var hallados = [], vistos = {}, hechas = 0, total = crudos.length * cels.length * tiposDir.length;
     msg('Buscando «' + esc(crudos[0]) + '» en MENSADEF…');
     var porCriterio = function (k) {
       if (k >= crudos.length) return Promise.resolve();
-      var cola = []; cels.forEach(function (c) { [1, 2].forEach(function (es) { cola.push({ c: c, es: es }); }); });
+      var cola = []; cels.forEach(function (c) { tiposDir.forEach(function (es) { cola.push({ c: c, es: es }); }); });
       var una = function (t) {
         return pedirApi('buzon/ObtenerBuzonCelula', { idCelula: t.c.id, emailUsuario: apiCtx.email, urlColeccionSitio: apiCtx.url, indicePagina: 1, tamanoPagina: 50, tipoES: t.es, criterioBusqueda: crudos[k], soloPendientes: false }).then(function (d) {
           var els = (d && (d.ListaElementos || d.listaElementos)) || primerArray(d) || [];
@@ -1771,9 +1788,9 @@
     });
   }
   // El buscador de MENSADEF (criterioBusqueda) con cada texto, en todas las células del usuario, entrada y salida
-  function buscarConBuscador(textos, casaFn, avance) {
+  function buscarConBuscador(textos, casaFn, tipos, avance) {
     var cola = [], hallados = [], vistos = {}, hechas = 0;
-    textos.forEach(function (q) { (apiCtx.celulas || []).slice(0, 25).forEach(function (c) { [1, 2].forEach(function (es) { cola.push({ c: c, es: es, q: q }); }); }); });
+    textos.forEach(function (q) { (apiCtx.celulas || []).slice(0, 25).forEach(function (c) { (tipos || [1, 2]).forEach(function (es) { cola.push({ c: c, es: es, q: q }); }); }); });
     var total = cola.length;
     var una = function (t) {
       return pedirApi('buzon/ObtenerBuzonCelula', { idCelula: t.c.id, emailUsuario: apiCtx.email, urlColeccionSitio: apiCtx.url, indicePagina: 1, tamanoPagina: 50, tipoES: t.es, criterioBusqueda: t.q, soloPendientes: false }).then(function (d) {
