@@ -301,7 +301,7 @@
   var fCorta = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''; };
   var fLarga = function (s) { return aFecha(s).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); };
   var fMedia = function (s) { return s ? aFecha(s).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; };
-  var VERSION = '2026-11-23 · 1';
+  var VERSION = '2026-11-25 · 1';
   // Asunto pedido en el enlace de un correo (…tareas-nlt-colabora.html?id=N)
   var idInicial = Number(new URLSearchParams(location.search).get('id')) || null;
   $('#verPie').textContent = 'versión ' + VERSION;
@@ -1557,6 +1557,36 @@
     enviarSP(urlBiblio() + '/resetroleinheritance', {}, 'No tienes permiso para cambiar los permisos de la biblioteca')
       .then(leerPermisosBiblio).then(function () { aviso('La biblioteca vuelve a tener los permisos del sitio'); render(); })
       .catch(function (e) { boton.disabled = false; aviso('No se pudo: ' + (e.message || e)); });
+  }
+  // Listas propias de la aplicación: ocultarlas o mostrarlas en «Contenido del sitio», como la biblioteca (25/11/2026).
+  // Ocultar no cambia permisos ni datos: la aplicación sigue funcionando y la lista se abre con su dirección directa.
+  var listasProp;
+  function leerListasPropias() {
+    var nombres = ([pref.lista, MIEMBROS, SOLIC]).filter(function (n, i, a) { return n && a.indexOf(n) === i; });
+    return Promise.all(nombres.map(function (n) {
+      return api(web.url + "/_api/web/lists/getbytitle('" + encodeURIComponent(n.replace(/'/g, "''")) + "')?$select=Id,Title,Hidden,RootFolder/ServerRelativeUrl&$expand=RootFolder").then(function (l) { return l; }, function () { return null; });
+    })).then(function (r) { listasProp = r.filter(Boolean); }, function () { listasProp = []; });
+  }
+  function vistaListasPropias() {
+    if (listasProp === undefined) { leerListasPropias().then(function () { if (pref.vista === 'ajustes') render(); }); return '<p class="small muted">📋 Comprobando las listas de la aplicación…</p>'; }
+    if (!listasProp.length) return '';
+    var ocultas = listasProp.filter(function (l) { return l.Hidden; }).length;
+    return '<div class="small" style="margin:6px 0"><b>📋 Listas de la aplicación en «Contenido del sitio»</b> (' + ocultas + ' de ' + listasProp.length + ' ocultas) ' +
+      (ocultas < listasProp.length ? '<button type="button" class="btn" data-listasprop="1|*">Ocultar todas</button> ' : '') + (ocultas ? '<button type="button" class="btn" data-listasprop="0|*">Mostrar todas</button>' : '') +
+      '<ul style="margin:4px 0;padding-left:18px">' + listasProp.map(function (l) {
+        var url = l.RootFolder && l.RootFolder.ServerRelativeUrl ? location.origin + l.RootFolder.ServerRelativeUrl + '/AllItems.aspx' : '';
+        return '<li>' + esc(l.Title) + (l.Title === 'SOLICITUDES ACCESO APLICACIONES' ? ' <span class="muted">(común a todas las aplicaciones)</span>' : '') + ' · ' +
+          (l.Hidden ? '<b>oculta</b> <button type="button" class="btn" data-listasprop="0|' + esc(l.Id) + '">Mostrar</button>' : 'se ve <button type="button" class="btn" data-listasprop="1|' + esc(l.Id) + '">Ocultar</button>') +
+          (url ? ' <a href="' + esc(url) + '" target="_blank" rel="noopener">abrir</a>' : '') + '</li>';
+      }).join('') + '</ul><span class="muted">Ocultarlas solo las quita de «Contenido del sitio»: la aplicación sigue funcionando igual y se abren con su dirección directa (enlace «abrir»; guárdalo en favoritos).</span></div>';
+  }
+  function ocultarListasPropias(boton) {
+    var p = boton.dataset.listasprop.split('|'), ocultar = p[0] === '1';
+    var ls = (listasProp || []).filter(function (l) { return (p[1] === '*' || String(l.Id) === p[1]) && !!l.Hidden !== ocultar; });
+    boton.disabled = true;
+    ls.reduce(function (pr, l) { return pr.then(function () { return enviarSP(web.url + "/_api/web/lists(guid'" + l.Id + "')", { __metadata: { type: 'SP.List' }, Hidden: ocultar }, 'No tienes permiso para cambiar la lista ' + l.Title, { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }); }); }, Promise.resolve())
+      .then(leerListasPropias).then(function () { aviso(ocultar ? 'Listas ocultas en «Contenido del sitio»' : 'Listas visibles de nuevo'); render(); })
+      .catch(function (e) { aviso('No se pudo: ' + (e.message || e)); return leerListasPropias().then(render); });
   }
   function ocultarBiblioteca(boton, ocultar) {
     if (!biblio) return;
@@ -3010,7 +3040,7 @@
     return '<div class="card"><h3 style="margin-top:0">Lista de SharePoint</h3>' +
       '<p class="small muted">Sitio: ' + esc(web ? (web.titulo || '') + ' (' + web.url + ')' : '—') + '<br>Usuario: ' + esc(yo ? yo.Title : '—') +
       (listaInfo ? '<br>Lista: «' + esc(listaInfo.Title) + '», ' + listaInfo.ItemCount + ' elementos' : '') + (cargadoEn ? '<br>Leída a las ' + cargadoEn.toLocaleTimeString('es-ES') : '') + '<br>Versión de la página: ' + esc(VERSION) + '</p>' +
-      '<label class="lbl">Nombre de la lista</label><input id="aLista" value="' + esc(pref.lista) + '">' + vistaBiblioteca() +
+      '<label class="lbl">Nombre de la lista</label><input id="aLista" value="' + esc(pref.lista) + '">' + vistaBiblioteca() + vistaListasPropias() +
       '<p class="small">' + (hayTratar() ? '✔ Columna «Tratar en» (marcas «' + TRATAR[0][3] + '» y «' + GEN + '»).' : '✕ Falta la columna «Tratar en» para marcar asuntos para el punto de situación o para tratar con el General. <button type="button" class="btn prim" data-creartratar="1">Crear la columna</button> <span class="muted">(hace falta poder administrar la lista)</span>') + '</p>' +
       vistaCatalogo() +
       '<label class="lbl">Actualizar la lista automáticamente cada (minutos; 0 = no)</label><input id="aAuto" type="number" min="0" max="60" value="' + minutosAuto() + '">' +
@@ -3175,6 +3205,7 @@
     if (el.closest('[data-creartratar]')) { crearColumnaTratar(el.closest('[data-creartratar]')); return; }
     if (el.closest('[data-bibliocerrar]')) { cerrarBiblioteca(el.closest('[data-bibliocerrar]')); return; }
     if (el.closest('[data-biblioabrir]')) { abrirBiblioteca(el.closest('[data-biblioabrir]')); return; }
+    if (el.closest('[data-listasprop]')) { ocultarListasPropias(el.closest('[data-listasprop]')); return; }
     if (el.closest('[data-biblio]')) { ocultarBiblioteca(el.closest('[data-biblio]'), el.closest('[data-biblio]').dataset.biblio === '1'); return; }
     if (el.closest('[data-departamentos]')) { admitirDepartamentos(el.closest('[data-departamentos]')); return; }
     if (el.closest('[data-catsuigesur]')) { var bs = el.closest('[data-catsuigesur]');
