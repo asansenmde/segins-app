@@ -564,4 +564,7 @@ con el formato *verbose* de SharePoint 2013.
   explica que hay que ponerla en MENSADEF («Abrir en MENSADEF»). Pasada `RUB500=1` en `todas.sh`.
 - **2026-11-19 · 5:** **un solo favorito**: «Firmar con SENDERO» va dentro del favorito SENDERO; pulsado en portafirmas.mdef.es
   hace lo de `firmar-portafirmas.js` (el generador lo pone delante del visor). Ya no hay `marcador-firmar-portafirmas.html`.
-
+- **2026-11-25 · 1: «↪ Distribuir»** (mensajes de entrada): como la aplicación (escucha v8), `GET ambito/DatosEstaticosDistribucionInternaEntrada`
+  (motivos y visibilidad del asistente básico, favoritas), `GET ambito/Celula?tipoCelula=4` y `POST mensajeDistribucionInternaEntrada/Crear`
+  con `CelulasSeleccionadas: [{ IdTipoMotivoDistribucion, IdDestino, OtroMotivo }]`. Queda siempre quién lo decreta: en el comentario
+  de la distribución y en un comentario del mensaje. Prueba en `pruebas/bandejas.mjs`.

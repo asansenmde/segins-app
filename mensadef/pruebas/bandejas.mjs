@@ -9,7 +9,7 @@ const { chromium } = require(require('child_process').execSync('npm root -g').to
 const O = 'https://mensadef.mdef.es', API = 'https://mensadefapi.mdef.es', WEB = '/ambito/2SUIGE';
 const verbose = !!process.env.VERBOSE;
 const G4 = '44444444-4444-4444-4444-444444444444', G1 = '8d714e44-b2b5-41a8-9780-2228204861b5', G2 = '11111111-2222-3333-4444-555555555555', G3 = '99999999-8888-7777-6666-555555555555';
-let nClaves = 0, marcadoLeido = 0; let sesion = !process.env.PORTAL || !!process.env.SESION; /* PORTAL=1: se empieza en la portada sin sesión en el ámbito */ const comentarios = [], banderasPuestas = [], rubricas = [], leidos = [];
+let nClaves = 0, marcadoLeido = 0; let sesion = !process.env.PORTAL || !!process.env.SESION; /* PORTAL=1: se empieza en la portada sin sesión en el ámbito */ const distribuciones = [], comentarios = [], banderasPuestas = [], rubricas = [], leidos = [];
 const PASS = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6', UID = 'abcdef01-2345-6789-abcd-ef0123456789';
 // Consulta que hace la aplicación de MENSADEF al cambiar de célula (de ahí el favorito toma las cabeceras)
 const consultaApp = pg => pg.evaluate(([P, U]) => fetch('https://mensadefapi.mdef.es/api/usuariovista/UsuarioVistaObtener?emailUsuario=persona%40pruebas.invalid', { headers: { 'Content-Type': 'application/json', passcode: P, user: U } }).catch(() => 0), [PASS, UID]);
@@ -63,6 +63,11 @@ await ctx.route(API + '/**', r => {
   if (ruta === 'ambito/UsuarioCelulas') return r.fulfill({ headers: H, json: q.idUsuario !== '77' ? [] : q.tipoCelula === '4' ? [{ IdCelula: G1, NombreCelula: 'SETEC SEGURIDAD', TipoCelula: 4 }, { IdCelula: G2, NombreCelula: 'SETEC SECRETARIA', TipoCelula: 4 }]
     : [{ IdCelula: G1, NombreCelula: 'SETEC SEGURIDAD', TipoCelula: 4 }, { IdCelula: G2, NombreCelula: 'SETEC SECRETARIA', TipoCelula: 4 }, { IdCelula: G4, NombreCelula: 'ET 2SUIGE REGISTRO', TipoCelula: 1 }, { IdCelula: G3, NombreCelula: 'ET 2SUIGE JEFATURA PORTAFIRMAS', TipoCelula: 2 }] });
   // Catálogo de banderas, como el real: [{IdEtiqueta, Nombre, Color}] (la 9 no está: se ve como «Bandera 9»)
+  // 25/11/2026: distribuir (como la escucha v8): datos del asistente, células del ámbito y Crear
+  if (ruta === 'ambito/DatosEstaticosDistribucionInternaEntrada') return r.fulfill({ headers: H, json: { TiposMotivoDistribucionAsistenteBasico: [{ ID: 1, Nombre: 'Para conocimiento' }, { ID: 2, Nombre: 'Para acción' }, { ID: 3, Nombre: 'Otro' }],
+    TiposVisibilidadDistribucionInternaAsistenteBasico: [{ ID: 1, Nombre: 'Solo la célula' }, { ID: 3, Nombre: 'Célula y superiores' }], FavoritosDelUsuario: [{ IdCelula: G2, ID: 'f1', Nombre: 'SETEC SECRETARIA', ResponsableCelula: 'X', OtrosResponsables: [] }, { IdCelula: G1, ID: 'f2', Nombre: 'SETEC SEGURIDAD' }] } });
+  if (ruta === 'ambito/Celula') return r.fulfill({ headers: H, json: [{ IdCelula: G2, Nombre: 'SETEC SECRETARIA' }, { IdCelula: G1, Nombre: 'SETEC SEGURIDAD' }, { IdCelula: G3, Nombre: 'PROCOR <b>X</b>' }, { IdCelula: 'dddddddd-0000-0000-0000-000000000000', Nombre: 'DESHABILITADA', Deshabilitada: true }] });
+  if (ruta === 'mensajeDistribucionInternaEntrada/Crear') { distribuciones.push({ metodo: r.request().method(), q: [...u.searchParams.keys()].join(','), cuerpo: JSON.parse(r.request().postData() || '{}'), passcode: hd.passcode === PASS }); return r.fulfill({ headers: H, json: true }); }
   if (ruta === 'etiqueta/EtiquetasObtener') return r.fulfill({ headers: H, json: [{ IdEtiqueta: 1, Nombre: 'Urgente', Color: '#FF0000' }, { IdEtiqueta: 4, Nombre: 'Finalizado', Color: 'verde' }, { IdEtiqueta: 5, Nombre: 'Seguimiento', Color: 'x;}<b>' }] });
   // Cuerpo del mensaje con sus anexos (como el real: solo responde con el modoVer que usa la aplicación)
   if (ruta === 'mensaje/ObtenerCuerpo') return q.modoVer !== 'true' ? r.fulfill({ status: 400, headers: H, body: '' }) : r.fulfill({ headers: H, json: { ID: q.id, UrlCarpeta: '/SMDMDMensajesDocumentos_20261105/' + q.id, Cuerpo: 'Texto completo', Destinatarios: Array.from({ length: 9 }, (_, k) => ({ ID: k, Nombre: (process.env.PRESENTA ? ['GENERAL JEFE DE LA SUIGESUR', 'JEFE DE LA SECCIÓN DE SEGURIDAD', 'JEFE DEL NEGOCIADO DE INSTALACIONES'][k % 3] + ' ' + (k + 1) : 'DESTINATARIO <b>' + k + '</b>'), TipoDestinatario: 'Autoridad' })), DestinatariosCopia: [{ Nombre: 'COPIA UNO' }], UrlCarpeta: WEB + '/SMDMDMensajesDocumentos_20261105/' + q.id, AnexosFisicos: [{}],
@@ -691,6 +696,27 @@ for (const n of [0, 40]) {
   if (r.uso !== 2 || !r.firma || r.regs.join() !== 'SALIDA,ENTRADA' || ['S/REF.', 'N/REF.', 'FECHA', 'ASUNTO', 'ANEXOS', 'DESTINATARIO', 'COPIA'].some(k => !r.campos.includes(k)) || !r.texto || !r.csv) console.log('Error: imprimir mensaje');
   if (process.env.CAPTURA_OFICIO) await w.pdf({ path: process.env.CAPTURA_OFICIO, format: 'A4', printBackground: true });
   await w.close(); await p.bringToFront(); }
+// 25/11/2026: «↪ Distribuir» a varias células con motivo y constancia de quién lo decreta
+{ await p.fill('#buscar', 'RE-1'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
+  if (!(await p.$('#aDistribuir'))) console.log('Error: no hay botón Distribuir en un mensaje de entrada');
+  else {
+    await p.click('#aDistribuir'); await p.waitForSelector('#distLista [data-cel]', { timeout: 8000 }).catch(async () => console.log('ventana distribuir:', await p.textContent('#distModal').catch(() => 'no hay ventana')));
+    const cels = await p.$$eval('#distLista label', l => l.map(x => x.textContent.trim()));
+    // La célula del mensaje no sale: se elige la primera de la lista (una favorita, ★) y PROCOR buscándola
+    const primera = await p.getAttribute('#distLista [data-cel] >> nth=0', 'data-cel'), nomPrimera = primera === G2 ? 'SETEC SECRETARIA' : 'SETEC SEGURIDAD';
+    await p.check('#distLista [data-cel] >> nth=0'); await p.fill('#distBuscar', 'procor'); await p.check('#distLista [data-cel="' + G3 + '"]');
+    await p.selectOption('#distMotivo', '3'); const pideOtro = await p.isVisible('#distOtro'); await p.fill('#distOtro', 'Revisión de seguridad');
+    await p.fill('#distTexto', 'Preparad la respuesta'); const firma = await p.textContent('#distFirma');
+    const antes = comentarios.length; p.once('dialog', dg => dg.accept()); await p.click('#distEnviar'); await p.waitForSelector('#distFin', { timeout: 8000 }).catch(() => 0);
+    const d = distribuciones[0] || {}, c = d.cuerpo || {}, com = (comentarios[antes] || {}).cuerpo || {};
+    console.log('distribuir: células en la lista', cels.length, '(2 de 3: sin la del mensaje)', '(sin deshabilitadas:', !cels.some(x => /DESHABILITADA/.test(x)) + ') | favoritas con ★:', cels.filter(x => x.startsWith('★')).length,
+      '| pide «otro motivo»:', pideOtro, '| constancia:', firma, '| destinos:', JSON.stringify((c.CelulasSeleccionadas || []).map(x => [x.IdDestino === primera ? nomPrimera : x.IdDestino === G3 ? 'PROCOR' : x.IdDestino, x.IdTipoMotivoDistribucion, x.OtroMotivo])),
+      '| campos:', Object.keys(c).join(','), '| comentario de la distribución con quién decreta:', /Preparad la respuesta\n\nDecretado por .+ el \d/.test(c.Comentario || ''), '| comentario en el mensaje:', new RegExp('^↪ Distribuido a ' + nomPrimera + ', PROCOR').test(com.Comentario || ''));
+    if (distribuciones.length !== 1 || d.metodo !== 'POST' || !d.passcode || d.q !== 'emailUsuario,urlColeccionSitio' || c.IdBuzonCelulaSaliente == null || c.IdUsuarioRemitente == null || c.AsistenteAvanzado !== false || c.Enviar !== true ||
+      c.IdTipoVisibilidad !== 3 || (c.CelulasSeleccionadas || []).length !== 2 || c.CelulasSeleccionadas[1].IdDestino !== G3 || c.CelulasSeleccionadas[0].IdTipoMotivoDistribucion !== 3 || c.CelulasSeleccionadas[0].OtroMotivo !== 'Revisión de seguridad' ||
+      !/Decretado por .+ el \d/.test(c.Comentario || '') || !/Decretado por/.test(firma) || !new RegExp('^↪ Distribuido a ' + nomPrimera + ', PROCOR').test(com.Comentario || '') || !/Decretado por/.test(com.Comentario || '') || cels.length !== 2 || cels.some(x => /DESHABILITADA/.test(x)) || c.CelulasSeleccionadas[0].IdDestino !== primera || !pideOtro || /<b>X/.test(await p.innerHTML('#distModal'))) console.log('Error: distribuir');
+    await p.click('#distFin').catch(() => 0); await p.waitForTimeout(300);
+  } }
 // «Responder» (13/11/2026): abre el mensaje en MENSADEF y pulsa su «Responder» (no «Responder a todos»)
 { await p.fill('#buscar', 'RE-0'); await p.waitForTimeout(400);
   await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(200);

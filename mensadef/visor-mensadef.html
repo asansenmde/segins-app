@@ -408,6 +408,7 @@
   .barra-ficha .gr-psit { background: linear-gradient(180deg, #1d5fa8, #12315a) !important; border-bottom: 3px solid #c9a84c !important; }
   .barra-ficha .gr-rub { background: linear-gradient(180deg, #7a4fb5, #4a2a78) !important; }
   .barra-ficha .gr-resp { background: linear-gradient(180deg, #2f7f8f, #1b5561) !important; }
+  .barra-ficha .gr-dist { background: linear-gradient(180deg, #8a6a12, #5c460a) !important; }
   .barra-ficha .gr-rub.seguro { background: linear-gradient(180deg, #d9822b, #a85a12) !important; }
   .barra-ficha .utiles { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .barra-ficha .utiles > button { height: 32px; padding: 0 10px; border-radius: 9px; border: 1px solid #d3dce8 !important; background: #f7f9fc !important; color: #1c2a3a !important; font-weight: 700; font-size: .8rem; box-shadow: none !important; order: 0 !important; }
@@ -534,7 +535,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-23 · 5';
+  var VERSION = '2026-11-25 · 1';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -2361,6 +2362,7 @@
       // 13/11/2026 (propuesta A): las tres acciones de tramitar en grande y, debajo, las utilidades pequeñas
       '<div class="grandes"><button type="button" class="gr gr-meta" id="aColabora" disabled title="Abre el Gestor de Tareas (META) con el alta rellena"><span class="i">➜</span><span>Tarea en META<small>expediente y responsable</small></span></button>' +
       (m._api && m._x && m._x.__es !== 'Salida' ? '<button type="button" class="gr gr-resp" id="aResponder" title="Abre en MENSADEF la pantalla para responder a este mensaje"><span class="i">↩</span><span>Responder<small>en MENSADEF</small></span></button>' : '') +
+      (puedeDistribuir(m) ? '<button type="button" class="gr gr-dist" id="aDistribuir" title="Distribuye el mensaje a una o varias células; queda constancia de quién lo decreta"><span class="i">↪</span><span>Distribuir<small>a otras células</small></span></button>' : '') +
       (PUNTO ? '<button type="button" class="gr gr-psit" id="aPunto" disabled title="' + (PSIT_DIRECTO ? 'Lo pasa directamente al Punto de Situación (PSIT), que detecta la célula' : 'Lo pasa al Punto de Situación (PSIT) a través de META, que detecta la célula') + '"><span class="i">★</span><span>Al PSIT<small>punto de situación</small></span></button>' : '') + botonRubrica(m) + '</div>' +
       '<div class="utiles"><button type="button" id="verDet"' + (vistos[claveMensaje(m)] ? ' class="visto-on" title="Pulsa para quitar la marca">✓ Visto' : ' title="Marcar como visto (tecla V con la ficha ampliada)">✓ Marcar visto') + '</button>' + botonLeido(m) + '<span class="sepu"></span>' +
       '<button type="button" id="porCorreo" title="Envía el mensaje por correo desde Colabora: eliges a quién, con el texto completo, los datos, el enlace a MENSADEF y el de cada documento">✉ Correo</button>' +
@@ -2383,6 +2385,7 @@
     });
     if ($('msgAnt')) { $('msgAnt').addEventListener('click', function () { irMensaje(-1); }); $('msgSig').addEventListener('click', function () { irMensaje(1); }); }
     if ($('abrirMensadef')) $('abrirMensadef').addEventListener('click', function () { localizarEnMensadef(m); });
+    if ($('aDistribuir')) $('aDistribuir').addEventListener('click', function () { ventanaDistribuir(m); });
     if ($('aResponder')) $('aResponder').addEventListener('click', function () {
       // 13/11/2026: la pantalla de respuesta de MENSADEF tiene su dirección (dada por el usuario):
       // <ámbito>/SitePages/ambito.aspx#/responder_mensaje/<IdMensaje>?idBuzonCelula=<IdBuzonCelula>. Si falta algún dato,
@@ -2703,6 +2706,106 @@
       try { pintarTabla(); } catch (e) { /* la lista se repinta al volver */ }
       return true;
     });
+  }
+  // ---------- ↪ Distribuir a otras células (24/11/2026), como la aplicación (escucha v8) ----------
+  // GET ambito/DatosEstaticosDistribucionInternaEntrada?idUsuario → tipos de motivo y de visibilidad (asistente básico) y
+  // FavoritosDelUsuario; GET ambito/Celula?tipoCelula=4 → células del ámbito; POST mensajeDistribucionInternaEntrada/Crear con
+  // { IdMensaje, IdCelula, AsistenteAvanzado:false, IdTipoVisibilidad, IdUsuarioRemitente, CelulasSeleccionadas:[{
+  // IdTipoMotivoDistribucion, IdDestino, OtroMotivo }], UsuariosSeleccionados:[], DestinatariosEliminados:{CelulasEliminadas:[],
+  // UsuariosEliminados:[]}, Comentario, FechaTope, Enviar:true, IdBuzonCelulaSaliente, BuzonPersonal }.
+  // A petición del usuario queda SIEMPRE quién lo decreta: el comentario de la distribución termina con «Decretado por <nombre>
+  // el <fecha>» y, además, se anota un comentario en el mensaje («↪ Distribuido a …»).
+  var datosDist = null, celulasAmbito = null;
+  function cargarDatosDist() {
+    var p = [datosDist ? Promise.resolve(datosDist) : pedirApi('ambito/DatosEstaticosDistribucionInternaEntrada', { idUsuario: apiCtx.idUsuario, emailUsuario: apiCtx.email, urlColeccionSitio: apiCtx.url }).then(function (d) { datosDist = d || {}; return datosDist; }),
+      celulasAmbito ? Promise.resolve(celulasAmbito) : pedirApi('ambito/Celula', { emailUsuario: apiCtx.email, urlColeccionSitio: apiCtx.url, tipoCelula: 4 }).then(function (l) {
+        celulasAmbito = (Array.isArray(l) ? l : primerArray(l) || []).filter(function (c) { return c && c.IdCelula && !c.Deshabilitada; })
+          .map(function (c) { return { id: String(c.IdCelula), nombre: String(c.Nombre || c.NombreBandeja || c.IdCelula).trim(), resp: c.NombreResponsable || '' }; })
+          .sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
+        return celulasAmbito;
+      }, function () { celulasAmbito = null; return []; })];
+    return Promise.all(p);
+  }
+  var puedeDistribuir = function (m) { return ESCRIBIR && m._api && m.MensajeId && m._idBuzon && m._x && m._x.__es === 'Entrada' && apiCtx && apiCtx.idUsuario; };
+  function ventanaDistribuir(m) {
+    var viejo = $('distModal'); if (viejo) viejo.parentNode.removeChild(viejo);
+    var v = document.createElement('div'); v.id = 'distModal';
+    v.style.cssText = 'position:fixed;inset:0;background:rgba(10,20,35,.55);z-index:9000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px';
+    v.innerHTML = '<div class="card" style="max-width:760px;width:100%;margin:0;box-shadow:0 12px 40px rgba(0,0,0,.35)"><div style="display:flex;gap:8px;align-items:center;border-bottom:2px solid #12315a;padding-bottom:8px;margin-bottom:10px">' +
+      '<b style="color:#12315a">↪ Distribuir a otras células</b><button type="button" id="distCerrar" style="margin-left:auto">✕ Cerrar</button></div>' +
+      '<p style="margin:0 0 8px"><b>' + esc(m._asunto || '') + '</b>' + (m.MensajeNum_referencia ? ' <span class="muted">· ' + esc(m.MensajeNum_referencia) + '</span>' : '') + '</p><div id="distCuerpo" class="muted">Cargando las células y los motivos de MENSADEF…</div></div>';
+    document.body.appendChild(v);
+    var cerrar = function () { if (v.parentNode) v.parentNode.removeChild(v); document.removeEventListener('keydown', tecla, true); };
+    var tecla = function (e) { if (e.key === 'Escape') { e.stopPropagation(); cerrar(); } };
+    document.addEventListener('keydown', tecla, true);
+    $('distCerrar').addEventListener('click', cerrar);
+    Promise.all([cargarDatosDist(), miNombre()]).then(function (r) {
+      var d = r[0][0], todas = r[0][1], yo = r[1];
+      var origen = String((m._lista && m._lista.sitio && m._lista.sitio.id) || '').toLowerCase();
+      var favs = (d.FavoritosDelUsuario || []).filter(function (f) { return f && f.IdCelula; }).map(function (f) { return { id: String(f.IdCelula), nombre: String(f.Nombre || '').trim() }; });
+      // Todas las células (favoritas primero), sin la del mensaje
+      var lista = favs.concat(todas.filter(function (c) { return !favs.some(function (f) { return f.id.toLowerCase() === c.id.toLowerCase(); }); }))
+        .filter(function (c) { return c.id.toLowerCase() !== origen; });
+      var motivos = d.TiposMotivoDistribucionAsistenteBasico || d.TiposMotivoDistribucion || [];
+      var visib = d.TiposVisibilidadDistribucionInternaAsistenteBasico || d.TiposVisibilidadDistribucionInterna || [];
+      var visDef = visib.some(function (x) { return Number(x.ID) === 3; }) ? 3 : (visib[0] && visib[0].ID);
+      if (!lista.length || !motivos.length) { $('distCuerpo').innerHTML = '<p class="mal">MENSADEF no ha dado las células o los motivos de distribución.</p>'; return; }
+      var elegidas = {};
+      $('distCuerpo').className = '';
+      $('distCuerpo').innerHTML =
+        '<div style="margin-bottom:6px"><b>Células</b> <span class="muted small">(una o varias; ★ = tus favoritas)</span></div>' +
+        '<input id="distBuscar" placeholder="Buscar célula…" style="width:100%;margin-bottom:6px"><div id="distElegidas" style="margin-bottom:6px"></div>' +
+        '<div id="distLista" style="max-height:220px;overflow:auto;border:1px solid #d3dce8;border-radius:8px;padding:4px 8px"></div>' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0"><label class="small">Motivo<br><select id="distMotivo">' + motivos.map(function (x) { return '<option value="' + esc(x.ID) + '">' + esc(x.Nombre) + '</option>'; }).join('') + '</select></label>' +
+        (visib.length ? '<label class="small">Visibilidad<br><select id="distVis">' + visib.map(function (x) { return '<option value="' + esc(x.ID) + '"' + (Number(x.ID) === Number(visDef) ? ' selected' : '') + '>' + esc(x.Nombre) + '</option>'; }).join('') + '</select></label>' : '') +
+        '<label class="small" id="distOtroL" hidden>Otro motivo<br><input id="distOtro" style="min-width:220px"></label></div>' +
+        '<label class="small" style="display:block">Comentario / instrucciones (obligatorio)<br><textarea id="distTexto" rows="3" style="width:100%" placeholder="Por ejemplo: para que preparen la respuesta antes del viernes"></textarea></label>' +
+        '<p class="small" style="background:#fff3c4;border:1px solid #c9a84c;border-radius:8px;padding:6px 10px;margin:8px 0">Quedará constancia: <b id="distFirma"></b></p>' +
+        '<p><button type="button" class="prim" id="distEnviar" disabled>↪ Distribuir</button> <span id="distMsg" class="small muted">Elige al menos una célula y escribe el comentario.</span></p>';
+      var firma = function () { var f = new Date(); return 'Decretado por ' + yo + ' el ' + f.toLocaleDateString('es-ES') + ' a las ' + f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); };
+      $('distFirma').textContent = firma();
+      var esOtro = function () { var o = $('distMotivo').selectedOptions[0]; return !!o && /otro/i.test(o.textContent); };
+      var revisar = function () {
+        var n = Object.keys(elegidas).length, txt = $('distTexto').value.trim();
+        $('distOtroL').hidden = !esOtro();
+        $('distEnviar').disabled = !n || !txt || (esOtro() && !$('distOtro').value.trim());
+        $('distMsg').textContent = n ? n + ' célula' + (n === 1 ? '' : 's') + (txt ? '.' : ': falta el comentario.') : 'Elige al menos una célula y escribe el comentario.';
+        $('distElegidas').innerHTML = Object.keys(elegidas).map(function (k) { return '<span class="tag st-azul" style="margin:0 4px 4px 0">' + esc(elegidas[k]) + ' <a href="#" data-quita="' + esc(k) + '">✕</a></span>'; }).join('');
+        Array.prototype.forEach.call($('distElegidas').querySelectorAll('[data-quita]'), function (a) { a.onclick = function (e) { e.preventDefault(); delete elegidas[a.getAttribute('data-quita')]; pintar(); }; });
+      };
+      var pintar = function () {
+        var q = normal($('distBuscar').value.trim().toLowerCase());
+        var vis = lista.filter(function (c) { return !q || normal(c.nombre.toLowerCase()).indexOf(q) >= 0; }).slice(0, 200);
+        $('distLista').innerHTML = vis.map(function (c) { var fav = favs.some(function (f) { return f.id === c.id; });
+          return '<label style="display:flex;gap:6px;align-items:center;padding:3px 0;cursor:pointer"><input type="checkbox" data-cel="' + esc(c.id) + '"' + (elegidas[c.id] ? ' checked' : '') + '> ' + (fav ? '★ ' : '') + esc(c.nombre) + '</label>'; }).join('') ||
+          '<p class="muted small">Ninguna célula con ese nombre.</p>';
+        Array.prototype.forEach.call($('distLista').querySelectorAll('[data-cel]'), function (cb) { cb.onchange = function () {
+          var c = lista.filter(function (x) { return x.id === cb.getAttribute('data-cel'); })[0];
+          if (cb.checked) elegidas[c.id] = c.nombre; else delete elegidas[c.id]; revisar(); }; });
+        revisar();
+      };
+      $('distBuscar').addEventListener('input', pintar); $('distTexto').addEventListener('input', revisar); $('distMotivo').addEventListener('change', revisar); $('distOtro').addEventListener('input', revisar);
+      pintar();
+      $('distEnviar').addEventListener('click', function () {
+        var b = this, ids = Object.keys(elegidas), nombres = ids.map(function (k) { return elegidas[k]; });
+        var motivo = Number($('distMotivo').value), nomMotivo = $('distMotivo').selectedOptions[0].textContent, otro = esOtro() ? $('distOtro').value.trim() : '';
+        var constancia = firma(), comentario = $('distTexto').value.trim() + '\n\n' + constancia + ' (desde SENDERO)';
+        if (!confirm('¿Distribuir este mensaje a ' + nombres.join(', ') + '?\n\nMotivo: ' + (otro || nomMotivo) + '\n' + constancia)) return;
+        b.disabled = true; $('distMsg').textContent = 'Distribuyendo…';
+        var cuerpo = { IdMensaje: m.MensajeId, IdCelula: (m._lista && m._lista.sitio && m._lista.sitio.id) || '', AsistenteAvanzado: false, IdTipoVisibilidad: $('distVis') ? Number($('distVis').value) : visDef,
+          IdUsuarioRemitente: apiCtx.idUsuario, CelulasSeleccionadas: ids.map(function (id) { return { IdTipoMotivoDistribucion: motivo, IdDestino: id, OtroMotivo: otro }; }),
+          UsuariosSeleccionados: [], DestinatariosEliminados: { CelulasEliminadas: [], UsuariosEliminados: [] }, Comentario: comentario, FechaTope: '', Enviar: true,
+          IdBuzonCelulaSaliente: m._idBuzon, BuzonPersonal: !!(m._rubrica && m._rubrica.personal) };
+        escribirApi('mensajeDistribucionInternaEntrada/Crear', qUsuario(), JSON.stringify(cuerpo), 'distribuir este mensaje').then(function () {
+          // Constancia también en el historial de comentarios del mensaje (si falla, la distribución ya está hecha)
+          return comentarEnMensadef(m, '↪ Distribuido a ' + nombres.join(', ') + ' · Motivo: ' + (otro || nomMotivo) + ' · ' + $('distTexto').value.trim() + ' · ' + constancia).then(function () { return ''; }, function (e) { return ' (no se pudo anotar el comentario: ' + (e.message || e) + ')'; });
+        }).then(function (aviso) {
+          m._x.MotivoDistribucion = otro || nomMotivo; m._decretado = constancia + ' · a ' + nombres.join(', ');
+          $('distCuerpo').innerHTML = '<p class="bien">✔ Distribuido a ' + esc(nombres.join(', ')) + '.</p><p class="small">' + esc(constancia) + '. Queda en el comentario de la distribución y en los comentarios del mensaje.' + esc(aviso) + '</p><p><button type="button" class="prim" id="distFin">Cerrar</button></p>';
+          $('distFin').addEventListener('click', function () { cerrar(); if (abierto === m) abrir(m); });
+        }, function (e) { b.disabled = false; $('distMsg').innerHTML = '<span class="mal">✕ No se ha distribuido: ' + esc(e.message || e) + '</span>'; });
+      });
+    }, function (e) { $('distCuerpo').innerHTML = '<p class="mal">No se pudieron leer las células de MENSADEF: ' + esc(e.message || e) + '</p>'; });
   }
   function pintarComentario(m) {
     var caja = $('cajaComentario'); if (!caja || !ESCRIBIR || !m._api) return;

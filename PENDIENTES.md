@@ -307,3 +307,8 @@ autoría.
       BuzonPersonal). Al abrir un mensaje la dirección sigue en «#/celula/…»: MENSADEF no tiene dirección propia por mensaje.
       Hecho Escuchar v8 (forma completa de lo enviado). PENDIENTE DEL USUARIO: instalar «Escuchar MENSADEF» v8 y repetir la
       distribución (buscando una célula que no esté en favoritos) para saber cómo van las células y el motivo.
+    25/11/2026: SENDERO 2026-11-25 · 1: «↪ Distribuir» en los mensajes de entrada (escucha v8): una o varias células (favoritas ★
+      primero, buscador, sin la del mensaje ni las deshabilitadas), motivo (y «Otro motivo» si se elige Otro), visibilidad,
+      comentario obligatorio y constancia «Decretado por <nombre> el <fecha> a las <hora>» en el comentario de la distribución y en
+      un comentario del mensaje («↪ Distribuido a …»). PENDIENTE DEL USUARIO: probarlo con un mensaje sin importancia (que llegue a
+      las células y se vea el motivo y quién lo decretó) antes de pasarlo a todos.
