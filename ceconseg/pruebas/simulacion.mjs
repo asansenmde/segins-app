@@ -107,6 +107,7 @@ async function abrir(b, yoId, opc) {
     if (resto.startsWith('web/currentuser/groups')) return J(Object.keys(GRUPOS).filter(g => GRUPOS[g].includes(yoId)).map((g, i) => ({ Id: 100 + i, Title: g })));
     if (resto.startsWith('web/currentuser')) { const pe = quien(yoId); return J({ Id: pe.Id, Title: pe.Title, Email: pe.EMail, LoginName: pe.Name }); }
     if (resto.startsWith('web/EffectiveBasePermissions')) return J(acc.includes('verbose') ? { EffectiveBasePermissions: perm } : perm);
+    { const gn = resto.match(/^web\/sitegroups\/getbyname\('([^']+)'\)(\?|$)/); if (gn) return GRUPOS[gn[1]] ? J({ Id: 500 + Object.keys(GRUPOS).indexOf(gn[1]), Title: gn[1] }) : NO('Group cannot be found.'); }
     const gu = resto.match(/^web\/sitegroups\/getbyname\('([^']+)'\)\/users/);
     if (gu) return GRUPOS[gu[1]] ? J(GRUPOS[gu[1]].map(id => ({ Id: id, Title: quien(id).Title, Email: quien(id).EMail, LoginName: quien(id).Name }))) : NO('Group cannot be found.');
     if (resto.startsWith('web/sitegroups')) return J(Object.keys(GRUPOS).map((g, i) => ({ Id: 100 + i, Title: g })));
@@ -290,7 +291,29 @@ async function escenario(verbose) {
   ok(errs.length === 0, tag + 'sin errores de página (periodicidad)', errs.join(' | '));
   await c.close();
 
-  // 6. Sin acceso: formulario de solicitud
+  // 6. DIACU propio de la aplicación (grupo DIACU_CECONSEG): solo sus miembros son DIACU; SEGURIDAD_IGE queda para IGE
+  ({ b: c, p, errs } = await abrir(b, 30, { verbose }));
+  ok(/\bDIACU\b/.test(await p.$$eval('.rolh', x => x.map(y => y.textContent).join(' '))), tag + 'sin grupo DIACU_CECONSEG, SEGURIDAD_IGE sigue siendo DIACU');
+  await c.close();
+  ({ b: c, p, errs } = await abrir(b, 1, { verbose, admin: true }));
+  await tab(p, 'accesos'); await p.waitForTimeout(1500);
+  ok(/Crear el grupo «DIACU_CECONSEG»/.test(await texto(p)), tag + 'Accesos ofrece crear el grupo DIACU de la aplicación');
+  await p.click('[data-acccreardiacu]'); await p.waitForTimeout(2500);
+  ok(!!GRUPOS.DIACU_CECONSEG && /DIACU de esta aplicación: grupo «DIACU_CECONSEG»/.test(await texto(p)), tag + 'crea el grupo DIACU_CECONSEG con permiso en la lista');
+  ok(errs.length === 0, tag + 'sin errores de página (grupo DIACU)', errs.join(' | '));
+  await c.close();
+  GRUPOS.DIACU_CECONSEG.push(22);
+  ({ b: c, p, errs } = await abrir(b, 22, { verbose }));
+  const r22 = await p.$$eval('.rolh', x => x.map(y => y.textContent).join(' ')).catch(() => '');
+  ok(/\bDIACU\b/.test(r22) && !/\bIGE\b/.test(r22) && !(await p.$('[data-accsolicitar]')) && /2 partes/.test(await texto(p)), tag + 'quien está en DIACU_CECONSEG entra como DIACU (y no como IGE) y ve todos los partes', r22);
+  await c.close();
+  ({ b: c, p, errs } = await abrir(b, 30, { verbose }));
+  const r30 = await p.$$eval('.rolh', x => x.map(y => y.textContent).join(' '));
+  ok(/\bIGE\b/.test(r30) && !/\bDIACU\b/.test(r30), tag + 'con el grupo creado, SEGURIDAD_IGE ya solo es IGE', r30);
+  await c.close();
+  delete GRUPOS.DIACU_CECONSEG;
+
+  // 7. Sin acceso: formulario de solicitud
   ({ b: c, p, errs } = await abrir(b, 40, { verbose }));
   ok(/No tienes acceso/.test(await texto(p)) && !!(await p.$('[data-accsolicitar]')), tag + 'sin acceso: formulario de solicitud de acceso');
   ok(errs.length === 0, tag + 'sin errores de página (sin acceso)', errs.join(' | '));

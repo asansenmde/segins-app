@@ -105,6 +105,16 @@ es el mismo en las cuatro; cambian solo `msgCorreo`, `anotarAviso` (columna de h
   cada `<Version>` trae el valor, `Modified` y `Editor` (`id;#Nombre,#…`). Funciona desde SharePoint 2010.
 - Si la columna no anexa: releer el texto justo antes y escribir el comentario al principio con fecha y autor.
 
+## DIACU propio de cada aplicación (25/11/2026)
+
+Cada aplicación puede tener su grupo `DIACU_<APLICACIÓN>` (p. ej. VSA con una persona, Incidentes con muchas). Al cargar,
+`leerGrupoDiacu()` mira si existe (`sitegroups/getbyname`): si existe, `esDiacu` = miembro de ese grupo y los avisos de DIACU
+van a él (`GRUPO_CORREO.diacu`); si no, todo sigue como antes (DIACU = SEGURIDAD_IGE). Accesos › Preparación: «Crear el grupo»
+(lo crea y le da «Colaborar» en la lista principal, rompiendo la herencia si hace falta) y muestra sus miembros. Papeles de
+la solicitud: «DIACU» (va a DIACU_<APP> o, si no existe, a SEGURIDAD_IGE) e «IGE»; las antiguas «DIACU / IGE» van a
+SEGURIDAD_IGE. En CECONSEG, la fila DIACU de los responsables no se hereda de Incidentes si existe DIACU_CECONSEG. En Pérdidas
+(sin paso de DIACU en el circuito) el grupo da acceso y consulta de todos los partes.
+
 ## Control de acceso con solicitud (modelo: `vsa/vsa.html`, probado en Colabora)
 
 **Ponerlo en toda aplicación nueva** (Permisos, registro, SIPERDEF…), salvo que el usuario diga lo contrario. Se copia

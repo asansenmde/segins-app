@@ -228,7 +228,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-25 · 8';
+  var VERSION = '2026-11-25 · 9';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Operadores CECONSEG · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -285,7 +285,34 @@
   var GRUPO_CORREO = { diacu: ['SEGURIDAD_IGE'], ige: ['SEGURIDAD_IGE'],
     suige: function (s) { return s === 'SECOORCEN' ? ['SEGURIDAD_SECORCEN'] : s === 'JEFATURA DE IGE' ? ['SEGURIDAD_IGE'] : s ? ['SEGURIDAD_' + s] : []; } };
   var ACCESO = { app: 'CECONSEG', lista: 'SOLICITUDES ACCESO APLICACIONES', grupoBae: 'CECONSEG_UNIDADES', grupos: ['CECONSEG_UNIDADES'], avisar: [], avisarCorreos: ['asansen@et.mde.es'], transicion: false,
-    papeles: [['Unidad: enviar el parte de operadores CECONSEG', 'bae'], ['Negociado de Seguridad de una SUIGE (valorar)', 'suige'], ['DIACU / IGE', 'ige'], ['Solo consulta', 'bae']] };
+    papeles: [['Unidad: enviar el parte de operadores CECONSEG', 'bae'], ['Negociado de Seguridad de una SUIGE (valorar)', 'suige'], ['DIACU', 'diacu'], ['IGE', 'ige'], ['Solo consulta', 'bae']] };
+  // DIACU propio de cada aplicación (25/11/2026): grupo «DIACU_<APLICACIÓN>». Si existe, solo sus miembros actúan como
+  // DIACU en esta aplicación y reciben sus avisos; si aún no existe, DIACU sigue siendo SEGURIDAD_IGE (como hasta ahora).
+  var GRUPO_DIACU = 'DIACU_' + ACCESO.app, diacuPropio = false, diacuMiembros = null;
+  function leerGrupoDiacu() {
+    return api(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(GRUPO_DIACU) + "')?$select=Id")
+      .then(function (g) { diacuPropio = !!(g && g.Id); }, function () { diacuPropio = false; })
+      .then(function () { GRUPO_CORREO.diacu = [diacuPropio ? GRUPO_DIACU : 'SEGURIDAD_IGE']; });
+  }
+  var esGrupoDiacu = function (x) { return diacuPropio ? String(x).trim().toUpperCase() === GRUPO_DIACU : ROLES.diacu.test(x); };
+  function lineaDiacu() {
+    if (diacuPropio) return '<p class="small">✔ DIACU de esta aplicación: grupo «' + esc(GRUPO_DIACU) + '»' + (diacuMiembros ? ' (' + diacuMiembros.length + ' persona' + (diacuMiembros.length === 1 ? '' : 's') + (diacuMiembros.length ? ': ' + esc(diacuMiembros.map(function (u) { return u.Title; }).join(', ')) : '') + ')' : '') + '. Solo ellos valoran como DIACU y reciben sus avisos; SEGURIDAD_IGE queda para IGE.</p>';
+    return '<p class="small">👥 DIACU: hoy actúa como DIACU todo el grupo SEGURIDAD_IGE. Para que en esta aplicación lo sean solo unas personas: <button data-acccreardiacu="1">Crear el grupo «' + esc(GRUPO_DIACU) + '»</button> <span class="muted">(después añade a sus personas en el grupo o aprobando solicitudes con el papel «DIACU»)</span></p>';
+  }
+  function crearGrupoDiacu(boton) {
+    if (!window.confirm('Se creará el grupo «' + GRUPO_DIACU + '» con permiso «Colaborar» en la lista «' + pref.lista + '». Desde ese momento solo sus miembros actuarán como DIACU en esta aplicación (el grupo empieza vacío: añade a las personas enseguida). ¿Seguir?')) return;
+    boton.disabled = true;
+    enviarSP(web + '/_api/web/sitegroups', { __metadata: { type: 'SP.Group' }, Title: GRUPO_DIACU, Description: 'DIACU de la aplicación ' + ACCESO.app }, 'No tienes permiso para crear grupos en el sitio')
+      .then(function (g) { return g && g.Id ? g : api(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(GRUPO_DIACU) + "')?$select=Id"); })
+      .then(function (g) {
+        return api(urlLista() + '?$select=HasUniqueRoleAssignments').catch(function () { return {}; }).then(function (l) {
+          return l.HasUniqueRoleAssignments ? null : enviarSP(urlLista() + '/breakroleinheritance(copyRoleAssignments=true,clearSubscopes=false)', {}, 'No tienes permiso para cambiar los permisos de la lista');
+        }).then(function () { return api(web + '/_api/web/roledefinitions/getbytype(3)?$select=Id'); })
+          .then(function (rd) { return enviarSP(urlLista() + '/roleassignments/addroleassignment(principalid=' + Number(g.Id) + ',roledefid=' + Number(rd.Id) + ')', {}, 'No tienes permiso para cambiar los permisos de la lista'); });
+      })
+      .then(leerGrupoDiacu).then(function () { return cargarAccesos(); }).then(function () { toast('Grupo ' + GRUPO_DIACU + ' creado: añade a sus personas'); render(); })
+      .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); leerGrupoDiacu().then(render); });
+  }
   var normSuige = function (v) {
     var s = String(v || '').toUpperCase();
     if (/SECO?ORCEN/.test(s)) return 'SECOORCEN';
@@ -468,12 +495,12 @@
         if (l.EffectiveBasePermissions) { puedeAlta = (low & 0x2) !== 0; puedeEditar = (low & 0x4) !== 0; }
         if (!esAdmin) pref.correo = true;
       }, function (e) { listaInfo = null; errLista = e; })
-    ]).then(function () {
+    ]).then(leerGrupoDiacu).then(function () {
       misSuiges = []; esDiacu = false; esIge = false;
       misGrupos.forEach(function (gr) {
         var x = String(gr).trim(), m = x.match(ROLES.suige);
         if (m) { var s = normSuige(m[1]) || m[1].toUpperCase(); if (misSuiges.indexOf(s) < 0) misSuiges.push(s); }
-        if (ROLES.diacu.test(x)) esDiacu = true;
+        if (esGrupoDiacu(x)) esDiacu = true;
         if (ROLES.ige.test(x)) esIge = true;
       });
       // La lista aún no existe: quien puede crear listas la prepara; el resto ve que la aplicación no está preparada
@@ -527,7 +554,7 @@
     });
   }
   function alcanceTxt() {
-    if (verTodo()) return 'Ves todos los partes porque perteneces a SEGURIDAD_IGE (DIACU e IGE).';
+    if (verTodo()) return 'Ves todos los partes porque eres de ' + (esDiacu && esIge ? 'DIACU e IGE' : esDiacu ? 'DIACU' : 'IGE') + '.';
     return 'Ves los partes de ' + (misSuiges.length ? (misSuiges.length > 1 ? 'tus SUIGE (' : 'tu SUIGE (') + misSuiges.join(', ') + ') y ' : '') + 'los que has dado de alta o de los que eres responsable.';
   }
   // Primera vez: crear la lista de partes con sus columnas (quien puede crear listas en el sitio)
@@ -948,7 +975,7 @@
   // La de CECONSEG si tiene a alguien; si no, la de Incidentes (marcada «heredada»)
   var filaResp = function (e) {
     var p = filaPropia(e); if (conGente(p)) return p;
-    e = String(e || '').toUpperCase(); var i = respInc.find(function (f) { return f.esc === e; });
+    e = String(e || '').toUpperCase(); if (e === 'DIACU' && diacuPropio) return p; var i = respInc.find(function (f) { return f.esc === e; });
     return conGente(i) ? Object.assign({}, i, { heredada: true }) : p;
   };
   var correosResp = function (e) { var f = filaResp(e); return f ? f.personas.map(function (u) { return u.Email; }).concat(f.correos).filter(Boolean) : []; };
@@ -2172,6 +2199,7 @@
       .catch(function (e) { boton.disabled = false; toast('No se pudo: ' + (e.message || e)); });
   }
   function cargarAccesos() {
+    if (diacuPropio) todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(GRUPO_DIACU) + "')/users?$select=Id,Title").then(function (l) { diacuMiembros = l; }, function () { diacuMiembros = null; });
     accEstado = 'cargando';
     return Promise.all([
       leerBiblioteca(),
@@ -2191,8 +2219,10 @@
   }
   var grupoSugerido = function (s) {
     var p = ACCESO.papeles.find(function (x) { return x[0] === s.papel; });
+    if (s.papel === 'DIACU / IGE') return 'SEGURIDAD_IGE';
     if (!p) return ACCESO.grupoBae;
     if (p[1] === 'suige') { var su = normSuige(s.mando) || normSuige(s.unidad); return su ? GRUPO_CORREO.suige(su)[0] : ''; }
+    if (p[1] === 'diacu') return diacuPropio ? GRUPO_DIACU : 'SEGURIDAD_IGE';
     return p[1] === 'ige' ? 'SEGURIDAD_IGE' : ACCESO.grupoBae;
   };
   var nPendAcc = function () { return accSols ? accSols.filter(function (s) { return s.estado === 'PENDIENTE'; }).length : (pendTodas && pendTodas[ACCESO.app]) || 0; };
@@ -2237,6 +2267,7 @@
         ' <button class="prim" data-accabrir="1">Permitir que cualquiera solicite acceso</button>') + '</p>' : '') +
       '<p class="small">' + (accGrupos.indexOf(ACCESO.grupoBae) >= 0 ? '✔ Grupo «' + esc(ACCESO.grupoBae) + '» creado (' + (accMiembros ? accMiembros.length : 0) + ' personas).' :
         '✕ Falta el grupo «' + esc(ACCESO.grupoBae) + '» para las unidades que envían el parte CECONSEG. <button class="prim" data-acccreargrupo="1">Crear el grupo</button>') + '</p>' +
+      lineaDiacu() +
       (accInfo ? '<p class="small">📋 ' + (accInfo.RootFolder && accInfo.RootFolder.ServerRelativeUrl ? '<a href="' + esc(location.origin + accInfo.RootFolder.ServerRelativeUrl) + '" target="_blank" rel="noopener">Abrir la lista «' + esc(ACCESO.lista) + '»</a> · ' : '') +
         '<a href="' + esc(web + '/_layouts/15/SubNew.aspx?List=' + encodeURIComponent('{' + String(accInfo.Id).replace(/[{}]/g, '') + '}') + '&Source=' + encodeURIComponent(location.href)) + '" target="_blank" rel="noopener">🔔 Avisarme por correo de cada solicitud nueva (alerta de SharePoint)</a>' +
         '<br><span class="muted">El aviso de la página va a tu CUENTA, que queda guardada en la descripción de la lista' + (cuentasAviso(accInfo.Description)[String(yo.Email || '').toLowerCase()] ? ' (✔ guardada)' : (ACCESO.avisarCorreos || []).map(function (x) { return String(x).toLowerCase(); }).indexOf(String(yo.Email || '').toLowerCase()) < 0 ?
@@ -2249,7 +2280,7 @@
       '<p class="small muted">La comprobación de acceso la hace esta página. Para que sea también la de Colabora, quita «Usuarios del dominio» de la lista «' + esc(pref.lista) + '» y da permiso a los grupos SEGURIDAD_* y ' + esc(ACCESO.grupoBae) + '. ' +
       'La lista de solicitudes debe seguir permitiendo «Colaborar» a todos para que cualquiera pueda pedir acceso.</p></div>';
     var pend = (accSols || []).filter(function (s) { return s.estado === 'PENDIENTE'; }), res = (accSols || []).filter(function (s) { return s.estado !== 'PENDIENTE'; });
-    var grupos = accGrupos.filter(function (g) { return /^SEGURIDAD_/i.test(g) || g === ACCESO.grupoBae; }).sort();
+    var grupos = accGrupos.filter(function (g) { return /^SEGURIDAD_/i.test(g) || g === ACCESO.grupoBae || g === GRUPO_DIACU; }).sort();
     var ficha = function (s) {
       return '<b>' + esc(s.nombre) + '</b>' + (s.empleo ? ' · ' + esc(s.empleo) : '') + '<div class="small">' + esc([s.unidad, s.mando].filter(Boolean).join(' · ')) + '</div>' +
         '<div class="small muted">' + esc([s.correo, s.tel].filter(Boolean).join(' · ')) + ' · solicitado el ' + esc(fHora(s.creado)) + '</div>' +
@@ -2359,7 +2390,7 @@
       var puede = function (x) { return lista(x.RoleDefinitionBindings).some(function (b) { return PUEDE_ESCRIBIR.indexOf(Number(b.RoleTypeKind)) >= 0; }); };
       var conPermiso = r[1].filter(puede).map(function (x) { return x.Member.Title || x.Member.LoginName; });
       var todos = r[1].some(function (x) { return esTodos(x.Member) && puede(x); });
-      var grupos = [ACCESO.grupoBae].concat(accGrupos.filter(function (g) { return /^SEGURIDAD_/i.test(g); })).filter(function (g, i, a) { return a.indexOf(g) === i && accGrupos.indexOf(g) >= 0; });
+      var grupos = [ACCESO.grupoBae].concat(accGrupos.filter(function (g) { return /^SEGURIDAD_/i.test(g) || g === GRUPO_DIACU; })).filter(function (g, i, a) { return a.indexOf(g) === i && accGrupos.indexOf(g) >= 0; });
       accEscritura = { todos: todos, propios: !!r[0].HasUniqueRoleAssignments, grupos: grupos.map(function (g) { return { g: g, ok: todos || conPermiso.indexOf(g) >= 0 }; }) };
     }, function (e) { accEscritura = { error: e.message || String(e) }; });
   }
@@ -2475,6 +2506,7 @@
     if (el.closest('[data-accseguridad]')) { ajustarSeguridad(el.closest('[data-accseguridad]')); return; }
     if (el.closest('[data-accabrir]')) { abrirListaAcceso(el.closest('[data-accabrir]')); return; }
     if (el.closest('[data-accescritura]')) { darEscritura(el.closest('[data-accescritura]')); return; }
+    if (el.closest('[data-acccreardiacu]')) { crearGrupoDiacu(el.closest('[data-acccreardiacu]')); return; }
     if (el.closest('[data-acccreargrupo]')) { crearGrupoBae(el.closest('[data-acccreargrupo]')); return; }
     if (el.closest('#nuevo')) { if (cargadoEn) formulario(null); return; }
     var edp = el.closest('[data-editar]');

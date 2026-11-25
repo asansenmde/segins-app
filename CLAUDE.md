@@ -53,7 +53,11 @@ El usuario no quiere repetir errores ya resueltos. Antes de dar por buena una p�
 8. **Ocultar biblioteca y listas** (probado en Colabora, 25/11/2026): toda aplicación nueva trae en Accesos › Preparación
    «Ocultar la biblioteca» y «📋 Listas de la aplicación» con Ocultar / Mostrar (cada una y todas) y enlace «abrir»
    (bloque `vistaListasPropias` / `ocultarListasPropias`, copiarlo de `ceconseg/ceconseg.html`; receta en `SHAREPOINT.md`).
-9. Entregar siempre: simulación ligero + *verbose* + copia cifrada con `PROXY=1`, README, PENDIENTES, commit, push y la
+9. **DIACU propio de cada aplicación** (25/11/2026): grupo `DIACU_<APLICACIÓN>` (DIACU_INCIDENTES, DIACU_VSA, DIACU_PERDIDAS,
+   DIACU_CECONSEG…). Si existe, solo sus miembros son DIACU en esa aplicación y reciben sus avisos; si no, DIACU es
+   SEGURIDAD_IGE. Se crea desde Accesos › Preparación (con «Colaborar» en la lista) y la solicitud tiene el papel «DIACU»
+   aparte de «IGE». Bloque `leerGrupoDiacu` / `lineaDiacu` / `crearGrupoDiacu`, copiarlo de `ceconseg/ceconseg.html`.
+10. Entregar siempre: simulación ligero + *verbose* + copia cifrada con `PROXY=1`, README, PENDIENTES, commit, push y la
    copia cifrada al usuario. Respuestas breves.
 
 Antes de hacer una nueva, lee **`SHAREPOINT.md`**: recetas probadas (lectura, alta, modificar sin pisar cambios,
