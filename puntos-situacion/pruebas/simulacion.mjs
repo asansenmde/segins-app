@@ -24,7 +24,7 @@ const ADMINS = new Set([7, 9]);   // Control total en el sitio y en las listas
 const SOLO_CUENTAS = !!process.env.SOLO_CUENTAS, rechazosCorreo = [];
 const comoCorreo = d => { const u = Object.values(USUARIOS).find(x => x.LoginName === d); return u ? u.Email : d; };
 const permisos = () => ({ High: '0', Low: String(ADMINS.has(actual) ? 0x7FFFFFFF : 0x1 | 0x2 | 0x4 | 0x8) });
-let listaAbierta = false;
+let listaAbierta = false, biblioOculta = false;
 let actual = 7, correos = [], posts = [], buzonMal = [];
 const listas = {};
 const nuevaLista = (t, campos = []) => (listas[t.toLowerCase()] = { titulo: t, entidad: 'SP.Data.' + t.replace(/\s/g, '_x0020_') + 'ListItem', campos: new Set(['Title', ...campos]), items: [], sig: 1, validacion: '', versiones: false });
@@ -101,6 +101,9 @@ await ctx.route(ORIGEN + '/**', async r0 => {
     if (dest.map(comoCorreo).some(x => buzonMal.includes(x))) return json({ error: { message: { value: 'No se puede enviar: asegúrese de que tenga un destinatario válido' } } }, 400);
     correos.push({ to: dest.map(comoCorreo), cc: (pr.CC ? pr.CC.results : []).map(comoCorreo), cuentas: dest, asunto: pr.Subject, cuerpo: pr.Body }); return json({ d: {} });
   }
+  if (/^web\/GetFileByServerRelativeUrl\(/.test(resto)) return json({ Id: 'bib', Title: 'Documentos compartidos', Hidden: biblioOculta, BaseTemplate: 101 });
+  const lgd = resto.match(/^web\/lists\(guid'([^']+)'\)$/);
+  if (lgd && m === 'POST') { const h = JSON.parse(req.postData()).Hidden; if (lgd[1] === 'bib') biblioOculta = h; else { const Lg = Object.values(listas).find(x => 'id-' + x.titulo === lgd[1]); if (!Lg) return ful({ status: 404, body: '' }); Lg.oculta = h; } return ful({ status: 204, body: '' }); }
   if (resto === 'web/lists' && m === 'POST') { const c = JSON.parse(req.postData()); if (L(c.Title)) return json({ error: { message: { value: 'existe' } } }, 500); nuevaLista(c.Title); return json({ d: { Title: c.Title } }, 201); }
   const ml = resto.match(/^web\/lists\/getbytitle\('([^']*)'\)(.*)$/);
   if (!ml) return json({ error: { message: { value: 'ruta ' + resto } } }, 400);
@@ -108,7 +111,7 @@ await ctx.route(ORIGEN + '/**', async r0 => {
   if (!l) return ful({ status: 404, body: '' });
   if (r.startsWith('/roleassignments?')) return json({ value: listaAbierta ? [{ PrincipalId: 1, Member: { Id: 1, Title: 'MDEF\\usuarios del dominio', LoginName: 'c:0(.s|true' }, RoleDefinitionBindings: [{ RoleTypeKind: 3 }] }] : [] });
   if (/^\/(breakroleinheritance|roleassignments\/addroleassignment)/.test(r)) { listaAbierta = true; l.propios = true; return json({ d: {} }); }
-  if (r.startsWith('?')) return json({ Id: 'id-' + l.titulo, Title: l.titulo, ListItemEntityTypeFullName: l.entidad, ValidationFormula: l.validacion, EffectiveBasePermissions: permisos(),
+  if (r.startsWith('?')) return json({ Id: 'id-' + l.titulo, Title: l.titulo, Hidden: !!l.oculta, ListItemEntityTypeFullName: l.entidad, ValidationFormula: l.validacion, EffectiveBasePermissions: permisos(),
     ReadSecurity: l.lectura || 1, WriteSecurity: l.escritura || 1, HasUniqueRoleAssignments: !!l.propios, RootFolder: { ServerRelativeUrl: WEB + '/Lists/' + l.titulo } });
   if (r === '' && m === 'POST') { const c = JSON.parse(req.postData()); if (c.ValidationFormula !== undefined) l.validacion = c.ValidationFormula; if (c.EnableVersioning) l.versiones = true; if (c.ReadSecurity) { l.lectura = c.ReadSecurity; l.escritura = c.WriteSecurity; } return ful({ status: 204, body: '' }); }
   if (r.startsWith("/fields/getbyinternalnameortitle('NegociadoAsignado')")) return json({ InternalName: 'NegociadoAsignado', Choices: CHOICES });
@@ -717,6 +720,21 @@ if (SOLO_CUENTAS) comprueba('SOLO_CUENTAS: todos los avisos salen a cuentas, nin
   comprueba('comprobar avisos: ' + r.slice(0, 170), /NO los recibirían/.test(r) && /sin correo en Colabora/.test(r) && /JUAN SIN CORREO FICTICIO.*Va a su cuenta/.test(r) && /Usuario 77.*No le llega/.test(r) && /LUIS PRL FICTICIO.*Le llega/.test(r));
   comprueba('comprobar avisos no envía ningún correo', correos.length === nC);
   seg.MiembrosId = seg.MiembrosId.filter(x => x !== 77);
+}
+// 17. Accesos › Preparación: ocultar la biblioteca y las listas de la aplicación en «Contenido del sitio» (como CECONSEG)
+{ await ir(7); await p.click('nav.tabs a[data-v=accesos]'); await p.waitForSelector('[data-listasprop]');
+  comprueba('Preparación enseña la biblioteca y las 4 listas (0 de 4 ocultas)', /Ocultar la biblioteca/.test(await txt('#vista')) && /Listas de la aplicación en «Contenido del sitio» \(0 de 4 ocultas\)/.test(await txt('#vista')) && /común a todas las aplicaciones/.test(await txt('#vista')));
+  await p.click('[data-listasprop="1|*"]'); await p.waitForFunction(() => /4 de 4 ocultas/.test(document.querySelector('#vista').textContent), null, { timeout: 15000 });
+  comprueba('«Ocultar todas» las oculta', ['Puntos', 'Negociados', 'Aportaciones'].every(n => LP(n).oculta === true) && listas['solicitudes acceso aplicaciones'].oculta === true);
+  await p.click('[data-listasprop="0|*"]'); await p.waitForFunction(() => /0 de 4 ocultas/.test(document.querySelector('#vista').textContent), null, { timeout: 15000 });
+  comprueba('«Mostrar todas» las vuelve a mostrar', ['Puntos', 'Negociados', 'Aportaciones'].every(n => LP(n).oculta === false));
+  await p.click(`[data-listasprop="1|id-${LP('Aportaciones').titulo}"]`); await p.waitForFunction(() => /1 de 4 ocultas/.test(document.querySelector('#vista').textContent), null, { timeout: 15000 });
+  comprueba('ocultar una sola lista', LP('Aportaciones').oculta === true && !LP('Puntos').oculta);
+  await p.click('[data-accbiblio="1"]'); await p.waitForFunction(() => /Volver a mostrarla/.test(document.querySelector('#vista').textContent), null, { timeout: 15000 });
+  comprueba('ocultar la biblioteca (con aviso por ser la general)', biblioOculta === true);
+  await p.click('[data-accbiblio="0"]'); await p.waitForFunction(() => /Ocultar la biblioteca/.test(document.querySelector('#vista').textContent), null, { timeout: 15000 });
+  comprueba('volver a mostrar la biblioteca', biblioOculta === false);
+  await ir(7); comprueba('con las listas ocultas la aplicación sigue funcionando', /Seguimiento/.test(await txt('nav.tabs')) && !/No se pudieron leer/.test(await txt('#vista')));
 }
 comprueba('errores de página: ' + JSON.stringify(errs), !errs.length);
 await b.close();

@@ -18,6 +18,17 @@ Word oficial**, lo archiva en la red y, pasado un mes, borra el contenido de Col
   `node puntos-situacion/pruebas/simulacion.mjs` (también `VERBOSE=1` y `PS_HTML=puntos-situacion/colabora/…`;
   `CAPTURAS=carpeta` guarda capturas, el Word y su PDF si hay LibreOffice).
 
+## Versión 2026-11-25 · 1: ocultar la biblioteca y las listas (como CECONSEG)
+
+En *Accesos › Preparación* (solo Control total), copiado de CECONSEG (`vistaListasPropias` / `ocultarListasPropias`):
+- **Biblioteca de esta página**: «Ocultar la biblioteca» / «Volver a mostrarla» (si es «Documentos compartidos», avisa de
+  que es la general del sitio y pide confirmación).
+- **Listas de la aplicación** («PS Puntos», «PS Negociados», «PS Aportaciones» y la común «SOLICITUDES ACCESO
+  APLICACIONES»): cada una con «Ocultar» / «Mostrar» y su enlace «abrir», y «Ocultar todas» / «Mostrar todas»
+  (`lists(guid)` MERGE `Hidden`).
+- Solo las quita de «Contenido del sitio»: no cambia permisos ni datos, la aplicación sigue funcionando y cada lista se
+  abre con su dirección directa. No es seguridad: protegen la copia cifrada y los permisos.
+
 ## Versión 2026-11-23 · 2: «Comprobar los avisos»
 
 En *Ajustes*, **«📬 Comprobar los avisos»** repasa a todos los miembros de los negociados (también los de coordinación) y,

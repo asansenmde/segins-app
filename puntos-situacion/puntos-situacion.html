@@ -158,7 +158,7 @@
     document.getElementById('vista').innerHTML = '<div class="error">Esta página no funciona en modo Internet Explorer. Ábrela con Microsoft Edge o Google Chrome.</div>';
     return;
   }
-  var VERSION = '2026-11-23 · 2';
+  var VERSION = '2026-11-25 · 1';
   // Copia de pruebas («node proteger.mjs --pruebas»): listas «PS … PRUEBAS» y banda roja; nunca toca las reales
   var PRUEBAS = false;
   var SUF = PRUEBAS ? ' PRUEBAS' : '';
@@ -956,7 +956,7 @@
   var nombreCampoAcc = function (xml) { return /Name="([^"]+)"/.exec(xml)[1]; };
   function cargarAccesos() {
     accEstado = 'cargando';
-    return api(urlAcc() + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity,HasUniqueRoleAssignments,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { accInfo = l; }, function () { accInfo = null; })
+    return Promise.all([leerBiblioteca(), leerListasPropias()]).then(function () { return api(urlAcc() + '?$select=Id,Title,ListItemEntityTypeFullName,ReadSecurity,WriteSecurity,HasUniqueRoleAssignments,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { accInfo = l; }, function () { accInfo = null; })
       .then(function () {
         if (!accInfo) { accSols = []; accFaltan = []; accAbierta = null; return; }
         return Promise.all([
@@ -970,7 +970,7 @@
           return todos(urlAcc() + '/items?$top=500&$select=' + SEL_ACC.join(',') + '&$expand=Solicitante,ResueltoPor&$filter=' + encodeURIComponent("Aplicacion eq '" + ACCESO.app + "'"))
             .then(function (l) { accSols = l.map(aSol).filter(function (x) { return x.app === ACCESO.app; }).sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); }); });
         });
-      }).then(function () { accEstado = 'ok'; }, function (e) { accEstado = 'error: ' + (e.message || e); })
+      }); }).then(function () { accEstado = 'ok'; }, function (e) { accEstado = 'error: ' + (e.message || e); })
       .then(function () { if (/^(accesos|ajustes)$/.test(pref.vista) && !$('#dlg').open) render(); else pintarPestanas(); });
   }
   var pintarPestanas = function () { var a = document.querySelector('nav.tabs a[data-v="accesos"]'); if (a) a.textContent = 'Accesos' + (nPendAcc() ? ' (' + nPendAcc() + ')' : ''); };
@@ -989,7 +989,9 @@
       (accInfo ? '<p class="small">📋 ' + (accInfo.RootFolder && accInfo.RootFolder.ServerRelativeUrl ? '<a href="' + esc(location.origin + accInfo.RootFolder.ServerRelativeUrl) + '" target="_blank" rel="noopener">Abrir la lista</a> · ' : '') +
         '<a href="' + esc(web + '/_layouts/15/SubNew.aspx?List=' + encodeURIComponent('{' + String(accInfo.Id).replace(/[{}]/g, '') + '}') + '&Source=' + encodeURIComponent(location.href)) + '" target="_blank" rel="noopener">🔔 Avisarme por correo de cada solicitud nueva (alerta de SharePoint)</a>' +
         '<br><span class="muted">El aviso de la página lo envía Colabora con la cuenta de quien solicita, que aún no tiene permisos y a veces se rechaza. La alerta la envía SharePoint y llega siempre: créala con «Se agregan nuevos elementos» y «Enviar notificación inmediatamente».</span></p>' : '') +
-      '<p class="small">✉ Cada solicitud nueva se avisa por correo a <b>' + esc(ACCESO.avisarCorreos.join(', ')) + '</b>. <button data-accprueba>Probar el aviso</button></p><div id="accPrueba"></div></div>';
+      '<p class="small">✉ Cada solicitud nueva se avisa por correo a <b>' + esc(ACCESO.avisarCorreos.join(', ')) + '</b>. <button data-accprueba>Probar el aviso</button></p><div id="accPrueba"></div>' +
+      (accBiblio ? '<p class="small">' + (accBiblio.Hidden ? '✔ La biblioteca «' + esc(accBiblio.Title) + '», donde está esta página, está oculta en «Contenido del sitio». <button data-accbiblio="0">Volver a mostrarla</button>' :
+        '📁 Esta página está en la biblioteca «' + esc(accBiblio.Title) + '», que se ve en «Contenido del sitio». <button data-accbiblio="1">Ocultar la biblioteca</button>') + '</p>' : '') + vistaListasPropias() + '</div>';
     var sols = accSols || [], pend = sols.filter(function (x) { return x.estado === 'PENDIENTE'; }), res = sols.filter(function (x) { return x.estado !== 'PENDIENTE'; });
     var ficha = function (x) {
       return '<b>' + esc(x.nombre) + '</b>' + (x.empleo ? ' · ' + esc(x.empleo) : '') + (x.unidad ? '<div class="small">' + esc(x.unidad) + '</div>' : '') +
@@ -1034,6 +1036,49 @@
       aviso((aprobar ? 'Acceso concedido a ' + x.nombre + ' en ' + n.titulo : 'Solicitud denegada: ' + x.nombre) + (r && r.ok && !(r.rechazados && r.rechazados.length) ? ' · avisado por correo' : ' · OJO: el correo no ha salido; avísale tú'));
       accEstado = ''; return cargar();
     }).catch(function (e) { boton.disabled = false; msg('error', 'No se pudo completar: ' + esc(e.message || e)); });
+  }
+  // Ocultar la biblioteca de esta página y las listas de la aplicación en «Contenido del sitio» (como CECONSEG, 25/11/2026).
+  // No es seguridad ni cambia permisos ni datos: la aplicación sigue funcionando y cada lista se abre con su dirección directa.
+  var accBiblio = null, listasProp;
+  var rutaPagina = function () { return decodeURIComponent(location.pathname); };
+  function leerBiblioteca() {
+    return api(web + "/_api/web/GetFileByServerRelativeUrl('" + encodeURIComponent(rutaPagina().replace(/'/g, "''")) + "')/ListItemAllFields/ParentList?$select=Id,Title,Hidden,BaseTemplate")
+      .then(function (l) { accBiblio = l; }, function () { accBiblio = null; });
+  }
+  function ocultarBiblioteca(boton, ocultar) {
+    if (!accBiblio) return;
+    if (ocultar && /^(Documentos compartidos|Documentos|Shared Documents)$/i.test(accBiblio.Title) &&
+      !window.confirm('«' + accBiblio.Title + '» es la biblioteca general de documentos del sitio: al ocultarla dejará de verse en «Contenido del sitio» para todos. Lo recomendable es mover antes los .html a una biblioteca propia (p. ej. «Aplicaciones»). ¿Ocultarla igualmente?')) return;
+    boton.disabled = true;
+    enviarSP(web + "/_api/web/lists(guid'" + accBiblio.Id + "')", { __metadata: { type: 'SP.List' }, Hidden: !!ocultar }, 'No tienes permiso para cambiar la biblioteca', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' })
+      .then(leerBiblioteca).then(function () { aviso(ocultar ? 'Biblioteca oculta en «Contenido del sitio»' : 'Biblioteca visible de nuevo'); render(); })
+      .catch(function (e) { boton.disabled = false; alert('No se pudo: ' + (e.message || e)); });
+  }
+  function leerListasPropias() {
+    var nombres = [L.puntos, L.negs, L.aport, ACCESO.lista];
+    return Promise.all(nombres.map(function (n) {
+      return api(urlL(n) + '?$select=Id,Title,Hidden,RootFolder/ServerRelativeUrl&$expand=RootFolder').then(function (l) { return l; }, function () { return null; });
+    })).then(function (r) { listasProp = r.filter(Boolean); }, function () { listasProp = []; });
+  }
+  function vistaListasPropias() {
+    if (!listasProp || !listasProp.length) return '';
+    var ocultas = listasProp.filter(function (l) { return l.Hidden; }).length;
+    return '<div class="small" style="margin:6px 0"><b>📋 Listas de la aplicación en «Contenido del sitio»</b> (' + ocultas + ' de ' + listasProp.length + ' ocultas) ' +
+      (ocultas < listasProp.length ? '<button type="button" data-listasprop="1|*">Ocultar todas</button> ' : '') + (ocultas ? '<button type="button" data-listasprop="0|*">Mostrar todas</button>' : '') +
+      '<ul style="margin:4px 0;padding-left:18px">' + listasProp.map(function (l) {
+        var url = l.RootFolder && l.RootFolder.ServerRelativeUrl ? location.origin + l.RootFolder.ServerRelativeUrl + '/AllItems.aspx' : '';
+        return '<li>' + esc(l.Title) + (l.Title === ACCESO.lista ? ' <span class="muted">(común a todas las aplicaciones)</span>' : '') + ' · ' +
+          (l.Hidden ? '<b>oculta</b> <button type="button" data-listasprop="0|' + esc(l.Id) + '">Mostrar</button>' : 'se ve <button type="button" data-listasprop="1|' + esc(l.Id) + '">Ocultar</button>') +
+          (url ? ' <a href="' + esc(url) + '" target="_blank" rel="noopener">abrir</a>' : '') + '</li>';
+      }).join('') + '</ul><span class="muted">Ocultarlas solo las quita de «Contenido del sitio»: la aplicación sigue funcionando igual y se abren con su dirección directa (enlace «abrir»; guárdalo en favoritos).</span></div>';
+  }
+  function ocultarListasPropias(boton) {
+    var p = boton.dataset.listasprop.split('|'), ocultar = p[0] === '1';
+    var ls = (listasProp || []).filter(function (l) { return (p[1] === '*' || String(l.Id) === p[1]) && !!l.Hidden !== ocultar; });
+    boton.disabled = true;
+    ls.reduce(function (pr, l) { return pr.then(function () { return enviarSP(web + "/_api/web/lists(guid'" + l.Id + "')", { __metadata: { type: 'SP.List' }, Hidden: ocultar }, 'No tienes permiso para cambiar la lista ' + l.Title, { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }); }); }, Promise.resolve())
+      .then(leerListasPropias).then(function () { aviso(ocultar ? 'Listas ocultas en «Contenido del sitio»' : 'Listas visibles de nuevo'); render(); })
+      .catch(function (e) { alert('No se pudo: ' + (e.message || e)); return leerListasPropias().then(render); });
   }
   function crearListaAcceso(boton) {
     boton.disabled = true; aviso('Creando la lista…');
@@ -2369,6 +2414,8 @@
     if ((b = el.closest('[data-accabrir]'))) { abrirListaAcceso(b); return; }
     if ((b = el.closest('[data-accsuyos]'))) { soloSuyosAcc(b); return; }
     if ((b = el.closest('[data-accprueba]'))) { probarAvisoSolicitud(b); return; }
+    if ((b = el.closest('[data-listasprop]'))) { ocultarListasPropias(b); return; }
+    if ((b = el.closest('[data-accbiblio]'))) { ocultarBiblioteca(b, b.dataset.accbiblio === '1'); return; }
     if ((b = el.closest('[data-pruebacorreo]'))) { correoPrueba(b); return; }
     if ((b = el.closest('[data-compavisos]'))) { comprobarAvisos(b); return; }
   });

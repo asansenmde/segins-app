@@ -184,7 +184,7 @@ autoría.
 
 16. **Puntos de Situación de SUIGESUR** (`puntos-situacion/`, `[PUNTOS]`). **Se lleva solo en la sesión «[PUNTOS] Puntos
     de Situación», rama `claude/modest-fermat-9zf46n`** (acordado con el usuario el 14/11/2026; las demás sesiones no lo tocan).
-    - **Versión vigente: 2026-11-23 · 2** (avisos a coordinación y a quien no tiene correo, historial visible y «Comprobar los avisos»)
+    - **Versión vigente: 2026-11-25 · 1** (ocultar biblioteca y listas en Accesos, como CECONSEG; avisos y «Comprobar los avisos»)
       `puntos-situacion-pruebas.html` para pruebas). Lo que hace, sus listas y su historial de versiones: `puntos-situacion/README.md`.
     - Confirmadas por el usuario hasta la · 5; la · 6 (informe completo en PDF para todos los negociados) entregada.
     - Enlace con META y el Gestor común (asuntos «⭐ Tratar con el General»): lo llevan META y el Gestor desde su sesión
@@ -224,6 +224,8 @@ autoría.
       Seguimiento. Pendiente: que suba la copia y mire en el historial del punto de hoy a quién se envió (o el motivo).
       El usuario confirma que ya le llegan. **2026-11-23 · 2**: «Comprobar los avisos» en Ajustes (a quién le llegaría el
       correo, sin enviar nada). Pendiente: que suba la copia y lo pase una vez.
+    - 25/11/2026: **2026-11-25 · 1**: ocultar la biblioteca y las listas de la aplicación en Accesos › Preparación, como
+      CECONSEG (pedido por el usuario). Pendiente: que suba la copia (antes de ocultar, guardar en favoritos los enlaces «abrir»).
     - **Para cuando se lleve a otro ámbito** (aparcado por el usuario el 16/11/2026; «hay que pensar que evolucionará»):
       el reparto de células está escrito en el código solo para SUIGESUR (`REPARTO_CELULAS`). La célula llega sola desde
       SENDERO (título del subsitio de MENSADEF) y la página ya aprende las nuevas al preguntar. Mejora pensada: en Ajustes,
