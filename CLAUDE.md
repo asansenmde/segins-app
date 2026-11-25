@@ -50,7 +50,10 @@ El usuario no quiere repetir errores ya resueltos. Antes de dar por buena una p�
 6. **Paridad con Incidentes** en toda página de partes: correos con envío robusto a cuentas, control de acceso con
    solicitud, ficha e informe detallado imprimibles / PDF con gráficos, CSV, estadísticas, control de entregas.
 7. **Variables usadas al cargar:** no usar en la inicialización constantes declaradas más abajo (`var` aún sin valor).
-8. Entregar siempre: simulación ligero + *verbose* + copia cifrada con `PROXY=1`, README, PENDIENTES, commit, push y la
+8. **Ocultar biblioteca y listas** (probado en Colabora, 25/11/2026): toda aplicación nueva trae en Accesos › Preparación
+   «Ocultar la biblioteca» y «📋 Listas de la aplicación» con Ocultar / Mostrar (cada una y todas) y enlace «abrir»
+   (bloque `vistaListasPropias` / `ocultarListasPropias`, copiarlo de `ceconseg/ceconseg.html`; receta en `SHAREPOINT.md`).
+9. Entregar siempre: simulación ligero + *verbose* + copia cifrada con `PROXY=1`, README, PENDIENTES, commit, push y la
    copia cifrada al usuario. Respuestas breves.
 
 Antes de hacer una nueva, lee **`SHAREPOINT.md`**: recetas probadas (lectura, alta, modificar sin pisar cambios,

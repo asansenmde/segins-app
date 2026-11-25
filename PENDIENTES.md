@@ -71,6 +71,3 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
   `ceconseg/colabora/ceconseg.html` a la biblioteca del sitio de IGE y seguir la «Puesta en marcha» de `ceconseg/README.md`
   (preparar la lista, unidades obligadas, periodicidad, grupo CECONSEG_UNIDADES y permisos). Como ya se
   preparó con la versión 4: en Ajustes › Preparación pulsar los dos «Crearlas» (NOMBRE1N–3N en partes y NOMBRE2N en unidades).
-- **25/11/2026 · Ocultar las listas de la aplicación** (Incidentes, VSA y Pérdidas 2026-11-25 · 1, CECONSEG 2026-11-25 · 8,
-  Tareas Colabora 2026-11-25 · 1): subir las cinco copias cifradas (`*/colabora/*.html`) y, si se quiere, en Accesos ›
-  Preparación (Ajustes en Tareas Colabora) pulsar «Ocultar todas». Guardar antes en favoritos el enlace «abrir» de cada lista.
