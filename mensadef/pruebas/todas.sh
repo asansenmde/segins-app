@@ -3,7 +3,7 @@
 # Uso: sh mensadef/pruebas/todas.sh   (tarda unos minutos). Falla si alguna pasada da errores o se para.
 cd "$(dirname "$0")"
 fallos=0
-for v in "FINAL=1" "X=1" "PORTAL=1 FINAL=1" "PORTAL=1 FINAL=1 VENTANA=1" "PORTAL=1 FINAL=1 LENTO=1" "PORTAL=1 SESION=1 FINAL=1" "NOAUT=1 FINAL=1" "NOAUT=1 PORTAL=1 FINAL=1" "MINIMA=1 FINAL=1" "INICIO=sin FINAL=1" "CARGA_LENTA=1 FINAL=1" "RUB500=1 FINAL=1" "SINORG=1 FINAL=1" "XFO=1 FINAL=1" "NUEVA=1 FINAL=1" "DIAS=31 FINAL=1" "DIAS=31" "DIAS=27 FINAL=1" "CADUCIDAD=90 DIAS=31 FINAL=1" "CADUCIDAD=90 DIAS=86 FINAL=1" "CADUCIDAD=indefinida DIAS=400 FINAL=1"; do
+for v in "FINAL=1" "X=1" "RECORDADO=1 FINAL=1" "RECORDADO=otra" "PORTAL=1 FINAL=1" "PORTAL=1 FINAL=1 VENTANA=1" "PORTAL=1 FINAL=1 LENTO=1" "PORTAL=1 SESION=1 FINAL=1" "NOAUT=1 FINAL=1" "NOAUT=1 PORTAL=1 FINAL=1" "MINIMA=1 FINAL=1" "INICIO=sin FINAL=1" "CARGA_LENTA=1 FINAL=1" "RUB500=1 FINAL=1" "SINORG=1 FINAL=1" "XFO=1 FINAL=1" "NUEVA=1 FINAL=1" "DIAS=31 FINAL=1" "DIAS=31" "DIAS=27 FINAL=1" "CADUCIDAD=90 DIAS=31 FINAL=1" "CADUCIDAD=90 DIAS=86 FINAL=1" "CADUCIDAD=indefinida DIAS=400 FINAL=1"; do
   salida=$(env $v node bandejas.mjs 2>&1)
   if echo "$salida" | grep -q "errores: \[\]" && ! echo "$salida" | grep -q "Error"; then r=bien; else r=MAL; fallos=$((fallos+1)); fi
   echo "== $v: $r"

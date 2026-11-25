@@ -28,6 +28,11 @@ const bandeja = (cel, es, pag, tam) => {
     NombreEstadoUltimaDistribucionSalida: es === '2' && i === 0 ? 'Pendiente de Validar' : '', EstadoMensaje: es === '2' && i === 0 ? 'Borrador' : es === '2' && i === 2 ? 'Enviado' : es === '2' && i === 1 ? 'Pendiente de firma' : i === 7 ? 'Pendiente de firma' : i % 3 ? 'Pendiente' : 'Leído', EstadoParaUsuario: i % 2 ? 'No leído' : 'Leído', TipoES: es === '1' ? 'E' : 'S', TipoMensaje: i % 4 ? 'Informe' : 'Orden', CodigoPrioridad: i % 9 ? 'R' : 'U',
     CelulaRemitente: i % 2 ? 'ET 2SUIGE JEFATURA' : 'ET 2SUIGE REGISTRO', CelulaDestinataria: 'ET 2SUIGE SETEC SEGURIDAD', NumeroRegistroEntrada: 'RE-' + i, Sref: i === 3 ? 'Su escrito n.º RE-1 de 12/11/2026' : i === 4 ? 'S/Ref.: RS-ANTIGUO-9 (correo)' : 'SREF-' + i,
     ContieneAnexos: i % 5 === 0 ? 'Sí' : 'No', Leido: !!(i % 3), Actuacion: i % 3 === 0 ? 'ACCIÓN' : i % 3 === 1 ? 'INFORMACIÓN' : '', UltimoComentario: comExtra && cel === G1 && es === '1' && i === 2 ? 'Revisado, falta el informe — OTRA PERSONA' : comExtra && cel === G1 && es === '1' && i === 6 ? 'Añadido al Punto de Situación por OTRA PERSONA el 18/11/2026 · SENDERO' : i % 10 === 5 ? 'Añadido como tarea en META (META) por OTRA PERSONA el 12/11/2026, 10:00:00 · SENDERO' : i % 4 === 0 ? 'Comentario ficticio ' + i : '', Firma: i % 2 ? (process.env.PRESENTA ? 'GENERAL JEFE DE LA SUIGE' : 'GENERAL JEFE <b>A</b>') : '', MotivoDistribucion: i % 3 ? 'Para conocimiento' : 'Para actuación', EnviableARubrica: es === '2' ? 'true' : 'false', BuzonPersonal: false, IdEtiqueta: i % 6 === 0 ? 1 : i % 6 === 1 ? 4 : i % 11 === 2 ? 9 : 0, IdCelulaRM: G3 });
+  // 25/11/2026: un registro con el formato real (RE-001-S-26-…) en la salida de REGISTRO (célula que no se carga), citado con su
+  // fecha en «Su referencia» del mensaje 6 de SETEC SEGURIDAD (el buscador de MENSADEF no encuentra por registro)
+  els.forEach(e => { if (cel === G4 && es === '2' && /0{9}100$/.test(e.IdMensaje)) e.NumeroRegistroSalida = 'RE-001-S-26-04675075';
+    if (cel === G1 && es === '1' && /0{11}8$/.test(e.IdMensaje)) e.Sref = 'S/REF RE-001-S-26-07777777 de 01/10/2026';
+    if (cel === G1 && es === '1' && /0{11}6$/.test(e.IdMensaje)) e.Sref = '550/PC/OS-RE-001-S-26-04675075 de ' + new Date(hoy.getTime() - 30 * 3600e3).toLocaleDateString('es-ES'); });
   return { ListaElementos: els, ListaAgrupaciones: [], IndicePagina: pag, TamanoPagina: tam, TotalRegistros: total };
 };
 const b = await chromium.launch();
@@ -79,6 +84,10 @@ await ctx.route(API + '/**', r => {
   if (ruta === 'mensaje/ComentarioCrear') { comentarios.push({ metodo: r.request().method(), params: [...u.searchParams.keys()].join(','), cuerpo: JSON.parse(r.request().postData() || '{}'), passcode: hd.passcode === PASS }); return r.fulfill({ headers: H, json: true }); }
   if (ruta === 'buzon/BuzonCelulaMensajeLeido') { marcadoLeido++; leidos.push({ metodo: r.request().method(), q: [...u.searchParams.keys()].join(','), estado: q.estado, buzon: !!q.idBuzonCelula, cuerpo: r.request().postData() || '', passcode: hd.passcode === PASS }); return r.fulfill({ headers: H, json: {} }); }
   // 18/11/2026: el buscador de MENSADEF (criterioBusqueda): solo encuentra el mensaje antiguo RS-ANTIGUO-9 (salida de SEGURIDAD)
+  // 25/11/2026: como el real, el buscador encuentra un registro dado entero y solo (RE-001-S-26-07777777, de la salida de REGISTRO)
+  if (ruta === 'buzon/ObtenerBuzonCelula' && q.criterioBusqueda === 'RE-001-S-26-07777777') { buscadosRef.push(q.criterioBusqueda);
+    const el = Object.assign({}, bandeja(G4, '2', 1, 1).ListaElementos[0], { IdMensaje: '0000bbbb-2000-0000-0000-777777777777', Asunto: 'Mensaje del buscador', NumeroRegistroSalida: 'RE-001-S-26-07777777' });
+    return r.fulfill({ headers: H, json: { ListaElementos: q.idCelula === G4 && q.tipoES === '2' ? [el] : [], TotalRegistros: 1 } }); }
   if (ruta === 'buzon/ObtenerBuzonCelula' && q.criterioBusqueda) {
     const hay = (q.criterioBusqueda === 'RS-ANTIGUO-9' || /antiguo/i.test(q.criterioBusqueda)) && q.idCelula === G1 && q.tipoES === '2';
     const el = Object.assign({}, bandeja(G1, '2', 1, 1).ListaElementos[0], { IdMensaje: '0000aaaa-2000-0000-0000-999999999999', Asunto: 'Mensaje antiguo referenciado', NumeroRegistroSalida: 'RS-ANTIGUO-9', NumeroRegistroEntrada: '', FechaRegistroEntrada: hace(24 * 60), FechaRegistroSalida: hace(24 * 60) });
@@ -107,7 +116,7 @@ await ctx.route(O + '/**', r => {
   if (!u.includes('/_api/')) return r.fulfill({ contentType: 'text/html', body: '<html><body>MENSADEF<script>if (/Landing\\.aspx/i.test(location.pathname)) { fetch("' + API + '/api/usuario/ValidateUser?idUsuario=persona&useUid=false"); fetch("' + API + '/api/ambitocomun/AmbitoRegistral?emailUsuario=persona%40pruebas.invalid&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es"); fetch("' + API + '/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40pruebas.invalid&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es"); }if (/SitePages\\/ambito\\.aspx/i.test(location.pathname)) setTimeout(function () { fetch("' + API + '/api/usuario/ValidateUser?idUsuario=persona&useUid=false"); fetch("' + API + '/api/ambito/UsuarioCelulas?idUsuario=77&tipoCelula=-1&emailUsuario=persona%40pruebas.invalid&urlColeccionSitio=https%3A%2F%2Fmensadef.mdef.es%2Fambito%2F2SUIGE", { headers: { "Content-Type": "application/json", passcode: "' + PASS + '", user: "' + UID + '" } }); }, ' + (process.env.LENTO ? 18000 : 300) + ');addEventListener("hashchange", function () { if (/^#\\/celula\\//.test(location.hash)) fetch("' + API + '/api/usuariovista/UsuarioVistaObtener?x=1", { headers: { "Content-Type": "application/json", passcode: "' + PASS + '", user: "' + UID + '" } }); });</script></body></html>' });
   if (u.startsWith(O + WEB + '/_api/web?')) return J({ Url: O + WEB, Title: 'Segunda SUIGE' });
   if (u.includes('/_api/web?')) return r.fulfill({ status: 404, body: '' });
-  if (u.includes('currentuser')) return J(process.env.SINCORREO ? { Title: 'PERSONA', Email: '', UserPrincipalName: '', LoginName: 'i:0#.w|et\\persona' } : { Title: 'PERSONA', Email: 'persona@pruebas.invalid', LoginName: 'i:0#.w|et\\persona' });
+  if (u.includes('currentuser')) return J(process.env.SINCORREO || process.env.RECORDADO ? { Title: 'PERSONA', Email: '', UserPrincipalName: '', LoginName: 'i:0#.w|et\\persona' } : { Title: 'PERSONA', Email: 'persona@pruebas.invalid', LoginName: 'i:0#.w|et\\persona' });
   if (u.includes('GetMyProperties')) return J({ Email: '', UserProfileProperties: [] });
   if (u.includes('/_api/site?')) return J({ Url: O + WEB });
   r.fulfill({ status: 404, body: '' });
@@ -139,11 +148,24 @@ if (process.env.CARGA_LENTA) await ctx.route(API + '/**', async r => { const u =
 // Las pruebas cargan 3 días (con «hoy» los mensajes simulados dependen de la hora del día); INICIO=sin: sin ajuste → solo hoy
 const INICIO = process.env.INICIO || '2';
 await p.evaluate(([M, ini]) => { localStorage.setItem(M + 'desde', JSON.stringify('2026-10-01')); localStorage.setItem(M + 'hasta', JSON.stringify('2026-10-02')); if (ini !== 'sin') localStorage.setItem(M + 'periodoInicio', ini); }, [MEM, INICIO]);
+// 25/11/2026: RECORDADO=1: MENSADEF ha vaciado su registro (telemetría) y SharePoint no tiene el correo: se usa el de la última
+// vez, guardado con la cuenta; RECORDADO=otra: lo guardado es de otra cuenta (equipo compartido) → no se usa
+if (process.env.RECORDADO) await p.evaluate(([M, otra]) => localStorage.setItem(M + 'correoUsuario', JSON.stringify({ email: 'persona@pruebas.invalid', login: otra ? 'i:0#.w|et\\otra' : 'i:0#.w|et\\persona' })), [MEM, process.env.RECORDADO === 'otra']);
 const llamadasAntes = llamadas.length;
 await p.evaluate(codigo); await p.waitForTimeout(2500);
 const leeBandejas = () => llamadas.slice(llamadasAntes).filter(x => /ObtenerBuzonCelula|ConsultaUsuarioDicodef|EtiquetasObtener/.test(x)).length;
 const cargadas = async () => { await p.waitForFunction(() => /mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 90000 }).catch(() => 0); return /mensajes del/.test(await p.textContent('#estado')) && llamadas.slice(llamadasAntes).some(x => /ObtenerBuzonCelula/.test(x)); };
 const fin = async () => { console.log('errores:', JSON.stringify(errs)); await b.close(); process.exit(0); };
+if (process.env.RECORDADO) {
+  const ok = await cargadas(), txt = await p.textContent('body');
+  if (process.env.VERDOM) console.log('estado:', await p.textContent('#estado').catch(() => '-'), '| cuerpo:', (await p.textContent('body')).slice(0, 400));
+  const avisoC = /no encuentro tu correo/.test(txt + ' ' + (await p.evaluate(() => [...document.querySelectorAll('[title]')].map(e => e.title).join(' ') + ' ' + document.documentElement.innerHTML)));
+  console.log('correo recordado (' + process.env.RECORDADO + '): carga', ok, '| aviso de correo:', avisoC);
+  if (process.env.RECORDADO === 'otra' ? ok : !ok) console.log('Error: correo recordado');
+  await fin();
+}
+// Al entrar bien se guarda el correo con la cuenta de SharePoint
+setTimeout(() => {}, 0);
 const accesoPortal = !!process.env.PORTAL && !process.env.SESION;
 // CADUCIDAD=60|90|indefinida: la elegida en Colabora (sin ella, 30). Con DIAS, ¿caducada o a punto de caducar?
 const CAD = process.env.CADUCIDAD ? (/indefinid/.test(process.env.CADUCIDAD) ? 0 : Number(process.env.CADUCIDAD)) : 30;
@@ -669,6 +691,18 @@ for (const n of [0, 40]) {
     if (await p.$('#msgRef .refManual')) { await p.fill('#msgRef .refManual', 'documento antiguo'); await p.click('#msgRef .refBuscar'); await p.waitForSelector('#refModal', { timeout: 15000 }).catch(() => 0); await elegir('msgRef'); a4 = await refVentana(); await cerrar(); } }
   console.log('referencia: sin coincidencia exacta, lo que da MENSADEF →', a4);
   if (a4 !== 'RS-ANTIGUO-9') console.log('Error: enseñar lo que encuentra MENSADEF');
+  // 25/11/2026 (tarde): referencia con número de registro real y fecha → se recorren las bandejas (también de células no cargadas)
+  let a5 = '', avance5 = ''; await p.fill('#buscar', 'RE-6'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
+  await p.click('#detalle .irRef[data-msg="msgRef"]').catch(() => 0); await p.waitForTimeout(150); avance5 = await p.textContent('#msgRef').catch(() => '');
+  await p.waitForSelector('#refModal', { timeout: 20000 }).catch(() => 0); await elegir('msgRef'); a5 = await p.textContent('#refModal').catch(() => ''); await cerrar();
+  if (process.env.DEPURA) console.log('llamadas:', llamadas.slice(-30).join(' | '));
+  console.log('referencia: registro RE-001-S-26-… →', /RE-001-S-26-04675075/.test(a5) ? 'encontrado' : 'NO', '| aviso:', avance5.slice(0, 90));
+  if (!/RE-001-S-26-04675075/.test(a5) || !/registro RE-001-S-26-04675075/.test(avance5)) console.log('Error: referencia por registro');
+  // Con el registro exacto, el buscador de MENSADEF lo encuentra sin recorrer bandejas
+  let a6 = ''; await p.fill('#buscar', 'RE-8'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
+  await p.click('#detalle .irRef[data-msg="msgRef"]').catch(() => 0); await p.waitForSelector('#refModal', { timeout: 20000 }).catch(() => 0); await elegir('msgRef'); a6 = await p.textContent('#refModal').catch(() => ''); await cerrar();
+  console.log('referencia: registro exacto por el buscador →', /RE-001-S-26-07777777/.test(a6) ? 'encontrado' : 'NO', '| buscó el registro solo:', buscadosRef.includes('RE-001-S-26-07777777'));
+  if (!/RE-001-S-26-07777777/.test(a6) || !buscadosRef.includes('RE-001-S-26-07777777')) console.log('Error: registro por el buscador');
   console.log('referencia: texto libre → ventana con', a1, '· al cerrar sigue', sigue1, '| la de otra fecha: buscó', busco.join(' y '), '· en la ventana:', antiguo, '· texto y anexos:', conTexto, '· Esc la cierra:', cerradaEsc, '· sigue', sigue2, '· no entra en la lista:', fueraLista, '| a mano RE-2 →', a3, '| listas:', listas);
   if (a1 !== 'RE-1' || sigue1 !== 'RE-3' || !antiguo || !busco.some(b => /RS-ANTIGUO-9/.test(b)) || !busco.some(b => / /.test(b)) || !conTexto || !cerradaEsc || sigue2 !== 'RE-4' || !fueraLista || !caja || a3 !== 'RE-2') console.log('Error: ir a la referencia');
   // «N.º referencia» pulsable: desde RE-1, los que lo citan en «Su referencia» (RE-3) y los que llevan el mismo número

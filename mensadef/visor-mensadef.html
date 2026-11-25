@@ -535,7 +535,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-25 · 2';
+  var VERSION = '2026-11-25 · 4';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1342,11 +1342,15 @@
     return api('web/currentuser?$select=Email,UserPrincipalName,LoginName', w.url).catch(function () { return {}; }).then(function (u) {
       if (esCorreo(u.Email)) return { email: u.Email, de: 'ficha del usuario (Email)' };
       if (esCorreo(u.UserPrincipalName)) return { email: u.UserPrincipalName, de: 'ficha del usuario (UserPrincipalName)' };
+      // 25/11/2026: MENSADEF tiene ahora telemetría (proxysplunk) que llena y vacía el registro del navegador: con la página
+      // abierta un rato desaparecen sus consultas y con ellas el correo. Último recurso: el correo de la última vez que
+      // SENDERO entró bien EN ESTE NAVEGADOR, solo si es la misma cuenta de SharePoint (para un equipo compartido).
+      var recordado = function () { var g = leer('correoUsuario', null); return g && esCorreo(g.email) && g.login && u.LoginName && g.login === u.LoginName ? { email: g.email, de: 'recordado de la última vez' } : {}; };
       return api('SP.UserProfiles.PeopleManager/GetMyProperties?$select=Email,UserProfileProperties', w.url).then(function (pr) {
         if (esCorreo(pr.Email)) return { email: pr.Email, de: 'perfil (Email)' };
         var wm = lista(pr.UserProfileProperties).filter(function (x) { return /^(WorkEmail|SPS-SipAddress)$/i.test(x.Key) && esCorreo(x.Value); })[0];
-        return wm ? { email: wm.Value, de: 'perfil (' + wm.Key + ')' } : {};
-      }, function () { return {}; });
+        return wm ? { email: wm.Value, de: 'perfil (' + wm.Key + ')' } : recordado();
+      }, recordado);
     });
   }
   function iniciarApi(w) {
@@ -1354,7 +1358,9 @@
     return Promise.all([correoUsuario(w), datosApp.urlColeccionSitio && (EN_AMBITO || /\/ambito\//i.test(datosApp.urlColeccionSitio)) ? { Url: datosApp.urlColeccionSitio } : api('site?$select=Url', w.url).catch(function () { return { Url: coleccion }; })]).then(function (r) {
       var ctx = { email: r[0].email, url: r[1].Url || coleccion };
       origenCorreo = r[0].de || 'no encontrado';
-      if (!ctx.email) throw new Error('no encuentro tu correo (ni en las consultas de MENSADEF ni en SharePoint): abre la portada o tu célula en MENSADEF, espera a que carguen tus mensajes y pulsa el favorito sin recargar');
+      // Se recuerda el correo con la cuenta de SharePoint (por si otro día no se puede averiguar; ver correoUsuario)
+      if (r[0].email && r[0].de !== 'recordado de la última vez') api('web/currentuser?$select=LoginName', w.url).then(function (u) { if (u && u.LoginName) guardar('correoUsuario', { email: r[0].email, login: u.LoginName }); }, function () {});
+      if (!ctx.email) throw new Error('no encuentro tu correo (ni en las consultas de MENSADEF ni en SharePoint): recarga MENSADEF (F5), espera a que carguen tus mensajes y pulsa el favorito enseguida');
       var hayClave = leer('cabecerasApi', null);
       var clave = hayClave && hayClave.passcode ? Promise.resolve() : pedirClave(ctx.email, ctx.url).catch(function () { /* se intentará con la tomada de la página, si la hay */ });
       var usuario = clave.then(function () { return datosApp.idUsuario ? null : pedirApi('usuario/ConsultaUsuarioDicodefPorCorreo', { emailUsuario: ctx.email, urlColeccionSitio: ctx.url }); });
@@ -1669,6 +1675,35 @@
     var ya = mensajes.filter(function (x) { return x !== desde && casa(x); });
     if (ya.length) return elegir(ya, 'cargados con esa referencia');
     if (!modoApi || !apiCtx) return cajaBuscar('No está en lo cargado. ');
+    // 25/11/2026 (tarde): el buscador de MENSADEF NO encuentra por número de registro (probado por el usuario con
+    // «RE-001-E-26-…» y «…-S-26-…»): si la referencia lleva un registro (RE-001-S-26-04675075; S = salida, E = entrada) o se
+    // buscan las respuestas a este mensaje («N.º referencia»), se recorren las bandejas de todas las células desde la fecha
+    // que trae el texto («de 23/11/2026») o, si no la trae, desde hace 30 días (con «Buscar más atrás», 120).
+    var regs = (String(ref || '').toUpperCase().match(/[A-Z]{1,5}-\d{1,4}-[ES]-\d{2}-\d{4,}/g) || []).filter(function (x, i, l) { return l.indexOf(x) === i; });
+    if (regs.length || conSu) {
+      var fm = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(String(ref || '')), fRef = fm ? new Date(Number(fm[3].length === 2 ? '20' + fm[3] : fm[3]), Number(fm[2]) - 1, Number(fm[1])) : null;
+      if (fRef && isNaN(fRef)) fRef = null;
+      var diasAtras = Number(irAReferencia['atras' + (idMsg || 'msgRef')] || 30);
+      var limite = conSu ? (fechaDe(desde) || new Date(Date.now() - diasAtras * 864e5)) : fRef ? new Date(fRef.getTime() - 864e5) : new Date(Date.now() - diasAtras * 864e5);
+      limite = new Date(limite); limite.setHours(0, 0, 0, 0);
+      var tipos = conSu ? [1, 2] : regs.some(function (r) { return /-S-/.test(r); }) ? [2, 1] : [1, 2];
+      var casaReg = conSu ? casa : function (x) { return regs.some(function (r) { return casaRef(x, normRef(r)); }); };
+      var desc = conSu ? 'mensajes que citan ' + esc(ref) : 'el registro ' + esc(regs.join(', '));
+      msg('Buscando ' + desc + ' en tus bandejas desde el ' + esc(limite.toLocaleDateString('es-ES')) + '…');
+      // Primero el buscador de MENSADEF con el registro EXACTO y solo (así sí lo encuentra, probado por el usuario: no con trozos
+      // ni con texto delante); si no, se recorren las bandejas
+      var rapido = conSu ? Promise.resolve([]) : buscarConBuscador(regs, casaReg, function (h, t) { caja = $(idMsg || 'msgRef') || caja; if (caja) msg('Buscando ' + desc + ' con el buscador de MENSADEF… ' + h + ' de ' + t + ' bandejas'); });
+      return rapido.then(function (l) { return l.length ? l : escanearBandejas(limite, tipos, casaReg, !conSu, function (h, t) { caja = $(idMsg || 'msgRef') || caja; if (caja) msg('Buscando ' + desc + ' en tus bandejas desde el ' + esc(limite.toLocaleDateString('es-ES')) + '… ' + h + ' de ' + t + ' bandejas'); }); })
+        .then(function (l) {
+          caja = $(idMsg || 'msgRef') || caja; if (!caja) return;
+          l = l.filter(function (x) { return !desde || x.MensajeId !== desde.MensajeId; });
+          if (l.length) return elegir(l, conSu ? 'que citan esta referencia' : 'con ese registro');
+          cajaBuscar('No encuentro ' + desc + ' en las bandejas de tus ' + (apiCtx.celulas || []).length + ' células desde el ' + esc(limite.toLocaleDateString('es-ES')) +
+            ' (si es de una célula a la que no perteneces, no lo puedes ver). ' + (fRef || conSu ? '' : '<button type="button" class="refAtras">Buscar más atrás (120 días)</button> '));
+          var bA = caja.querySelector('.refAtras');
+          if (bA) bA.addEventListener('click', function () { irAReferencia['atras' + (idMsg || 'msgRef')] = 120; irAReferencia(desde, ref, conSu, idMsg); irAReferencia['atras' + (idMsg || 'msgRef')] = 0; });
+        });
+    }
     // 25/11/2026 (aviso del jefe: «al darle a buscar no hace nada»): (1) al buscador de MENSADEF se le manda el texto TAL CUAL
     // (antes iba sin espacios, «ET 2SUIGE 123» → «ET2SUIGE123», y no encontraba nada) y luego cada trozo con números; (2) en
     // TODAS las células del usuario, no solo las que carga; (3) lo que devuelve MENSADEF se enseña aunque no case exacto con
@@ -1712,6 +1747,40 @@
       elegir(hallados.slice(0, 8), buenos.length ? 'en MENSADEF (los primeros coinciden con la referencia)' : 'que da MENSADEF con ese texto (ninguno coincide exacto: mira cuál es)');
     });
   }
+  // El buscador de MENSADEF (criterioBusqueda) con cada texto, en todas las células del usuario, entrada y salida
+  function buscarConBuscador(textos, casaFn, avance) {
+    var cola = [], hallados = [], vistos = {}, hechas = 0;
+    textos.forEach(function (q) { (apiCtx.celulas || []).slice(0, 25).forEach(function (c) { [1, 2].forEach(function (es) { cola.push({ c: c, es: es, q: q }); }); }); });
+    var total = cola.length;
+    var una = function (t) {
+      return pedirApi('buzon/ObtenerBuzonCelula', { idCelula: t.c.id, emailUsuario: apiCtx.email, urlColeccionSitio: apiCtx.url, indicePagina: 1, tamanoPagina: 50, tipoES: t.es, criterioBusqueda: t.q, soloPendientes: false }).then(function (d) {
+        ((d && (d.ListaElementos || d.listaElementos)) || primerArray(d) || []).map(function (e) { return deApi(e, t.c, t.es); })
+          .forEach(function (x) { var k = claveMensaje(x); if (!vistos[k] && casaFn(x)) { vistos[k] = 1; hallados.push(x); } });
+      }, function () { /* sigue */ }).then(function () { hechas++; if (avance) avance(hechas, total); });
+    };
+    var trabajador = function () { var t = cola.shift(); if (!t) return Promise.resolve(); return una(t).then(trabajador); };
+    return Promise.all([trabajador(), trabajador(), trabajador(), trabajador(), trabajador(), trabajador()]).then(function () { return hallados; });
+  }
+  // Recorre las bandejas (sin buscador) de todas las células del usuario desde hoy hasta «limite», 100 por página, 6 a la vez,
+  // y devuelve los mensajes que casan; con «uno», para en cuanto encuentra uno
+  function escanearBandejas(limite, tipos, casaFn, uno, avance) {
+    var cola = [], hallados = [], vistos = {}, parar = false, hechas = 0;
+    (apiCtx.celulas || []).slice(0, 25).forEach(function (c) { tipos.forEach(function (es) { cola.push({ c: c, es: es }); }); });
+    var total = cola.length;
+    var pagina = function (t, pag) {
+      if (parar) return Promise.resolve();
+      return pedirApi('buzon/ObtenerBuzonCelula', { idCelula: t.c.id, emailUsuario: apiCtx.email, urlColeccionSitio: apiCtx.url, indicePagina: pag, tamanoPagina: 100, tipoES: t.es, criterioBusqueda: '', soloPendientes: false }).then(function (d) {
+        var ms = ((d && (d.ListaElementos || d.listaElementos)) || primerArray(d) || []).map(function (e) { return deApi(e, t.c, t.es); });
+        ms.forEach(function (x) { var k = claveMensaje(x); if (!vistos[k] && casaFn(x)) { vistos[k] = 1; hallados.push(x); } });
+        if (uno && hallados.length) { parar = true; return; }
+        var ult = ms.length ? fechaDe(ms[ms.length - 1]) : null;
+        if (ms.length < 100 || (ult && ult < limite) || pag >= 40) return;
+        return pagina(t, pag + 1);
+      }, function () { /* esa bandeja no responde: se sigue */ });
+    };
+    var trabajador = function () { var t = cola.shift(); if (!t || parar) return Promise.resolve(); return pagina(t, 1).then(function () { hechas++; if (avance && !parar) avance(hechas, total); return trabajador(); }); };
+    return Promise.all([trabajador(), trabajador(), trabajador(), trabajador(), trabajador(), trabajador()]).then(function () { return hallados; });
+  }
   // Ventana del mensaje referenciado (18/11/2026): datos, texto y anexos de solo lectura, con Imprimir/PDF y «Abrir en
   // MENSADEF». No toca la lista ni la ficha abierta; «Cerrar», Esc o pulsar fuera la quitan.
   function verReferenciado(x, volver) {
@@ -1719,7 +1788,7 @@
     var d = document.createElement('div'); d.id = 'refModal';
     d.style.cssText = 'position:fixed;inset:0;background:rgba(10,20,35,.55);z-index:9000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 12px';
     var f = fechaDe(x), xx = x._x || {};
-    var filas = [['Fecha', f ? verFecha(f) : ''], ['Bandeja', xx.__es || ''], ['Remitente', autoridad(x) || ''], ['N.º referencia', x.MensajeNum_referencia || ''], ['Su referencia', x.MensajeSu_referencia || ''],
+    var filas = [['Fecha', f ? verFecha(f) : ''], ['Bandeja', xx.__es || ''], ['Remitente', autoridad(x) || ''], ['N.º referencia', x.MensajeNum_referencia || ''], ['Registro de salida', xx.NumeroRegistroSalida || ''], ['Registro de entrada', xx.NumeroRegistroEntrada && xx.NumeroRegistroEntrada !== x.MensajeNum_referencia ? xx.NumeroRegistroEntrada : ''], ['Su referencia', x.MensajeSu_referencia || ''],
       ['Firma', CLAVES.firma(x) || ''], ['Célula', sitioDe(x) || ''], ['Estado', x.MensajeEstado || '']].filter(function (r) { return r[1]; });
     d.innerHTML = '<div class="card" style="max-width:900px;width:100%;margin:0;box-shadow:0 12px 40px rgba(0,0,0,.35)">' +
       '<div style="display:flex;gap:8px;align-items:center;border-bottom:2px solid #12315a;padding-bottom:8px;margin-bottom:10px"><b style="color:#12315a">🔗 Mensaje referenciado</b>' +

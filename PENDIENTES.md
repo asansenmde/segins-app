@@ -316,3 +316,9 @@ autoría.
       de MENSADEF se le manda el texto tal cual (antes sin espacios) y luego los trozos con números; en todas las células del
       usuario; se enseña lo que devuelve MENSADEF aunque no case exacto; avance visible. «En todo MENSADEF» también en todas las
       células. PENDIENTE DEL USUARIO: que el jefe lo pruebe con un mensaje cuya «Su referencia» sea de la Jefatura.
+    25/11/2026: SENDERO 2026-11-25 · 4: (1) si MENSADEF ha vaciado su registro (su telemetría lo llena) y SharePoint no tiene el
+      correo, se usa el de la última vez, solo con la misma cuenta («no encuentro tu correo», visto por el usuario). (2) Referencias
+      con número de registro (RE-001-S-26-…): el buscador de MENSADEF lo encuentra SOLO con el registro entero y solo (probado por el
+      usuario); SENDERO lo manda así y, si no, recorre las bandejas de todas las células desde la fecha de «Su referencia» (o 30
+      días; «Buscar más atrás», 120). «N.º referencia» (quién lo cita) recorre las bandejas desde la fecha del mensaje. La ventana
+      del referenciado enseña los registros. PENDIENTE DEL USUARIO: probar con las referencias que fallaban.
