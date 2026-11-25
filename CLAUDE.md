@@ -30,6 +30,29 @@ etiqueta añadida a esta tabla y a `PROYECTOS.md`.
 
 ## Páginas para SharePoint (COLABORA, MENSADEF y las nuevas)
 
+### Lista de comprobación antes de entregar una página nueva o copiada de otra (lecciones, 25/11/2026)
+
+El usuario no quiere repetir errores ya resueltos. Antes de dar por buena una página, comprobar **todo** esto sin que lo pida:
+
+1. **Al copiar de otra aplicación (p. ej. Incidentes):** buscar con `grep -i` el nombre de la aplicación de origen en todo el
+   HTML (cabeceras y asuntos de correo, títulos de impresión, textos de ayuda, descripciones de listas) y cambiarlo. La
+   prueba simulada comprueba que ningún correo ni informe lleva el nombre de la otra aplicación.
+2. **Nombres internos de columnas:** nunca con forma de celda de Excel (`MN1`, `AB12`: letras + números al final).
+   SharePoint los guarda como `_x004d_N1` y la página «no encuentra» la columna. Usar p. ej. `NOMBRE1N`. El simulador
+   codifica esos nombres como SharePoint.
+3. **Columnas nuevas:** crearlas con `Options: 24` (añadir a la vista predeterminada) y con «Crearlas» que **solo añade las
+   que faltan** si la lista ya existe (nunca «Falta la lista» cuando lo que falla es una columna). Probar el paso de la
+   versión anterior a la nueva en la simulación.
+4. **Usar lo que ya existe en el sitio** antes de crear nada: listas M1N/M2N/M3N, grupos `SEGURIDAD_…`, responsables de
+   Incidentes (con los propios de la aplicación por encima), lista común de solicitudes de acceso. Explicar al usuario qué
+   lista nueva hace falta y por qué.
+5. **Unidades obligadas:** si una aplicación marca unidades obligadas, el formulario solo ofrece esas (y sus mandos).
+6. **Paridad con Incidentes** en toda página de partes: correos con envío robusto a cuentas, control de acceso con
+   solicitud, ficha e informe detallado imprimibles / PDF con gráficos, CSV, estadísticas, control de entregas.
+7. **Variables usadas al cargar:** no usar en la inicialización constantes declaradas más abajo (`var` aún sin valor).
+8. Entregar siempre: simulación ligero + *verbose* + copia cifrada con `PROXY=1`, README, PENDIENTES, commit, push y la
+   copia cifrada al usuario. Respuestas breves.
+
 Antes de hacer una nueva, lee **`SHAREPOINT.md`**: recetas probadas (lectura, alta, modificar sin pisar cambios,
 buscar personas en el directorio, correo desde el servidor, comentarios con historial) y las pruebas simuladas
 de cada proyecto (`*/pruebas/`).
