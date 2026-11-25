@@ -89,6 +89,7 @@ async function prueba(verbose, esc) {
     }
     if (resto.startsWith('web/currentuser/groups')) return J({ value: misGrupos.map(n => ({ Id: GRUPOS[n] || 1, Title: n })) });
     if (resto.startsWith('web/currentuser')) return J({ Id: YO.Id, Title: YO.Title, Email: YO.EMail, LoginName: 'i:0#.w|et\\usuario' });
+    { const gn = resto.match(/sitegroups\/getbyname\('([^']+)'\)(\?|$)/); if (gn) return MIEMBROS[gn[1]] ? J({ Id: 77, Title: gn[1] }) : r.fulfill({ status: 404, json: { error: { message: { value: 'Group cannot be found.' } } } }); }
     { const g = resto.match(/sitegroups\/getbyname\('([^']+)'\)\/users/); if (g) return MIEMBROS[g[1]] ? J({ value: MIEMBROS[g[1]].map((e, i) => ({ Id: 300 + i, Title: e, Email: e })) }) : r.fulfill({ status: 404, body: '' }); }
     if (resto.startsWith('web/siteusers')) return J({ value: Object.values(P).map(x => ({ Id: x.Id, Title: x.Title, Email: x.EMail, LoginName: 'i:0#.w|et\\u' + x.Id })) });
     if (resto.match(/web\/getuserbyid\((\d+)\)/)) return J({ LoginName: 'i:0#.w|et\\u' + resto.match(/getuserbyid\((\d+)\)/)[1] });
@@ -137,6 +138,19 @@ async function prueba(verbose, esc) {
   await p.goto(O + WEB + '/Documentos%20compartidos/perdidas.html'); await p.waitForTimeout(1000);
   const pest = await p.$$eval('#tabs a .tx', a => a.map(x => x.textContent).join(' | '));
   console.log(tag, '| pestañas:', pest, '| ve:', items.filter(() => true) && await p.evaluate(() => document.querySelectorAll('#vista .inc').length), '| cabecera:', await p.textContent('#estadoCarga'));
+  if (esc === 'diacu') {
+    const t = (await p.textContent('#vista')).replace(/\s+/g, ' ');
+    const ok = /porque eres de DIACU/.test(t) && !(await p.$('[data-accsolicitar]'));
+    console.log(tag, '| DIACU_PERDIDAS: ve todas:', ok, '| errores:', errs); if (!ok || errs.length) { console.log('✘ FALLO diacu'); process.exitCode = 1; }
+    await b.close(); return;
+  }
+  if (esc === 'diacu admin') {
+    await p.click('#tabs a[data-v=accesos]'); await p.waitForTimeout(1500);
+    const t = (await p.textContent('#vista')).replace(/\s+/g, ' ');
+    const ok = /Crear el grupo «DIACU_PERDIDAS»/.test(t) && !/DIACU_INCIDENTES/.test(t) && /no valora, solo consulta/.test(t);
+    console.log(tag, '| Accesos ofrece DIACU_PERDIDAS (no DIACU_INCIDENTES):', ok, '| errores:', errs); if (!ok || errs.length) { console.log('✘ FALLO diacu admin', t.match(/DIACU[^.]*\./g)); process.exitCode = 1; }
+    await b.close(); return;
+  }
   if (esc === 'sin acceso') { console.log(tag, '| pantalla:', (await p.textContent('#vista')).replace(/\s+/g, ' ').slice(0, 160), '| errores:', errs); await b.close(); return; }
   if (esc === 'sin columnas') {
     console.log(tag, '| aviso:', (await p.textContent('#vista .aviso').catch(() => 'NINGUNO')).replace(/\s+/g, ' ').slice(0, 140));
@@ -252,3 +266,4 @@ for (const v of [false, true]) {
 segCols = SEG.slice(); misGrupos = ['SEGURIDAD_SUIGESUR']; correoDenegado = true; await prueba(false, 'suige'); correoDenegado = false;
 segCols = SEG.slice(); misGrupos = ['SEGURIDAD_SUIGESUR']; admin = false; await prueba(false, 'eliminar'); admin = true; await prueba(false, 'eliminar'); await prueba(true, 'eliminar'); admin = false;
 segCols = []; misGrupos = ['SEGURIDAD_IGE']; admin = true; await prueba(false, 'sin columnas'); admin = false;
+for (const v of [false, true]) { segCols = SEG.slice(); MIEMBROS.DIACU_PERDIDAS = ['dia1@et.mde.es']; misGrupos = ['DIACU_PERDIDAS']; await prueba(v, 'diacu'); delete MIEMBROS.DIACU_PERDIDAS; misGrupos = []; admin = true; await prueba(v, 'diacu admin'); admin = false; }

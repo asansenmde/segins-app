@@ -78,3 +78,7 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
   cuatro copias cifradas. Cuando se quiera separar DIACU en una aplicación: Accesos › Preparación › «Crear el grupo
   DIACU_<APLICACIÓN>» y añadir enseguida a sus personas (mientras no exista, DIACU sigue siendo SEGURIDAD_IGE). En Pérdidas
   DIACU consulta todo como IGE pero no valora (decidido el 25/11/2026).
+- **25/11/2026 · Pérdidas 2026-11-25 · 3**: el grupo de DIACU de Pérdidas es `DIACU_PERDIDAS` (la versión 2 decía por error
+  `DIACU_INCIDENTES`, porque Pérdidas comparte el acceso de Incidentes). Subir `perdidas/colabora/perdidas.html`. Si se creó
+  `DIACU_INCIDENTES` vacío desde Pérdidas: añadirle las personas de DIACU de Incidentes o borrarlo (Configuración del sitio ›
+  Personas y grupos) para que Incidentes vuelva a usar SEGURIDAD_IGE.

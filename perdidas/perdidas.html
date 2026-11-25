@@ -227,7 +227,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-25 · 2';
+  var VERSION = '2026-11-25 · 3';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Pérdida de documentación · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -273,7 +273,8 @@
     papeles: [['Unidad: notificar incidentes de seguridad', 'bae'], ['Negociado de Seguridad de una SUIGE (valorar)', 'suige'], ['DIACU', 'diacu'], ['IGE', 'ige'], ['Solo consulta', 'bae']] };
   // DIACU propio de cada aplicación (25/11/2026): grupo «DIACU_<APLICACIÓN>». Si existe, solo sus miembros actúan como
   // DIACU en esta aplicación y reciben sus avisos; si aún no existe, DIACU sigue siendo SEGURIDAD_IGE (como hasta ahora).
-  var GRUPO_DIACU = 'DIACU_' + ACCESO.app, diacuPropio = false, diacuMiembros = null;
+  // OJO: el acceso es el de Incidentes (ACCESO.app = INCIDENTES), pero el DIACU es propio de Pérdidas
+  var GRUPO_DIACU = 'DIACU_PERDIDAS', diacuPropio = false, diacuMiembros = null;
   function leerGrupoDiacu() {
     return api(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(GRUPO_DIACU) + "')?$select=Id")
       .then(function (g) { diacuPropio = !!(g && g.Id); }, function () { diacuPropio = false; })
@@ -281,13 +282,13 @@
   }
   var esGrupoDiacu = function (x) { return diacuPropio ? String(x).trim().toUpperCase() === GRUPO_DIACU : ROLES.diacu.test(x); };
   function lineaDiacu() {
-    if (diacuPropio) return '<p class="small">✔ DIACU de esta aplicación: grupo «' + esc(GRUPO_DIACU) + '»' + (diacuMiembros ? ' (' + diacuMiembros.length + ' persona' + (diacuMiembros.length === 1 ? '' : 's') + (diacuMiembros.length ? ': ' + esc(diacuMiembros.map(function (u) { return u.Title; }).join(', ')) : '') + ')' : '') + '. Solo ellos valoran como DIACU y reciben sus avisos; SEGURIDAD_IGE queda para IGE.</p>';
-    return '<p class="small">👥 DIACU: hoy actúa como DIACU todo el grupo SEGURIDAD_IGE. Para que en esta aplicación lo sean solo unas personas: <button data-acccreardiacu="1">Crear el grupo «' + esc(GRUPO_DIACU) + '»</button> <span class="muted">(después añade a sus personas en el grupo o aprobando solicitudes con el papel «DIACU»)</span></p>';
+    if (diacuPropio) return '<p class="small">✔ DIACU de esta aplicación: grupo «' + esc(GRUPO_DIACU) + '»' + (diacuMiembros ? ' (' + diacuMiembros.length + ' persona' + (diacuMiembros.length === 1 ? '' : 's') + (diacuMiembros.length ? ': ' + esc(diacuMiembros.map(function (u) { return u.Title; }).join(', ')) : '') + ')' : '') + '. Consultan todas las pérdidas como IGE, sin valorar.</p>';
+    return '<p class="small">👥 DIACU: en Pérdidas no valora, solo consulta. Para que unas personas de DIACU puedan consultar todas las pérdidas: <button data-acccreardiacu="1">Crear el grupo «' + esc(GRUPO_DIACU) + '»</button> <span class="muted">(después añade a sus personas en el grupo o aprobando solicitudes con el papel «DIACU»)</span></p>';
   }
   function crearGrupoDiacu(boton) {
-    if (!window.confirm('Se creará el grupo «' + GRUPO_DIACU + '» con permiso «Colaborar» en la lista «' + pref.lista + '». Desde ese momento solo sus miembros actuarán como DIACU en esta aplicación (el grupo empieza vacío: añade a las personas enseguida). ¿Seguir?')) return;
+    if (!window.confirm('Se creará el grupo «' + GRUPO_DIACU + '» con permiso «Colaborar» en la lista «' + pref.lista + '». Sus miembros podrán consultar todas las pérdidas (sin valorar). Puedes crearlo vacío y añadir a las personas cuando decidas. ¿Seguir?')) return;
     boton.disabled = true;
-    enviarSP(web + '/_api/web/sitegroups', { __metadata: { type: 'SP.Group' }, Title: GRUPO_DIACU, Description: 'DIACU de la aplicación ' + ACCESO.app }, 'No tienes permiso para crear grupos en el sitio')
+    enviarSP(web + '/_api/web/sitegroups', { __metadata: { type: 'SP.Group' }, Title: GRUPO_DIACU, Description: 'DIACU de la aplicación PERDIDAS (consulta, no valora)' }, 'No tienes permiso para crear grupos en el sitio')
       .then(function (g) { return g && g.Id ? g : api(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(GRUPO_DIACU) + "')?$select=Id"); })
       .then(function (g) {
         return api(urlLista() + '?$select=HasUniqueRoleAssignments').catch(function () { return {}; }).then(function (l) {
