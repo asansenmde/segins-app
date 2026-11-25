@@ -76,5 +76,5 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
   de acceso ni Accesos todavía).
 - **25/11/2026 · DIACU propio por aplicación** (Incidentes, VSA y Pérdidas 2026-11-25 · 2, CECONSEG 2026-11-25 · 9): subir las
   cuatro copias cifradas. Cuando se quiera separar DIACU en una aplicación: Accesos › Preparación › «Crear el grupo
-  DIACU_<APLICACIÓN>» y añadir enseguida a sus personas (mientras no exista, DIACU sigue siendo SEGURIDAD_IGE). Pendiente de
-  decidir: si Pérdidas tendrá paso de valoración de DIACU.
+  DIACU_<APLICACIÓN>» y añadir enseguida a sus personas (mientras no exista, DIACU sigue siendo SEGURIDAD_IGE). En Pérdidas
+  DIACU consulta todo como IGE pero no valora (decidido el 25/11/2026).
