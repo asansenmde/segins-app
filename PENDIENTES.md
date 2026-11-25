@@ -326,3 +326,7 @@ autoría.
       devolvía MENSADEF aunque no casara: error mío, el usuario lo vio); un número recortado («05332205») se completa como registro
       (RE-001-E/S-<año>-…) para el buscador y, en las bandejas, casa por el final del número; menos consultas con texto libre.
       PENDIENTE DEL USUARIO: probar con las referencias reales (enteras y recortadas).
+    25/11/2026: SENDERO 2026-11-25 · 6: «N.º referencia» daba 7 estadillos de meses anteriores que no la citaban (visto por el
+      usuario): ahora solo los que la llevan o la citan de verdad (un trozo de su «Su referencia» es ese número o lo contiene
+      entero si tiene 6 cifras o más) y de la misma fecha o posterior; sin repetidos. Coincidencias más estrictas en «Su
+      referencia». PENDIENTE DEL USUARIO: repetir con RE-001-E-26-05320937.

@@ -33,6 +33,10 @@ const bandeja = (cel, es, pag, tam) => {
   els.forEach(e => { if (cel === G4 && es === '2' && /0{9}100$/.test(e.IdMensaje)) e.NumeroRegistroSalida = 'RE-001-S-26-04675075';
     if (cel === G1 && es === '1' && /0{11}8$/.test(e.IdMensaje)) e.Sref = 'S/REF RE-001-S-26-07777777 de 01/10/2026';
     if (cel === G1 && es === '1' && /0{11}9$/.test(e.IdMensaje)) e.Sref = '07777777';   // registro recortado
+    // «N.º referencia» (caso real del usuario): el 10 es RE-001-E-26-05320937; el 2 lo cita de verdad; el 12 solo lleva «RE-001-E-26»
+    if (cel === G1 && es === '1' && /0{10}10$/.test(e.IdMensaje)) e.NumeroRegistroEntrada = 'RE-001-E-26-05320937';
+    if (cel === G1 && es === '1' && /0{11}2$/.test(e.IdMensaje)) e.Sref = 'Contestación a su escrito RE-001-E-26-05320937';
+    if (cel === G1 && es === '1' && /0{10}12$/.test(e.IdMensaje)) e.Sref = 'S/REF RE-001-E-26 ESTADILLO MENSUAL';
     if (cel === G1 && es === '1' && /0{11}6$/.test(e.IdMensaje)) e.Sref = '550/PC/OS-RE-001-S-26-04675075 de ' + new Date(hoy.getTime() - 30 * 3600e3).toLocaleDateString('es-ES'); });
   return { ListaElementos: els, ListaAgrupaciones: [], IndicePagina: pag, TamanoPagina: tam, TotalRegistros: total };
 };
@@ -711,6 +715,13 @@ for (const n of [0, 40]) {
   const antes7 = buscadosRef.length; let a7 = ''; await p.fill('#buscar', 'RE-9'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
   await p.click('#detalle .irRef[data-msg="msgRef"]').catch(() => 0); await p.waitForSelector('#refModal', { timeout: 20000 }).catch(() => 0); await elegir('msgRef'); a7 = await p.textContent('#refModal').catch(() => ''); await cerrar();
   const pedidos7 = buscadosRef.slice(antes7);
+  // «N.º referencia»: solo quien lo cita de verdad (no un trozo corto como «RE-001-E-26»)
+  await p.fill('#buscar', ''); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i]:has-text("Mensaje 10 de 8d71")'); await p.waitForTimeout(800);
+  await p.click('#detalle .irRef[data-msg="msgRefN"]').catch(() => 0); await p.waitForTimeout(1500);
+  if (process.env.DEPURA) console.log('abierto:', (await p.textContent('#detalle dl.ficha-campos')).slice(0, 200), '| candidatos:', await p.$$eval('#msgRefN [data-cand]', l => l.map(a => a.textContent)).catch(() => []));
+  const candN = await p.$$eval('#msgRefN [data-cand]', l => l.map(a => a.textContent.split(' · ')[0])).catch(() => []), modalN = await refVentana(); await cerrar();
+  console.log('referencia: «N.º referencia» RE-001-E-26-… → candidatos', candN.join(','), '| ventana:', modalN);
+  if (candN.length || modalN !== 'RE-2') console.log('Error: N.º referencia solo con quien la cita');
   console.log('referencia: número recortado →', /RE-001-S-26-07777777/.test(a7) ? 'encontrado' : 'NO', '| pedido al buscador:', [...new Set(pedidos7)].join(', '));
   if (!/RE-001-S-26-07777777/.test(a7) || !pedidos7.includes('RE-001-S-26-07777777')) console.log('Error: registro recortado');
   console.log('referencia: texto libre → ventana con', a1, '· al cerrar sigue', sigue1, '| la de otra fecha: buscó', busco.join(' y '), '· en la ventana:', antiguo, '· texto y anexos:', conTexto, '· Esc la cierra:', cerradaEsc, '· sigue', sigue2, '· no entra en la lista:', fueraLista, '| a mano RE-2 →', a3, '| listas:', listas);

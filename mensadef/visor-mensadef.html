@@ -535,7 +535,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-25 · 5';
+  var VERSION = '2026-11-25 · 6';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1633,7 +1633,7 @@
   var normRef = function (v) { return String(v || '').toUpperCase().replace(/\s+/g, '').replace(/[‐-―]/g, '-'); };
   var refsDe = function (m) { var x = m._x || {}; return [m.MensajeNum_referencia, x.NumeroRegistroEntrada, x.NumeroRegistroSalida, x.Nref].map(normRef).filter(Boolean); };
   var casaRef = function (m, r) { var dr = String(r || '').replace(/\D/g, '');
-    return refsDe(m).some(function (v) { return v === r || (r.length >= 5 && v.length >= 5 && (v.indexOf(r) >= 0 || r.indexOf(v) >= 0)) ||
+    return refsDe(m).some(function (v) { return v === r || (dr.length >= 6 && v.indexOf(r) >= 0) || (v.length >= 10 && /\d{6,}/.test(v) && r.indexOf(v) >= 0) ||
       (dr.length >= 6 && /[A-Z]-\d{2}-\d{6,}$/.test(v) && v.replace(/\D/g, '').slice(-dr.length) === dr); }); };   // 25/11: «05332205» casa con «RE-001-E-26-05332205»
   // 18/11/2026 (tarde): «Su referencia» trae texto libre («S/Ref.: …», «escrito n.º …», fechas): se sacan los trozos que
   // parecen referencias (llevan números) y se busca cada uno en N.º referencia y registros de los demás mensajes. Si hay
@@ -1651,13 +1651,23 @@
   var digitos = function (v) { return String(v || '').replace(/\D/g, ''); };
   // Exacto o contenido (≥ 5 caracteres); y, más flojo, mismos dígitos si son 5 o más
   var casaAlguno = function (m, trozos) { return trozos.some(function (r) { return casaRef(m, r); }) ||
-    trozos.some(function (r) { var d = digitos(r); return d.length >= 5 && refsDe(m).some(function (v) { return digitos(v) === d; }); }); };
+    trozos.some(function (r) { var d = digitos(r); return d.length >= 8 && refsDe(m).some(function (v) { return digitos(v) === d; }); }); };
   function irAReferencia(desde, ref, conSu, idMsg) {
     var caja = $(idMsg || 'msgRef'), msg = function (t) { if (caja) caja.innerHTML = t; };
     var trozos = trozosRef(ref);
     // Con «N.º referencia» también vale que el otro lo cite en su «Su referencia» (texto libre)
     // (por trozos: «RE-1» no casa con «SREF-10»)
-    var casa = function (x) { return casaAlguno(x, trozos) || (conSu && x.MensajeSu_referencia && trozosRef(x.MensajeSu_referencia).some(function (t) { return trozos.some(function (r) { return t === r || (r.length >= 5 && t.length >= 5 && (t.indexOf(r) >= 0 || r.indexOf(t) >= 0)); }); })); };
+    // 25/11/2026 (tarde, visto por el usuario: «N.º referencia» daba 7 estadillos de meses anteriores que no la citaban):
+    // - «N.º referencia»: lo llevan (mismo número) o lo CITAN de verdad: algún trozo de su «Su referencia» es ese número o
+    //   lo contiene entero (si tiene 6 cifras o más); ya no vale que un trozo corto («RE-001-E-26») esté dentro del número.
+    //   Y quien lo cita es de la misma fecha o posterior.
+    // - «Su referencia»: el mensaje lleva ese número (igual, o contenido si es largo).
+    var fDesde = desde ? fechaDe(desde) : null, lim = fDesde ? new Date(fDesde.getTime() - 864e5) : null;
+    var cita = function (x) { return !!x.MensajeSu_referencia && trozosRef(x.MensajeSu_referencia).some(function (t) { return trozos.some(function (r) { return t === r || (r.replace(/\D/g, '').length >= 6 && t.indexOf(r) >= 0); }); }); };
+    var casa = function (x) {
+      if (conSu) { var fx = fechaDe(x); return refsDe(x).some(function (v) { return trozos.indexOf(v) >= 0; }) || (cita(x) && (!lim || !fx || fx >= lim)); }
+      return casaAlguno(x, trozos);
+    };
     // Caja para corregir la referencia a mano
     var cajaBuscar = function (antes) {
       msg((antes || '') + '<span style="display:inline-flex;gap:4px;margin-top:4px"><input class="refManual" size="22" value="' + esc(ref) + '" title="Corrige la referencia y pulsa Buscar"><button type="button" class="refBuscar">🔎 Buscar</button></span>');
@@ -1667,6 +1677,8 @@
     };
     if (!trozos.length) return cajaBuscar('No veo ninguna referencia en ese texto. ');
     var elegir = function (l, donde) {
+      // El mismo mensaje puede estar en varias células o bandejas: una sola vez
+      var ids = {}; l = l.filter(function (x) { var k = x.MensajeId || claveMensaje(x); if (ids[k]) return false; ids[k] = 1; return true; });
       if (l.length === 1) return abrirHallado(l[0]);
       cajaBuscar('<b>' + l.length + ' mensajes ' + donde + ':</b><br>' + l.slice(0, 8).map(function (x, i) {
         return '<a href="#" data-cand="' + i + '">' + esc((x.MensajeNum_referencia || '') + ' · ' + verFecha(fechaDe(x)) + ' · ' + String(x._asunto || '').slice(0, 60)) + '</a>'; }).join('<br>') + '<br>');
