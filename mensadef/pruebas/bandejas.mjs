@@ -664,8 +664,13 @@ for (const n of [0, 40]) {
   await p.click('.irRef[data-msg="msgRef"]'); await p.waitForSelector('#msgRef .refManual', { timeout: 20000 }).catch(() => 0);
   const caja = !!(await p.$('#msgRef .refManual')); if (caja) { await p.fill('#msgRef .refManual', 'RE-2'); await p.click('#msgRef .refBuscar'); await p.waitForTimeout(600); await elegir('msgRef'); }
   const a3 = await refVentana(); await cerrar();
+  // 25/11/2026 (aviso del jefe): lo que da MENSADEF se enseña aunque no case exacto con la referencia (texto sin números)
+  let a4 = ''; if (await p.$('#msgRef .refManual') || true) { await p.click('#detalle .irRef[data-msg="msgRef"]').catch(() => 0); await p.waitForTimeout(800);
+    if (await p.$('#msgRef .refManual')) { await p.fill('#msgRef .refManual', 'documento antiguo'); await p.click('#msgRef .refBuscar'); await p.waitForSelector('#refModal', { timeout: 15000 }).catch(() => 0); await elegir('msgRef'); a4 = await refVentana(); await cerrar(); } }
+  console.log('referencia: sin coincidencia exacta, lo que da MENSADEF →', a4);
+  if (a4 !== 'RS-ANTIGUO-9') console.log('Error: enseñar lo que encuentra MENSADEF');
   console.log('referencia: texto libre → ventana con', a1, '· al cerrar sigue', sigue1, '| la de otra fecha: buscó', busco.join(' y '), '· en la ventana:', antiguo, '· texto y anexos:', conTexto, '· Esc la cierra:', cerradaEsc, '· sigue', sigue2, '· no entra en la lista:', fueraLista, '| a mano RE-2 →', a3, '| listas:', listas);
-  if (a1 !== 'RE-1' || sigue1 !== 'RE-3' || !antiguo || !busco.includes('RS-ANTIGUO-9') || !conTexto || !cerradaEsc || sigue2 !== 'RE-4' || !fueraLista || !caja || a3 !== 'RE-2') console.log('Error: ir a la referencia');
+  if (a1 !== 'RE-1' || sigue1 !== 'RE-3' || !antiguo || !busco.some(b => /RS-ANTIGUO-9/.test(b)) || !busco.some(b => / /.test(b)) || !conTexto || !cerradaEsc || sigue2 !== 'RE-4' || !fueraLista || !caja || a3 !== 'RE-2') console.log('Error: ir a la referencia');
   // «N.º referencia» pulsable: desde RE-1, los que lo citan en «Su referencia» (RE-3) y los que llevan el mismo número
   await p.fill('#buscar', 'RE-1'); await p.waitForTimeout(400); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800);
   await p.click('.irRef[data-msg="msgRefN"]'); await p.waitForTimeout(800);

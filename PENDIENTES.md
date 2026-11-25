@@ -312,3 +312,7 @@ autoría.
       comentario obligatorio y constancia «Decretado por <nombre> el <fecha> a las <hora>» en el comentario de la distribución y en
       un comentario del mensaje («↪ Distribuido a …»). PENDIENTE DEL USUARIO: probarlo con un mensaje sin importancia (que llegue a
       las células y se vea el motivo y quién lo decretó) antes de pasarlo a todos.
+    25/11/2026: SENDERO 2026-11-25 · 2: arreglo de «Su referencia» (aviso del jefe: «al darle a buscar no hace nada»): al buscador
+      de MENSADEF se le manda el texto tal cual (antes sin espacios) y luego los trozos con números; en todas las células del
+      usuario; se enseña lo que devuelve MENSADEF aunque no case exacto; avance visible. «En todo MENSADEF» también en todas las
+      células. PENDIENTE DEL USUARIO: que el jefe lo pruebe con un mensaje cuya «Su referencia» sea de la Jefatura.
