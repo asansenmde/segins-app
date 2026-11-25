@@ -51,6 +51,7 @@ async function prueba(verbose, soloAlcance) {
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1366, height: 800 }, acceptDownloads: true }); const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message)); const posts = [], gets = [], alertas = [];
   p.on('dialog', dl => { alertas.push(dl.message()); dl.dismiss(); });
+  const ocultas = {};
   await p.route(O + '/**', async r => {
     const req = r.request(); let u = decodeURIComponent(req.url());
     if (PRUEBAS && u.includes('/_api/')) {
@@ -68,6 +69,8 @@ async function prueba(verbose, soloAlcance) {
     const J = x => r.fulfill({ json: verbose ? { d: Array.isArray(x.value) ? { results: x.value, __next: x['odata.nextLink'] } : x } : x });
     const resto = u.split('/_api/')[1];
     if (req.method() === 'GET') gets.push(resto);
+    { const lh = req.method() === 'GET' && resto.match(/^web\/lists\/getbytitle\('([^']+)'\)\?\$select=Id,Title,Hidden,RootFolder/); if (lh) return J({ Id: 'g-' + lh[1], Title: lh[1], Hidden: !!ocultas['g-' + lh[1]], RootFolder: { ServerRelativeUrl: '/et/sim/Lists/' + lh[1] } }); }
+    { const lg = req.method() === 'POST' && resto.match(/^web\/lists\(guid'([^']+)'\)$/); if (lg) { ocultas[lg[1]] = JSON.parse(req.postData()).Hidden; return r.fulfill({ status: 204, body: '' }); } }
     if (req.method() === 'POST') {
       posts.push({ ruta: resto, cab: req.headers(), cuerpo: req.postData() });
       if (resto === 'contextinfo') return r.fulfill({ json: { d: { GetContextWebInformation: { FormDigestValue: 'DG' } } } });
@@ -330,6 +333,11 @@ async function prueba(verbose, soloAlcance) {
     p.removeAllListeners('dialog'); p.on('dialog', dl => dl.accept());
     await p.click('[data-arretirar="11"]'); await p.waitForTimeout(1200);
     console.log(tag, 'retirar:', JSON.stringify(grupoReg.map(x => x.Id)), '| asignaciones:', JSON.stringify(asigs.map(a => a.RegistradorId)), '| errores:', errs);
+    const tl = () => p.evaluate(() => (document.body.innerText.match(/Listas de la aplicación[^)]*\)/) || [''])[0]);
+    const antes = await tl(); await p.click('[data-listasprop="1|*"]'); await p.waitForTimeout(1200); const tras = await tl();
+    const nOc = Object.values(ocultas).filter(Boolean).length; await p.click('[data-listasprop="0|*"]'); await p.waitForTimeout(1200);
+    console.log(tag, 'listas:', antes, '→ ocultar todas:', tras, '(' + nOc + ' ocultas) → mostrar todas:', await tl(), '| biblioteca:', !!(await p.$('[data-accbiblio]')), '| errores:', errs);
+    if (!(nOc === 4 && /4 de 4 ocultas/.test(tras) && /0 de 4 ocultas/.test(await tl()) && !errs.length)) { console.log('✘ FALLO ocultar listas'); process.exitCode = 1; }
     if (!verbose) await p.screenshot({ path: new URL('accesos-registro.png', import.meta.url).pathname, fullPage: true });
     await b.close(); return;
   }
