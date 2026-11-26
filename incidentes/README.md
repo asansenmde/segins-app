@@ -272,3 +272,11 @@ del parte («Observaciones del expediente»).
 - Las «Otras direcciones» de esa tabla no tienen cuenta: Colabora puede rechazarlas. Mejor poner a las personas en
   «Responsables».
 
+## Pasar a histórico (26/11/2026)
+
+En **Ajustes** (Control total), «🗄️ Pasar a histórico»: elegir año y meses (por la fecha de alta), «Ver qué entra»,
+«Exportar» (ZIP con el Excel de todas las columnas, el historial y los datos personales, los adjuntos y `REGISTRO.txt`),
+«Informe del periodo» para el PDF que se remite a IGE y «Borrar lo exportado» (escribiendo «BORRAR <año>»; va a la papelera
+de reciclaje de Colabora). Por defecto solo los expedientes cerrados; la casilla «Incluir también los abiertos» es para
+empezar de cero.
+
