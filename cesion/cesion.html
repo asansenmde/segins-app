@@ -227,7 +227,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-26 · 1';
+  var VERSION = '2026-11-26 · 2';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cesión de imágenes · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -888,11 +888,17 @@
   };
   var correosResp = function (e) { var f = filaResp(e); return f ? f.personas.map(function (u) { return u.Email; }).concat(f.correos).filter(Boolean) : []; };
   // Destino de un aviso: { g: grupos, e: escalón } → integrantes visibles del grupo + responsables del escalón
+  // 26/11/2026: de dónde sale cada destinatario (miembro de un grupo de Colabora o responsable del escalón), para que el
+  // historial y «✉ Probar» lo digan y no haya dudas de por qué le llega a alguien
+  var origenDe = {};
+  var apuntarOrigen = function (l, txt) { l.forEach(function (x) { var k = String(x).toLowerCase(); origenDe[k] = origenDe[k] && origenDe[k].indexOf(txt) < 0 ? origenDe[k] + ' y ' + txt : origenDe[k] || txt; }); };
+  var conOrigen = function (l) { return l.map(function (x) { var o = origenDe[String(x).toLowerCase()]; return x + (o ? ' (' + o + ')' : ''); }); };
   function correosDestino(d, sinVer) {
     if (!d || Array.isArray(d)) return correosDeGrupos(d || [], sinVer);
     var noVistos = [];
     return correosDeGrupos(d.g, noVistos).then(function (c) {
-      var r = correosResp(d.e);
+      var r = correosResp(d.e), fr = filaResp(d.e);
+      apuntarOrigen(r, 'responsable ' + d.e + (fr && fr.heredada ? ' en Incidentes' : ''));
       if (!c.length && !r.length && sinVer) noVistos.concat(d.g.length ? [] : ['responsables de ' + d.e]).forEach(function (n) { if (sinVer.indexOf(n) < 0) sinVer.push(n); });
       return c.concat(r);
     });
@@ -953,7 +959,7 @@
       return enviarCorreo({ to: to, cc: [], bcc: [], sinVer: sinVer, asunto: 'PRUEBA · AVISOS DE CESIÓN DE IMÁGENES · ' + e, html: htmlCorreo('PRUEBA DE LOS AVISOS DE ' + e + '. NO ES UN PARTE.', filas, enlacePagina()),
         texto: 'USO OFICIAL\n\nPRUEBA DE LOS AVISOS DE ' + e + '. NO ES UN PARTE.' }).then(function (r) {
         boton.disabled = false;
-        el.innerHTML = '<div class="' + claseCorreo(r) + '">' + esc(e) + ': ' + (r.ok ? '✓ prueba enviada. ' : '') + 'Destinatarios: ' + esc(to.join(', ')) + '. ' + msgCorreo(r) + '</div>';
+        el.innerHTML = '<div class="' + claseCorreo(r) + '">' + esc(e) + ': ' + (r.ok ? '✓ prueba enviada. ' : '') + 'Destinatarios: ' + esc(conOrigen(to).join(', ')) + '. ' + msgCorreo(r) + '</div>';
       });
     }).catch(function (er) { boton.disabled = false; el.innerHTML = '<div class="error">' + esc(er.message || er) + '</div>'; });
   }
@@ -964,7 +970,7 @@
     return Promise.all(nombres.map(function (n) {
       if (cacheGrupos[n]) return Promise.resolve(cacheGrupos[n]);
       return todas(web + "/_api/web/sitegroups/getbyname('" + encodeURIComponent(n.replace(/'/g, "''")) + "')/users?$select=Id,Title,Email,LoginName")
-        .then(function (l) { var c = l.map(function (u) { apuntarPersona(u); guardarCuenta(u.Email, u.LoginName); return u.Email; }).filter(Boolean); if (c.length) cacheGrupos[n] = c; return c; }).catch(function () { return []; })
+        .then(function (l) { var c = l.map(function (u) { apuntarPersona(u); guardarCuenta(u.Email, u.LoginName); return u.Email; }).filter(Boolean); if (c.length) cacheGrupos[n] = c; return c; }).then(function (c) { apuntarOrigen(c, 'miembro del grupo ' + n); return c; }).catch(function () { return []; })
         .then(function (c) { if (!c.length && sinVer && sinVer.indexOf(n) < 0) sinVer.push(n); return c; });
     })).then(function (rs) { return [].concat.apply([], rs); });
   }
@@ -1113,7 +1119,7 @@
   var claseCorreo = function (r) { return !r || (r.ok && !(r.rechazados && r.rechazados.length)) ? 'okmsg' : 'aviso'; };
   // Texto del resultado para el historial del elemento
   var textoAviso = function (r) {
-    return (r.ok ? 'enviado a ' + r.llegaron.join(', ') : 'NO ENVIADO (' + (r.motivo || '') + ')') + (r.rechazados && r.rechazados.length ? '; Colabora no aceptó: ' + r.rechazados.join(', ') : '') +
+    return (r.ok ? 'enviado a ' + conOrigen(r.llegaron).join(', ') : 'NO ENVIADO (' + (r.motivo || '') + ')') + (r.rechazados && r.rechazados.length ? '; Colabora no aceptó: ' + r.rechazados.join(', ') : '') +
       (r.desvios && r.desvios.length ? '; enviado a otra cuenta: ' + r.desvios.join('; ') : '');
   };
   // Detalle del resultado para quien tramita (direcciones no aceptadas y desvíos a otra cuenta)

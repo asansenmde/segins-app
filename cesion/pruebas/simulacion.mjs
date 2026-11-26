@@ -184,6 +184,7 @@ async function escenario(verbose) {
   const s1 = () => solicitudes()[0];
   ok(s1() && s1().ESTADO === 'REMITIDO A SUIGE' && s1().SUIGES === 'SUIGESUR' && s1().URGENTE === 'SI' && s1().CUERPOSOLICITANTE === 'GUARDIA CIVIL' && /^2026-11-20/.test(s1().IMAGENESDESDE), tag + 'solicitud enviada: REMITIDO A SUIGE con sus datos', JSON.stringify(s1()));
   ok(correos.some(m => /^URGENTE · SOLICITUD DE CESIÓN DE IMÁGENES/.test(m.asunto) && m.to.includes('i:0#.w|et\\sur1') && m.to.includes('i:0#.w|et\\rsur')), tag + 'aviso a la SUIGE (grupo y responsable de Incidentes), a su CUENTA', JSON.stringify(correos.map(m => [m.asunto, m.to])));
+  ok(/sur1@et\.mde\.es \(miembro del grupo SEGURIDAD_SUIGESUR\)/.test(s1().ObservacionesDelExpediente) && /rsur@et\.mde\.es \(responsable SUIGESUR en Incidentes\)/.test(s1().ObservacionesDelExpediente), tag + 'el historial dice de dónde sale cada destinatario (grupo o responsable de Incidentes)', (s1().ObservacionesDelExpediente || '').split('\n').pop());
   await cerrarDlg(p); await tab(p, 'panel');
   ok(/Grabación en riesgo/.test(await texto(p)), tag + 'el panel avisa de la grabación a punto de sobrescribirse');
   ok(errs.length === 0, tag + 'sin errores de página (unidad)', errs.join(' | '));

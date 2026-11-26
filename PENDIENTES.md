@@ -82,6 +82,6 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
   `DIACU_INCIDENTES`, porque Pérdidas comparte el acceso de Incidentes). Subir `perdidas/colabora/perdidas.html`. Si se creó
   `DIACU_INCIDENTES` vacío desde Pérdidas: añadirle las personas de DIACU de Incidentes o borrarlo (Configuración del sitio ›
   Personas y grupos) para que Incidentes vuelva a usar SEGURIDAD_IGE.
-- **26/11/2026 · CESIÓN DE IMÁGENES 2026-11-26 · 1** (nueva, sustituye al InfoPath «cesion de imagenes.xsn» y la eleva a IGE con
+- **26/11/2026 · CESIÓN DE IMÁGENES 2026-11-26 · 2** (nueva, sustituye al InfoPath «cesion de imagenes.xsn» y la eleva a IGE con
   el escalón de SINTSEG): subir `cesion/colabora/cesion.html` a la biblioteca del sitio de IGE y seguir la «Puesta en marcha» de
   `cesion/README.md`. Cuando SINTSEG se integre en Colabora: Accesos › «Crear el grupo SINTSEG_CESION» y meter a sus personas.
