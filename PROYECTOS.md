@@ -14,6 +14,7 @@
 | `[PERDIDAS]` | `perdidas/` | Pérdida de documentación: notificación, revisión SUIGE y seguimiento IGE (Colabora, sitio JIGE) |
 | `[CUADRANTE]` | `cuadrante/` | Cuadrante de servicios: jefe y auxiliar de servicio, ausencias y cambios (Colabora, sitio JSUIGE; en diseño) |
 | `[CECONSEG]` | `ceconseg/` | Partes de operadores CECONSEG (HPS, certificados, compromisos): Unidad → SUIGE → DIACU → IGE (Colabora, sitio de IGE) |
+| `[CESION]` | `cesion/` | Cesión de imágenes a las FCS: Unidad → SUIGE → DIACU → IGE → SINTSEG resuelve → vuelta hasta la unidad, que entrega (Colabora, sitio de IGE) |
 | `[SUIGESUR]` | `suigesur/` | Centro de Control NLT: obligaciones, entregas y cumplimiento de las unidades de SUIGESUR (Colabora, sitio JSUIGE) |
 
 Para el desarrollo, las piezas reutilizables y las pruebas están en `SHAREPOINT.md`.

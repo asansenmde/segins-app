@@ -16,6 +16,7 @@ entre ellos (salvo la librería de Word de SEGINS, que Tareas NLT carga desde `.
 | `[CUADRANTE]` | `cuadrante/` | Cuadrante de servicios de oficiales y suboficiales (sitio JSUIGE; en diseño) | Se sube a Colabora y se abre allí |
 | `[SUIGESUR]` | `suigesur/` | Centro de Control NLT: obligaciones, entregas y cumplimiento de las unidades (sitio JSUIGE) | Se sube a Colabora y se abre allí |
 | `[CECONSEG]` | `ceconseg/` | Partes de operadores CECONSEG: HPS, certificados y compromisos (sitio de IGE, como Incidentes) | Se sube a Colabora y se abre allí |
+| `[CESION]` | `cesion/` | Cesión de imágenes a las FCS: Unidad → SUIGE → DIACU → IGE → SINTSEG y vuelta (sitio de IGE) | Se sube a Colabora y se abre allí |
 
 Las páginas nuevas de SharePoint van en **su propia carpeta** (por ejemplo `incidentes/`), con su README y su
 etiqueta añadida a esta tabla y a `PROYECTOS.md`.
@@ -26,7 +27,7 @@ etiqueta añadida a esta tabla y a `PROYECTOS.md`.
   queda claro a qué proyecto se refiere, pregunta antes de cambiar nada.
 - Un cambio en un proyecto no arrastra cambios en otro. Si algo se reutiliza (p. ej. `fechas.js`), se copia.
 - El usuario escribe en español; responde, comenta el código y escribe los commits en español.
-- Commits con prefijo de proyecto: `NLT: …`, `Colabora: …`, `MENSADEF: …`, `SEGINS: …`, `PERMISOS: …`, `INCIDENTES: …`, `VSA: …`, `PERDIDAS: …`, `CUADRANTE: …`, `SUIGESUR: …`, `CECONSEG: …`.
+- Commits con prefijo de proyecto: `NLT: …`, `Colabora: …`, `MENSADEF: …`, `SEGINS: …`, `PERMISOS: …`, `INCIDENTES: …`, `VSA: …`, `PERDIDAS: …`, `CUADRANTE: …`, `SUIGESUR: …`, `CECONSEG: …`, `CESION: …`.
 
 ## Páginas para SharePoint (COLABORA, MENSADEF y las nuevas)
 
