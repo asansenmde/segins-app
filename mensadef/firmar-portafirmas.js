@@ -6,7 +6,7 @@
 // © 2026 Cte. Alfredo Sánchez Sender. Todos los derechos reservados.
 (function () {
   'use strict';
-  var VERSION = '1';
+  var VERSION = '2';
   if (!/portafirmas\.mdef\.es$/i.test(location.hostname)) { alert('Este favorito se usa en el Portafirmas (portafirmas.mdef.es), después de pulsar «✍ Firmar en Rúbrica» en SENDERO.'); return; }
   var viejo = document.getElementById('senderoFirma'); if (viejo) viejo.parentNode.removeChild(viejo);
   var norm = function (s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/^\s*((re|rv|fw|fwd|sdo|ref)\s*[:.]\s*)+/i, '').replace(/[^a-z0-9ñ]+/g, ' ').trim(); };
@@ -43,10 +43,34 @@
       ver: tr.querySelector('a[href*="showPFViewer"], a[onclick*="showPFViewer"], a[href*="Visualizar"], a[onclick*="Visualizar"]') };
   });
   if (!filas.length) { poner('<p>No hay documentos pendientes en esta lista. Si estabas filtrando, pulsa «Sin filtro» o «Filtrar» y vuelve a pulsar el favorito.</p>'); return; }
+  // 26/11/2026 (pedido por el usuario): marcar todas (o varias) y firmarlas de una vez con un solo PIN, si el Portafirmas lo
+  // permite. SENDERO no marca «He leído» por nadie: si el Portafirmas exige leer alguna, lo dice él y se abre esa.
+  var marcadas = function () { return filas.filter(function (f) { return f.chk.checked; }); };
+  var barraVarias = function () {
+    return '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #d6dbe3"><b>Varias a la vez</b> <span style="font-size:12px;color:#5a6676">(' + filas.length + ' pendientes en esta página)</span><br>' +
+      '<button type="button" id="sfTodas">☑ Marcar todas</button> <button type="button" id="sfNinguna">Desmarcar</button> ' +
+      '<button type="button" id="sfVarias" style="background:#4a2a78;color:#fff;border:0;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer">✍ Firmar las marcadas (<span id="sfN">' + marcadas().length + '</span>)</button>' +
+      '<p style="margin:6px 0 0;font-size:12px;color:#5a6676">AutoFirma pide el certificado y el PIN. Si el Portafirmas exige leer alguna, ábrela y pulsa «He leído».</p></div>';
+  };
+  var contar = function () { var n = document.getElementById('sfN'); if (n) n.textContent = marcadas().length; };
+  filas.forEach(function (f) { f.chk.addEventListener('change', contar); });
+  var conVarias = function () {
+    var b = document.getElementById('sfTodas'); if (!b) return;
+    b.onclick = function () { filas.forEach(function (f) { if (!f.chk.checked) f.chk.click(); }); contar(); };
+    document.getElementById('sfNinguna').onclick = function () { filas.forEach(function (f) { if (f.chk.checked) f.chk.click(); }); contar(); };
+    document.getElementById('sfVarias').onclick = function () {
+      var n = marcadas().length;
+      if (!n) { alert('Marca al menos una petición.'); return; }
+      if (!confirm('¿Firmar ' + (n === 1 ? 'la petición marcada' : 'las ' + n + ' peticiones marcadas') + '?\n\nAutoFirma te pedirá el certificado y el PIN.')) return;
+      window.name = '';
+      document.getElementById('botPtfrFirmar').click();
+    };
+  };
   var objetivo = norm(asunto).slice(0, 50);
   var casan = objetivo ? filas.filter(function (f) { var n = norm(f.titulo); return n.indexOf(objetivo) >= 0 || (n.length >= 12 && objetivo.indexOf(n.slice(0, 50)) >= 0); }) : [];
   var elegir = function (l, texto) {
-    poner('<p>' + texto + '</p>' + l.slice(0, 15).map(function (f, i) { return '<p style="margin:4px 0"><a href="#" data-sf="' + i + '">' + esc(f.titulo) + '</a></p>'; }).join(''));
+    poner('<p>' + texto + '</p>' + l.slice(0, 15).map(function (f, i) { return '<p style="margin:4px 0"><a href="#" data-sf="' + i + '">' + esc(f.titulo) + '</a></p>'; }).join('') + barraVarias());
+    conVarias();
     Array.prototype.forEach.call(panel.querySelectorAll('[data-sf]'), function (a) { a.onclick = function (e) { e.preventDefault(); preparar(l[Number(a.getAttribute('data-sf'))]); }; });
   };
   function preparar(f) {
@@ -59,7 +83,8 @@
       '<p style="margin:0 0 8px">Marcada, y es la única marcada.</p>' +
       '<p style="margin:0 0 4px"><b>1.</b> ' + (f.ver ? '<button type="button" id="sfVer">📄 Abrir el documento</button> léelo y pulsa <b>«He leído el documento»</b> en el visor.' : 'Abre el documento en su fila, léelo y pulsa <b>«He leído el documento»</b>.') + '</p>' +
       '<p style="margin:0 0 4px"><b>2.</b> <button type="button" id="sfFirmar" style="background:#4a2a78;color:#fff;border:0;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer">✍ Firmar</button> y en AutoFirma elige tu certificado y pon el PIN.</p>' +
-      '<p style="margin:8px 0 0;font-size:12px;color:#5a6676">Si el Portafirmas dice que no has leído el documento, ábrelo y pulsa «He leído» antes de firmar.</p>');
+      '<p style="margin:8px 0 0;font-size:12px;color:#5a6676">Si el Portafirmas dice que no has leído el documento, ábrelo y pulsa «He leído» antes de firmar.</p>' + barraVarias());
+    conVarias();
     if (document.getElementById('sfVer')) document.getElementById('sfVer').onclick = function () { f.ver.click(); };
     document.getElementById('sfFirmar').onclick = function () {
       if (!f.chk.checked) f.chk.click();
@@ -69,5 +94,5 @@
   }
   if (casan.length === 1) return preparar(casan[0]);
   if (casan.length > 1) return elegir(casan, 'Hay <b>' + casan.length + '</b> peticiones con ese asunto. Elige cuál vas a firmar:');
-  elegir(filas, (asunto ? 'No encuentro «' + esc(asunto.slice(0, 80)) + '» en tus pendientes. ' : '') + 'Elige la petición que vas a firmar:');
+  elegir(filas, (asunto ? 'No encuentro «' + esc(asunto.slice(0, 80)) + '» en tus pendientes. ' : '') + 'Elige la petición que vas a firmar, o márcalas todas abajo:');
 })();

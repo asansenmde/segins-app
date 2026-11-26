@@ -339,3 +339,7 @@ autoría.
     25/11/2026: SENDERO 2026-11-25 · 8: avisos en las referencias (pedidos por el usuario): mientras busca, dónde y por qué («Es un
       mensaje de entrada: busco su «Su referencia» en nuestras salidas del … hacia atrás… (n de m bandejas)»); al terminar,
       «✔ Encontrado: salida de <célula> del <fecha>», «✔ n mensajes … (elige uno)» o «✕ No hay … (mirado en tus N células …)».
+    26/11/2026: SENDERO 2026-11-26 · 1 (firmar-portafirmas v2): en el Portafirmas, el recuadro de SENDERO tiene «☑ Marcar todas»,
+      «Desmarcar» y «✍ Firmar las marcadas (n)» (un solo Firmar del Portafirmas; AutoFirma pide el PIN). Sirve también entrando
+      directamente en Rúbrica (el jefe). SENDERO no marca «He leído» por nadie (garantía de la firma). PENDIENTE DEL USUARIO: probar
+      si el Portafirmas deja firmar varias sin abrirlas y con un solo PIN.

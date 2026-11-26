@@ -42,6 +42,14 @@ const opciones = await p.$$eval('[data-sf]', l => l.length); await p.click('[dat
 const elegida = await p.$$eval('input[name=chkDoc]:checked', l => l.map(x => x.value));
 console.log('firmar: con dos iguales, para elegir', opciones, '→ marcada', elegida.join(','));
 if (opciones !== 2 || elegida.join() !== 'C3#1') error('elegir entre iguales');
+// 2b. (26/11/2026) Entrando directamente en Rúbrica, sin asunto: «Marcar todas» y «Firmar las marcadas» (un solo Firmar)
+await p.reload(); await p.evaluate(() => { window.name = ''; window.firmado = null; });
+await p.evaluate(codigo); await p.waitForTimeout(300);
+await p.click('#sfTodas'); const todas = await p.$$eval('input[name=chkDoc]:checked', l => l.length), cuenta = await p.textContent('#sfN');
+await p.click('#sfVarias'); await p.waitForTimeout(200); const varias = await p.evaluate(() => window.firmado);
+await p.click('#sfNinguna'); const ninguna = await p.$$eval('input[name=chkDoc]:checked', l => l.length);
+console.log('firmar: marcar todas', todas, '(contador ' + cuenta + ') | firmar las marcadas con un solo Firmar:', JSON.stringify(varias), '| desmarcar:', ninguna);
+if (todas !== 3 || cuenta !== '3' || JSON.stringify(varias) !== '["A1#1","B2#1","C3#1"]' || ninguna !== 0) error('firmar varias');
 // 3. En la pantalla de identificarse: lo dice; tras entrar (página de perfil), va a la lista filtrada
 await p.goto(PF + '/ePortafirmas/Inicio.do'); await p.evaluate(n => { window.name = n; }, 'SENDEROFIRMA_' + encodeURIComponent('Asunto X'));
 await p.evaluate(codigo); await p.waitForTimeout(200); const login = /Identifícate/.test(await p.textContent('#senderoFirma'));
