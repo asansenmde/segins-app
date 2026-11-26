@@ -62,3 +62,12 @@ Estados: `BORRADOR` · `DEVUELTO A LA UNIDAD` · `REMITIDO A SUIGE` · `REMITIDO
 - **Ficha**: datos, pasos del circuito, informes, resolución, entrega, historial, adjuntos, acciones de cada papel e impresión.
 - **Accesos** y **Ajustes** (Control total): modelo común (solicitudes de acceso, grupos, DIACU propio, SINTSEG, ocultar
   biblioteca y listas, responsables).
+
+## Pasar a histórico (26/11/2026)
+
+En **Ajustes** (Control total), «🗄️ Pasar a histórico»: elegir año y meses (por la fecha de alta), «Ver qué entra»,
+«Exportar» (ZIP con el Excel de todas las columnas, el historial y los datos personales, los adjuntos y `REGISTRO.txt`),
+«Informe del periodo» para el PDF que se remite a IGE y «Borrar lo exportado» (escribiendo «BORRAR <año>»; va a la papelera
+de reciclaje de Colabora). Por defecto solo los expedientes cerrados; la casilla «Incluir también los abiertos» es para
+empezar de cero.
+

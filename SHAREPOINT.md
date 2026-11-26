@@ -115,6 +115,16 @@ la solicitud: «DIACU» (va a DIACU_<APP> o, si no existe, a SEGURIDAD_IGE) e «
 SEGURIDAD_IGE. En CECONSEG, la fila DIACU de los responsables no se hereda de Incidentes si existe DIACU_CECONSEG. En Pérdidas
 (sin paso de DIACU en el circuito) el grupo da acceso y consulta de todos los partes.
 
+## Pasar a histórico y empezar un ciclo nuevo (26/11/2026)
+
+En Ajustes (solo Control total) de Incidentes, VSA, Pérdidas, CECONSEG y Cesión: 1) «Ver qué entra» lee la lista entera con
+todas sus columnas visibles (`/fields` sin ocultas ni calculadas; personas y búsquedas con `/Title` y `$expand`) y elige por
+año y meses de la **fecha de alta** (`Created`); por defecto solo los cerrados (`HIST_CERRADOS`), con casilla para incluir los
+abiertos. 2) «Exportar» baja un ZIP propio (almacenado, sin comprimir; CRC32 en la página) con el CSV, los adjuntos en
+`adjuntos/<nº>/` y `REGISTRO.txt` (quién, cuándo, filtro, números). «Informe del periodo» abre el informe detallado con ese
+periodo para imprimirlo en PDF. 3) «Borrar» solo se activa si se exportó ese mismo filtro sin fallos y pide escribir
+«BORRAR <año>»; cada registro va a la papelera (`items(n)/recycle()`, se restaura unos 90 días).
+
 ## Control de acceso con solicitud (modelo: `vsa/vsa.html`, probado en Colabora)
 
 **Ponerlo en toda aplicación nueva** (Permisos, registro, SIPERDEF…), salvo que el usuario diga lo contrario. Se copia

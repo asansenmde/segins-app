@@ -227,7 +227,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-26 · 2';
+  var VERSION = '2026-11-26 · 3';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cesión de imágenes · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -2367,6 +2367,164 @@
     var f = [CSV_CAB].concat(filtrar().map(filaCsv));
     descargar('cesion-imagenes-' + hoy() + '.csv', '﻿' + f.map(function (r) { return r.map(c).join(';'); }).join('\r\n'), 'text/csv;charset=utf-8');
   }
+
+  // ---------- Pasar a histórico (26/11/2026, solo Control total) ----------
+  // 1) Elegir el periodo (por la fecha de alta) · 2) Exportar: ZIP con el Excel (CSV con TODAS las columnas, historial y datos
+  // personales incluidos), los adjuntos de cada registro y un registro de la operación · 3) Borrar lo exportado (a la papelera
+  // de reciclaje de Colabora). Por defecto solo los expedientes cerrados; «Incluir también los abiertos» para empezar de cero.
+  var HIST_APP = 'CESION', HIST_CERRADOS = ['CERRADO'];
+  var hist = { anio: String(new Date().getFullYear()), desde: '1', hasta: '12', abiertos: false, cols: null, regs: null, sel: null, exportado: '', msg: '', ocupado: false };
+  var histClave = function () { return [hist.anio, hist.desde, hist.hasta, hist.abiertos ? 1 : 0].join('|') + '|' + (hist.sel || []).map(function (x) { return x.Id; }).join(','); };
+  var histCerrado = function (it) { return HIST_CERRADOS.indexOf(String(it.ESTADO || '').trim().toUpperCase()) >= 0; };
+  var histNombre = function () { return HIST_APP.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-historico-' + hist.anio + (hist.desde !== '1' || hist.hasta !== '12' ? '-' + pad(hist.desde) + 'a' + pad(hist.hasta) : ''); };
+  function vistaHistorico() {
+    if (!esAdmin) return '';
+    var anios = []; for (var y = new Date().getFullYear(); y >= 2018; y--) anios.push(String(y));
+    var mesOps = function (v) { return MESES_HIST.map(function (m, i) { return '<option value="' + (i + 1) + '"' + (String(i + 1) === v ? ' selected' : '') + '>' + m + '</option>'; }).join(''); };
+    var s = hist.sel, cerr = s ? s.filter(histCerrado).length : 0, listo = s && hist.exportado === histClave();
+    return '<div class="card" id="histCaja"><h3 style="margin-top:0">🗄️ Pasar a histórico</h3>' +
+      '<p class="small muted">Para cerrar un año (o unos meses) y empezar un ciclo nuevo: se exporta todo a un ZIP (Excel con todas las columnas, el historial y los datos personales, y los adjuntos de cada registro) para remitirlo a IGE, y después se borra de la lista. Se elige por la <b>fecha de alta</b> de cada registro.</p>' +
+      '<div class="grid"><div><label class="lbl">Año</label><select id="hAnio">' + anios.map(function (a) { return '<option' + (a === hist.anio ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="lbl">Desde</label><select id="hDesde">' + mesOps(hist.desde) + '</select></div><div><label class="lbl">Hasta</label><select id="hHasta">' + mesOps(hist.hasta) + '</select></div></div>' +
+      '<p class="small"><label class="check" style="display:inline"><input type="checkbox" id="hAbiertos"' + (hist.abiertos ? ' checked' : '') + '> Incluir también los expedientes <b>abiertos</b> (para empezar de cero; si no, solo los cerrados: ' + esc(HIST_CERRADOS.join(', ')) + ')</label></p>' +
+      '<div class="acciones"><button data-histver="1"' + (hist.ocupado ? ' disabled' : '') + '>1. Ver qué entra</button>' +
+      (s ? '<button class="prim" data-histexp="1"' + (hist.ocupado || !s.length ? ' disabled' : '') + '>2. Exportar a Excel y adjuntos (ZIP)</button><button data-histinf="1">🖨 Informe del periodo (PDF para IGE)</button>' +
+        '<button class="rojo" data-histborrar="1"' + (hist.ocupado || !listo ? ' disabled title="Primero exporta este mismo periodo"' : '') + '>3. Borrar lo exportado</button>' : '') + '</div>' +
+      (s ? '<p class="small">' + (s.length ? 'Entran <b>' + s.length + '</b> registro' + (s.length === 1 ? '' : 's') + ' dados de alta en ' + esc(descHist()) + ' (' + cerr + ' cerrado' + (cerr === 1 ? '' : 's') + (hist.abiertos ? ', ' + (s.length - cerr) + ' abiertos' : '') + ').' +
+        (hist.regs ? ' Quedan en la lista ' + (hist.regs.length - s.length) + '.' : '') : 'No hay registros que pasar a histórico con ese filtro.') + (listo ? ' ✔ Exportado: ya se puede borrar.' : '') + '</p>' : '') +
+      (hist.msg ? '<div id="histMsg">' + hist.msg + '</div>' : '<div id="histMsg"></div>') + '</div>';
+  }
+  var MESES_HIST = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  var descHist = function () { return (hist.desde === '1' && hist.hasta === '12' ? 'todo ' : MESES_HIST[hist.desde - 1] + ' a ' + MESES_HIST[hist.hasta - 1] + ' de ') + hist.anio; };
+  var histPintar = function (msg, cls) { if (msg !== undefined) hist.msg = msg ? '<div class="' + (cls || 'aviso') + '">' + msg + '</div>' : ''; var c = $('#histCaja'); if (c) c.outerHTML = vistaHistorico(); };
+  // Columnas visibles de la lista (todas las de datos) y cómo pedirlas por REST
+  function histLeerColumnas() {
+    return todas(urlLista() + '/fields?$select=InternalName,Title,TypeAsString,Hidden&$top=500').then(function (l) {
+      var fuera = ['ContentType', 'Attachments', 'Edit', 'LinkTitleNoMenu', 'LinkTitle', 'DocIcon', 'ItemChildCount', 'FolderChildCount', '_UIVersionString', 'AppAuthor', 'AppEditor', 'ComplianceAssetId', '_ComplianceFlags', '_ComplianceTag', '_ComplianceTagWrittenTime', '_ComplianceTagUserId', '_IsRecord'];
+      var cols = l.filter(function (f) { return !f.Hidden && fuera.indexOf(f.InternalName) < 0 && f.TypeAsString !== 'Computed'; });
+      if (!cols.some(function (f) { return f.InternalName === 'ID'; })) cols.unshift({ InternalName: 'ID', Title: 'ID', TypeAsString: 'Counter' });
+      hist.cols = cols.map(function (f) { var rest = /^_/.test(f.InternalName) ? 'OData_' + f.InternalName : f.InternalName; return { n: f.InternalName, rest: rest, t: f.Title || f.InternalName, tipo: f.TypeAsString, persona: /^(User|UserMulti|Lookup|LookupMulti)$/.test(f.TypeAsString) }; });
+    });
+  }
+  function histLeerRegistros() {
+    var sel = [], exp = [];
+    hist.cols.forEach(function (c) { if (c.persona) { sel.push(c.rest + '/Title'); exp.push(c.rest); } else sel.push(c.rest); });
+    if (sel.indexOf('Created') < 0) sel.push('Created');
+    var url = urlLista() + '/items?$top=500&$select=' + sel.join(',') + (exp.length ? '&$expand=' + exp.join(',') : '');
+    return todas(url).catch(function () { return todas(urlLista() + '/items?$top=500'); }).then(function (l) { hist.regs = l; });
+  }
+  function histSeleccionar() {
+    var a = Number(hist.anio), d = Number(hist.desde), h = Number(hist.hasta);
+    hist.sel = (hist.regs || []).filter(function (it) {
+      var f = new Date(it.Created); if (isNaN(f) || f.getFullYear() !== a || f.getMonth() + 1 < d || f.getMonth() + 1 > h) return false;
+      return hist.abiertos || histCerrado(it);
+    }).sort(function (x, y) { return (x.Id || x.ID) - (y.Id || y.ID); });
+  }
+  function histVer() {
+    if (Number(hist.desde) > Number(hist.hasta)) return histPintar('«Desde» es posterior a «Hasta».', 'error');
+    hist.ocupado = true; histPintar('Leyendo la lista…', 'aviso');
+    (hist.cols ? Promise.resolve() : histLeerColumnas()).then(histLeerRegistros).then(function () { histSeleccionar(); hist.ocupado = false; histPintar(''); })
+      .catch(function (e) { hist.ocupado = false; histPintar('No se pudo leer la lista: ' + esc(e.message || e), 'error'); });
+  }
+  var histValor = function (v, c) {
+    if (v == null) return '';
+    if (c && c.persona) { var l = v.results || (Array.isArray(v) ? v : [v]); return l.map(function (x) { return x && x.Title || ''; }).filter(Boolean).join('; '); }
+    if (v.results) v = v.results;
+    if (Array.isArray(v)) return v.join('; ');
+    if (typeof v === 'boolean') return v ? 'SÍ' : 'NO';
+    if (typeof v === 'object') return v.Title || v.Url || JSON.stringify(v);
+    if (/^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(String(v))) { var f = new Date(v); return isNaN(f) ? v : f.toLocaleString('es-ES'); }
+    return String(v);
+  };
+  // ZIP sin compresión (solo almacenar): suficiente para el Excel y los adjuntos, sin librerías externas
+  var CRC = (function () { var t = []; for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  function crc32(b) { var c = 0xFFFFFFFF; for (var i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function hacerZip(ficheros) {
+    var enc = new TextEncoder(), partes = [], central = [], off = 0, d = new Date();
+    var hora = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), dia = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    var u16 = function (v) { return [v & 255, (v >> 8) & 255]; }, u32 = function (v) { return [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255]; };
+    ficheros.forEach(function (f) {
+      var nom = enc.encode(f.nombre), dat = f.datos instanceof Uint8Array ? f.datos : enc.encode(f.datos), crc = crc32(dat);
+      var cab = [].concat([0x50, 0x4b, 3, 4], u16(20), u16(0x0800), u16(0), u16(hora), u16(dia), u32(crc), u32(dat.length), u32(dat.length), u16(nom.length), u16(0));
+      partes.push(new Uint8Array(cab), nom, dat);
+      central.push(new Uint8Array([].concat([0x50, 0x4b, 1, 2], u16(20), u16(20), u16(0x0800), u16(0), u16(hora), u16(dia), u32(crc), u32(dat.length), u32(dat.length), u16(nom.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(off))), nom);
+      off += cab.length + nom.length + dat.length;
+    });
+    var tamC = central.reduce(function (s, x) { return s + x.length; }, 0);
+    var fin = new Uint8Array([].concat([0x50, 0x4b, 5, 6], u16(0), u16(0), u16(ficheros.length), u16(ficheros.length), u32(tamC), u32(off), u16(0)));
+    return new Blob(partes.concat(central, [fin]), { type: 'application/zip' });
+  }
+  function histExportar() {
+    var s = hist.sel || []; if (!s.length) return;
+    hist.ocupado = true; histPintar('Preparando el Excel…', 'aviso');
+    var q = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+    var cab = hist.cols.map(function (c) { return c.t; }).concat(['Adjuntos']), filas = [], ficheros = [], sinBajar = [], nAdj = 0;
+    var porId = {};
+    s.reduce(function (p, it, i) {
+      return p.then(function () {
+        var id = it.Id || it.ID; histPintar('Bajando los adjuntos: registro ' + (i + 1) + ' de ' + s.length + '…', 'aviso');
+        return todas(urlLista() + '/items(' + id + ')/AttachmentFiles?$select=FileName,ServerRelativeUrl').catch(function () { return []; }).then(function (adj) {
+          porId[id] = adj.map(function (a) { return a.FileName; });
+          return adj.reduce(function (p2, a) {
+            return p2.then(function () {
+              return fetch(location.origin + encodeURI(a.ServerRelativeUrl), { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+                .then(function (b) { ficheros.push({ nombre: 'adjuntos/' + id + '/' + a.FileName, datos: new Uint8Array(b) }); nAdj++; }, function () { sinBajar.push(id + '/' + a.FileName); });
+            });
+          }, Promise.resolve());
+        });
+      });
+    }, Promise.resolve()).then(function () {
+      s.forEach(function (it) { var id = it.Id || it.ID; filas.push(hist.cols.map(function (c) { return histValor(c.n === 'ID' ? id : it[c.rest] !== undefined ? it[c.rest] : it[c.n], c); }).concat([(porId[id] || []).join('; ')])); });
+      var csvTxt = '\ufeff' + [cab].concat(filas).map(function (r) { return r.map(q).join(';'); }).join('\r\n');
+      var reg = 'PASO A HISTÓRICO · ' + HIST_APP + '\r\nLista: ' + pref.lista + ' (' + pref.sitio + ')\r\nPeriodo (fecha de alta): ' + descHist() + '\r\n' + (hist.abiertos ? 'Incluye expedientes abiertos' : 'Solo expedientes cerrados') +
+        '\r\nRegistros: ' + s.length + ' (nº ' + s.map(function (it) { return it.Id || it.ID; }).join(', ') + ')\r\nAdjuntos: ' + nAdj + (sinBajar.length ? '\r\nNO se pudieron bajar: ' + sinBajar.join(', ') : '') +
+        '\r\nExportado por: ' + (yo ? yo.Title : '') + ' · ' + new Date().toLocaleString('es-ES') + '\r\nVersión de la página: ' + VERSION + '\r\n';
+      var zip = hacerZip([{ nombre: histNombre() + '.csv', datos: csvTxt }, { nombre: 'REGISTRO.txt', datos: reg }].concat(ficheros));
+      var a = document.createElement('a'); a.href = URL.createObjectURL(zip); a.download = histNombre() + '.zip'; document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+      hist.ocupado = false; hist.exportado = sinBajar.length ? '' : histClave();
+      histPintar('✓ Descargado «' + esc(histNombre()) + '.zip»: Excel con ' + s.length + ' registros y ' + nAdj + ' adjuntos.' + (sinBajar.length ? ' <b>No se pudieron bajar ' + sinBajar.length + ' adjuntos</b> (' + esc(sinBajar.join(', ')) + '): no se puede borrar hasta exportarlos bien.' : ' Guárdalo y comprueba que se abre antes de borrar.'), sinBajar.length ? 'error' : 'okmsg');
+    }).catch(function (e) { hist.ocupado = false; histPintar('No se pudo exportar: ' + esc(e.message || e), 'error'); });
+  }
+  function histBorrar() {
+    var s = hist.sel || [];
+    if (!s.length || hist.exportado !== histClave()) return histPintar('Primero exporta este mismo periodo.', 'error');
+    var clave = 'BORRAR ' + hist.anio, r = window.prompt('Se van a enviar a la papelera de reciclaje de Colabora ' + s.length + ' registros de ' + descHist() + (hist.abiertos ? ' (también abiertos)' : '') + '.\nSe pueden restaurar desde la papelera durante unos 90 días.\n\nEscribe «' + clave + '» para confirmar:');
+    if (r === null) return;
+    if (String(r).trim().toUpperCase() !== clave) return histPintar('No se ha borrado nada: la confirmación no coincide con «' + esc(clave) + '».', 'error');
+    hist.ocupado = true; var ok = 0, mal = [];
+    s.reduce(function (p, it, i) {
+      return p.then(function () {
+        var id = it.Id || it.ID; histPintar('Borrando ' + (i + 1) + ' de ' + s.length + '…', 'aviso');
+        return enviarSP(urlLista() + '/items(' + id + ')/recycle()', {}, 'No tienes permiso para eliminar registros').then(function () { ok++; }, function () { mal.push(id); });
+      });
+    }, Promise.resolve()).then(function () {
+      hist.ocupado = false; hist.sel = null; hist.regs = null; hist.exportado = '';
+      histPintar('✓ ' + ok + ' registros de ' + esc(descHist()) + ' enviados a la papelera de reciclaje.' + (mal.length ? ' <b>No se pudieron borrar: ' + mal.join(', ') + '.</b>' : '') + ' La lista queda lista para el nuevo ciclo.', mal.length ? 'aviso' : 'okmsg');
+      return cargar();
+    }).then(function () { render(); }, function () { render(); });
+  }
+  function histInforme() {
+    var a = hist.anio, d = new Date(Number(a), Number(hist.desde) - 1, 1), h = new Date(Number(a), Number(hist.hasta), 0);
+    if (pref.f && 'desde' in pref.f) { Object.keys(pref.f).forEach(function (k) { pref.f[k] = ''; }); pref.f.desde = iso(d); pref.f.hasta = iso(h); }
+    if (typeof infCfg === 'function') { var c = infCfg(); if ('anio' in c) c.anio = a; }
+    pref.vista = 'informe'; guardarPref(); render();
+    aviso('Informe de ' + descHist() + ': imprímelo en PDF con «Imprimir informe» y adjúntalo al envío a IGE');
+  }
+  var _vistaAjustesSinHist = vistaAjustes;
+  vistaAjustes = function () { return _vistaAjustesSinHist.apply(this, arguments) + vistaHistorico(); };
+  document.addEventListener('click', function (e) {
+    var el = e.target;
+    if (el.closest('[data-histver]')) { histVer(); return; }
+    if (el.closest('[data-histexp]')) { histExportar(); return; }
+    if (el.closest('[data-histborrar]')) { histBorrar(); return; }
+    if (el.closest('[data-histinf]')) { histInforme(); }
+  });
+  document.addEventListener('change', function (e) {
+    var k = { hAnio: 'anio', hDesde: 'desde', hHasta: 'hasta' }[e.target.id];
+    if (k) { hist[k] = e.target.value; if (hist.regs) histSeleccionar(); hist.msg = ''; histPintar(); }
+    if (e.target.id === 'hAbiertos') { hist.abiertos = e.target.checked; if (hist.regs) histSeleccionar(); hist.msg = ''; histPintar(); }
+  });
 
   // ---------- Eventos ----------
   document.addEventListener('click', function (e) {

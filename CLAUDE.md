@@ -58,7 +58,12 @@ El usuario no quiere repetir errores ya resueltos. Antes de dar por buena una p�
    DIACU_CECONSEG…). Si existe, solo sus miembros son DIACU en esa aplicación y reciben sus avisos; si no, DIACU es
    SEGURIDAD_IGE. Se crea desde Accesos › Preparación (con «Colaborar» en la lista) y la solicitud tiene el papel «DIACU»
    aparte de «IGE». Bloque `leerGrupoDiacu` / `lineaDiacu` / `crearGrupoDiacu`, copiarlo de `ceconseg/ceconseg.html`.
-10. Entregar siempre: simulación ligero + *verbose* + copia cifrada con `PROXY=1`, README, PENDIENTES, commit, push y la
+10. **Pasar a histórico** (26/11/2026, en Incidentes, VSA, Pérdidas, CECONSEG y Cesión; obligatorio en las nuevas del sitio de
+   IGE): en Ajustes (Control total) elegir año y meses por fecha de alta, exportar un ZIP (Excel con todas las columnas,
+   historial y datos personales + adjuntos + REGISTRO.txt), informe del periodo en PDF y borrar lo exportado a la papelera
+   escribiendo «BORRAR <año>». Por defecto solo los cerrados; casilla para incluir los abiertos. Bloque `vistaHistorico` /
+   `histExportar` / `histBorrar` (con su ZIP sin librerías), copiarlo de `cesion/cesion.html` y ajustar `HIST_APP` y `HIST_CERRADOS`.
+11. Entregar siempre: simulación ligero + *verbose* + copia cifrada con `PROXY=1`, README, PENDIENTES, commit, push y la
    copia cifrada al usuario. Respuestas breves.
 
 Antes de hacer una nueva, lee **`SHAREPOINT.md`**: recetas probadas (lectura, alta, modificar sin pisar cambios,

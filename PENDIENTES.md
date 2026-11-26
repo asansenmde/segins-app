@@ -88,3 +88,7 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
 - **26/11/2026 · Pérdidas 2026-11-26 · 1**: informes, relaciones y CSV con apellidos y nombre, NIF y empleo de quien perdió la
   documentación (solo para quien puede ver la ficha). Subir `perdidas/colabora/perdidas.html`. Pendiente de decidir: cifrar el NIF
   dentro de la lista (hoy va en claro en la columna DNI, como en el InfoPath).
+- **26/11/2026 · Pasar a histórico** (Incidentes, VSA y CECONSEG 2026-11-26 · 1, Pérdidas 2026-11-26 · 2, Cesión 2026-11-26 · 3):
+  subir las cinco copias cifradas. Para empezar 2026 de cero: en cada una, Ajustes › Pasar a histórico › marcar «Incluir
+  también los abiertos» › Ver › Exportar (guardar el ZIP y comprobar que se abre) › Informe del periodo (PDF para IGE) › Borrar.
+  Desde 2027, sin marcar la casilla (solo cerrados).

@@ -94,6 +94,7 @@ async function abrir(b, yoId, opc) {
         const av = sub.match(/^\/DefaultView\/ViewFields\/addviewfield\('([^']+)'\)$/); if (av) { (Lx.vista = Lx.vista || []).push(av[1]); return J({}); }
         if (/\/fields\/createfieldasxml$/.test(sub)) { if (!admin) return ERR(403, 'Acceso denegado.'); const x = c.parameters.SchemaXml, nm = x.match(/Name="([^"]+)"/)[1]; Lx.campos.push({ InternalName: /^[A-Za-z]{1,3}\d+$/.test(nm) ? '_x' + nm.charCodeAt(0).toString(16).padStart(4, '0') + '_' + nm.slice(1) : nm, TypeAsString: x.match(/Type="([^"]+)"/)[1] }); return J({}); }
         if (/AttachmentFiles\/add/.test(sub)) return J({});
+        const rc = sub.match(/^\/items\((\d+)\)\/recycle\(\)$/); if (rc) { if (!admin) return ERR(403, 'Acceso denegado.'); Lx.items = Lx.items.filter(x => x.Id !== +rc[1]); return J({}); }
         if (sub === '' ) { Object.assign(Lx.info, c); delete Lx.info.__metadata; return r.fulfill({ status: 204, body: '' }); }
         const mi = sub.match(/^\/items\((\d+)\)$/); delete c.__metadata;
         for (const k of Object.keys(c)) { const base = k.replace(/Id$/, ''); if (!Lx.campos.some(f => f.InternalName === k || f.InternalName === base)) return ERR(400, "The property '" + k + "' does not exist on type '" + Lx.info.ListItemEntityTypeFullName + "'."); }
@@ -288,7 +289,26 @@ async function escenario(verbose) {
   await c.close();
   delete GRUPOS.SINTSEG_CESION;
 
-  // 8. Sin acceso; ningún correo lleva el nombre de otra aplicación
+  // 8. Pasar a histórico (Control total): ver, exportar (ZIP con Excel y registro) y borrar con confirmación
+  ({ b: c, p, errs } = await abrir(b, 1, { verbose, admin: true }));
+  await tab(p, 'ajustes'); await p.waitForTimeout(500);
+  ok(/Pasar a histórico/.test(await texto(p)), tag + 'Ajustes trae «Pasar a histórico»');
+  await p.click('[data-histver]'); await p.waitForTimeout(1500);
+  ok(/Entran 2 registros/.test(await texto(p)), tag + 'por defecto solo los cerrados (2 de 3)', (await p.textContent('#histCaja')).slice(0, 300));
+  await p.check('#hAbiertos'); await p.waitForTimeout(300);
+  ok(/Entran 3 registros/.test(await texto(p)) && await p.$eval('[data-histborrar]', x => x.disabled), tag + 'con «Incluir también los abiertos» entran los 3; borrar sigue bloqueado hasta exportar');
+  const [zz] = await Promise.all([p.waitForEvent('download'), p.click('[data-histexp]')]); await p.waitForTimeout(800);
+  const zb = require('fs').readFileSync(await zz.path()).toString('latin1'); if (process.env.ZIPOUT) require('fs').copyFileSync(await zz.path(), process.env.ZIPOUT);
+  ok(/^PK/.test(zb) && /cesion-historico-\d{4}\.csv/.test(zb) && /REGISTRO\.txt/.test(zb) && /GUARDIA CIVIL/.test(zb) && /Agente TIP 1234/.test(zb), tag + 'el ZIP lleva el Excel con todas las columnas y el registro de la operación');
+  p.removeAllListeners('dialog'); let respuesta = 'BORRAR 2000'; p.on('dialog', d => d.type() === 'prompt' ? d.accept(respuesta) : d.accept());
+  await p.click('[data-histborrar]'); await p.waitForTimeout(800);
+  ok(solicitudes().length === 3 && /no coincide/.test(await p.textContent('#histCaja')), tag + 'con una confirmación equivocada no borra nada');
+  respuesta = 'BORRAR ' + new Date().getFullYear(); await p.click('[data-histborrar]'); await p.waitForTimeout(3000);
+  ok(solicitudes().length === 0 && /enviados a la papelera/.test(await texto(p)), tag + 'borra lo exportado (a la papelera) y la lista queda para el nuevo ciclo', solicitudes().length);
+  ok(errs.length === 0, tag + 'sin errores de página (histórico)', errs.join(' | '));
+  await c.close();
+
+  // 9. Sin acceso; ningún correo lleva el nombre de otra aplicación
   ({ b: c, p, errs } = await abrir(b, 40, { verbose }));
   ok(/No tienes acceso/.test(await texto(p)) && /SINTSEG/.test(await p.$eval('[name=papel]', s => s.textContent).catch(() => '')), tag + 'sin acceso: solicitud de acceso con el papel SINTSEG');
   ok(errs.length === 0, tag + 'sin errores de página (sin acceso)', errs.join(' | '));
