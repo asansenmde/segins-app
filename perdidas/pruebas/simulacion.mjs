@@ -226,6 +226,14 @@ async function prueba(verbose, esc) {
     await abrirN(4); await p.click('[data-acc=reabrir]'); await p.waitForTimeout(200);
     console.log(tag, '| reabrir sin motivo:', await p.textContent('#accMsg'));
     await p.click('#dlg [data-cerrar]');
+    // 26/11/2026: los informes y relaciones llevan quién perdió la documentación (apellidos y nombre, NIF y empleo)
+    await p.click('#tabs a[data-v=informe]'); await p.waitForTimeout(1500);
+    const infT = (await p.textContent('#vista .inf')).replace(/\s+/g, ' ');
+    const [wr] = await Promise.all([p.context().waitForEvent('page'), p.click('[data-relimp]')]); await wr.waitForLoadState(); await wr.waitForTimeout(400);
+    const relT = (await wr.textContent('body')).replace(/\s+/g, ' '); await wr.close();
+    const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-icsv]')]); const csvT = fs.readFileSync(await dl.path(), 'utf8');
+    const okPers = /PEREZ GOMEZ JUAN/.test(infT) && /12345678Z/.test(infT) && /PEREZ GOMEZ JUAN/.test(relT) && /12345678Z/.test(relT) && /12345678Z/.test(csvT) && /Apellidos y nombre;?"?;?"?NIF/.test(csvT.replace(/"/g, ''));
+    console.log(tag, '| informe, relación y CSV con apellidos y nombre y NIF:', okPers); if (!okPers) { console.log('✘ FALLO datos personales en informes', infT.slice(0, 300)); process.exitCode = 1; }
     await p.click('#tabs a[data-v=pendientes]'); await p.waitForTimeout(300);
     console.log(tag, '| pendientes:', (await p.$$eval('#vista .sec', s => s.map(x => x.textContent.replace(/(\d+)$/, ' = $1')))).join(' · '));
     await p.click('#tabs a[data-v=estadisticas]'); await p.waitForTimeout(300);

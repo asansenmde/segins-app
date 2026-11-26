@@ -85,3 +85,6 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
 - **26/11/2026 · CESIÓN DE IMÁGENES 2026-11-26 · 2** (nueva, sustituye al InfoPath «cesion de imagenes.xsn» y la eleva a IGE con
   el escalón de SINTSEG): subir `cesion/colabora/cesion.html` a la biblioteca del sitio de IGE y seguir la «Puesta en marcha» de
   `cesion/README.md`. Cuando SINTSEG se integre en Colabora: Accesos › «Crear el grupo SINTSEG_CESION» y meter a sus personas.
+- **26/11/2026 · Pérdidas 2026-11-26 · 1**: informes, relaciones y CSV con apellidos y nombre, NIF y empleo de quien perdió la
+  documentación (solo para quien puede ver la ficha). Subir `perdidas/colabora/perdidas.html`. Pendiente de decidir: cifrar el NIF
+  dentro de la lista (hoy va en claro en la columna DNI, como en el InfoPath).

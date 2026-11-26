@@ -227,7 +227,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-25 · 3';
+  var VERSION = '2026-11-26 · 1';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Pérdida de documentación · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -1707,11 +1707,12 @@
         return '<tr><td>' + esc(ul.lugar) + '</td><td>' + esc(ul.suige) + '</td><td class="n alta">' + l.length + '</td><td>' + l.map(function (t) { return t.id; }).join(', ') + '</td><td>' + esc(Array.from(new Set([].concat.apply([], l.map(function (t) { return t.docs; })))).join(', ')) + '</td><td>' + esc(fCorta(ul.fecha)) + '</td></tr>';
       }).join('') + '</table>' : '<p class="nota">Ninguna unidad con más de una pérdida.</p>');
     }
-    if (S.relacion) h += tit('Relación de notificaciones') + '<table><tr><th>Nº</th><th>Fecha pérdida</th><th>Documentación</th><th>Modo</th><th>Provincia</th><th>Unidad</th><th>SUIGE</th><th>Denuncia</th><th>NT 08/22</th><th>Acciones</th><th>Situación</th></tr>' +
-      ts.map(function (t) { return '<tr><td>' + t.id + '</td><td>' + esc(fCorta(t.fecha)) + '</td><td>' + esc(t.docsTxt) + '</td><td' + (t.robo ? ' class="alta"' : '') + '>' + esc(t.modo) + '</td><td>' + esc(t.provincia) + '</td><td>' + esc(t.lugar) + '</td><td>' + esc(t.suige) + '</td><td>' + esc(t.denuncia) + '</td><td>' + esc(siNo(t.nt)) + '</td><td>' + esc(t.acciones.join(', ')) + '</td><td>' + esc(faseTxt(t)) + '</td></tr>'; }).join('') + '</table>';
+    if (S.relacion) h += tit('Relación de notificaciones') + '<table><tr><th>Nº</th><th>Fecha pérdida</th><th>Apellidos y nombre</th><th>NIF</th><th>Empleo</th><th>Documentación</th><th>Modo</th><th>Provincia</th><th>Unidad</th><th>SUIGE</th><th>Denuncia</th><th>NT 08/22</th><th>Acciones</th><th>Situación</th></tr>' +
+      ts.map(function (t) { return '<tr><td>' + t.id + '</td><td>' + esc(fCorta(t.fecha)) + '</td><td>' + esc(priv(t).nombre) + '</td><td>' + esc(priv(t).dni) + '</td><td>' + esc(t.empleo) + '</td><td>' + esc(t.docsTxt) + '</td><td' + (t.robo ? ' class="alta"' : '') + '>' + esc(t.modo) + '</td><td>' + esc(t.provincia) + '</td><td>' + esc(t.lugar) + '</td><td>' + esc(t.suige) + '</td><td>' + esc(t.denuncia) + '</td><td>' + esc(siNo(t.nt)) + '</td><td>' + esc(t.acciones.join(', ')) + '</td><td>' + esc(faseTxt(t)) + '</td></tr>'; }).join('') + '</table>';
     if (S.detalle) h += tit('Detalle de cada notificación') + ts.map(function (t) {
       var d = txts && txts[t.id] || {}, bloque = function (et, v) { return '<b class="nota">' + esc(et) + '</b><div class="txt">' + (v ? esc(v) : '—') + '</div>'; };
       return '<div class="ficha"><h4>Nº ' + t.id + ' · ' + esc(t.docsTxt) + ' · ' + esc(t.provincia) + ' · ' + esc(fCorta(t.fecha)) + '</h4>' +
+        '<p class="nota"><b>Quién la perdió:</b> ' + esc(priv(t).nombre || '—') + ' · NIF ' + esc(priv(t).dni || '—') + (t.empleo ? ' · ' + esc(t.empleo) : '') + '</p>' +
         '<p class="nota">Unidad: ' + esc((t.cadena || []).join(' - ') || t.lugar || '—') + ' · SUIGE: ' + esc(t.suige || '—') + ' · Modo: ' + esc(t.modo || '—') + ' · Denuncia: ' + esc(t.denuncia || '—') + (t.ndenuncia ? ' (' + esc(t.ndenuncia) + ')' : '') +
         ' · NT 08/22: ' + esc(siNo(t.nt) || '—') + ' · Responsable: ' + esc(t.resp && t.resp.Title || '—') + ' · Situación: ' + esc(faseTxt(t)) + '</p>' +
         (txts ? bloque('Circunstancias y detalles', texto(d.Comentario)) : '<p class="nota">Las circunstancias se leen al imprimir.</p>') +
@@ -1719,11 +1720,25 @@
     }).join('');
     return h + '</div>';
   }
+  // 26/11/2026 (petición del usuario): los informes y las relaciones llevan quién perdió la documentación (apellidos y nombre,
+  // NIF y empleo), dónde, su unidad y qué documentos. Los datos personales no se descargan con la lista: se piden aquí, solo
+  // de las notificaciones del informe que el usuario ya puede ver en la ficha (veDatos), y se guardan en memoria.
+  var privCache = {}, privCargando = false;
+  function leerPersonales(ts) {
+    var ids = ts.filter(veDatos).map(function (t) { return t.id; }).filter(function (id) { return !privCache[id]; }), trozos = [];
+    for (var i = 0; i < ids.length; i += 40) trozos.push(ids.slice(i, i + 40));
+    return Promise.all(trozos.map(function (tr) {
+      return todas(urlLista() + '/items?$top=500&$select=Id,' + PRIVADOS.filter(function (k) { return k !== 'UsuarioId'; }).join(',') + '&$filter=' + encodeURIComponent(tr.map(function (id) { return '(Id eq ' + id + ')'; }).join(' or ')))
+        .then(function (l) { l.forEach(function (x) { privCache[x.Id] = { nombre: x.Denunciante || '', dni: x.DNI || '' }; }); });
+    })).then(function () { ids.forEach(function (id) { privCache[id] = privCache[id] || { nombre: '', dni: '' }; }); });
+  }
+  var priv = function (t) { return veDatos(t) && privCache[t.id] || { nombre: veDatos(t) ? '…' : '(reservado)', dni: veDatos(t) ? '…' : '(reservado)' }; };
   var tsInforme = function () { return filtrar().filter(function (t) { return fase(t) !== 0; }); };
   function vistaInforme() {
     var c = infCfg(), ts = tsInforme();
+    if (!privCargando && ts.some(function (t) { return veDatos(t) && !privCache[t.id]; })) { privCargando = true; leerPersonales(ts).then(function () { privCargando = false; if (pref.vista === 'informe') render(); }, function () { privCargando = false; }); }
     return filtrosHtml() + '<div class="card"><h3 style="margin-top:0">Informe detallado</h3>' +
-      '<p class="small muted">Elige arriba los filtros (documento, modo, SUIGE, desde/hasta…), cómo agrupar y qué apartados incluir. Lo que ves abajo es lo que se imprime. Nunca lleva datos personales.</p>' +
+      '<p class="small muted">Elige arriba los filtros (documento, modo, SUIGE, desde/hasta…), cómo agrupar y qué apartados incluir. Lo que ves abajo es lo que se imprime. La relación y el detalle llevan quién perdió la documentación (apellidos y nombre, NIF y empleo) de las notificaciones que puedes ver en su ficha.</p>' +
       '<div class="grid"><div><label class="lbl">Agrupar por</label><select id="iAgr">' + INF_DIM.map(function (d) { return '<option value="' + d[0] + '"' + (c.agr === d[0] ? ' selected' : '') + '>' + esc(d[1]) + '</option>'; }).join('') + '</select></div></div>' +
       '<div class="small" style="columns:2;margin:8px 0">' + INF_SEC.map(function (s) { return '<label class="check" style="display:block"><input type="checkbox" data-isec="' + s[0] + '"' + (c.sec[s[0]] ? ' checked' : '') + '> ' + esc(s[1]) + '</label>'; }).join('') + '</div>' +
       '<div class="acciones"><button class="prim" data-iimp="1">🖨 Imprimir informe / PDF</button><button data-icsv="1">📊 Excel del informe (CSV)</button></div></div>' +
@@ -1745,8 +1760,11 @@
       ventanaImprimir({ titulo: 'INFORME DE PÉRDIDAS DE DOCUMENTACIÓN', subtitulo: (c.agr ? 'Por ' + esc(dimMin(dim)) + ' · ' : '') + esc(descFiltros()) + ' · ' + ts.length + ' notificaciones',
         cuerpo: informeHtml(ts, c, txts), nombre: 'informe-perdidas-documentacion-' + hoy(), apaisado: !!(c.sec.relacion || c.sec.comparativa) });
     };
-    if (c.sec.detalle && ts.length) { aviso('Leyendo las circunstancias…'); leerTextosPartes(ts.map(function (t) { return t.id; })).then(hacer, function () { aviso('No se pudieron leer los textos'); hacer(null); }); }
-    else hacer(null);
+    aviso('Leyendo los datos de las notificaciones…');
+    leerPersonales(ts).catch(function () { aviso('No se pudieron leer los datos personales'); }).then(function () {
+      if (c.sec.detalle && ts.length) leerTextosPartes(ts.map(function (t) { return t.id; })).then(hacer, function () { aviso('No se pudieron leer los textos'); hacer(null); });
+      else hacer(null);
+    });
   }
   function csvInforme() {
     var c = infCfg(), ts = tsInforme(), T = statsInf(ts), dim = (INF_DIM.find(function (d) { return d[0] === c.agr; }) || ['', 'Total'])[1] || 'Total';
@@ -1755,7 +1773,11 @@
     var filas = [['INFORME DE PÉRDIDAS DE DOCUMENTACIÓN', descFiltros()], [], [dim, 'Notificaciones', 'Abiertas', 'Cerradas', 'Sustracción o robo', 'Con denuncia', 'NT 08/22', 'Con acciones']];
     if (c.agr) agruparInf(ts, c.agr).forEach(function (g) { filas.push(fila(g[1], statsInf(g[2]))); });
     filas.push(fila('TOTAL', T));
+    return leerPersonales(ts).catch(function () { /* sin datos personales */ }).then(function () {
+      filas.push([], [], CAB_PERS);
+      ts.forEach(function (t) { filas.push(filaPers(t)); });
     descargar('informe-perdidas-documentacion-' + hoy() + '.csv', '﻿' + filas.map(function (r) { return r.map(q).join(';'); }).join('\r\n'), 'text/csv;charset=utf-8');
+    });
   }
 
   // ---------- Control de acceso: solicitudes y alta en el grupo ----------
@@ -2200,18 +2222,25 @@
     if (f.modo) x.push('Modo: ' + (f.modo === 'robo' ? 'sustracción o robo' : f.modo)); if (f.desde) x.push('Desde ' + fCorta(f.desde)); if (f.hasta) x.push('Hasta ' + fCorta(f.hasta)); if (f.q) x.push('Búsqueda: «' + f.q + '»');
     return x.join(' · ') || 'Sin filtros';
   }
+  var CAB_PERS = ['Nº', 'Fecha pérdida', 'Apellidos y nombre', 'NIF', 'Empleo', 'Documentación', 'Modo', 'Provincia', 'Unidad', 'SUIGE', 'Denuncia en FCS', 'Nº denuncia', 'Fecha denuncia', 'Testigos', 'NT 08/22', 'Acciones', 'Estado en la lista', 'Situación', 'Alta'];
+  var filaPers = function (t) { return [t.id, fCorta(t.fecha), priv(t).nombre, priv(t).dni, t.empleo, t.docsTxt, t.modo, t.provincia, t.cadena.join(' - ') || t.lugar, t.suige, t.denuncia, t.ndenuncia, fHora(t.fechaDen), t.testigos, siNo(t.nt), t.acciones.join(', '), t.estadoRaw, faseTxt(t), fechaSP(t.creado)]; };
   function imprimirRelacion() {
     var ts = filtrar();
-    var cuerpo = '<table class="r"><tr><th>Nº</th><th>Fecha pérdida</th><th>Documentación</th><th>Modo</th><th>Provincia</th><th>Unidad</th><th>SUIGE</th><th>Denuncia</th><th>NT 08/22</th><th>Situación</th></tr>' +
-      ts.map(function (t) { return '<tr><td>' + t.id + '</td><td>' + esc(fCorta(t.fecha)) + '</td><td>' + esc(t.docsTxt) + '</td><td>' + esc(t.modo) + '</td><td>' + esc(t.provincia) + '</td><td>' + esc(t.lugar) + '</td><td>' + esc(t.suige) + '</td><td>' + esc(t.denuncia) + '</td><td>' + esc(siNo(t.nt)) + '</td><td>' + esc(faseTxt(t)) + '</td></tr>'; }).join('') + '</table>';
+    aviso('Leyendo los datos de las notificaciones…');
+    leerPersonales(ts).catch(function () { aviso('No se pudieron leer los datos personales'); }).then(function () {
+    var cuerpo = '<table class="r"><tr><th>Nº</th><th>Fecha pérdida</th><th>Apellidos y nombre</th><th>NIF</th><th>Empleo</th><th>Documentación</th><th>Modo</th><th>Provincia</th><th>Unidad</th><th>SUIGE</th><th>Denuncia</th><th>NT 08/22</th><th>Situación</th></tr>' +
+      ts.map(function (t) { return '<tr><td>' + t.id + '</td><td>' + esc(fCorta(t.fecha)) + '</td><td>' + esc(priv(t).nombre) + '</td><td>' + esc(priv(t).dni) + '</td><td>' + esc(t.empleo) + '</td><td>' + esc(t.docsTxt) + '</td><td>' + esc(t.modo) + '</td><td>' + esc(t.provincia) + '</td><td>' + esc(t.lugar) + '</td><td>' + esc(t.suige) + '</td><td>' + esc(t.denuncia) + '</td><td>' + esc(siNo(t.nt)) + '</td><td>' + esc(faseTxt(t)) + '</td></tr>'; }).join('') + '</table>';
     ventanaImprimir({ titulo: 'RELACIÓN DE PÉRDIDAS DE DOCUMENTACIÓN', subtitulo: ts.length + ' notificaci' + (ts.length === 1 ? 'ón' : 'ones') + ' · ' + esc(descFiltros()) + '<br><small>' + esc(alcanceTxt()) + '</small>',
       cuerpo: ts.length ? cuerpo : '<p>Ninguna notificación con estos filtros.</p>', nombre: 'perdidas-documentacion-' + hoy(), apaisado: true });
+    });
   }
   function csv() {
     var c = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
-    var f = [['Nº', 'Fecha pérdida', 'Documentación', 'Modo', 'Provincia', 'Unidad', 'SUIGE', 'Denuncia en FCS', 'Nº denuncia', 'Fecha denuncia', 'Testigos', 'NT 08/22', 'Acciones', 'Estado en la lista', 'Situación', 'Alta']];
-    filtrar().forEach(function (t) { f.push([t.id, fCorta(t.fecha), t.docsTxt, t.modo, t.provincia, t.cadena.join(' - ') || t.lugar, t.suige, t.denuncia, t.ndenuncia, fHora(t.fechaDen), t.testigos, siNo(t.nt), t.acciones.join(', '), t.estadoRaw, faseTxt(t), fechaSP(t.creado)]); });
-    descargar('perdidas-documentacion-' + hoy() + '.csv', '﻿' + f.map(function (r) { return r.map(c).join(';'); }).join('\r\n'), 'text/csv;charset=utf-8');
+    var ts = filtrar();
+    leerPersonales(ts).catch(function () { /* sin datos personales */ }).then(function () {
+      var f = [CAB_PERS].concat(ts.map(filaPers));
+      descargar('perdidas-documentacion-' + hoy() + '.csv', '﻿' + f.map(function (r) { return r.map(c).join(';'); }).join('\r\n'), 'text/csv;charset=utf-8');
+    });
   }
 
   // ---------- Eventos ----------
