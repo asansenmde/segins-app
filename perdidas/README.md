@@ -91,3 +91,12 @@ Accesos y Ajustes.
 `node perdidas/pruebas/simulacion.mjs` (SharePoint simulado, formato ligero y *verbose*: unidad, SUIGE, IGE, sin acceso,
 correo denegado y columnas que faltan; comprueba también que los listados no piden datos personales). Con
 `PER_HTML=perdidas/colabora/perdidas.html` prueba la copia protegida.
+
+## Pasar a histórico (26/11/2026)
+
+En **Ajustes** (Control total), «🗄️ Pasar a histórico»: elegir año y meses (por la fecha de alta), «Ver qué entra»,
+«Exportar» (ZIP con el Excel de todas las columnas, el historial y los datos personales, los adjuntos y `REGISTRO.txt`),
+«Informe del periodo» para el PDF que se remite a IGE y «Borrar lo exportado» (escribiendo «BORRAR <año>»; va a la papelera
+de reciclaje de Colabora). Por defecto solo los expedientes cerrados; la casilla «Incluir también los abiertos» es para
+empezar de cero.
+
