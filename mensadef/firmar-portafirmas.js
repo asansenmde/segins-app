@@ -69,7 +69,10 @@
   var objetivo = norm(asunto).slice(0, 50);
   var casan = objetivo ? filas.filter(function (f) { var n = norm(f.titulo); return n.indexOf(objetivo) >= 0 || (n.length >= 12 && objetivo.indexOf(n.slice(0, 50)) >= 0); }) : [];
   var elegir = function (l, texto) {
-    poner('<p>' + texto + '</p>' + l.slice(0, 15).map(function (f, i) { return '<p style="margin:4px 0"><a href="#" data-sf="' + i + '">' + esc(f.titulo) + '</a></p>'; }).join('') + barraVarias());
+    // 26/11/2026: en cada petición, «📄 Leer» abre su documento en el visor del Portafirmas (como su botón «Leer»)
+    poner('<p>' + texto + '</p>' + l.slice(0, 15).map(function (f, i) { return '<p style="margin:4px 0;display:flex;gap:6px;align-items:flex-start"><a href="#" data-sf="' + i + '" style="flex:1">' + esc(f.titulo) + '</a>' +
+      (f.ver ? '<button type="button" data-ver="' + i + '" title="Abre el documento para leerlo">📄 Leer</button>' : '') + '</p>'; }).join('') + barraVarias());
+    Array.prototype.forEach.call(panel.querySelectorAll('[data-ver]'), function (b) { b.onclick = function () { l[Number(b.getAttribute('data-ver'))].ver.click(); }; });
     conVarias();
     Array.prototype.forEach.call(panel.querySelectorAll('[data-sf]'), function (a) { a.onclick = function (e) { e.preventDefault(); preparar(l[Number(a.getAttribute('data-sf'))]); }; });
   };

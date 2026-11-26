@@ -45,6 +45,9 @@ if (opciones !== 2 || elegida.join() !== 'C3#1') error('elegir entre iguales');
 // 2b. (26/11/2026) Entrando directamente en Rúbrica, sin asunto: «Marcar todas» y «Firmar las marcadas» (un solo Firmar)
 await p.reload(); await p.evaluate(() => { window.name = ''; window.firmado = null; });
 await p.evaluate(codigo); await p.waitForTimeout(300);
+const leerBtns = await p.$$eval('[data-ver]', l => l.length); await p.click('[data-ver] >> nth=1'); await p.waitForTimeout(200); const leido = await p.evaluate(() => window.visto);
+console.log('firmar: «📄 Leer» en cada petición', leerBtns, '| abre el visor de', leido);
+if (leerBtns !== 3 || leido !== 'B2') error('leer en la lista');
 await p.click('#sfTodas'); const todas = await p.$$eval('input[name=chkDoc]:checked', l => l.length), cuenta = await p.textContent('#sfN');
 await p.click('#sfVarias'); await p.waitForTimeout(200); const varias = await p.evaluate(() => window.firmado);
 await p.click('#sfNinguna'); const ninguna = await p.$$eval('input[name=chkDoc]:checked', l => l.length);
