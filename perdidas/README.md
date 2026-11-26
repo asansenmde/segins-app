@@ -55,7 +55,7 @@ nota), `VALORACIONSUIGES` (nota) y `ValoradoPorSUIGE` (sí/no). Mientras falten,
 - **Notificaciones**: IGE (`SEGURIDAD_IGE`) todas; cada SUIGE, las de sus unidades; el resto, las que dio de alta o de las
   que es responsable.
 - **Datos personales** (persona, nombre y NIF del usuario): solo se leen al abrir la ficha, y solo para quien la dio de
-  alta, el responsable, su SUIGE e IGE. No se piden en los listados ni salen en informes, estadísticas, CSV ni correos.
+  alta, el responsable, su SUIGE e IGE. No se piden en los listados ni salen en estadísticas ni correos (en informes, relaciones y CSV sí: véase abajo).
 - **Informes y relaciones con quién perdió la documentación** (petición del usuario, 26/11/2026): la relación y el detalle del
   informe detallado, la relación impresa y los CSV llevan apellidos y nombre, NIF y empleo, además de dónde se perdió (provincia
   y circunstancias), la unidad y los documentos. Se piden al servidor solo para esas notificaciones y solo de las que el usuario
