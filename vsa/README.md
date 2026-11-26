@@ -172,3 +172,12 @@ Estadísticas: sin borradores ni eliminados, medias sin «No observado». Prueba
 Si se abre dentro de `SitePages/<App>.aspx` (iframe; receta en `SHAREPOINT.md`), los enlaces de los correos llevan
 a esa página con `?id=N`. En Accesos › Preparación, botón para ocultar (o volver a mostrar) la biblioteca donde está
 el `.html`. Prueba: escenario «portal» y «accesos» de la simulación.
+
+## Pasar a histórico (26/11/2026)
+
+En **Ajustes** (Control total), «🗄️ Pasar a histórico»: elegir año y meses (por la fecha de alta), «Ver qué entra»,
+«Exportar» (ZIP con el Excel de todas las columnas, el historial y los datos personales, los adjuntos y `REGISTRO.txt`),
+«Informe del periodo» para el PDF que se remite a IGE y «Borrar lo exportado» (escribiendo «BORRAR <año>»; va a la papelera
+de reciclaje de Colabora). Por defecto solo los expedientes cerrados; la casilla «Incluir también los abiertos» es para
+empezar de cero.
+
