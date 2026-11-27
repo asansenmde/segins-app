@@ -535,7 +535,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-26 · 1';
+  var VERSION = '2026-11-27 · 1';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -618,7 +618,7 @@
     return new Promise(function (seguir) {
       var dentro = function (r, enVentana) {
         ORG = r.gestores || {};
-        guardar('acceso', { ok: true, t: Date.now(), ambito: ambito, regla: r.regla || '', vigente: r.vigente || null, gestores: ORG });
+        guardar('acceso', { ok: true, t: Date.now(), ambito: ambito, regla: r.regla || '', vigente: r.vigente || null, gestores: ORG, admin: !!r.admin, pendientesAcc: Number(r.solicitudesPendientes) || 0 });
         // Se recuerda si en este equipo solo contesta la ventana pequeña, para ofrecer el botón sin esperar al marco
         if (enVentana) guardar('soloVentana', Date.now()); else { try { localStorage.removeItem(MEMORIA + 'soloVentana'); } catch (e) { /* sin memoria */ } }
         if (revisarCaducidad(r.caducidad, r.vigente)) return;
@@ -2320,6 +2320,7 @@
   function pintarKpis() {
     var st = $('fSitio').value, base = mensajes.filter(function (m) { return !st || sitioDe(m) === st; });
     var hay = function (k) { return k === 'todos' || k === 'sinver' || k === 'tarea' || base.some(KPIS[k].f); };
+    try { refrescarDiseno(); } catch (e) { /* diseño nuevo */ }
     $('kpis').hidden = !mensajes.length;
     $('kpis').innerHTML = Object.keys(KPIS).filter(hay).map(function (k) {
       return '<div class="kpi ' + KPIS[k].c + (kpiSel === k || (!kpiSel && k === 'todos') ? ' on' : '') + '" data-kpi="' + k + '">' + KPIS[k].t + '<b>' + base.filter(KPIS[k].f).length + '</b></div>';
@@ -3317,6 +3318,165 @@
     a.download = 'mensajes-' + $('desde').value + '_' + $('hasta').value + '.csv';
     document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   });
+
+  // ---------- Diseño nuevo (27/11/2026, aprobado por el usuario sobre la maqueta mensadef/maquetas/sendero-v2.html) ----------
+  // Barra lateral (azul noche y oro) con Panel, Gestión, Firma, Consultas, Informes y Administración (esta, solo para los
+  // administradores de SENDERO: lo dice Colabora con la autorización). «Gestión» es la pantalla de siempre (bandejas, filtros,
+  // agrupaciones y ficha). «↺ Diseño clásico» vuelve al de antes, y se recuerda en este navegador.
+  var DISENO = leer('diseno', 'nuevo') === 'clasico' ? 'clasico' : 'nuevo', vistaD = 'panel';
+  var SECCIONES = [['panel', '⌂', 'Panel', 'Lo importante de hoy en tus células'], ['gestion', '📥', 'Gestión', 'Bandejas, ficha y tramitación'],
+    ['firma', '✍', 'Firma', 'Lo que espera firma en Rúbrica'], ['consultas', '🔎', 'Consultas', 'Buscar en todo MENSADEF y por referencia'],
+    ['informes', '📊', 'Informes', 'Relaciones y estadísticas del periodo cargado'], ['admin', '🛡', 'Administración', 'Accesos y versiones de SENDERO']];
+  var accesoGuardado = function () { return leer('acceso', null) || {}; };
+  var esAdminSendero = function () { return !!accesoGuardado().admin; };
+  var CSS_DN = 'html.dn body{padding-left:232px}html.dn body>header{display:none}' +
+    '#dnLat{position:fixed;left:0;top:0;bottom:0;width:232px;background:linear-gradient(180deg,#0a1a31,#12284a);color:#dbe6f5;display:flex;flex-direction:column;z-index:40;overflow:auto}' +
+    '#dnLat .marca{padding:18px 18px 14px;border-bottom:1px solid rgba(255,255,255,.08)}#dnLat .emb{width:40px;height:40px;border-radius:10px;background:radial-gradient(circle at 30% 30%,#e8cf72,#c9a227 60%,#8a6a12);display:grid;place-items:center;color:#0a1a31;font:800 20px Georgia,serif;float:left;margin-right:10px;box-shadow:0 4px 14px rgba(201,162,39,.35)}' +
+    '#dnLat .marca b{display:block;font:700 21px Georgia,serif;letter-spacing:.22em;color:#fff}#dnLat .marca small{display:block;clear:both;padding-top:8px;color:#e8cf72;font-size:11px;letter-spacing:.06em}' +
+    '#dnLat nav{padding:10px 8px;flex:1}#dnLat nav a{display:flex;align-items:center;gap:10px;padding:10px 12px;margin:2px 0;border-radius:10px;color:#c9d6e8;text-decoration:none;cursor:pointer;font-weight:600}' +
+    '#dnLat nav a .i{width:22px;text-align:center;font-size:16px}#dnLat nav a:hover{background:rgba(255,255,255,.06);color:#fff}#dnLat nav a.on{background:linear-gradient(90deg,rgba(201,162,39,.22),rgba(201,162,39,.04));color:#fff;box-shadow:inset 3px 0 0 #c9a227}' +
+    '#dnLat nav a .n{margin-left:auto;background:#c9a227;color:#0a1a31;border-radius:999px;font-size:11px;font-weight:800;padding:1px 7px}#dnLat nav .sep{margin:12px 12px 4px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7f93b0}' +
+    '#dnLat .autoria{margin:10px 12px;padding:10px 12px;border:1px solid rgba(201,162,39,.45);border-radius:12px;background:rgba(201,162,39,.08);font-size:12px;color:#e6edf6;line-height:1.4}#dnLat .autoria b{color:#e8cf72;display:block;font-size:13px}' +
+    '#dnLat .pie{padding:10px 16px 14px;font-size:11px;color:#7f93b0;border-top:1px solid rgba(255,255,255,.08)}#dnLat .pie button{margin-top:6px;background:transparent;border:1px solid #3b5478;color:#c9d6e8;border-radius:8px;padding:4px 10px;cursor:pointer;font:inherit}' +
+    '#dnCab{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid #dbe2ec;border-radius:14px;padding:12px 16px;margin-bottom:14px}#dnCab h2{margin:0;font-size:19px;color:#0a1a31}#dnCab .sub{color:#5a6676;font-size:12px}' +
+    '#dnCab .der{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center}#dnCab .chip{display:inline-flex;gap:6px;align-items:center;border:1px solid #dbe2ec;border-radius:999px;padding:3px 10px;font-size:12px;background:#f7f9fc}#dnCab .chip.oro{border-color:#c9a227;background:#fff8dc;color:#6b5100;font-weight:700}' +
+    '.dnKpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:14px}.dnKpi{background:#fff;border:1px solid #dbe2ec;border-radius:14px;padding:14px 16px;cursor:pointer;position:relative;overflow:hidden}.dnKpi:after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--c,#1d4f91)}' +
+    '.dnKpi .v{font:700 30px Georgia,serif;color:var(--c,#0a1a31)}.dnKpi .t{color:#5a6676;font-size:12px;font-weight:600}.dnKpi:hover{box-shadow:0 6px 18px rgba(10,26,49,.1)}' +
+    '.dnRej{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px}.dnTarj{background:#fff;border:1px solid #dbe2ec;border-radius:14px;padding:14px 16px;margin-bottom:14px}.dnTarj h3{margin:0 0 10px;font-size:15px;color:#0a1a31}.dnTarj h3 small{font-weight:400;color:#5a6676}' +
+    '.dnTarj table{width:100%;border-collapse:collapse}.dnTarj th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#5a6676;padding:7px;border-bottom:1px solid #dbe2ec}.dnTarj td{padding:8px 7px;border-bottom:1px solid #eef1f6;vertical-align:top}.dnTarj tr[data-dnm]{cursor:pointer}.dnTarj tr[data-dnm]:hover td{background:#f6f8fc}' +
+    '.dnBtn{border:1px solid #dbe2ec;background:#fff;border-radius:10px;padding:8px 12px;font:inherit;font-weight:600;cursor:pointer}.dnBtn.p{background:#0a1a31;color:#fff;border-color:#0a1a31}.dnBtn.oro{background:linear-gradient(180deg,#e8cf72,#c9a227);border-color:#c9a227;color:#0a1a31}.dnAcc{display:flex;flex-wrap:wrap;gap:8px}' +
+    '.dnBusca{display:flex;gap:8px}.dnBusca input{flex:1;font:inherit;font-size:16px;padding:11px 14px;border:2px solid #dbe2ec;border-radius:12px}.dnBusca input:focus{outline:none;border-color:#c9a227}' +
+    '.dnInf{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:14px}.dnInf div{border:1px solid #dbe2ec;border-radius:14px;padding:14px;background:#fff;cursor:pointer}.dnInf div:hover{border-color:#c9a227;box-shadow:0 6px 18px rgba(201,162,39,.15)}.dnInf b{display:block;margin:6px 0 2px}.dnInf span.i{font-size:24px}' +
+    '.dnBar{display:grid;grid-template-columns:170px 1fr 40px;gap:8px;align-items:center;margin:6px 0;font-size:13px}.dnBar i{display:block;height:12px;border-radius:6px;background:linear-gradient(90deg,#1d4f91,#4f86c6)}.dnBar i.r{background:linear-gradient(90deg,#b3261e,#e06a63)}' +
+    '@media (max-width:900px){html.dn body{padding-left:0}#dnLat{position:static;width:auto}#dnLat nav{display:flex;flex-wrap:wrap}.dnRej{grid-template-columns:1fr}}';
+  function iniciarDiseno() {
+    if (DISENO !== 'nuevo' || $('dnLat')) return;
+    document.documentElement.classList.add('dn');
+    if (!$('dnCss')) { var st = document.createElement('style'); st.id = 'dnCss'; st.textContent = CSS_DN; document.head.appendChild(st); }
+    var lat = document.createElement('aside'); lat.id = 'dnLat';
+    lat.innerHTML = '<div class="marca"><div class="emb">S</div><b>SENDERO</b><small>El camino de cada mensaje</small></div><nav id="dnNav"></nav>' +
+      '<div class="autoria">Diseño y desarrollo<b>Cte. Alfredo Sánchez Sender</b>© 2026 · Todos los derechos reservados</div>' +
+      '<div class="pie">Versión ' + esc(VERSION) + (PRUEBAS ? ' · PRUEBAS' : '') + '<br><button type="button" id="dnClasico" title="Vuelve al diseño de siempre (se recuerda en este navegador)">↺ Diseño clásico</button></div>';
+    document.body.insertBefore(lat, document.body.firstChild);
+    var main = document.querySelector('main');
+    // Lo de la pantalla de siempre pasa a «Gestión» (los avisos de acceso y el portal se ven en todas)
+    // (el cartel de bienvenida «Hola …» es de la pantalla de siempre: va con Gestión)
+    Array.prototype.forEach.call(main.children, function (e) { if (e.id !== 'aviso' && e.tagName !== 'NOSCRIPT') e.classList.add('dnG'); });
+    var cab = document.createElement('div'); cab.id = 'dnCab'; main.insertBefore(cab, main.firstChild);
+    var vs = document.createElement('div'); vs.id = 'dnVistas'; main.insertBefore(vs, cab.nextSibling);
+    $('dnClasico').addEventListener('click', function () { guardar('diseno', 'clasico'); DISENO = 'clasico'; quitarDiseno(); });
+    irSeccion('panel');
+  }
+  function quitarDiseno() {
+    document.documentElement.classList.remove('dn');
+    ['dnLat', 'dnCab', 'dnVistas'].forEach(function (id) { var e = $(id); if (e) e.parentNode.removeChild(e); });
+    Array.prototype.forEach.call(document.querySelectorAll('.dnG'), function (e) { e.classList.remove('dnG'); e.style.display = ''; });
+    botonDisenoNuevo();
+  }
+  // En el diseño clásico, un botón discreto para volver a probar el nuevo
+  function botonDisenoNuevo() {
+    if ($('dnProbar') || DISENO === 'nuevo') return;
+    var f = $('actualizar'); if (!f) return;
+    f.insertAdjacentHTML('afterend', ' <button type="button" id="dnProbar" title="Barra lateral con Panel, Gestión, Firma, Consultas, Informes y Administración">✨ Diseño nuevo</button>');
+    $('dnProbar').addEventListener('click', function () { guardar('diseno', 'nuevo'); DISENO = 'nuevo'; this.parentNode.removeChild(this); iniciarDiseno(); refrescarDiseno(); });
+  }
+  function irSeccion(v) {
+    if (v === 'admin' && !esAdminSendero()) v = 'panel';
+    vistaD = v;
+    Array.prototype.forEach.call(document.querySelectorAll('.dnG'), function (e) { e.style.display = v === 'gestion' ? '' : 'none'; });
+    if ($('dnVistas')) $('dnVistas').style.display = v === 'gestion' ? 'none' : '';
+    refrescarDiseno(); window.scrollTo(0, 0);
+  }
+  var hoyTxt = function () { return new Date().toDateString(); };
+  var urgente = function (m) { return /^[ZO]$/i.test(String((m._x && m._x.CodigoPrioridad) || '').trim()); };
+  var enFirmaD = function (m) { try { return enFirma(m); } catch (e) { return false; } };
+  var paraRubrica = function (m) { try { return puedeRubrica(m); } catch (e) { return false; } };
+  function refrescarDiseno() {
+    if (DISENO !== 'nuevo' || !$('dnLat')) return;
+    var adm = esAdminSendero(), acc = accesoGuardado();
+    var sinLeer = mensajes.filter(function (m) { return m._leido === false; }).length, firma = mensajes.filter(enFirmaD).length;
+    $('dnNav').innerHTML = SECCIONES.filter(function (s) { return s[0] !== 'admin' || adm; }).map(function (s) {
+      var n = s[0] === 'gestion' ? sinLeer : s[0] === 'firma' ? firma : s[0] === 'admin' ? (acc.pendientesAcc || 0) : 0;
+      return (s[0] === 'gestion' ? '<div class="sep">Trabajo</div>' : s[0] === 'consultas' ? '<div class="sep">Consulta</div>' : s[0] === 'admin' ? '<div class="sep">Administración</div>' : '') +
+        '<a data-dn="' + s[0] + '"' + (vistaD === s[0] ? ' class="on"' : '') + '><span class="i">' + s[1] + '</span>' + s[2] + (n ? '<span class="n">' + n + '</span>' : '') + '</a>';
+    }).join('');
+    Array.prototype.forEach.call($('dnNav').querySelectorAll('[data-dn]'), function (a) { a.addEventListener('click', function () { irSeccion(a.getAttribute('data-dn')); }); });
+    var sec = SECCIONES.filter(function (s) { return s[0] === vistaD; })[0];
+    var cels = {}; mensajes.forEach(function (m) { var c = sitioDe(m); if (c) cels[c] = 1; });
+    $('dnCab').innerHTML = '<div><h2>' + esc(sec[2]) + '</h2><div class="sub">' + esc(sec[3]) + '</div></div><div class="der">' + (acc.ambito ? '<span class="chip">📍 Ámbito ' + esc(acc.ambito) + '</span>' : '') +
+      '<span class="chip">' + Object.keys(cels).length + ' células</span><span class="chip" id="dnEstado">' + esc(($('estado') || {}).textContent || '') + '</span>' +
+      (vistaD !== 'gestion' ? '<button type="button" class="dnBtn" id="dnAct">⟳ Actualizar</button>' : '') + (adm ? '<span class="chip oro">★ Administrador</span>' : '') + '</div>';
+    if ($('dnAct')) $('dnAct').addEventListener('click', function () { $('actualizar').click(); });
+    if (vistaD === 'gestion') return;
+    var vs = $('dnVistas'), h = '';
+    var fila = function (m, extra) { var f = fechaDe(m); return '<tr data-dnm="' + mensajes.indexOf(m) + '"><td class="nowrap">' + esc(f ? (f.toDateString() === hoyTxt() ? f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : verFecha(f)) : '') + '</td><td>' + (m._leido === false ? '<b>' + esc(m._asunto || '') + '</b>' : esc(m._asunto || '')) + '</td><td class="muted small">' + esc(sitioDe(m) || '') + '</td><td>' + (extra || '') + '</td></tr>'; };
+    if (vistaD === 'panel') {
+      var com = mensajes.filter(function (m) { return comNuevos[claveMensaje(m)]; }).length;
+      var urg = mensajes.filter(urgente).length, band = mensajes.filter(function (m) { return !!m._bandera; }).length;
+      var seg = mensajes.filter(function (m) { return pasadoATarea(m) || pasadoAPsit(m); }).length;
+      var k = function (v, t, c, ir, kpi) { return '<div class="dnKpi" style="--c:' + c + '" data-dnir="' + ir + '"' + (kpi ? ' data-dnkpi="' + kpi + '"' : '') + '><div class="v">' + v + '</div><div class="t">' + t + '</div></div>'; };
+      var hoy = mensajes.filter(function (m) { var f = fechaDe(m); return m._x && m._x.__es === 'Entrada' && f && f.toDateString() === hoyTxt(); })
+        .sort(function (a, b) { return fechaDe(b) - fechaDe(a); });
+      h = '<div class="dnKpis">' + k(sinLeer, 'Sin leer', '#1d4f91', 'gestion', 'noleidos') + k(urg, 'Urgentes / inmediatos', '#b3261e', 'gestion') + k(firma, 'Pendientes de firma', '#5b2e91', 'firma') +
+        k(com, 'Comentarios nuevos', '#c9a227', 'gestion', 'com') + k(band, 'Con bandera', '#7a5200', 'gestion') + k(seg, 'En META / PSIT', '#2f7f8f', 'gestion') + '</div>' +
+        '<div class="dnRej"><div class="dnTarj"><h3>📥 Entrado hoy <small>· ' + hoy.length + ' mensaje' + (hoy.length === 1 ? '' : 's') + '</small></h3>' +
+        (hoy.length ? '<table><thead><tr><th>Hora</th><th>Asunto</th><th>Célula</th><th></th></tr></thead><tbody>' + hoy.slice(0, 10).map(function (m) { return fila(m, urgente(m) ? '<span class="tag pri-alta">Urgente</span>' : ''); }).join('') + '</tbody></table>' : '<p class="muted">' + (mensajes.length ? 'Hoy no ha entrado nada en tus células.' : 'Cargando tus bandejas…') + '</p>') + '</div>' +
+        '<div><div class="dnTarj"><h3>🔔 Avisos</h3>' + (com ? '<p>💬 <b>' + com + ' comentario' + (com === 1 ? '' : 's') + ' nuevo' + (com === 1 ? '' : 's') + '</b> en tus mensajes.</p>' : '') + (firma ? '<p>✍ <b>' + firma + ' pendiente' + (firma === 1 ? '' : 's') + ' de firma</b> en Rúbrica.</p>' : '') +
+        (sinLeer ? '<p>📥 <b>' + sinLeer + ' sin leer</b> en el periodo cargado.</p>' : '') + (!com && !firma && !sinLeer ? '<p class="muted">Nada pendiente. 👍</p>' : '') + '</div>' +
+        '<div class="dnTarj"><h3>⚡ Accesos rápidos</h3><div class="dnAcc"><button class="dnBtn" data-dnir="consultas">🔎 Buscar en todo MENSADEF</button><button class="dnBtn" data-dnir="firma">✍ Ir a firmar</button><button class="dnBtn" data-dnir="informes">📊 Informes</button></div></div></div></div>';
+    } else if (vistaD === 'firma') {
+      var pf = mensajes.filter(enFirmaD), pr = mensajes.filter(paraRubrica);
+      h = '<div class="dnTarj"><h3>✍ Pendientes de firma en Rúbrica <small>· ' + pf.length + '</small></h3>' + (pf.length ? '<table><thead><tr><th>Fecha</th><th>Asunto</th><th>Célula</th><th></th></tr></thead><tbody>' +
+        pf.map(function (m) { return fila(m, '<button class="dnBtn" data-dnfirma="' + mensajes.indexOf(m) + '">✍ Firmar en Rúbrica</button>'); }).join('') + '</tbody></table>' : '<p class="muted">No hay mensajes pendientes de firma en el periodo cargado.</p>') +
+        '<div class="dnAcc" style="margin-top:10px"><button class="dnBtn oro" id="dnPortafirmas">✍ Abrir el Portafirmas con todo lo pendiente</button></div>' +
+        '<p class="muted small">En el Portafirmas pulsa tu favorito SENDERO: «📄 Leer» en cada petición, «☑ Marcar todas» y «✍ Firmar las marcadas» (AutoFirma pide el certificado y el PIN).</p></div>' +
+        (pr.length ? '<div class="dnTarj"><h3>Para pasar a rúbrica <small>· ' + pr.length + '</small></h3><table><thead><tr><th>Fecha</th><th>Asunto</th><th>Célula</th><th></th></tr></thead><tbody>' + pr.map(function (m) { return fila(m, '<span class="muted small">Ábrelo y pulsa «Pasar a rúbrica»</span>'); }).join('') + '</tbody></table></div>' : '');
+    } else if (vistaD === 'consultas') {
+      h = '<div class="dnTarj"><h3>🔎 Buscar en todo MENSADEF <small>· todas tus células, entrada y salida, cualquier fecha</small></h3><div class="dnBusca"><input id="dnBuscar" placeholder="Asunto, palabras del mensaje, número de registro entero (RE-…)…"><button class="dnBtn p" id="dnBuscarBtn">Buscar</button></div></div>' +
+        '<div class="dnTarj"><h3>🔗 Por registro o referencia <small>· el mensaje con ese número (RE-…-E-… o RE-…-S-…)</small></h3><div class="dnBusca"><input id="dnRef" placeholder="RE-001-S-26-04065098, o solo el número"><button class="dnBtn p" id="dnRefBtn">Localizar</button></div><p class="small" id="dnRefMsg"></p></div>' +
+        '<div class="dnTarj"><h3>Filtrar las bandejas cargadas</h3><p class="muted">Por célula, estado, bandera, leídos, META o PSIT, y agrupar por días o meses: en <a href="#" data-dnir="gestion">Gestión</a>.</p></div>';
+    } else if (vistaD === 'informes') {
+      var cuenta = {}, sl = {}; mensajes.forEach(function (m) { var c = sitioDe(m) || '—'; cuenta[c] = (cuenta[c] || 0) + 1; if (m._leido === false) sl[c] = (sl[c] || 0) + 1; });
+      var orden2 = Object.keys(cuenta).sort(function (a, b) { return cuenta[b] - cuenta[a]; }), max = Math.max.apply(null, [1].concat(orden2.map(function (c) { return cuenta[c]; })));
+      h = '<div class="dnInf"><div data-dninf="informe"><span class="i">📄</span><b>Relación de mensajes</b><span class="muted small">Lo filtrado en Gestión, para imprimir, PDF o Word.</span></div>' +
+        '<div data-dninf="csv"><span class="i">📥</span><b>Exportar a Excel (CSV)</b><span class="muted small">Lo filtrado en Gestión, con todos sus datos.</span></div>' +
+        '<div data-dnir="firma"><span class="i">✍</span><b>Firma</b><span class="muted small">Pendientes de firma y para pasar a rúbrica.</span></div>' +
+        '<div data-dnir="gestion" data-dnpasado="ambos"><span class="i">★</span><b>META y PSIT</b><span class="muted small">Lo que ha ido a tareas y al Punto de Situación.</span></div></div>' +
+        '<div class="dnTarj"><h3>📊 Mensajes por célula <small>· periodo cargado (' + esc($('desde').value) + ' a ' + esc($('hasta').value) + '); en rojo, sin leer</small></h3>' +
+        (orden2.length ? orden2.map(function (c) { return '<div class="dnBar"><span>' + esc(c) + '</span><span style="display:flex;gap:2px"><i style="width:' + Math.round(100 * (cuenta[c] - (sl[c] || 0)) / max) + '%"></i><i class="r" style="width:' + Math.round(100 * (sl[c] || 0) / max) + '%"></i></span><b>' + cuenta[c] + '</b></div>'; }).join('') : '<p class="muted">Sin mensajes cargados.</p>') + '</div>';
+    } else if (vistaD === 'admin') {
+      var vig = acc.vigente || {};
+      h = '<div class="dnTarj" style="background:linear-gradient(90deg,#fff8dc,#fff);border-color:#c9a227">★ Solo lo ven los <b>administradores de SENDERO</b>.</div>' +
+        '<div class="dnKpis"><div class="dnKpi" style="--c:#c9a227" data-dnacc="1"><div class="v">' + (acc.pendientesAcc || 0) + '</div><div class="t">Solicitudes de acceso pendientes</div></div>' +
+        '<div class="dnKpi" data-dnacc="1"><div class="v" style="font-size:20px">' + esc(vig.version || '—') + '</div><div class="t">Versión vigente</div></div>' +
+        '<div class="dnKpi" style="--c:#1e6b2e" data-dnacc="1"><div class="v" style="font-size:20px">' + esc(VERSION) + '</div><div class="t">Esta versión de SENDERO</div></div></div>' +
+        '<div class="dnTarj"><h3>🛡 Control de acceso</h3><p class="muted">Solicitudes, autorizados y bloqueos, responsables de ámbito, versión vigente y avisos por correo, en la página de control de acceso de Colabora.</p>' +
+        '<div class="dnAcc"><button class="dnBtn oro" data-dnacc="1">🛡 Abrir el control de acceso</button></div></div>';
+    }
+    vs.innerHTML = h;
+    Array.prototype.forEach.call(vs.querySelectorAll('[data-dnir]'), function (e) { e.addEventListener('click', function (ev) {
+      ev.preventDefault(); var kp = e.getAttribute('data-dnkpi'), pa = e.getAttribute('data-dnpasado');
+      if (kp === 'noleidos') { kpiSel = 'noleidos'; filtrar(); } if (kp === 'com') { soloComNuevos = true; filtrar(); }
+      if (pa && $('fPasado')) { $('fPasado').value = pa; filtrar(); }
+      irSeccion(e.getAttribute('data-dnir'));
+    }); });
+    Array.prototype.forEach.call(vs.querySelectorAll('[data-dnm]'), function (tr) { tr.addEventListener('click', function (ev) {
+      if (ev.target.closest('button')) return; var m = mensajes[Number(tr.getAttribute('data-dnm'))]; if (!m) return; irSeccion('gestion'); abrir(m); });
+    });
+    Array.prototype.forEach.call(vs.querySelectorAll('[data-dnfirma]'), function (b) { b.addEventListener('click', function () { var m = mensajes[Number(b.getAttribute('data-dnfirma'))]; if (m) window.open(urlRubrica(m), pestanaFirma(m)); }); });
+    if ($('dnPortafirmas')) $('dnPortafirmas').addEventListener('click', function () { window.open('https://portafirmas.mdef.es/ePortafirmas/Firmantes.do?operacion=ListaPendientes', 'SENDEROFIRMA_'); });
+    Array.prototype.forEach.call(vs.querySelectorAll('[data-dninf]'), function (d) { d.addEventListener('click', function () { var id = d.getAttribute('data-dninf'); if ($(id)) $(id).click(); }); });
+    Array.prototype.forEach.call(vs.querySelectorAll('[data-dnacc]'), function (d) { d.addEventListener('click', function () { if (URL_ACCESO) window.open(URL_ACCESO, '_blank'); }); });
+    if ($('dnBuscarBtn')) {
+      var buscarYa = function () { var q = $('dnBuscar').value.trim(), antes = $('buscar').value; $('buscar').value = q; buscarEnTodo(); $('buscar').value = antes; };
+      $('dnBuscarBtn').addEventListener('click', buscarYa); $('dnBuscar').addEventListener('keydown', function (e) { if (e.key === 'Enter') buscarYa(); });
+      var refYa = function () { var v = $('dnRef').value.trim(); if (v) irAReferencia(null, v, false, 'dnRefMsg'); };
+      $('dnRefBtn').addEventListener('click', refYa); $('dnRef').addEventListener('keydown', function (e) { if (e.key === 'Enter') refYa(); });
+    }
+  }
+  // El estado de la carga también en la cabecera de las secciones
+  if (window.MutationObserver && $('estado')) new MutationObserver(function () { if ($('dnEstado')) $('dnEstado').textContent = $('estado').textContent; }).observe($('estado'), { childList: true, characterData: true, subtree: true });
+  if (DISENO === 'nuevo') iniciarDiseno(); else botonDisenoNuevo();
 })();
 </script>
 </body>

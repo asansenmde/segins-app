@@ -59,7 +59,7 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-27 · 1';
+  var VERSION = '2026-11-27 · 2';
   // Solo se contesta a SENDERO, que funciona en MENSADEF (el favorito escribe su página sobre la de MENSADEF)
   var ORIGEN_SENDERO = 'https://mensadef.mdef.es';
   var L_AUT = 'SENDERO Autorizados', L_SOL = 'SENDERO Solicitudes', GRUPO = 'SENDERO Administradores';
@@ -330,6 +330,13 @@
     if (a && urlValida(a.UrlPsit)) g.psit = String(a.UrlPsit).trim();
     return g;
   }
+  function esAdminAcceso() {
+    return Promise.all([api(web + '/_api/web/EffectiveBasePermissions').catch(function () { return null; }), api(web + '/_api/web/currentuser/groups?$select=Title').catch(function () { return null; })]).then(function (r) {
+      var e = r[0] && (r[0].EffectiveBasePermissions || r[0]), low = Number(e && (e.Low != null ? e.Low : e.low)) || 0;
+      var gs = lista(r[1] && (r[1].value || r[1].results || r[1])).map(function (g) { return g && g.Title; });
+      return (low & 0x2000000) !== 0 || gs.indexOf(GRUPO) >= 0;
+    });
+  }
   function evaluar(ambito) {
     ambito = String(ambito || '').trim();
     return leerYo().then(function (u) {
@@ -339,7 +346,11 @@
       return Promise.all([
         leerReglas('Id,Title,Tipo,Activo,Hasta', '&$filter=' + encodeURIComponent(filtro) + '&$top=100'),
         leerVersiones(),
-        todas(urlL(L_SOL) + '/items?$select=Id,Estado,Respuesta,Ambito,Created&$filter=' + encodeURIComponent('Correo eq ' + lit(u.email)) + '&$top=50').catch(function () { return []; })
+        todas(urlL(L_SOL) + '/items?$select=Id,Estado,Respuesta,Ambito,Created&$filter=' + encodeURIComponent('Correo eq ' + lit(u.email)) + '&$top=50').catch(function () { return []; }),
+        // 27/11/2026 (diseño nuevo de SENDERO): ¿administra SENDERO? (Control total del sitio o grupo «SENDERO Administradores»)
+        // y, si lo es, cuántas solicitudes hay pendientes; para la sección «Administración»
+        esAdminAcceso().then(function (ad) { return !ad ? { admin: false, pend: 0 } : todas(urlL(L_SOL) + '/items?$select=Id&$filter=' + encodeURIComponent("Estado eq 'Pendiente'") + '&$top=500')
+          .then(function (l) { return { admin: true, pend: l.length }; }, function () { return { admin: true, pend: 0 }; }); })
       ]).then(function (r) {
         var reglas = r[0].filter(activo);
         var mia = function (t) { return reglas.filter(function (x) { return x.Tipo === t && norm(x.Title) === u.email; })[0]; };
@@ -349,6 +360,7 @@
         var sol = r[2].sort(function (a, b) { return b.Id - a.Id; })[0];
         return { ok: !bloq && !!(per || amb), motivo: bloq ? 'bloqueado' : per || amb ? '' : 'sin_regla', regla: per ? 'persona' : amb ? 'ámbito ' + amb.Title : '',
           email: u.email, nombre: u.nombre, ambito: ambito, vigente: r[1].vigente, caducidad: r[1].caducidad, minima: r[1].minima, gestores: gestoresDe(r[0], ambito),
+          admin: !!r[3].admin, solicitudesPendientes: r[3].pend,
           solicitud: sol ? { estado: sol.Estado || 'Pendiente', fecha: sol.Created, respuesta: sol.Respuesta || '', ambito: sol.Ambito || '' } : null };
       });
     });

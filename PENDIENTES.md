@@ -351,3 +351,9 @@ autoría.
       y oro, Panel (indicadores y avisos), Gestión (bandejas y ficha con acciones agrupadas: Tramitar, Seguimiento, Compartir),
       Firma, Consultas, Informes y Administración (solo administradores: accesos, versiones, organizaciones). PENDIENTE DEL
       USUARIO: decir qué le parece antes de rehacer SENDERO.
+    27/11/2026: SENDERO 2026-11-27 · 1 con el DISEÑO NUEVO (aprobado sobre la maqueta): barra lateral azul noche y oro, autoría bien
+      visible, Panel (indicadores, entrado hoy, avisos, accesos rápidos), Gestión (la pantalla de siempre: bandejas, filtros,
+      agrupaciones y ficha), Firma (pendientes y abrir el Portafirmas con todo), Consultas (todo MENSADEF y por registro), Informes
+      (relación, CSV, por célula) y Administración (solo administradores). «↺ Diseño clásico» vuelve al de antes («✨ Diseño
+      nuevo» para volver). SENDERO-acceso 2026-11-27 · 2 dice si es administrador (Control total o grupo) y las solicitudes
+      pendientes. PENDIENTE DEL USUARIO: subir SENDERO-pruebas y SENDERO-acceso, probar y decir qué cambiar.

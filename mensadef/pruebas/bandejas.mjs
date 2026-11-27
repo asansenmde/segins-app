@@ -141,7 +141,7 @@ if (process.env.VENTANA) await p.evaluate(M => localStorage.setItem(M + 'sinAuto
 // 2SUIGE está autorizado. NOAUT=1: sin reglas (pantalla «no autorizado» y «Solicitar acceso»); XFO=1: Colabora no deja
 // abrir su página en un marco (se comprueba con la ventana pequeña); NUEVA=1: hay una versión vigente más nueva;
 // DIAS=n adelanta el reloj n días (31 → caducada; 27 → aviso)
-const estC = nuevoEstado({ xfo: !!process.env.XFO }); estC.admin = false; estC.usuario = { Id: 21, Title: 'PERSONA', Email: 'persona@pruebas.invalid' };
+const estC = nuevoEstado({ xfo: !!process.env.XFO }); estC.admin = !!process.env.ADMIN;   // ADMIN=1: administra SENDERO (sección «Administración») estC.usuario = { Id: 21, Title: 'PERSONA', Email: 'persona@pruebas.invalid' };
 // SINORG=1: el ámbito no tiene dadas de alta las direcciones de META y del PSIT (y la lista es antigua, sin esas columnas)
 estC.sinColumnasUrl = !!process.env.SINORG;
 const ORG_META = 'https://colabora.mdef.es/et/ORG/aplicaciones/META.html', ORG_PSIT = 'https://colabora.mdef.es/et/ORG/aplicaciones/puntos-situacion.html';
@@ -156,6 +156,8 @@ if (process.env.CARGA_LENTA) await ctx.route(API + '/**', async r => { const u =
 // Las pruebas cargan 3 días (con «hoy» los mensajes simulados dependen de la hora del día); INICIO=sin: sin ajuste → solo hoy
 const INICIO = process.env.INICIO || '2';
 await p.evaluate(([M, ini]) => { localStorage.setItem(M + 'desde', JSON.stringify('2026-10-01')); localStorage.setItem(M + 'hasta', JSON.stringify('2026-10-02')); if (ini !== 'sin') localStorage.setItem(M + 'periodoInicio', ini); }, [MEM, INICIO]);
+// 27/11/2026: las pasadas de siempre, con el diseño clásico; DISENO=nuevo prueba el diseño nuevo (barra lateral y secciones)
+await p.evaluate(([M, d]) => localStorage.setItem(M + 'diseno', JSON.stringify(d || 'clasico')), [MEM, process.env.DISENO || '']);
 // 25/11/2026: RECORDADO=1: MENSADEF ha vaciado su registro (telemetría) y SharePoint no tiene el correo: se usa el de la última
 // vez, guardado con la cuenta; RECORDADO=otra: lo guardado es de otra cuenta (equipo compartido) → no se usa
 if (process.env.RECORDADO) await p.evaluate(([M, otra]) => localStorage.setItem(M + 'correoUsuario', JSON.stringify({ email: 'persona@pruebas.invalid', login: otra ? 'i:0#.w|et\\otra' : 'i:0#.w|et\\persona' })), [MEM, process.env.RECORDADO === 'otra']);
@@ -164,6 +166,32 @@ await p.evaluate(codigo); await p.waitForTimeout(2500);
 const leeBandejas = () => llamadas.slice(llamadasAntes).filter(x => /ObtenerBuzonCelula|ConsultaUsuarioDicodef|EtiquetasObtener/.test(x)).length;
 const cargadas = async () => { await p.waitForFunction(() => /mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 90000 }).catch(() => 0); return /mensajes del/.test(await p.textContent('#estado')) && llamadas.slice(llamadasAntes).some(x => /ObtenerBuzonCelula/.test(x)); };
 const fin = async () => { console.log('errores:', JSON.stringify(errs)); await b.close(); process.exit(0); };
+if (process.env.DISENO === 'nuevo') {
+  const ok = await cargadas(); await p.waitForTimeout(500);
+  const nav = await p.$$eval('#dnNav a', l => l.map(a => a.dataset.dn));
+  const autoria = await p.textContent('#dnLat .autoria'), cabOculta = await p.$eval('body > header', h => getComputedStyle(h).display === 'none');
+  if (process.env.CAPTURA_DN) { await p.setViewportSize({ width: 1400, height: 860 }); await p.screenshot({ path: process.env.CAPTURA_DN + '-panel.png' }); }
+  const kpis = await p.$$eval('.dnKpi .t', l => l.map(x => x.textContent)), hoyFilas = await p.$$eval('#dnVistas tr[data-dnm]', l => l.length), listaOculta = await p.$eval('#lista', e => !e.offsetParent);
+  await p.click('#dnVistas tr[data-dnm] >> nth=0'); await p.waitForTimeout(600);
+  const enGestion = await p.$eval('#dnNav a.on', a => a.textContent.trim()), fichaAbierta = await p.$eval('#detalle', e => !e.hidden && !!e.offsetParent);
+  await p.click('#dnNav a[data-dn="consultas"]'); await p.fill('#dnBuscar', 'antiguo'); await p.click('#dnBuscarBtn'); await p.waitForSelector('#refModal', { timeout: 15000 }).catch(() => 0);
+  const busca = await p.textContent('#refModal').catch(() => ''); await p.keyboard.press('Escape');
+  await p.click('#dnNav a[data-dn="informes"]'); const barras = await p.$$eval('.dnBar', l => l.length);
+  await p.click('#dnNav a[data-dn="firma"]'); const firmaTxt = await p.textContent('#dnVistas');
+  const admin = await p.$('#dnNav a[data-dn="admin"]');
+  let adminTxt = ''; if (admin) { await admin.click(); await p.waitForTimeout(200); adminTxt = await p.textContent('#dnVistas'); if (process.env.CAPTURA_DN) await p.screenshot({ path: process.env.CAPTURA_DN + '-admin.png' }); }
+  if (process.env.ADMIN && !/Abrir el control de acceso/.test(adminTxt)) console.log('Error: sección de administración');
+  await p.click('#dnClasico'); await p.waitForTimeout(300);
+  const clasico = !(await p.$('#dnLat')) && await p.$eval('body > header', h => getComputedStyle(h).display !== 'none') && await p.$eval('#lista', e => !!e.offsetParent), boton = !!(await p.$('#dnProbar'));
+  const recordado = await p.evaluate(M => localStorage.getItem(M + 'diseno'), MEM);
+  await p.click('#dnProbar'); await p.waitForTimeout(300); const vuelve = !!(await p.$('#dnLat'));
+  console.log('diseño nuevo: carga', ok, '| secciones', nav.join(','), '| autoría:', /Cte\. Alfredo Sánchez Sender/.test(autoria), '| cabecera antigua oculta', cabOculta, '| indicadores', kpis.length, '| entrado hoy', hoyFilas, '| lista oculta en el panel', listaOculta);
+  console.log('diseño nuevo: pulsar uno → ', enGestion, 'y ficha abierta', fichaAbierta, '| consultas abre la búsqueda:', /antiguo/i.test(busca), '| barras por célula', barras, '| firma:', /Abrir el Portafirmas/.test(firmaTxt), '| administración (no admin):', !!admin);
+  console.log('diseño nuevo: «Diseño clásico» →', clasico, '| botón para volver', boton, '| se recuerda', recordado, '| vuelve al nuevo', vuelve);
+  if (!ok || nav.join() !== (process.env.ADMIN ? 'panel,gestion,firma,consultas,informes,admin' : 'panel,gestion,firma,consultas,informes') || !/Cte\. Alfredo Sánchez Sender/.test(autoria) || !cabOculta || kpis.length !== 6 || !hoyFilas || !listaOculta || !/Gestión/.test(enGestion) || !fichaAbierta ||
+    !/antiguo/i.test(busca) || !barras || !/Abrir el Portafirmas/.test(firmaTxt) || !!admin !== !!process.env.ADMIN || !clasico || !boton || recordado !== '"clasico"' || !vuelve) console.log('Error: diseño nuevo');
+  await fin();
+}
 if (process.env.RECORDADO) {
   const ok = await cargadas(), txt = await p.textContent('body');
   if (process.env.VERDOM) console.log('estado:', await p.textContent('#estado').catch(() => '-'), '| cuerpo:', (await p.textContent('body')).slice(0, 400));
