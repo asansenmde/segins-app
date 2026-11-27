@@ -167,69 +167,56 @@ const leeBandejas = () => llamadas.slice(llamadasAntes).filter(x => /ObtenerBuzo
 const cargadas = async () => { await p.waitForFunction(() => /mensajes del/.test(document.getElementById('estado').textContent), null, { timeout: 90000 }).catch(() => 0); return /mensajes del/.test(await p.textContent('#estado')) && llamadas.slice(llamadasAntes).some(x => /ObtenerBuzonCelula/.test(x)); };
 const fin = async () => { console.log('errores:', JSON.stringify(errs)); await b.close(); process.exit(0); };
 if (process.env.DISENO === 'nuevo') {
+  // 27/11/2026 (tarde): una sola pantalla principal («Bandejas»), la de siempre: lista y ficha al lado, filtros a la vista,
+  // «Filtrando por» con lo activo, repaso rápido; Firma, Consultas, Informes y Administración en la barra lateral
   const ok = await cargadas(); await p.waitForTimeout(500);
+  if (process.env.CAPTURA_DN) { await p.setViewportSize({ width: 1400, height: 860 }); await p.screenshot({ path: process.env.CAPTURA_DN + '-bandejas.png' }); }
   const nav = await p.$$eval('#dnNav a', l => l.map(a => a.dataset.dn));
-  const autoria = await p.textContent('#dnLat .autoria'), cabOculta = await p.$eval('body > header', h => getComputedStyle(h).display === 'none');
-  if (process.env.CAPTURA_DN) { await p.setViewportSize({ width: 1400, height: 860 }); await p.screenshot({ path: process.env.CAPTURA_DN + '-panel.png' }); }
-  // 27/11/2026: el Panel es la lista de siempre (con toda la información de cada mensaje), sin la ficha, y con los contadores arriba
-  const kpis = await p.$$eval('.dnKpi .t', l => l.map(x => x.textContent)), hoyFilas = await p.$$eval('#lista tbody tr[data-i]', l => l.length), listaOculta = await p.$eval('#detalle', e => !e.offsetParent);
-  const infoFila = await p.$eval('#lista tbody tr[data-i]', tr => tr.textContent);
-  // Repaso rápido: «Sin leer» → «Marcar leídos en MENSADEF» (uno a uno, PUT) y «Marcar vistos los de la lista»
-  const leidosAntes = leidos.length; await p.click('#dnPest [data-pest="noleidos"]'); await p.waitForTimeout(300); const sinLeer = await p.$$eval('#lista tbody tr[data-i]', l => l.length);
-  p.once('dialog', d => d.accept()); await p.click('#dnLeidosTodos'); await p.waitForFunction(() => /✔/.test(document.getElementById('dnRepasoMsg').textContent), null, { timeout: 30000 }).catch(() => 0);
-  const marcadosLeidos = leidos.length - leidosAntes, msgLeidos = await p.textContent('#dnRepasoMsg');
-  await p.click('#dnPest [data-pest="todos"]'); await p.waitForTimeout(300);
-  p.once('dialog', d => d.accept()); await p.click('#dnVistosTodos'); await p.waitForTimeout(300);
-  const vistosTodos = await p.$$eval('#lista tbody input[data-visto]', l => l.every(x => x.checked));
-  await p.check('#dnOcultarVistos'); await p.waitForTimeout(300); const trasOcultar = await p.$$eval('#lista tbody tr[data-i]', l => l.length);
-  await p.uncheck('#dnOcultarVistos'); await p.waitForTimeout(300);
-  await p.evaluate(M => localStorage.removeItem(M + 'vistos'), MEM);
-  console.log('diseño nuevo, repaso: sin leer', sinLeer, '→ marcados leídos', marcadosLeidos, '(' + msgLeidos.trim() + ') | vistos todos', vistosTodos, '| ocultar vistos deja', trasOcultar);
-  if (!sinLeer || marcadosLeidos !== sinLeer || !vistosTodos || trasOcultar !== 0 || !/ACCIÓN|INFO/.test(infoFila)) console.log('Error: repaso rápido del Panel');
+  const autoria = await p.textContent('#dnLat .autoria'), usuario = await p.textContent('#dnUsuario'), sinSaludo = await p.$eval('#hero', e => !e.offsetParent);
+  const aLaVista = await p.evaluate(() => ['lista', 'filtros', 'desde'].every(id => !!document.getElementById(id).offsetParent));
+  const sinFiltros = await p.textContent('#dnFiltrando');
+  // Pulsar un mensaje: la ficha se abre al lado, sin cambiar de sección
   await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(600);
-  const enGestion = await p.$eval('#dnNav a.on', a => a.textContent.trim()), fichaAbierta = await p.$eval('#detalle', e => !e.hidden && !!e.offsetParent);
-  // Gestión como la maqueta: pestañas, buscador, periodo y filtros plegados, y la ficha con los botones agrupados
-  const grupos = await p.$$eval('#detalle .dnGr > b', l => l.map(b => b.textContent)), correoEnGrupo = !!(await p.$('#detalle .dnGr #porCorreo')), plegados = await p.$eval('#filtros', e => !e.offsetParent);
-  const pest = await p.$$eval('#dnPest [data-pest]', l => l.map(x => x.dataset.pest));
-  await p.click('#dnPest [data-pest="salida"]'); await p.waitForTimeout(300);
-  const soloSalida = await p.$$eval('#lista tbody tr[data-i]', l => l.length), filasSal = await p.evaluate(() => document.querySelector('#dnPest [data-pest="salida"] i').textContent);
-  await p.click('#dnPest [data-pest="todos"]'); await p.waitForTimeout(300);
-  await p.click('#dnVerFiltros'); const filtrosAbiertos = await p.$eval('#filtros', e => !!e.offsetParent); await p.click('#dnVerFiltros');
-  if (process.env.CAPTURA_DN) { await p.screenshot({ path: process.env.CAPTURA_DN + '-gestion.png' }); }
-  console.log('diseño nuevo, gestión: grupos', grupos.join(','), '| correo en su grupo', correoEnGrupo, '| filtros plegados', plegados, '→ se abren', filtrosAbiertos, '| pestañas', pest.join(','), '| salida', soloSalida, 'filas (' + filasSal + ')');
-  if (grupos.join() !== 'Tramitar,Seguimiento,Compartir' || !correoEnGrupo || !plegados || !filtrosAbiertos || !pest.includes('salida') || String(soloSalida) !== filasSal) console.log('Error: gestión del diseño nuevo');
-  // Consultas: los resultados en la misma página; al pulsar uno, su ventana
+  const sigue = await p.$eval('#dnNav a.on', a => a.dataset.dn), fichaAlLado = await p.evaluate(() => !!document.getElementById('detalle').offsetParent && !!document.getElementById('lista').offsetParent);
+  const fichaSiempre = !(await p.$('#detalle .dnGrupos')) && !!(await p.$('#detalle .grandes #aColabora'));
+  // «Filtrando por»: búsqueda + tarjeta «No leídos» + célula; se quita uno con su ✕ y el resto con «Quitar todos»
+  await p.fill('#buscar', 'Mensaje 1'); await p.waitForTimeout(400); await p.click('#kpis [data-kpi="noleidos"]'); await p.waitForTimeout(300);
+  await p.selectOption('#fSitio', { index: 1 }); await p.waitForTimeout(300);
+  const chips = await p.$$eval('#dnFiltrando .chip', l => l.map(x => x.textContent.replace('✕', '').trim())), ves = await p.textContent('#dnFiltrando');
+  const filas = await p.$$eval('#lista tbody tr[data-i]', l => l.length);
+  await p.click('#dnFiltrando [data-dnq="buscar"]'); await p.waitForTimeout(400); const trasUno = await p.$$eval('#dnFiltrando .chip', l => l.length), buscaVacia = await p.inputValue('#buscar') === '';
+  await p.click('#dnQuitarTodos'); await p.waitForTimeout(400); const trasTodos = await p.textContent('#dnFiltrando');
+  console.log('diseño nuevo: carga', ok, '| secciones', nav.join(','), '| autoría', /Cte\. Alfredo Sánchez Sender/.test(autoria), '| usuario', usuario.trim().slice(0, 30), '| sin saludo', sinSaludo, '| lista, filtros y periodo a la vista', aLaVista);
+  console.log('diseño nuevo: pulsar un mensaje → sigue en', sigue, '| ficha al lado', fichaAlLado, '| ficha de siempre', fichaSiempre);
+  console.log('diseño nuevo: «' + sinFiltros.trim().slice(0, 60) + '» → filtrando:', JSON.stringify(chips), '| «ves ' + filas + ' de»:', new RegExp('ves ' + filas + ' de').test(ves), '| quitar uno deja', trasUno, '(búsqueda vacía', buscaVacia + ') | quitar todos →', trasTodos.trim().slice(0, 50));
+  if (!ok || nav.join() !== (process.env.ADMIN ? 'bandejas,firma,consultas,informes,admin' : 'bandejas,firma,consultas,informes') || !/Cte\. Alfredo Sánchez Sender/.test(autoria) || !/PERSONA/.test(usuario) || !sinSaludo || !aLaVista ||
+    !/^Sin filtros/.test(sinFiltros.trim()) || sigue !== 'bandejas' || !fichaAlLado || !fichaSiempre || chips.length < 3 || !chips.some(c => /Buscar «Mensaje 1»/.test(c)) || !chips.some(c => /No leídos/.test(c)) || !chips.some(c => /^Célula:/.test(c)) ||
+    !new RegExp('ves ' + filas + ' de').test(ves) || trasUno !== chips.length - 1 || !buscaVacia || !/Sin filtros/.test(trasTodos)) console.log('Error: pantalla principal del diseño nuevo');
+  // Repaso rápido: «No leídos» → «Marcar leídos en MENSADEF»; luego «Marcar vistos los de la lista»
+  await p.click('#kpis [data-kpi="noleidos"]'); await p.waitForTimeout(300); const sinLeer = await p.$$eval('#lista tbody tr[data-i]', l => l.length), leidosAntes = leidos.length;
+  p.once('dialog', d => d.accept()); await p.click('#dnLeidosTodos'); await p.waitForFunction(() => /✔/.test(document.getElementById('dnRepasoMsg').textContent), null, { timeout: 30000 }).catch(() => 0);
+  const marcados = leidos.length - leidosAntes; await p.click('#dnQuitarTodos').catch(() => 0); await p.waitForTimeout(300);
+  p.once('dialog', d => d.accept()); await p.click('#dnVistosTodos'); await p.waitForTimeout(300); const vistosTodos = await p.$$eval('#lista tbody input[data-visto]', l => l.every(x => x.checked));
+  await p.evaluate(M => localStorage.removeItem(M + 'vistos'), MEM);
+  console.log('diseño nuevo, repaso: sin leer', sinLeer, '→ marcados leídos', marcados, '| vistos todos', vistosTodos);
+  if (!sinLeer || marcados !== sinLeer || !vistosTodos) console.log('Error: repaso rápido');
+  // Secciones de la barra lateral
   await p.click('#dnNav a[data-dn="consultas"]'); await p.fill('#dnBuscar', 'antiguo'); await p.click('#dnBuscarBtn'); await p.waitForSelector('#dnRes [data-dnres]', { timeout: 15000 }).catch(() => 0);
-  const resEnPagina = await p.$$eval('#dnRes [data-dnres]', l => l.length); await p.click('#dnRes [data-dnres] >> nth=0').catch(() => 0); await p.waitForSelector('#refModal', { timeout: 5000 }).catch(() => 0);
-  const busca = await p.textContent('#refModal').catch(() => ''); await p.keyboard.press('Escape');
-  if (process.env.CAPTURA_DN) await p.screenshot({ path: process.env.CAPTURA_DN + '-consultas.png' });
-  // Usuario en la barra lateral y sin el saludo grande
-  const usuario = await p.textContent('#dnUsuario'), sinSaludo = await p.$eval('#hero', e => !e.offsetParent);
+  const res = await p.$$eval('#dnRes [data-dnres]', l => l.length), listaOcultaEnConsultas = await p.$eval('#lista', e => !e.offsetParent);
   await p.click('#dnNav a[data-dn="informes"]'); const barras = await p.$$eval('.dnBar', l => l.length);
-  await p.click('[data-dndist]'); await p.waitForTimeout(200); const dist = await p.textContent('#dnVistas');
-  await p.click('#dnNav a[data-dn="firma"]'); const firmaTxt = await p.textContent('#dnVistas');
-  // Firma: con casillas; «Firmar los marcados» abre el Portafirmas con esos asuntos (SENDEROFIRMAS_…)
-  await p.evaluate(() => { window.__abiertas = []; window.open = function (u, n) { window.__abiertas.push([u, n]); return null; }; });
-  const casillas = await p.$$eval('.dnFir', l => l.length); await p.click('#dnFirmarMarcados').catch(() => 0);
-  const abierta = await p.evaluate(() => window.__abiertas[0] || []);
-  if (process.env.CAPTURA_DN) await p.screenshot({ path: process.env.CAPTURA_DN + '-firma.png' });
-  console.log('diseño nuevo, firma: casillas', casillas, '| abre', String(abierta[0]).replace(/^https:\/\/[^/]+/, ''), 'con', String(abierta[1]).slice(0, 40));
-  console.log('diseño nuevo, consultas: resultados en la página', resEnPagina, '| usuario en la barra:', usuario.trim(), '| sin saludo grande', sinSaludo);
-  if (!casillas || !/ListaPendientes/.test(abierta[0] || '') || !/^SENDEROFIRMAS_/.test(abierta[1] || '') || !resEnPagina || !/PERSONA/.test(usuario) || !sinSaludo) console.log('Error: firma, consultas o usuario del diseño nuevo');
-  const admin = await p.$('#dnNav a[data-dn="admin"]');
-  let adminTxt = ''; if (admin) { await admin.click(); await p.waitForTimeout(200); adminTxt = await p.textContent('#dnVistas'); if (process.env.CAPTURA_DN) await p.screenshot({ path: process.env.CAPTURA_DN + '-admin.png' }); }
-  if (process.env.ADMIN && !/Abrir el control de acceso/.test(adminTxt)) console.log('Error: sección de administración');
+  await p.click('#dnNav a[data-dn="firma"]'); const casillas = await p.$$eval('.dnFir', l => l.length);
+  const admin = await p.$('#dnNav a[data-dn="admin"]'); let adminTxt = ''; if (admin) { await admin.click(); await p.waitForTimeout(200); adminTxt = await p.textContent('#dnVistas'); }
+  // Volver a Bandejas: está donde lo dejó (la ficha sigue abierta)
+  await p.click('#dnNav a[data-dn="bandejas"]'); await p.waitForTimeout(300); const vuelve = await p.evaluate(() => !!document.getElementById('detalle').offsetParent && !!document.getElementById('lista').offsetParent);
+  console.log('diseño nuevo, secciones: consultas', res, 'resultados (lista oculta', listaOcultaEnConsultas + ') | informes', barras, 'barras | firma', casillas, 'casillas | admin', !!admin, '| al volver a Bandejas, como estaba:', vuelve);
+  if (!res || !listaOcultaEnConsultas || !barras || !casillas || !!admin !== !!process.env.ADMIN || (process.env.ADMIN && !/Abrir el control de acceso/.test(adminTxt)) || !vuelve) console.log('Error: secciones del diseño nuevo');
+  // «Diseño clásico» y vuelta
   await p.click('#dnClasico'); await p.waitForTimeout(300);
-  const fichaClasica = !(await p.$('#detalle .dnGrupos'));
-  const clasico = !(await p.$('#dnLat')) && await p.$eval('body > header', h => getComputedStyle(h).display !== 'none') && await p.$eval('#lista', e => !!e.offsetParent), boton = !!(await p.$('#dnProbar'));
+  const clasico = !(await p.$('#dnLat')) && await p.$eval('body > header', h => getComputedStyle(h).display !== 'none'), boton = !!(await p.$('#dnProbar'));
   const recordado = await p.evaluate(M => localStorage.getItem(M + 'diseno'), MEM);
-  await p.click('#dnProbar'); await p.waitForTimeout(300); const vuelve = !!(await p.$('#dnLat'));
-  console.log('diseño nuevo: carga', ok, '| secciones', nav.join(','), '| autoría:', /Cte\. Alfredo Sánchez Sender/.test(autoria), '| cabecera antigua oculta', cabOculta, '| indicadores', kpis.length, '| mensajes en el panel', hoyFilas, '| ficha oculta en el panel', listaOculta);
-  console.log('diseño nuevo: pulsar uno → ', enGestion, 'y ficha abierta', fichaAbierta, '| consultas abre la búsqueda:', /antiguo/i.test(busca), '| barras por célula', barras, '| firma:', /Abrir el Portafirmas/.test(firmaTxt), '| administración (no admin):', !!admin);
-  if (!/Distribuciones/.test(dist) || !/Decretado/.test(dist)) console.log('Error: distribuciones', dist.slice(0, 200));
-  console.log('diseño nuevo: «Diseño clásico» →', clasico, '| ficha de siempre', fichaClasica, '| botón para volver', boton, '| se recuerda', recordado, '| vuelve al nuevo', vuelve);
-  if (!ok || nav.join() !== (process.env.ADMIN ? 'panel,gestion,firma,consultas,informes,admin' : 'panel,gestion,firma,consultas,informes') || !/Cte\. Alfredo Sánchez Sender/.test(autoria) || !cabOculta || kpis.length !== 6 || !hoyFilas || !listaOculta || !/Gestión/.test(enGestion) || !fichaAbierta ||
-    !/antiguo/i.test(busca) || !barras || !/Abrir el Portafirmas/.test(firmaTxt) || !!admin !== !!process.env.ADMIN || !clasico || !fichaClasica || !boton || recordado !== '"clasico"' || !vuelve) console.log('Error: diseño nuevo');
+  await p.click('#dnProbar'); await p.waitForTimeout(300); const otraVez = !!(await p.$('#dnLat'));
+  console.log('diseño nuevo: «Diseño clásico» →', clasico, '| botón para volver', boton, '| se recuerda', recordado, '| vuelve al nuevo', otraVez);
+  if (!clasico || !boton || recordado !== '"clasico"' || !otraVez) console.log('Error: diseño clásico');
   await fin();
 }
 if (process.env.RECORDADO) {

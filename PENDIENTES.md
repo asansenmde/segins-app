@@ -368,3 +368,8 @@ autoría.
       agrupación por días), los contadores arriba (filtran la lista) y un REPASO RÁPIDO: «✓ Marcar vistos los de la lista»,
       «📖 Marcar leídos en MENSADEF» (los sin leer de la lista) y «Ocultar vistos». Al pulsar un mensaje, Gestión con su ficha
       completa. PENDIENTE: Administración con «Aprobar» ahí mismo.
+    27/11/2026: SENDERO 2026-11-27 · 4 (el Panel de la · 3 le volvía loco: no sabía qué había filtrado y al abrir un mensaje cambiaba
+      de sección). Estrategia nueva, acordada: UNA sola pantalla principal, «Bandejas», que es la de siempre (periodo, tarjetas,
+      filtros a la vista, lista y ficha al lado, la ficha de siempre), con una línea «Filtrando por: … ✕» (o «Sin filtros») que dice
+      lo activo y cuántos se ven, «Quitar todos», y el repaso rápido (vistos y leídos de la lista). «Ocultar borradores» va aparte
+      (preferencia, «verlos»). Firma, Consultas, Informes y Administración, en la barra lateral; al volver, Bandejas está como se dejó.

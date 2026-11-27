@@ -535,7 +535,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-27 · 3';
+  var VERSION = '2026-11-27 · 4';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -3326,8 +3326,10 @@
   // Barra lateral (azul noche y oro) con Panel, Gestión, Firma, Consultas, Informes y Administración (esta, solo para los
   // administradores de SENDERO: lo dice Colabora con la autorización). «Gestión» es la pantalla de siempre (bandejas, filtros,
   // agrupaciones y ficha). «↺ Diseño clásico» vuelve al de antes, y se recuerda en este navegador.
-  var DISENO = leer('diseno', 'nuevo') === 'clasico' ? 'clasico' : 'nuevo', vistaD = 'panel';
-  var SECCIONES = [['panel', '⌂', 'Panel', 'Todos tus mensajes, con toda su información: repasa y quita la rutina'], ['gestion', '📥', 'Gestión', 'La ficha del mensaje y su tramitación'],
+  var DISENO = leer('diseno', 'nuevo') === 'clasico' ? 'clasico' : 'nuevo', vistaD = 'bandejas';
+  // 27/11/2026 (tarde, estrategia acordada con el usuario): UNA sola pantalla principal, «Bandejas», que es la de siempre (lista y
+  // ficha al lado, filtros a la vista), con una línea «Filtrando por» y el repaso rápido. El resto, en la barra lateral.
+  var SECCIONES = [['bandejas', '📥', 'Bandejas', 'Tus mensajes y su ficha, como siempre'],
     ['firma', '✍', 'Firma', 'Lo que espera firma en Rúbrica'], ['consultas', '🔎', 'Consultas', 'Buscar en todo MENSADEF y por referencia'],
     ['informes', '📊', 'Informes', 'Relaciones y estadísticas del periodo cargado'], ['admin', '🛡', 'Administración', 'Accesos y versiones de SENDERO']];
   var accesoGuardado = function () { return leer('acceso', null) || {}; };
@@ -3369,7 +3371,7 @@
     var vs = document.createElement('div'); vs.id = 'dnVistas'; main.insertBefore(vs, cab.nextSibling);
     iniciarGestionDn();
     $('dnClasico').addEventListener('click', function () { guardar('diseno', 'clasico'); DISENO = 'clasico'; quitarDiseno(); });
-    irSeccion('panel');
+    irSeccion('bandejas');
   }
   function quitarDiseno() {
     document.documentElement.classList.remove('dn');
@@ -3388,13 +3390,12 @@
     $('dnProbar').addEventListener('click', function () { guardar('diseno', 'nuevo'); DISENO = 'nuevo'; this.parentNode.removeChild(this); iniciarDiseno(); refrescarDiseno(); });
   }
   function irSeccion(v) {
-    if (v === 'admin' && !esAdminSendero()) v = 'panel';
+    if (v === 'admin' && !esAdminSendero()) v = 'bandejas';
     vistaD = v;
     // 27/11/2026 (pedido por el usuario): el Panel es la lista de siempre, con toda la información de cada mensaje; al pulsar uno
     // se pasa a Gestión con su ficha completa al lado
-    Array.prototype.forEach.call(document.querySelectorAll('.dnG'), function (e) { e.style.display = v === 'gestion' || v === 'panel' ? '' : 'none'; });
-    document.documentElement.classList.toggle('dnPanel', v === 'panel');
-    if ($('dnVistas')) $('dnVistas').style.display = v === 'gestion' ? 'none' : '';
+    Array.prototype.forEach.call(document.querySelectorAll('.dnG'), function (e) { e.style.display = v === 'bandejas' ? '' : 'none'; });
+    if ($('dnVistas')) $('dnVistas').style.display = v === 'bandejas' ? 'none' : '';
     refrescarDiseno(); window.scrollTo(0, 0);
   }
   var hoyTxt = function () { return new Date().toDateString(); };
@@ -3434,8 +3435,8 @@
     var adm = esAdminSendero(), acc = accesoGuardado();
     var sinLeer = mensajes.filter(function (m) { return m._leido === false; }).length, firma = mensajes.filter(enFirmaD).length;
     $('dnNav').innerHTML = SECCIONES.filter(function (s) { return s[0] !== 'admin' || adm; }).map(function (s) {
-      var n = s[0] === 'gestion' ? sinLeer : s[0] === 'firma' ? firma : s[0] === 'admin' ? (acc.pendientesAcc || 0) : 0;
-      return (s[0] === 'gestion' ? '<div class="sep">Trabajo</div>' : s[0] === 'consultas' ? '<div class="sep">Consulta</div>' : s[0] === 'admin' ? '<div class="sep">Administración</div>' : '') +
+      var n = s[0] === 'bandejas' ? sinLeer : s[0] === 'firma' ? firma : s[0] === 'admin' ? (acc.pendientesAcc || 0) : 0;
+      return (s[0] === 'bandejas' ? '<div class="sep">Trabajo</div>' : s[0] === 'consultas' ? '<div class="sep">Consulta</div>' : s[0] === 'admin' ? '<div class="sep">Administración</div>' : '') +
         '<a data-dn="' + s[0] + '"' + (vistaD === s[0] ? ' class="on"' : '') + '><span class="i">' + s[1] + '</span>' + s[2] + (n ? '<span class="n">' + n + '</span>' : '') + '</a>';
     }).join('');
     Array.prototype.forEach.call($('dnNav').querySelectorAll('[data-dn]'), function (a) { a.addEventListener('click', function () { irSeccion(a.getAttribute('data-dn')); }); });
@@ -3444,20 +3445,13 @@
     var cels = {}; mensajes.forEach(function (m) { var c = sitioDe(m); if (c) cels[c] = 1; });
     $('dnCab').innerHTML = '<div><h2>' + esc(sec[2]) + '</h2><div class="sub">' + esc(sec[3]) + '</div></div><div class="der">' + (acc.ambito ? '<span class="chip">📍 Ámbito ' + esc(acc.ambito) + '</span>' : '') +
       '<span class="chip">' + Object.keys(cels).length + ' células</span><span class="chip" id="dnEstado">' + esc(($('estado') || {}).textContent || '') + '</span>' +
-      (vistaD !== 'gestion' ? '<button type="button" class="dnBtn" id="dnAct">⟳ Actualizar</button>' : '') + (adm ? '<span class="chip oro">★ Administrador</span>' : '') + '</div>';
+      (vistaD !== 'bandejas' ? '<button type="button" class="dnBtn" id="dnAct">⟳ Actualizar</button>' : '') + (adm ? '<span class="chip oro">★ Administrador</span>' : '') + '</div>';
     if ($('dnAct')) $('dnAct').addEventListener('click', function () { $('actualizar').click(); });
-    pintarPestanas();
-    if (vistaD === 'gestion') return;
+    pintarFiltrando();
+    if (vistaD === 'bandejas') return;
     var vs = $('dnVistas'), h = '';
     var fila = function (m, extra) { var f = fechaDe(m); return '<tr data-dnm="' + mensajes.indexOf(m) + '"><td class="nowrap">' + esc(f ? (f.toDateString() === hoyTxt() ? f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : verFecha(f)) : '') + '</td><td>' + (m._leido === false ? '<b>' + esc(m._asunto || '') + '</b>' : esc(m._asunto || '')) + '</td><td class="muted small">' + esc(sitioDe(m) || '') + '</td><td>' + (extra || '') + '</td></tr>'; };
-    if (vistaD === 'panel') {
-      var com = mensajes.filter(function (m) { return comNuevos[claveMensaje(m)]; }).length;
-      var urg = mensajes.filter(urgente).length, band = mensajes.filter(function (m) { return !!m._bandera; }).length;
-      var seg = mensajes.filter(function (m) { return pasadoATarea(m) || pasadoAPsit(m); }).length;
-      var k = function (v, t, c, ir, kpi) { return '<div class="dnKpi" style="--c:' + c + '" data-dnir="' + ir + '"' + (kpi ? ' data-dnkpi="' + kpi + '"' : '') + '><div class="v">' + v + '</div><div class="t">' + t + '</div></div>'; };
-      h = '<div class="dnKpis mini">' + k(sinLeer, 'Sin leer', '#1d4f91', 'panel', 'noleidos') + k(urg, 'Urgentes / inmediatos', '#b3261e', 'panel', 'urgentes') + k(firma, 'Pendientes de firma', '#5b2e91', 'firma') +
-        k(com, 'Comentarios nuevos', '#c9a227', 'panel', 'com') + k(band, 'Con bandera', '#7a5200', 'panel', 'bandera') + k(seg, 'En META / PSIT', '#2f7f8f', 'panel', 'metapsit') + '</div>';
-    } else if (vistaD === 'firma') {
+    if (vistaD === 'firma') {
       var pf = mensajes.filter(enFirmaD), pr = mensajes.filter(paraRubrica);
       // 27/11/2026 (como la maqueta): con casillas; «Firmar los marcados» abre el Portafirmas con esas peticiones ya marcadas
       h = '<div class="dnTarj"><h3>✍ Pendientes de firma en Rúbrica <small>· ' + pf.length + '</small></h3>' + (pf.length ? '<table><thead><tr><th><input type="checkbox" id="dnFirTodas" checked title="Marcar o desmarcar todas"></th><th>Fecha</th><th>Asunto</th><th>Célula</th></tr></thead><tbody>' +
@@ -3470,14 +3464,14 @@
       h = '<div class="dnTarj"><h3>🔎 Buscar en todo MENSADEF <small>· todas tus células, entrada y salida, cualquier fecha</small></h3><div class="dnBusca"><input id="dnBuscar" placeholder="Asunto, palabras del mensaje, número de registro entero (RE-…)…" value="' + esc(dnConsulta.q) + '"><button class="dnBtn p" id="dnBuscarBtn">Buscar</button></div></div>' +
         '<div class="dnTarj" id="dnRes"' + (dnConsulta.q ? '' : ' hidden') + '></div>' +
         '<div class="dnTarj"><h3>🔗 Por registro o referencia <small>· el mensaje con ese número (RE-…-E-… o RE-…-S-…)</small></h3><div class="dnBusca"><input id="dnRef" placeholder="RE-001-S-26-04065098, o solo el número"><button class="dnBtn p" id="dnRefBtn">Localizar</button></div><p class="small" id="dnRefMsg"></p></div>' +
-        '<div class="dnTarj"><h3>Filtrar las bandejas cargadas</h3><p class="muted">Por célula, estado, bandera, leídos, META o PSIT, y agrupar por días o meses: en <a href="#" data-dnir="gestion">Gestión</a>.</p></div>';
+        '<div class="dnTarj"><h3>Filtrar las bandejas cargadas</h3><p class="muted">Por célula, estado, bandera, leídos, META o PSIT, y agrupar por días o meses: en <a href="#" data-dnir="bandejas">Gestión</a>.</p></div>';
     } else if (vistaD === 'informes') {
       var cuenta = {}, sl = {}; mensajes.forEach(function (m) { var c = sitioDe(m) || '—'; cuenta[c] = (cuenta[c] || 0) + 1; if (m._leido === false) sl[c] = (sl[c] || 0) + 1; });
       var orden2 = Object.keys(cuenta).sort(function (a, b) { return cuenta[b] - cuenta[a]; }), max = Math.max.apply(null, [1].concat(orden2.map(function (c) { return cuenta[c]; })));
       h = '<div class="dnInf"><div data-dninf="informe"><span class="i">📄</span><b>Relación de mensajes</b><span class="muted small">Lo filtrado en Gestión, para imprimir, PDF o Word.</span></div>' +
         '<div data-dninf="csv"><span class="i">📥</span><b>Exportar a Excel (CSV)</b><span class="muted small">Lo filtrado en Gestión, con todos sus datos.</span></div>' +
         '<div data-dnir="firma"><span class="i">✍</span><b>Firma</b><span class="muted small">Pendientes de firma y para pasar a rúbrica.</span></div>' +
-        '<div data-dnir="gestion" data-dnpasado="ambos"><span class="i">★</span><b>META y PSIT</b><span class="muted small">Lo que ha ido a tareas y al Punto de Situación.</span></div>' +
+        '<div data-dnir="bandejas" data-dnpasado="ambos"><span class="i">★</span><b>META y PSIT</b><span class="muted small">Lo que ha ido a tareas y al Punto de Situación.</span></div>' +
         '<div data-dndist="1"><span class="i">↪</span><b>Distribuciones</b><span class="muted small">Quién decretó qué, a quién y con qué motivo.</span></div></div>' + (dnVerDist ? distribucionesHtml() : '') +
         '<div class="dnTarj"><h3>📊 Mensajes por célula <small>· periodo cargado (' + esc($('desde').value) + ' a ' + esc($('hasta').value) + '); en rojo, sin leer</small></h3>' +
         (orden2.length ? orden2.map(function (c) { return '<div class="dnBar"><span>' + esc(c) + '</span><span style="display:flex;gap:2px"><i style="width:' + Math.round(100 * (cuenta[c] - (sl[c] || 0)) / max) + '%"></i><i class="r" style="width:' + Math.round(100 * (sl[c] || 0) / max) + '%"></i></span><b>' + cuenta[c] + '</b></div>'; }).join('') : '<p class="muted">Sin mensajes cargados.</p>') + '</div>';
@@ -3501,7 +3495,7 @@
       irSeccion(e.getAttribute('data-dnir'));
     }); });
     Array.prototype.forEach.call(vs.querySelectorAll('[data-dnm]'), function (tr) { tr.addEventListener('click', function (ev) {
-      if (ev.target.closest('button')) return; var m = mensajes[Number(tr.getAttribute('data-dnm'))]; if (!m) return; irSeccion('gestion'); abrir(m); });
+      if (ev.target.closest('button')) return; var m = mensajes[Number(tr.getAttribute('data-dnm'))]; if (!m) return; irSeccion('bandejas'); abrir(m); });
     });
     Array.prototype.forEach.call(vs.querySelectorAll('[data-dnfirma]'), function (b) { b.addEventListener('click', function () { var m = mensajes[Number(b.getAttribute('data-dnfirma'))]; if (m) window.open(urlRubrica(m), pestanaFirma(m)); }); });
     if ($('dnPortafirmas')) $('dnPortafirmas').addEventListener('click', function () { window.open('https://portafirmas.mdef.es/ePortafirmas/Firmantes.do?operacion=ListaPendientes', 'SENDEROFIRMA_'); });
@@ -3543,23 +3537,13 @@
     if (!$('dnCss2')) { var st = document.createElement('style'); st.id = 'dnCss2'; st.textContent = CSS_DN2; document.head.appendChild(st); }
     // Periodo, filtros, tarjetas antiguas y saludo: plegados (se abren con sus botones)
     var periodo = $('desde') && $('desde').closest('.card');
-    [periodo, $('filtros'), $('kpis'), $('hero')].forEach(function (e) { if (e) e.classList.add('dnPlegado'); });
+    if ($('hero')) $('hero').classList.add('dnPlegado');   // el saludo grande, no (el nombre va en la barra lateral)
     if (periodo) periodo.id = periodo.id || 'cajaPeriodo';
     var gb = document.createElement('div'); gb.id = 'dnGesBar'; gb.className = 'dnG';
-    gb.innerHTML = '<div class="pest" id="dnPest"></div><div class="fila2"><input type="search" id="dnBuscaLista" placeholder="Buscar en lo cargado: asunto, autoridad, referencia…">' +
-      '<button type="button" class="dnBtn" id="dnTodoMensadef">🔎 En todo MENSADEF</button><button type="button" class="dnBtn" id="dnVerPeriodo">📅 Periodo y células</button>' +
-      '<button type="button" class="dnBtn" id="dnVerFiltros">⚙ Filtros e informe</button></div>' +
-      // Repaso rápido: quitar de golpe lo que es rutina (sobre lo que se ve en la lista: elige antes pestaña, célula o búsqueda)
+    gb.innerHTML = '<div id="dnFiltrando"></div>' +
       '<div class="fila3"><span class="muted" id="dnEnLista"></span><button type="button" class="dnBtn" id="dnVistosTodos">✓ Marcar vistos los de la lista</button>' +
-      '<button type="button" class="dnBtn" id="dnLeidosTodos">📖 Marcar leídos en MENSADEF</button><label style="display:inline-flex;flex-direction:row;align-items:center;gap:6px;margin:0;font-weight:600;cursor:pointer"><input type="checkbox" id="dnOcultarVistos" style="width:auto;margin:0"> Ocultar vistos</label><span class="small" id="dnRepasoMsg"></span></div>';
+      '<button type="button" class="dnBtn" id="dnLeidosTodos">📖 Marcar leídos en MENSADEF</button><span class="small" id="dnRepasoMsg"></span></div>';
     $('layout').parentNode.insertBefore(gb, $('layout'));
-    $('dnBuscaLista').value = $('buscar').value;
-    $('dnBuscaLista').addEventListener('input', function () { $('buscar').value = this.value; $('buscar').dispatchEvent(new Event('input', { bubbles: true })); });
-    $('dnTodoMensadef').addEventListener('click', function () { $('buscar').value = $('dnBuscaLista').value; buscarEnTodo(); });
-    $('dnVerPeriodo').addEventListener('click', function () { if (periodo) periodo.classList.toggle('dnPlegado'); });
-    $('dnVerFiltros').addEventListener('click', function () { $('filtros').classList.toggle('dnPlegado'); });
-    $('dnOcultarVistos').checked = $('fVistos').checked;
-    $('dnOcultarVistos').addEventListener('change', function () { $('fVistos').checked = this.checked; mostrar = 300; filtrar(); });
     $('dnVistosTodos').addEventListener('click', function () {
       var l = filtrados.filter(function (m) { return !vistos[claveMensaje(m)]; });
       if (!l.length) { $('dnRepasoMsg').textContent = 'Todos los de la lista ya están vistos.'; return; }
@@ -3577,8 +3561,32 @@
           .then(function () { $('dnRepasoMsg').textContent = 'Marcando leídos… ' + (hechos + mal) + ' de ' + l.length; });
       }); }, Promise.resolve()).then(function () { b.disabled = false; pintarTabla(); pintarKpis(); $('dnRepasoMsg').textContent = '✔ ' + hechos + ' marcados como leídos en MENSADEF' + (mal ? ' · ' + mal + ' no se pudieron' : '') + '.'; });
     });
-    // En el Panel, al pulsar un mensaje se pasa a Gestión con su ficha (la casilla de visto no cuenta)
-    $('lista').addEventListener('click', function (e) { if (vistaD !== 'panel' || !e.target.closest('tr[data-i]') || e.target.closest('input,button,a,select,label')) return; setTimeout(function () { irSeccion('gestion'); }, 0); });
+  }
+  function pintarFiltrando() {
+    var c = $('dnFiltrando'); if (!c) return;
+    var f = [], txt = function (id) { var e = $(id); return e && e.selectedOptions && e.selectedOptions[0] ? e.selectedOptions[0].textContent : e ? e.value : ''; };
+    if ($('buscar').value.trim()) f.push(['buscar', 'Buscar «' + $('buscar').value.trim() + '»']);
+    if (kpiSel && KPIS[kpiSel]) f.push(['kpi', KPIS[kpiSel].t]);
+    if (soloComNuevos) f.push(['com', 'Solo comentarios nuevos']);
+    [['fSitio', 'Célula'], ['fTipo', 'Tipo'], ['fEstado', 'Estado'], ['fCanal', 'Canal'], ['fOrgano', 'Órgano'], ['fAutoridad', 'Autoridad'], ['fPasado', 'Tarea / PSIT']].forEach(function (x) { if ($(x[0]) && $(x[0]).value) f.push([x[0], x[1] + ': ' + txt(x[0])]); });
+    Object.keys(fx).forEach(function (k) { f.push(['fx:' + k, ((EXTRA[k] && EXTRA[k].titulo) || k) + ': ' + (fx[k] === SIN_VALOR ? '(vacío)' : fx[k])]); });
+    [['fAdjuntos', 'Con adjuntos'], ['fVistos', 'Ocultando los vistos']].forEach(function (x) { if ($(x[0]) && $(x[0]).checked) f.push([x[0], x[1]]); });
+    // «Ocultar borradores» es una preferencia guardada (no la quita «Quitar todos»): se dice aparte, con «verlos»
+    var borr = $('fBorrador') && $('fBorrador').checked;
+    var sl2 = filtrados.filter(function (m) { return m._leido === false; }).length;
+    c.innerHTML = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><b style="color:#0a1a31">' + (f.length ? 'Filtrando por:' : 'Sin filtros:') + '</b> ' +
+      f.map(function (x) { return '<span class="chip" style="background:#fff8dc;border-color:#c9a227;font-weight:600">' + esc(x[1]) + ' <a href="#" data-dnq="' + esc(x[0]) + '" title="Quitar este filtro" style="text-decoration:none;color:#a3201b;font-weight:800">✕</a></span>'; }).join(' ') +
+      '<span class="muted">· ves <b>' + filtrados.length + '</b> de ' + mensajes.length + ' mensajes cargados' + (sl2 ? ' (' + sl2 + ' sin leer)' : '') + '</span>' +
+      (f.length ? ' <button type="button" class="dnBtn" id="dnQuitarTodos">Quitar todos</button>' : '') +
+      (borr ? ' <span class="muted small">· se ocultan los borradores (<a href="#" id="dnVerBorr">verlos</a>)</span>' : '') + '</div>';
+    if ($('dnVerBorr')) $('dnVerBorr').addEventListener('click', function (e) { e.preventDefault(); $('fBorrador').checked = false; $('fBorrador').dispatchEvent(new Event('change')); });
+    Array.prototype.forEach.call(c.querySelectorAll('[data-dnq]'), function (a) { a.addEventListener('click', function (e) {
+      e.preventDefault(); var k = a.getAttribute('data-dnq');
+      if (k === 'buscar') $('buscar').value = ''; else if (k === 'kpi') kpiSel = ''; else if (k === 'com') soloComNuevos = false;
+      else if (k.indexOf('fx:') === 0) delete fx[k.slice(3)]; else if ($(k).type === 'checkbox') { $(k).checked = false; $(k).dispatchEvent(new Event('change')); return; } else $(k).value = '';
+      mostrar = 300; pintarTodo();
+    }); });
+    if ($('dnQuitarTodos')) $('dnQuitarTodos').addEventListener('click', function () { var b2 = $('fBorrador').checked; soloComNuevos = false; $('limpiar').click(); if (b2 !== $('fBorrador').checked) { $('fBorrador').checked = b2; mostrar = 300; filtrar(); } });
   }
   function pintarPestanas() {
     if (!$('dnPest')) return;
@@ -3593,6 +3601,7 @@
   }
   // Ficha: los botones de siempre, agrupados (se mueven, no se copian: siguen funcionando igual)
   function reagruparFicha() {
+    return;   // 27/11/2026 (tarde): la ficha, la de siempre
     if (DISENO !== 'nuevo' || !$('dnLat')) return;
     var p2 = document.querySelector('#detalle .piso2'); if (!p2 || p2.querySelector('.dnGrupos')) return;
     var g = document.createElement('div'); g.className = 'dnGrupos';
