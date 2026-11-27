@@ -53,6 +53,15 @@ await foto('preparacion');
   if (mal || oks < 5 || !/(^|\+)2($|\+)/.test(rolesA['Usuarios del dominio'] || '') || rolesA['Miembros colaborativo'] !== '2' || rolesA['Propietarios colaborativo'] !== '5' || rolesA['SENDERO Administradores'] !== '3' ||
     !/3/.test(rolesS['Usuarios del dominio']) || rolesS['SENDERO Administradores'] !== '4' || S.RS !== 2 || S.WS !== 2) error('preparación'); }
 
+// 2b. (27/11/2026) Ocultar de «Contenido del sitio» la biblioteca y las dos listas, y volver a mostrar una
+{ const nOc = await p.$$eval('[data-oc][data-v="1"]', l => l.length);
+  for (let i = 0; i < nOc; i++) await pulsar('[data-oc][data-v="1"]');
+  const A = est.listas['SENDERO Autorizados'], S = est.listas['SENDERO Solicitudes'];
+  const ocultas = [est.biblio && est.biblio.Hidden, A.Hidden, S.Hidden], txt = await p.textContent('#cont');
+  await pulsar('[data-oc="' + S.Id + '"]'); const vuelta = S.Hidden;
+  console.log('ocultar: botones', nOc, '| biblioteca, Autorizados, Solicitudes ocultas:', JSON.stringify(ocultas), '| «✔ oculta» en la página:', (txt.match(/✔ oculta/g) || []).length, '| Solicitudes vuelve a verse:', vuelta === false);
+  if (nOc !== 3 || ocultas.some(x => !x) || (txt.match(/✔ oculta/g) || []).length !== 3 || vuelta !== false || !/biblioteca «aplicaciones»/i.test(txt)) error('ocultar listas y biblioteca'); }
+
 // 3. Reglas: ámbito 2SUIGE (responsable gestor), 3SUIGE desactivado (responsable gestor) y versión vigente
 await pulsar('[data-pest="reglas"]');
 const anadir = async (tipo, valor, resp = '', meta = '', psit = '') => { await p.selectOption('#rTipo', tipo); await p.fill('#rValor', valor); if (resp) await p.fill('#rResp', resp); if (meta) await p.fill('#rMeta', meta); if (psit) await p.fill('#rPsit', psit); await pulsar('#rAnadir'); };

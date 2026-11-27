@@ -67,6 +67,14 @@ export async function simularColabora(ctx, est, archivo) {
       est.listas[t] = { Id: 'bbbbbbbb-0000-0000-0000-00000000000' + Object.keys(est.listas).length, items: [], campos: [], unique: false, asig: [], RS: 1, WS: 1 };
       return J({ Id: est.listas[t].Id, Title: t }, 201);
     }
+    // 27/11/2026: biblioteca de la página («aplicaciones») y ocultar listas (MERGE Hidden por su guid)
+    est.biblio = est.biblio || { Id: 'cccccccc-0000-0000-0000-000000000001', Title: 'aplicaciones', Hidden: false };
+    if (/^web\/GetFileByServerRelativeUrl\(.*\)\/ListItemAllFields\/ParentList$/i.test(api)) return J({ Id: est.biblio.Id, Title: est.biblio.Title, Hidden: est.biblio.Hidden });
+    if ((m = /^web\/lists\(guid'([^']+)'\)$/.exec(api)) && met === 'POST') {
+      if (!est.admin) return NO(); const c = cuerpo(), id = m[1].toLowerCase();
+      const L2 = est.biblio.Id === id ? est.biblio : Object.values(est.listas).find(x => String(x.Id).toLowerCase() === id);
+      if (!L2) return J('La lista no existe', 404); if ('Hidden' in c) L2.Hidden = !!c.Hidden; (est.ocultadas = est.ocultadas || []).push([id, !!c.Hidden]); return r.fulfill({ status: 204, body: '' });
+    }
     if (!(m = /^web\/lists\/getbytitle\('((?:[^']|'')*)'\)(.*)$/.exec(api))) return J('No existe', 404);
     const titulo = m[1].replace(/''/g, "'"), resto = m[2], L = est.listas[titulo];
     if (!L) return J('La lista no existe', 404);
@@ -74,7 +82,7 @@ export async function simularColabora(ctx, est, archivo) {
     const puedeEditar = est.admin || esGestor;
     const asig = () => L.unique ? L.asig : sitio();
     // est.sinUnico: Colabora no devuelve HasUniqueRoleAssignments junto al resto (se pide aparte)
-    if (resto === '' && met === 'GET') return J(Object.assign({ Id: L.Id, Title: titulo, ListItemEntityTypeFullName: 'SP.Data.' + titulo.replace(/\W/g, '') + 'ListItem', ReadSecurity: L.RS, WriteSecurity: L.WS }, est.sinUnico ? {} : { HasUniqueRoleAssignments: L.unique }));
+    if (resto === '' && met === 'GET') return J(Object.assign({ Id: L.Id, Title: titulo, Hidden: !!L.Hidden, ListItemEntityTypeFullName: 'SP.Data.' + titulo.replace(/\W/g, '') + 'ListItem', ReadSecurity: L.RS, WriteSecurity: L.WS }, est.sinUnico ? {} : { HasUniqueRoleAssignments: L.unique }));
     if (resto === '/HasUniqueRoleAssignments') return J(verb ? { HasUniqueRoleAssignments: L.unique } : { value: L.unique });
     if (resto === '' && met === 'POST') { if (!est.admin) return NO(); const c = cuerpo(); if (c.ReadSecurity) L.RS = c.ReadSecurity; if (c.WriteSecurity) L.WS = c.WriteSecurity; return r.fulfill({ status: 204, body: '' }); }
     if (resto === '/EffectiveBasePermissions') return J({ High: '0', Low: String(puedeEditar ? 0x7fffffff : esAut ? 0x1 : 0x3) });

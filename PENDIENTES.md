@@ -343,3 +343,5 @@ autoría.
       «Desmarcar» y «✍ Firmar las marcadas (n)» (un solo Firmar del Portafirmas; AutoFirma pide el PIN). Sirve también entrando
       directamente en Rúbrica (el jefe). SENDERO no marca «He leído» por nadie (garantía de la firma). PENDIENTE DEL USUARIO: probar
       si el Portafirmas deja firmar varias sin abrirlas y con un solo PIN.
+    27/11/2026: SENDERO-acceso 2026-11-27 · 1: en «Preparación», ocultar de «Contenido del sitio» la biblioteca «aplicaciones» y las
+      listas «SENDERO Autorizados» y «SENDERO Solicitudes» (y volver a mostrarlas). PENDIENTE DEL USUARIO: subirla y ocultarlas.

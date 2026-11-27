@@ -59,7 +59,7 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = '2026-11-23 · 2';
+  var VERSION = '2026-11-27 · 1';
   // Solo se contesta a SENDERO, que funciona en MENSADEF (el favorito escribe su página sobre la de MENSADEF)
   var ORIGEN_SENDERO = 'https://mensadef.mdef.es';
   var L_AUT = 'SENDERO Autorizados', L_SOL = 'SENDERO Solicitudes', GRUPO = 'SENDERO Administradores';
@@ -852,7 +852,7 @@
   }
   var nombreCampo = function (xml) { return /Name="([^"]+)"/.exec(xml)[1]; };
   function estadoLista(t, campos) {
-    return api(urlL(t) + '?$select=Id,Title,HasUniqueRoleAssignments,ReadSecurity,WriteSecurity').then(function (l) {
+    return api(urlL(t) + '?$select=Id,Title,Hidden,HasUniqueRoleAssignments,ReadSecurity,WriteSecurity').then(function (l) {
       // 16/11/2026: si Colabora no devuelve «permisos propios» con el resto, se pregunta aparte (si no, parecía que heredaba)
       var unico = function (v) { return v === true || v === 1 || /^(true|1)$/i.test(String(v)); };
       var propio = l.HasUniqueRoleAssignments == null ? api(urlL(t) + '/HasUniqueRoleAssignments').then(function (x) { return unico(x.value != null ? x.value : x.HasUniqueRoleAssignments); }, function () { return null; }) : Promise.resolve(unico(l.HasUniqueRoleAssignments));
@@ -914,9 +914,19 @@
           .then(function () { return enviarSP(u, { __metadata: { type: 'SP.List' }, ReadSecurity: 2, WriteSecurity: 2 }, 'No tienes permiso para cambiar la configuración de la lista', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }); });
       });
   }
+  // 27/11/2026 (como en las demás páginas de Colabora): ocultar de «Contenido del sitio» las dos listas y la biblioteca donde
+  // está esta página. Siguen funcionando igual (SENDERO, las solicitudes y las páginas se abren con su dirección).
+  function leerBiblioteca() {
+    return api(web + "/_api/web/GetFileByServerRelativeUrl('" + encodeURIComponent(decodeURIComponent(location.pathname).replace(/'/g, "''")) + "')/ListItemAllFields/ParentList?$select=Id,Title,Hidden")
+      .catch(function () { return null; });
+  }
+  function ocultarLista(id, ocultar) {
+    return enviarSP(web + "/_api/web/lists(guid'" + String(id).replace(/[{}]/g, '') + "')", { __metadata: { type: 'SP.List' }, Hidden: !!ocultar }, 'No tienes permiso para cambiar la lista', { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' });
+  }
+  var oculta = function (v) { return v === true || /^true$/i.test(String(v)); };
   function pintarPreparacion() {
-    return Promise.all([estadoLista(L_AUT, CAMPOS_AUT), estadoLista(L_SOL, CAMPOS_SOL), grupo()]).then(function (r) {
-      var a = r[0], s = r[1], g = r[2];
+    return Promise.all([estadoLista(L_AUT, CAMPOS_AUT), estadoLista(L_SOL, CAMPOS_SOL), grupo(), leerBiblioteca()]).then(function (r) {
+      var a = r[0], s = r[1], g = r[2], bib = r[3];
       var ok = function (b) { return b ? '<span class="bien">✔</span>' : '<span class="mal">✕</span>'; };
       var todosEn = function (est, pred) { return !!(est.asig || []).filter(function (x) { return esTodos(x.Member); }).filter(function (x) { return pred(rolesDe(x)); }).length; };
       var escritoresA = (a.asig || []).filter(function (x) { return esEscritor(x, g); });
@@ -944,6 +954,13 @@
         '<div class="fila-prep">' + ok(aProt && (!g || gEn(a))) + ' «' + esc(L_AUT) + '»: todos la leen, solo tú' + (g ? ' y el grupo' : '') + ' la cambiáis ' + (a.existe ? '<button type="button" data-p="protA">' + (aProt && (!g || gEn(a)) ? 'Repetir' : 'Ajustarlo') + '</button>' : '') + porque(a, faltaA) + '</div>' +
         '<div class="fila-prep">' + ok(sAbierta && (!g || gEn(s))) + ' «' + esc(L_SOL) + '»: todos pueden solicitar y cada uno ve solo las suyas ' + (s.existe ? '<button type="button" data-p="abrirS">' + (sAbierta ? 'Repetir' : 'Ajustarlo') + '</button>' : '') + porque(s, faltaS) + '</div>' +
         '<div class="fila-prep">' + (s.existe ? '<a href="' + esc(web + '/_layouts/15/SubNew.aspx?List=' + encodeURIComponent('{' + String(s.info.Id).replace(/[{}]/g, '') + '}')) + '" target="_blank" rel="noopener">🔔 Aviso por correo de solicitudes nuevas</a> <span class="muted">(alerta de Colabora: «Se agregan nuevos elementos»)</span>' : '<span class="muted">🔔 Aviso por correo: cuando exista la lista de solicitudes</span>') + '</div>' +
+        // Ocultar de «Contenido del sitio»
+        '<div class="fila-prep" style="display:block"><b>👁 Que no se vean en «Contenido del sitio»</b> <span class="muted">(siguen funcionando igual; se abren con su dirección)</span>' +
+          [[bib, 'Biblioteca «' + (bib ? bib.Title : '') + '» (donde está esta página, SENDERO y las demás aplicaciones)'], [a.existe ? a.info : null, 'Lista «' + L_AUT + '»'], [s.existe ? s.info : null, 'Lista «' + L_SOL + '»']]
+            .filter(function (x) { return x[0] && x[0].Id; }).map(function (x) {
+              var o = oculta(x[0].Hidden);
+              return '<div style="margin:4px 0 0 4px">' + (o ? '<span class="bien">✔ oculta</span>' : '<span class="muted">visible</span>') + ' · ' + esc(x[1]) + ' <button type="button" data-oc="' + esc(x[0].Id) + '" data-v="' + (o ? '0' : '1') + '">' + (o ? 'Volver a mostrarla' : 'Ocultarla') + '</button></div>';
+            }).join('') + '</div>' +
         '<div class="fila-prep">✉ Correo de prueba a <input id="pruebaA" size="34" value="' + esc(yo.email) + '"> <button type="button" id="pruebaCorreo">Enviar</button> <span id="pruebaMsg" class="muted"></span></div>' +
         '<p class="muted">Avisos por correo: cada solicitud nueva avisa a ' + esc(AVISAR.join(', ')) + ' y a los responsables de su ámbito; al aprobar o denegar se avisa a quien la pidió.</p>' +
         '<p class="muted">Después: en «Autorizados y bloqueos» añade los ámbitos (p. ej. 2SUIGE) con sus responsables, y mete a esos responsables en el grupo.</p>';
@@ -962,6 +979,13 @@
         protA: function () { return protegerAutorizados(a); },
         abrirS: function () { return abrirSolicitudes(s); }
       };
+      Array.prototype.forEach.call($('cont').querySelectorAll('[data-oc]'), function (b) { b.addEventListener('click', function () {
+        var ocultar = b.getAttribute('data-v') === '1';
+        if (ocultar && bib && b.getAttribute('data-oc') === String(bib.Id) && /^(Documentos compartidos|Documentos|Shared Documents)$/i.test(bib.Title) &&
+          !window.confirm('«' + bib.Title + '» es la biblioteca general del sitio: dejará de verse en «Contenido del sitio» para todos. ¿Seguro?')) return;
+        b.disabled = true; toast('Un momento…');
+        ocultarLista(b.getAttribute('data-oc'), ocultar).then(function () { toast(ocultar ? 'Oculta en «Contenido del sitio»' : 'Visible de nuevo'); pintarGestion(); }, function (e) { b.disabled = false; toast('No se pudo: ' + (e.message || e)); });
+      }); });
       Array.prototype.forEach.call($('cont').querySelectorAll('[data-p]'), function (b) { b.addEventListener('click', function () {
         b.disabled = true; toast('Un momento…');
         acc[b.getAttribute('data-p')]().then(function () { toast('Hecho'); pintarGestion(); }, function (e) { b.disabled = false; toast('No se pudo: ' + (e.message || e)); pintarGestion(); });

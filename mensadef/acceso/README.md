@@ -58,3 +58,6 @@ Página que decide **quién puede usar SENDERO**. Se sube a Colabora, sitio `/et
   (usuarios del sitio y directorio, o una dirección e Intro), «Enviarme una copia», asunto y comentario; se ve el correo y lo
   envía Colabora con el envío robusto (ahora también con CC). El correo se arma aquí, con todo escapado. Solo para cuentas
   autorizadas en SENDERO. Al terminar, avisa a SENDERO de a cuántos llegó.
+- **2026-11-27 · 1**: en «Preparación», **«Que no se vean en «Contenido del sitio»»**: ocultar (o volver a mostrar) la biblioteca
+  donde está la página («aplicaciones», con SENDERO y las demás aplicaciones) y las listas «SENDERO Autorizados» y «SENDERO
+  Solicitudes» (MERGE `Hidden`, como en VSA e Incidentes). Siguen funcionando igual.
