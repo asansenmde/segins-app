@@ -82,4 +82,8 @@ empezar de cero.
 - **Al registrar la entrega de las imágenes se cierra el ciclo** y se avisa a todos: «Cesión de imágenes Nº X finalizada».
 - **Visionado previo por las FCS**: la solicitud recoge si las FCS ya han visionado las imágenes, cuándo y quién
   (`VISIONADASFCS`, `FECHAVISIONADO`, `VISIONADOPOR`); sale en la ficha, la impresión, los avisos y el Excel.
+- **Obligatorio para enviar** (versión 2026-11-27 · 3): adjuntar la **copia de la solicitud de la policía** con su nº de
+  expediente (se sube con el prefijo «SOLICITUD-POLICIA - ») y marcar que **la unidad ha comunicado a la policía que lo tramite
+  a través de la Dirección General de Coordinación y Estudios** de la Secretaría de Estado de Seguridad (`COMUNICADODGCE`,
+  `FECHACOMUNICADODGCE`). El campo de referencia pasa a llamarse «Nº de expediente de la policía».
 

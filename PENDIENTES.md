@@ -97,3 +97,5 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
 - **27/11/2026 · Cesión 2026-11-27 · 2**: rechazo de IGE sin SINTSEG, resolución avisada a todos, cierre al entregar (aviso a
   todos) y visionado previo por las FCS. Subir `cesion/colabora/cesion.html` y, en Ajustes › Preparación, pulsar «Crearlas»
   (3 columnas nuevas: VISIONADASFCS, FECHAVISIONADO, VISIONADOPOR).
+- **27/11/2026 · Cesión 2026-11-27 · 3**: obligatorias la copia de la solicitud de la policía y la casilla de comunicación vía
+  DG de Coordinación y Estudios. Subir `cesion/colabora/cesion.html` y pulsar «Crearlas» en Ajustes › Preparación (2 columnas).

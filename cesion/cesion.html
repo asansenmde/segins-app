@@ -227,7 +227,7 @@
   var aHtml = function (txt) { return esc(txt).replace(/\n/g, '<br>'); };
 
   // ---------- Preferencias (solo de este navegador) ----------
-  var VERSION = '2026-11-27 · 2';
+  var VERSION = '2026-11-27 · 3';
   var AUTOR = 'Cte. Alfredo Sánchez Sender';
   $('#verPie').textContent = 'versión ' + VERSION;
   try { console.info('Cesión de imágenes · © 2026 ' + AUTOR + '. Todos los derechos reservados.'); } catch (e) { /* sin consola */ }
@@ -336,7 +336,8 @@
     ['FECHASOLICITUD', 'DateTime', 'Fecha de la petición'], ['REFERENCIADELSMD', 'Text', 'Referencia del SMD de entrada'], ['URGENTE', 'Text', 'Urgente'],
     ['MOTIVOSOLICITUD', 'Note', 'Hechos que se investigan / motivo'], ['IMAGENESDESDE', 'DateTime', 'Imágenes desde'], ['IMAGENESHASTA', 'DateTime', 'Imágenes hasta'],
     ['CAMARAS', 'Note', 'Cámaras o zonas'], ['PRESERVADAS', 'Text', 'Grabación preservada'], ['FECHASOBRESCRITURA', 'DateTime', 'Se sobrescribe el'], ['VISIONADASFCS', 'Text', 'Visionadas antes por las FCS'], ['FECHAVISIONADO', 'DateTime', 'Visionadas el'],
-    ['VISIONADOPOR', 'Text', 'Visionadas por'], ['OBSUNIDAD', 'Note', 'Observaciones de la unidad'],
+    ['VISIONADOPOR', 'Text', 'Visionadas por'], ['COMUNICADODGCE', 'Text', 'Comunicado a la policía: tramitar por la DG de Coordinación y Estudios (SES)'], ['FECHACOMUNICADODGCE', 'DateTime', 'Comunicado el'],
+    ['OBSUNIDAD', 'Note', 'Observaciones de la unidad'],
     // Informes de cada escalón
     ['INFORMESUIGE', 'Text', 'Informe SUIGE'], ['OBSSUIGE', 'Note', 'Observaciones SUIGE'], ['INFORMEDIACU', 'Text', 'Informe DIACU'], ['OBSDIACU', 'Note', 'Observaciones DIACU'],
     ['INFORMEIGE', 'Text', 'Propuesta IGE'], ['OBSIGE', 'Note', 'Observaciones IGE'], ['REFCONSULTASINTSEG', 'Text', 'Referencia de la consulta a SINTSEG'], ['FECHACONSULTASINTSEG', 'DateTime', 'Consultado a SINTSEG el'],
@@ -436,7 +437,7 @@
       cuerpo: it.CUERPOSOLICITANTE || '', organo: it.ORGANOSOLICITANTE || '', refSol: it.REFSOLICITANTE || '', fSol: it.FECHASOLICITUD || '', smd: it.REFERENCIADELSMD || '',
       urgente: it.URGENTE === 'SI', motivo: it.MOTIVOSOLICITUD || '', desde: it.IMAGENESDESDE || '', hasta: it.IMAGENESHASTA || '', camaras: it.CAMARAS || '',
       preservadas: it.PRESERVADAS || '', fSobre: it.FECHASOBRESCRITURA || '', obsUnidad: it.OBSUNIDAD || '',
-      visionadas: it.VISIONADASFCS || '', fVision: it.FECHAVISIONADO || '', visionPor: it.VISIONADOPOR || '',
+      visionadas: it.VISIONADASFCS || '', fVision: it.FECHAVISIONADO || '', visionPor: it.VISIONADOPOR || '', dgce: it.COMUNICADODGCE === 'SI', fDgce: it.FECHACOMUNICADODGCE || '',
       infSuige: it.INFORMESUIGE || '', obsSuige: it.OBSSUIGE || '', infDiacu: it.INFORMEDIACU || '', obsDiacu: it.OBSDIACU || '', infIge: it.INFORMEIGE || '', obsIge: it.OBSIGE || '',
       refConsulta: it.REFCONSULTASINTSEG || '', fConsulta: it.FECHACONSULTASINTSEG || '',
       resolucion: it.RESOLUCIONSINTSEG || '', obsSintseg: it.OBSSINTSEG || '', refSintseg: it.REFSINTSEG || '', fResol: it.FECHARESOLUCION || '', resolPor: it.RESOLUCIONREGISTRADAPOR || '',
@@ -1016,7 +1017,7 @@
       var to = limpia(r[0].concat(gente)), cc = limpia(r[1]).filter(function (x) { return to.indexOf(x) < 0; });
       if (!to.length) { to = cc; cc = []; }
       var filas = [['Nº de solicitud', String(t.id)], ['Unidad', (t.cadena || []).filter(Boolean).join(' - ') || t.unidad], ['SUIGE', t.suige], ['Urgente', t.urgente ? 'SÍ' : ''],
-        ['Solicitante', [t.cuerpo, t.organo].filter(Boolean).join(' · ')], ['Referencia del solicitante', t.refSol], ['Imágenes', [fhTxt(t.desde), fhTxt(t.hasta)].filter(Boolean).join(' – ')],
+        ['Solicitante', [t.cuerpo, t.organo].filter(Boolean).join(' · ')], ['Nº de expediente de la policía', t.refSol], ['Comunicado a la policía: tramitar por la DG de Coordinación y Estudios (SES)', t.dgce ? 'SÍ' + (t.fDgce ? ' (' + fhTxt(t.fDgce) + ')' : '') : 'NO'], ['Imágenes', [fhTxt(t.desde), fhTxt(t.hasta)].filter(Boolean).join(' – ')],
         ['La grabación se sobrescribe el', fhTxt(t.fSobre)], ['Visionadas antes por las FCS', (t.visionadas === 'SI' ? 'SÍ' + (t.fVision ? ', el ' + fhTxt(t.fVision) : '') + (t.visionPor ? ', por ' + t.visionPor : '') : t.visionadas === 'NO' ? 'NO' : '')], ['Resolución de SINTSEG', t.resolucion], ['Condiciones de SINTSEG', texto(t.obsSintseg).slice(0, 600)], ['Instrucciones de la SUIGE', texto(t.instrucciones).slice(0, 600)],
         ['Situación', faseTxt(t)], ['Tramitado por', yo.Title], [tipo === 'devuelto' || tipo === 'devueltoSuige' ? 'Motivo' : 'Comentario', txt ? (txt.length > 800 ? txt.slice(0, 800) + '…' : txt) : '']].filter(function (x) { return x[1]; });
       return { to: to, cc: cc, bcc: [], sinVer: sinVer, asunto: P.asunto, html: htmlCorreo(P.intro, filas, enlaceInc(t)), texto: 'USO OFICIAL\n\n' + P.intro + '\n\n' + filas.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') + '\n\nAbrir la solicitud: ' + enlaceInc(t) };
@@ -1354,7 +1355,7 @@
       '<div class="fsec">Quién pide las imágenes</div><div class="grid">' +
       '<div><label class="lbl req">Cuerpo u órgano solicitante</label><select name="CUERPOSOLICITANTE">' + opsHtml(CUERPOS, v('cuerpo')) + '</select></div>' +
       '<div><label class="lbl req">Unidad, puesto o juzgado</label><input name="ORGANOSOLICITANTE" value="' + esc(v('organo')) + '" placeholder="P. ej. Puesto de la Guardia Civil de …"></div>' +
-      '<div><label class="lbl req">Referencia del solicitante</label><input name="REFSOLICITANTE" value="' + esc(v('refSol')) + '" placeholder="Atestado, diligencias, oficio…"></div>' +
+      '<div><label class="lbl req">Nº de expediente de la policía</label><input name="REFSOLICITANTE" value="' + esc(v('refSol')) + '" placeholder="Expediente, atestado o diligencias"></div>' +
       '<div><label class="lbl req">Fecha de la petición</label><input type="date" name="FECHASOLICITUD" value="' + esc(t ? fechaSP(t.fSol) : hoy()) + '"></div>' +
       '<div><label class="lbl">Referencia del SMD de entrada</label><input name="REFERENCIADELSMD" value="' + esc(v('smd')) + '"></div>' +
       '<div><label class="lbl req">¿Es urgente?</label><select name="URGENTE">' + opsHtml(['NO', 'SI'], t ? (t.urgente ? 'SI' : 'NO') : 'NO') + '</select></div></div>' +
@@ -1370,7 +1371,11 @@
       '<label class="lbl req">Cámaras o zonas</label><textarea name="CAMARAS" placeholder="Cámaras, accesos o zonas que se piden">' + esc(texto(v('camaras'))) + '</textarea>' +
       '<div class="fsec">Responsable y observaciones</div><label class="lbl req">Responsable de la información (quien envía la solicitud)</label><div id="fResp"></div>' +
       '<label class="lbl">Observaciones de la unidad</label><textarea name="OBSUNIDAD">' + esc(texto(v('obsUnidad'))) + '</textarea>' +
-      '<label class="lbl">Oficio de petición y otros documentos (adjuntos)</label><input type="file" name="adjuntos" multiple>' +
+      '<div class="fsec">Documentación y comunicación obligatorias</div>' +
+      '<label class="lbl req">Copia de la solicitud de la policía (donde viene su nº de expediente)</label><input type="file" name="solicitudPolicia" multiple><p class="small" id="fCopia"></p>' +
+      '<label class="check"><input type="checkbox" name="COMUNICADODGCE"' + (t && t.dgce ? ' checked' : '') + '> <b>La unidad ha comunicado a la policía</b> que la petición debe tramitarse a través de la <b>Dirección General de Coordinación y Estudios de la Secretaría de Estado de Seguridad</b> (Ministerio del Interior)</label>' +
+      (t && t.fDgce ? '<p class="small muted">Marcado el ' + esc(fhTxt(t.fDgce)) + '.</p>' : '') +
+      '<label class="lbl">Otros documentos (opcional)</label><input type="file" name="adjuntos" multiple>' +
       '<p class="small muted">Podrá guardar y modificar el borrador cuantas veces lo necesite. Compruebe los datos antes de enviarlo: una vez enviado, solo la SUIGE puede devolverlo para corregir.</p>' +
       '<div id="fError"></div><div class="acciones"><button type="button" data-cerrar>Cancelar</button><button type="button" id="fBorrador">💾 Guardar borrador</button><button type="button" class="prim" id="fEnviar">📨 Enviar a la SUIGE</button></div></form>';
     var f = $('#fParte'), campo = function (n) { return f.querySelector('[name="' + n + '"]'); }, val = function (n) { var el = campo(n); return el ? String(el.value || '').trim() : ''; };
@@ -1395,18 +1400,24 @@
     sM3.onchange = pintarCadena; pintarCadena();
     var err = function (m) { $('#fError').innerHTML = '<div class="error">' + esc(m) + '</div>'; $('#fError').scrollIntoView({ block: 'center' }); };
     var enCurso = false, tAct = t;
+    // ¿Ya tiene adjunta la copia de la solicitud de la policía? (se sube con el prefijo SOLICITUD-POLICIA)
+    var PREF_COPIA = 'SOLICITUD-POLICIA - ', copiaPrevia = [];
+    $('#fCopia').textContent = t ? 'Comprobando si ya está adjunta…' : 'Obligatoria para enviar.';
+    if (t) leerAdjuntos(t.id).then(function (l) { copiaPrevia = l.filter(function (f) { return f.nombre.indexOf(PREF_COPIA) === 0; }); $('#fCopia').textContent = copiaPrevia.length ? '✔ Ya adjunta: ' + copiaPrevia.map(function (f) { return f.nombre.slice(PREF_COPIA.length); }).join(', ') + ' (puedes añadir otra).' : 'Obligatoria para enviar: aún no está adjunta.'; }, function () { $('#fCopia').textContent = ''; });
     var guardarParte = function (enviar) {
       if (enCurso) return;
       var resp = pResp.valor(), mn = [nombre(A.m1, sM1.value), nombre(A.m2, sM2.value), nombre(A.m3, sM3.value)], suige = normSuige(mn[1]);
       var faltan = [];
       if (!sM3.value) faltan.push('unidad');
       if (enviar) {
-        [['CUERPOSOLICITANTE', 'cuerpo solicitante'], ['ORGANOSOLICITANTE', 'unidad o juzgado solicitante'], ['REFSOLICITANTE', 'referencia del solicitante'], ['FECHASOLICITUD', 'fecha de la petición'],
+        [['CUERPOSOLICITANTE', 'cuerpo solicitante'], ['ORGANOSOLICITANTE', 'unidad o juzgado solicitante'], ['REFSOLICITANTE', 'nº de expediente de la policía'], ['FECHASOLICITUD', 'fecha de la petición'],
           ['MOTIVOSOLICITUD', 'hechos o motivo'], ['IMAGENESDESDE', 'desde cuándo'], ['IMAGENESHASTA', 'hasta cuándo'], ['PRESERVADAS', 'si se ha preservado la grabación'], ['VISIONADASFCS', 'si las FCS ya han visionado las imágenes'], ['CAMARAS', 'cámaras o zonas']]
           .forEach(function (x) { if (!val(x[0])) faltan.push(x[1]); });
         if (val('PRESERVADAS') === 'NO' && !val('FECHASOBRESCRITURA')) faltan.push('fecha en que se sobrescribe la grabación (no está preservada)');
         if (val('VISIONADASFCS') === 'SI' && !val('FECHAVISIONADO')) faltan.push('cuándo las visionaron las FCS');
         if (!resp) faltan.push('responsable de la información');
+        if (!(campo('solicitudPolicia').files || []).length && !copiaPrevia.length) faltan.push('copia de la solicitud de la policía (con su nº de expediente)');
+        if (!campo('COMUNICADODGCE').checked) faltan.push('marcar que la unidad ha comunicado a la policía que lo tramite por la Dirección General de Coordinación y Estudios (SES)');
       }
       if (faltan.length) return err((enviar ? 'Para enviar a la SUIGE falta: ' : 'Falta: ') + faltan.join(', ') + '.');
       if (val('IMAGENESDESDE') && val('IMAGENESHASTA') && val('IMAGENESHASTA') < val('IMAGENESDESDE')) return err('«Hasta» es anterior a «Desde».');
@@ -1420,9 +1431,11 @@
         CUERPOSOLICITANTE: val('CUERPOSOLICITANTE'), ORGANOSOLICITANTE: val('ORGANOSOLICITANTE'), REFSOLICITANTE: val('REFSOLICITANTE'), FECHASOLICITUD: aISO(val('FECHASOLICITUD')),
         REFERENCIADELSMD: val('REFERENCIADELSMD'), URGENTE: val('URGENTE') || 'NO', MOTIVOSOLICITUD: val('MOTIVOSOLICITUD'), IMAGENESDESDE: aISO(val('IMAGENESDESDE')), IMAGENESHASTA: aISO(val('IMAGENESHASTA')),
         CAMARAS: val('CAMARAS'), PRESERVADAS: val('PRESERVADAS'), FECHASOBRESCRITURA: val('PRESERVADAS') === 'SI' ? null : aISO(val('FECHASOBRESCRITURA')), OBSUNIDAD: val('OBSUNIDAD'),
+        COMUNICADODGCE: campo('COMUNICADODGCE').checked ? 'SI' : 'NO', FECHACOMUNICADODGCE: campo('COMUNICADODGCE').checked ? (tAct && tAct.fDgce ? tAct.fDgce : new Date().toISOString()) : null,
         VISIONADASFCS: val('VISIONADASFCS'), FECHAVISIONADO: val('VISIONADASFCS') === 'SI' ? aISO(val('FECHAVISIONADO')) : null, VISIONADOPOR: val('VISIONADASFCS') === 'SI' ? val('VISIONADOPOR') : '',
         ESTADO: enviar ? ES.RS : (tAct && tAct.estado === ES.DV ? ES.DV : ES.BO) };
-      var archivos = Array.prototype.slice.call(campo('adjuntos').files || []);
+      var archivos = Array.prototype.slice.call(campo('solicitudPolicia').files || []).map(function (f) { return new File([f], PREF_COPIA + f.name, { type: f.type }); })
+        .concat(Array.prototype.slice.call(campo('adjuntos').files || []));
       enCurso = true; $('#fBorrador').disabled = $('#fEnviar').disabled = true;
       $('#fError').innerHTML = '<div class="aviso">' + (enviar ? 'Enviando a la SUIGE…' : 'Guardando el borrador…') + ' No cierres ni vuelvas a pulsar.</div>';
       var nota = enviar ? 'SOLICITUD ENVIADA · INFORMADO A SUIGE (' + suige + ')' : (tAct ? 'Borrador guardado' : 'Solicitud dada de alta (borrador)');
@@ -1495,7 +1508,7 @@
       '<div class="ficha"><div>' +
       '<div class="sec" style="margin-top:0"><span>Solicitud</span>' + (t.urgente ? '<span class="badge f6">URGENTE</span>' : '') + '</div>' +
       [['Fase', faseTxt(t)], ['Unidad', t.cadena.filter(Boolean).join(' - ')], ['SUIGE', t.suige || '(sin determinar)'], ['Solicitante', [t.cuerpo, t.organo].filter(Boolean).join(' · ')],
-        ['Referencia del solicitante', t.refSol], ['Fecha de la petición', fCorta(fechaSP(t.fSol))], ['Referencia del SMD de entrada', t.smd],
+        ['Nº de expediente de la policía', t.refSol], ['Comunicado a la policía: tramitar por la DG de Coordinación y Estudios (SES)', t.dgce ? 'SÍ' + (t.fDgce ? ' (' + fhTxt(t.fDgce) + ')' : '') : 'NO'], ['Fecha de la petición', fCorta(fechaSP(t.fSol))], ['Referencia del SMD de entrada', t.smd],
         ['Imágenes', [fhTxt(t.desde), fhTxt(t.hasta)].filter(Boolean).join(' – ')], ['Grabación preservada', t.preservadas + (t.fSobre ? ' · se sobrescribe el ' + fhTxt(t.fSobre) : '')], ['Visionadas antes por las FCS', (t.visionadas === 'SI' ? 'SÍ' + (t.fVision ? ', el ' + fhTxt(t.fVision) : '') + (t.visionPor ? ', por ' + t.visionPor : '') : t.visionadas === 'NO' ? 'NO' : '')],
         ['Responsable de la información', t.resp ? t.resp.Title : t.respParte], ['Alta', fHora(t.creado) + (t.autor ? ' · ' + t.autor.Title : '')],
         ['Última modificación', fHora(t.modificado) + (t.editor ? ' · ' + t.editor : '')], ['Días de tramitación', diasTramite(t) == null ? '' : String(diasTramite(t))]].map(fila).join('') +
@@ -1693,7 +1706,7 @@
   }
   function filasFicha(t) {
     return [['SOLICITUD', [['Nº de solicitud', String(t.id)], ['Unidad (cadena de mando)', t.cadena.filter(Boolean).join(' - ')], ['SUIGE', t.suige], ['Urgente', t.urgente ? 'SÍ' : 'NO'],
-        ['Solicitante', [t.cuerpo, t.organo].filter(Boolean).join(' · ')], ['Referencia del solicitante', t.refSol], ['Fecha de la petición', fCorta(fechaSP(t.fSol))], ['Referencia del SMD de entrada', t.smd],
+        ['Solicitante', [t.cuerpo, t.organo].filter(Boolean).join(' · ')], ['Nº de expediente de la policía', t.refSol], ['Comunicado a la policía: tramitar por la DG de Coordinación y Estudios (SES)', t.dgce ? 'SÍ' + (t.fDgce ? ' (' + fhTxt(t.fDgce) + ')' : '') : 'NO'], ['Fecha de la petición', fCorta(fechaSP(t.fSol))], ['Referencia del SMD de entrada', t.smd],
         ['Hechos que se investigan / motivo', texto(t.motivo)], ['Imágenes', [fhTxt(t.desde), fhTxt(t.hasta)].filter(Boolean).join(' – ')], ['Cámaras o zonas', texto(t.camaras)],
         ['Grabación preservada', t.preservadas + (t.fSobre ? ' · se sobrescribe el ' + fhTxt(t.fSobre) : '')], ['Visionadas antes por las FCS', (t.visionadas === 'SI' ? 'SÍ' + (t.fVision ? ', el ' + fhTxt(t.fVision) : '') + (t.visionPor ? ', por ' + t.visionPor : '') : t.visionadas === 'NO' ? 'NO' : '')], ['Responsable de la información', t.resp ? t.resp.Title : t.respParte], ['Observaciones de la unidad', texto(t.obsUnidad)], ['Situación', faseTxt(t)]]],
       ['INFORMES', [['SUIGE', [t.infSuige, texto(t.obsSuige)].filter(Boolean).join(' · ')], ['DIACU', [t.infDiacu, texto(t.obsDiacu)].filter(Boolean).join(' · ')], [t.fConsulta ? 'Propuesta IGE a SINTSEG' : 'Decisión de IGE', [!t.fConsulta && t.resolucion ? 'RECHAZADA (no se consultó a SINTSEG)' : t.infIge, texto(t.obsIge)].filter(Boolean).join(' · ')],
@@ -1836,11 +1849,11 @@
     var filas = [['INFORME DE CESIÓN DE IMÁGENES', descInf(c)], [], ['Grupo'].concat(CAB_STATS.slice(1))].concat(agruparInf(ts, c.agr).map(function (g) { return st(g[1], g[2]); }), [st('TOTAL', ts)], [[], []], [CSV_CAB]).concat(ts.map(filaCsv));
     descargar('informe-cesion-imagenes-' + hoy() + '.csv', '﻿' + filas.map(function (r) { return r.map(q).join(';'); }).join('\r\n'), 'text/csv;charset=utf-8');
   }
-  var CSV_CAB = ['Nº', 'SUIGE', 'Cadena de mando', 'Unidad', 'Año', 'Mes', 'Urgente', 'Solicitante', 'Unidad o juzgado', 'Referencia del solicitante', 'Fecha de la petición', 'SMD de entrada', 'Motivo', 'Imágenes desde', 'Imágenes hasta',
+  var CSV_CAB = ['Nº', 'SUIGE', 'Cadena de mando', 'Unidad', 'Año', 'Mes', 'Urgente', 'Solicitante', 'Unidad o juzgado', 'Nº de expediente de la policía', 'Comunicado vía DG de Coordinación y Estudios', 'Fecha de la petición', 'SMD de entrada', 'Motivo', 'Imágenes desde', 'Imágenes hasta',
     'Cámaras', 'Preservada', 'Se sobrescribe', 'Visionadas antes por las FCS', 'Informe SUIGE', 'Informe DIACU', 'Propuesta IGE', 'Consultado a SINTSEG', 'Resolución SINTSEG', 'Condiciones SINTSEG', 'Ref. SINTSEG', 'Resuelto el',
     'Instrucciones SUIGE', 'Entregadas el', 'Recibidas por', 'Soporte', 'Cerrado el', 'Días de tramitación', 'Situación', 'Responsable', 'Alta'];
   var filaCsv = function (t) {
-    return [t.id, t.suige, t.cadena.filter(Boolean).join(' - '), t.unidad, t.anio, t.mes, t.urgente ? 'SI' : 'NO', t.cuerpo, t.organo, t.refSol, fCorta(fechaSP(t.fSol)), t.smd, texto(t.motivo), fhTxt(t.desde), fhTxt(t.hasta),
+    return [t.id, t.suige, t.cadena.filter(Boolean).join(' - '), t.unidad, t.anio, t.mes, t.urgente ? 'SI' : 'NO', t.cuerpo, t.organo, t.refSol, t.dgce ? 'SI' : 'NO', fCorta(fechaSP(t.fSol)), t.smd, texto(t.motivo), fhTxt(t.desde), fhTxt(t.hasta),
       texto(t.camaras), t.preservadas, fhTxt(t.fSobre), (t.visionadas === 'SI' ? 'SÍ' + (t.fVision ? ', el ' + fhTxt(t.fVision) : '') + (t.visionPor ? ', por ' + t.visionPor : '') : t.visionadas === 'NO' ? 'NO' : ''), t.infSuige, t.infDiacu, t.infIge, t.fConsulta ? fCorta(fechaSP(t.fConsulta)) : '', t.resolucion, texto(t.obsSintseg), t.refSintseg, t.fResol ? fCorta(fechaSP(t.fResol)) : '',
       texto(t.instrucciones), fhTxt(t.fEntrega), t.receptor, t.soporte, t.fCierre ? fCorta(fechaSP(t.fCierre)) : '', diasTramite(t), faseTxt(t), t.resp ? t.resp.Title : t.respParte, fHora(t.creado)];
   };

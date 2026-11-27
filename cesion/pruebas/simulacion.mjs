@@ -93,7 +93,7 @@ async function abrir(b, yoId, opc) {
         if (!Lx) return NO();
         const av = sub.match(/^\/DefaultView\/ViewFields\/addviewfield\('([^']+)'\)$/); if (av) { (Lx.vista = Lx.vista || []).push(av[1]); return J({}); }
         if (/\/fields\/createfieldasxml$/.test(sub)) { if (!admin) return ERR(403, 'Acceso denegado.'); const x = c.parameters.SchemaXml, nm = x.match(/Name="([^"]+)"/)[1]; Lx.campos.push({ InternalName: /^[A-Za-z]{1,3}\d+$/.test(nm) ? '_x' + nm.charCodeAt(0).toString(16).padStart(4, '0') + '_' + nm.slice(1) : nm, TypeAsString: x.match(/Type="([^"]+)"/)[1] }); return J({}); }
-        if (/AttachmentFiles\/add/.test(sub)) return J({});
+        { const aa = sub.match(/^\/items\((\d+)\)\/AttachmentFiles\/add\(FileName='([^']+)'\)/); if (aa) { ((Lx.adj = Lx.adj || {})[aa[1]] = Lx.adj[aa[1]] || []).push(decodeURIComponent(aa[2])); const it = Lx.items.find(x => x.Id === +aa[1]); if (it) it.Attachments = true; return J({}); } }
         const rc = sub.match(/^\/items\((\d+)\)\/recycle\(\)$/); if (rc) { if (!admin) return ERR(403, 'Acceso denegado.'); Lx.items = Lx.items.filter(x => x.Id !== +rc[1]); return J({}); }
         if (sub === '' ) { Object.assign(Lx.info, c); delete Lx.info.__metadata; return r.fulfill({ status: 204, body: '' }); }
         const mi = sub.match(/^\/items\((\d+)\)$/); delete c.__metadata;
@@ -121,7 +121,7 @@ async function abrir(b, yoId, opc) {
       if (sub === '/DefaultView/ViewFields') return J({ Items: acc.includes('verbose') ? { results: Lx.vista || [] } : (Lx.vista || []) });
       if (sub.startsWith('/fields')) return J(Lx.campos.map(f => ({ InternalName: f.InternalName, Title: f.InternalName, TypeAsString: f.TypeAsString, Choices: [] })));
       if (sub.startsWith('/roleassignments')) return J([]);
-      const ad = sub.match(/^\/items\((\d+)\)\/AttachmentFiles/); if (ad) return J([]);
+      const ad = sub.match(/^\/items\((\d+)\)\/AttachmentFiles/); if (ad) return J(((Lx.adj || {})[ad[1]] || []).map(n => ({ FileName: n, ServerRelativeUrl: WEB + '/Lists/x/Attachments/' + ad[1] + '/' + n })));
       const mi = sub.match(/^\/items\((\d+)\)/);
       if (mi) { const it = Lx.items.find(x => x.Id === +mi[1]); if (!it) return NO('Item does not exist.'); return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ d: { __metadata: { etag: '"' + it.Modified + '"' }, ...expandir(it) } }) }); }
       if (sub.startsWith('/items')) {
@@ -180,10 +180,14 @@ async function escenario(verbose) {
   if (!verbose) { await p.setViewportSize({ width: 1100, height: 1400 }); await p.screenshot({ path: new URL('formulario.png', import.meta.url).pathname, fullPage: false }); }
   await p.click('#fEnviar'); await p.waitForTimeout(800);
   ok(/fecha en que se sobrescribe/.test(await p.textContent('#fError')) && /cuándo las visionaron/.test(await p.textContent('#fError')) && solicitudes().length === 0, tag + 'pide la fecha en que se sobrescribe y cuándo las visionaron las FCS');
-  await p.fill('[name=FECHAVISIONADO]', '2026-11-21T09:00');
+  await p.fill('[name=FECHAVISIONADO]', '2026-11-21T09:00'); await p.fill('[name=FECHASOBRESCRITURA]', manana());
+  await p.click('#fEnviar'); await p.waitForTimeout(800);
+  ok(/copia de la solicitud de la policía/.test(await p.textContent('#fError')) && /Dirección General de Coordinación y Estudios/.test(await p.textContent('#fError')) && solicitudes().length === 0, tag + 'sin la copia de la solicitud de la policía ni la comunicación a la DGCE no deja enviar');
+  await p.setInputFiles('[name=solicitudPolicia]', { name: 'oficio GC 123.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 prueba') }); await p.check('[name=COMUNICADODGCE]');
   await p.fill('[name=FECHASOBRESCRITURA]', manana());
   correos.length = 0; await p.click('#fEnviar'); await p.waitForTimeout(2500);
   const s1 = () => solicitudes()[0];
+  ok(s1() && s1().COMUNICADODGCE === 'SI' && !!s1().FECHACOMUNICADODGCE && (lista('CESION DE IMAGENES').adj || {})[1] && lista('CESION DE IMAGENES').adj[1].includes('SOLICITUD-POLICIA - oficio GC 123.pdf'), tag + 'guarda la comunicación a la DGCE y sube la copia de la solicitud de la policía', JSON.stringify([s1() && s1().COMUNICADODGCE, (lista('CESION DE IMAGENES').adj || {})[1]]));
   ok(s1() && s1().VISIONADASFCS === 'SI' && s1().VISIONADOPOR === 'Agente TIP 999' && /^2026-11-21/.test(s1().FECHAVISIONADO), tag + 'guarda que las FCS ya visionaron las imágenes, cuándo y quién', JSON.stringify([s1() && s1().VISIONADASFCS, s1() && s1().FECHAVISIONADO]));
   ok(s1() && s1().ESTADO === 'REMITIDO A SUIGE' && s1().SUIGES === 'SUIGESUR' && s1().URGENTE === 'SI' && s1().CUERPOSOLICITANTE === 'GUARDIA CIVIL' && /^2026-11-20/.test(s1().IMAGENESDESDE), tag + 'solicitud enviada: REMITIDO A SUIGE con sus datos', JSON.stringify(s1()));
   ok(correos.some(m => /^URGENTE · SOLICITUD DE CESIÓN DE IMÁGENES/.test(m.asunto) && m.to.includes('i:0#.w|et\\sur1') && m.to.includes('i:0#.w|et\\rsur')), tag + 'aviso a la SUIGE (grupo y responsable de Incidentes), a su CUENTA', JSON.stringify(correos.map(m => [m.asunto, m.to])));
