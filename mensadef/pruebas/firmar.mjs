@@ -53,6 +53,13 @@ await p.click('#sfVarias'); await p.waitForTimeout(200); const varias = await p.
 await p.click('#sfNinguna'); const ninguna = await p.$$eval('input[name=chkDoc]:checked', l => l.length);
 console.log('firmar: marcar todas', todas, '(contador ' + cuenta + ') | firmar las marcadas con un solo Firmar:', JSON.stringify(varias), '| desmarcar:', ninguna);
 if (todas !== 3 || cuenta !== '3' || JSON.stringify(varias) !== '["A1#1","B2#1","C3#1"]' || ninguna !== 0) error('firmar varias');
+// 2c. (27/11/2026) Desde «Firma» del diseño nuevo: varios asuntos (SENDEROFIRMAS_…) → quedan marcadas solo esas
+await p.reload(); await p.evaluate(n => { window.name = n; }, 'SENDEROFIRMAS_' + encodeURIComponent(JSON.stringify(['SDO. INFORME ANUAL DE SEGURIDAD DE INSTALACIONES', 'Solicitud de visita a acuartelamiento'])));
+await p.evaluate(() => { document.querySelectorAll('input[name=chkDoc]')[0].checked = false; });
+await p.evaluate(codigo); await p.waitForTimeout(300);
+const desdeSendero = await p.$$eval('input[name=chkDoc]:checked', l => l.map(x => x.value)), textoPanel = await p.textContent('#senderoFirma');
+console.log('firmar: varios desde SENDERO → marcadas', desdeSendero.join(','), '|', /3 de 2|2 de 2|3 de 2/.test(textoPanel) ? 'aviso' : textoPanel.slice(0, 80));
+if (desdeSendero.join() !== 'A1#1,B2#1,C3#1' || !/peticiones encontradas y marcadas/.test(textoPanel)) error('varios desde SENDERO');
 // 3. En la pantalla de identificarse: lo dice; tras entrar (página de perfil), va a la lista filtrada
 await p.goto(PF + '/ePortafirmas/Inicio.do'); await p.evaluate(n => { window.name = n; }, 'SENDEROFIRMA_' + encodeURIComponent('Asunto X'));
 await p.evaluate(codigo); await p.waitForTimeout(200); const login = /Identifícate/.test(await p.textContent('#senderoFirma'));

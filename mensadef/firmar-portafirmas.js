@@ -14,6 +14,9 @@
   // Asunto buscado: el que dejó SENDERO en el nombre de la pestaña o, si no, el filtro «Título» de la lista
   var asunto = '';
   if (/^SENDEROFIRMA_/.test(window.name)) { try { asunto = decodeURIComponent(window.name.slice(13)); } catch (e) { asunto = ''; } }
+  // 27/11/2026: desde «Firma» del diseño nuevo de SENDERO llegan varios asuntos («SENDEROFIRMAS_<lista>»): se marcan todos
+  var asuntos = [];
+  if (/^SENDEROFIRMAS_/.test(window.name)) { try { asuntos = JSON.parse(decodeURIComponent(window.name.slice(14))) || []; } catch (e) { asuntos = []; } }
   var filtro = document.querySelector('form[name="formDocumentos"] input[name="titulo"]');
   if (!asunto && filtro) asunto = filtro.value || '';
   // Panel
@@ -94,6 +97,12 @@
       window.name = '';   // ya no hace falta recordar el asunto
       document.getElementById('botPtfrFirmar').click();
     };
+  }
+  if (asuntos.length) {
+    var objs = asuntos.map(function (a) { return norm(a).slice(0, 50); }).filter(Boolean);
+    var varias = filas.filter(function (f) { var n = norm(f.titulo); return objs.some(function (o) { return n.indexOf(o) >= 0 || (n.length >= 12 && o.indexOf(n.slice(0, 50)) >= 0); }); });
+    filas.forEach(function (f) { var dentro = varias.indexOf(f) >= 0; if (f.chk.checked !== dentro) f.chk.click(); f.tr.style.outline = dentro ? '3px solid #efc000' : ''; });
+    return elegir(filas, 'Desde SENDERO: <b>' + varias.length + ' de ' + asuntos.length + '</b> peticiones encontradas y marcadas' + (varias.length < asuntos.length ? ' (las que faltan no están en esta lista)' : '') + '. Revisa y pulsa «Firmar las marcadas»:');
   }
   if (casan.length === 1) return preparar(casan[0]);
   if (casan.length > 1) return elegir(casan, 'Hay <b>' + casan.length + '</b> peticiones con ese asunto. Elige cuál vas a firmar:');

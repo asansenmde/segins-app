@@ -357,3 +357,9 @@ autoría.
       (relación, CSV, por célula) y Administración (solo administradores). «↺ Diseño clásico» vuelve al de antes («✨ Diseño
       nuevo» para volver). SENDERO-acceso 2026-11-27 · 2 dice si es administrador (Control total o grupo) y las solicitudes
       pendientes. PENDIENTE DEL USUARIO: subir SENDERO-pruebas y SENDERO-acceso, probar y decir qué cambiar.
+    27/11/2026: SENDERO 2026-11-27 · 2, ajustado a la maqueta (el usuario vio que la · 1 se apartaba): Gestión con pestañas
+      (Todos, Entrada, Salida, Sin leer, Con bandera, PSIT, META, Pendiente de firma), buscador, periodo y filtros plegados y la
+      ficha con los botones agrupados en Tramitar, Seguimiento y Compartir; Firma con casillas y «Firmar los marcados en
+      Rúbrica» (el Portafirmas las recibe ya marcadas: SENDEROFIRMAS_, firmar-portafirmas v2); Consultas con los resultados en la
+      página (filtros de bandeja y célula); Informes con «Distribuciones»; usuario en la barra lateral y sin el saludo grande.
+      PENDIENTE: Administración con «Aprobar» las solicitudes ahí mismo (a través de Colabora); «Tiempos de respuesta», más adelante.

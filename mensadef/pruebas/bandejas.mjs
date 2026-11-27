@@ -174,22 +174,48 @@ if (process.env.DISENO === 'nuevo') {
   const kpis = await p.$$eval('.dnKpi .t', l => l.map(x => x.textContent)), hoyFilas = await p.$$eval('#dnVistas tr[data-dnm]', l => l.length), listaOculta = await p.$eval('#lista', e => !e.offsetParent);
   await p.click('#dnVistas tr[data-dnm] >> nth=0'); await p.waitForTimeout(600);
   const enGestion = await p.$eval('#dnNav a.on', a => a.textContent.trim()), fichaAbierta = await p.$eval('#detalle', e => !e.hidden && !!e.offsetParent);
-  await p.click('#dnNav a[data-dn="consultas"]'); await p.fill('#dnBuscar', 'antiguo'); await p.click('#dnBuscarBtn'); await p.waitForSelector('#refModal', { timeout: 15000 }).catch(() => 0);
+  // Gestión como la maqueta: pestañas, buscador, periodo y filtros plegados, y la ficha con los botones agrupados
+  const grupos = await p.$$eval('#detalle .dnGr > b', l => l.map(b => b.textContent)), correoEnGrupo = !!(await p.$('#detalle .dnGr #porCorreo')), plegados = await p.$eval('#filtros', e => !e.offsetParent);
+  const pest = await p.$$eval('#dnPest [data-pest]', l => l.map(x => x.dataset.pest));
+  await p.click('#dnPest [data-pest="salida"]'); await p.waitForTimeout(300);
+  const soloSalida = await p.$$eval('#lista tbody tr[data-i]', l => l.length), filasSal = await p.evaluate(() => document.querySelector('#dnPest [data-pest="salida"] i').textContent);
+  await p.click('#dnPest [data-pest="todos"]'); await p.waitForTimeout(300);
+  await p.click('#dnVerFiltros'); const filtrosAbiertos = await p.$eval('#filtros', e => !!e.offsetParent); await p.click('#dnVerFiltros');
+  if (process.env.CAPTURA_DN) { await p.screenshot({ path: process.env.CAPTURA_DN + '-gestion.png' }); }
+  console.log('diseño nuevo, gestión: grupos', grupos.join(','), '| correo en su grupo', correoEnGrupo, '| filtros plegados', plegados, '→ se abren', filtrosAbiertos, '| pestañas', pest.join(','), '| salida', soloSalida, 'filas (' + filasSal + ')');
+  if (grupos.join() !== 'Tramitar,Seguimiento,Compartir' || !correoEnGrupo || !plegados || !filtrosAbiertos || !pest.includes('salida') || String(soloSalida) !== filasSal) console.log('Error: gestión del diseño nuevo');
+  // Consultas: los resultados en la misma página; al pulsar uno, su ventana
+  await p.click('#dnNav a[data-dn="consultas"]'); await p.fill('#dnBuscar', 'antiguo'); await p.click('#dnBuscarBtn'); await p.waitForSelector('#dnRes [data-dnres]', { timeout: 15000 }).catch(() => 0);
+  const resEnPagina = await p.$$eval('#dnRes [data-dnres]', l => l.length); await p.click('#dnRes [data-dnres] >> nth=0').catch(() => 0); await p.waitForSelector('#refModal', { timeout: 5000 }).catch(() => 0);
   const busca = await p.textContent('#refModal').catch(() => ''); await p.keyboard.press('Escape');
+  if (process.env.CAPTURA_DN) await p.screenshot({ path: process.env.CAPTURA_DN + '-consultas.png' });
+  // Usuario en la barra lateral y sin el saludo grande
+  const usuario = await p.textContent('#dnUsuario'), sinSaludo = await p.$eval('#hero', e => !e.offsetParent);
   await p.click('#dnNav a[data-dn="informes"]'); const barras = await p.$$eval('.dnBar', l => l.length);
+  await p.click('[data-dndist]'); await p.waitForTimeout(200); const dist = await p.textContent('#dnVistas');
   await p.click('#dnNav a[data-dn="firma"]'); const firmaTxt = await p.textContent('#dnVistas');
+  // Firma: con casillas; «Firmar los marcados» abre el Portafirmas con esos asuntos (SENDEROFIRMAS_…)
+  await p.evaluate(() => { window.__abiertas = []; window.open = function (u, n) { window.__abiertas.push([u, n]); return null; }; });
+  const casillas = await p.$$eval('.dnFir', l => l.length); await p.click('#dnFirmarMarcados').catch(() => 0);
+  const abierta = await p.evaluate(() => window.__abiertas[0] || []);
+  if (process.env.CAPTURA_DN) await p.screenshot({ path: process.env.CAPTURA_DN + '-firma.png' });
+  console.log('diseño nuevo, firma: casillas', casillas, '| abre', String(abierta[0]).replace(/^https:\/\/[^/]+/, ''), 'con', String(abierta[1]).slice(0, 40));
+  console.log('diseño nuevo, consultas: resultados en la página', resEnPagina, '| usuario en la barra:', usuario.trim(), '| sin saludo grande', sinSaludo);
+  if (!casillas || !/ListaPendientes/.test(abierta[0] || '') || !/^SENDEROFIRMAS_/.test(abierta[1] || '') || !resEnPagina || !/PERSONA/.test(usuario) || !sinSaludo) console.log('Error: firma, consultas o usuario del diseño nuevo');
   const admin = await p.$('#dnNav a[data-dn="admin"]');
   let adminTxt = ''; if (admin) { await admin.click(); await p.waitForTimeout(200); adminTxt = await p.textContent('#dnVistas'); if (process.env.CAPTURA_DN) await p.screenshot({ path: process.env.CAPTURA_DN + '-admin.png' }); }
   if (process.env.ADMIN && !/Abrir el control de acceso/.test(adminTxt)) console.log('Error: sección de administración');
   await p.click('#dnClasico'); await p.waitForTimeout(300);
+  const fichaClasica = !(await p.$('#detalle .dnGrupos'));
   const clasico = !(await p.$('#dnLat')) && await p.$eval('body > header', h => getComputedStyle(h).display !== 'none') && await p.$eval('#lista', e => !!e.offsetParent), boton = !!(await p.$('#dnProbar'));
   const recordado = await p.evaluate(M => localStorage.getItem(M + 'diseno'), MEM);
   await p.click('#dnProbar'); await p.waitForTimeout(300); const vuelve = !!(await p.$('#dnLat'));
   console.log('diseño nuevo: carga', ok, '| secciones', nav.join(','), '| autoría:', /Cte\. Alfredo Sánchez Sender/.test(autoria), '| cabecera antigua oculta', cabOculta, '| indicadores', kpis.length, '| entrado hoy', hoyFilas, '| lista oculta en el panel', listaOculta);
   console.log('diseño nuevo: pulsar uno → ', enGestion, 'y ficha abierta', fichaAbierta, '| consultas abre la búsqueda:', /antiguo/i.test(busca), '| barras por célula', barras, '| firma:', /Abrir el Portafirmas/.test(firmaTxt), '| administración (no admin):', !!admin);
-  console.log('diseño nuevo: «Diseño clásico» →', clasico, '| botón para volver', boton, '| se recuerda', recordado, '| vuelve al nuevo', vuelve);
+  if (!/Distribuciones/.test(dist) || !/Decretado/.test(dist)) console.log('Error: distribuciones', dist.slice(0, 200));
+  console.log('diseño nuevo: «Diseño clásico» →', clasico, '| ficha de siempre', fichaClasica, '| botón para volver', boton, '| se recuerda', recordado, '| vuelve al nuevo', vuelve);
   if (!ok || nav.join() !== (process.env.ADMIN ? 'panel,gestion,firma,consultas,informes,admin' : 'panel,gestion,firma,consultas,informes') || !/Cte\. Alfredo Sánchez Sender/.test(autoria) || !cabOculta || kpis.length !== 6 || !hoyFilas || !listaOculta || !/Gestión/.test(enGestion) || !fichaAbierta ||
-    !/antiguo/i.test(busca) || !barras || !/Abrir el Portafirmas/.test(firmaTxt) || !!admin !== !!process.env.ADMIN || !clasico || !boton || recordado !== '"clasico"' || !vuelve) console.log('Error: diseño nuevo');
+    !/antiguo/i.test(busca) || !barras || !/Abrir el Portafirmas/.test(firmaTxt) || !!admin !== !!process.env.ADMIN || !clasico || !fichaClasica || !boton || recordado !== '"clasico"' || !vuelve) console.log('Error: diseño nuevo');
   await fin();
 }
 if (process.env.RECORDADO) {
