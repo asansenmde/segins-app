@@ -345,3 +345,9 @@ autoría.
       si el Portafirmas deja firmar varias sin abrirlas y con un solo PIN.
     27/11/2026: SENDERO-acceso 2026-11-27 · 1: en «Preparación», ocultar de «Contenido del sitio» la biblioteca «aplicaciones» y las
       listas «SENDERO Autorizados» y «SENDERO Solicitudes» (y volver a mostrarlas). PENDIENTE DEL USUARIO: subirla y ocultarlas.
+    27/11/2026: PENDIENTE (más adelante, lo dijo el usuario): en el Portafirmas el recuadro de SENDERO tapa el visor del PDF al
+      «Leer»; hacerlo plegable o que se aparte al abrir el documento.
+    27/11/2026: MAQUETA del nuevo diseño de SENDERO (`mensadef/maquetas/sendero-v2.html`, datos ficticios): barra lateral azul noche
+      y oro, Panel (indicadores y avisos), Gestión (bandejas y ficha con acciones agrupadas: Tramitar, Seguimiento, Compartir),
+      Firma, Consultas, Informes y Administración (solo administradores: accesos, versiones, organizaciones). PENDIENTE DEL
+      USUARIO: decir qué le parece antes de rehacer SENDERO.

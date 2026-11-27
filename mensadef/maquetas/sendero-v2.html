@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="es">
+<head>
+<!-- [MENSADEF] Maqueta del nuevo diseño de SENDERO (27/11/2026). DATOS FICTICIOS: solo para ver el diseño y decidir con el
+     usuario. No se conecta a nada. © 2026 Cte. Alfredo Sánchez Sender. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SENDERO · maqueta</title>
+<style>
+  :root { --noche: #0a1a31; --noche2: #12284a; --azul: #1d4f91; --oro: #c9a227; --oro2: #e8cf72; --fondo: #eef1f6; --tarjeta: #fff;
+    --texto: #16253a; --suave: #5a6676; --linea: #dbe2ec; --rojo: #b3261e; --verde: #1e6b2e; --morado: #5b2e91; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", system-ui, sans-serif; color: var(--texto); background: var(--fondo); }
+  .maqueta { background: repeating-linear-gradient(45deg, #ffe28a, #ffe28a 12px, #ffd25a 12px, #ffd25a 24px); color: #5a3d00; text-align: center; font-weight: 700; font-size: 12px; padding: 4px; letter-spacing: .05em; }
+  .app { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: calc(100vh - 22px); }
+  /* Barra lateral */
+  aside { background: linear-gradient(180deg, var(--noche), var(--noche2)); color: #dbe6f5; display: flex; flex-direction: column; position: sticky; top: 0; height: calc(100vh - 22px); }
+  .marca { padding: 18px 18px 14px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .marca .emb { width: 40px; height: 40px; border-radius: 10px; background: radial-gradient(circle at 30% 30%, var(--oro2), var(--oro) 60%, #8a6a12); display: grid; place-items: center; color: var(--noche); font: 800 20px Georgia, serif; box-shadow: 0 4px 14px rgba(201,162,39,.35); float: left; margin-right: 10px; }
+  .marca b { display: block; font: 700 21px Georgia, serif; letter-spacing: .22em; color: #fff; }
+  .marca small { color: var(--oro2); font-size: 11px; letter-spacing: .06em; }
+  nav { padding: 10px 8px; flex: 1; }
+  nav a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin: 2px 0; border-radius: 10px; color: #c9d6e8; text-decoration: none; cursor: pointer; font-weight: 600; }
+  nav a .i { width: 22px; text-align: center; font-size: 16px; }
+  nav a:hover { background: rgba(255,255,255,.06); color: #fff; }
+  nav a.on { background: linear-gradient(90deg, rgba(201,162,39,.22), rgba(201,162,39,.04)); color: #fff; box-shadow: inset 3px 0 0 var(--oro); }
+  nav a .n { margin-left: auto; background: var(--oro); color: var(--noche); border-radius: 999px; font-size: 11px; font-weight: 800; padding: 1px 7px; }
+  nav .sep { margin: 12px 12px 4px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #7f93b0; }
+  .pie-lat { padding: 12px 16px; font-size: 11px; color: #7f93b0; border-top: 1px solid rgba(255,255,255,.08); }
+  /* Cabecera */
+  header { display: flex; align-items: center; gap: 12px; padding: 14px 24px; background: var(--tarjeta); border-bottom: 1px solid var(--linea); position: sticky; top: 0; z-index: 5; }
+  header h1 { margin: 0; font-size: 19px; color: var(--noche); }
+  header .sub { color: var(--suave); font-size: 12px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--linea); border-radius: 999px; padding: 4px 10px; font-size: 12px; background: #f7f9fc; }
+  .chip.oro { border-color: var(--oro); background: #fff8dc; color: #6b5100; font-weight: 700; }
+  .derecha { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  main { padding: 20px 24px 40px; }
+  .vista { display: none; } .vista.on { display: block; }
+  .card { background: var(--tarjeta); border: 1px solid var(--linea); border-radius: 14px; padding: 16px 18px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(10,26,49,.04); }
+  .card h2 { margin: 0 0 10px; font-size: 15px; color: var(--noche); display: flex; align-items: center; gap: 8px; }
+  .card h2 small { font-weight: 400; color: var(--suave); }
+  /* KPI */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi { background: var(--tarjeta); border: 1px solid var(--linea); border-radius: 14px; padding: 14px 16px; cursor: pointer; position: relative; overflow: hidden; }
+  .kpi::after { content: ""; position: absolute; inset: auto 0 0 0; height: 3px; background: var(--c, var(--azul)); }
+  .kpi .v { font: 700 30px Georgia, serif; color: var(--c, var(--noche)); }
+  .kpi .t { color: var(--suave); font-size: 12px; font-weight: 600; }
+  .kpi:hover { box-shadow: 0 6px 18px rgba(10,26,49,.1); }
+  .rejilla { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--suave); padding: 8px; border-bottom: 1px solid var(--linea); }
+  td { padding: 9px 8px; border-bottom: 1px solid #eef1f6; vertical-align: top; }
+  tr.fila { cursor: pointer; } tr.fila:hover td { background: #f6f8fc; } tr.sel td { background: #fff8dc; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: #e2ecf9; color: var(--azul); }
+  .tag.r { background: #fbdcda; color: var(--rojo); } .tag.v { background: #dcf0e0; color: var(--verde); } .tag.m { background: #ece2f8; color: var(--morado); } .tag.o { background: #fff1cc; color: #7a5200; }
+  .muted { color: var(--suave); font-size: 12px; }
+  .acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn { border: 1px solid var(--linea); background: #fff; border-radius: 10px; padding: 8px 12px; font: inherit; font-weight: 600; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+  .btn.p { background: var(--noche); color: #fff; border-color: var(--noche); }
+  .btn.oro { background: linear-gradient(180deg, var(--oro2), var(--oro)); border-color: var(--oro); color: var(--noche); }
+  .grupo { border: 1px solid var(--linea); border-radius: 12px; padding: 10px 12px; }
+  .grupo b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--suave); margin-bottom: 6px; }
+  .ficha dl { display: grid; grid-template-columns: 130px 1fr; gap: 4px 12px; margin: 0 0 10px; }
+  .ficha dt { color: var(--suave); } .ficha dd { margin: 0; }
+  .texto { background: #f8f9fb; border-left: 4px solid var(--oro); padding: 12px 14px; border-radius: 6px; }
+  .buscador { display: flex; gap: 8px; }
+  .buscador input { flex: 1; font: inherit; font-size: 16px; padding: 12px 14px; border: 2px solid var(--linea); border-radius: 12px; }
+  .buscador input:focus { outline: none; border-color: var(--oro); }
+  .pestanas { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .pestanas span { padding: 6px 12px; border-radius: 999px; background: #fff; border: 1px solid var(--linea); cursor: pointer; font-weight: 600; font-size: 13px; }
+  .pestanas span.on { background: var(--noche); color: #fff; border-color: var(--noche); }
+  .informes { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .inf { border: 1px solid var(--linea); border-radius: 14px; padding: 14px; background: #fff; cursor: pointer; }
+  .inf:hover { border-color: var(--oro); box-shadow: 0 6px 18px rgba(201,162,39,.15); }
+  .inf .i { font-size: 24px; } .inf b { display: block; margin: 6px 0 2px; }
+  .barras .b { display: grid; grid-template-columns: 150px 1fr 40px; gap: 8px; align-items: center; margin: 6px 0; font-size: 13px; }
+  .barras .b i { display: block; height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--azul), #4f86c6); }
+  .barras .b i.r { background: linear-gradient(90deg, var(--rojo), #e06a63); }
+  .admin-aviso { background: linear-gradient(90deg, #fff8dc, #fff); border: 1px solid var(--oro); border-radius: 12px; padding: 10px 14px; margin-bottom: 16px; }
+  @media (max-width: 900px) { .app { grid-template-columns: 1fr; } aside { position: static; height: auto; } nav { display: flex; flex-wrap: wrap; } .rejilla { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="maqueta">MAQUETA DEL NUEVO SENDERO · DATOS FICTICIOS · NO ESTÁ CONECTADA A MENSADEF</div>
+<div class="app">
+  <aside>
+    <div class="marca"><div class="emb">S</div><b>SENDERO</b><small>Mensajería oficial · ET</small></div>
+    <nav>
+      <a data-v="panel" class="on"><span class="i">⌂</span>Panel</a>
+      <div class="sep">Trabajo</div>
+      <a data-v="gestion"><span class="i">📥</span>Gestión<span class="n">12</span></a>
+      <a data-v="firma"><span class="i">✍</span>Firma<span class="n">3</span></a>
+      <div class="sep">Consulta</div>
+      <a data-v="consultas"><span class="i">🔎</span>Consultas</a>
+      <a data-v="informes"><span class="i">📊</span>Informes</a>
+      <div class="sep">Administración</div>
+      <a data-v="admin"><span class="i">🛡</span>Administración<span class="n">2</span></a>
+    </nav>
+    <div class="pie-lat">Versión 2026-12-·· · 13 células<br>© 2026 Cte. Alfredo Sánchez Sender</div>
+  </aside>
+
+  <div>
+    <header>
+      <div><h1 id="titulo">Panel</h1><div class="sub" id="subtitulo">Lo importante de hoy en tus células</div></div>
+      <div class="derecha"><span class="chip">📍 Ámbito 2SUIGE</span><span class="chip">13 células</span><span class="chip">⟳ hace 2 min</span><span class="chip oro">★ Administrador</span></div>
+    </header>
+    <main>
+      <!-- PANEL -->
+      <section class="vista on" id="v-panel">
+        <div class="kpis">
+          <div class="kpi" style="--c:var(--azul)" data-ir="gestion"><div class="v">12</div><div class="t">Sin leer</div></div>
+          <div class="kpi" style="--c:var(--rojo)" data-ir="gestion"><div class="v">2</div><div class="t">Urgentes / inmediatos</div></div>
+          <div class="kpi" style="--c:var(--morado)" data-ir="firma"><div class="v">3</div><div class="t">Pendientes de firma</div></div>
+          <div class="kpi" style="--c:var(--oro)" data-ir="gestion"><div class="v">4</div><div class="t">Comentarios nuevos</div></div>
+          <div class="kpi" style="--c:var(--verde)" data-ir="informes"><div class="v">5</div><div class="t">Distribuidos hoy</div></div>
+          <div class="kpi" style="--c:#2f7f8f" data-ir="informes"><div class="v">7</div><div class="t">En META / PSIT esta semana</div></div>
+        </div>
+        <div class="rejilla">
+          <div class="card"><h2>📥 Entrado hoy <small>· lo último de tus células</small></h2>
+            <table><thead><tr><th>Hora</th><th>Asunto</th><th>Célula</th><th></th></tr></thead><tbody id="hoy"></tbody></table></div>
+          <div>
+            <div class="card"><h2>🔔 Avisos</h2>
+              <p>💬 <b>4 comentarios nuevos</b> en mensajes que sigues.</p>
+              <p>✍ <b>3 peticiones</b> esperando tu firma en Rúbrica.</p>
+              <p>⏰ <b>1 mensaje</b> con fecha tope mañana.</p>
+              <p class="muted">Desde aquí se va directo a cada cosa.</p></div>
+            <div class="card"><h2>⚡ Accesos rápidos</h2><div class="acciones">
+              <button class="btn" data-ir="consultas">🔎 Buscar en todo MENSADEF</button><button class="btn" data-ir="firma">✍ Ir a firmar</button><button class="btn" data-ir="informes">📊 Informe semanal</button></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- GESTIÓN -->
+      <section class="vista" id="v-gestion">
+        <div class="pestanas"><span class="on">📥 Entrada</span><span>📤 Salida</span><span>Sin leer 12</span><span>⚑ Con bandera</span><span>★ PSIT</span><span>➜ En META</span></div>
+        <div class="rejilla">
+          <div class="card"><h2>Bandeja de entrada <small>· hoy y ayer · 48 mensajes</small></h2>
+            <table><thead><tr><th>Fecha</th><th>Asunto</th><th>Célula</th><th>Estado</th></tr></thead><tbody id="bandeja"></tbody></table></div>
+          <div class="card ficha"><h2>Ficha del mensaje</h2>
+            <p style="font:700 17px Georgia,serif;margin:0 0 8px" id="fAsunto">Ejercicio de seguridad de instalaciones 2027</p>
+            <p><span class="tag r">Prioridad O · Inmediato</span> <span class="tag v">✍ Firmado</span> <span class="tag o">⚑ Seguimiento</span></p>
+            <dl><dt>N.º referencia</dt><dd>RE-001-E-26-0532xxxx</dd><dt>Su referencia</dt><dd>🔗 RE-001-S-26-0406xxxx de 02/10/2026</dd><dt>Remitente</dt><dd>UNIDAD FICTICIA A</dd><dt>Decretado</dt><dd>a SETEC SEGURIDAD por el Jefe (hoy 09:12)</dd></dl>
+            <div class="texto">Texto de ejemplo del mensaje. Aquí va el contenido completo, con sus anexos debajo.</div>
+            <div class="grupo" style="margin-top:12px"><b>Tramitar</b><div class="acciones"><button class="btn p">↪ Distribuir</button><button class="btn">↩ Responder</button><button class="btn">✍ Pasar a rúbrica</button></div></div>
+            <div class="grupo" style="margin-top:8px"><b>Seguimiento</b><div class="acciones"><button class="btn">➜ Tarea en META</button><button class="btn">★ Al PSIT</button><button class="btn">💬 Comentar</button><button class="btn">⚑ Bandera</button></div></div>
+            <div class="grupo" style="margin-top:8px"><b>Compartir</b><div class="acciones"><button class="btn">✉ Correo</button><button class="btn">🖨 PDF</button><button class="btn">📋 Copiar</button></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FIRMA -->
+      <section class="vista" id="v-firma">
+        <div class="card"><h2>✍ Pendientes de firma <small>· los que has pasado a rúbrica</small></h2>
+          <table><thead><tr><th><input type="checkbox" checked></th><th>Asunto</th><th>Pasado a rúbrica</th><th>Estado</th></tr></thead><tbody>
+            <tr><td><input type="checkbox" checked></td><td>Informe trimestral de seguridad</td><td>hoy 08:40</td><td><span class="tag m">En el Portafirmas</span></td></tr>
+            <tr><td><input type="checkbox" checked></td><td>Contestación a la petición de visita</td><td>ayer 13:05</td><td><span class="tag m">En el Portafirmas</span></td></tr>
+            <tr><td><input type="checkbox"></td><td>Propuesta de calendario de revistas</td><td>ayer 10:20</td><td><span class="tag o">⚠ falta la firma</span></td></tr></tbody></table>
+          <div class="acciones" style="margin-top:12px"><button class="btn oro">✍ Firmar los marcados en Rúbrica</button><button class="btn">📄 Ver los documentos</button></div>
+          <p class="muted">Se abre el Portafirmas con todos marcados; allí pulsas el favorito SENDERO y firmas con un solo PIN.</p></div>
+      </section>
+
+      <!-- CONSULTAS -->
+      <section class="vista" id="v-consultas">
+        <div class="card"><h2>🔎 Buscar en todo MENSADEF <small>· todas tus células, entrada y salida, cualquier fecha</small></h2>
+          <div class="buscador"><input placeholder="Asunto, número de registro (RE-…), referencia…" value="calendario de revistas"><button class="btn p">Buscar</button></div>
+          <div class="pestanas" style="margin-top:12px"><span class="on">Todo</span><span>Por registro / referencia</span><span>Por remitente</span><span>Por periodo</span><span>Por célula</span></div></div>
+        <div class="card"><h2>Resultados <small>· 6 mensajes</small></h2>
+          <table><thead><tr><th>Fecha</th><th>Registro</th><th>Asunto</th><th>Célula</th></tr></thead><tbody id="resultados"></tbody></table></div>
+      </section>
+
+      <!-- INFORMES -->
+      <section class="vista" id="v-informes">
+        <div class="informes">
+          <div class="inf"><div class="i">📄</div><b>Relación de mensajes</b><span class="muted">Del periodo y células que elijas, en Word o PDF.</span></div>
+          <div class="inf"><div class="i">⏳</div><b>Pendientes por célula</b><span class="muted">Sin leer, sin tramitar y con fecha tope.</span></div>
+          <div class="inf"><div class="i">↪</div><b>Distribuciones</b><span class="muted">Quién decretó qué, a quién y con qué motivo.</span></div>
+          <div class="inf"><div class="i">⏱</div><b>Tiempos de respuesta</b><span class="muted">Desde la entrada hasta nuestra contestación.</span></div>
+          <div class="inf"><div class="i">✍</div><b>Firma</b><span class="muted">Pasados a rúbrica, firmados y pendientes.</span></div>
+          <div class="inf"><div class="i">★</div><b>META y PSIT</b><span class="muted">Lo que ha ido a tareas y al Punto de Situación.</span></div>
+        </div>
+        <div class="card" style="margin-top:16px"><h2>📊 Esta semana por célula <small>· mensajes de entrada</small></h2>
+          <div class="barras" id="barras"></div></div>
+      </section>
+
+      <!-- ADMINISTRACIÓN -->
+      <section class="vista" id="v-admin">
+        <div class="admin-aviso">★ Solo lo ven los <b>administradores de SENDERO</b>. Los demás no tienen esta sección.</div>
+        <div class="kpis">
+          <div class="kpi" style="--c:var(--oro)"><div class="v">2</div><div class="t">Solicitudes de acceso pendientes</div></div>
+          <div class="kpi"><div class="v">5</div><div class="t">Ámbitos autorizados</div></div>
+          <div class="kpi" style="--c:var(--verde)"><div class="v">87</div><div class="t">Personas usando SENDERO este mes</div></div>
+          <div class="kpi" style="--c:var(--rojo)"><div class="v">1</div><div class="t">Bloqueos</div></div>
+        </div>
+        <div class="rejilla">
+          <div class="card"><h2>🛡 Accesos <small>· solicitudes y reglas</small></h2>
+            <table><thead><tr><th>Quién</th><th>Ámbito</th><th>Motivo</th><th></th></tr></thead><tbody>
+              <tr><td>PERSONA FICTICIA 1</td><td>JIGE</td><td>Jefe de negociado</td><td><button class="btn v">✔ Aprobar</button> <button class="btn">✕</button></td></tr>
+              <tr><td>PERSONA FICTICIA 2</td><td>MAPER</td><td>Secretaría</td><td><button class="btn">✔ Aprobar</button> <button class="btn">✕</button></td></tr></tbody></table>
+            <div class="acciones" style="margin-top:10px"><button class="btn">Autorizados y bloqueos</button><button class="btn">Responsables de ámbito</button></div></div>
+          <div>
+            <div class="card"><h2>🚀 Versiones</h2><p>Vigente: <b>2026-11-26 · 1</b> <span class="tag r">Obligatoria</span></p><p class="muted">Caducidad de los favoritos: 30 días.</p>
+              <div class="acciones"><button class="btn">Anotar versión nueva</button><button class="btn oro">✉ Avisar por correo</button></div></div>
+            <div class="card"><h2>🏛 Organizaciones <small>· META y PSIT</small></h2><p class="muted">SUIGESUR · IGE (pendiente) · MAPER (pendiente)</p><button class="btn">Gestionar</button></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+<script>
+(function () {
+  var T = { panel: ['Panel', 'Lo importante de hoy en tus células'], gestion: ['Gestión', 'Bandejas, ficha y tramitación'], firma: ['Firma', 'Lo que espera tu firma en Rúbrica'],
+    consultas: ['Consultas', 'Buscar en todo MENSADEF y en las referencias'], informes: ['Informes', 'Relaciones, estadísticas y seguimiento'], admin: ['Administración', 'Accesos, versiones y organizaciones'] };
+  var ir = function (v) {
+    document.querySelectorAll('nav a').forEach(function (a) { a.classList.toggle('on', a.dataset.v === v); });
+    document.querySelectorAll('.vista').forEach(function (s) { s.classList.toggle('on', s.id === 'v-' + v); });
+    document.getElementById('titulo').textContent = T[v][0]; document.getElementById('subtitulo').textContent = T[v][1]; window.scrollTo(0, 0);
+  };
+  document.querySelectorAll('[data-v],[data-ir]').forEach(function (e) { e.addEventListener('click', function () { ir(e.dataset.v || e.dataset.ir); }); });
+  var asuntos = ['Ejercicio de seguridad de instalaciones 2027', 'Calendario de revistas del primer semestre', 'Petición de visita a acuartelamiento', 'Estadillo mensual de actividades', 'Relación de personal de servicio', 'Actualización del plan de autoprotección', 'Informe de incidencias de la semana', 'Solicitud de material de oficina'];
+  var celulas = ['SETEC SEGURIDAD', 'SETEC SECRETARÍA', 'JEFATURA', 'PROCOR'];
+  var est = [['Pendiente', 'o'], ['Leído', ''], ['Pendiente de firma', 'm'], ['Distribuido', 'v']];
+  document.getElementById('hoy').innerHTML = asuntos.slice(0, 5).map(function (a, i) { return '<tr class="fila"><td>' + (11 - i) + ':0' + i + '</td><td><b>' + a + '</b></td><td class="muted">' + celulas[i % 4] + '</td><td>' + (i < 2 ? '<span class="tag r">Inmediato</span>' : '') + '</td></tr>'; }).join('');
+  document.getElementById('bandeja').innerHTML = asuntos.map(function (a, i) { var e = est[i % 4]; return '<tr class="fila' + (i ? '' : ' sel') + '"><td>' + (i < 4 ? 'hoy' : 'ayer') + '</td><td>' + (i % 3 ? a : '<b>' + a + '</b>') + '</td><td class="muted">' + celulas[i % 4] + '</td><td><span class="tag ' + e[1] + '">' + e[0] + '</span></td></tr>'; }).join('');
+  document.getElementById('resultados').innerHTML = [0, 1, 2, 3, 4, 5].map(function (i) { return '<tr class="fila"><td>' + (10 + i) + '/1' + (i % 2) + '/2026</td><td>RE-001-' + (i % 2 ? 'S' : 'E') + '-26-04' + (51 + i) + 'xxxx</td><td>Calendario de revistas ' + (i ? '(' + i + ')' : '') + '</td><td class="muted">' + celulas[i % 4] + '</td></tr>'; }).join('');
+  document.getElementById('barras').innerHTML = [['SETEC SEGURIDAD', 42], ['SETEC SECRETARÍA', 31], ['JEFATURA', 18], ['PROCOR', 12], ['REGISTRO', 7]].map(function (b, i) { return '<div class="b"><span>' + b[0] + '</span><i' + (i ? '' : ' class="r"') + ' style="width:' + (b[1] * 2) + '%"></i><b>' + b[1] + '</b></div>'; }).join('');
+})();
+</script>
+</body>
+</html>
