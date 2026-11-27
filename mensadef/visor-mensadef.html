@@ -495,7 +495,8 @@
   // Disuasorio (07/11/2026): sin menú del botón derecho (salvo en campos de texto o con texto seleccionado, para copiar) ni
   // F12, Ctrl+U o Ctrl+Mayús+I/J/C. No impide del todo ver el código (nada lo impide en un navegador): eso lo hace el cifrado.
   // Alto de la cabecera fija, para que la barra de la ficha ampliada quede justo debajo
-  var altoCab = function () { var h = document.querySelector('header'); if (h) document.documentElement.style.setProperty('--cab', (getComputedStyle(h).position === 'sticky' ? h.offsetHeight : 0) + 'px'); };
+  var altoCab = function () { var h = document.querySelector('header'); if (!h) return; var a = getComputedStyle(h).position === 'sticky' ? h.offsetHeight : 0, m = document.getElementById('dnLat');
+    document.documentElement.style.setProperty('--cabSola', a + 'px'); document.documentElement.style.setProperty('--cab', (a + (m && getComputedStyle(m).position === 'sticky' ? m.offsetHeight : 0)) + 'px'); };
   window.addEventListener('resize', altoCab); setTimeout(altoCab, 0);
   // Barra de la ficha ampliada siempre a la vista: además del «sticky», al bajar se fija por código (en algunos equipos el
   // «sticky» no actúa y había que subir para ver los botones). Un hueco ocupa su sitio para que la ficha no salte.
@@ -535,7 +536,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-27 · 5';
+  var VERSION = '2026-11-27 · 6';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -1161,7 +1162,7 @@
   function pintarHero() {
     var e = celulasElegidas(), nombre = ($('quien').textContent || '').split(' · ').pop();
     $('hero').hidden = false;
-    try { if ($('dnUsuario')) { $('dnUsuario').innerHTML = '👤 <b>' + esc(nombre || '') + '</b>' + (e.length ? '<br><span>' + e.length + ' célula' + (e.length === 1 ? '' : 's') + ' cargada' + (e.length === 1 ? '' : 's') + '</span>' : ''); } } catch (x) { /* diseño nuevo */ }
+    try { if ($('dnUsuario')) { $('dnUsuario').innerHTML = '👤 <b>' + esc(nombre || '') + '</b>'; $('dnUsuario').title = e.length + ' célula' + (e.length === 1 ? '' : 's') + ' cargada' + (e.length === 1 ? '' : 's'); } } catch (x) { /* diseño nuevo */ }
     $('hero').innerHTML = '<div class="hola">SENDERO · Mensajes MENSADEF' + (nombre ? ' · Hola' : '') + '</div><div class="nom">' + esc(nombre || 'Tus bandejas') + '</div>' +
       e.map(function (c) { return '<span class="rolh">' + esc(c.nombre) + '</span>'; }).join('') +
       '<p>Tus bandejas de entrada y salida de las células que elijas. Marca ✓ lo revisado, pasa a tarea lo que haya que hacer y saca informes de lo filtrado (📄 Informe). Lo que marcas se guarda en este navegador.</p>' +
@@ -3336,15 +3337,16 @@
   var esAdminSendero = function () { return !!accesoGuardado().admin; };
   // 27/11/2026: la franja institucional (MINISTERIO DE DEFENSA · EJÉRCITO DE TIERRA · MENSAJERÍA OFICIAL) se queda arriba; el resto de
   // la cabecera antigua (escudo, título y firma) no, porque ya están en la barra lateral
-  var CSS_DN = 'html.dn body{padding-left:232px}html.dn body>header{background:linear-gradient(90deg,#0a1a31,#12284a);border-bottom:3px solid #c9a227;box-shadow:none}html.dn body>header>div:not(.franja){display:none}' +
-    '#dnLat{position:fixed;left:0;top:0;bottom:0;width:232px;background:linear-gradient(180deg,#0a1a31,#12284a);color:#dbe6f5;display:flex;flex-direction:column;z-index:40;overflow:auto}' +
-    '#dnLat .marca{padding:18px 18px 14px;border-bottom:1px solid rgba(255,255,255,.08)}#dnLat .emb{width:40px;height:40px;border-radius:10px;background:radial-gradient(circle at 30% 30%,#e8cf72,#c9a227 60%,#8a6a12);display:grid;place-items:center;color:#0a1a31;font:800 20px Georgia,serif;float:left;margin-right:10px;box-shadow:0 4px 14px rgba(201,162,39,.35)}' +
-    '#dnLat .marca b{display:block;font:700 21px Georgia,serif;letter-spacing:.22em;color:#fff}#dnLat .marca small{display:block;clear:both;padding-top:8px;color:#e8cf72;font-size:11px;letter-spacing:.06em}' +
-    '#dnLat .usuario{margin:10px 12px 0;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.06);font-size:13px;color:#e6edf6}#dnLat .usuario span{color:#9fb3cf;font-size:11px}#dnLat nav{padding:10px 8px;flex:1}#dnLat nav a{display:flex;align-items:center;gap:10px;padding:10px 12px;margin:2px 0;border-radius:10px;color:#c9d6e8;text-decoration:none;cursor:pointer;font-weight:600}' +
-    '#dnLat nav a .i{width:22px;text-align:center;font-size:16px}#dnLat nav a:hover{background:rgba(255,255,255,.06);color:#fff}#dnLat nav a.on{background:linear-gradient(90deg,rgba(201,162,39,.22),rgba(201,162,39,.04));color:#fff;box-shadow:inset 3px 0 0 #c9a227}' +
-    '#dnLat nav a .n{margin-left:auto;background:#c9a227;color:#0a1a31;border-radius:999px;font-size:11px;font-weight:800;padding:1px 7px}#dnLat nav .sep{margin:12px 12px 4px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7f93b0}' +
-    '#dnLat .autoria{margin:10px 12px;padding:10px 12px;border:1px solid rgba(201,162,39,.45);border-radius:12px;background:rgba(201,162,39,.08);font-size:12px;color:#e6edf6;line-height:1.4}#dnLat .autoria b{color:#e8cf72;display:block;font-size:13px}' +
-    '#dnLat .pie{padding:10px 16px 14px;font-size:11px;color:#7f93b0;border-top:1px solid rgba(255,255,255,.08)}#dnLat .pie button{margin-top:6px;background:transparent;border:1px solid #3b5478;color:#c9d6e8;border-radius:8px;padding:4px 10px;cursor:pointer;font:inherit}' +
+  // 27/11/2026 (elegido por el usuario, opción B): sin barra lateral; las secciones en una fila de pestañas bajo la franja del
+  // Ministerio, con el usuario, la autoría y la versión a la derecha. La lista y la ficha recuperan todo el ancho.
+  var CSS_DN = 'html.dn body>header{background:linear-gradient(90deg,#0a1a31,#12284a);border-bottom:3px solid #c9a227;box-shadow:none}html.dn body>header>div:not(.franja){display:none}' +
+    '#dnLat{position:sticky;top:var(--cabSola,0px);z-index:19;display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;padding:6px 16px;background:linear-gradient(90deg,#0a1a31,#12284a);color:#dbe6f5;border-bottom:2px solid #c9a227;box-shadow:0 2px 6px rgba(0,0,0,.15)}' +
+    '#dnLat .marca{display:flex;align-items:center;gap:8px}#dnLat .emb{width:30px;height:30px;border-radius:8px;background:radial-gradient(circle at 30% 30%,#e8cf72,#c9a227 60%,#8a6a12);display:grid;place-items:center;color:#0a1a31;font:800 16px Georgia,serif}' +
+    '#dnLat .marca b{font:700 17px Georgia,serif;letter-spacing:.2em;color:#fff}#dnLat nav{display:flex;gap:2px;flex-wrap:wrap;flex:0 1 auto;margin-right:auto}#dnLat nav .sep{display:none}' +
+    '#dnLat nav a{display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:9px;color:#c9d6e8;text-decoration:none;cursor:pointer;font-weight:600}#dnLat nav a:hover{background:rgba(255,255,255,.07);color:#fff}' +
+    '#dnLat nav a.on{background:rgba(201,162,39,.2);color:#fff;box-shadow:inset 0 -3px 0 #c9a227}#dnLat nav a .n{background:#c9a227;color:#0a1a31;border-radius:999px;font-size:11px;font-weight:800;padding:0 7px}' +
+    '#dnLat .usuario{font-size:12px;color:#e6edf6}#dnLat .usuario span{color:#9fb3cf}#dnLat .autoria{font-size:11px;color:#c9d6e8;border:1px solid rgba(201,162,39,.45);border-radius:999px;padding:3px 10px}#dnLat .autoria b{color:#e8cf72}' +
+    '#dnLat .pie{font-size:11px;color:#9fb3cf;display:flex;align-items:center;gap:6px}#dnLat .pie button{background:transparent;border:1px solid #3b5478;color:#c9d6e8;border-radius:8px;padding:3px 9px;cursor:pointer;font:inherit}' +
     '#dnCab{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid #dbe2ec;border-radius:14px;padding:12px 16px;margin-bottom:14px}#dnCab h2{margin:0;font-size:19px;color:#0a1a31}#dnCab .sub{color:#5a6676;font-size:12px}' +
     '#dnCab .der{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center}#dnCab .chip{display:inline-flex;gap:6px;align-items:center;border:1px solid #dbe2ec;border-radius:999px;padding:3px 10px;font-size:12px;background:#f7f9fc}#dnCab .chip.oro{border-color:#c9a227;background:#fff8dc;color:#6b5100;font-weight:700}' +
     '.dnKpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:14px}.dnKpi{background:#fff;border:1px solid #dbe2ec;border-radius:14px;padding:14px 16px;cursor:pointer;position:relative;overflow:hidden}.dnKpi:after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--c,#1d4f91)}' +
@@ -3355,16 +3357,17 @@
     '.dnBusca{display:flex;gap:8px}.dnBusca input{flex:1;font:inherit;font-size:16px;padding:11px 14px;border:2px solid #dbe2ec;border-radius:12px}.dnBusca input:focus{outline:none;border-color:#c9a227}' +
     '.dnInf{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:14px}.dnInf div{border:1px solid #dbe2ec;border-radius:14px;padding:14px;background:#fff;cursor:pointer}.dnInf div:hover{border-color:#c9a227;box-shadow:0 6px 18px rgba(201,162,39,.15)}.dnInf b{display:block;margin:6px 0 2px}.dnInf span.i{font-size:24px}' +
     '.dnBar{display:grid;grid-template-columns:170px 1fr 40px;gap:8px;align-items:center;margin:6px 0;font-size:13px}.dnBar i{display:block;height:12px;border-radius:6px;background:linear-gradient(90deg,#1d4f91,#4f86c6)}.dnBar i.r{background:linear-gradient(90deg,#b3261e,#e06a63)}' +
-    '@media (max-width:900px){html.dn body{padding-left:0}#dnLat{position:static;width:auto}#dnLat nav{display:flex;flex-wrap:wrap}.dnRej{grid-template-columns:1fr}}';
+    '@media (max-width:900px){#dnLat{position:static}.dnRej{grid-template-columns:1fr}}';
   function iniciarDiseno() {
     if (DISENO !== 'nuevo' || $('dnLat')) return;
     document.documentElement.classList.add('dn');
     if (!$('dnCss')) { var st = document.createElement('style'); st.id = 'dnCss'; st.textContent = CSS_DN; document.head.appendChild(st); }
     var lat = document.createElement('aside'); lat.id = 'dnLat';
-    lat.innerHTML = '<div class="marca"><div class="emb">S</div><b>SENDERO</b><small>El camino de cada mensaje</small></div><div id="dnUsuario" class="usuario">' + esc((($('quien') || {}).textContent || '').split(' · ').pop()) + '</div><nav id="dnNav"></nav>' +
-      '<div class="autoria">Diseño y desarrollo<b>Cte. Alfredo Sánchez Sender</b>© 2026 · Todos los derechos reservados</div>' +
-      '<div class="pie">Versión ' + esc(VERSION) + (PRUEBAS ? ' · PRUEBAS' : '') + '<br><button type="button" id="dnClasico" title="Vuelve al diseño de siempre (se recuerda en este navegador)">↺ Diseño clásico</button></div>';
-    document.body.insertBefore(lat, document.body.firstChild);
+    lat.innerHTML = '<div class="marca"><div class="emb">S</div><b>SENDERO</b></div><nav id="dnNav"></nav><div id="dnUsuario" class="usuario">' + esc((($('quien') || {}).textContent || '').split(' · ').pop()) + '</div>' +
+      '<div class="autoria">Diseño y desarrollo: <b>Cte. Alfredo Sánchez Sender</b> · © 2026</div>' +
+      '<div class="pie" title="Versión ' + esc(VERSION) + (PRUEBAS ? ' · PRUEBAS' : '') + '"><button type="button" id="dnClasico" title="Vuelve al diseño de siempre (se recuerda en este navegador) · versión ' + esc(VERSION) + '">↺ Clásico</button></div>';
+    var hd = document.querySelector('body > header'); hd.parentNode.insertBefore(lat, hd.nextSibling);
+    altoCab();
     var main = document.querySelector('main');
     // Lo de la pantalla de siempre pasa a «Gestión» (los avisos de acceso y el portal se ven en todas)
     // (el cartel de bienvenida «Hola …» es de la pantalla de siempre: va con Gestión)
@@ -3378,6 +3381,7 @@
   function quitarDiseno() {
     document.documentElement.classList.remove('dn');
     ['dnLat', 'dnCab', 'dnVistas', 'dnGesBar'].forEach(function (id) { var e = $(id); if (e) e.parentNode.removeChild(e); });
+    altoCab();
     Array.prototype.forEach.call(document.querySelectorAll('.dnPlegado'), function (e) { e.classList.remove('dnPlegado'); });
     dnPest = null; dnPestSel = 'todos'; filtrar();
     if ($('detalle') && abierto) abrir(abierto);   // la ficha vuelve a su barra de siempre

@@ -377,3 +377,8 @@ autoría.
       Rúbrica, correo…): una regla del agrupado quitado los seguía ocultando (visto por el usuario: «¿dónde está la gestión?»).
       Arreglado y la prueba comprueba que se ven de verdad. Vuelve la franja «MINISTERIO DE DEFENSA · EJÉRCITO DE TIERRA ·
       MENSAJERÍA OFICIAL» arriba.
+    27/11/2026: SENDERO 2026-11-27 · 6: sin barra lateral (perdía espacio; el usuario eligió la opción B): las secciones en una fila
+      de pestañas bajo la franja del Ministerio, con el usuario, la autoría y «↺ Clásico» a la derecha; la lista y la ficha, a todo el
+      ancho. Prueba de INVENTARIO en la batería: todo lo que enseña el diseño clásico (65 cosas) tiene que verse en el nuevo.
+      Compromisos con el usuario: no tocar lo publicado hasta que apruebe, el clásico siempre disponible, cada entrega con qué
+      cambia / qué no / qué no se ha probado de verdad, no cambiar nada no pedido, y la batería COMPLETA antes de entregar.

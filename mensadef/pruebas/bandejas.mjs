@@ -181,6 +181,8 @@ if (process.env.DISENO === 'nuevo') {
   const fichaSiempre = !(await p.$('#detalle .dnGrupos')) && !!(await p.$('#detalle .grandes #aColabora'));
   const franja = await p.$eval('body > header .franja', e => !!e.offsetParent && /MINISTERIO DE DEFENSA/.test(e.textContent)), tramitar = await p.$$eval('#detalle .grandes button', l => l.filter(b => !!b.offsetParent).map(b => b.id));   // visibles de verdad
   if (process.env.CAPTURA_DN) await p.screenshot({ path: process.env.CAPTURA_DN + '-ficha.png' });
+  const altoMenu = await p.$eval('#dnLat', e => e.offsetHeight);
+  if (altoMenu > 60) console.log('Error: el menú de arriba no cabe en una línea (' + altoMenu + ' px)');
   console.log('diseño nuevo: franja del Ministerio', franja, '| botones de gestión en la ficha', tramitar.join(','));
   if (!franja || !tramitar.includes('aColabora') || !tramitar.includes('aPunto')) console.log('Error: franja o gestión en la ficha');
   // «Filtrando por»: búsqueda + tarjeta «No leídos» + célula; se quita uno con su ✕ y el resto con «Quitar todos»
