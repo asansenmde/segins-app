@@ -196,16 +196,16 @@ async function escenario(verbose) {
   await tab(p, 'pendientes'); await abrirSol(p, 1);
   await p.selectOption('#vSuige', 'FAVORABLE'); await p.fill('#oSuige', 'Procede'); correos.length = 0;
   await p.click('[data-acc=suigeDiacu]'); await p.waitForTimeout(2500);
-  ok(s1().ESTADO === 'REMITIDO A DIACU' && s1().INFORMESUIGE === 'FAVORABLE', tag + 'SUIGE: informe favorable, REMITIDO A DIACU');
-  ok(correos.some(m => /INFORMADA POR SUIGESUR/.test(m.asunto) && m.to.includes('i:0#.w|et\\ige1')), tag + 'aviso a DIACU (SEGURIDAD_IGE mientras no exista DIACU_CESION)', JSON.stringify(correos.map(m => m.asunto)));
+  ok(s1().ESTADO === 'REMITIDO A IGE' && s1().INFORMESUIGE === 'FAVORABLE', tag + 'SUIGE: informe favorable, REMITIDO directamente A IGE (DIACU solo informada)');
+  ok(correos.some(m => /INFORMADA POR SUIGESUR/.test(m.asunto) && m.to.includes('i:0#.w|et\\ige1') && /DIACU RECIBE COPIA/.test(m.cuerpo)), tag + 'aviso inmediato a IGE con DIACU en copia', JSON.stringify(correos.map(m => m.asunto)));
   ok(errs.length === 0, tag + 'sin errores de página (SUIGE)', errs.join(' | '));
   await c.close();
 
   // 4. DIACU informa; IGE consulta a SINTSEG (fuera) y registra su resolución; IGE la traslada a la SUIGE
   ({ b: c, p, errs } = await abrir(b, 30, { verbose }));
   await tab(p, 'pendientes'); await abrirSol(p, 1);
-  await p.selectOption('#vDiacu', 'FAVORABLE CON OBSERVACIONES'); await p.click('[data-acc=diacuIge]'); await p.waitForTimeout(2500);
-  ok(s1().ESTADO === 'REMITIDO A IGE' && s1().INFORMEDIACU === 'FAVORABLE CON OBSERVACIONES', tag + 'DIACU informa: REMITIDO A IGE');
+  await p.selectOption('#vDiacu', 'FAVORABLE CON OBSERVACIONES'); correos.length = 0; await p.click('[data-acc=diacuIge]'); await p.waitForTimeout(2500);
+  ok(s1().ESTADO === 'REMITIDO A IGE' && s1().INFORMEDIACU === 'FAVORABLE CON OBSERVACIONES' && correos.some(m => /INFORME DE DIACU/.test(m.asunto)), tag + 'DIACU añade su informe sin parar la solicitud (sigue en IGE) y avisa a IGE');
   await p.selectOption('#vIge', 'FAVORABLE'); await p.fill('#vRefConsulta', 'OF-55/26'); correos.length = 0;
   await p.click('[data-acc=igeSintseg]'); await p.waitForTimeout(2500);
   ok(s1().ESTADO === 'CONSULTADO A SINTSEG' && s1().REFCONSULTASINTSEG === 'OF-55/26' && correos.some(m => /CONSULTADO A SINTSEG/.test(m.asunto)), tag + 'IGE consulta a SINTSEG (fuera de la aplicación)', JSON.stringify(correos.map(m => m.asunto)));

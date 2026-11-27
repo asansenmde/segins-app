@@ -92,3 +92,5 @@ Ordenada el 14/11/2026 (lo hecho, resumido al final). SENDERO y Puntos de Situac
   subir las cinco copias cifradas. Para empezar 2026 de cero: en cada una, Ajustes › Pasar a histórico › marcar «Incluir
   también los abiertos» › Ver › Exportar (guardar el ZIP y comprobar que se abre) › Informe del periodo (PDF para IGE) › Borrar.
   Desde 2027, sin marcar la casilla (solo cerrados).
+- **27/11/2026 · Cesión 2026-11-27 · 1**: DIACU solo informada (la SUIGE remite directamente a IGE; DIACU en copia con informe
+  opcional). Subir `cesion/colabora/cesion.html`.

@@ -22,7 +22,8 @@ imágenes (si se autorizan) y registra la entrega; la SUIGE lo comprueba y cierr
 | Tema | Decisión |
 |---|---|
 | Sitio | IGE: `/et/jige/colaborativo` (como Incidentes) |
-| Circuito | Escalón a escalón: Unidad → SUIGE informa → DIACU informa → IGE consulta a SINTSEG → **SINTSEG resuelve** → IGE traslada → SUIGE comunica a la unidad → la unidad entrega las imágenes → la SUIGE comprueba y cierra |
+| Circuito | Escalón a escalón: Unidad → SUIGE informa → IGE (se entera en el momento) consulta a SINTSEG → **SINTSEG resuelve** → IGE traslada → SUIGE comunica a la unidad → la unidad entrega las imágenes → la SUIGE comprueba y cierra |
+| DIACU | **Solo informada** (27/11/2026): recibe copia cuando la SUIGE remite a IGE y puede añadir su informe en cualquier momento, sin parar la solicitud. Las que estaban «REMITIDO A DIACU» cuentan ya como en IGE |
 | SINTSEG | Hoy fuera de Colabora: IGE le consulta por oficio y **registra su resolución** (con su referencia y el oficio adjunto). Objetivo: que se integre; basta con crear el grupo `SINTSEG_CESION` en Accesos y meter a sus personas, y desde ese momento resuelven ellos en la aplicación |
 | Histórico | No se importan las solicitudes de la lista antigua |
 
