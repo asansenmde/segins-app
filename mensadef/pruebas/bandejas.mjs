@@ -179,6 +179,10 @@ if (process.env.DISENO === 'nuevo') {
   await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(600);
   const sigue = await p.$eval('#dnNav a.on', a => a.dataset.dn), fichaAlLado = await p.evaluate(() => !!document.getElementById('detalle').offsetParent && !!document.getElementById('lista').offsetParent);
   const fichaSiempre = !(await p.$('#detalle .dnGrupos')) && !!(await p.$('#detalle .grandes #aColabora'));
+  const franja = await p.$eval('body > header .franja', e => !!e.offsetParent && /MINISTERIO DE DEFENSA/.test(e.textContent)), tramitar = await p.$$eval('#detalle .grandes button', l => l.filter(b => !!b.offsetParent).map(b => b.id));   // visibles de verdad
+  if (process.env.CAPTURA_DN) await p.screenshot({ path: process.env.CAPTURA_DN + '-ficha.png' });
+  console.log('diseño nuevo: franja del Ministerio', franja, '| botones de gestión en la ficha', tramitar.join(','));
+  if (!franja || !tramitar.includes('aColabora') || !tramitar.includes('aPunto')) console.log('Error: franja o gestión en la ficha');
   // «Filtrando por»: búsqueda + tarjeta «No leídos» + célula; se quita uno con su ✕ y el resto con «Quitar todos»
   await p.fill('#buscar', 'Mensaje 1'); await p.waitForTimeout(400); await p.click('#kpis [data-kpi="noleidos"]'); await p.waitForTimeout(300);
   await p.selectOption('#fSitio', { index: 1 }); await p.waitForTimeout(300);
@@ -212,7 +216,7 @@ if (process.env.DISENO === 'nuevo') {
   if (!res || !listaOcultaEnConsultas || !barras || !casillas || !!admin !== !!process.env.ADMIN || (process.env.ADMIN && !/Abrir el control de acceso/.test(adminTxt)) || !vuelve) console.log('Error: secciones del diseño nuevo');
   // «Diseño clásico» y vuelta
   await p.click('#dnClasico'); await p.waitForTimeout(300);
-  const clasico = !(await p.$('#dnLat')) && await p.$eval('body > header', h => getComputedStyle(h).display !== 'none'), boton = !!(await p.$('#dnProbar'));
+  const clasico = !(await p.$('#dnLat')) && await p.$eval('body > header .tit', h => getComputedStyle(h.parentNode).display !== 'none'), boton = !!(await p.$('#dnProbar'));
   const recordado = await p.evaluate(M => localStorage.getItem(M + 'diseno'), MEM);
   await p.click('#dnProbar'); await p.waitForTimeout(300); const otraVez = !!(await p.$('#dnLat'));
   console.log('diseño nuevo: «Diseño clásico» →', clasico, '| botón para volver', boton, '| se recuerda', recordado, '| vuelve al nuevo', otraVez);

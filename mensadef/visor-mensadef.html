@@ -535,7 +535,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-27 · 4';
+  var VERSION = '2026-11-27 · 5';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -3334,7 +3334,9 @@
     ['informes', '📊', 'Informes', 'Relaciones y estadísticas del periodo cargado'], ['admin', '🛡', 'Administración', 'Accesos y versiones de SENDERO']];
   var accesoGuardado = function () { return leer('acceso', null) || {}; };
   var esAdminSendero = function () { return !!accesoGuardado().admin; };
-  var CSS_DN = 'html.dn body{padding-left:232px}html.dn body>header{display:none}' +
+  // 27/11/2026: la franja institucional (MINISTERIO DE DEFENSA · EJÉRCITO DE TIERRA · MENSAJERÍA OFICIAL) se queda arriba; el resto de
+  // la cabecera antigua (escudo, título y firma) no, porque ya están en la barra lateral
+  var CSS_DN = 'html.dn body{padding-left:232px}html.dn body>header{background:linear-gradient(90deg,#0a1a31,#12284a);border-bottom:3px solid #c9a227;box-shadow:none}html.dn body>header>div:not(.franja){display:none}' +
     '#dnLat{position:fixed;left:0;top:0;bottom:0;width:232px;background:linear-gradient(180deg,#0a1a31,#12284a);color:#dbe6f5;display:flex;flex-direction:column;z-index:40;overflow:auto}' +
     '#dnLat .marca{padding:18px 18px 14px;border-bottom:1px solid rgba(255,255,255,.08)}#dnLat .emb{width:40px;height:40px;border-radius:10px;background:radial-gradient(circle at 30% 30%,#e8cf72,#c9a227 60%,#8a6a12);display:grid;place-items:center;color:#0a1a31;font:800 20px Georgia,serif;float:left;margin-right:10px;box-shadow:0 4px 14px rgba(201,162,39,.35)}' +
     '#dnLat .marca b{display:block;font:700 21px Georgia,serif;letter-spacing:.22em;color:#fff}#dnLat .marca small{display:block;clear:both;padding-top:8px;color:#e8cf72;font-size:11px;letter-spacing:.06em}' +
@@ -3532,7 +3534,7 @@
     '.dnGr>b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#5a6676;margin-bottom:6px}.dnGr .dnAcc{gap:6px}.dnGr .gr{padding:6px 10px!important;min-width:0}.dnGr .gr small{display:none}' +
     'html.dn.dnPanel #detalle{display:none!important}html.dn.dnPanel .layout{display:block}.dnKpis.mini{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:10px}.dnKpis.mini .dnKpi{padding:8px 12px}.dnKpis.mini .dnKpi .v{font-size:22px}' +
     '#dnGesBar .fila3{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed #dbe2ec}#dnGesBar .fila3 .muted{margin-right:4px}.dnBtn.oro{background:linear-gradient(180deg,#e8cf72,#c9a227)!important;color:#0a1a31!important}' +
-    '.dnGr select{max-width:100%}html.dn #detalle .piso2>.grandes,html.dn #detalle .piso2>.utiles{display:none}@media (max-width:1100px){.dnGrupos{grid-template-columns:1fr}}';
+    '.dnGr select{max-width:100%}@media (max-width:1100px){.dnGrupos{grid-template-columns:1fr}}';
   function iniciarGestionDn() {
     if (!$('dnCss2')) { var st = document.createElement('style'); st.id = 'dnCss2'; st.textContent = CSS_DN2; document.head.appendChild(st); }
     // Periodo, filtros, tarjetas antiguas y saludo: plegados (se abren con sus botones)

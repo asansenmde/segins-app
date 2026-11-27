@@ -373,3 +373,7 @@ autoría.
       filtros a la vista, lista y ficha al lado, la ficha de siempre), con una línea «Filtrando por: … ✕» (o «Sin filtros») que dice
       lo activo y cuántos se ven, «Quitar todos», y el repaso rápido (vistos y leídos de la lista). «Ocultar borradores» va aparte
       (preferencia, «verlos»). Firma, Consultas, Informes y Administración, en la barra lateral; al volver, Bandejas está como se dejó.
+    27/11/2026: SENDERO 2026-11-27 · 5: en la · 4 la ficha NO enseñaba los botones de gestión (META, PSIT, Distribuir, Responder,
+      Rúbrica, correo…): una regla del agrupado quitado los seguía ocultando (visto por el usuario: «¿dónde está la gestión?»).
+      Arreglado y la prueba comprueba que se ven de verdad. Vuelve la franja «MINISTERIO DE DEFENSA · EJÉRCITO DE TIERRA ·
+      MENSAJERÍA OFICIAL» arriba.
