@@ -141,7 +141,7 @@ if (process.env.VENTANA) await p.evaluate(M => localStorage.setItem(M + 'sinAuto
 // 2SUIGE está autorizado. NOAUT=1: sin reglas (pantalla «no autorizado» y «Solicitar acceso»); XFO=1: Colabora no deja
 // abrir su página en un marco (se comprueba con la ventana pequeña); NUEVA=1: hay una versión vigente más nueva;
 // DIAS=n adelanta el reloj n días (31 → caducada; 27 → aviso)
-const estC = nuevoEstado({ xfo: !!process.env.XFO }); estC.admin = !!process.env.ADMIN;   // ADMIN=1: administra SENDERO (sección «Administración») estC.usuario = { Id: 21, Title: 'PERSONA', Email: 'persona@pruebas.invalid' };
+const estC = nuevoEstado({ xfo: !!process.env.XFO }); estC.admin = !!process.env.ADMIN;  /* ADMIN=1: administra SENDERO (sección «Administración») */ estC.usuario = { Id: 21, Title: 'PERSONA', Email: 'persona@pruebas.invalid' };
 // SINORG=1: el ámbito no tiene dadas de alta las direcciones de META y del PSIT (y la lista es antigua, sin esas columnas)
 estC.sinColumnasUrl = !!process.env.SINORG;
 const ORG_META = 'https://colabora.mdef.es/et/ORG/aplicaciones/META.html', ORG_PSIT = 'https://colabora.mdef.es/et/ORG/aplicaciones/puntos-situacion.html';
