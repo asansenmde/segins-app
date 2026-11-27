@@ -72,3 +72,14 @@ En **Ajustes** (Control total), «🗄️ Pasar a histórico»: elegir año y me
 de reciclaje de Colabora). Por defecto solo los expedientes cerrados; la casilla «Incluir también los abiertos» es para
 empezar de cero.
 
+## Cambios del 27/11/2026 (versión 2026-11-27 · 2)
+
+- **IGE puede rechazar sin consultar a SINTSEG** («✕ Rechazar (no pasa a SINTSEG)», con motivo): la denegación baja a la SUIGE,
+  que la comunica a la unidad, y se cierra. En la ficha sale «Decisión de IGE» y SINTSEG «no consultado». «Devolver a la SUIGE
+  para corregir» sigue para lo que haya que arreglar.
+- **La resolución de SINTSEG** (en la aplicación o registrada por IGE desde el oficio) **avisa a la vez a todos**: IGE, SUIGE,
+  DIACU y la unidad. Después se sigue escalón a escalón (IGE traslada, SUIGE comunica, la unidad entrega).
+- **Al registrar la entrega de las imágenes se cierra el ciclo** y se avisa a todos: «Cesión de imágenes Nº X finalizada».
+- **Visionado previo por las FCS**: la solicitud recoge si las FCS ya han visionado las imágenes, cuándo y quién
+  (`VISIONADASFCS`, `FECHAVISIONADO`, `VISIONADOPOR`); sale en la ficha, la impresión, los avisos y el Excel.
+

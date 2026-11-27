@@ -176,13 +176,15 @@ async function escenario(verbose) {
   ok(/Se enviará a SUIGESUR/.test(await p.textContent('#fCadena')), tag + 'el formulario dice a qué SUIGE va');
   await p.selectOption('[name=CUERPOSOLICITANTE]', 'GUARDIA CIVIL'); await p.fill('[name=ORGANOSOLICITANTE]', 'Puesto de la Guardia Civil de X');
   await p.fill('[name=REFSOLICITANTE]', 'AT-123/26'); await p.selectOption('[name=URGENTE]', 'SI'); await p.fill('[name=MOTIVOSOLICITUD]', 'Robo en el exterior del acuartelamiento');
-  await p.fill('[name=IMAGENESDESDE]', '2026-11-20T10:00'); await p.fill('[name=IMAGENESHASTA]', '2026-11-20T12:00'); await p.selectOption('[name=PRESERVADAS]', 'NO'); await p.fill('[name=CAMARAS]', 'Cámara 3, puerta principal');
+  await p.fill('[name=IMAGENESDESDE]', '2026-11-20T10:00'); await p.fill('[name=IMAGENESHASTA]', '2026-11-20T12:00'); await p.selectOption('[name=PRESERVADAS]', 'NO'); await p.selectOption('[name=VISIONADASFCS]', 'SI'); await p.fill('[name=VISIONADOPOR]', 'Agente TIP 999'); await p.fill('[name=CAMARAS]', 'Cámara 3, puerta principal');
   if (!verbose) { await p.setViewportSize({ width: 1100, height: 1400 }); await p.screenshot({ path: new URL('formulario.png', import.meta.url).pathname, fullPage: false }); }
   await p.click('#fEnviar'); await p.waitForTimeout(800);
-  ok(/fecha en que se sobrescribe/.test(await p.textContent('#fError')) && solicitudes().length === 0, tag + 'sin preservar la grabación, pide la fecha en que se sobrescribe');
+  ok(/fecha en que se sobrescribe/.test(await p.textContent('#fError')) && /cuándo las visionaron/.test(await p.textContent('#fError')) && solicitudes().length === 0, tag + 'pide la fecha en que se sobrescribe y cuándo las visionaron las FCS');
+  await p.fill('[name=FECHAVISIONADO]', '2026-11-21T09:00');
   await p.fill('[name=FECHASOBRESCRITURA]', manana());
   correos.length = 0; await p.click('#fEnviar'); await p.waitForTimeout(2500);
   const s1 = () => solicitudes()[0];
+  ok(s1() && s1().VISIONADASFCS === 'SI' && s1().VISIONADOPOR === 'Agente TIP 999' && /^2026-11-21/.test(s1().FECHAVISIONADO), tag + 'guarda que las FCS ya visionaron las imágenes, cuándo y quién', JSON.stringify([s1() && s1().VISIONADASFCS, s1() && s1().FECHAVISIONADO]));
   ok(s1() && s1().ESTADO === 'REMITIDO A SUIGE' && s1().SUIGES === 'SUIGESUR' && s1().URGENTE === 'SI' && s1().CUERPOSOLICITANTE === 'GUARDIA CIVIL' && /^2026-11-20/.test(s1().IMAGENESDESDE), tag + 'solicitud enviada: REMITIDO A SUIGE con sus datos', JSON.stringify(s1()));
   ok(correos.some(m => /^URGENTE · SOLICITUD DE CESIÓN DE IMÁGENES/.test(m.asunto) && m.to.includes('i:0#.w|et\\sur1') && m.to.includes('i:0#.w|et\\rsur')), tag + 'aviso a la SUIGE (grupo y responsable de Incidentes), a su CUENTA', JSON.stringify(correos.map(m => [m.asunto, m.to])));
   ok(/sur1@et\.mde\.es \(miembro del grupo SEGURIDAD_SUIGESUR\)/.test(s1().ObservacionesDelExpediente) && /rsur@et\.mde\.es \(responsable SUIGESUR en Incidentes\)/.test(s1().ObservacionesDelExpediente), tag + 'el historial dice de dónde sale cada destinatario (grupo o responsable de Incidentes)', (s1().ObservacionesDelExpediente || '').split('\n').pop());
@@ -215,6 +217,8 @@ async function escenario(verbose) {
   await p.fill('#oSintseg', 'Solo el tramo de 10:00 a 11:00'); await p.click('[data-acc=sintsegResolver]'); await p.waitForTimeout(600);
   ok(/referencia del oficio/.test(await p.textContent('#accMsg')), tag + 'registrada por IGE, pide la referencia del oficio de SINTSEG');
   await p.fill('#vRefSintseg', 'SINTSEG-9/26'); correos.length = 0; await p.click('[data-acc=sintsegResolver]'); await p.waitForTimeout(2500);
+  const rs = correos.find(m => /SINTSEG HA RESUELTO/.test(m.asunto)) || { to: [], cc: [] }, rsTodos = rs.to.concat(rs.cc).join(' ');
+  ok(/ige1/.test(rsTodos) && /sur1/.test(rsTodos) && /jefex/.test(rsTodos), tag + 'la resolución de SINTSEG llega a la vez a IGE, la SUIGE, DIACU y la unidad', rsTodos);
   ok(s1().ESTADO === 'RESUELTO POR SINTSEG' && s1().RESOLUCIONSINTSEG === 'AUTORIZADA CON CONDICIONES' && /por SINTSEG/.test(s1().RESOLUCIONREGISTRADAPOR), tag + 'resolución de SINTSEG registrada por IGE', JSON.stringify([s1().ESTADO, s1().RESOLUCIONREGISTRADAPOR]));
   correos.length = 0; await p.click('[data-acc=igeBaja]'); await p.waitForTimeout(2500);
   ok(s1().ESTADO === 'RESPUESTA EN LA SUIGE' && correos.some(m => /RESOLUCIÓN DE SINTSEG: AUTORIZADA CON CONDICIONES/.test(m.asunto) && m.to.includes('i:0#.w|et\\sur1')), tag + 'IGE traslada la resolución a la SUIGE', JSON.stringify(correos.map(m => m.asunto)));
@@ -234,16 +238,14 @@ async function escenario(verbose) {
   ok(/cuándo se entregaron/.test(await p.textContent('#accMsg')), tag + 'la entrega pide fecha, receptor y soporte');
   await p.fill('#vFEntrega', '2026-11-25T09:30'); await p.fill('#vReceptor', 'Agente TIP 1234'); await p.fill('#vSoporte', 'USB cifrado'); correos.length = 0;
   await p.click('[data-acc=entregar]'); await p.waitForTimeout(2500);
-  ok(s1().ESTADO === 'IMAGENES ENTREGADAS' && s1().RECEPTOR === 'Agente TIP 1234' && correos.some(m => /IMÁGENES ENTREGADAS/.test(m.asunto) && m.to.includes('i:0#.w|et\\sur1')), tag + 'la unidad registra la entrega y avisa a la SUIGE');
+  const fin = correos.find(m => /FINALIZADA: IMÁGENES ENTREGADAS/.test(m.asunto)) || { to: [], cc: [] }, finTodos = fin.to.concat(fin.cc).join(' ');
+  ok(s1().ESTADO === 'CERRADO' && !!s1().FECHACIERRE && s1().RECEPTOR === 'Agente TIP 1234' && /Nº 1 FINALIZADA/.test(fin.asunto || '') && /sur1/.test(finTodos) && /ige1/.test(finTodos) && /jefex/.test(finTodos), tag + 'al entregar se cierra el ciclo y se avisa a todos (cesión Nº 1 finalizada)', fin.asunto + ' ' + finTodos);
   ok(errs.length === 0, tag + 'sin errores de página (unidad, entrega)', errs.join(' | '));
   await c.close();
   ({ b: c, p, errs } = await abrir(b, 20, { verbose }));
-  await tab(p, 'pendientes'); await abrirSol(p, 1); correos.length = 0;
-  await p.click('[data-acc=suigeCerrar]'); await p.waitForTimeout(2500);
-  ok(s1().ESTADO === 'CERRADO' && !!s1().FECHACIERRE && correos.some(m => /CERRADA/.test(m.asunto) && m.to.includes('i:0#.w|et\\jefex')), tag + 'la SUIGE comprueba y cierra; aviso a la unidad');
   // Denegada: la SUIGE la comunica y queda cerrada sin entrega
   nuevoItem({ ESTADO: 'RESPUESTA EN LA SUIGE', RESOLUCIONSINTSEG: 'DENEGADA', OBSSINTSEG: 'No procede', URGENTE: 'NO' });
-  await cerrarDlg(p); await p.click('#recargar'); await p.waitForTimeout(1500); await tab(p, 'pendientes'); await abrirSol(p, 2); correos.length = 0;
+  await p.click('#recargar'); await p.waitForTimeout(1500); await tab(p, 'pendientes'); await abrirSol(p, 2); correos.length = 0;
   await p.click('[data-acc=suigeUnidad]'); await p.waitForTimeout(2500);
   ok(solicitudes()[1].ESTADO === 'CERRADO' && correos.some(m => /DENEGADA/.test(m.asunto)), tag + 'denegada: se comunica a la unidad y queda cerrada');
   ok(errs.length === 0, tag + 'sin errores de página (SUIGE, cierre)', errs.join(' | '));
@@ -288,21 +290,32 @@ async function escenario(verbose) {
   ok(errs.length === 0, tag + 'sin errores de página (SINTSEG)', errs.join(' | '));
   await c.close();
   delete GRUPOS.SINTSEG_CESION;
+  nuevoItem({ ESTADO: 'REMITIDO A IGE', INFORMESUIGE: 'FAVORABLE', URGENTE: 'NO' });
+  ({ b: c, p, errs } = await abrir(b, 30, { verbose }));
+  await tab(p, 'pendientes'); await abrirSol(p, 4); await p.click('[data-acc=igeRechazar]'); await p.waitForTimeout(500);
+  ok(/motivo del rechazo/.test(await p.textContent('#accMsg')), tag + 'IGE: rechazar pide el motivo');
+  await p.fill('#oIge', 'Petición sin orden judicial'); correos.length = 0; await p.click('[data-acc=igeRechazar]'); await p.waitForTimeout(2500);
+  const s4 = solicitudes()[3], rj = correos.find(m => /RECHAZADA POR IGE/.test(m.asunto)) || { to: [], cc: [] };
+  ok(s4.ESTADO === 'RESPUESTA EN LA SUIGE' && s4.RESOLUCIONSINTSEG === 'DENEGADA' && !s4.FECHACONSULTASINTSEG && /sur1/.test(rj.to.concat(rj.cc).join(' ')) && /jefex/.test(rj.to.concat(rj.cc).join(' ')), tag + 'IGE rechaza sin pasar a SINTSEG: baja a la SUIGE y avisa a la unidad', JSON.stringify([s4.ESTADO, rj.asunto]));
+  const fi4 = await p.textContent('#dlg');
+  ok(/Decisión de IGE/.test(fi4) && !/Propuesta IGE a SINTSEG/.test(fi4) && /no consultado/.test(fi4), tag + 'la ficha dice «Decisión de IGE» (no «Propuesta IGE a SINTSEG») y SINTSEG no consultado');
+  ok(errs.length === 0, tag + 'sin errores de página (rechazo de IGE)', errs.join(' | '));
+  await c.close();
 
   // 8. Pasar a histórico (Control total): ver, exportar (ZIP con Excel y registro) y borrar con confirmación
   ({ b: c, p, errs } = await abrir(b, 1, { verbose, admin: true }));
   await tab(p, 'ajustes'); await p.waitForTimeout(500);
   ok(/Pasar a histórico/.test(await texto(p)), tag + 'Ajustes trae «Pasar a histórico»');
   await p.click('[data-histver]'); await p.waitForTimeout(1500);
-  ok(/Entran 2 registros/.test(await texto(p)), tag + 'por defecto solo los cerrados (2 de 3)', (await p.textContent('#histCaja')).slice(0, 300));
+  ok(/Entran 2 registros/.test(await texto(p)), tag + 'por defecto solo los cerrados (2 de 4)', (await p.textContent('#histCaja')).slice(0, 300));
   await p.check('#hAbiertos'); await p.waitForTimeout(300);
-  ok(/Entran 3 registros/.test(await texto(p)) && await p.$eval('[data-histborrar]', x => x.disabled), tag + 'con «Incluir también los abiertos» entran los 3; borrar sigue bloqueado hasta exportar');
+  ok(/Entran 4 registros/.test(await texto(p)) && await p.$eval('[data-histborrar]', x => x.disabled), tag + 'con «Incluir también los abiertos» entran los 4; borrar sigue bloqueado hasta exportar');
   const [zz] = await Promise.all([p.waitForEvent('download'), p.click('[data-histexp]')]); await p.waitForTimeout(800);
   const zb = require('fs').readFileSync(await zz.path()).toString('latin1'); if (process.env.ZIPOUT) require('fs').copyFileSync(await zz.path(), process.env.ZIPOUT);
   ok(/^PK/.test(zb) && /cesion-historico-\d{4}\.csv/.test(zb) && /REGISTRO\.txt/.test(zb) && /GUARDIA CIVIL/.test(zb) && /Agente TIP 1234/.test(zb), tag + 'el ZIP lleva el Excel con todas las columnas y el registro de la operación');
   p.removeAllListeners('dialog'); let respuesta = 'BORRAR 2000'; p.on('dialog', d => d.type() === 'prompt' ? d.accept(respuesta) : d.accept());
   await p.click('[data-histborrar]'); await p.waitForTimeout(800);
-  ok(solicitudes().length === 3 && /no coincide/.test(await p.textContent('#histCaja')), tag + 'con una confirmación equivocada no borra nada');
+  ok(solicitudes().length === 4 && /no coincide/.test(await p.textContent('#histCaja')), tag + 'con una confirmación equivocada no borra nada');
   respuesta = 'BORRAR ' + new Date().getFullYear(); await p.click('[data-histborrar]'); await p.waitForTimeout(3000);
   ok(solicitudes().length === 0 && /enviados a la papelera/.test(await texto(p)), tag + 'borra lo exportado (a la papelera) y la lista queda para el nuevo ciclo', solicitudes().length);
   ok(errs.length === 0, tag + 'sin errores de página (histórico)', errs.join(' | '));
