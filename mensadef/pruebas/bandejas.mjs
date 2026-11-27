@@ -214,8 +214,19 @@ if (process.env.DISENO === 'nuevo') {
   await p.click('#dnNav a[data-dn="bandejas"]'); await p.waitForTimeout(300); const vuelve = await p.evaluate(() => !!document.getElementById('detalle').offsetParent && !!document.getElementById('lista').offsetParent);
   console.log('diseño nuevo, secciones: consultas', res, 'resultados (lista oculta', listaOcultaEnConsultas + ') | informes', barras, 'barras | firma', casillas, 'casillas | admin', !!admin, '| al volver a Bandejas, como estaba:', vuelve);
   if (!res || !listaOcultaEnConsultas || !barras || !casillas || !!admin !== !!process.env.ADMIN || (process.env.ADMIN && !/Abrir el control de acceso/.test(adminTxt)) || !vuelve) console.log('Error: secciones del diseño nuevo');
-  // «Diseño clásico» y vuelta
-  await p.click('#dnClasico'); await p.waitForTimeout(300);
+  // 27/11/2026: INVENTARIO de lo consolidado. Todo lo que se ve en el diseño clásico (botones, filtros, casillas y campos de la
+  // pantalla principal y de la ficha abierta) tiene que verse también en el nuevo. Si falta algo, la prueba lo dice por su nombre.
+  const inventario = () => p.evaluate(() => {
+    const vis = e => !!e.offsetParent && getComputedStyle(e).visibility !== 'hidden';
+    const sel = 'main button[id], main input[id], main select[id], main a[id], main [data-kpi], main [data-dias], #detalle button, #detalle select, #detalle dt';
+    return [...new Set([...document.querySelectorAll(sel)].filter(vis).map(e => e.id || (e.dataset.kpi && 'kpi:' + e.dataset.kpi) || (e.dataset.dias && 'dias:' + e.dataset.dias) || (e.tagName === 'DT' ? 'campo:' + e.textContent.trim() : e.textContent.trim().slice(0, 30))))].filter(Boolean).sort();
+  });
+  await p.click('#dnNav a[data-dn="bandejas"]'); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800); const invNuevo = await inventario();
+  await p.click('#dnClasico'); await p.waitForTimeout(300); await p.click('#lista tbody tr[data-i] >> nth=0'); await p.waitForTimeout(800); const invClasico = await inventario();
+  const faltan = invClasico.filter(x => !invNuevo.includes(x) && x !== 'dnProbar');   // («✨ Diseño nuevo» solo está en el clásico)
+  console.log('inventario: el clásico enseña', invClasico.length, 'cosas; en el nuevo faltan', faltan.length ? JSON.stringify(faltan) : 'ninguna');
+  if (faltan.length) console.log('Error: al diseño nuevo le falta lo consolidado: ' + faltan.join(', '));
+  // «Diseño clásico» y vuelta (ya estamos en el clásico)
   const clasico = !(await p.$('#dnLat')) && await p.$eval('body > header .tit', h => getComputedStyle(h.parentNode).display !== 'none'), boton = !!(await p.$('#dnProbar'));
   const recordado = await p.evaluate(M => localStorage.getItem(M + 'diseno'), MEM);
   await p.click('#dnProbar'); await p.waitForTimeout(300); const otraVez = !!(await p.$('#dnLat'));
