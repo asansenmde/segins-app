@@ -535,7 +535,7 @@
     bandaP.textContent = '⚠ VERSIÓN DE PRUEBAS · «Añadir tarea en META» va a META o a la página de Tareas de pruebas';
     document.body.insertBefore(bandaP, document.body.firstChild);
   }
-  var VERSION = '2026-11-27 · 2';
+  var VERSION = '2026-11-27 · 3';
   // 15/11/2026: control de distribución. Quién puede usar SENDERO lo dice la lista «SENDERO Autorizados» de Colabora
   // (/et/SUIGESUR/JSUIGE desde el 16/11/2026; antes /colaborativo), por ámbito de MENSADEF, por persona o con bloqueos: se pregunta a la página
   // SENDERO-acceso.html de Colabora en un marco oculto (o en una ventana pequeña si el marco no responde), que contesta
@@ -3327,7 +3327,7 @@
   // administradores de SENDERO: lo dice Colabora con la autorización). «Gestión» es la pantalla de siempre (bandejas, filtros,
   // agrupaciones y ficha). «↺ Diseño clásico» vuelve al de antes, y se recuerda en este navegador.
   var DISENO = leer('diseno', 'nuevo') === 'clasico' ? 'clasico' : 'nuevo', vistaD = 'panel';
-  var SECCIONES = [['panel', '⌂', 'Panel', 'Lo importante de hoy en tus células'], ['gestion', '📥', 'Gestión', 'Bandejas, ficha y tramitación'],
+  var SECCIONES = [['panel', '⌂', 'Panel', 'Todos tus mensajes, con toda su información: repasa y quita la rutina'], ['gestion', '📥', 'Gestión', 'La ficha del mensaje y su tramitación'],
     ['firma', '✍', 'Firma', 'Lo que espera firma en Rúbrica'], ['consultas', '🔎', 'Consultas', 'Buscar en todo MENSADEF y por referencia'],
     ['informes', '📊', 'Informes', 'Relaciones y estadísticas del periodo cargado'], ['admin', '🛡', 'Administración', 'Accesos y versiones de SENDERO']];
   var accesoGuardado = function () { return leer('acceso', null) || {}; };
@@ -3390,7 +3390,10 @@
   function irSeccion(v) {
     if (v === 'admin' && !esAdminSendero()) v = 'panel';
     vistaD = v;
-    Array.prototype.forEach.call(document.querySelectorAll('.dnG'), function (e) { e.style.display = v === 'gestion' ? '' : 'none'; });
+    // 27/11/2026 (pedido por el usuario): el Panel es la lista de siempre, con toda la información de cada mensaje; al pulsar uno
+    // se pasa a Gestión con su ficha completa al lado
+    Array.prototype.forEach.call(document.querySelectorAll('.dnG'), function (e) { e.style.display = v === 'gestion' || v === 'panel' ? '' : 'none'; });
+    document.documentElement.classList.toggle('dnPanel', v === 'panel');
     if ($('dnVistas')) $('dnVistas').style.display = v === 'gestion' ? 'none' : '';
     refrescarDiseno(); window.scrollTo(0, 0);
   }
@@ -3443,7 +3446,8 @@
       '<span class="chip">' + Object.keys(cels).length + ' células</span><span class="chip" id="dnEstado">' + esc(($('estado') || {}).textContent || '') + '</span>' +
       (vistaD !== 'gestion' ? '<button type="button" class="dnBtn" id="dnAct">⟳ Actualizar</button>' : '') + (adm ? '<span class="chip oro">★ Administrador</span>' : '') + '</div>';
     if ($('dnAct')) $('dnAct').addEventListener('click', function () { $('actualizar').click(); });
-    if (vistaD === 'gestion') { pintarPestanas(); return; }
+    pintarPestanas();
+    if (vistaD === 'gestion') return;
     var vs = $('dnVistas'), h = '';
     var fila = function (m, extra) { var f = fechaDe(m); return '<tr data-dnm="' + mensajes.indexOf(m) + '"><td class="nowrap">' + esc(f ? (f.toDateString() === hoyTxt() ? f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : verFecha(f)) : '') + '</td><td>' + (m._leido === false ? '<b>' + esc(m._asunto || '') + '</b>' : esc(m._asunto || '')) + '</td><td class="muted small">' + esc(sitioDe(m) || '') + '</td><td>' + (extra || '') + '</td></tr>'; };
     if (vistaD === 'panel') {
@@ -3451,15 +3455,8 @@
       var urg = mensajes.filter(urgente).length, band = mensajes.filter(function (m) { return !!m._bandera; }).length;
       var seg = mensajes.filter(function (m) { return pasadoATarea(m) || pasadoAPsit(m); }).length;
       var k = function (v, t, c, ir, kpi) { return '<div class="dnKpi" style="--c:' + c + '" data-dnir="' + ir + '"' + (kpi ? ' data-dnkpi="' + kpi + '"' : '') + '><div class="v">' + v + '</div><div class="t">' + t + '</div></div>'; };
-      var hoy = mensajes.filter(function (m) { var f = fechaDe(m); return m._x && m._x.__es === 'Entrada' && f && f.toDateString() === hoyTxt(); })
-        .sort(function (a, b) { return fechaDe(b) - fechaDe(a); });
-      h = '<div class="dnKpis">' + k(sinLeer, 'Sin leer', '#1d4f91', 'gestion', 'noleidos') + k(urg, 'Urgentes / inmediatos', '#b3261e', 'gestion') + k(firma, 'Pendientes de firma', '#5b2e91', 'firma') +
-        k(com, 'Comentarios nuevos', '#c9a227', 'gestion', 'com') + k(band, 'Con bandera', '#7a5200', 'gestion') + k(seg, 'En META / PSIT', '#2f7f8f', 'gestion') + '</div>' +
-        '<div class="dnRej"><div class="dnTarj"><h3>📥 Entrado hoy <small>· ' + hoy.length + ' mensaje' + (hoy.length === 1 ? '' : 's') + '</small></h3>' +
-        (hoy.length ? '<table><thead><tr><th>Hora</th><th>Asunto</th><th>Célula</th><th></th></tr></thead><tbody>' + hoy.slice(0, 10).map(function (m) { return fila(m, urgente(m) ? '<span class="tag pri-alta">Urgente</span>' : ''); }).join('') + '</tbody></table>' : '<p class="muted">' + (mensajes.length ? 'Hoy no ha entrado nada en tus células.' : 'Cargando tus bandejas…') + '</p>') + '</div>' +
-        '<div><div class="dnTarj"><h3>🔔 Avisos</h3>' + (com ? '<p>💬 <b>' + com + ' comentario' + (com === 1 ? '' : 's') + ' nuevo' + (com === 1 ? '' : 's') + '</b> en tus mensajes.</p>' : '') + (firma ? '<p>✍ <b>' + firma + ' pendiente' + (firma === 1 ? '' : 's') + ' de firma</b> en Rúbrica.</p>' : '') +
-        (sinLeer ? '<p>📥 <b>' + sinLeer + ' sin leer</b> en el periodo cargado.</p>' : '') + (!com && !firma && !sinLeer ? '<p class="muted">Nada pendiente. 👍</p>' : '') + '</div>' +
-        '<div class="dnTarj"><h3>⚡ Accesos rápidos</h3><div class="dnAcc"><button class="dnBtn" data-dnir="consultas">🔎 Buscar en todo MENSADEF</button><button class="dnBtn" data-dnir="firma">✍ Ir a firmar</button><button class="dnBtn" data-dnir="informes">📊 Informes</button></div></div></div></div>';
+      h = '<div class="dnKpis mini">' + k(sinLeer, 'Sin leer', '#1d4f91', 'panel', 'noleidos') + k(urg, 'Urgentes / inmediatos', '#b3261e', 'panel', 'urgentes') + k(firma, 'Pendientes de firma', '#5b2e91', 'firma') +
+        k(com, 'Comentarios nuevos', '#c9a227', 'panel', 'com') + k(band, 'Con bandera', '#7a5200', 'panel', 'bandera') + k(seg, 'En META / PSIT', '#2f7f8f', 'panel', 'metapsit') + '</div>';
     } else if (vistaD === 'firma') {
       var pf = mensajes.filter(enFirmaD), pr = mensajes.filter(paraRubrica);
       // 27/11/2026 (como la maqueta): con casillas; «Firmar los marcados» abre el Portafirmas con esas peticiones ya marcadas
@@ -3496,7 +3493,10 @@
     vs.innerHTML = h;
     Array.prototype.forEach.call(vs.querySelectorAll('[data-dnir]'), function (e) { e.addEventListener('click', function (ev) {
       ev.preventDefault(); var kp = e.getAttribute('data-dnkpi'), pa = e.getAttribute('data-dnpasado');
-      if (kp === 'noleidos') { dnPestSel = 'noleidos'; dnPest = PEST[3][2]; kpiSel = ''; filtrar(); } if (kp === 'com') { soloComNuevos = true; filtrar(); }
+      var pestDe = { noleidos: 'noleidos', bandera: 'bandera' }[kp];
+      if (pestDe) { dnPestSel = pestDe; dnPest = PEST.filter(function (x) { return x[0] === pestDe; })[0][2]; kpiSel = ''; soloComNuevos = false; filtrar(); }
+      if (kp === 'urgentes') { dnPestSel = 'urgentes'; dnPest = urgente; kpiSel = ''; filtrar(); }
+      if (kp === 'metapsit') { dnPestSel = 'metapsit'; dnPest = function (m) { return !!(pasadoATarea(m) || pasadoAPsit(m)); }; kpiSel = ''; filtrar(); } if (kp === 'com') { soloComNuevos = true; filtrar(); }
       if (pa && $('fPasado')) { $('fPasado').value = pa; filtrar(); }
       irSeccion(e.getAttribute('data-dnir'));
     }); });
@@ -3536,6 +3536,8 @@
     '#dnGesBar input{flex:1;min-width:220px;font:inherit;padding:8px 12px;border:2px solid #dbe2ec;border-radius:10px}#dnGesBar input:focus{outline:none;border-color:#c9a227}' +
     '.dnGrupos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:6px}.dnGr{border:1px solid #dbe2ec;border-radius:12px;padding:8px 10px;background:#fff}' +
     '.dnGr>b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#5a6676;margin-bottom:6px}.dnGr .dnAcc{gap:6px}.dnGr .gr{padding:6px 10px!important;min-width:0}.dnGr .gr small{display:none}' +
+    'html.dn.dnPanel #detalle{display:none!important}html.dn.dnPanel .layout{display:block}.dnKpis.mini{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:10px}.dnKpis.mini .dnKpi{padding:8px 12px}.dnKpis.mini .dnKpi .v{font-size:22px}' +
+    '#dnGesBar .fila3{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed #dbe2ec}#dnGesBar .fila3 .muted{margin-right:4px}.dnBtn.oro{background:linear-gradient(180deg,#e8cf72,#c9a227)!important;color:#0a1a31!important}' +
     '.dnGr select{max-width:100%}html.dn #detalle .piso2>.grandes,html.dn #detalle .piso2>.utiles{display:none}@media (max-width:1100px){.dnGrupos{grid-template-columns:1fr}}';
   function iniciarGestionDn() {
     if (!$('dnCss2')) { var st = document.createElement('style'); st.id = 'dnCss2'; st.textContent = CSS_DN2; document.head.appendChild(st); }
@@ -3546,18 +3548,44 @@
     var gb = document.createElement('div'); gb.id = 'dnGesBar'; gb.className = 'dnG';
     gb.innerHTML = '<div class="pest" id="dnPest"></div><div class="fila2"><input type="search" id="dnBuscaLista" placeholder="Buscar en lo cargado: asunto, autoridad, referencia…">' +
       '<button type="button" class="dnBtn" id="dnTodoMensadef">🔎 En todo MENSADEF</button><button type="button" class="dnBtn" id="dnVerPeriodo">📅 Periodo y células</button>' +
-      '<button type="button" class="dnBtn" id="dnVerFiltros">⚙ Filtros e informe</button></div>';
+      '<button type="button" class="dnBtn" id="dnVerFiltros">⚙ Filtros e informe</button></div>' +
+      // Repaso rápido: quitar de golpe lo que es rutina (sobre lo que se ve en la lista: elige antes pestaña, célula o búsqueda)
+      '<div class="fila3"><span class="muted" id="dnEnLista"></span><button type="button" class="dnBtn" id="dnVistosTodos">✓ Marcar vistos los de la lista</button>' +
+      '<button type="button" class="dnBtn" id="dnLeidosTodos">📖 Marcar leídos en MENSADEF</button><label style="display:inline-flex;flex-direction:row;align-items:center;gap:6px;margin:0;font-weight:600;cursor:pointer"><input type="checkbox" id="dnOcultarVistos" style="width:auto;margin:0"> Ocultar vistos</label><span class="small" id="dnRepasoMsg"></span></div>';
     $('layout').parentNode.insertBefore(gb, $('layout'));
     $('dnBuscaLista').value = $('buscar').value;
     $('dnBuscaLista').addEventListener('input', function () { $('buscar').value = this.value; $('buscar').dispatchEvent(new Event('input', { bubbles: true })); });
     $('dnTodoMensadef').addEventListener('click', function () { $('buscar').value = $('dnBuscaLista').value; buscarEnTodo(); });
     $('dnVerPeriodo').addEventListener('click', function () { if (periodo) periodo.classList.toggle('dnPlegado'); });
     $('dnVerFiltros').addEventListener('click', function () { $('filtros').classList.toggle('dnPlegado'); });
+    $('dnOcultarVistos').checked = $('fVistos').checked;
+    $('dnOcultarVistos').addEventListener('change', function () { $('fVistos').checked = this.checked; mostrar = 300; filtrar(); });
+    $('dnVistosTodos').addEventListener('click', function () {
+      var l = filtrados.filter(function (m) { return !vistos[claveMensaje(m)]; });
+      if (!l.length) { $('dnRepasoMsg').textContent = 'Todos los de la lista ya están vistos.'; return; }
+      if (!confirm('¿Marcar como vistos los ' + l.length + ' mensajes de la lista?')) return;
+      l.forEach(function (m) { marcarVisto(m, true); }); filtrar(); $('dnRepasoMsg').textContent = '✔ ' + l.length + ' marcados como vistos.';
+    });
+    $('dnLeidosTodos').addEventListener('click', function () {
+      var l = filtrados.filter(function (m) { return m._leido === false && m._idBuzon && apiCtx; }), b = this, hechos = 0, mal = 0;
+      if (!l.length) { $('dnRepasoMsg').textContent = 'No hay mensajes sin leer en la lista.'; return; }
+      if (!confirm('¿Marcar como leídos en MENSADEF los ' + l.length + ' mensajes sin leer de la lista?')) return;
+      b.disabled = true;
+      l.reduce(function (p, m) { return p.then(function () {
+        return escribirApi('buzon/BuzonCelulaMensajeLeido', qUsuario() + '&idBuzonCelula=' + encodeURIComponent(m._idBuzon) + '&estado=true', null, 'marcar como leído', 'PUT')
+          .then(function () { m._leido = true; if (m._x) m._x.Leido = 'Sí'; hechos++; }, function () { mal++; })
+          .then(function () { $('dnRepasoMsg').textContent = 'Marcando leídos… ' + (hechos + mal) + ' de ' + l.length; });
+      }); }, Promise.resolve()).then(function () { b.disabled = false; pintarTabla(); pintarKpis(); $('dnRepasoMsg').textContent = '✔ ' + hechos + ' marcados como leídos en MENSADEF' + (mal ? ' · ' + mal + ' no se pudieron' : '') + '.'; });
+    });
+    // En el Panel, al pulsar un mensaje se pasa a Gestión con su ficha (la casilla de visto no cuenta)
+    $('lista').addEventListener('click', function (e) { if (vistaD !== 'panel' || !e.target.closest('tr[data-i]') || e.target.closest('input,button,a,select,label')) return; setTimeout(function () { irSeccion('gestion'); }, 0); });
   }
   function pintarPestanas() {
     if (!$('dnPest')) return;
+    if ($('dnEnLista')) { var sl2 = filtrados.filter(function (m) { return m._leido === false; }).length; $('dnEnLista').textContent = 'En la lista: ' + filtrados.length + (sl2 ? ' · ' + sl2 + ' sin leer' : ''); }
     $('dnPest').innerHTML = PEST.map(function (p) { var n = p[0] === 'todos' ? mensajes.length : mensajes.filter(p[2]).length;
-      return (n || p[0] === 'todos' || dnPestSel === p[0]) ? '<span data-pest="' + p[0] + '"' + (dnPestSel === p[0] ? ' class="on"' : '') + '>' + p[1] + '<i>' + n + '</i></span>' : ''; }).join('');
+      return (n || p[0] === 'todos' || dnPestSel === p[0]) ? '<span data-pest="' + p[0] + '"' + (dnPestSel === p[0] ? ' class="on"' : '') + '>' + p[1] + '<i>' + n + '</i></span>' : ''; }).join('') +
+      (dnPestSel === 'urgentes' ? '<span class="on">Urgentes <i>' + filtrados.length + '</i></span>' : dnPestSel === 'metapsit' ? '<span class="on">META o PSIT <i>' + filtrados.length + '</i></span>' : '');
     Array.prototype.forEach.call($('dnPest').querySelectorAll('[data-pest]'), function (s) { s.addEventListener('click', function () {
       dnPestSel = s.getAttribute('data-pest'); var p = PEST.filter(function (x) { return x[0] === dnPestSel; })[0];
       dnPest = dnPestSel === 'todos' ? null : p[2]; kpiSel = ''; mostrar = 300; filtrar();

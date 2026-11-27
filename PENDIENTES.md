@@ -363,3 +363,8 @@ autoría.
       Rúbrica» (el Portafirmas las recibe ya marcadas: SENDEROFIRMAS_, firmar-portafirmas v2); Consultas con los resultados en la
       página (filtros de bandeja y célula); Informes con «Distribuciones»; usuario en la barra lateral y sin el saludo grande.
       PENDIENTE: Administración con «Aprobar» las solicitudes ahí mismo (a través de Colabora); «Tiempos de respuesta», más adelante.
+    27/11/2026: SENDERO 2026-11-27 · 3 (el usuario echó en falta lo consolidado): el PANEL es la lista de siempre, con toda la
+      información de cada mensaje (célula, bandera, acción/información, último comentario, firma, estado, prioridad, anexos,
+      agrupación por días), los contadores arriba (filtran la lista) y un REPASO RÁPIDO: «✓ Marcar vistos los de la lista»,
+      «📖 Marcar leídos en MENSADEF» (los sin leer de la lista) y «Ocultar vistos». Al pulsar un mensaje, Gestión con su ficha
+      completa. PENDIENTE: Administración con «Aprobar» ahí mismo.
